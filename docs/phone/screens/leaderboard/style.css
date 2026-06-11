@@ -1,0 +1,61 @@
+.lb-title {
+  font-size: 16px; font-weight: 700;
+  text-align: center; padding: 12px 0 8px;
+  color: var(--text);
+}
+.lb-tabs {
+  display: flex; gap: 8px; margin-bottom: 12px;
+}
+.lb-tab {
+  flex: 1; text-align: center; padding: 8px;
+  border-radius: var(--radius-sm); font-size: 12px;
+  font-weight: 600; cursor: pointer; border: none;
+  background: var(--border); font-family: inherit;
+  transition: all .2s;
+}
+.lb-tab:hover {
+  background: var(--green-bg); color: var(--green);
+}
+.lb-tab.active {
+  background: var(--green); color: #fff;
+}
+.lb-list {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.lb-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--white);
+  border-radius: var(--radius-sm);
+  transition: transform .15s;
+}
+.lb-card.self {
+  background: var(--green-bg);
+  border: 2px solid var(--green);
+}
+.lb-rank {
+  font-size: 14px; font-weight: 700;
+  color: var(--text-light); width: 24px; text-align: center;
+}
+.lb-rank.gold  { color: #ffc107; }
+.lb-rank.silver { color: #9e9e9e; }
+.lb-rank.bronze { color: #cd7f32; }
+.lb-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--border); display: flex;
+  align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.lb-name {
+  flex: 1; font-size: 13px; font-weight: 600;
+}
+.lb-name .you-tag {
+  font-size: 10px; color: var(--green); font-weight: 400;
+}
+.lb-xp {
+  font-size: 12px; color: var(--green); font-weight: 600;
+}
+.lb-footer {
+  text-align: center; font-size: 11px;
+  color: var(--text-lighter); margin-top: 12px;
+  padding-top: 10px; border-top: 1px solid var(--border);
+}
