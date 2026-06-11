@@ -133,9 +133,13 @@ tr:hover td { background: #fafafa; }
 @media (max-width: 900px) {
   .sidebar { display: none; }
   .main { padding: 24px 20px; }
-}</style>
+}
+body.embed .sidebar { display: none; }
+body.embed .main { padding: 20px 32px; max-width: none; }
+</style>
 </head>
 <body>
+<script>(function(){if(location.search.indexOf('embed=1')>=0)document.body.className='embed';})();</script>
 
 <aside class="sidebar">
   <div class="sidebar-logo">

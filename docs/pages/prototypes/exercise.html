@@ -44,9 +44,12 @@ body{display:flex;justify-content:center;align-items:center;min-height:100vh;fon
 .next-btn:hover{background:var(--green-hover);transform:translateY(-1px)}
 @media(max-width:900px){.phone{width:280px;height:560px}}
 @media(max-width:600px){.phone{width:240px;height:480px;border-radius:24px}.phone-notch{width:80px;height:18px}}
+body.embed { background: var(--bg); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+body.embed .phone { margin: 10px auto; }
 </style>
 </head>
 <body>
+<script>(function(){if(location.search.indexOf('embed=1')>=0)document.body.className='embed';})();</script>
 <div class="phone-wrap">
 <div class="phone">
 <div class="phone-notch"></div>

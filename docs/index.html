@@ -6,190 +6,122 @@
 <title>Idioma 产品交互设计文档</title>
 <style>
 :root {
-  --green: #58cc02; --green-hover: #46a302; --green-bg: #eaffd6;
+  --green: #58cc02; --green-bg: #eaffd6;
   --blue: #1cb0f6; --blue-bg: #ddf4ff;
-  --orange: #ff9600; --orange-bg: #fff0d6;
-  --purple: #7c3aed; --purple-bg: #ede9fe;
-  --pink: #ec4899;
   --text: #3a3a3a; --text-light: #777; --text-lighter: #aaa;
   --bg: #f7f7f7; --white: #fff; --border: #e5e5e5;
   --shadow: 0 2px 12px rgba(0,0,0,.08);
   --radius: 12px; --radius-sm: 8px;
+  --sidebar-w: 240px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
+  display: flex; height: 100vh;
   font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;
-  font-size: 15px; color: var(--text); background: var(--white);
-  min-height: 100vh;
+  font-size: 14px; color: var(--text); background: var(--bg);
 }
 
-/* Hero */
-.hero {
-  text-align: center; padding: 60px 20px 40px;
-  background: linear-gradient(135deg, var(--green-bg), var(--blue-bg));
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar-w); height: 100vh; overflow-y: auto;
+  background: var(--white); border-right: 1px solid var(--border);
+  flex-shrink: 0; display: flex; flex-direction: column;
 }
-.hero h1 { font-size: 36px; color: var(--green); margin-bottom: 8px; }
-.hero h1 span { background: var(--green); color: #fff; width: 48px; height: 48px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; vertical-align: middle; margin-right: 8px; }
-.hero .sub { font-size: 14px; color: var(--text-light); }
-.hero .badge { display: inline-block; background: var(--green); color: #fff; padding: 4px 16px; border-radius: 20px; font-size: 12px; margin-top: 12px; }
-
-/* Container */
-.container { max-width: 1000px; margin: 0 auto; padding: 40px 24px; }
-.container h2 { font-size: 22px; font-weight: 700; margin: 32px 0 16px; display: flex; align-items: center; gap: 8px; }
-.container h2 .count { font-size: 12px; color: var(--text-lighter); font-weight: 400; }
-
-/* Grid */
-.grid { display: grid; gap: 12px; }
-.grid-2 { grid-template-columns: 1fr 1fr; }
-.grid-3 { grid-template-columns: 1fr 1fr 1fr; }
-@media (max-width: 700px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
-
-/* Card link */
-.card-link {
-  display: block; padding: 20px; border: 1px solid var(--border);
-  border-radius: var(--radius); text-decoration: none; color: var(--text);
-  transition: all .2s; background: var(--white);
+.sidebar-logo { padding: 16px 16px 12px; border-bottom: 1px solid var(--border); }
+.sidebar-logo h1 { font-size: 18px; color: var(--green); display: flex; align-items: center; gap: 8px; }
+.sidebar-logo h1 span { background: var(--green); color: #fff; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; }
+.sidebar-logo .sub { font-size: 10px; color: var(--text-lighter); margin-top: 1px; }
+.sidebar .scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
+.sidebar .group { padding: 12px 16px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-lighter); font-weight: 600; }
+.sidebar a {
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+  color: var(--text-light); text-decoration: none; font-size: 13px;
+  border-left: 3px solid transparent; transition: all .15s; cursor: pointer;
 }
-.card-link:hover { box-shadow: var(--shadow); border-color: var(--green); transform: translateY(-2px); }
-.card-link .icon { font-size: 28px; margin-bottom: 6px; }
-.card-link h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-.card-link p { font-size: 12px; color: var(--text-light); line-height: 1.5; }
-.card-link .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; margin-top: 8px; }
-.tag-green { background: var(--green-bg); color: var(--green); }
-.tag-blue { background: var(--blue-bg); color: var(--blue); }
-.tag-orange { background: var(--orange-bg); color: var(--orange); }
-.tag-purple { background: var(--purple-bg); color: var(--purple); }
+.sidebar a:hover { background: var(--green-bg); color: var(--text); }
+.sidebar a.active { color: var(--green); border-left-color: var(--green); background: var(--green-bg); font-weight: 600; }
 
-/* Section labels */
-.section-header { display: flex; align-items: center; gap: 8px; margin: 32px 0 16px; }
-.section-header .line { flex: 1; height: 1px; background: var(--border); }
-.section-header .label { font-size: 12px; font-weight: 600; color: var(--text-lighter); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+/* Main content */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+#contentFrame {
+  flex: 1; width: 100%; border: none;
+  background: var(--white);
+}
 
-/* Footer */
-.footer { text-align: center; padding: 40px 20px; color: var(--text-lighter); font-size: 12px; border-top: 1px solid var(--border); margin-top: 40px; }
-.footer code { background: var(--bg); padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+/* Mobile */
+@media (max-width: 700px) {
+  .sidebar { display: none; }
+  body.mobile-nav .sidebar { display: flex; position: fixed; z-index: 100; width: 100%; }
+}
 </style>
 </head>
 <body>
 
-<!-- Hero -->
-<div class="hero">
-  <h1><span>I</span> Idioma</h1>
-  <div class="sub">Product Design Document v0.1</div>
-  <div class="badge">🎯 交互式产品设计原型</div>
-</div>
-
-<div class="container">
-
-  <!-- ===== 产品文档 ===== -->
-  <div class="section-header"><span class="line"></span><span class="label">产品文档</span><span class="line"></span></div>
-  <div class="grid grid-2">
-    <a class="card-link" href="pages/sections/vision.html">
-      <div class="icon">🎯</div><h3>产品定位</h3>
-      <p>目标用户、AI 驱动、免费模式、社区互助</p>
-    </a>
-    <a class="card-link" href="pages/sections/languages.html">
-      <div class="icon">🌐</div><h3>语言支持</h3>
-      <p>中文→英语、英语→中文、中文→西语、西语→中文</p>
-    </a>
-    <a class="card-link" href="pages/sections/structure.html">
-      <div class="icon">📚</div><h3>内容结构</h3>
-      <p>语言→课程→单元→关卡→练习，线性路径</p>
-    </a>
-    <a class="card-link" href="pages/sections/exercises.html">
-      <div class="icon">✍️</div><h3>练习题型 <span class="tag tag-green">交互</span></h3>
-      <p>10 种题型：图片选词、翻译、排序、拼写、听力等</p>
-    </a>
-    <a class="card-link" href="pages/sections/gamification.html">
-      <div class="icon">🎮</div><h3>游戏化系统</h3>
-      <p>XP、连胜、宝石、生命值、段位、成就、每日挑战</p>
-    </a>
-    <a class="card-link" href="pages/sections/navigation.html">
-      <div class="icon">📱</div><h3>导航与 UI 结构</h3>
-      <p>5 Tab 导航体系 + 页面结构树</p>
-    </a>
-    <a class="card-link" href="pages/sections/colors.html">
-      <div class="icon">🎨</div><h3>设计语言</h3>
-      <p>多邻国式色彩系统、设计原则</p>
-    </a>
-    <a class="card-link" href="pages/sections/schema.html">
-      <div class="icon">🗄️</div><h3>数据模型 <span class="tag tag-blue">16 表</span></h3>
-      <p>SQLite 表结构：用户、课程、进度、词汇、社交、聊天</p>
-    </a>
-    <a class="card-link" href="pages/sections/ai.html">
-      <div class="icon">🤖</div><h3>AI 功能</h3>
-      <p>口语对话、双语翻译、写作助手、内容生成</p>
-    </a>
-    <a class="card-link" href="pages/sections/roadmap.html">
-      <div class="icon">🗺️</div><h3>开发路线图</h3>
-      <p>4 阶段迭代：核心循环→游戏化→扩展→发布</p>
-    </a>
-    <a class="card-link" href="pages/sections/modules.html">
-      <div class="icon">🧩</div><h3>模块架构</h3>
-      <p>前后端模块划分，10 个前端模块 + 6 个后端模块</p>
-    </a>
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h1><span>I</span> Idioma</h1>
+    <div class="sub">Product Design Document v0.1</div>
   </div>
+  <div class="scroll">
+    <div class="group">文档</div>
+    <a onclick="loadSection('vision')" class="active">🎯 产品定位</a>
+    <a onclick="loadSection('languages')">🌐 语言支持</a>
+    <a onclick="loadSection('structure')">📚 内容结构</a>
+    <a onclick="loadSection('exercises')">✍️ 练习题型</a>
+    <a onclick="loadSection('gamification')">🎮 游戏化系统</a>
+    <a onclick="loadSection('navigation')">📱 导航与 UI</a>
+    <a onclick="loadSection('colors')">🎨 设计语言</a>
+    <a onclick="loadSection('schema')">🗄️ 数据模型</a>
+    <a onclick="loadSection('ai')">🤖 AI 功能</a>
+    <a onclick="loadSection('roadmap')">🗺️ 开发路线图</a>
+    <a onclick="loadSection('modules')">🧩 模块架构</a>
 
-  <!-- ===== 界面原型 ===== -->
-  <div class="section-header"><span class="line"></span><span class="label">界面原型（交互可点）</span><span class="line"></span></div>
-  <div class="grid grid-3">
-    <a class="card-link" href="pages/prototypes/home.html">
-      <div class="icon">🏠</div><h3>学习首页</h3>
-      <p>课程路径、AI 口语入口、连胜/宝石</p>
-      <span class="tag tag-green">原型</span>
-    </a>
-    <a class="card-link" href="pages/prototypes/exercise.html">
-      <div class="icon">✏️</div><h3>练习答题</h3>
-      <p>进度条、选择题型、正确/错误反馈</p>
-      <span class="tag tag-green">原型</span>
-    </a>
-    <a class="card-link" href="pages/prototypes/complete.html">
-      <div class="icon">🎉</div><h3>关卡完成</h3>
-      <p>XP 结算、连胜更新、宝石获得</p>
-      <span class="tag tag-green">原型</span>
-    </a>
-    <a class="card-link" href="pages/prototypes/leaderboard.html">
-      <div class="icon">🏆</div><h3>排行榜</h3>
-      <p>好友排行、全球排行、段位信息</p>
-      <span class="tag tag-orange">原型</span>
-    </a>
-    <a class="card-link" href="pages/prototypes/profile.html">
-      <div class="icon">👤</div><h3>个人资料</h3>
-      <p>档案、成就徽章、学习统计</p>
-      <span class="tag tag-orange">原型</span>
-    </a>
-    <a class="card-link" href="pages/prototypes/social.html">
-      <div class="icon">👥</div><h3>社交</h3>
-      <p>双语聊天、互助学习、好友列表</p>
-      <span class="tag tag-purple">原型</span>
-    </a>
-    <a class="card-link" href="pages/prototypes/bilingual-chat.html">
-      <div class="icon">💬</div><h3>双语聊天</h3>
-      <p>AI 实时翻译、点击学单词、边聊边学</p>
-      <span class="tag tag-purple">原型</span>
-    </a>
-    <a class="card-link" href="pages/prototypes/ai-chat.html">
-      <div class="icon">🤖</div><h3>AI 口语</h3>
-      <p>场景对话、实时语法纠正</p>
-      <span class="tag tag-purple">原型</span>
-    </a>
+    <div class="group">原型</div>
+    <a onclick="loadPrototype('home')">🏠 学习首页</a>
+    <a onclick="loadPrototype('exercise')">✏️ 练习答题</a>
+    <a onclick="loadPrototype('complete')">🎉 关卡完成</a>
+    <a onclick="loadPrototype('leaderboard')">🏆 排行榜</a>
+    <a onclick="loadPrototype('profile')">👤 个人资料</a>
+    <a onclick="loadPrototype('social')">👥 社交</a>
+    <a onclick="loadPrototype('bilingual-chat')">💬 双语聊天</a>
+    <a onclick="loadPrototype('ai-chat')">🤖 AI 口语</a>
   </div>
+</aside>
 
-  <!-- ===== 开发 ===== -->
-  <div class="section-header"><span class="line"></span><span class="label">开发工作流</span><span class="line"></span></div>
-  <div class="card-link" style="cursor:default;">
-    <p style="font-size:13px;line-height:1.8;">
-      编辑源文件 → 运行 <code>build.ps1</code> 生成自包含 <code>index.html</code>
-      <br>
-      各页面也可直接打开：<code>pages/sections/*.html</code>（文档）、<code>pages/prototypes/*.html</code>（原型）
-    </p>
-  </div>
+<!-- Content -->
+<main class="main">
+  <iframe id="contentFrame" name="contentFrame"></iframe>
+</main>
 
-</div>
+<script>
+function loadSection(name) {
+  var frame = document.getElementById('contentFrame');
+  frame.src = 'pages/sections/' + name + '.html?embed=1';
+  // Highlight active nav
+  document.querySelectorAll('.sidebar a').forEach(function(a) { a.classList.remove('active'); });
+  var links = document.querySelectorAll('.sidebar a');
+  for (var i = 0; i < links.length; i++) {
+    if (links[i].textContent.indexOf(name) > 0 || links[i].getAttribute('onclick').indexOf(name) >= 0) {
+      // Cannot match easily, let's just find the right one
+    }
+  }
+}
 
-<div class="footer">
-  Idioma Product Design Document v0.1 &mdash; Built with ❤️
-</div>
+function loadPrototype(name) {
+  document.getElementById('contentFrame').src = 'pages/prototypes/' + name + '.html?embed=1';
+}
 
+// Set active state on click
+document.querySelectorAll('.sidebar a').forEach(function(a) {
+  a.addEventListener('click', function() {
+    document.querySelectorAll('.sidebar a').forEach(function(x) { x.classList.remove('active'); });
+    this.classList.add('active');
+  });
+});
+
+// Load default page
+loadSection('vision');
+</script>
 </body>
 </html>
