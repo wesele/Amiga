@@ -45,8 +45,6 @@ body {
 .sidebar a:hover { background: var(--green-bg); color: var(--text); }
 .sidebar a.active { color: var(--green); border-left-color: var(--green); background: var(--green-bg); font-weight: 600; }
 .sidebar a .tag { margin-left: auto; font-size: 9px; padding: 1px 6px; border-radius: 8px; font-weight: 400; }
-.tag-p { background: var(--purple-bg); color: var(--purple); }
-.tag-g { background: var(--green-bg); color: var(--green); }
 
 /* Content panel */
 .content { flex: 1; display: flex; overflow: hidden; }
@@ -89,28 +87,24 @@ body {
   </div>
   <div class="scroll">
 
-    <div class="group">功能设计</div>
+    <div class="group">整体介绍与系统设计</div>
     <a class="active" data-section="vision">🎯 产品定位</a>
     <a data-section="languages">🌐 语言支持</a>
     <a data-section="structure">📚 内容结构</a>
-    <a data-section="exercises" data-prototype="exercise">✍️ 练习题型 <span class="tag tag-p">原型</span></a>
-    <a data-section="gamification" data-prototype="complete">🎮 游戏化系统 <span class="tag tag-p">原型</span></a>
-    <a data-section="navigation" data-prototype="home">📱 导航与 UI <span class="tag tag-p">原型</span></a>
+    <a data-section="navigation" data-prototype="home">📱 导航与 UI</a>
     <a data-section="colors">🎨 设计语言</a>
     <a data-section="schema">🗄️ 数据模型</a>
-    <a data-section="ai" data-prototype="ai-chat">🤖 AI 功能 <span class="tag tag-p">原型</span></a>
+    <a data-section="ai" data-prototype="ai-chat">🤖 AI 功能</a>
     <a data-section="roadmap">🗺️ 开发路线图</a>
     <a data-section="modules">🧩 模块架构</a>
 
-    <div class="group">界面原型</div>
-    <a data-prototype="home">🏠 学习首页 <span class="tag tag-g">新</span></a>
-    <a data-prototype="exercise">✏️ 练习答题 <span class="tag tag-g">新</span></a>
-    <a data-prototype="complete">🎉 关卡完成 <span class="tag tag-g">新</span></a>
-    <a data-prototype="leaderboard">🏆 排行榜 <span class="tag tag-g">新</span></a>
-    <a data-prototype="profile">👤 个人资料 <span class="tag tag-g">新</span></a>
-    <a data-prototype="social">👥 社交 <span class="tag tag-g">新</span></a>
-    <a data-prototype="bilingual-chat">💬 双语聊天 <span class="tag tag-g">新</span></a>
-    <a data-prototype="ai-chat">🤖 AI 口语 <span class="tag tag-g">新</span></a>
+    <div class="group">功能模块</div>
+    <a data-section="exercises" data-prototype="exercise">✍️ 练习答题</a>
+    <a data-section="gamification" data-prototype="complete">🎮 游戏化系统</a>
+    <a data-prototype="leaderboard">🏆 排行榜</a>
+    <a data-prototype="profile">👤 个人中心</a>
+    <a data-prototype="social">👥 社交</a>
+    <a data-prototype="bilingual-chat">💬 双语聊天</a>
 
   </div>
 </aside>
