@@ -93,10 +93,6 @@ body {
     <a data-section="structure">📚 内容结构</a>
     <a data-section="navigation" data-prototype="home">📱 导航与 UI</a>
     <a data-section="colors">🎨 设计语言</a>
-    <a data-section="schema">🗄️ 数据模型</a>
-    <a data-section="ai" data-prototype="ai-chat">🤖 AI 功能</a>
-    <a data-section="roadmap">🗺️ 开发路线图</a>
-    <a data-section="modules">🧩 模块架构</a>
 
     <div class="group">功能模块</div>
     <a data-section="exercises" data-prototype="exercise">✍️ 练习答题</a>
@@ -105,6 +101,11 @@ body {
     <a data-prototype="profile">👤 个人中心</a>
     <a data-prototype="social">👥 社交</a>
     <a data-prototype="bilingual-chat">💬 双语聊天</a>
+    <a data-section="ai" data-prototype="ai-chat">🤖 AI 口语练习</a>
+    <a data-section="coming-soon">📖 单词本</a>
+    <a data-section="coming-soon">📝 测验考试</a>
+    <a data-section="coming-soon">📈 学习进度</a>
+    <a data-section="coming-soon">⚙️ 设置</a>
 
   </div>
 </aside>
@@ -135,15 +136,22 @@ body {
 
   // Load content into panes
   function load(section, prototype) {
-    if (section) {
+    if (section && section !== 'coming-soon') {
       descFrame.src = 'pages/sections/' + section + '.html?embed=1';
-      descPane.classList.remove('full');
+    } else if (section === 'coming-soon') {
+      descFrame.src = 'pages/sections/coming-soon.html?embed=1';
     } else {
       descFrame.src = 'about:blank';
     }
     if (prototype) {
       protoFrame.src = 'pages/prototypes/' + prototype + '.html?embed=1';
       protoPane.classList.add('show');
+      if (section) {
+        descPane.classList.remove('full');
+      } else {
+        descPane.classList.add('full');
+        descFrame.src = 'about:blank';
+      }
     } else {
       protoPane.classList.remove('show');
       descPane.classList.add('full');
