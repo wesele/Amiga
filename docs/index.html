@@ -6,52 +6,76 @@
 <title>Idioma 产品交互设计文档</title>
 <style>
 :root {
-  --green: #58cc02; --green-bg: #eaffd6;
+  --green: #58cc02; --green-hover: #46a302; --green-bg: #eaffd6;
   --blue: #1cb0f6; --blue-bg: #ddf4ff;
+  --orange: #ff9600; --orange-bg: #fff0d6;
+  --purple: #7c3aed; --purple-bg: #ede9fe;
+  --pink: #ec4899; --pink-bg: #fce7f3;
   --text: #3a3a3a; --text-light: #777; --text-lighter: #aaa;
-  --bg: #f7f7f7; --white: #fff; --border: #e5e5e5;
+  --bg: #f5f5f5; --white: #fff; --border: #e5e5e5;
   --shadow: 0 2px 12px rgba(0,0,0,.08);
   --radius: 12px; --radius-sm: 8px;
-  --sidebar-w: 240px;
+  --sidebar-w: 220px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
 body {
-  display: flex; height: 100vh;
+  display: flex;
   font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;
-  font-size: 14px; color: var(--text); background: var(--bg);
+  font-size: 14px; color: var(--text); background: var(--white);
 }
 
 /* Sidebar */
 .sidebar {
-  width: var(--sidebar-w); height: 100vh; overflow-y: auto;
+  width: var(--sidebar-w); height: 100vh; overflow: hidden;
   background: var(--white); border-right: 1px solid var(--border);
   flex-shrink: 0; display: flex; flex-direction: column;
 }
-.sidebar-logo { padding: 16px 16px 12px; border-bottom: 1px solid var(--border); }
-.sidebar-logo h1 { font-size: 18px; color: var(--green); display: flex; align-items: center; gap: 8px; }
-.sidebar-logo h1 span { background: var(--green); color: #fff; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; }
-.sidebar-logo .sub { font-size: 10px; color: var(--text-lighter); margin-top: 1px; }
-.sidebar .scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
-.sidebar .group { padding: 12px 16px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-lighter); font-weight: 600; }
+.sidebar-logo { padding: 14px 16px 10px; border-bottom: 1px solid var(--border); }
+.sidebar-logo h1 { font-size: 17px; color: var(--green); display: flex; align-items: center; gap: 6px; }
+.sidebar-logo h1 span { background: var(--green); color: #fff; width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
+.sidebar-logo .sub { font-size: 10px; color: var(--text-lighter); }
+.sidebar .scroll { flex: 1; overflow-y: auto; padding: 4px 0; }
+.sidebar .group { padding: 12px 16px 3px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-lighter); font-weight: 600; }
 .sidebar a {
-  display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+  display: flex; align-items: center; gap: 6px; padding: 7px 16px;
   color: var(--text-light); text-decoration: none; font-size: 13px;
-  border-left: 3px solid transparent; transition: all .15s; cursor: pointer;
+  border-left: 3px solid transparent; cursor: pointer; transition: all .12s;
 }
 .sidebar a:hover { background: var(--green-bg); color: var(--text); }
 .sidebar a.active { color: var(--green); border-left-color: var(--green); background: var(--green-bg); font-weight: 600; }
+.sidebar a .tag { margin-left: auto; font-size: 9px; padding: 1px 6px; border-radius: 8px; font-weight: 400; }
+.tag-p { background: var(--purple-bg); color: var(--purple); }
+.tag-g { background: var(--green-bg); color: var(--green); }
 
-/* Main content */
-.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-#contentFrame {
-  flex: 1; width: 100%; border: none;
-  background: var(--white);
+/* Content panel */
+.content { flex: 1; display: flex; overflow: hidden; }
+
+/* Split panes */
+.pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.pane-desc { border-right: 1px solid var(--border); max-width: 50%; }
+.pane-desc.full { max-width: 100%; border-right: none; }
+.pane-proto { display: none; }
+.pane-proto.show { display: flex; }
+
+.pane-header {
+  padding: 8px 16px; font-size: 11px; font-weight: 600; color: var(--text-lighter);
+  border-bottom: 1px solid var(--border); background: #fafafa; text-transform: uppercase; letter-spacing: .5px;
+  flex-shrink: 0;
 }
+.pane iframe { flex: 1; width: 100%; border: none; background: var(--white); }
+
+/* Empty state */
+.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-lighter); font-size: 14px; flex-direction: column; gap: 8px; }
+.empty-state .big { font-size: 48px; }
+
+/* Resize handle */
+.handle { width: 4px; cursor: col-resize; background: transparent; flex-shrink: 0; position: relative; z-index: 10; }
+.handle:hover { background: var(--green); }
 
 /* Mobile */
-@media (max-width: 700px) {
+@media (max-width: 800px) {
   .sidebar { display: none; }
-  body.mobile-nav .sidebar { display: flex; position: fixed; z-index: 100; width: 100%; }
 }
 </style>
 </head>
@@ -64,64 +88,89 @@ body {
     <div class="sub">Product Design Document v0.1</div>
   </div>
   <div class="scroll">
-    <div class="group">文档</div>
-    <a onclick="loadSection('vision')" class="active">🎯 产品定位</a>
-    <a onclick="loadSection('languages')">🌐 语言支持</a>
-    <a onclick="loadSection('structure')">📚 内容结构</a>
-    <a onclick="loadSection('exercises')">✍️ 练习题型</a>
-    <a onclick="loadSection('gamification')">🎮 游戏化系统</a>
-    <a onclick="loadSection('navigation')">📱 导航与 UI</a>
-    <a onclick="loadSection('colors')">🎨 设计语言</a>
-    <a onclick="loadSection('schema')">🗄️ 数据模型</a>
-    <a onclick="loadSection('ai')">🤖 AI 功能</a>
-    <a onclick="loadSection('roadmap')">🗺️ 开发路线图</a>
-    <a onclick="loadSection('modules')">🧩 模块架构</a>
 
-    <div class="group">原型</div>
-    <a onclick="loadPrototype('home')">🏠 学习首页</a>
-    <a onclick="loadPrototype('exercise')">✏️ 练习答题</a>
-    <a onclick="loadPrototype('complete')">🎉 关卡完成</a>
-    <a onclick="loadPrototype('leaderboard')">🏆 排行榜</a>
-    <a onclick="loadPrototype('profile')">👤 个人资料</a>
-    <a onclick="loadPrototype('social')">👥 社交</a>
-    <a onclick="loadPrototype('bilingual-chat')">💬 双语聊天</a>
-    <a onclick="loadPrototype('ai-chat')">🤖 AI 口语</a>
+    <div class="group">功能设计</div>
+    <a class="active" data-section="vision">🎯 产品定位</a>
+    <a data-section="languages">🌐 语言支持</a>
+    <a data-section="structure">📚 内容结构</a>
+    <a data-section="exercises" data-prototype="exercise">✍️ 练习题型 <span class="tag tag-p">原型</span></a>
+    <a data-section="gamification" data-prototype="complete">🎮 游戏化系统 <span class="tag tag-p">原型</span></a>
+    <a data-section="navigation" data-prototype="home">📱 导航与 UI <span class="tag tag-p">原型</span></a>
+    <a data-section="colors">🎨 设计语言</a>
+    <a data-section="schema">🗄️ 数据模型</a>
+    <a data-section="ai" data-prototype="ai-chat">🤖 AI 功能 <span class="tag tag-p">原型</span></a>
+    <a data-section="roadmap">🗺️ 开发路线图</a>
+    <a data-section="modules">🧩 模块架构</a>
+
+    <div class="group">界面原型</div>
+    <a data-prototype="home">🏠 学习首页 <span class="tag tag-g">新</span></a>
+    <a data-prototype="exercise">✏️ 练习答题 <span class="tag tag-g">新</span></a>
+    <a data-prototype="complete">🎉 关卡完成 <span class="tag tag-g">新</span></a>
+    <a data-prototype="leaderboard">🏆 排行榜 <span class="tag tag-g">新</span></a>
+    <a data-prototype="profile">👤 个人资料 <span class="tag tag-g">新</span></a>
+    <a data-prototype="social">👥 社交 <span class="tag tag-g">新</span></a>
+    <a data-prototype="bilingual-chat">💬 双语聊天 <span class="tag tag-g">新</span></a>
+    <a data-prototype="ai-chat">🤖 AI 口语 <span class="tag tag-g">新</span></a>
+
   </div>
 </aside>
 
-<!-- Content -->
-<main class="main">
-  <iframe id="contentFrame" name="contentFrame"></iframe>
-</main>
+<!-- Content area: description + prototype -->
+<div class="content">
+
+  <!-- Description pane -->
+  <div class="pane pane-desc" id="descPane">
+    <div class="pane-header">📄 功能说明</div>
+    <iframe id="descFrame" name="descFrame"></iframe>
+  </div>
+
+  <!-- Prototype pane -->
+  <div class="pane pane-proto" id="protoPane">
+    <div class="pane-header">📱 原型展示</div>
+    <iframe id="protoFrame" name="protoFrame"></iframe>
+  </div>
+
+</div>
 
 <script>
-function loadSection(name) {
-  var frame = document.getElementById('contentFrame');
-  frame.src = 'pages/sections/' + name + '.html?embed=1';
-  // Highlight active nav
-  document.querySelectorAll('.sidebar a').forEach(function(a) { a.classList.remove('active'); });
-  var links = document.querySelectorAll('.sidebar a');
-  for (var i = 0; i < links.length; i++) {
-    if (links[i].textContent.indexOf(name) > 0 || links[i].getAttribute('onclick').indexOf(name) >= 0) {
-      // Cannot match easily, let's just find the right one
+(function() {
+  var descFrame = document.getElementById('descFrame');
+  var protoFrame = document.getElementById('protoFrame');
+  var descPane = document.getElementById('descPane');
+  var protoPane = document.getElementById('protoPane');
+
+  // Load content into panes
+  function load(section, prototype) {
+    if (section) {
+      descFrame.src = 'pages/sections/' + section + '.html?embed=1';
+      descPane.classList.remove('full');
+    } else {
+      descFrame.src = 'about:blank';
+    }
+    if (prototype) {
+      protoFrame.src = 'pages/prototypes/' + prototype + '.html?embed=1';
+      protoPane.classList.add('show');
+    } else {
+      protoPane.classList.remove('show');
+      descPane.classList.add('full');
     }
   }
-}
 
-function loadPrototype(name) {
-  document.getElementById('contentFrame').src = 'pages/prototypes/' + name + '.html?embed=1';
-}
-
-// Set active state on click
-document.querySelectorAll('.sidebar a').forEach(function(a) {
-  a.addEventListener('click', function() {
-    document.querySelectorAll('.sidebar a').forEach(function(x) { x.classList.remove('active'); });
-    this.classList.add('active');
+  // Handle nav clicks
+  document.querySelectorAll('.sidebar a').forEach(function(a) {
+    a.addEventListener('click', function() {
+      document.querySelectorAll('.sidebar a').forEach(function(x) { x.classList.remove('active'); });
+      this.classList.add('active');
+      load(this.dataset.section, this.dataset.prototype);
+    });
   });
-});
 
-// Load default page
-loadSection('vision');
+  // Default: first item
+  var first = document.querySelector('.sidebar a.active');
+  if (first) {
+    load(first.dataset.section, first.dataset.prototype);
+  }
+})();
 </script>
 </body>
 </html>
