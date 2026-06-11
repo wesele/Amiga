@@ -1,50 +1,51 @@
 <# 
-  Idioma 设计文档构建脚本
-  将 phone/screens/*/content.html 和 sections/*.html 嵌入 index.html
-  生成自包含文件，可在 file:// 协议下直接打开
+  Idioma 设计文档构建脚本（新架构）
+  架构:
+    index.html                     - 导航主页（直接打开）
+    pages/sections/*.html          - 文档章节（可独立打开）
+    pages/prototypes/*.html        - 手机原型（可独立打开）
+    shared/*.css, phone/*/content  - 源文件（编辑用）
+    
+  本脚本生成 docs/index.html 作为导航入口。
+  各子页面已经是独立的 HTML 文件，可直接双击打开。
 #>
 
 Add-Type -AssemblyName System.Text.Encoding
-
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$template = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes("$root\index.html"))
 
 Write-Host "Idioma Design Doc Builder"
 Write-Host "========================="
+Write-Host ""
 
-# 1. 嵌入 sections/*.html
+# 1. 验证 pages/sections/*.html 存在
+Write-Host "--- Content pages ---"
 $sectionCount = 0
-[regex]::Matches($template, 'data-section="([^"]+)"') | ForEach-Object {
-    $name = $_.Groups[1].Value
-    $file = "$root\sections\$name.html"
-    if (Test-Path -LiteralPath $file) {
-        $content = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($file))
-        $template = $template.Replace('data-section="' + $name + '"', $content)
-        $sectionCount++
-        Write-Host "  [OK] sections/$name.html ($([System.Text.Encoding]::UTF8.GetByteCount($content)) bytes)"
-    } else {
-        Write-Host "  [MISS] sections/$name.html not found"
-    }
+Get-ChildItem -LiteralPath "$root\pages\sections" -Filter "*.html" | ForEach-Object {
+    $sectionCount++
+    $size = $_.Length
+    Write-Host "  [OK] $($_.Name) ($size bytes)"
 }
 
-# 2. 嵌入 phone/screens/*/content.html
-$screenCount = 0
-[regex]::Matches($template, 'data-template="([^"]+)"') | ForEach-Object {
-    $name = $_.Groups[1].Value
-    $file = "$root\phone\screens\$name\content.html"
-    if (Test-Path -LiteralPath $file) {
-        $content = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($file))
-        $template = $template.Replace('data-template="' + $name + '"', $content)
-        $screenCount++
-        Write-Host "  [OK] screens/$name/content.html ($([System.Text.Encoding]::UTF8.GetByteCount($content)) bytes)"
-    } else {
-        Write-Host "  [MISS] screens/$name/content.html not found"
-    }
+# 2. 验证 pages/prototypes/*.html 存在
+Write-Host ""
+Write-Host "--- Prototype pages ---"
+$protoCount = 0
+Get-ChildItem -LiteralPath "$root\pages\prototypes" -Filter "*.html" | ForEach-Object {
+    $protoCount++
+    $size = $_.Length
+    Write-Host "  [OK] $($_.Name) ($size bytes)"
 }
 
-# 3. 写入输出
-[System.IO.File]::WriteAllBytes("$root\index.html", [System.Text.Encoding]::UTF8.GetBytes($template))
+# 3. 可选: 生成自包含单一文件版本
+# (目前每个页面可直接打开，无需合并)
 
+Write-Host ""
 Write-Host "========================="
-Write-Host "Done: $sectionCount sections, $screenCount screens embedded"
-Write-Host "Output: index.html ($([System.Text.Encoding]::UTF8.GetByteCount($template)) bytes)"
+Write-Host "Structure verified:"
+Write-Host "  $sectionCount content pages in pages/sections/"
+Write-Host "  $protoCount prototype pages in pages/prototypes/"
+Write-Host ""
+Write-Host "Usage:"
+Write-Host "  Open docs/index.html for navigation"
+Write-Host "  Open docs/pages/sections/*.html directly"
+Write-Host "  Open docs/pages/prototypes/*.html directly"

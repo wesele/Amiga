@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎮 游戏化系统 - Idioma 产品交互设计文档</title>
+<style>:root {
+  --green: #58cc02; --green-hover: #46a302; --green-bg: #eaffd6;
+  --blue: #1cb0f6; --blue-hover: #1899d6; --blue-bg: #ddf4ff;
+  --orange: #ff9600; --orange-hover: #e08500; --orange-bg: #fff0d6;
+  --red: #ff4b4b; --red-bg: #ffe0e0;
+  --purple: #7c3aed; --purple-bg: #ede9fe;
+  --pink: #ec4899; --pink-bg: #fce7f3;
+  --text: #3a3a3a; --text-light: #777; --text-lighter: #aaa;
+  --bg: #f7f7f7; --white: #fff; --border: #e5e5e5;
+  --shadow: 0 2px 12px rgba(0,0,0,.08);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,.12);
+  --radius: 12px; --radius-sm: 8px; --radius-lg: 20px;
+  --sidebar-w: 260px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  display: flex; min-height: 100vh;
+  font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;
+  font-size: 15px; color: var(--text); background: var(--bg);
+}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #999; }
+.sidebar {
+  position: sticky; top: 0; height: 100vh; width: var(--sidebar-w);
+  background: var(--white); border-right: 1px solid var(--border);
+  padding: 20px 0; overflow-y: auto; flex-shrink: 0; z-index: 100;
+}
+.sidebar-logo { padding: 0 20px 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+.sidebar-logo h1 { font-size: 20px; color: var(--green); display: flex; align-items: center; gap: 8px; }
+.sidebar-logo h1 span { background: var(--green); color: #fff; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; }
+.sidebar-logo .sub { font-size: 11px; color: var(--text-lighter); margin-top: 2px; letter-spacing: .5px; }
+.sidebar nav a {
+  display: flex; align-items: center; gap: 8px; padding: 10px 20px;
+  color: var(--text-light); text-decoration: none; font-size: 13px;
+  border-left: 3px solid transparent; transition: all .2s;
+}
+.sidebar nav a:hover { background: var(--green-bg); color: var(--text); }
+.sidebar nav a.active { color: var(--green); border-left-color: var(--green); background: var(--green-bg); font-weight: 600; }
+.sidebar nav .section-label { padding: 16px 20px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-lighter); font-weight: 600; }
+.main { flex: 1; padding: 40px 48px; max-width: 960px; min-width: 0; }
+.section { margin-bottom: 60px; scroll-margin-top: 20px; }
+.section h2 { font-size: 28px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+.section h2 .badge { font-size: 12px; background: var(--green-bg); color: var(--green); padding: 2px 10px; border-radius: 20px; font-weight: 600; }
+.section > .desc { color: var(--text-light); margin-bottom: 24px; line-height: 1.6; }
+.section h3 { font-size: 18px; font-weight: 600; margin: 24px 0 12px; }
+.card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; margin-bottom: 16px; border: 1px solid var(--border); }
+.card-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.card-item { background: var(--white); border-radius: var(--radius-sm); padding: 20px; border: 1px solid var(--border); transition: all .2s; }
+.card-item:hover { box-shadow: var(--shadow); border-color: var(--green); }
+.card-item .icon { font-size: 28px; margin-bottom: 8px; }
+.card-item h4 { font-size: 15px; margin-bottom: 4px; }
+.card-item p { font-size: 12px; color: var(--text-light); line-height: 1.5; }
+.tag { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.tag-green { background: var(--green-bg); color: var(--green); }
+.tag-blue { background: var(--blue-bg); color: var(--blue); }
+.tag-orange { background: var(--orange-bg); color: var(--orange); }
+.tag-red { background: var(--red-bg); color: var(--red); }
+.tag-purple { background: var(--purple-bg); color: var(--purple); }
+.tag-pink { background: var(--pink-bg); color: var(--pink); }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+th { background: #fafafa; font-weight: 600; font-size: 12px; color: var(--text-light); text-transform: uppercase; letter-spacing: .3px; }
+tr:hover td { background: #fafafa; }
+.swatch-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.swatch { width: 100px; text-align: center; }
+.swatch .box { height: 60px; border-radius: var(--radius-sm); margin-bottom: 6px; }
+.swatch .label { font-size: 11px; color: var(--text-light); }
+.swatch .hex { font-size: 10px; color: var(--text-lighter); font-family: monospace; }
+.content-flow { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; align-items: center; }
+.content-flow .step { color: #fff; padding: 12px 20px; border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; text-align: center; }
+.content-flow .step small { font-weight: 400; display: block; }
+.content-flow .arrow { font-size: 24px; color: var(--text-lighter); }
+.step-green { background: var(--green); }
+.step-blue { background: var(--blue); }
+.step-orange { background: var(--orange); }
+.step-purple { background: var(--purple); }
+.step-pink { background: var(--pink); }
+.tree-view { font-family: 'SF Mono','Consolas',monospace; font-size: 12px; line-height: 1.8; padding: 8px 0; }
+.tree-view .tree-root { font-weight: 700; }
+.tree-view .tree-branch { padding-left: 20px; }
+.timeline { position: relative; padding-left: 32px; }
+.timeline::before { content: ''; position: absolute; left: 12px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+.timeline-item { position: relative; margin-bottom: 24px; }
+.timeline-item::before {
+  content: ''; position: absolute; left: -24px; top: 6px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--white); border: 2px solid var(--border);
+}
+.timeline-item.done::before { background: var(--green); border-color: var(--green); }
+.timeline-item.now::before { background: var(--blue); border-color: var(--blue); box-shadow: 0 0 0 4px rgba(28,176,246,.2); }
+.timeline-item .phase { font-size: 12px; color: var(--text-lighter); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
+.timeline-item h4 { font-size: 16px; margin-bottom: 4px; }
+.timeline-item p { font-size: 13px; color: var(--text-light); line-height: 1.5; }
+.timeline-item .tasks { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+.schema-table { font-family: 'SF Mono','Consolas',monospace; font-size: 12px; line-height: 1.5; }
+.schema-table .keyword { color: #7c3aed; font-weight: 600; }
+.schema-table .type { color: #2563eb; }
+.schema-table .comment { color: #6b7280; font-style: italic; }
+.schema-table .string { color: #059669; }
+.schema-line { padding: 1px 0; white-space: pre-wrap; word-break: break-all; }
+.demo-area { background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; margin-bottom: 20px; }
+.demo-tabs { display: flex; border-bottom: 1px solid var(--border); overflow-x: auto; background: #fafafa; }
+.demo-tab {
+  padding: 10px 16px; font-size: 12px; font-weight: 600;
+  cursor: pointer; border: none; background: none;
+  border-bottom: 2px solid transparent; color: var(--text-light);
+  font-family: inherit; white-space: nowrap; transition: all .2s;
+}
+.demo-tab:hover { color: var(--text); background: var(--green-bg); }
+.demo-tab.active { color: var(--green); border-bottom-color: var(--green); background: var(--green-bg); }
+.demo-body { padding: 20px; min-height: 200px; }
+.t-center { text-align: center; }
+.demo-icon-big { font-size: 48px; margin-bottom: 12px; }
+.demo-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.demo-desc { color: var(--text-light); font-size: 13px; margin-bottom: 16px; }
+.demo-opt-grid { display: grid; gap: 8px; max-width: 300px; margin: 0 auto; }
+.demo-opt-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 300px; margin: 0 auto; }
+.demo-opt-item { padding: 12px; border-radius: 8px; text-align: center; }
+.demo-opt-item.highlight { background: var(--green-bg); font-weight: 600; }
+.demo-opt-item.normal { background: var(--bg); }
+.demo-word-chip { background: var(--blue-bg); color: var(--blue); padding: 8px 14px; border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; border: 2px solid var(--blue); display: inline-block; }
+.demo-input-correct { width: 100%; padding: 12px; border: 2px solid var(--green); border-radius: 8px; font-size: 16px; text-align: center; font-family: inherit; outline: none; }
+.demo-blank { border-bottom: 2px dashed var(--blue); padding: 4px 10px; color: var(--blue); font-weight: 600; }
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .main { padding: 24px 20px; }
+}</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h1><span>I</span> Idioma</h1>
+    <div class="sub">Product Design Document v0.1</div>
+  </div>
+  <nav>
+    <div class="section-label">Overview</div>
+    <a href="vision.html">🎯 产品定位</a>
+    <a href="languages.html">🌐 语言支持</a>
+    <div class="section-label">Content</div>
+    <a href="structure.html">📚 内容结构</a>
+    <a href="exercises.html">✍️ 练习题型</a>
+    <a href="gamification.html" class="active">🎮 游戏化系统</a>
+    <div class="section-label">Design</div>
+    <a href="navigation.html">📱 导航与UI</a>
+    <a href="../prototypes/home.html">🖥️ 界面原型</a>
+    <a href="colors.html">🎨 设计语言</a>
+    <div class="section-label">Data</div>
+    <a href="schema.html">🗄️ 数据模型</a>
+    <a href="ai.html">🤖 AI 功能</a>
+    <a href="roadmap.html">🗺️ 开发路线图</a>
+    <div class="section-label">Modules</div>
+    <a href="modules.html">🧩 模块架构</a>
+  </nav>
+</aside>
+
+<main class="main">
+  <section class="section">
+    <h2>🎮 游戏化系统</h2>
+    <p class="desc">让学习像玩游戏一样上瘾 — 每个元素都为激励持续学习而设计。</p>
+<div class="card-row">
+  <div class="card-item"><div class="icon">⭐</div><h4>经验值 XP</h4><p>每练习获得 XP，每日第一课双倍</p></div>
+  <div class="card-item"><div class="icon">🔥</div><h4>连续签到 Streak</h4><p>每日至少 1 课保持连胜</p></div>
+  <div class="card-item"><div class="icon">💎</div><h4>宝石 Gems</h4><p>虚拟货币，购买保护/生命/装饰</p></div>
+  <div class="card-item"><div class="icon">❤️</div><h4>生命值 Hearts</h4><p>5 颗心，答错扣 1，随时间恢复</p></div>
+  <div class="card-item"><div class="icon">🏆</div><h4>段位联赛</h4><p>青铜→白银→黄金→钻石→传奇</p></div>
+  <div class="card-item"><div class="icon">🏅</div><h4>成就徽章</h4><p>里程碑/连胜/速度/完美/词汇/社交</p></div>
+  <div class="card-item"><div class="icon">📋</div><h4>每日挑战</h4><p>3 级每日任务，奖励宝石+加成</p></div>
+  <div class="card-item"><div class="icon">🎯</div><h4>等级头衔</h4><p>学徒→探索者→学者→大师</p></div>
+</div>
+  </section>
+</main>
+
+
+</body>
+</html>

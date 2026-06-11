@@ -4,574 +4,192 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Idioma 产品交互设计文档</title>
-<link rel="stylesheet" href="shared/variables.css">
-<link rel="stylesheet" href="shared/base.css">
-<link rel="stylesheet" href="shared/components.css">
-<link rel="stylesheet" href="shared/phone.css">
-<link rel="stylesheet" href="phone/screens/home/style.css">
-<link rel="stylesheet" href="phone/screens/exercise/style.css">
-<link rel="stylesheet" href="phone/screens/complete/style.css">
-<link rel="stylesheet" href="phone/screens/leaderboard/style.css">
-<link rel="stylesheet" href="phone/screens/profile/style.css">
-<link rel="stylesheet" href="phone/screens/social/style.css">
-<link rel="stylesheet" href="phone/screens/bilingual-chat/style.css">
-<link rel="stylesheet" href="phone/screens/ai-chat/style.css">
+<style>
+:root {
+  --green: #58cc02; --green-hover: #46a302; --green-bg: #eaffd6;
+  --blue: #1cb0f6; --blue-bg: #ddf4ff;
+  --orange: #ff9600; --orange-bg: #fff0d6;
+  --purple: #7c3aed; --purple-bg: #ede9fe;
+  --pink: #ec4899;
+  --text: #3a3a3a; --text-light: #777; --text-lighter: #aaa;
+  --bg: #f7f7f7; --white: #fff; --border: #e5e5e5;
+  --shadow: 0 2px 12px rgba(0,0,0,.08);
+  --radius: 12px; --radius-sm: 8px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;
+  font-size: 15px; color: var(--text); background: var(--white);
+  min-height: 100vh;
+}
+
+/* Hero */
+.hero {
+  text-align: center; padding: 60px 20px 40px;
+  background: linear-gradient(135deg, var(--green-bg), var(--blue-bg));
+}
+.hero h1 { font-size: 36px; color: var(--green); margin-bottom: 8px; }
+.hero h1 span { background: var(--green); color: #fff; width: 48px; height: 48px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; vertical-align: middle; margin-right: 8px; }
+.hero .sub { font-size: 14px; color: var(--text-light); }
+.hero .badge { display: inline-block; background: var(--green); color: #fff; padding: 4px 16px; border-radius: 20px; font-size: 12px; margin-top: 12px; }
+
+/* Container */
+.container { max-width: 1000px; margin: 0 auto; padding: 40px 24px; }
+.container h2 { font-size: 22px; font-weight: 700; margin: 32px 0 16px; display: flex; align-items: center; gap: 8px; }
+.container h2 .count { font-size: 12px; color: var(--text-lighter); font-weight: 400; }
+
+/* Grid */
+.grid { display: grid; gap: 12px; }
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+@media (max-width: 700px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+/* Card link */
+.card-link {
+  display: block; padding: 20px; border: 1px solid var(--border);
+  border-radius: var(--radius); text-decoration: none; color: var(--text);
+  transition: all .2s; background: var(--white);
+}
+.card-link:hover { box-shadow: var(--shadow); border-color: var(--green); transform: translateY(-2px); }
+.card-link .icon { font-size: 28px; margin-bottom: 6px; }
+.card-link h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.card-link p { font-size: 12px; color: var(--text-light); line-height: 1.5; }
+.card-link .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; margin-top: 8px; }
+.tag-green { background: var(--green-bg); color: var(--green); }
+.tag-blue { background: var(--blue-bg); color: var(--blue); }
+.tag-orange { background: var(--orange-bg); color: var(--orange); }
+.tag-purple { background: var(--purple-bg); color: var(--purple); }
+
+/* Section labels */
+.section-header { display: flex; align-items: center; gap: 8px; margin: 32px 0 16px; }
+.section-header .line { flex: 1; height: 1px; background: var(--border); }
+.section-header .label { font-size: 12px; font-weight: 600; color: var(--text-lighter); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+
+/* Footer */
+.footer { text-align: center; padding: 40px 20px; color: var(--text-lighter); font-size: 12px; border-top: 1px solid var(--border); margin-top: 40px; }
+.footer code { background: var(--bg); padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+</style>
 </head>
 <body>
 
-<!-- ===== 侧边栏导航 ===== -->
-<aside class="sidebar">
-  <div class="sidebar-logo">
-    <h1><span>I</span> Idioma</h1>
-    <div class="sub">Product Design Document v0.1</div>
-  </div>
-  <nav>
-    <div class="section-label">Overview</div>
-    <a href="#vision" class="active">🎯 产品定位</a>
-    <a href="#languages">🌐 语言支持</a>
-    <div class="section-label">Content</div>
-    <a href="#structure">📚 内容结构</a>
-    <a href="#exercises">✍️ 练习题型</a>
-    <a href="#gamification">🎮 游戏化系统</a>
-    <div class="section-label">Design</div>
-    <a href="#navigation">📱 导航与UI</a>
-    <a href="#screens">🖥️ 界面原型</a>
-    <a href="#colors">🎨 设计语言</a>
-    <div class="section-label">Data</div>
-    <a href="#schema">🗄️ 数据模型</a>
-    <a href="#ai">🤖 AI 功能</a>
-    <a href="#roadmap">🗺️ 开发路线图</a>
-    <div class="section-label">Modules</div>
-    <a href="#modules">🧩 模块架构</a>
-  </nav>
-</aside>
-
-<!-- ===== 主内容 ===== -->
-<main class="main">
-
-  <section id="vision" class="section">
-    <h2>🎯 产品定位</h2>
-    <p class="desc">利用 AI 技术提供免费、高质量的多语言学习体验，通过语言学习连接世界。</p>
-    <div ﻿<div class="card-row">
-  <div class="card-item"><div class="icon">🌍</div><h4>目标用户</h4><p>全球用户，任何想学习新语言的人</p></div>
-  <div class="card-item"><div class="icon">🤖</div><h4>AI 驱动</h4><p>AI 生成个性化内容、实时反馈、模拟对话</p></div>
-  <div class="card-item"><div class="icon">💚</div><h4>完全免费</h4><p>核心功能全部免费开放，可选捐赠</p></div>
-  <div class="card-item"><div class="icon">🤝</div><h4>社区互助</h4><p>母语者与学习者互相帮助</p></div>
-</div>></div>
-  </section>
-
-  <section id="languages" class="section">
-    <h2>🌐 语言支持</h2>
-    <p class="desc">架构支持任意语言对插拔添加，起始阶段集中打磨两个语言对。</p>
-    <div ﻿<div class="card-row">
-  <div class="card-item"><div class="icon">🇨🇳➜🇬🇧</div><h4>中文 → 英语</h4><p>中文母语者学习英语</p><span class="tag tag-green">起始</span></div>
-  <div class="card-item"><div class="icon">🇬🇧➜🇨🇳</div><h4>英语 → 中文</h4><p>英文母语者学习中文</p><span class="tag tag-green">起始</span></div>
-  <div class="card-item"><div class="icon">🇨🇳➜🇪🇸</div><h4>中文 → 西班牙语</h4><p>中文母语者学习西班牙语</p><span class="tag tag-green">起始</span></div>
-  <div class="card-item"><div class="icon">🇪🇸➜🇨🇳</div><h4>西班牙语 → 中文</h4><p>西语母语者学习中文</p><span class="tag tag-green">起始</span></div>
-  <div class="card-item"><div class="icon">➕</div><h4>更多语言对</h4><p>数据与代码分离，可无限扩展</p><span class="tag tag-blue">可扩展</span></div>
-</div>></div>
-  </section>
-
-  <section id="structure" class="section">
-    <h2>📚 内容结构</h2>
-    <p class="desc">四层学习内容体系，线性路径 + CEFR/场景/语法混合主题组织。</p>
-    <div ﻿<div class="card" style="text-align:center;padding:32px;">
-  <div class="content-flow">
-    <div class="step step-green">语言<small>Language</small></div><span class="arrow">→</span>
-    <div class="step step-blue">课程<small>Course</small></div><span class="arrow">→</span>
-    <div class="step step-orange">单元<small>Unit</small></div><span class="arrow">→</span>
-    <div class="step step-purple">关卡<small>Skill</small></div><span class="arrow">→</span>
-    <div class="step step-pink">练习<small>Exercise</small></div>
-  </div>
-</div>
-<div class="card">
-  <h3>课程路径特点</h3>
-  <div class="card-row" style="margin-top:12px;">
-    <div class="card-item"><div class="icon">📏</div><h4>线性路径</h4><p>主线节点依次解锁</p></div>
-    <div class="card-item"><div class="icon">🔀</div><h4>分支关卡</h4><p>专题支线（语法/词汇专项）</p></div>
-    <div class="card-item"><div class="icon">🔓</div><h4>解锁条件</h4><p>前置完成 + 足够 XP</p></div>
-    <div class="card-item"><div class="icon">📊</div><h4>CEFR 映射</h4><p>A1(50) → A2(60) → B1(80) → B2(100) → C1(120)</p></div>
-  </div>
-</div>></div>
-  </section>
-
-  <section id="exercises" class="section">
-    <h2>✍️ 练习题型 <span class="badge">10 种</span></h2>
-    <p class="desc">点击下方 Tab 切换查看每种题型的交互演示。</p>
-    <div ﻿<div class="demo-area">
-  <div class="demo-tabs">
-    <button class="demo-tab active" data-type="image_select">🖼️ 图片选词</button>
-    <button class="demo-tab" data-type="translate">🔤 翻译</button>
-    <button class="demo-tab" data-type="sentence_sort">📝 句子排序</button>
-    <button class="demo-tab" data-type="spelling">⌨️ 拼写</button>
-    <button class="demo-tab" data-type="listening">🎧 听力</button>
-    <button class="demo-tab" data-type="fill">✏️ 填空变位</button>
-  </div>
-  <div class="demo-body" id="exerciseDemo"></div>
-</div>
-<div class="table-wrap">
-  <table>
-    <thead><tr><th>#</th><th>题型</th><th>交互方式</th><th>考核能力</th></tr></thead>
-    <tbody>
-      <tr><td>1</td><td><strong>图片选词</strong></td><td>看图片选对应外语词</td><td>词汇识别</td></tr>
-      <tr><td>2</td><td><strong>单词配对</strong></td><td>拖拽匹配外语↔母语</td><td>词汇记忆</td></tr>
-      <tr><td>3</td><td><strong>拼写题</strong></td><td>听音/看提示输入单词</td><td>拼写能力</td></tr>
-      <tr><td>4</td><td><strong>句子排序</strong></td><td>打乱单词排成正确句子</td><td>语法语序</td></tr>
-      <tr><td>5</td><td><strong>翻译（外→中）</strong></td><td>看外语句子输入中文</td><td>阅读理解</td></tr>
-      <tr><td>6</td><td><strong>翻译（中→外）</strong></td><td>看中文句子输入外语</td><td>输出能力</td></tr>
-      <tr><td>7</td><td><strong>听力选择</strong></td><td>听录音选答案</td><td>听力理解</td></tr>
-      <tr><td>8</td><td><strong>填空变位</strong></td><td>填写正确词形变化</td><td>语法应用</td></tr>
-      <tr><td>9</td><td><strong>AI 口语对话</strong></td><td>与 AI 场景对话</td><td>口语表达</td></tr>
-      <tr><td>10</td><td><strong>AI 纠错</strong></td><td>写句子 AI 修改建议</td><td>写作能力</td></tr>
-    </tbody>
-  </table>
-</div>></div>
-  </section>
-
-  <section id="gamification" class="section">
-    <h2>🎮 游戏化系统</h2>
-    <p class="desc">让学习像玩游戏一样上瘾 — 每个元素都为激励持续学习而设计。</p>
-    <div ﻿<div class="card-row">
-  <div class="card-item"><div class="icon">⭐</div><h4>经验值 XP</h4><p>每练习获得 XP，每日第一课双倍</p></div>
-  <div class="card-item"><div class="icon">🔥</div><h4>连续签到 Streak</h4><p>每日至少 1 课保持连胜</p></div>
-  <div class="card-item"><div class="icon">💎</div><h4>宝石 Gems</h4><p>虚拟货币，购买保护/生命/装饰</p></div>
-  <div class="card-item"><div class="icon">❤️</div><h4>生命值 Hearts</h4><p>5 颗心，答错扣 1，随时间恢复</p></div>
-  <div class="card-item"><div class="icon">🏆</div><h4>段位联赛</h4><p>青铜→白银→黄金→钻石→传奇</p></div>
-  <div class="card-item"><div class="icon">🏅</div><h4>成就徽章</h4><p>里程碑/连胜/速度/完美/词汇/社交</p></div>
-  <div class="card-item"><div class="icon">📋</div><h4>每日挑战</h4><p>3 级每日任务，奖励宝石+加成</p></div>
-  <div class="card-item"><div class="icon">🎯</div><h4>等级头衔</h4><p>学徒→探索者→学者→大师</p></div>
-</div>></div>
-  </section>
-
-  <section id="navigation" class="section">
-    <h2>📱 导航与 UI 结构</h2>
-    <p class="desc">5 个底部 Tab 的导航体系，覆盖核心学习路径和社交功能。</p>
-    <div ﻿<div class="card-row">
-  <div class="card-item"><div class="icon">🏠</div><h4>学习</h4><p>课程路径地图、AI 口语入口</p></div>
-  <div class="card-item"><div class="icon">🏆</div><h4>排行榜</h4><p>好友排行、全球排行、段位</p></div>
-  <div class="card-item"><div class="icon">👥</div><h4>社交</h4><p>好友、双语聊天、互助、PK</p></div>
-  <div class="card-item"><div class="icon">📖</div><h4>单词本</h4><p>已学词汇复习、闪卡模式</p></div>
-  <div class="card-item"><div class="icon">👤</div><h4>个人</h4><p>档案、成就、统计、设置</p></div>
-</div>
-<div class="card">
-  <h3>页面结构树</h3>
-  <div class="tree-view">
-    <div class="tree-root">AppShell</div>
-    <div class="tree-branch">├── BottomNav (5 Tabs)</div>
-    <div class="tree-branch">├── RouterView</div>
-    <div class="tree-branch">│   ├── 学习页 — 课程路径 / AI口语</div>
-    <div class="tree-branch">│   ├── 排行榜页 — 好友 / 全球 / 段位</div>
-    <div class="tree-branch">│   ├── 社交页 — 双语聊天 / 好友 / 互助</div>
-    <div class="tree-branch">│   ├── 单词本页 — 分组 / 搜索 / 闪卡</div>
-    <div class="tree-branch">│   └── 个人页 — 档案 / 成就 / 统计</div>
-    <div class="tree-branch">├── 练习页 (独立全屏)</div>
-    <div class="tree-branch">│   ├── ExercisePlayer — 进度/题型/反馈</div>
-    <div class="tree-branch">│   └── LessonComplete — XP结算</div>
-    <div class="tree-branch">└── AI 对话页 (独立全屏)</div>
-  </div>
-</div>></div>
-  </section>
-
-  <section id="screens" class="section">
-    <h2>🖥️ 界面原型 <span class="badge">交互可点</span></h2>
-    <p class="desc">点击底部 Tab 或关卡节点，体验核心流程的界面原型。</p>
-    <div class="phone-wrap">
-      <div class="phone">
-        <div class="phone-notch"></div>
-        <div class="phone-screen" id="phoneScreen">
-          <div class="status-bar">
-            <span class="time">9:41</span>
-            <span class="icons">📶 📶 🔋</span>
-          </div>
-          <!-- Phone screens loaded from phone/screens/<name>/content.html -->
-          <div class="phone-content screen active" id="scrHome" <div class="home-header">
-  <div class="streak">🔥 7</div>
-  <div style="font-size:16px;font-weight:700;color:var(--green);">Idioma</div>
-  <div class="gems">💎 128</div>
-</div>
-<button class="ai-btn" data-screen="scrAIChat">
-  <span class="ai-icon">🤖</span> AI 口语练习
-  <span style="margin-left:auto;font-size:12px;opacity:.8;">✨ 新</span>
-</button>
-<div class="course-path" id="coursePath">
-  <div class="path-node completed">
-    <div class="node-icon">🔤</div>
-    <div class="node-info">
-      <div class="node-title">字母与发音</div>
-      <div class="node-sub">✅ 已完成</div>
-    </div>
-    <div class="node-xp">⭐ +15</div>
-    <div class="node-check">✓</div>
-  </div>
-  <div class="path-connector completed"></div>
-  <div class="path-node completed">
-    <div class="node-icon">👋</div>
-    <div class="node-info">
-      <div class="node-title">基础问候</div>
-      <div class="node-sub">✅ 已完成</div>
-    </div>
-    <div class="node-xp">⭐ +20</div>
-    <div class="node-check">✓</div>
-  </div>
-  <div class="path-connector completed"></div>
-  <div class="path-node active">
-    <div class="node-icon">👨‍👩‍👧</div>
-    <div class="node-info">
-      <div class="node-title">家庭成员</div>
-      <div class="node-sub">点击开始</div>
-    </div>
-    <div class="node-xp">⭐ +22</div>
-  </div>
-  <div class="path-connector"></div>
-  <div class="path-node locked">
-    <div class="node-icon">🍎</div>
-    <div class="node-info">
-      <div class="node-title">食物与饮料</div>
-      <div class="node-sub">🔒 完成前置关卡</div>
-    </div>
-    <div class="node-xp">⭐ +20</div>
-  </div>
-  <div class="path-connector"></div>
-  <div class="path-node locked">
-    <div class="node-icon">☀️</div>
-    <div class="node-info">
-      <div class="node-title">日常用语</div>
-      <div class="node-sub">🔒 完成前置关卡</div>
-    </div>
-    <div class="node-xp">⭐ +25</div>
-  </div>
-</div>
-></div>
-          <div class="phone-content screen" id="scrExercise" <div class="screen-header">
-  <button class="back-btn" data-screen="scrHome">←</button>
-  <span class="screen-title">基础问候</span>
-  <span class="exercise-xp" id="exerciseXp">+0 XP</span>
-</div>
-<div class="exercise-progress" id="exerciseProgress">
-  <div class="dot done"></div>
-  <div class="dot done"></div>
-  <div class="dot done"></div>
-  <div class="dot current"></div>
-  <div class="dot"></div>
-  <div class="dot"></div>
-  <div class="dot"></div>
-  <div class="dot"></div>
-</div>
-<div class="exercise-card" id="exerciseCard">
-  <div class="exercise-prompt" id="exercisePrompt">
-    <div class="prompt-text">加载题目中...</div>
-    <div class="hint"></div>
-  </div>
-  <div class="exercise-options" id="exerciseOptions">
-    <!-- sentence_sort: populated dynamically -->
-    <div class="word-chips" id="wordChips" style="display:none"></div>
-    <div class="answer-area" id="answerArea" style="display:none"></div>
-    <button class="next-btn" id="sortCheckBtn" style="display:none">检查答案</button>
-  </div>
-  <div class="exercise-feedback" id="exerciseFeedback"></div>
-  <div class="exercise-action" id="exerciseAction">
-    <button class="next-btn" id="nextBtn" style="display:none;">下一题 →</button>
-  </div>
-</div>
-></div>
-          <div class="phone-content screen" id="scrComplete" <div class="screen-header">
-  <button class="back-btn" data-screen="scrHome">←</button>
-  <span class="screen-title">关卡完成</span>
-</div>
-<div class="complete-overlay">
-  <div class="big-icon">🎉</div>
-  <h3>¡Excelente!</h3>
-  <div class="sub">基础问候 · 已完成</div>
-  <div class="xp-burst"><span class="xp-icon">⭐</span> +45 XP</div>
-  <div class="streak-update">
-    <div class="streak-item"><div class="num">🔥 8</div><div class="label">连胜天数</div></div>
-    <div class="streak-item"><div class="num">💎 +5</div><div class="label">宝石获得</div></div>
-    <div class="streak-item"><div class="num" id="accuracyDisplay">92%</div><div class="label">正确率</div></div>
-  </div>
-  <button class="complete-btn" data-screen="scrHome">继续学习 →</button>
-</div>
-></div>
-          <div class="phone-content screen" id="scrLeaderboard" <div class="lb-title">🏆 排行榜</div>
-<div class="lb-tabs">
-  <button class="lb-tab active" data-type="friends">👥 好友</button>
-  <button class="lb-tab" data-type="global">🌍 全球</button>
-</div>
-<div id="lbList" class="lb-list"></div>
-<div class="lb-footer">排行榜每周一重置</div>
-></div>
-          <div class="phone-content screen" id="scrProfile" <div class="profile-header">
-  <div class="profile-avatar">🧑</div>
-  <div class="profile-name">学习者</div>
-  <div class="profile-level">Level 12 · 探索者</div>
-</div>
-<div class="profile-stats">
-  <div class="stat-card"><div class="num">2,450</div><div class="label">总 XP</div></div>
-  <div class="stat-card"><div class="num">🔥 7</div><div class="label">连胜</div></div>
-  <div class="stat-card"><div class="num">48</div><div class="label">已学关卡</div></div>
-</div>
-<div class="profile-section-title">🏅 成就 <span class="ach-count">6/24</span></div>
-<div class="achievement-grid">
-  <div class="ach-badge"><div class="ach-icon">🎓</div><div class="ach-name">第一课</div></div>
-  <div class="ach-badge"><div class="ach-icon">🔥</div><div class="ach-name">7天连胜</div></div>
-  <div class="ach-badge"><div class="ach-icon">💯</div><div class="ach-name">完美10课</div></div>
-  <div class="ach-badge"><div class="ach-icon">⚡</div><div class="ach-name">速度之星</div></div>
-  <div class="ach-badge locked"><div class="ach-icon">🌟</div><div class="ach-name">30天连胜</div></div>
-  <div class="ach-badge locked"><div class="ach-icon">📚</div><div class="ach-name">100关</div></div>
-  <div class="ach-badge locked"><div class="ach-icon">🏅</div><div class="ach-name">黄金联赛</div></div>
-  <div class="ach-badge locked"><div class="ach-icon">👑</div><div class="ach-name">钻石联赛</div></div>
-</div>
-></div>
-          <div class="phone-content screen" id="scrSocial" ﻿<div style="font-size:16px;font-weight:700;margin-bottom:12px;">👥 社交</div>
-<div class="bilingual-card" data-screen="scrBilingualChat">
-  <div class="card-header">
-    <span class="card-icon">💬</span>
-    <span class="card-title">双语聊天</span>
-    <span class="tag tag-purple" style="margin-left:auto;">✨ 新功能</span>
-  </div>
-  <p class="card-desc">与语言伙伴实时双语聊天，AI 自动翻译，边聊边学</p>
-  <div class="lang-tags">
-    <span class="lang-tag">🇨🇳 你说中文</span>
-    <span class="chat-separator">↔</span>
-    <span class="lang-tag">🇪🇸 TA说西语</span>
-  </div>
-</div>
-<div class="social-card">
-  <div style="font-weight:600;font-size:14px;margin-bottom:8px;">🤝 互助学习</div>
-  <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-    <span class="tag tag-green" style="font-size:12px;">🇨🇳 中文</span>
-    <span style="color:var(--text-lighter);">→</span>
-    <span class="tag tag-blue" style="font-size:12px;">🇪🇸 西语</span>
-  </div>
-  <p style="font-size:12px;color:var(--text-light);">找到语言伙伴，互相纠正练习，一起进步！</p>
-</div>
-<div style="font-size:13px;font-weight:600;margin:10px 0 6px;">好友列表</div>
-<div class="friend-item" data-screen="scrBilingualChat">
-  <div class="friend-avatar">👩</div>
-  <div class="friend-info">
-    <div class="friend-name">Maria</div>
-    <div class="friend-status">💬 聊天中</div>
-  </div>
-</div>
-<div class="friend-item"><div class="friend-avatar">👨</div><div class="friend-info"><div class="friend-name">Carlos</div><div class="friend-status">🔥 8 天</div></div></div>
-<div class="friend-item"><div class="friend-avatar">🧑</div><div class="friend-info"><div class="friend-name">Yuki</div><div class="friend-status">🔥 3 天</div></div></div>
-></div>
-          <div class="phone-content screen" id="scrBilingualChat" <div class="screen-header">
-  <button class="back-btn" data-screen="scrSocial">←</button>
-  <div class="chat-avatar-header">👩</div>
-  <div style="flex:1;">
-    <div class="chat-name">Maria</div>
-    <div class="screen-subtitle">🇪🇸 西语母语 · 学习中文</div>
-  </div>
-  <span class="tag tag-purple">💬 双语</span>
+<!-- Hero -->
+<div class="hero">
+  <h1><span>I</span> Idioma</h1>
+  <div class="sub">Product Design Document v0.1</div>
+  <div class="badge">🎯 交互式产品设计原型</div>
 </div>
 
-<div class="chat-container">
-  <!-- Maria's message -->
-  <div class="chat-msg">
-    <div class="avatar avatar-purple">👩</div>
-    <div class="chat-bubble">
-      <div class="text incoming">¡Hola! ¿Cómo estás hoy?</div>
-      <div class="chat-translation purple">🤖 你好！你今天怎么样？</div>
-    </div>
+<div class="container">
+
+  <!-- ===== 产品文档 ===== -->
+  <div class="section-header"><span class="line"></span><span class="label">产品文档</span><span class="line"></span></div>
+  <div class="grid grid-2">
+    <a class="card-link" href="pages/sections/vision.html">
+      <div class="icon">🎯</div><h3>产品定位</h3>
+      <p>目标用户、AI 驱动、免费模式、社区互助</p>
+    </a>
+    <a class="card-link" href="pages/sections/languages.html">
+      <div class="icon">🌐</div><h3>语言支持</h3>
+      <p>中文→英语、英语→中文、中文→西语、西语→中文</p>
+    </a>
+    <a class="card-link" href="pages/sections/structure.html">
+      <div class="icon">📚</div><h3>内容结构</h3>
+      <p>语言→课程→单元→关卡→练习，线性路径</p>
+    </a>
+    <a class="card-link" href="pages/sections/exercises.html">
+      <div class="icon">✍️</div><h3>练习题型 <span class="tag tag-green">交互</span></h3>
+      <p>10 种题型：图片选词、翻译、排序、拼写、听力等</p>
+    </a>
+    <a class="card-link" href="pages/sections/gamification.html">
+      <div class="icon">🎮</div><h3>游戏化系统</h3>
+      <p>XP、连胜、宝石、生命值、段位、成就、每日挑战</p>
+    </a>
+    <a class="card-link" href="pages/sections/navigation.html">
+      <div class="icon">📱</div><h3>导航与 UI 结构</h3>
+      <p>5 Tab 导航体系 + 页面结构树</p>
+    </a>
+    <a class="card-link" href="pages/sections/colors.html">
+      <div class="icon">🎨</div><h3>设计语言</h3>
+      <p>多邻国式色彩系统、设计原则</p>
+    </a>
+    <a class="card-link" href="pages/sections/schema.html">
+      <div class="icon">🗄️</div><h3>数据模型 <span class="tag tag-blue">16 表</span></h3>
+      <p>SQLite 表结构：用户、课程、进度、词汇、社交、聊天</p>
+    </a>
+    <a class="card-link" href="pages/sections/ai.html">
+      <div class="icon">🤖</div><h3>AI 功能</h3>
+      <p>口语对话、双语翻译、写作助手、内容生成</p>
+    </a>
+    <a class="card-link" href="pages/sections/roadmap.html">
+      <div class="icon">🗺️</div><h3>开发路线图</h3>
+      <p>4 阶段迭代：核心循环→游戏化→扩展→发布</p>
+    </a>
+    <a class="card-link" href="pages/sections/modules.html">
+      <div class="icon">🧩</div><h3>模块架构</h3>
+      <p>前后端模块划分，10 个前端模块 + 6 个后端模块</p>
+    </a>
   </div>
 
-  <!-- User's message -->
-  <div class="chat-msg self">
-    <div class="avatar avatar-green">🧑</div>
-    <div class="chat-bubble">
-      <div class="text outgoing">我很好！今天学了一些西班牙语单词。</div>
-      <div class="chat-translation green">🤖 ¡Estoy muy bien! Hoy aprendí algunas palabras en español.</div>
-    </div>
+  <!-- ===== 界面原型 ===== -->
+  <div class="section-header"><span class="line"></span><span class="label">界面原型（交互可点）</span><span class="line"></span></div>
+  <div class="grid grid-3">
+    <a class="card-link" href="pages/prototypes/home.html">
+      <div class="icon">🏠</div><h3>学习首页</h3>
+      <p>课程路径、AI 口语入口、连胜/宝石</p>
+      <span class="tag tag-green">原型</span>
+    </a>
+    <a class="card-link" href="pages/prototypes/exercise.html">
+      <div class="icon">✏️</div><h3>练习答题</h3>
+      <p>进度条、选择题型、正确/错误反馈</p>
+      <span class="tag tag-green">原型</span>
+    </a>
+    <a class="card-link" href="pages/prototypes/complete.html">
+      <div class="icon">🎉</div><h3>关卡完成</h3>
+      <p>XP 结算、连胜更新、宝石获得</p>
+      <span class="tag tag-green">原型</span>
+    </a>
+    <a class="card-link" href="pages/prototypes/leaderboard.html">
+      <div class="icon">🏆</div><h3>排行榜</h3>
+      <p>好友排行、全球排行、段位信息</p>
+      <span class="tag tag-orange">原型</span>
+    </a>
+    <a class="card-link" href="pages/prototypes/profile.html">
+      <div class="icon">👤</div><h3>个人资料</h3>
+      <p>档案、成就徽章、学习统计</p>
+      <span class="tag tag-orange">原型</span>
+    </a>
+    <a class="card-link" href="pages/prototypes/social.html">
+      <div class="icon">👥</div><h3>社交</h3>
+      <p>双语聊天、互助学习、好友列表</p>
+      <span class="tag tag-purple">原型</span>
+    </a>
+    <a class="card-link" href="pages/prototypes/bilingual-chat.html">
+      <div class="icon">💬</div><h3>双语聊天</h3>
+      <p>AI 实时翻译、点击学单词、边聊边学</p>
+      <span class="tag tag-purple">原型</span>
+    </a>
+    <a class="card-link" href="pages/prototypes/ai-chat.html">
+      <div class="icon">🤖</div><h3>AI 口语</h3>
+      <p>场景对话、实时语法纠正</p>
+      <span class="tag tag-purple">原型</span>
+    </a>
   </div>
 
-  <!-- Maria's message with highlighted vocabulary -->
-  <div class="chat-msg">
-    <div class="avatar avatar-purple">👩</div>
-    <div class="chat-bubble">
-      <div class="text incoming">¡Qué bien! ¿Qué palabras <span class="vocab-word" data-word="aprendiste">📘 aprendiste</span>?</div>
-      <div class="chat-translation purple">🤖 太好了！你学了哪些单词？</div>
-    </div>
+  <!-- ===== 开发 ===== -->
+  <div class="section-header"><span class="line"></span><span class="label">开发工作流</span><span class="line"></span></div>
+  <div class="card-link" style="cursor:default;">
+    <p style="font-size:13px;line-height:1.8;">
+      编辑源文件 → 运行 <code>build.ps1</code> 生成自包含 <code>index.html</code>
+      <br>
+      各页面也可直接打开：<code>pages/sections/*.html</code>（文档）、<code>pages/prototypes/*.html</code>（原型）
+    </p>
   </div>
+
 </div>
 
-<div class="chat-input-area">
-  <input type="text" class="chat-input" placeholder="输入消息（中文自动翻译西语）...">
-  <button class="chat-send-btn">➤</button>
+<div class="footer">
+  Idioma Product Design Document v0.1 &mdash; Built with ❤️
 </div>
 
-<div class="chat-footer">
-  <span>🤖 AI 实时翻译</span>
-  <span class="dot">·</span>
-  <span class="clickable">点击译文学单词</span>
-  <span class="dot">·</span>
-  <span>💎 +2 XP/条</span>
-</div>
-></div>
-          <div class="phone-content screen" id="scrAIChat" <div class="screen-header">
-  <button class="back-btn" data-screen="scrHome">←</button>
-  <div class="ai-avatar-circle">🤖</div>
-  <span class="screen-title">AI 口语练习</span>
-  <span class="tag tag-purple" style="margin-left:auto;">餐厅场景</span>
-</div>
-
-<div class="ai-chat-container">
-  <div class="ai-msg">
-    <div class="ai-avatar bot">🤖</div>
-    <div class="ai-bubble bot">¡Hola! ¿Qué te gustaría pedir hoy?</div>
-  </div>
-
-  <div class="ai-msg user">
-    <div class="ai-avatar user">🧑</div>
-    <div class="ai-bubble user">Hola, quiero un café por favor.</div>
-  </div>
-
-  <div class="ai-msg">
-    <div class="ai-avatar bot">🤖</div>
-    <div class="ai-bubble bot">
-      ¡Muy bien! ¿Algo más?
-      <div class="ai-feedback"><span>✅</span> 语法正确，发音良好</div>
-    </div>
-  </div>
-</div>
-
-<div class="ai-input-area">
-  <input type="text" class="chat-input" placeholder="输入你的回答...">
-  <button class="ai-send-btn">发送</button>
-</div>
-></div>
-          <!-- Tab bar -->
-          <div <div class="tab-bar">
-  <button class="tab-item active" data-screen="scrHome"><span class="tab-icon">🏠</span>学习</button>
-  <button class="tab-item" data-screen="scrLeaderboard"><span class="tab-icon">🏆</span>排行</button>
-  <button class="tab-item" data-screen="scrSocial"><span class="tab-icon">👥</span>社交</button>
-  <button class="tab-item" onclick="alert('📖 单词本页面即将上线')"><span class="tab-icon">📖</span>单词</button>
-  <button class="tab-item" data-screen="scrProfile"><span class="tab-icon">👤</span>个人</button>
-</div>
-></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="colors" class="section">
-    <h2>🎨 设计语言</h2>
-    <p class="desc">多邻国式色彩系统，大量使用圆角和卡片布局，移动优先设计。</p>
-    <div ﻿<div class="card">
-  <h3>色彩系统</h3>
-  <div class="swatch-row">
-    <div class="swatch"><div class="box" style="background:#58cc02;"></div><div class="label">主色 Green</div><div class="hex">#58cc02</div></div>
-    <div class="swatch"><div class="box" style="background:#1cb0f6;"></div><div class="label">辅色 Blue</div><div class="hex">#1cb0f6</div></div>
-    <div class="swatch"><div class="box" style="background:#ff9600;"></div><div class="label">橙色 Orange</div><div class="hex">#ff9600</div></div>
-    <div class="swatch"><div class="box" style="background:#ff4b4b;"></div><div class="label">错误 Red</div><div class="hex">#ff4b4b</div></div>
-    <div class="swatch"><div class="box" style="background:#7c3aed;"></div><div class="label">AI Purple</div><div class="hex">#7c3aed</div></div>
-    <div class="swatch"><div class="box" style="background:#4b4b4b;"></div><div class="label">文字 Text</div><div class="hex">#4b4b4b</div></div>
-  </div>
-</div>
-<div class="card">
-  <h3>设计原则</h3>
-  <div class="card-row">
-    <div class="card-item"><div class="icon">⚡</div><h4>即时反馈</h4><p>每个操作都有视觉/听觉反馈</p></div>
-    <div class="card-item"><div class="icon">🚪</div><h4>低门槛</h4><p>首次打开即可学习，无需注册</p></div>
-    <div class="card-item"><div class="icon">🔓</div><h4>渐进解锁</h4><p>内容逐步开放，避免信息过载</p></div>
-    <div class="card-item"><div class="icon">📱</div><h4>移动优先</h4><p>480×800，触摸友好 (≥44px)</p></div>
-  </div>
-</div>></div>
-  </section>
-
-  <section id="schema" class="section">
-    <h2>🗄️ 数据模型 <span class="badge">16 张表</span></h2>
-    <p class="desc">SQLite 核心表结构设计，覆盖用户、课程、进度、词汇、社交、聊天全链路。</p>
-    <div ﻿<div class="card">
-  <div class="schema-table" id="schemaContent"></div>
-</div>></div>
-  </section>
-
-  <section id="ai" class="section">
-    <h2>🤖 AI 功能</h2>
-    <p class="desc">AI 驱动的个性化学习体验，贯穿练习、对话、翻译、内容生成全流程。</p>
-    <div ﻿<div class="card-row">
-  <div class="card-item"><div class="icon">💬</div><h4>AI 口语对话</h4><p>场景对话，实时纠正语法和用词</p></div>
-  <div class="card-item"><div class="icon">🌐</div><h4>AI 双语翻译</h4><p>聊天自动互译，点击译文学单词</p></div>
-  <div class="card-item"><div class="icon">✍️</div><h4>AI 写作助手</h4><p>语法纠错、用词优化</p></div>
-  <div class="card-item"><div class="icon">🧠</div><h4>AI 内容生成</h4><p>根据水平自动生成练习内容</p></div>
-</div>></div>
-  </section>
-
-  <section id="roadmap" class="section">
-    <h2>🗺️ 开发路线图</h2>
-    <p class="desc">四阶段迭代开发，从核心学习循环到全功能发布。</p>
-    <div ﻿<div class="timeline">
-  <div class="timeline-item done">
-    <div class="phase">已完成</div>
-    <h4>阶段 0：项目初始化</h4>
-    <p>Tauri + Vue 3 骨架，模块化内核，Hello World</p>
-  </div>
-  <div class="timeline-item now">
-    <div class="phase">当前阶段</div>
-    <h4>阶段 1：核心学习循环</h4>
-    <p>数据库 → 课程路径 UI → 练习引擎 → 结算 → 用户系统</p>
-    <div class="tasks"><span class="tag tag-blue">SQLite</span><span class="tag tag-blue">课程模块</span><span class="tag tag-blue">练习引擎</span><span class="tag tag-blue">3 种题型</span><span class="tag tag-blue">进度持久化</span></div>
-  </div>
-  <div class="timeline-item">
-    <div class="phase">阶段 2</div>
-    <h4>游戏化系统</h4>
-    <p>连胜跟踪、等级、每日挑战、成就、段位联赛</p>
-    <div class="tasks"><span class="tag tag-orange">Streak</span><span class="tag tag-orange">升级</span><span class="tag tag-orange">每日任务</span><span class="tag tag-orange">成就</span><span class="tag tag-orange">联赛</span></div>
-  </div>
-  <div class="timeline-item">
-    <div class="phase">阶段 3</div>
-    <h4>扩展功能</h4>
-    <p>单词本 → 排行榜 → 社交 → AI 口语 → 更多语言</p>
-    <div class="tasks"><span class="tag tag-purple">词汇</span><span class="tag tag-purple">排行</span><span class="tag tag-purple">社交</span><span class="tag tag-purple">AI</span><span class="tag tag-purple">扩展</span></div>
-  </div>
-  <div class="timeline-item">
-    <div class="phase">阶段 4</div>
-    <h4>完善与发布</h4>
-    <p>设置、i18n、云同步、性能优化、商店发布</p>
-    <div class="tasks"><span class="tag tag-pink">设置</span><span class="tag tag-pink">i18n</span><span class="tag tag-pink">同步</span><span class="tag tag-pink">优化</span><span class="tag tag-pink">发布</span></div>
-  </div>
-</div>></div>
-  </section>
-
-  <section id="modules" class="section">
-    <h2>🧩 模块架构</h2>
-    <p class="desc">前后端模块化设计，每个功能独立文件夹，通过内核动态注册。</p>
-    <div ﻿<div class="card-row">
-  <div class="card-item"><div class="icon">✅</div><h4>shell</h4><p>App 外壳，导航布局</p><span class="tag tag-green">已有</span></div>
-  <div class="card-item"><div class="icon">✅</div><h4>hello</h4><p>演示模块</p><span class="tag tag-green">已有</span></div>
-  <div class="card-item"><div class="icon">🔲</div><h4>lessons</h4><p>课程系统核心</p><span class="tag tag-blue">待开发</span></div>
-  <div class="card-item"><div class="icon">🔲</div><h4>vocabulary</h4><p>单词本</p><span class="tag tag-blue">待开发</span></div>
-  <div class="card-item"><div class="icon">🔲</div><h4>quiz</h4><p>测验模块</p><span class="tag tag-blue">待开发</span></div>
-  <div class="card-item"><div class="icon">🔲</div><h4>progress</h4><p>进度追踪</p><span class="tag tag-blue">待开发</span></div>
-  <div class="card-item"><div class="icon">🔲</div><h4>social</h4><p>好友/社交 + 双语聊天</p><span class="tag tag-blue">待开发</span></div>
-  <div class="card-item"><div class="icon">🔲</div><h4>leaderboard</h4><p>排行榜</p><span class="tag tag-blue">待开发</span></div>
-  <div class="card-item"><div class="icon">🔲</div><h4>ai_speaking</h4><p>AI口语</p><span class="tag tag-blue">待开发</span></div>
-  <div class="card-item"><div class="icon">🔲</div><h4>achievements</h4><p>成就系统</p><span class="tag tag-blue">待开发</span></div>
-</div>
-<div class="card">
-  <h3>后端模块 (Rust)</h3>
-  <div class="card-row">
-    <div class="card-item"><div class="icon">✅</div><h4>database</h4><p>SQLite</p><span class="tag tag-green">已有骨架</span></div>
-    <div class="card-item"><div class="icon">🔲</div><h4>user</h4><p>用户管理</p><span class="tag tag-blue">待开发</span></div>
-    <div class="card-item"><div class="icon">🔲</div><h4>course</h4><p>课程内容</p><span class="tag tag-blue">待开发</span></div>
-    <div class="card-item"><div class="icon">🔲</div><h4>lesson</h4><p>练习引擎</p><span class="tag tag-blue">待开发</span></div>
-    <div class="card-item"><div class="icon">🔲</div><h4>tts</h4><p>语音合成</p><span class="tag tag-blue">待开发</span></div>
-    <div class="card-item"><div class="icon">🔲</div><h4>ai</h4><p>AI 集成层</p><span class="tag tag-blue">待开发</span></div>
-  </div>
-</div>></div>
-  </section>
-
-</main>
-
-<script src="shared/data.js"></script>
-<script src="shared/app.js"></script>
-<script src="phone/screens/home/logic.js"></script>
-<script src="phone/screens/exercise/logic.js"></script>
-<script src="phone/screens/complete/logic.js"></script>
-<script src="phone/screens/leaderboard/logic.js"></script>
-<script src="phone/screens/profile/logic.js"></script>
-<script src="phone/screens/social/logic.js"></script>
-<script src="phone/screens/bilingual-chat/logic.js"></script>
-<script src="phone/screens/ai-chat/logic.js"></script>
 </body>
 </html>

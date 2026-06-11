@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Idioma - 关卡完成</title>
+<style>
+:root{--green:#58cc02;--green-hover:#46a302;--green-bg:#eaffd6;--blue:#1cb0f6;--blue-hover:#1899d6;--blue-bg:#ddf4ff;--orange:#ff9600;--orange-hover:#e08500;--orange-bg:#fff0d6;--red:#ff4b4b;--red-bg:#ffe0e0;--purple:#7c3aed;--purple-bg:#ede9fe;--pink:#ec4899;--pink-bg:#fce7f3;--text:#3a3a3a;--text-light:#777;--text-lighter:#aaa;--bg:#f7f7f7;--white:#fff;--border:#e5e5e5;--shadow:0 2px 12px rgba(0,0,0,.08);--shadow-lg:0 8px 30px rgba(0,0,0,.12);--radius:12px;--radius-sm:8px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;font-size:15px;color:var(--text);background:#e8e8e8}
+.phone-wrap{display:flex;justify-content:center;margin:30px 0}
+.phone{width:320px;height:640px;background:var(--white);border-radius:40px;box-shadow:var(--shadow-lg);border:2px solid #ddd;position:relative;overflow:hidden;flex-shrink:0}
+.phone-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:24px;background:#222;border-radius:0 0 16px 16px;z-index:10}
+.phone-screen{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;background:var(--bg)}
+.phone-screen::-webkit-scrollbar{width:0}
+.phone-content{padding:8px 16px 60px}
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 20px 6px;font-size:11px;font-weight:600;background:var(--white);position:sticky;top:0;z-index:5}
+.status-bar .time{font-weight:700}
+.screen-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.back-btn{background:none;border:none;font-size:20px;cursor:pointer;font-family:inherit;padding:0}
+.screen-title{font-weight:600;font-size:14px}
+.complete-overlay{text-align:center;padding:30px 20px}
+.complete-overlay .big-icon{font-size:64px;margin-bottom:8px}
+.complete-overlay h3{font-size:22px;margin-bottom:4px;color:var(--text)}
+.complete-overlay .sub{color:var(--text-light);font-size:14px;margin-bottom:16px}
+.xp-burst{display:inline-flex;align-items:center;gap:8px;background:var(--green);color:#fff;padding:12px 28px;border-radius:50px;font-size:28px;font-weight:700;margin:12px 0}
+.xp-burst .xp-icon{font-size:32px}
+.streak-update{display:flex;justify-content:center;gap:24px;margin:16px 0}
+.streak-item{text-align:center}
+.streak-item .num{font-size:20px;font-weight:700;color:var(--orange)}
+.streak-item .label{font-size:11px;color:var(--text-light)}
+.complete-btn{background:var(--green);color:#fff;border:none;padding:14px 40px;border-radius:50px;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px;font-family:inherit;transition:all .2s}
+.complete-btn:hover{background:var(--green-hover);transform:translateY(-1px)}
+@media(max-width:900px){.phone{width:280px;height:560px}}
+@media(max-width:600px){.phone{width:240px;height:480px;border-radius:24px}.phone-notch{width:80px;height:18px}}
+</style>
+</head>
+<body>
+<div class="phone-wrap">
+<div class="phone">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div class="status-bar"><span class="time">9:41</span><span>📶 🔋 100%</span></div>
+<div class="phone-content">
+<div class="screen-header">
+  <button class="back-btn">←</button>
+  <span class="screen-title">关卡完成</span>
+</div>
+<div class="complete-overlay">
+  <div class="big-icon">🎉</div>
+  <h3>¡Excelente!</h3>
+  <div class="sub">基础问候 · 已完成</div>
+  <div class="xp-burst"><span class="xp-icon">⭐</span> +45 XP</div>
+  <div class="streak-update">
+    <div class="streak-item"><div class="num">🔥 8</div><div class="label">连胜天数</div></div>
+    <div class="streak-item"><div class="num">💎 +5</div><div class="label">宝石获得</div></div>
+    <div class="streak-item"><div class="num">92%</div><div class="label">正确率</div></div>
+  </div>
+  <button class="complete-btn">继续学习 →</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body>
+</html>
