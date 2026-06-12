@@ -38,17 +38,11 @@ body {
   border: 1px solid var(--border); transition: all .2s;
   display: flex; flex-direction: column;
 }
-.card-item:hover { box-shadow: var(--shadow); border-color: var(--green); }
+.card-item:hover { box-shadow: var(--shadow); border-color: var(--green); transform: translateY(-2px); }
+.card-item.clickable { cursor: pointer; }
 .card-item .icon { font-size: 32px; margin-bottom: 10px; }
 .card-item h4 { font-size: 16px; margin-bottom: 6px; }
 .card-item p { font-size: 13px; color: var(--text-light); line-height: 1.5; flex: 1; }
-.card-item .footer { margin-top: 16px; display: flex; align-items: center; gap: 8px; }
-.card-item .proto-link {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 13px; font-weight: 600; color: var(--blue);
-  text-decoration: none; cursor: pointer; transition: color .2s;
-}
-.card-item .proto-link:hover { color: var(--blue-hover); }
 .tag { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
 .tag-green { background: var(--green-bg); color: var(--green); }
 .tag-blue { background: var(--blue-bg); color: var(--blue); }
@@ -66,63 +60,42 @@ body.embed .main { padding: 24px 20px; }
 <main class="main">
   <section class="section">
     <h2>📚 学习</h2>
-    <p class="desc">学习模块是 Idioma 的核心功能区，包含课程路径、练习答题、AI 口语练习、游戏化系统、单词本、测验考试和学习进度追踪等子模块。点击「查看原型」可预览交互原型。</p>
+    <p class="desc">学习模块是 Idioma 的核心功能区，包含课程路径、练习答题、AI 口语练习、游戏化系统、单词本、测验考试和学习进度追踪等子模块。点击下方卡片切换查看功能和原型。</p>
     <div class="card-row">
-      <div class="card-item">
+      <div class="card-item clickable" onclick="parent.postMessage({type:'nav', section:'navigation', prototype:'home'}, '*');">
         <div class="icon">🏠</div>
         <h4>课程路径</h4>
         <p>结构化学习路径，从入门到精通，逐步解锁课程节点</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'navigation', prototype:'home'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
       </div>
-      <div class="card-item">
+      <div class="card-item clickable" onclick="parent.postMessage({type:'nav', section:'exercises', prototype:'exercise'}, '*');">
         <div class="icon">✍️</div>
         <h4>练习答题</h4>
         <p>多种题型交互练习，覆盖听说读写全能力训练</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'exercises', prototype:'exercise'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
       </div>
-      <div class="card-item">
+      <div class="card-item clickable" onclick="parent.postMessage({type:'nav', section:'ai', prototype:'ai-chat'}, '*');">
         <div class="icon">🤖</div>
         <h4>AI 口语练习</h4>
         <p>与 AI 进行场景对话，实时纠正语法和发音</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'ai', prototype:'ai-chat'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
       </div>
-      <div class="card-item">
+      <div class="card-item clickable" onclick="parent.postMessage({type:'nav', section:'gamification', prototype:'complete'}, '*');">
         <div class="icon">🎮</div>
         <h4>游戏化系统</h4>
         <p>XP 经验、连胜、段位联赛、成就徽章等游戏化激励</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'gamification', prototype:'complete'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
       </div>
-      <div class="card-item">
+      <div class="card-item clickable" onclick="parent.postMessage({type:'nav', section:'vocabulary'}, '*');">
         <div class="icon">📖</div>
         <h4>单词本</h4>
         <p>已学词汇分组管理，支持闪卡复习与搜索</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'vocabulary'}, '*');" href="javascript:;">查看详情 →</a>
-        </div>
       </div>
-      <div class="card-item">
+      <div class="card-item clickable" onclick="parent.postMessage({type:'nav', section:'quiz'}, '*');">
         <div class="icon">📝</div>
         <h4>测验考试</h4>
         <p>阶段性测验与模拟考试，检验学习成果</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'quiz'}, '*');" href="javascript:;">查看详情 →</a>
-        </div>
       </div>
-      <div class="card-item">
+      <div class="card-item clickable" onclick="parent.postMessage({type:'nav', section:'progress'}, '*');">
         <div class="icon">📈</div>
         <h4>学习进度</h4>
         <p>可视化学习统计与进度追踪，掌握每日学习数据</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'progress'}, '*');" href="javascript:;">查看详情 →</a>
-        </div>
       </div>
     </div>
   </section>

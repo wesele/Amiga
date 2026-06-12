@@ -56,6 +56,7 @@ body {
   border: 1px solid var(--border); transition: all .2s; position: relative;
 }
 .card-item:hover { box-shadow: var(--shadow); border-color: var(--green); }
+.card-item.clickable { cursor: pointer; }
 .card-item .icon { font-size: 28px; margin-bottom: 8px; }
 .card-item h4 { font-size: 15px; margin-bottom: 4px; }
 .card-item p { font-size: 12px; color: var(--text-light); line-height: 1.5; }
@@ -112,7 +113,7 @@ body.embed .main { padding: 20px 32px; max-width: none; }
     <p class="desc">竞技与成就系统 — 排行榜竞争、段位联赛、成就收集，激发持续学习动力。</p>
 
     <div class="card-row">
-      <div class="card-item" onclick="parent.postMessage({type:'nav', prototype:'leaderboard'}, '*');" style="cursor:pointer;">
+      <div class="card-item clickable" onclick="parent.postMessage({type:'nav', prototype:'leaderboard'}, '*');">
         <div class="icon">🏆</div>
         <h4>排行榜</h4>
         <p>每周 XP 排行榜，与全球学习者竞技。查看好友排名、联赛分组，争夺周冠军宝座。</p>
