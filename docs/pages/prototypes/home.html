@@ -5,44 +5,57 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Idioma - 学习</title>
 <style>
-:root{--green:#58cc02;--green-hover:#46a302;--green-bg:#eaffd6;--blue:#1cb0f6;--blue-hover:#1899d6;--blue-bg:#ddf4ff;--orange:#ff9600;--orange-hover:#e08500;--orange-bg:#fff0d6;--red:#ff4b4b;--red-bg:#ffe0e0;--purple:#7c3aed;--purple-bg:#ede9fe;--pink:#ec4899;--pink-bg:#fce7f3;--text:#3a3a3a;--text-light:#777;--text-lighter:#aaa;--bg:#f7f7f7;--white:#fff;--border:#e5e5e5;--shadow:0 2px 12px rgba(0,0,0,.08);--shadow-lg:0 8px 30px rgba(0,0,0,.12);--radius:12px;--radius-sm:8px}
+:root{--green:#58cc02;--green-hover:#46a302;--green-bg:#eaffd6;--blue:#1cb0f6;--blue-hover:#1899d6;--blue-bg:#ddf4ff;--orange:#ff9600;--orange-hover:#e08500;--orange-bg:#fff0d6;--red:#ff4b4b;--red-bg:#ffe0e0;--purple:#7c3aed;--purple-bg:#ede9fe;--pink:#ec4899;--pink-bg:#fce7f3;--text:#2d2d2d;--text-light:#777;--text-lighter:#aaa;--bg:#f0f0f0;--white:#fff;--border:#e5e5e5;--shadow:0 2px 12px rgba(0,0,0,.08);--shadow-lg:0 8px 30px rgba(0,0,0,.15);--radius:12px;--radius-sm:8px}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;font-size:15px;color:var(--text);background:#e8e8e8}
+body{display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;font-size:15px;color:var(--text);background:#d4d4d4}
 .phone-wrap{display:flex;justify-content:center;margin:30px 0}
-.phone{width:320px;height:640px;background:var(--white);border-radius:40px;box-shadow:var(--shadow-lg);border:2px solid #ddd;position:relative;overflow:hidden;flex-shrink:0}
-.phone-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:24px;background:#222;border-radius:0 0 16px 16px;z-index:10}
-.phone-screen{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;background:var(--bg)}
+.phone{width:320px;height:640px;background:var(--white);border-radius:44px;box-shadow:0 12px 40px rgba(0,0,0,.2),inset 0 0 0 1px rgba(255,255,255,.1);border:3px solid #1a1a1a;position:relative;overflow:hidden;flex-shrink:0}
+.phone-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:130px;height:28px;background:#1a1a1a;border-radius:0 0 18px 18px;z-index:10}
+.phone-notch::after{content:'';position:absolute;top:6px;left:50%;transform:translateX(-50%);width:10px;height:10px;border-radius:50%;border:2px solid #333;background:transparent}
+.phone-screen{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;background:var(--white)}
 .phone-screen::-webkit-scrollbar{width:0}
-.phone-content{padding:8px 16px 60px}
-.status-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 20px 6px;font-size:11px;font-weight:600;background:var(--white);position:sticky;top:0;z-index:5}
-.status-bar .time{font-weight:700}
-.tab-bar{display:flex;background:var(--white);border-top:1px solid var(--border);position:sticky;bottom:0;z-index:5;padding:4px 0;justify-content:space-around}
-.tab-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 8px;cursor:pointer;border:none;background:none;font-size:10px;color:var(--text-lighter);transition:all .2s;font-family:inherit}
-.tab-item .tab-icon{font-size:20px;line-height:1}
-.tab-item.active{color:var(--green)}
-.home-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.home-header .streak{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:var(--orange)}
-.home-header .gems{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:var(--blue)}
-.ai-btn{display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--purple),var(--pink));color:#fff;border:none;border-radius:var(--radius);padding:12px 16px;width:100%;margin:12px 0;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:transform .2s}
+.phone-content{padding:8px 16px 0}
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:14px 20px 6px;font-size:12px;font-weight:700;background:var(--white);position:sticky;top:0;z-index:9;color:#1a1a1a}
+.status-bar .time{font-weight:800;font-size:13px}
+.status-icons{display:flex;align-items:center;gap:4px;font-size:11px}
+.home-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-top:4px}
+.home-header .streak{display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;color:var(--orange);background:var(--orange-bg);padding:4px 12px 4px 8px;border-radius:50px}
+.home-header .gems{display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;color:var(--blue);background:var(--blue-bg);padding:4px 12px 4px 8px;border-radius:50px}
+.home-header .logo{font-size:18px;font-weight:800;color:var(--green);letter-spacing:-.5px}
+.ai-btn{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:14px;padding:14px 18px;width:100%;margin:10px 0 14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:transform .15s;box-shadow:0 4px 14px rgba(124,58,237,.3)}
 .ai-btn:hover{transform:scale(1.02)}
-.ai-btn .ai-icon{font-size:24px}
-.course-path{position:relative;padding:8px 0}
-.path-node{display:flex;align-items:center;gap:12px;margin-bottom:4px;padding:10px 14px;background:var(--white);border-radius:var(--radius-sm);border:2px solid var(--border);transition:all .2s}
+.ai-btn .ai-icon{font-size:26px;width:36px;height:36px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.ai-btn .ai-badge{font-size:10px;background:rgba(255,255,255,.25);padding:2px 8px;border-radius:50px;margin-left:auto}
+.course-label{font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.course-label span{font-size:11px;font-weight:400;color:var(--text-lighter)}
+.course-path{position:relative;padding:0 0 16px}
+.path-node{display:flex;align-items:center;gap:12px;margin-bottom:2px;padding:12px 14px;background:var(--white);border-radius:var(--radius-sm);border:2px solid var(--border);transition:all .2s;position:relative;cursor:pointer}
+.path-node:hover{transform:translateX(4px)}
 .path-node.completed{border-color:var(--green);background:var(--green-bg)}
-.path-node.active{border-color:var(--green);background:var(--white);box-shadow:0 0 0 3px rgba(88,204,2,.15)}
-.path-node.locked{opacity:.5}
-.path-node .node-icon{font-size:22px;width:32px;text-align:center}
-.path-node .node-info{flex:1}
-.path-node .node-title{font-size:13px;font-weight:600}
-.path-node .node-sub{font-size:11px;color:var(--text-light)}
-.path-node .node-xp{font-size:11px;color:var(--green);font-weight:600}
-.path-node .node-check{color:var(--green);font-size:18px}
-.path-connector{width:2px;height:16px;background:var(--border);margin-left:22px}
+.path-node.active{border-color:var(--green);background:var(--white);box-shadow:0 0 0 3px rgba(88,204,2,.15),0 2px 8px rgba(0,0,0,.06)}
+.path-node.locked{opacity:.55;filter:grayscale(.3)}
+.path-node .n-icon{font-size:24px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--bg);flex-shrink:0}
+.path-node.completed .n-icon{background:var(--green-bg)}
+.path-node.active .n-icon{background:var(--green-bg);border:2px solid var(--green)}
+.path-node.locked .n-icon{background:var(--border)}
+.path-node .n-info{flex:1;min-width:0}
+.path-node .n-title{font-size:14px;font-weight:700}
+.path-node .n-sub{font-size:11px;color:var(--text-light);margin-top:1px}
+.path-node .n-xp{font-size:11px;font-weight:700;color:var(--green);background:var(--green-bg);padding:2px 8px;border-radius:50px;white-space:nowrap}
+.path-node.locked .n-xp{color:var(--text-lighter);background:var(--border)}
+.node-check{width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.path-connector{width:3px;height:20px;background:var(--border);margin-left:28px;border-radius:2px}
 .path-connector.completed{background:var(--green)}
+.tab-bar{display:flex;background:var(--white);border-top:1px solid var(--border);position:sticky;bottom:0;z-index:9;padding:4px 0;justify-content:space-around;box-shadow:0 -2px 10px rgba(0,0,0,.04)}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 8px;cursor:pointer;border:none;background:none;font-size:10px;color:var(--text-lighter);transition:all .2s;font-family:inherit}
+.tab-item .tab-icon{font-size:20px;line-height:1}
+.tab-item .tab-label{font-size:10px;font-weight:500}
+.tab-item.active{color:var(--green);position:relative}
+.tab-item.active::after{content:'';position:absolute;top:-1px;width:20px;height:3px;background:var(--green);border-radius:0 0 3px 3px}
 @media(max-width:900px){.phone{width:280px;height:560px}}
 @media(max-width:600px){.phone{width:240px;height:480px;border-radius:24px}.phone-notch{width:80px;height:18px}}
-body.embed { background: var(--bg); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-body.embed .phone { margin: 10px auto; }
+body.embed{background:#e8e8e8;display:flex;align-items:center;justify-content:center;min-height:100vh}
+body.embed .phone{margin:10px auto}
 </style>
 </head>
 <body>
@@ -51,55 +64,57 @@ body.embed .phone { margin: 10px auto; }
 <div class="phone">
 <div class="phone-notch"></div>
 <div class="phone-screen">
-<div class="status-bar"><span class="time">9:41</span><span>📶 🔋 100%</span></div>
+<div class="status-bar"><span class="time">9:41</span><span class="status-icons">📶 5G 🔋 100%</span></div>
 <div class="phone-content">
 <div class="home-header">
   <div class="streak">🔥 7</div>
-  <div style="font-size:16px;font-weight:700;color:var(--green)">Idioma</div>
+  <div class="logo">Idioma</div>
   <div class="gems">💎 128</div>
 </div>
 <button class="ai-btn">
-  <span class="ai-icon">🤖</span> AI 口语练习
-  <span style="margin-left:auto;font-size:12px;opacity:.8">✨ 新</span>
+  <span class="ai-icon">🤖</span>
+  <span style="text-align:left"><div style="font-size:14px;font-weight:700">AI 口语练习</div><div style="font-size:11px;opacity:.8;font-weight:400">随时对话，自信开口</div></span>
+  <span class="ai-badge">✨ 新</span>
 </button>
+<div class="course-label">📚 课程路径 <span>• 西班牙语</span></div>
 <div class="course-path">
   <div class="path-node completed">
-    <div class="node-icon">🔤</div>
-    <div class="node-info"><div class="node-title">字母与发音</div><div class="node-sub">✅ 已完成</div></div>
-    <div class="node-xp">⭐ +15</div><div class="node-check">✓</div>
+    <div class="n-icon">🔤</div>
+    <div class="n-info"><div class="n-title">字母与发音</div><div class="n-sub">掌握基础发音规则</div></div>
+    <div class="n-xp">+15 XP</div><div class="node-check">✓</div>
   </div>
   <div class="path-connector completed"></div>
   <div class="path-node completed">
-    <div class="node-icon">👋</div>
-    <div class="node-info"><div class="node-title">基础问候</div><div class="node-sub">✅ 已完成</div></div>
-    <div class="node-xp">⭐ +20</div><div class="node-check">✓</div>
+    <div class="n-icon">👋</div>
+    <div class="n-info"><div class="n-title">基础问候</div><div class="n-sub">学会日常打招呼</div></div>
+    <div class="n-xp">+20 XP</div><div class="node-check">✓</div>
   </div>
   <div class="path-connector completed"></div>
   <div class="path-node active">
-    <div class="node-icon">👨‍👩‍👧</div>
-    <div class="node-info"><div class="node-title">家庭成员</div><div class="node-sub">点击开始</div></div>
-    <div class="node-xp">⭐ +22</div>
+    <div class="n-icon">👨‍👩‍👧</div>
+    <div class="n-info"><div class="n-title">家庭成员</div><div class="n-sub" style="color:var(--green);font-weight:600">▶ 点击开始</div></div>
+    <div class="n-xp">+22 XP</div>
   </div>
   <div class="path-connector"></div>
   <div class="path-node locked">
-    <div class="node-icon">🍎</div>
-    <div class="node-info"><div class="node-title">食物与饮料</div><div class="node-sub">🔒 完成前置关卡</div></div>
-    <div class="node-xp">⭐ +20</div>
+    <div class="n-icon">🍎</div>
+    <div class="n-info"><div class="n-title">食物与饮料</div><div class="n-sub">🔒 完成「家庭成员」解锁</div></div>
+    <div class="n-xp">+20 XP</div>
   </div>
   <div class="path-connector"></div>
   <div class="path-node locked">
-    <div class="node-icon">☀️</div>
-    <div class="node-info"><div class="node-title">日常用语</div><div class="node-sub">🔒 完成前置关卡</div></div>
-    <div class="node-xp">⭐ +25</div>
+    <div class="n-icon">☀️</div>
+    <div class="n-info"><div class="n-title">日常用语</div><div class="n-sub">🔒 完成前置关卡</div></div>
+    <div class="n-xp">+25 XP</div>
   </div>
 </div>
 </div>
 <div class="tab-bar">
-  <button class="tab-item active"><span class="tab-icon">🏠</span>学习</button>
-  <button class="tab-item"><span class="tab-icon">🏆</span>排行</button>
-  <button class="tab-item"><span class="tab-icon">👥</span>社交</button>
-  <button class="tab-item"><span class="tab-icon">📖</span>单词</button>
-  <button class="tab-item"><span class="tab-icon">👤</span>个人</button>
+  <button class="tab-item active"><span class="tab-icon">🏠</span><span class="tab-label">学习</span></button>
+  <button class="tab-item"><span class="tab-icon">🏆</span><span class="tab-label">排行</span></button>
+  <button class="tab-item"><span class="tab-icon">👥</span><span class="tab-label">社交</span></button>
+  <button class="tab-item"><span class="tab-icon">📖</span><span class="tab-label">单词</span></button>
+  <button class="tab-item"><span class="tab-icon">👤</span><span class="tab-label">个人</span></button>
 </div>
 </div>
 </div>

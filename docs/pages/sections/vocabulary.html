@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📚 学习 - Idioma 产品交互设计文档</title>
+<title>📖 单词本 - Idioma 产品交互设计文档</title>
 <style>:root {
   --green: #58cc02; --green-hover: #46a302; --green-bg: #eaffd6;
   --blue: #1cb0f6; --blue-hover: #1899d6; --blue-bg: #ddf4ff;
@@ -65,64 +65,48 @@ body.embed .main { padding: 24px 20px; }
 
 <main class="main">
   <section class="section">
-    <h2>📚 学习</h2>
-    <p class="desc">学习模块是 Idioma 的核心功能区，包含课程路径、练习答题、AI 口语练习、游戏化系统、单词本、测验考试和学习进度追踪等子模块。点击「查看原型」可预览交互原型。</p>
+    <h2>📖 单词本</h2>
+    <p class="desc">单词本是用户已学词汇的集中管理工具，支持按单元/课程分组查看、搜索筛选、闪卡复习以及导入导出，同时提供每个单词的详细学习统计。</p>
     <div class="card-row">
       <div class="card-item">
-        <div class="icon">🏠</div>
-        <h4>课程路径</h4>
-        <p>结构化学习路径，从入门到精通，逐步解锁课程节点</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'navigation', prototype:'home'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
+        <div class="icon">📂</div>
+        <h4>按单元分组</h4>
+        <p>单词按照所属单元和课程自动归类，支持按课程进度筛选已学/未学词汇，树形分组一目了然</p>
       </div>
       <div class="card-item">
-        <div class="icon">✍️</div>
-        <h4>练习答题</h4>
-        <p>多种题型交互练习，覆盖听说读写全能力训练</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'exercises', prototype:'exercise'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
+        <div class="icon">🔍</div>
+        <h4>搜索筛选</h4>
+        <p>支持按单词、翻译、标签搜索，按掌握状态、词性、单元等多维度组合筛选，快速定位目标词汇</p>
       </div>
       <div class="card-item">
-        <div class="icon">🤖</div>
-        <h4>AI 口语练习</h4>
-        <p>与 AI 进行场景对话，实时纠正语法和发音</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'ai', prototype:'ai-chat'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
+        <div class="icon">🃏</div>
+        <h4>闪卡复习</h4>
+        <p>正面显示外语词、反面显示释义和例句，支持左右滑动切换、标记熟悉度，间隔重复智能排期</p>
       </div>
       <div class="card-item">
-        <div class="icon">🎮</div>
-        <h4>游戏化系统</h4>
-        <p>XP 经验、连胜、段位联赛、成就徽章等游戏化激励</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'gamification', prototype:'complete'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
+        <div class="icon">📤</div>
+        <h4>导入导出</h4>
+        <p>支持 CSV/JSON 格式导入自定义词表，导出已学词汇列表，方便备份和跨设备迁移</p>
       </div>
       <div class="card-item">
-        <div class="icon">📖</div>
-        <h4>单词本</h4>
-        <p>已学词汇分组管理，支持闪卡复习与搜索</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'vocabulary'}, '*');" href="javascript:;">查看详情 →</a>
-        </div>
+        <div class="icon">📊</div>
+        <h4>学习统计</h4>
+        <p>每个单词记录学习次数、正确率、上次复习时间、掌握程度等级，数据驱动针对性复习</p>
       </div>
       <div class="card-item">
-        <div class="icon">📝</div>
-        <h4>测验考试</h4>
-        <p>阶段性测验与模拟考试，检验学习成果</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'quiz'}, '*');" href="javascript:;">查看详情 →</a>
-        </div>
+        <div class="icon">🏷️</div>
+        <h4>标签管理</h4>
+        <p>用户可自定义标签对单词进行分类（如"易错词""餐饮主题"），标签支持多选组合过滤</p>
       </div>
       <div class="card-item">
-        <div class="icon">📈</div>
-        <h4>学习进度</h4>
-        <p>可视化学习统计与进度追踪，掌握每日学习数据</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'progress'}, '*');" href="javascript:;">查看详情 →</a>
-        </div>
+        <div class="icon">🔁</div>
+        <h4>间隔重复</h4>
+        <p>基于 SM-2 算法自动安排复习时间，对易错词增加出现频率，巩固长期记忆</p>
+      </div>
+      <div class="card-item">
+        <div class="icon">🎯</div>
+        <h4>掌握状态</h4>
+        <p>五级掌握度标记（刚学→熟悉→已掌握→精通→ mastered），进度可视化一目了然</p>
       </div>
     </div>
   </section>

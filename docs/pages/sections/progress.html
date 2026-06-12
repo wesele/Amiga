@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📚 学习 - Idioma 产品交互设计文档</title>
+<title>📈 学习进度 - Idioma 产品交互设计文档</title>
 <style>:root {
   --green: #58cc02; --green-hover: #46a302; --green-bg: #eaffd6;
   --blue: #1cb0f6; --blue-hover: #1899d6; --blue-bg: #ddf4ff;
@@ -65,64 +65,48 @@ body.embed .main { padding: 24px 20px; }
 
 <main class="main">
   <section class="section">
-    <h2>📚 学习</h2>
-    <p class="desc">学习模块是 Idioma 的核心功能区，包含课程路径、练习答题、AI 口语练习、游戏化系统、单词本、测验考试和学习进度追踪等子模块。点击「查看原型」可预览交互原型。</p>
+    <h2>📈 学习进度</h2>
+    <p class="desc">学习进度模块以丰富的可视化图表全面追踪用户的学习数据，涵盖 XP 变化趋势、技能完成度、学习时长、词汇增长量以及连续签到日历等方面。</p>
     <div class="card-row">
       <div class="card-item">
-        <div class="icon">🏠</div>
-        <h4>课程路径</h4>
-        <p>结构化学习路径，从入门到精通，逐步解锁课程节点</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'navigation', prototype:'home'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
+        <div class="icon">⭐</div>
+        <h4>XP 趋势图</h4>
+        <p>日/周/月三个时间维度的 XP 获取曲线，可切换视图查看短期爆发和长期积累</p>
       </div>
       <div class="card-item">
-        <div class="icon">✍️</div>
-        <h4>练习答题</h4>
-        <p>多种题型交互练习，覆盖听说读写全能力训练</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'exercises', prototype:'exercise'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
+        <div class="icon">📊</div>
+        <h4>技能完成度</h4>
+        <p>每个单元/课程的技能树完成百分比，圆形进度和条形图双展示，一目了然</p>
       </div>
       <div class="card-item">
-        <div class="icon">🤖</div>
-        <h4>AI 口语练习</h4>
-        <p>与 AI 进行场景对话，实时纠正语法和发音</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'ai', prototype:'ai-chat'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
-      </div>
-      <div class="card-item">
-        <div class="icon">🎮</div>
-        <h4>游戏化系统</h4>
-        <p>XP 经验、连胜、段位联赛、成就徽章等游戏化激励</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'gamification', prototype:'complete'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
-      </div>
-      <div class="card-item">
-        <div class="icon">📖</div>
-        <h4>单词本</h4>
-        <p>已学词汇分组管理，支持闪卡复习与搜索</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'vocabulary'}, '*');" href="javascript:;">查看详情 →</a>
-        </div>
-      </div>
-      <div class="card-item">
-        <div class="icon">📝</div>
-        <h4>测验考试</h4>
-        <p>阶段性测验与模拟考试，检验学习成果</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'quiz'}, '*');" href="javascript:;">查看详情 →</a>
-        </div>
+        <div class="icon">⏰</div>
+        <h4>学习时长</h4>
+        <p>统计每日/每周学习总时长，按技能模块（听说读写）拆分，分析时间分配</p>
       </div>
       <div class="card-item">
         <div class="icon">📈</div>
-        <h4>学习进度</h4>
-        <p>可视化学习统计与进度追踪，掌握每日学习数据</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'progress'}, '*');" href="javascript:;">查看详情 →</a>
-        </div>
+        <h4>词汇增长</h4>
+        <p>累计学习词汇量随时间变化的增长曲线，区分已掌握和接触中的词汇</p>
+      </div>
+      <div class="card-item">
+        <div class="icon">🔥</div>
+        <h4>连续签到</h4>
+        <p>日历热力图展示每日学习活跃度，颜色深浅代表学习量，连续签到天数醒目提示</p>
+      </div>
+      <div class="card-item">
+        <div class="icon">🎯</div>
+        <h4>目标追踪</h4>
+        <p>自定义每日目标（XP/时长/课程数），目标完成进度实时更新，激励持续学习</p>
+      </div>
+      <div class="card-item">
+        <div class="icon">🏅</div>
+        <h4>成就进度</h4>
+        <p>各项成就徽章的解锁进度列表，包含达成条件和当前完成度，指引努力方向</p>
+      </div>
+      <div class="card-item">
+        <div class="icon">📅</div>
+        <h4>学习日历</h4>
+        <p>月视图日历标注每日学习活动和成果，支持点击查看历史某日的详细学习记录</p>
       </div>
     </div>
   </section>

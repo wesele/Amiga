@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📚 学习 - Idioma 产品交互设计文档</title>
+<title>📝 测验考试 - Idioma 产品交互设计文档</title>
 <style>:root {
   --green: #58cc02; --green-hover: #46a302; --green-bg: #eaffd6;
   --blue: #1cb0f6; --blue-hover: #1899d6; --blue-bg: #ddf4ff;
@@ -65,64 +65,48 @@ body.embed .main { padding: 24px 20px; }
 
 <main class="main">
   <section class="section">
-    <h2>📚 学习</h2>
-    <p class="desc">学习模块是 Idioma 的核心功能区，包含课程路径、练习答题、AI 口语练习、游戏化系统、单词本、测验考试和学习进度追踪等子模块。点击「查看原型」可预览交互原型。</p>
+    <h2>📝 测验考试</h2>
+    <p class="desc">测验考试模块提供阶段性单元测试和全真模拟考试，支持计时模式、错题回顾与详细成绩分析，帮助用户检验学习成果并查漏补缺。</p>
     <div class="card-row">
       <div class="card-item">
-        <div class="icon">🏠</div>
-        <h4>课程路径</h4>
-        <p>结构化学习路径，从入门到精通，逐步解锁课程节点</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'navigation', prototype:'home'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
-      </div>
-      <div class="card-item">
-        <div class="icon">✍️</div>
-        <h4>练习答题</h4>
-        <p>多种题型交互练习，覆盖听说读写全能力训练</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'exercises', prototype:'exercise'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
-      </div>
-      <div class="card-item">
-        <div class="icon">🤖</div>
-        <h4>AI 口语练习</h4>
-        <p>与 AI 进行场景对话，实时纠正语法和发音</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'ai', prototype:'ai-chat'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
-      </div>
-      <div class="card-item">
-        <div class="icon">🎮</div>
-        <h4>游戏化系统</h4>
-        <p>XP 经验、连胜、段位联赛、成就徽章等游戏化激励</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'gamification', prototype:'complete'}, '*');" href="javascript:;">查看原型 →</a>
-        </div>
-      </div>
-      <div class="card-item">
-        <div class="icon">📖</div>
-        <h4>单词本</h4>
-        <p>已学词汇分组管理，支持闪卡复习与搜索</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'vocabulary'}, '*');" href="javascript:;">查看详情 →</a>
-        </div>
+        <div class="icon">📋</div>
+        <h4>单元测试</h4>
+        <p>每个单元完成后可参加阶段性测试，覆盖本单元所有知识点，通过后解锁下一单元</p>
       </div>
       <div class="card-item">
         <div class="icon">📝</div>
-        <h4>测验考试</h4>
-        <p>阶段性测验与模拟考试，检验学习成果</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'quiz'}, '*');" href="javascript:;">查看详情 →</a>
-        </div>
+        <h4>模拟考试</h4>
+        <p>全真模拟综合考试，混合多单元知识点，贴近真实语言能力评估场景</p>
+      </div>
+      <div class="card-item">
+        <div class="icon">⏱️</div>
+        <h4>计时模式</h4>
+        <p>限时答题挑战，每道题有时间限制，超时自动跳过，训练快速反应能力</p>
+      </div>
+      <div class="card-item">
+        <div class="icon">❌</div>
+        <h4>错题回顾</h4>
+        <p>自动收集所有答错题目，按知识点分类展示，支持重做和针对性强化练习</p>
       </div>
       <div class="card-item">
         <div class="icon">📈</div>
-        <h4>学习进度</h4>
-        <p>可视化学习统计与进度追踪，掌握每日学习数据</p>
-        <div class="footer">
-          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'progress'}, '*');" href="javascript:;">查看详情 →</a>
-        </div>
+        <h4>成绩追踪</h4>
+        <p>每次测验记录总分、正确率、用时，生成历史成绩趋势曲线，直观反映进步</p>
+      </div>
+      <div class="card-item">
+        <div class="icon">🎚️</div>
+        <h4>难度等级</h4>
+        <p>支持初级/中级/高级三档难度选择，也可由系统根据当前水平智能推荐</p>
+      </div>
+      <div class="card-item">
+        <div class="icon">🔀</div>
+        <h4>随机出题</h4>
+        <p>每次测试题序和选项随机排列，确保多次练习不重复，防止死记硬背</p>
+      </div>
+      <div class="card-item">
+        <div class="icon">📊</div>
+        <h4>成绩分析</h4>
+        <p>按题型、知识点、技能维度（听说读写）拆解得分，精准定位薄弱环节</p>
       </div>
     </div>
   </section>
