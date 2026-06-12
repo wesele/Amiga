@@ -95,17 +95,10 @@ body {
     <a data-section="colors">🎨 设计语言</a>
 
     <div class="group">功能模块</div>
-    <a data-section="exercises" data-prototype="exercise">✍️ 练习答题</a>
-    <a data-section="gamification" data-prototype="complete">🎮 游戏化系统</a>
-    <a data-prototype="leaderboard">🏆 排行榜</a>
-    <a data-prototype="profile">👤 个人中心</a>
-    <a data-prototype="social">👥 社交</a>
-    <a data-prototype="bilingual-chat">💬 双语聊天</a>
-    <a data-section="ai" data-prototype="ai-chat">🤖 AI 口语练习</a>
-    <a data-section="coming-soon">📖 单词本</a>
-    <a data-section="coming-soon">📝 测验考试</a>
-    <a data-section="coming-soon">📈 学习进度</a>
-    <a data-section="coming-soon">⚙️ 设置</a>
+    <a data-section="learning" data-prototype="exercise">📚 学习</a>
+    <a data-section="ranking" data-prototype="leaderboard">🏆 排行</a>
+    <a data-section="interaction" data-prototype="social">💬 互动</a>
+    <a data-section="personal" data-prototype="profile">👤 个人</a>
 
   </div>
 </aside>
@@ -165,6 +158,13 @@ body {
       this.classList.add('active');
       load(this.dataset.section, this.dataset.prototype);
     });
+  });
+
+  // Listen for sub-module navigation from iframes (postMessage)
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'nav') {
+      load(e.data.section, e.data.prototype);
+    }
   });
 
   // Default: first item

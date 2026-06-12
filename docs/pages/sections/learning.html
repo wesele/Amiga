@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📚 学习 - Idioma 产品交互设计文档</title>
+<style>:root {
+  --green: #58cc02; --green-hover: #46a302; --green-bg: #eaffd6;
+  --blue: #1cb0f6; --blue-hover: #1899d6; --blue-bg: #ddf4ff;
+  --orange: #ff9600; --orange-hover: #e08500; --orange-bg: #fff0d6;
+  --red: #ff4b4b; --red-bg: #ffe0e0;
+  --purple: #7c3aed; --purple-bg: #ede9fe;
+  --pink: #ec4899; --pink-bg: #fce7f3;
+  --text: #3a3a3a; --text-light: #777; --text-lighter: #aaa;
+  --bg: #f7f7f7; --white: #fff; --border: #e5e5e5;
+  --shadow: 0 2px 12px rgba(0,0,0,.08);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,.12);
+  --radius: 12px; --radius-sm: 8px; --radius-lg: 20px;
+  --sidebar-w: 260px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;
+  font-size: 15px; color: var(--text); background: var(--bg);
+  min-height: 100vh;
+}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #999; }
+.main { max-width: 960px; margin: 0 auto; padding: 40px 32px; }
+.section { margin-bottom: 60px; }
+.section h2 { font-size: 28px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+.section > .desc { color: var(--text-light); margin-bottom: 24px; line-height: 1.6; }
+.card-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.card-item {
+  background: var(--white); border-radius: var(--radius); padding: 24px;
+  border: 1px solid var(--border); transition: all .2s;
+  display: flex; flex-direction: column;
+}
+.card-item:hover { box-shadow: var(--shadow); border-color: var(--green); }
+.card-item .icon { font-size: 32px; margin-bottom: 10px; }
+.card-item h4 { font-size: 16px; margin-bottom: 6px; }
+.card-item p { font-size: 13px; color: var(--text-light); line-height: 1.5; flex: 1; }
+.card-item .footer { margin-top: 16px; display: flex; align-items: center; gap: 8px; }
+.card-item .proto-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 13px; font-weight: 600; color: var(--blue);
+  text-decoration: none; cursor: pointer; transition: color .2s;
+}
+.card-item .proto-link:hover { color: var(--blue-hover); }
+.tag { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.tag-green { background: var(--green-bg); color: var(--green); }
+.tag-blue { background: var(--blue-bg); color: var(--blue); }
+.tag-orange { background: var(--orange-bg); color: var(--orange); }
+@media (max-width: 600px) {
+  .main { padding: 24px 16px; }
+  .card-row { grid-template-columns: 1fr; }
+}
+body.embed .main { padding: 24px 20px; }
+</style>
+</head>
+<body>
+<script>(function(){if(location.search.indexOf('embed=1')>=0)document.body.className='embed';})();</script>
+
+<main class="main">
+  <section class="section">
+    <h2>📚 学习</h2>
+    <p class="desc">学习模块是 Idioma 的核心功能区，包含课程路径、练习答题、AI 口语练习、游戏化系统、单词本、测验考试和学习进度追踪等子模块。点击「查看原型」可预览交互原型。</p>
+    <div class="card-row">
+      <div class="card-item">
+        <div class="icon">🏠</div>
+        <h4>课程路径</h4>
+        <p>结构化学习路径，从入门到精通，逐步解锁课程节点</p>
+        <div class="footer">
+          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'navigation', prototype:'home'}, '*');" href="javascript:;">查看原型 →</a>
+        </div>
+      </div>
+      <div class="card-item">
+        <div class="icon">✍️</div>
+        <h4>练习答题</h4>
+        <p>多种题型交互练习，覆盖听说读写全能力训练</p>
+        <div class="footer">
+          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'exercises', prototype:'exercise'}, '*');" href="javascript:;">查看原型 →</a>
+        </div>
+      </div>
+      <div class="card-item">
+        <div class="icon">🤖</div>
+        <h4>AI 口语练习</h4>
+        <p>与 AI 进行场景对话，实时纠正语法和发音</p>
+        <div class="footer">
+          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'ai', prototype:'ai-chat'}, '*');" href="javascript:;">查看原型 →</a>
+        </div>
+      </div>
+      <div class="card-item">
+        <div class="icon">🎮</div>
+        <h4>游戏化系统</h4>
+        <p>XP 经验、连胜、段位联赛、成就徽章等游戏化激励</p>
+        <div class="footer">
+          <a class="proto-link" onclick="parent.postMessage({type:'nav', section:'gamification', prototype:'complete'}, '*');" href="javascript:;">查看原型 →</a>
+        </div>
+      </div>
+      <div class="card-item">
+        <div class="icon">📖</div>
+        <h4>单词本</h4>
+        <p>已学词汇分组管理，支持闪卡复习与搜索</p>
+        <div class="footer">
+          <span class="tag tag-green">Coming Soon</span>
+        </div>
+      </div>
+      <div class="card-item">
+        <div class="icon">📝</div>
+        <h4>测验考试</h4>
+        <p>阶段性测验与模拟考试，检验学习成果</p>
+        <div class="footer">
+          <span class="tag tag-green">Coming Soon</span>
+        </div>
+      </div>
+      <div class="card-item">
+        <div class="icon">📈</div>
+        <h4>学习进度</h4>
+        <p>可视化学习统计与进度追踪，掌握每日学习数据</p>
+        <div class="footer">
+          <span class="tag tag-green">Coming Soon</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+</body>
+</html>
