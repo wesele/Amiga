@@ -172,7 +172,7 @@ body.embed .main { padding: 20px 32px; max-width: none; }
     <h2>📱 导航与 UI 结构</h2>
     <p class="desc">采用底部 5 Tab 导航体系结构，覆盖学习、社交、个人三大核心领域。练习页面和 AI 对话采用独立全屏模式，确保沉浸式学习体验。默认首页为学习路径页面。</p>
     <div class="card-row">
-      <div class="card-item"><div class="icon">🏠</div><h4>学习</h4><p>默认首页，展示课程路径树状地图，每个节点代表一个关卡。顶部显示每日 XP 目标和连胜天数。包含「AI 口语练习」快速入口和「待复习」提醒列表。</p></div>
+      <div class="card-item"><div class="icon">🏠</div><h4>学习</h4><p>默认首页，展示晋级之路树状地图（CEFR 分级 A1→C1），每个节点代表一个关卡。顶部显示每日 XP 目标和连胜天数。包含「AI 口语练习」快速入口和「待复习」提醒列表。</p></div>
       <div class="card-item"><div class="icon">🏆</div><h4>排行榜</h4><p>显示好友排行和全球排行，按周 XP 排名，前 3 名有特殊徽章。包含段位系统（青铜→钻石）和赛季重置机制，每周一结算并发放段位奖励。</p></div>
       <div class="card-item"><div class="icon">👥</div><h4>社交</h4><p>双语聊天室、好友管理、语言互助配对、实时 PK 对战。用户可创建学习小组，发起每日打卡挑战，在社区动态中分享学习心得和成果截图。</p></div>
       <div class="card-item"><div class="icon">📖</div><h4>单词本</h4><p>按课程/单元分组的已学词汇列表，支持搜索、收藏、标记难度。内置闪卡模式（正面外语→反面释义）和听写模式，配合间隔复习算法推送待复习词汇。</p></div>
@@ -184,7 +184,7 @@ body.embed .main { padding: 20px 32px; max-width: none; }
         <div class="tree-root">AppShell（根布局）</div>
         <div class="tree-branch">├── BottomNav（5 个底部 Tab）</div>
         <div class="tree-branch">├── RouterView（主路由出口）</div>
-        <div class="tree-branch">│   ├── 学习页 — 课程路径地图 / AI 口语入口 / 每日目标</div>
+        <div class="tree-branch">│   ├── 学习页 — 晋级之路地图（CEFR 分级）/ AI 口语入口 / 每日目标</div>
         <div class="tree-branch">│   ├── 排行榜页 — 好友榜 / 全球榜 / 段位系统</div>
         <div class="tree-branch">│   ├── 社交页 — 双语聊天 / 好友列表 / 互助配对 / PK</div>
         <div class="tree-branch">│   ├── 单词本页 — 词汇分组 / 搜索筛选 / 闪卡模式 / 听写</div>
@@ -207,7 +207,7 @@ body.embed .main { padding: 20px 32px; max-width: none; }
       <div class="card-row" style="margin-top:12px;">
         <div class="card-item"><div class="icon">📱</div><h4>移动优先</h4><p>以 480×800 为基准设计尺寸，所有交互元素最小触摸区域 ≥ 44px。桌面端保持相同布局但增加留白，不引入额外的桌面专用视图。</p></div>
         <div class="card-item"><div class="icon">⚡</div><h4>即时反馈</h4><p>每次答题、切换 Tab、点击按钮都有 100–200ms 内的视觉/动效反馈。正确/错误/加载/成功四种状态各有专属配色和微动画，降低用户等待焦虑。</p></div>
-        <div class="card-item"><div class="icon">🎯</div><h4>内容优先</h4><p>学习场景（练习页、课程路径）占据全屏，底部导航在练习和 AI 对话时自动隐藏。所有 UI 元素都为学习内容让路，减少不必要的装饰性干扰。</p></div>
+        <div class="card-item"><div class="icon">🎯</div><h4>内容优先</h4><p>学习场景（练习页、晋级之路）占据全屏，底部导航在练习和 AI 对话时自动隐藏。所有 UI 元素都为学习内容让路，减少不必要的装饰性干扰。</p></div>
         <div class="card-item"><div class="icon">🧭</div><h4>明确导航</h4><p>底部 Tab 始终显示当前所在页面，Tab 切换有平滑过渡动画。页面标题和返回路径清晰可见，用户在任何深度页面都知道如何返回上级。</p></div>
         <div class="card-item"><div class="icon">♿</div><h4>无障碍</h4><p>所有可交互元素支持屏幕阅读器标签，色彩对比度符合 WCAG AA 标准（主色/背景对比度 ≥ 4.5:1），支持系统字体缩放和减少动效模式。</p></div>
         <div class="card-item"><div class="icon">🌙</div><h4>深色模式</h4><p>内置浅色/深色两套主题，跟随系统设置自动切换。深色模式下所有颜色的亮度降低但不饱和，保持可读性和品牌识别度。</p></div>
