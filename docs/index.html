@@ -129,21 +129,23 @@ body {
 
   // Load content into panes
   function load(section, prototype) {
-    if (section && section !== 'coming-soon') {
-      descFrame.src = 'pages/sections/' + section + '.html?embed=1';
-    } else if (section === 'coming-soon') {
-      descFrame.src = 'pages/sections/coming-soon.html?embed=1';
-    } else {
-      descFrame.src = 'about:blank';
+    // Update description pane only if a section is specified
+    if (section) {
+      if (section === 'coming-soon') {
+        descFrame.src = 'pages/sections/coming-soon.html?embed=1';
+      } else {
+        descFrame.src = 'pages/sections/' + section + '.html?embed=1';
+      }
     }
+    // Update prototype pane
     if (prototype) {
       protoFrame.src = 'pages/prototypes/' + prototype + '.html?embed=1';
       protoPane.classList.add('show');
-      if (section) {
+      if (!section) {
+        // Only-prototype: keep desc as-is, just show prototype alongside
         descPane.classList.remove('full');
       } else {
-        descPane.classList.add('full');
-        descFrame.src = 'about:blank';
+        descPane.classList.remove('full');
       }
     } else {
       protoPane.classList.remove('show');
