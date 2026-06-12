@@ -36,13 +36,18 @@ body {
 .card-item {
   background: var(--white); border-radius: var(--radius); padding: 24px;
   border: 1px solid var(--border); transition: all .2s;
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: column; position: relative;
 }
 .card-item:hover { box-shadow: var(--shadow); border-color: var(--green); transform: translateY(-2px); }
 .card-item.clickable { cursor: pointer; }
 .card-item .icon { font-size: 32px; margin-bottom: 10px; }
 .card-item h4 { font-size: 16px; margin-bottom: 6px; }
 .card-item p { font-size: 13px; color: var(--text-light); line-height: 1.5; flex: 1; }
+.card-item .coming-soon {
+  position: absolute; top: 12px; right: 12px;
+  background: var(--orange-bg); color: var(--orange);
+  padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600;
+}
 .tag { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
 .tag-green { background: var(--green-bg); color: var(--green); }
 .tag-blue { background: var(--blue-bg); color: var(--blue); }
@@ -60,23 +65,23 @@ body.embed .main { padding: 24px 20px; }
 <main class="main">
   <section class="section">
     <h2>📚 学习</h2>
-    <p class="desc">学习模块是 Idioma 的核心功能区，包含课程路径、AI 口语练习和单词本三大核心功能。点击带原型的卡片可在右侧预览交互原型。</p>
+    <p class="desc">学习模块是 Idioma 的核心功能区，提供系统化课程路径、AI 口语陪练和智能单词本，帮你高效掌握新语言。</p>
     <div class="card-row">
       <div class="card-item clickable" onclick="parent.postMessage({type:'nav', prototype:'home'}, '*');">
         <div class="icon">🏠</div>
         <h4>课程路径</h4>
-        <p>结构化学习路径，从入门到精通，逐步解锁课程节点，每日目标引导持续学习</p>
+        <p>系统化课程路径，从入门到精通逐步解锁，每日目标引导你持续进步。</p>
       </div>
       <div class="card-item clickable" onclick="parent.postMessage({type:'nav', prototype:'ai-chat'}, '*');">
         <div class="icon">🤖</div>
         <h4>AI 口语练习</h4>
-        <p>与 AI 进行场景对话练习，实时纠正语法和发音，提升口语表达能力</p>
+        <p>与 AI 进行真实场景对话，实时纠正语法与发音，沉浸式提升口语流利度。</p>
       </div>
       <div class="card-item">
         <div class="icon">📖</div>
         <h4>单词本</h4>
-        <p>已学词汇分组管理，支持闪卡复习与搜索，巩固记忆效果</p>
-        <span class="tag tag-green">开发中</span>
+        <p>已学词汇智能分组管理，支持闪卡复习与全文搜索，科学巩固长期记忆。</p>
+        <span class="coming-soon">Coming Soon</span>
       </div>
     </div>
   </section>

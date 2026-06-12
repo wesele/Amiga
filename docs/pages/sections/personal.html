@@ -52,13 +52,18 @@ body {
 .card-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
 .card-item {
   background: var(--white); border-radius: var(--radius-sm); padding: 20px;
-  border: 1px solid var(--border); transition: all .2s; cursor: default;
+  border: 1px solid var(--border); transition: all .2s; cursor: default; position: relative;
 }
 .card-item.clickable { cursor: pointer; }
 .card-item.clickable:hover { box-shadow: var(--shadow); border-color: var(--green); }
 .card-item .icon { font-size: 28px; margin-bottom: 8px; }
 .card-item h4 { font-size: 15px; margin-bottom: 4px; }
 .card-item p { font-size: 12px; color: var(--text-light); line-height: 1.5; }
+.card-item .coming-soon {
+  position: absolute; top: 12px; right: 12px;
+  background: var(--orange-bg); color: var(--orange);
+  padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600;
+}
 .tag { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
 .tag-green { background: var(--green-bg); color: var(--green); }
 .tag-blue { background: var(--blue-bg); color: var(--blue); }
@@ -116,8 +121,8 @@ body.embed .main { padding: 20px 32px; max-width: none; }
       <div class="card-item">
         <div class="icon">⚙️</div>
         <h4>设置</h4>
-        <p>应用偏好、语言选择、通知管理</p>
-        <span class="tag tag-orange">Coming Soon</span>
+        <p>应用偏好、学习语言切换、通知管理、账户与隐私设置。</p>
+        <span class="coming-soon">Coming Soon</span>
       </div>
     </div>
   </section>

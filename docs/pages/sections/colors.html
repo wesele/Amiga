@@ -170,30 +170,44 @@ body.embed .main { padding: 20px 32px; max-width: none; }
 <main class="main">
   <section class="section">
     <h2>🎨 设计语言</h2>
-    <p class="desc">多邻国式色彩系统，大量使用圆角和卡片布局，移动优先设计。</p>
-<div class="card">
-  <h3>色彩系统</h3>
-  <div class="swatch-row">
-    <div class="swatch"><div class="box" style="background:#58cc02;"></div><div class="label">主色 Green</div><div class="hex">#58cc02</div></div>
-    <div class="swatch"><div class="box" style="background:#1cb0f6;"></div><div class="label">辅色 Blue</div><div class="hex">#1cb0f6</div></div>
-    <div class="swatch"><div class="box" style="background:#ff9600;"></div><div class="label">橙色 Orange</div><div class="hex">#ff9600</div></div>
-    <div class="swatch"><div class="box" style="background:#ff4b4b;"></div><div class="label">错误 Red</div><div class="hex">#ff4b4b</div></div>
-    <div class="swatch"><div class="box" style="background:#7c3aed;"></div><div class="label">AI Purple</div><div class="hex">#7c3aed</div></div>
-    <div class="swatch"><div class="box" style="background:#4b4b4b;"></div><div class="label">文字 Text</div><div class="hex">#4b4b4b</div></div>
-  </div>
-</div>
-<div class="card">
-  <h3>设计原则</h3>
-  <div class="card-row">
-    <div class="card-item"><div class="icon">⚡</div><h4>即时反馈</h4><p>每个操作都有视觉/听觉反馈</p></div>
-    <div class="card-item"><div class="icon">🚪</div><h4>低门槛</h4><p>首次打开即可学习，无需注册</p></div>
-    <div class="card-item"><div class="icon">🔓</div><h4>渐进解锁</h4><p>内容逐步开放，避免信息过载</p></div>
-    <div class="card-item"><div class="icon">📱</div><h4>移动优先</h4><p>480×800，触摸友好 (≥44px)</p></div>
-  </div>
-</div>
+    <p class="desc">以多邻国式绿色为主调的明亮色彩系统，配合大圆角、精致卡片、柔和阴影营造友好亲切的学习氛围。每项设计决策以降低认知负荷、提升学习动机为核心目标。</p>
+    <div class="card">
+      <h3>色彩系统</h3>
+      <p style="color:var(--text-light);margin-bottom:16px;font-size:13px;line-height:1.6;">品牌色为亮绿色（#58cc02），传递活力与成长感。每个功能角色有独立色相，在保持和谐统一的同时提供清晰的语义区分。</p>
+      <div class="swatch-row">
+        <div class="swatch"><div class="box" style="background:#58cc02;"></div><div class="label">品牌主色 Green</div><div class="hex">#58cc02</div></div>
+        <div class="swatch"><div class="box" style="background:#1cb0f6;"></div><div class="label">辅助色 Blue</div><div class="hex">#1cb0f6</div></div>
+        <div class="swatch"><div class="box" style="background:#ff9600;"></div><div class="label">强调色 Orange</div><div class="hex">#ff9600</div></div>
+        <div class="swatch"><div class="box" style="background:#ff4b4b;"></div><div class="label">错误/警告 Red</div><div class="hex">#ff4b4b</div></div>
+        <div class="swatch"><div class="box" style="background:#7c3aed;"></div><div class="label">AI 功能 Purple</div><div class="hex">#7c3aed</div></div>
+        <div class="swatch"><div class="box" style="background:#ec4899;"></div><div class="label">社交 Pink</div><div class="hex">#ec4899</div></div>
+        <div class="swatch"><div class="box" style="background:#4b4b4b;"></div><div class="label">正文 Text</div><div class="hex">#4b4b4b</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>色彩语义与使用场景</h3>
+      <div class="card-row" style="margin-top:12px;">
+        <div class="card-item"><div class="icon">🟢</div><h4>绿色 Green</h4><p>品牌主色，用于主按钮、正确反馈、进度条填充、活跃状态指示、Logo。亮绿色传递正面情绪和成就感，与语言学习的「成长」概念高度契合。</p></div>
+        <div class="card-item"><div class="icon">🔵</div><h4>蓝色 Blue</h4><p>辅助交互色，用于次按钮、链接、可点击的文本、信息提示条、未选中 Tab 图标的默认色。蓝色传达可靠感和引导性，不喧宾夺主。</p></div>
+        <div class="card-item"><div class="icon">🟠</div><h4>橙色 Orange</h4><p>强调与奖励色，用于连胜标记、特殊成就徽章、VIP 功能标识、每日目标达成特效。暖橙色带来兴奋和庆祝的氛围。</p></div>
+        <div class="card-item"><div class="icon">🔴</div><h4>红色 Red</h4><p>错误与警告色，用于答错反馈、错误提示、删除操作确认、失败状态、生命值耗尽提醒。红色使用克制，仅出现在需要用户注意的时刻。</p></div>
+        <div class="card-item"><div class="icon">🟣</div><h4>紫色 Purple</h4><p>AI 专属色，用于 AI 口语对话界面、AI 生成内容标识、智能推荐标签、虚拟助手的交互元素。紫色体现智能感和科技感。</p></div>
+        <div class="card-item"><div class="icon">🩷</div><h4>粉色 Pink</h4><p>社交功能色，用于好友动态、社区帖子互动按钮、聊天消息中的点赞/爱心、社交成就徽章。粉色传递温暖和亲和力。</p></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>设计原则</h3>
+      <div class="card-row">
+        <div class="card-item"><div class="icon">⚡</div><h4>即时反馈</h4><p>每个用户操作（点击、答题、切换）在 200ms 内给出明确视觉反馈。正确时绿色勾号 + 微膨胀动效，错误时红色抖动 + 错误位置高亮。答案确认后立即显示下一题，无需额外点击「下一题」按钮。</p></div>
+        <div class="card-item"><div class="icon">🚪</div><h4>低门槛</h4><p>用户首次打开即可直接开始第一个练习，无需注册或填写资料。学习进度自动保存在本地，注册账号后可同步至云端。界面文案使用口语化中文，避免专业术语。</p></div>
+        <div class="card-item"><div class="icon">🔓</div><h4>渐进解锁</h4><p>内容按 CEFR 级别逐步开放，新知识点在旧知识完全掌握后才展示。功能模块（排行榜、社交、AI 对话）也随用户等级提升逐步解锁，避免新用户一次性面对过多信息。</p></div>
+        <div class="card-item"><div class="icon">📱</div><h4>移动优先</h4><p>以 480×800 分辨率为设计基准，所有可触摸元素尺寸 ≥ 44px。信息层级分明：主操作按钮使用品牌绿色大按钮，次要操作缩小或置于菜单。桌面端保持相同布局，仅增加内容区域宽度。</p></div>
+        <div class="card-item"><div class="icon">🎯</div><h4>游戏化反馈</h4><p>每完成一个练习获得即时 XP 和音效反馈，完成一个关卡触发 XP 结算动画和成就检查。使用进度条、徽章收集、段位晋升等可视化手段让学习进度一目了然。</p></div>
+        <div class="card-item"><div class="icon">🧹</div><h4>极简主义</h4><p>每个页面只聚焦一个核心任务，无关信息和操作默认隐藏。卡片式布局将功能模块视觉分组，留白充足（至少 16px 内边距），避免界面拥挤带来焦虑感。</p></div>
+      </div>
+    </div>
   </section>
 </main>
-
 
 </body>
 </html>

@@ -3,33 +3,78 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>即将上线</title>
+<title>🚧 功能开发中 - Idioma</title>
 <style>
-:root { --green: #58cc02; --text-light: #777; --text-lighter: #aaa; --radius: 12px; }
+:root {
+  --green: #58cc02; --green-bg: #eaffd6;
+  --orange: #ff9600; --orange-bg: #fff0d6;
+  --text: #3a3a3a; --text-light: #777; --text-lighter: #aaa;
+  --bg: #f7f7f7; --white: #fff; --border: #e5e5e5;
+  --radius: 16px; --shadow: 0 4px 24px rgba(0,0,0,.08);
+}
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;
-  font-size: 15px; color: var(--text-light);
-  display: flex; align-items: center; justify-content: center; min-height: 100vh;
-  background: #fafafa;
+  font-size: 15px; color: var(--text); background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 20px;
 }
-.card { text-align: center; padding: 40px; }
-.card .icon { font-size: 56px; margin-bottom: 12px; }
-.card h2 { font-size: 20px; font-weight: 600; color: #333; margin-bottom: 8px; }
-.card p { font-size: 13px; line-height: 1.6; color: var(--text-lighter); }
-.card .tag {
-  display: inline-block; margin-top: 16px; padding: 4px 16px;
-  background: #eaffd6; color: var(--green); border-radius: 20px;
-  font-size: 12px; font-weight: 600;
+.container {
+  text-align: center; max-width: 420px; width: 100%;
+  background: var(--white); border-radius: var(--radius);
+  padding: 48px 32px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
 }
+.icon-main { font-size: 64px; margin-bottom: 16px; }
+h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+.desc { color: var(--text-light); line-height: 1.6; margin-bottom: 20px; font-size: 14px; }
+.desc strong { color: var(--text); }
+.features {
+  display: flex; flex-direction: column; gap: 10px; text-align: left;
+  margin-bottom: 24px; padding: 0 8px;
+}
+.features .item {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; color: var(--text-light); padding: 8px 12px;
+  background: var(--green-bg); border-radius: 8px;
+}
+.features .item .icon { font-size: 18px; }
+.tag {
+  display: inline-block; padding: 6px 20px;
+  background: var(--orange-bg); color: var(--orange);
+  border-radius: 20px; font-size: 13px; font-weight: 600;
+}
+.back-link {
+  display: inline-block; margin-top: 20px; font-size: 13px;
+  color: var(--green); text-decoration: none; font-weight: 600;
+  transition: color .2s;
+}
+.back-link:hover { color: #46a302; text-decoration: underline; }
+@media (max-width: 480px) {
+  .container { padding: 32px 20px; }
+}
+body.embed { background: transparent; padding: 0; }
+body.embed .container { box-shadow: none; border: none; }
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="icon">🚧</div>
+<script>(function(){if(location.search.indexOf('embed=1')>=0)document.body.className='embed';})();</script>
+
+<div class="container">
+  <div class="icon-main">🚧</div>
   <h2>功能开发中</h2>
-  <p>该功能模块正在设计中，敬请期待</p>
+  <p class="desc">
+    此功能模块正在紧锣密鼓地开发中。<br>
+    我们致力于为你带来更好的学习体验，<strong>敬请期待！</strong>
+  </p>
+  <div class="features">
+    <div class="item"><span class="icon">✅</span> 核心功能设计与原型已就绪</div>
+    <div class="item"><span class="icon">🛠️</span> 交互细节与视觉打磨进行中</div>
+    <div class="item"><span class="icon">📅</span> 预计在下一个迭代版本上线</div>
+  </div>
   <div class="tag">Coming Soon</div>
+  <a href="javascript:history.back()" class="back-link">← 返回上一页</a>
 </div>
+
 </body>
 </html>

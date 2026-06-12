@@ -5,52 +5,52 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Idioma - 个人</title>
 <style>
-:root{--green:#58cc02;--green-hover:#46a302;--green-bg:#eaffd6;--blue:#1cb0f6;--blue-hover:#1899d6;--blue-bg:#ddf4ff;--orange:#ff9600;--orange-hover:#e08500;--orange-bg:#fff0d6;--red:#ff4b4b;--red-bg:#ffe0e0;--purple:#7c3aed;--purple-bg:#ede9fe;--pink:#ec4899;--pink-bg:#fce7f3;--text:#3a3a3a;--text-light:#777;--text-lighter:#aaa;--bg:#f7f7f7;--white:#fff;--border:#e5e5e5;--shadow:0 2px 12px rgba(0,0,0,.08);--shadow-lg:0 8px 30px rgba(0,0,0,.12);--radius:12px;--radius-sm:8px}
+:root{--green:#58cc02;--green-hover:#46a302;--green-bg:#eaffd6;--blue:#1cb0f6;--blue-hover:#1899d6;--blue-bg:#ddf4ff;--orange:#ff9600;--orange-hover:#e08500;--orange-bg:#fff0d6;--red:#ff4b4b;--red-bg:#ffe0e0;--purple:#7c3aed;--purple-bg:#ede9fe;--pink:#ec4899;--pink-bg:#fce7f3;--text:#3a3a3a;--text-light:#777;--text-lighter:#aaa;--bg:#f5f5f5;--white:#fff;--border:#e5e5e5;--shadow:0 2px 12px rgba(0,0,0,.08);--shadow-lg:0 12px 48px rgba(0,0,0,.22);--radius:12px;--radius-sm:8px}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;font-size:15px;color:var(--text);background:#e8e8e8}
-.phone-wrap{display:flex;justify-content:center;margin:30px 0}
-.phone{width:320px;height:640px;background:var(--white);border-radius:40px;box-shadow:var(--shadow-lg);border:2px solid #ddd;position:relative;overflow:hidden;flex-shrink:0}
-.phone-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:24px;background:#222;border-radius:0 0 16px 16px;z-index:10}
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;font-size:15px;color:var(--text);background:#f5f5f5}
+.phone{width:320px;height:640px;background:var(--white);border-radius:44px;box-shadow:0 12px 48px rgba(0,0,0,.22),inset 0 0 0 1px rgba(255,255,255,.1);border:3px solid #1a1a1a;position:relative;overflow:hidden;flex-shrink:0}
+.phone-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:150px;height:30px;background:#1a1a1a;border-radius:0 0 20px 20px;z-index:20}
+.phone-notch::after{content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);width:10px;height:10px;border-radius:50%;border:2px solid #333;background:transparent}
 .phone-screen{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;background:var(--bg)}
 .phone-screen::-webkit-scrollbar{width:0}
-.phone-content{padding:8px 16px 60px}
-.status-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 20px 6px;font-size:11px;font-weight:600;background:var(--white);position:sticky;top:0;z-index:5}
-.status-bar .time{font-weight:700}
-.tab-bar{display:flex;background:var(--white);border-top:1px solid var(--border);position:sticky;bottom:0;z-index:5;padding:4px 0;justify-content:space-around}
-.tab-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 8px;cursor:pointer;border:none;background:none;font-size:10px;color:var(--text-lighter);transition:all .2s;font-family:inherit}
+.phone-content{padding:38px 16px 0}
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:6px 24px 4px;font-size:12px;font-weight:700;background:var(--white);position:absolute;top:0;left:0;right:0;z-index:15;color:#1a1a1a;height:36px}
+.status-bar .time{font-weight:800;font-size:13px}
+.status-icons{display:flex;align-items:center;gap:4px;font-size:11px}
+.tab-bar{display:flex;background:var(--white);border-top:1px solid var(--border);position:sticky;bottom:0;z-index:9;padding:4px 0;justify-content:space-around}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 8px;cursor:pointer;border:none;background:none;font-size:10px;color:var(--text-lighter);transition:all .2s;font-family:inherit}
 .tab-item .tab-icon{font-size:20px;line-height:1}
-.tab-item.active{color:var(--green)}
-.profile-header{text-align:center;padding:20px 0}
-.profile-avatar{width:64px;height:64px;border-radius:50%;background:var(--green-bg);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:32px;transition:transform .3s}
+.tab-item .tab-label{font-size:10px;font-weight:500}
+.tab-item.active{color:var(--green);position:relative}
+.tab-item.active::after{content:'';position:absolute;top:-1px;width:20px;height:3px;background:var(--green);border-radius:0 0 3px 3px}
+.profile-header{text-align:center;padding:24px 0 16px}
+.profile-avatar{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--green-bg),#c8f7a0);margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:36px;transition:transform .3s;box-shadow:0 4px 16px rgba(88,204,2,.2)}
 .profile-avatar:hover{transform:scale(1.08)}
-.profile-name{font-size:18px;font-weight:700}
-.profile-level{font-size:13px;color:var(--text-light)}
-.profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}
-.stat-card{background:var(--white);border-radius:var(--radius-sm);padding:12px;text-align:center;transition:box-shadow .2s,transform .2s}
-.stat-card:hover{box-shadow:var(--shadow);transform:translateY(-1px)}
-.stat-card .num{font-size:20px;font-weight:700}
-.stat-card .label{font-size:10px;color:var(--text-light);margin-top:2px}
-.profile-section-title{font-size:13px;font-weight:600;margin:16px 0 8px}
+.profile-name{font-size:20px;font-weight:700}
+.profile-level{font-size:13px;color:var(--text-light);margin-top:2px}
+.profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+.stat-card{background:var(--white);border-radius:var(--radius-sm);padding:14px 8px;text-align:center;transition:box-shadow .2s,transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.stat-card:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.stat-card .num{font-size:22px;font-weight:800;color:var(--text)}
+.stat-card .label{font-size:10px;color:var(--text-light);margin-top:3px;font-weight:500}
+.profile-section-title{font-size:14px;font-weight:700;margin:20px 0 10px;color:var(--text)}
 .ach-count{font-weight:400;color:var(--text-light);font-size:12px}
-.achievement-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
-.ach-badge{text-align:center;padding:8px;transition:transform .2s}
-.ach-badge:hover:not(.locked){transform:scale(1.12)}
-.ach-badge.locked{opacity:.3;filter:grayscale(.8)}
-.ach-badge .ach-icon{font-size:28px}
-.ach-badge .ach-name{font-size:9px;color:var(--text-light);margin-top:2px}
-@media(max-width:900px){.phone{width:280px;height:560px}}
-@media(max-width:600px){.phone{width:240px;height:480px;border-radius:24px}.phone-notch{width:80px;height:18px}}
-body.embed { background: var(--bg); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-body.embed .phone { margin: 10px auto; }
+.achievement-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:8px}
+.ach-badge{text-align:center;padding:10px 4px;background:var(--white);border-radius:var(--radius-sm);transition:transform .2s,box-shadow .2s;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.ach-badge:hover:not(.locked){transform:scale(1.08);box-shadow:var(--shadow)}
+.ach-badge.locked{opacity:.35;filter:grayscale(.8);background:var(--bg)}
+.ach-badge .ach-icon{font-size:30px;display:block;margin-bottom:4px}
+.ach-badge .ach-name{font-size:9px;color:var(--text-light);font-weight:500}
+body.embed{background:#e8e8e8;display:flex;align-items:center;justify-content:center;min-height:100vh}
+body.embed .phone{margin:10px auto}
 </style>
 </head>
 <body>
 <script>(function(){if(location.search.indexOf('embed=1')>=0)document.body.className='embed';})();</script>
-<div class="phone-wrap">
 <div class="phone">
 <div class="phone-notch"></div>
 <div class="phone-screen">
-<div class="status-bar"><span class="time">9:41</span><span>📶 🔋 100%</span></div>
+<div class="status-bar"><span class="time">9:41</span><span class="status-icons">📶 5G 🔋 100%</span></div>
 <div class="phone-content">
 <div class="profile-header">
   <div class="profile-avatar">🧑</div>
@@ -75,12 +75,11 @@ body.embed .phone { margin: 10px auto; }
 </div>
 </div>
 <div class="tab-bar">
-  <button class="tab-item"><span class="tab-icon">🏠</span>学习</button>
-  <button class="tab-item"><span class="tab-icon">🏆</span>排行</button>
-  <button class="tab-item"><span class="tab-icon">👥</span>社交</button>
-  <button class="tab-item"><span class="tab-icon">📖</span>单词</button>
-  <button class="tab-item active"><span class="tab-icon">👤</span>个人</button>
-</div>
+  <button class="tab-item"><span class="tab-icon">🏠</span><span class="tab-label">学习</span></button>
+  <button class="tab-item"><span class="tab-icon">🏆</span><span class="tab-label">排行</span></button>
+  <button class="tab-item"><span class="tab-icon">👥</span><span class="tab-label">社交</span></button>
+  <button class="tab-item"><span class="tab-icon">📖</span><span class="tab-label">单词</span></button>
+  <button class="tab-item active"><span class="tab-icon">👤</span><span class="tab-label">个人</span></button>
 </div>
 </div>
 </div>

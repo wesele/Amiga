@@ -170,41 +170,47 @@ body.embed .main { padding: 20px 32px; max-width: none; }
 <main class="main">
   <section class="section">
     <h2>📱 导航与 UI 结构</h2>
-    <p class="desc">5 个底部 Tab 的导航体系，覆盖核心学习路径和社交功能。</p>
-<div class="card-row">
-  <div class="card-item"><div class="icon">🏠</div><h4>学习</h4><p>课程路径地图、AI 口语入口</p></div>
-  <div class="card-item"><div class="icon">🏆</div><h4>排行榜</h4><p>好友排行、全球排行、段位</p></div>
-  <div class="card-item"><div class="icon">👥</div><h4>社交</h4><p>好友、双语聊天、互助、PK</p></div>
-  <div class="card-item"><div class="icon">📖</div><h4>单词本</h4><p>已学词汇复习、闪卡模式</p></div>
-  <div class="card-item"><div class="icon">👤</div><h4>个人</h4><p>档案、成就、统计、设置</p></div>
-</div>
-<div class="card">
-  <h3>页面结构树</h3>
-  <div class="tree-view">
-    <div class="tree-root">AppShell</div>
-    <div class="tree-branch">├── BottomNav (5 Tabs)</div>
-    <div class="tree-branch">├── RouterView</div>
-    <div class="tree-branch">│   ├── 学习页 — 课程路径 / AI口语</div>
-    <div class="tree-branch">│   ├── 排行榜页 — 好友 / 全球 / 段位</div>
-    <div class="tree-branch">│   ├── 社交页 — 双语聊天 / 好友 / 互助</div>
-    <div class="tree-branch">│   ├── 单词本页 — 分组 / 搜索 / 闪卡</div>
-    <div class="tree-branch">│   └── 个人页 — 档案 / 成就 / 统计</div>
-    <div class="tree-branch">├── 练习页 (独立全屏)</div>
-    <div class="tree-branch">│   ├── ExercisePlayer — 进度/题型/反馈</div>
-    <div class="tree-branch">│   └── LessonComplete — XP结算</div>
-    <div class="tree-branch">└── AI 对话页 (独立全屏)</div>
-  </div>
-</div>
+    <p class="desc">采用底部 5 Tab 导航体系结构，覆盖学习、社交、个人三大核心领域。练习页面和 AI 对话采用独立全屏模式，确保沉浸式学习体验。默认首页为学习路径页面。</p>
+    <div class="card-row">
+      <div class="card-item"><div class="icon">🏠</div><h4>学习</h4><p>默认首页，展示课程路径树状地图，每个节点代表一个关卡。顶部显示每日 XP 目标和连胜天数。包含「AI 口语练习」快速入口和「待复习」提醒列表。</p></div>
+      <div class="card-item"><div class="icon">🏆</div><h4>排行榜</h4><p>显示好友排行和全球排行，按周 XP 排名，前 3 名有特殊徽章。包含段位系统（青铜→钻石）和赛季重置机制，每周一结算并发放段位奖励。</p></div>
+      <div class="card-item"><div class="icon">👥</div><h4>社交</h4><p>双语聊天室、好友管理、语言互助配对、实时 PK 对战。用户可创建学习小组，发起每日打卡挑战，在社区动态中分享学习心得和成果截图。</p></div>
+      <div class="card-item"><div class="icon">📖</div><h4>单词本</h4><p>按课程/单元分组的已学词汇列表，支持搜索、收藏、标记难度。内置闪卡模式（正面外语→反面释义）和听写模式，配合间隔复习算法推送待复习词汇。</p></div>
+      <div class="card-item"><div class="icon">👤</div><h4>个人</h4><p>用户档案（头像、等级、学习语言对）、成就徽章墙、详细学习统计（总时长、总 XP、词汇量、连续学习天数）、语言水平测试结果、应用设置（提醒、主题、发音）以及捐赠入口。</p></div>
+    </div>
     <div class="card">
-      <h3>课程路径 — 学习主页</h3>
-      <p style="color:var(--text-light);line-height:1.6;margin-bottom:16px;">学习主页是用户打开 App 后的默认页，以树状路径图展示课程的完整学习路线，每个节点代表一个课程或技能训练。</p>
-      <div class="card-row">
-        <div class="card-item"><div class="icon">🌳</div><h4>路径树</h4><p>从上到下展示从入门到精通的学习路线，已完成/进行中/未解锁节点用不同颜色区分</p></div>
-        <div class="card-item"><div class="icon">🔓</div><h4>节点解锁</h4><p>完成前置课程的全部练习后自动解锁下一节点，关键节点设有锁闭动画和条件提示</p></div>
-        <div class="card-item"><div class="icon">⭐</div><h4>每日目标</h4><p>首页顶部展示每日 XP 目标及进度条，完成一个课程即可推进目标，鼓励每日坚持</p></div>
-        <div class="card-item"><div class="icon">🔄</div><h4>复习节点</h4><p>已完成的节点会定期变为复习状态，提示用户巩固旧知识，防止遗忘</p></div>
-        <div class="card-item"><div class="icon">🏅</div><h4>节点成就</h4><p>每个节点完成时展示 XP 结算动画和连胜奖励，节点下方显示获得的皇冠星级评价</p></div>
-        <div class="card-item"><div class="icon">📊</div><h4>进度概览</h4><p>首页侧边显示总体完成百分比、本周学习天数、连胜天数等关键指标摘要</p></div>
+      <h3>页面结构树</h3>
+      <div class="tree-view">
+        <div class="tree-root">AppShell（根布局）</div>
+        <div class="tree-branch">├── BottomNav（5 个底部 Tab）</div>
+        <div class="tree-branch">├── RouterView（主路由出口）</div>
+        <div class="tree-branch">│   ├── 学习页 — 课程路径地图 / AI 口语入口 / 每日目标</div>
+        <div class="tree-branch">│   ├── 排行榜页 — 好友榜 / 全球榜 / 段位系统</div>
+        <div class="tree-branch">│   ├── 社交页 — 双语聊天 / 好友列表 / 互助配对 / PK</div>
+        <div class="tree-branch">│   ├── 单词本页 — 词汇分组 / 搜索筛选 / 闪卡模式 / 听写</div>
+        <div class="tree-branch">│   └── 个人页 — 档案 / 成就 / 统计 / 设置 / 捐赠</div>
+        <div class="tree-branch">├── 练习页（独立全屏，隐藏 BottomNav）</div>
+        <div class="tree-branch">│   ├── ExercisePlayer — 题目展示 / 进度条 / 即时反馈</div>
+        <div class="tree-branch">│   ├── LessonIntro — 课程导入 / 新知识点预览</div>
+        <div class="tree-branch">│   └── LessonComplete — XP 结算 / 连胜动画 / 知识点总结</div>
+        <div class="tree-branch">├── AI 对话页（独立全屏）</div>
+        <div class="tree-branch">│   ├── 自由对话 — 语音 / 文字输入 + AI 回复纠错</div>
+        <div class="tree-branch">│   └── 场景扮演 — 预设对话场景（点餐 / 面试 / 旅行）</div>
+        <div class="tree-branch">└── Modal / Drawer（全局弹窗）</div>
+        <div class="tree-branch">    ├── 设置面板 — 发音速度 / 主题色 / 通知</div>
+        <div class="tree-branch">    ├── 成就弹窗 — 解锁新成就时的庆祝动画</div>
+        <div class="tree-branch">    └── 关卡详情 — 点击路径节点的预览弹窗</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>UI 设计原则</h3>
+      <div class="card-row" style="margin-top:12px;">
+        <div class="card-item"><div class="icon">📱</div><h4>移动优先</h4><p>以 480×800 为基准设计尺寸，所有交互元素最小触摸区域 ≥ 44px。桌面端保持相同布局但增加留白，不引入额外的桌面专用视图。</p></div>
+        <div class="card-item"><div class="icon">⚡</div><h4>即时反馈</h4><p>每次答题、切换 Tab、点击按钮都有 100–200ms 内的视觉/动效反馈。正确/错误/加载/成功四种状态各有专属配色和微动画，降低用户等待焦虑。</p></div>
+        <div class="card-item"><div class="icon">🎯</div><h4>内容优先</h4><p>学习场景（练习页、课程路径）占据全屏，底部导航在练习和 AI 对话时自动隐藏。所有 UI 元素都为学习内容让路，减少不必要的装饰性干扰。</p></div>
+        <div class="card-item"><div class="icon">🧭</div><h4>明确导航</h4><p>底部 Tab 始终显示当前所在页面，Tab 切换有平滑过渡动画。页面标题和返回路径清晰可见，用户在任何深度页面都知道如何返回上级。</p></div>
+        <div class="card-item"><div class="icon">♿</div><h4>无障碍</h4><p>所有可交互元素支持屏幕阅读器标签，色彩对比度符合 WCAG AA 标准（主色/背景对比度 ≥ 4.5:1），支持系统字体缩放和减少动效模式。</p></div>
+        <div class="card-item"><div class="icon">🌙</div><h4>深色模式</h4><p>内置浅色/深色两套主题，跟随系统设置自动切换。深色模式下所有颜色的亮度降低但不饱和，保持可读性和品牌识别度。</p></div>
       </div>
     </div>
   </section>

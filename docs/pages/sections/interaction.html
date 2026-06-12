@@ -53,12 +53,17 @@ body {
 .section h3 { font-size: 18px; font-weight: 600; margin: 24px 0 12px; }
 .card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; margin-bottom: 16px; border: 1px solid var(--border); }
 .card-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-.card-item { background: var(--white); border-radius: var(--radius-sm); padding: 20px; border: 1px solid var(--border); transition: all .2s; cursor: default; }
+.card-item { background: var(--white); border-radius: var(--radius-sm); padding: 20px; border: 1px solid var(--border); transition: all .2s; cursor: default; position: relative; }
 .card-item.clickable { cursor: pointer; }
 .card-item.clickable:hover { box-shadow: var(--shadow); border-color: var(--green); }
 .card-item .icon { font-size: 28px; margin-bottom: 8px; }
 .card-item h4 { font-size: 15px; margin-bottom: 4px; }
 .card-item p { font-size: 12px; color: var(--text-light); line-height: 1.5; }
+.card-item .coming-soon {
+  position: absolute; top: 12px; right: 12px;
+  background: var(--orange-bg); color: var(--orange);
+  padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600;
+}
 .tag { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
 .tag-green { background: var(--green-bg); color: var(--green); }
 .tag-blue { background: var(--blue-bg); color: var(--blue); }
@@ -124,8 +129,9 @@ body.embed .main { padding: 20px 32px; max-width: none; }
       </div>
       <div class="card-item">
         <div class="icon">🤝</div>
-        <h4>互助学习 <span class="tag tag-orange">coming soon</span></h4>
-        <p>学习小组、问答社区、互助纠错 — 学习者互相帮助成长。</p>
+        <h4>互助学习</h4>
+        <p>学习小组、问答社区、互助纠错 — 学习者互相帮助，共同成长。</p>
+        <span class="coming-soon">Coming Soon</span>
       </div>
     </div>
   </section>

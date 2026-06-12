@@ -170,17 +170,25 @@ body.embed .main { padding: 20px 32px; max-width: none; }
 <main class="main">
   <section class="section">
     <h2>🌐 语言支持</h2>
-    <p class="desc">架构支持任意语言对插拔添加，起始阶段集中打磨两个语言对。</p>
-<div class="card-row">
-  <div class="card-item"><div class="icon">🇨🇳➜🇬🇧</div><h4>中文 → 英语</h4><p>中文母语者学习英语</p><span class="tag tag-green">起始</span></div>
-  <div class="card-item"><div class="icon">🇬🇧➜🇨🇳</div><h4>英语 → 中文</h4><p>英文母语者学习中文</p><span class="tag tag-green">起始</span></div>
-  <div class="card-item"><div class="icon">🇨🇳➜🇪🇸</div><h4>中文 → 西班牙语</h4><p>中文母语者学习西班牙语</p><span class="tag tag-green">起始</span></div>
-  <div class="card-item"><div class="icon">🇪🇸➜🇨🇳</div><h4>西班牙语 → 中文</h4><p>西语母语者学习中文</p><span class="tag tag-green">起始</span></div>
-  <div class="card-item"><div class="icon">➕</div><h4>更多语言对</h4><p>数据与代码分离，可无限扩展</p><span class="tag tag-blue">可扩展</span></div>
-</div>
+    <p class="desc">采用数据与代码分离的可扩展架构，使平台能无限插拔语言对。起始阶段集中打磨中文 ↔ 英语、中文 ↔ 西班牙语四个语言方向，验证学习效果后再逐步扩展。</p>
+    <div class="card-row">
+      <div class="card-item"><div class="icon">🇨🇳➜🇬🇧</div><h4>中文 → 英语</h4><p>面向中文母语者设计，从零基础到流利交流。课程涵盖英语发音（国际音标）、基础语法（时态、语态）、日常会话场景（旅行、工作、留学）以及文化背景知识。</p><span class="tag tag-green">起始语言对</span></div>
+      <div class="card-item"><div class="icon">🇬🇧➜🇨🇳</div><h4>英语 → 中文</h4><p>面向英文母语者学习中文，从拼音和声调开始，逐步学习汉字书写、基础语法结构、成语与惯用语，最终达到能阅读新闻和进行深入中文交流的水平。</p><span class="tag tag-green">起始语言对</span></div>
+      <div class="card-item"><div class="icon">🇨🇳➜🇪🇸</div><h4>中文 → 西班牙语</h4><p>覆盖西班牙及拉美西班牙语变体，从基础发音、动词变位到复杂从句，同时融入西语世界的文化、音乐和节庆元素，让学习者在语境中自然习得。</p><span class="tag tag-green">起始语言对</span></div>
+      <div class="card-item"><div class="icon">🇪🇸➜🇨🇳</div><h4>西班牙语 → 中文</h4><p>面向西语母语者，系统教授汉语拼音声调系统、汉字笔画与部首、量词用法及中文特有的话题优先句式，帮助学习者跨越汉字学习障碍。</p><span class="tag tag-green">起始语言对</span></div>
+      <div class="card-item"><div class="icon">➕</div><h4>更多语言对（可扩展）</h4><p>所有课程内容以 JSON/YAML 格式定义，与代码逻辑完全分离。添加新语言对只需提供对应语料包和翻译文件，无需修改核心引擎。未来计划支持日语、韩语、法语、德语、阿拉伯语等热门语言。</p><span class="tag tag-blue">可扩展架构</span></div>
+    </div>
+    <div class="card">
+      <h3>可扩展架构设计</h3>
+      <div class="card-row" style="margin-top:12px;">
+        <div class="card-item"><div class="icon">📂</div><h4>数据驱动</h4><p>课程数据、词汇表、语法规则、练习模板均以结构化数据文件存储。每个语言对独立维护一套数据目录，包含课程编排、例句、音频映射和本地化字符串。</p></div>
+        <div class="card-item"><div class="icon">⚙️</div><h4>通用引擎</h4><p>练习引擎、语音评测、进度追踪等核心模块与具体语言无关。同一套答题交互逻辑适用于任意语言对，仅需替换题目数据和语音模型。</p></div>
+        <div class="card-item"><div class="icon">🧩</div><h4>插件式添加</h4><p>新语言对通过注册 manifest.json 声明语言信息、字体资源、TTS 语音标识即可接入。支持社区贡献者通过 Pull Request 提交语言包。</p></div>
+        <div class="card-item"><div class="icon">🗺️</div><h4>未来路线</h4><p>首批验证中文↔英语、中文↔西班牙语之后，计划依次接入日语、韩语、法语、德语、阿拉伯语、俄语、葡萄牙语、意大利语、泰语、越南语等，覆盖亚洲、欧洲主要语言。</p></div>
+      </div>
+    </div>
   </section>
 </main>
-
 
 </body>
 </html>
