@@ -38,6 +38,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;fon
 .lb-rank.bronze{color:#cd7f32}
 .lb-avatar{width:36px;height:36px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
 .lb-name{flex:1;font-size:13px;font-weight:600}
+.lb-name .loc{font-size:10px;color:var(--text-lighter);font-weight:400}
 .lb-name .you-tag{font-size:10px;color:var(--green);font-weight:400}
 .lb-xp{font-size:12px;color:var(--green);font-weight:700}
 .lb-footer{text-align:center;font-size:11px;color:var(--text-lighter);margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
@@ -54,40 +55,41 @@ body.embed .phone{margin:10px auto}
 <div class="phone-content">
 <div class="lb-title">🏆 排行榜</div>
 <div class="lb-tabs">
-  <button class="lb-tab active">👥 好友</button>
-  <button class="lb-tab">🌍 全球</button>
+  <button class="lb-tab active">🌍 全球</button>
+  <button class="lb-tab">🏙️ 城市</button>
+  <button class="lb-tab">🗺️ 国家</button>
 </div>
 <div class="lb-list">
-  <div class="lb-card">
-    <div class="lb-rank gold">🥇</div>
-    <div class="lb-avatar">👨</div>
-    <div class="lb-name">Carlos</div>
-    <div class="lb-xp">2,450 XP</div>
-  </div>
-  <div class="lb-card">
-    <div class="lb-rank silver">🥈</div>
-    <div class="lb-avatar">👩</div>
-    <div class="lb-name">Maria</div>
-    <div class="lb-xp">2,120 XP</div>
-  </div>
-  <div class="lb-card">
-    <div class="lb-rank bronze">🥉</div>
-    <div class="lb-avatar">🧑</div>
-    <div class="lb-name">Yuki</div>
-    <div class="lb-xp">1,890 XP</div>
-  </div>
-  <div class="lb-card self">
-    <div class="lb-rank" style="color:var(--green);font-weight:800">4</div>
-    <div class="lb-avatar" style="background:var(--green-bg);font-size:18px">😊</div>
-    <div class="lb-name">你 <span class="you-tag">(你)</span></div>
-    <div class="lb-xp">1,450 XP</div>
-  </div>
-  <div class="lb-card">
-    <div class="lb-rank">5</div>
-    <div class="lb-avatar">👱</div>
-    <div class="lb-name">Sofia</div>
-    <div class="lb-xp">1,320 XP</div>
-  </div>
+<div class="lb-card">
+<div class="lb-rank gold">🥇</div>
+<div class="lb-avatar">👨</div>
+<div class="lb-name">Carlos<span class="loc"> 🇪🇸 西班牙</span></div>
+<div class="lb-xp">2,450 XP</div>
+</div>
+<div class="lb-card">
+<div class="lb-rank silver">🥈</div>
+<div class="lb-avatar">👩</div>
+<div class="lb-name">Maria<span class="loc"> 🇲🇽 墨西哥</span></div>
+<div class="lb-xp">2,120 XP</div>
+</div>
+<div class="lb-card">
+<div class="lb-rank bronze">🥉</div>
+<div class="lb-avatar">🧑</div>
+<div class="lb-name">Yuki<span class="loc"> 🇯🇵 日本</span></div>
+<div class="lb-xp">1,890 XP</div>
+</div>
+<div class="lb-card self">
+<div class="lb-rank" style="color:var(--green);font-weight:800">4</div>
+<div class="lb-avatar" style="background:var(--green-bg);font-size:18px">😊</div>
+<div class="lb-name">你 <span class="you-tag">(你)</span><span class="loc"> 🇨🇳 北京</span></div>
+<div class="lb-xp">1,450 XP</div>
+</div>
+<div class="lb-card">
+<div class="lb-rank">5</div>
+<div class="lb-avatar">👱</div>
+<div class="lb-name">Sofia<span class="loc"> 🇦🇷 阿根廷</span></div>
+<div class="lb-xp">1,320 XP</div>
+</div>
 </div>
 <div class="lb-footer">排行榜每周一重置</div>
 </div>

@@ -109,28 +109,21 @@ body.embed .main { padding: 20px 32px; max-width: none; }
 
 <main class="main">
   <section class="section">
-    <h2>🏆 排行</h2>
-    <p class="desc">竞技与成就系统 — 排行榜竞争、段位联赛、成就收集，激发持续学习动力。</p>
+<h2>🏆 排行</h2>
+<p class="desc">竞技与地理系统 — 多维度排行榜（全球 / 城市 / 国家）、学员世界地理分布图，激发持续学习动力。</p>
 
-    <div class="card-row">
-      <div class="card-item clickable" onclick="parent.postMessage({type:'nav', prototype:'leaderboard'}, '*');">
-        <div class="icon">🏆</div>
-        <h4>排行榜</h4>
-        <p>每周 XP 排行榜，与全球学习者竞技。查看好友排名、联赛分组，争夺周冠军宝座。</p>
-      </div>
-      <div class="card-item">
-        <div class="icon">🎖️</div>
-        <h4>段位联赛</h4>
-        <p>青铜 → 白银 → 黄金 → 钻石 → 传奇，每个赛季晋级挑战，获得段位奖励。</p>
-        <span class="coming-soon">Coming Soon</span>
-      </div>
-      <div class="card-item">
-        <div class="icon">🏅</div>
-        <h4>成就系统</h4>
-        <p>收集各类成就徽章 — 里程碑、连胜、速度挑战、完美课程、词汇大师等。</p>
-        <span class="coming-soon">Coming Soon</span>
-      </div>
-    </div>
+<div class="card-row">
+  <div class="card-item clickable" onclick="parent.postMessage({type:'nav', prototype:'leaderboard'}, '*');">
+    <div class="icon">🏆</div>
+    <h4>排行榜</h4>
+    <p>按全球、城市或国家维度排行。每周 XP 竞争，查看好友排名，争夺周冠军宝座。</p>
+  </div>
+  <div class="card-item clickable" onclick="parent.postMessage({type:'nav', prototype:'leaderboard'}, '*');">
+    <div class="icon">🗺️</div>
+    <h4>世界地理</h4>
+    <p>学员全球分布热力图 — 看看世界各地的学习者都在学什么语言，探索语言交流的全球版图。</p>
+  </div>
+</div>
   </section>
 </main>
 
