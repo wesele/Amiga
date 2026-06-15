@@ -77,7 +77,7 @@ window.SCREENS.exercise = (function() {
     var html = '<div class="emoji-display">' + data.emoji + '</div>';
     html += '<div class="exercise-options">';
     for (var i = 0; i < data.options.length; i++) {
-      html += '<button class="exercise-opt" data-value="' + data.options[i] + '" data-answer="' + data.answer + '">';
+      html += '<button class="exercise-opt" data-value="' + data.options[i] + '">';
       html += '<span class="opt-label">' + labels[i] + '</span>';
       html += data.options[i];
       html += '</button>';
@@ -91,7 +91,7 @@ window.SCREENS.exercise = (function() {
     var html = '<div class="sentence-display">' + data.sentence + '</div>';
     html += '<div class="exercise-options">';
     for (var i = 0; i < data.options.length; i++) {
-      html += '<button class="exercise-opt" data-value="' + data.options[i] + '" data-answer="' + data.answer + '">';
+      html += '<button class="exercise-opt" data-value="' + data.options[i] + '">';
       html += '<span class="opt-label">' + labels[i] + '</span>';
       html += data.options[i];
       html += '</button>';
@@ -203,8 +203,8 @@ window.SCREENS.exercise = (function() {
     if (!card || !feedback) return;
 
     var selected = btn.getAttribute('data-value');
-    var correct = btn.getAttribute('data-answer');
     var data = exerciseData[currentIndex];
+    var correct = data.answer;
     var opts = btn.parentNode.querySelectorAll('.exercise-opt');
 
     for (var i = 0; i < opts.length; i++) {

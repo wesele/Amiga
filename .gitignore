@@ -18,3 +18,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Content Studio config (contains API keys)
+content-studio/studio.config.json
+
+# Content Studio 数据文件（服务端持久化 JSON）
+content-studio/data/

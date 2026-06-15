@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📱 导航与 UI 结构 - Idioma 产品交互设计文档</title>
+<title>📱 导航与 UI 结构 - 阿米加 - Amiga 产品交互设计文档</title>
 <style>:root {
   --green: #58cc02; --green-hover: #46a302; --green-bg: #eaffd6;
   --blue: #1cb0f6; --blue-hover: #1899d6; --blue-bg: #ddf4ff;
@@ -143,52 +143,47 @@ body.embed .main { padding: 20px 32px; max-width: none; }
 
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <h1><span>I</span> Idioma</h1>
+    <h1><span>A</span> 阿米加</h1>
     <div class="sub">Product Design Document v0.1</div>
   </div>
   <nav>
     <div class="section-label">Overview</div>
     <a href="vision.html">🎯 产品定位</a>
     <a href="languages.html">🌐 语言支持</a>
-    <div class="section-label">Content</div>
-    <a href="structure.html">📚 内容结构</a>
-    <a href="exercises.html">✍️ 练习题型</a>
-    <a href="gamification.html">🎮 游戏化系统</a>
-    <div class="section-label">Design</div>
-    <a href="navigation.html" class="active">📱 导航与UI</a>
-    <a href="../prototypes/home.html">🖥️ 界面原型</a>
-    <a href="colors.html">🎨 设计语言</a>
-    <div class="section-label">Data</div>
-    <a href="schema.html">🗄️ 数据模型</a>
-    <a href="ai.html">🤖 AI 功能</a>
-    <a href="roadmap.html">🗺️ 开发路线图</a>
-    <div class="section-label">Modules</div>
-    <a href="modules.html">🧩 模块架构</a>
+      <div class="section-label">Design</div>
+      <a href="navigation.html">📱 导航与UI</a>
+      <a href="../prototypes/home.html">🖥️ 界面原型</a>
+      <a href="colors.html">🎨 设计语言</a>
   </nav>
 </aside>
 
 <main class="main">
   <section class="section">
     <h2>📱 导航与 UI 结构</h2>
-    <p class="desc">采用底部 5 Tab 导航体系结构，覆盖学习、社交、个人三大核心领域。练习页面和 AI 对话采用独立全屏模式，确保沉浸式学习体验。默认首页为学习路径页面。</p>
+    <p class="desc">采用底部 4 Tab 导航体系结构，覆盖学习、排行、互动、个人四大核心领域。练习页面和 AI 对话采用独立全屏模式，新用户首次启动时先走全屏向导流程（三步注册+设置）再进入主界面。默认首页为学习功能枢纽页面。</p>
     <div class="card-row">
-      <div class="card-item"><div class="icon">🏠</div><h4>学习</h4><p>默认首页，展示晋级之路树状地图（CEFR 分级 A1→C1），每个节点代表一个关卡。顶部显示每日 XP 目标和连胜天数。包含「AI 口语练习」快速入口和「待复习」提醒列表。</p></div>
-      <div class="card-item"><div class="icon">🏆</div><h4>排行榜</h4><p>显示好友排行和全球排行，按周 XP 排名，前 3 名有特殊徽章。包含段位系统（青铜→钻石）和赛季重置机制，每周一结算并发放段位奖励。</p></div>
-      <div class="card-item"><div class="icon">👥</div><h4>社交</h4><p>双语聊天室、好友管理、语言互助配对、实时 PK 对战。用户可创建学习小组，发起每日打卡挑战，在社区动态中分享学习心得和成果截图。</p></div>
-      <div class="card-item"><div class="icon">📖</div><h4>单词本</h4><p>按课程/单元分组的已学词汇列表，支持搜索、收藏、标记难度。内置闪卡模式（正面外语→反面释义）和听写模式，配合间隔复习算法推送待复习词汇。</p></div>
-      <div class="card-item"><div class="icon">👤</div><h4>个人</h4><p>用户档案（头像、等级、学习语言对）、成就徽章墙、详细学习统计（总时长、总 XP、词汇量、连续学习天数）、语言水平测试结果、应用设置（提醒、主题、发音）以及捐赠入口。</p></div>
+      <div class="card-item"><div class="icon">🏠</div><h4>学习</h4><p>默认首页，为功能枢纽（Hub）页面，展示三大核心入口：🏆 晋级之路（CEFR 分级 A1→C1 树状地图）、📖 单词本（词汇分组/闪卡/听写）、🤖 AI 口语练习（自由对话/场景扮演）。顶部显示每日 XP 目标和连胜天数。</p></div>
+      <div class="card-item"><div class="icon">🏆</div><h4>排行</h4><p>排行枢纽页面，上方为个人排名摘要卡片（当前排名、本周 XP、距上一名差距），下方提供两个子功能入口：排行榜（好友/全球/城市三级排名 + 段位系统青铜→钻石）和世界地理（全球学习者分布地图）。每周一结算并发放段位奖励。</p></div>
+      <div class="card-item"><div class="icon">👥</div><h4>互动</h4><p>社交枢纽页面，采用双屏流程：好友列表 → 聊天窗口。支持双语聊天（底部弹出方向切换面板：中文→外语 / 外语→中文 / 双语对照）、好友搜索与添加、实时 PK 对战邀请。语言互助配对功能已合并至社交聊天场景中。</p></div>
+      <div class="card-item"><div class="icon">👤</div><h4>个人</h4><p>用户档案页面，封面头像 + 姓名 + 当前学习语言/等级头栏，下方为菜单列表：个人资料（头像/昵称/简介）、学习语言（已学语言对及等级）、账号绑定（微信/Google）、设置。成就徽章、学习统计、目标管理等分散在各功能模块中管理。</p></div>
     </div>
     <div class="card">
       <h3>页面结构树</h3>
       <div class="tree-view">
         <div class="tree-root">AppShell（根布局）</div>
-        <div class="tree-branch">├── BottomNav（5 个底部 Tab）</div>
+        <div class="tree-branch">├── BottomNav（4 个底部 Tab）</div>
         <div class="tree-branch">├── RouterView（主路由出口）</div>
-        <div class="tree-branch">│   ├── 学习页 — 晋级之路地图（CEFR 分级）/ AI 口语入口 / 每日目标</div>
-        <div class="tree-branch">│   ├── 排行榜页 — 好友榜 / 全球榜 / 段位系统</div>
-        <div class="tree-branch">│   ├── 社交页 — 双语聊天 / 好友列表 / 互助配对 / PK</div>
-        <div class="tree-branch">│   ├── 单词本页 — 词汇分组 / 搜索筛选 / 闪卡模式 / 听写</div>
-        <div class="tree-branch">│   └── 个人页 — 档案 / 成就 / 统计 / 设置 / 捐赠</div>
+        <div class="tree-branch">│   ├── 学习 Hub — 功能枢纽卡片（晋级之路 / 单词本 / AI 口语）+ 每日 XP</div>
+        <div class="tree-branch">│   │   ├── 晋级之路 — CEFR 分级树状地图，节点为关卡/课程</div>
+        <div class="tree-branch">│   │   ├── 单词本 — 词汇分组 / 搜索筛选 / 闪卡模式 / 听写</div>
+        <div class="tree-branch">│   │   └── AI 口语练习 — 自由对话 / 场景扮演 / 发音评测</div>
+        <div class="tree-branch">│   ├── 排行 Hub — 排名摘要卡片 + 功能入口（排行榜 / 世界地理）</div>
+        <div class="tree-branch">│   │   ├── 排行榜 — 好友榜 / 全球榜 / 城市榜 / 段位系统</div>
+        <div class="tree-branch">│   │   └── 世界地理 — 全球学习者分布地图</div>
+        <div class="tree-branch">│   ├── 互动 Hub — 好友列表 → 聊天窗口</div>
+        <div class="tree-branch">│   │   ├── 好友列表 — 搜索 / 添加 / 在线状态</div>
+        <div class="tree-branch">│   │   └── 聊天 — 双语切换 / PK 邀请</div>
+        <div class="tree-branch">│   └── 个人页 — 档案头 + 菜单列表（个人资料 / 学习语言 / 账号绑定 / 设置）</div>
         <div class="tree-branch">├── 练习页（独立全屏，隐藏 BottomNav）</div>
         <div class="tree-branch">│   ├── ExercisePlayer — 题目展示 / 进度条 / 即时反馈</div>
         <div class="tree-branch">│   ├── LessonIntro — 课程导入 / 新知识点预览</div>
@@ -196,8 +191,11 @@ body.embed .main { padding: 20px 32px; max-width: none; }
         <div class="tree-branch">├── AI 对话页（独立全屏）</div>
         <div class="tree-branch">│   ├── 自由对话 — 语音 / 文字输入 + AI 回复纠错</div>
         <div class="tree-branch">│   └── 场景扮演 — 预设对话场景（点餐 / 面试 / 旅行）</div>
+        <div class="tree-branch">├── 新用户向导（首次启动全屏流程）</div>
+        <div class="tree-branch">│   ├── 注册 — Google / WeChat / 邮箱注册</div>
+        <div class="tree-branch">│   ├── 个人信息 — 头像 / 性别 / 年龄 / 母语</div>
+        <div class="tree-branch">│   └── 学习目标 — 目标语言 / 当前水平 / 每日时长 / 学习原因</div>
         <div class="tree-branch">└── Modal / Drawer（全局弹窗）</div>
-        <div class="tree-branch">    ├── 设置面板 — 发音速度 / 主题色 / 通知</div>
         <div class="tree-branch">    ├── 成就弹窗 — 解锁新成就时的庆祝动画</div>
         <div class="tree-branch">    └── 关卡详情 — 点击路径节点的预览弹窗</div>
       </div>

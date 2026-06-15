@@ -1,2 +1,8 @@
 pub mod database;
 pub mod greeting;
+pub mod logging;
+pub mod migrations;
+pub mod user;
+pub mod vocabulary;
+pub mod llm;
+pub mod news;

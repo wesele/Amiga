@@ -1,12 +1,12 @@
 <# 
-  Idioma 设计文档构建脚本（新架构）
+  Idioma 设计文档结构验证脚本
   架构:
     index.html                     - 导航主页（直接打开）
     pages/sections/*.html          - 文档章节（可独立打开）
     pages/prototypes/*.html        - 手机原型（可独立打开）
     shared/*.css, phone/*/content  - 源文件（编辑用）
     
-  本脚本生成 docs/index.html 作为导航入口。
+  本脚本验证所有必需文件是否存在，不执行构建。
   各子页面已经是独立的 HTML 文件，可直接双击打开。
 #>
 

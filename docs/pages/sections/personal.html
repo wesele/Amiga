@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>👤 个人 - Idioma 产品交互设计文档</title>
+<title>👤 个人 - 阿米加 - Amiga 产品交互设计文档</title>
 <style>:root {
   --green: #58cc02; --green-hover: #46a302; --green-bg: #eaffd6;
   --blue: #1cb0f6; --blue-hover: #1899d6; --blue-bg: #ddf4ff;
@@ -15,118 +15,267 @@
   --bg: #f7f7f7; --white: #fff; --border: #e5e5e5;
   --shadow: 0 2px 12px rgba(0,0,0,.08);
   --shadow-lg: 0 8px 30px rgba(0,0,0,.12);
-  --radius: 12px; --radius-sm: 8px; --radius-lg: 20px;
-  --sidebar-w: 260px;
+  --radius: 12px; --radius-sm: 8px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  display: flex; min-height: 100vh;
   font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;
   font-size: 15px; color: var(--text); background: var(--bg);
+  min-height: 100vh;
 }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #999; }
-.sidebar {
-  position: sticky; top: 0; height: 100vh; width: var(--sidebar-w);
-  background: var(--white); border-right: 1px solid var(--border);
-  padding: 20px 0; overflow-y: auto; flex-shrink: 0; z-index: 100;
+
+.main { max-width: 1000px; margin: 0 auto; padding: 40px 32px 80px; }
+.section-title h2 { font-size: 28px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.section-title .desc { color: var(--text-light); margin-top: 6px; margin-bottom: 28px; line-height: 1.6; }
+
+.tab-bar {
+  display: flex; gap: 4px; border-bottom: 2px solid var(--border);
+  padding-bottom: 0; margin-bottom: 0; position: sticky; top: 0;
+  background: var(--bg); z-index: 10;
 }
-.sidebar-logo { padding: 0 20px 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
-.sidebar-logo h1 { font-size: 20px; color: var(--green); display: flex; align-items: center; gap: 8px; }
-.sidebar-logo h1 span { background: var(--green); color: #fff; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; }
-.sidebar-logo .sub { font-size: 11px; color: var(--text-lighter); margin-top: 2px; letter-spacing: .5px; }
-.sidebar nav a {
-  display: flex; align-items: center; gap: 8px; padding: 10px 20px;
-  color: var(--text-light); text-decoration: none; font-size: 13px;
-  border-left: 3px solid transparent; transition: all .2s;
+.tab-btn {
+  padding: 10px 20px; font-size: 14px; font-weight: 600;
+  border: none; background: transparent; color: var(--text-light);
+  cursor: pointer; border-bottom: 3px solid transparent;
+  margin-bottom: -2px; transition: all .2s;
+  display: flex; align-items: center; gap: 6px;
+  white-space: nowrap;
 }
-.sidebar nav a:hover { background: var(--green-bg); color: var(--text); }
-.sidebar nav a.active { color: var(--green); border-left-color: var(--green); background: var(--green-bg); font-weight: 600; }
-.sidebar nav .section-label { padding: 16px 20px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-lighter); font-weight: 600; }
-.main { flex: 1; padding: 40px 48px; max-width: 960px; min-width: 0; }
-.section { margin-bottom: 60px; scroll-margin-top: 20px; }
-.section h2 { font-size: 28px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
-.section > .desc { color: var(--text-light); margin-bottom: 24px; line-height: 1.6; }
-.card-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-.card-item {
-  background: var(--white); border-radius: var(--radius-sm); padding: 20px;
-  border: 1px solid var(--border); transition: all .2s; cursor: default; position: relative;
+.tab-btn:hover { color: var(--text); background: var(--green-bg); border-radius: 8px 8px 0 0; }
+.tab-btn.active { color: var(--green); border-bottom-color: var(--green); background: transparent; }
+.tab-btn .badge { font-size: 10px; background: var(--orange-bg); color: var(--orange); padding: 1px 6px; border-radius: 8px; font-weight: 600; }
+
+.tab-pane { display: none; padding-top: 24px; }
+.tab-pane.active { display: block; }
+
+.content-card {
+  background: var(--white); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 28px 32px;
+  margin-bottom: 20px;
 }
-.card-item.clickable { cursor: pointer; }
-.card-item.clickable:hover { box-shadow: var(--shadow); border-color: var(--green); }
-.card-item .icon { font-size: 28px; margin-bottom: 8px; }
-.card-item h4 { font-size: 15px; margin-bottom: 4px; }
-.card-item p { font-size: 12px; color: var(--text-light); line-height: 1.5; }
-.card-item .coming-soon {
-  position: absolute; top: 12px; right: 12px;
-  background: var(--orange-bg); color: var(--orange);
-  padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600;
+.content-card h3 {
+  font-size: 18px; font-weight: 700; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
 }
-.tag { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-.tag-green { background: var(--green-bg); color: var(--green); }
-.tag-blue { background: var(--blue-bg); color: var(--blue); }
-.tag-orange { background: var(--orange-bg); color: var(--orange); }
-.tag-purple { background: var(--purple-bg); color: var(--purple); }
-@media (max-width: 900px) {
-  .sidebar { display: none; }
-  .main { padding: 24px 20px; }
+.content-card h4 {
+  font-size: 15px; font-weight: 600; margin: 20px 0 8px;
+  color: var(--text);
 }
-body.embed .sidebar { display: none; }
-body.embed .main { padding: 20px 32px; max-width: none; }
+.content-card h4:first-of-type { margin-top: 0; }
+.content-card p { font-size: 14px; line-height: 1.7; color: var(--text); margin-bottom: 10px; }
+.content-card ul, .content-card ol { padding-left: 20px; margin-bottom: 12px; }
+.content-card li { font-size: 14px; line-height: 1.7; color: var(--text); margin-bottom: 4px; }
+.content-card .highlight-box {
+  background: var(--green-bg); border-left: 4px solid var(--green);
+  padding: 14px 18px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin: 16px 0; font-size: 14px; line-height: 1.6;
+}
+.content-card .info-box {
+  background: var(--blue-bg); border-left: 4px solid var(--blue);
+  padding: 14px 18px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin: 16px 0; font-size: 14px; line-height: 1.6;
+}
+.content-card table {
+  width: 100%; border-collapse: collapse; margin: 12px 0;
+  font-size: 13px;
+}
+.content-card th, .content-card td {
+  padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border);
+}
+.content-card th { background: var(--bg); font-weight: 600; color: var(--text-light); font-size: 12px; text-transform: uppercase; letter-spacing: .3px; }
+
+@media (max-width: 600px) {
+  .main { padding: 24px 16px 60px; }
+  .tab-btn { padding: 8px 12px; font-size: 13px; }
+  .content-card { padding: 20px 16px; }
+}
+body.embed .main { padding: 20px 20px 60px; }
+body.embed .tab-bar { background: var(--bg); }
 </style>
 </head>
 <body>
 <script>(function(){if(location.search.indexOf('embed=1')>=0)document.body.className='embed';})();</script>
 
-<aside class="sidebar">
-  <div class="sidebar-logo">
-    <h1><span>I</span> Idioma</h1>
-    <div class="sub">Product Design Document v0.1</div>
-  </div>
-  <nav>
-    <div class="section-label">Overview</div>
-    <a href="vision.html">🎯 产品定位</a>
-    <a href="languages.html">🌐 语言支持</a>
-    <div class="section-label">Content</div>
-    <a href="structure.html">📚 内容结构</a>
-    <a href="exercises.html">✍️ 练习题型</a>
-    <a href="gamification.html">🎮 游戏化系统</a>
-    <div class="section-label">Design</div>
-    <a href="navigation.html">📱 导航与UI</a>
-    <a href="../prototypes/home.html">🖥️ 界面原型</a>
-    <a href="colors.html">🎨 设计语言</a>
-    <div class="section-label">Data</div>
-    <a href="schema.html">🗄️ 数据模型</a>
-    <a href="ai.html">🤖 AI 功能</a>
-    <a href="roadmap.html">🗺️ 开发路线图</a>
-    <div class="section-label">Modules</div>
-    <a href="modules.html">🧩 模块架构</a>
-    <a href="personal.html" class="active">👤 个人</a>
-  </nav>
-</aside>
-
 <main class="main">
-  <section class="section">
+  <div class="section-title">
     <h2>👤 个人</h2>
-    <p class="desc">用户个人中心与配置管理，涵盖个人资料查看编辑、学习偏好设置等功能。</p>
+    <p class="desc">用户个人中心与配置管理，涵盖个人资料查看编辑、学习统计、成就徽章、应用偏好设置等功能。</p>
+  </div>
 
-    <div class="card-row">
-      <div class="card-item clickable" onclick="parent.postMessage({type:'nav', prototype:'profile'}, '*');">
-        <div class="icon">👤</div>
-        <h4>个人中心</h4>
-        <p>查看和编辑个人资料、学习统计、成就徽章</p>
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="profile" onclick="switchTab('profile')">👤 个人中心</button>
+    <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">⚙️ 设置</button>
+  </div>
+
+  <!-- Tab: 个人中心 -->
+  <div class="tab-pane active" id="pane-profile">
+    <div class="content-card">
+      <h3>👤 个人中心 — 个人资料与学习统计</h3>
+      <p>个人中心是用户在阿米加的 <strong>数字身份主页</strong>，集中展示个人资料、学习统计数据、成就徽章，并提供资料编辑入口。</p>
+
+      <div class="highlight-box">
+        <strong>设计目标：</strong> 给每个学习者一个"学习简历"——不仅展示"我是谁"，更重要的是展示"我学到了什么"和"我达到了什么水平"。
       </div>
-      <div class="card-item">
-        <div class="icon">⚙️</div>
-        <h4>设置</h4>
-        <p>应用偏好、学习语言切换、通知管理、账户与隐私设置。</p>
-        <span class="coming-soon">Coming Soon</span>
+
+      <h4>资料展示</h4>
+      <ul>
+        <li><strong>头像：</strong> 默认使用 😊 中性表情符号，支持上传自定义头像</li>
+        <li><strong>昵称：</strong> 显示用户名，支持修改（每月限 1 次）</li>
+        <li><strong>学习语言：</strong> 显示用户正在学习的语言对及当前 CEFR 级别</li>
+        <li><strong>学习天数：</strong> 显示连续学习天数（Streak）和累计学习天数</li>
+        <li><strong>简介：</strong> 简短的自我介绍，可选填</li>
+      </ul>
+
+      <h4>学习统计</h4>
+      <table>
+        <tr><th>指标</th><th>说明</th><th>展示方式</th></tr>
+        <tr><td>总 XP</td><td>累计获得的总经验值</td><td>大数字 + 进度条（下一目标）</td></tr>
+        <tr><td>已完成技能数</td><td>所有级别中已完成的技能节点总数</td><td>数字 + 占全部技能的比例</td></tr>
+        <tr><td>最高 Streak</td><td>历史最长连续学习天数</td><td>徽章式展示</td></tr>
+        <tr><td>AI 口语对话次数</td><td>完成的 AI 口语练习次数</td><td>数字 + 周趋势折线图</td></tr>
+        <tr><td>单词掌握量</td><td>单词本中标记为"已掌握"的词汇数</td><td>数字 + 占目标词汇量的比例</td></tr>
+        <tr><td>周学习时长</td><td>本周累计学习分钟数</td><td>进度环 + 与上周对比的百分比</td></tr>
+      </table>
+
+      <h4>成就徽章系统</h4>
+      <p>徽章分为三类：</p>
+      <ul>
+        <li><strong>学习里程碑：</strong> 完成 10 个技能、100 个技能、达到 B1 级别、达到 C1 级别等</li>
+        <li><strong>连续学习：</strong> 7 天、30 天、100 天、365 天连续学习</li>
+        <li><strong>社区贡献：</strong> 回答 50 个问题、帮助纠错 100 次、获得 100 个赞等</li>
+      </ul>
+      <p>未解锁的徽章以灰色轮廓显示，点击可查看解锁条件（"再完成 3 个技能即可解锁"）。</p>
+
+      <h4>个人资料编辑</h4>
+      <p>点击编辑按钮进入编辑模式：</p>
+      <ul>
+        <li>修改头像（系统提供多组默认 emoji + 自定义上传）</li>
+        <li>修改昵称（每月限 1 次，显示剩余次数）</li>
+        <li>修改简介</li>
+        <li>设置所在城市和国家（影响排行榜地域维度）</li>
+        <li>学习目标设置（每日学习时长目标、每周 XP 目标）</li>
+      </ul>
+
+      <div class="info-box">
+        💡 个人中心不仅仅是"我的页面"，更是向外展示学习成果的窗口——用户可以将个人主页链接分享给朋友，朋友无需登录即可查看其学习进度和成就徽章。
       </div>
     </div>
-  </section>
+
+  </div>
+
+  <!-- Tab: 设置 -->
+  <div class="tab-pane" id="pane-settings">
+    <div class="content-card">
+      <h3>⚙️ 设置 — 应用偏好与账户管理</h3>
+      <p>设置模块提供 阿米加应用的 <strong>全局配置管理</strong>，涵盖学习偏好、语言切换、通知管理、账户与隐私设置等。</p>
+
+      <div class="highlight-box">
+        <strong>设计目标：</strong> 让每个学习者都能根据自己的习惯和需求定制学习体验，同时确保账户安全和隐私可控。
+      </div>
+
+      <h4>⚙️ 设置</h4>
+      <p>目前仅提供 <strong>界面语言</strong> 设置，其他设置项将在后续版本中添加。</p>
+
+      <div class="highlight-box">
+        <strong>设计目标：</strong> 保持设置页精简，按需逐步扩展。核心学习偏好（目标语言、每日时长等）在新用户向导中完成设置，并可在个人中心的"学习目标"入口调整。
+      </div>
+
+      <h4>🌍 界面语言</h4>
+      <p>切换应用的界面显示语言，不影响学习内容的目标语言。</p>
+      <ul>
+        <li><strong>中文</strong> — 默认界面语言</li>
+        <li><strong>English</strong> — 英文界面</li>
+        <li><strong>Español</strong> — 西班牙语界面</li>
+      </ul>
+      <p>界面语言独立于学习语言。例如：你可以使用中文界面学习西班牙语，或使用西班牙语界面学习中文。</p>
+
+      <h4>🤖 大模型 API 设置</h4>
+      <p>阿米加的新闻阅读 AI 改写、口语练习等智能功能均依赖大语言模型 API。用户需自行配置 OpenAI 兼容的第三方 API（如 OpenAI、DeepSeek、智谱、硅基流动等），应用不提供内置模型服务。</p>
+
+      <div class="highlight-box">
+        <strong>设计目标：</strong> 提供主模型和备用模型两套配置，主模型不可用时自动切换到备用模型，确保 AI 功能的高可用性。所有配置仅存储在本地 SQLite，不上传至任何服务器。
+      </div>
+
+      <p><strong>配置架构</strong></p>
+      <table>
+        <tr><th>配置项</th><th>主模型</th><th>备用模型</th><th>说明</th></tr>
+        <tr><td>用途</td><td>日常 AI 功能调用</td><td>主模型不可用时自动切换</td><td>主模型优先，失败后降级到备用</td></tr>
+        <tr><td>必填</td><td>是（否则 AI 功能不可用）</td><td>否（可选）</td><td>—</td></tr>
+        <tr><td>默认状态</td><td>未配置（引导用户填写）</td><td>未配置</td><td>首次使用时弹出配置引导</td></tr>
+      </table>
+
+      <p><strong>每套配置包含的字段</strong></p>
+      <table>
+        <tr><th>字段</th><th>类型</th><th>必填</th><th>示例</th><th>说明</th></tr>
+        <tr><td><strong>API Base URL</strong></td><td>文本输入</td><td>是</td><td><code>https://api.deepseek.com/v1</code></td><td>API 的基础地址，需兼容 OpenAI API 格式（<code>/v1/chat/completions</code>）</td></tr>
+        <tr><td><strong>API Key</strong></td><td>密码输入</td><td>是</td><td><code>sk-xxxxx</code></td><td>API 密钥，显示为掩码（点击眼睛图标切换明文/密文）</td></tr>
+        <tr><td><strong>模型名称</strong></td><td>文本输入</td><td>是</td><td><code>deepseek-chat</code></td><td>要调用的模型 ID，需与服务商提供的名称一致</td></tr>
+      </table>
+
+      <p><strong>支持的 API 服务商示例</strong></p>
+      <table>
+        <tr><th>服务商</th><th>API Base URL</th><th>推荐模型</th><th>备注</th></tr>
+        <tr><td>OpenAI</td><td><code>https://api.openai.com/v1</code></td><td>gpt-4o-mini / gpt-4o</td><td>官方 API，价格较高但稳定</td></tr>
+        <tr><td>DeepSeek</td><td><code>https://api.deepseek.com/v1</code></td><td>deepseek-chat</td><td>性价比高，中文能力强</td></tr>
+        <tr><td>智谱 (GLM)</td><td><code>https://open.bigmodel.cn/api/paas/v4</code></td><td>glm-4-flash</td><td>国内访问稳定，有免费额度</td></tr>
+        <tr><td>硅基流动</td><td><code>https://api.siliconflow.cn/v1</code></td><td>Qwen/Qwen2.5-72B</td><td>聚合多家开源模型</td></tr>
+        <tr><td>自定义</td><td>用户自行填写</td><td>用户自行填写</td><td>任何兼容 OpenAI API 格式的服务</td></tr>
+      </table>
+
+      <p><strong>交互说明</strong></p>
+      <ul>
+        <li>主模型和备用模型分开展示为两个可折叠的卡片区域，主模型卡片默认展开</li>
+        <li>每个配置区域右上角有「测试连接」按钮，点击后调用 <code>/v1/models</code> 接口验证 API 可用性</li>
+        <li>测试结果以 Toast 显示：✅ "连接成功，模型可用" / ❌ "连接失败，请检查配置"</li>
+        <li>API Key 输入框默认掩码显示，点击眼睛图标切换明文/密文</li>
+        <li>保存配置时自动运行一次连接测试，失败则弹出确认对话框："API 连接测试失败，是否仍要保存？"</li>
+        <li>首次进入应用时，若未配置任何 API，在触发 AI 功能时弹出引导对话框，引导用户填写主模型配置</li>
+      </ul>
+
+      <p><strong>降级策略</strong></p>
+      <ul>
+        <li>主模型请求失败（网络错误 / 超时 / 4xx / 5xx）时，自动切换到备用模型，并在页面顶部显示橙色提示"已切换到备用模型"</li>
+        <li>备用模型也失败时，显示错误提示"AI 功能暂时不可用，请检查 API 配置"，并提供"重新配置"按钮</li>
+        <li>切换过程中用户操作不中断，当前请求自动用备用模型重新发起</li>
+      </ul>
+
+      <div class="info-box">
+        💡 API Key 仅存储在本地 SQLite 数据库中，不会上传到任何服务器。建议使用专用 API Key 而非主账号密钥，并定期轮换。更多设置项（通知管理、隐私控制、主题切换等）将在后续迭代中逐步添加。
+      </div>
+    </div>
+  </div>
 </main>
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('pane-' + name).classList.add('active');
+  document.querySelector('[data-tab="' + name + '"]').classList.add('active');
+
+  var protoMap = { profile: 'profile', settings: 'settings' };
+  var proto = protoMap[name];
+  if (proto) {
+    parent.postMessage({type:'nav', prototype: proto}, '*');
+  } else {
+    parent.postMessage({type:'nav'}, '*');
+  }
+}
+// Auto-switch tab based on URL parameter (silent, no postMessage)
+(function(){
+  var m = location.search.match(/tab=(\w+)/);
+  if (m && m[1] !== 'profile') {
+    document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.getElementById('pane-' + m[1]).classList.add('active');
+    document.querySelector('[data-tab="' + m[1] + '"]').classList.add('active');
+  }
+})();
+</script>
 
 </body>
 </html>

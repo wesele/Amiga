@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>&#x1F4CB; 单词库 - 阿米加 - Amiga</title>
+<style>:root {
+  --green: #58cc02; --green-bg: #eaffd6; --blue: #1cb0f6; --blue-bg: #ddf4ff;
+  --purple: #7c3aed; --purple-bg: #ede9fe;
+  --text: #3a3a3a; --text-light: #777; --text-lighter: #aaa;
+  --bg: #f7f7f7; --white: #fff; --border: #e5e5e5;
+  --shadow: 0 2px 12px rgba(0,0,0,.08); --radius: 12px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size: 15px; color: var(--text); background: var(--bg); min-height: 100vh; }
+::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+.main { max-width: 960px; margin: 0 auto; padding: 40px 32px; }
+.section { margin-bottom: 48px; }
+.section h2 { font-size: 26px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+.section > .desc { color: var(--text-light); margin-bottom: 24px; line-height: 1.6; }
+.source-tag { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: var(--blue-bg); color: var(--blue); margin-bottom: 20px; }
+.stats-bar { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+.stat-chip { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 22px; flex: 1; min-width: 140px; }
+.stat-chip .num { font-size: 28px; font-weight: 700; color: var(--green); }
+.stat-chip .label { font-size: 12px; color: var(--text-light); }
+.stat-chip.a2 .num { color: var(--blue); } .stat-chip.total .num { color: var(--purple); }
+.category { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
+.category[open] { box-shadow: var(--shadow); }
+.category summary { padding: 14px 20px; cursor: pointer; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; list-style: none; user-select: none; }
+.category summary::-webkit-details-marker { display: none; }
+.category summary::before { content: '\25B8'; font-size: 12px; color: var(--text-lighter); transition: transform .2s; }
+.category[open] summary::before { transform: rotate(90deg); }
+.category summary .cat-count { margin-left: auto; font-size: 12px; font-weight: 400; color: var(--text-lighter); }
+.cat-tag { font-size: 11px; padding: 2px 10px; border-radius: 12px; font-weight: 500; }
+.cat-tag-a1 { background: var(--green-bg); color: var(--green); }
+.cat-tag-a2 { background: var(--blue-bg); color: var(--blue); }
+.word-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.word-table th { text-align: left; padding: 8px 14px; background: #fafafa; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-light); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+.word-table td { padding: 7px 14px; border-bottom: 1px solid #f0f0f0; }
+.word-table tr:last-child td { border-bottom: none; }
+.word-table tr:hover td { background: #fafffe; }
+.w { font-weight: 600; } .pos { color: var(--text-lighter); font-size: 12px; font-style: italic; } .zh { color: var(--text-light); }
+.n { width: 36px; color: var(--text-lighter); text-align: center; }
+.tw { padding: 0 4px 8px; }
+.level-heading { font-size: 20px; font-weight: 700; margin: 36px 0 16px; padding-bottom: 10px; border-bottom: 2px solid var(--green); }
+.level-heading.a2 { border-bottom-color: var(--blue); }
+.loading { text-align: center; padding: 40px; color: var(--text-lighter); font-size: 16px; }
+body.embed .main { padding: 24px 20px; }
+</style>
+</head>
+<body>
+<script>(function(){if(location.search.indexOf('embed=1')>=0)document.body.className='embed';})();</script>
+<main class="main">
+<section class="section">
+  <h2>&#x1F4CB; 单词库</h2>
+  <p class="desc">DELE A1/A2 西班牙语核心词汇表，作为内容生产系统的基准词汇库。AI 生成题目时以此为约束范围，确保所有出现的词汇均在对应级别的词表之内。</p>
+  <span class="source-tag">&#x1F4D6; 来源：Instituto Cervantes DELE 考试大纲 & Plan Curricular del Instituto Cervantes (PCIC)</span>
+  <div class="stats-bar" id="statsBar"></div>
+</section>
+<div id="vocabContent"><div class="loading">正在加载词汇表…</div></div>
+</main>
+
+<script>
+(function() {
+  // Load vocabulary.md from the docs root
+  var mdPath = '../../vocabulary.md';
+  
+  fetch(mdPath)
+    .then(function(r) { return r.text(); })
+    .then(function(md) { renderVocab(md); })
+    .catch(function(e) {
+      document.getElementById('vocabContent').innerHTML = '<p style="color:red;">加载失败: ' + e.message + '</p>';
+    });
+
+  function renderVocab(md) {
+    var lines = md.split('\n');
+    var html = '';
+    var currentLevel = '';
+    var a1Cats = 0, a2Cats = 0, a1Words = 0, a2Words = 0;
+    var tableRows = [];
+    var catInfo = null;
+
+    function flushTable() {
+      if (tableRows.length === 0 || !catInfo) return;
+      var tagClass = catInfo.level === 'a1' ? 'cat-tag-a1' : 'cat-tag-a2';
+      var tagLabel = catInfo.level === 'a1' ? 'A1' : 'A2';
+      var isFirst = (catInfo.level === 'a1' && a1Cats === 1) || (catInfo.level === 'a2' && a2Cats === 1);
+      html += '<details class="category"' + (isFirst ? ' open' : '') + '>';
+      html += '<summary><span class="cat-tag ' + tagClass + '">' + tagLabel + '</span> ' + catInfo.title + ' <span class="cat-count">' + catInfo.count + ' 词</span></summary>';
+      html += '<div class="tw"><table class="word-table"><tr><th class="n">#</th><th>词</th><th>词性</th><th>中文</th></tr>';
+      for (var i = 0; i < tableRows.length; i++) {
+        var cells = tableRows[i].split('|').filter(function(c) { return c.trim() !== ''; });
+        if (cells.length >= 4) {
+          var num = cells[0].trim();
+          var word = cells[1].trim().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          var pos = cells[2].trim();
+          var zh = cells[3].trim();
+          html += '<tr><td class="n">' + num + '</td><td class="w">' + word + '</td><td class="pos">' + pos + '</td><td class="zh">' + zh + '</td></tr>';
+        }
+      }
+      html += '</table></div></details>\n';
+      tableRows = [];
+      catInfo = null;
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].replace(/\r$/, '');
+
+      // Level headers
+      if (/^## A1 /.test(line)) {
+        flushTable();
+        html += '<div class="level-heading">&#x1F7E2; A1 词汇表（约 400 词）</div>\n';
+        currentLevel = 'a1';
+        continue;
+      }
+      if (/^## A2 /.test(line)) {
+        flushTable();
+        html += '<div class="level-heading a2">&#x1F535; A2 词汇表（在 A1 基础上新增，约 530 词）</div>\n';
+        currentLevel = 'a2';
+        continue;
+      }
+
+      // Category headers: ### N. Title（count 词） or ### N. Title（扩充，约 count 词）
+      var catMatch = line.match(/^### \d+\.\s+(.+?)（(?:扩充，)?(?:约\s*)?(\d+)\s*词）/);
+      if (catMatch) {
+        flushTable();
+        catInfo = { title: catMatch[1], count: catMatch[2], level: currentLevel };
+        if (currentLevel === 'a1') { a1Cats++; a1Words += parseInt(catMatch[2]); }
+        else { a2Cats++; a2Words += parseInt(catMatch[2]); }
+        continue;
+      }
+
+      // Table data rows
+      if (/^\| \d+/.test(line)) {
+        tableRows.push(line);
+        continue;
+      }
+    }
+    flushTable();
+
+    // Stats
+    var total = a1Words + a2Words;
+    document.getElementById('statsBar').innerHTML =
+      '<div class="stat-chip"><div><div class="num">' + a1Words + '</div><div class="label">A1 词汇 · ' + a1Cats + ' 类别</div></div></div>' +
+      '<div class="stat-chip a2"><div><div class="num">' + a2Words + '</div><div class="label">A2 新增词汇 · ' + a2Cats + ' 类别</div></div></div>' +
+      '<div class="stat-chip total"><div><div class="num">' + total + '</div><div class="label">合计词汇量</div></div></div>';
+
+    document.getElementById('vocabContent').innerHTML = html;
+  }
+})();
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Idioma 产品交互设计文档</title>
+<title>阿米加 - Amiga 产品交互设计文档</title>
 <style>
 :root {
   --green: #58cc02; --green-hover: #46a302; --green-bg: #eaffd6;
@@ -45,6 +45,8 @@ body {
 .sidebar a:hover { background: var(--green-bg); color: var(--text); }
 .sidebar a.active { color: var(--green); border-left-color: var(--green); background: var(--green-bg); font-weight: 600; }
 .sidebar a .tag { margin-left: auto; font-size: 9px; padding: 1px 6px; border-radius: 8px; font-weight: 400; }
+.sidebar a.disabled { opacity: .45; pointer-events: none; }
+.sidebar a.disabled .tag { background: var(--orange-bg); color: var(--orange); font-weight: 600; }
 
 /* Content panel */
 .content { flex: 1; display: flex; overflow: hidden; }
@@ -82,24 +84,22 @@ body {
 <!-- Sidebar -->
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <h1><span>I</span> Idioma</h1>
+    <h1><span>A</span> 阿米加 <small style="font-weight:400;color:var(--text-lighter);font-size:12px">Amiga</small></h1>
     <div class="sub">Product Design Document v0.1</div>
   </div>
   <div class="scroll">
 
-    <div class="group">整体介绍与系统设计</div>
+    <div class="group">整体介绍</div>
     <a class="active" data-section="vision">🎯 产品定位</a>
-    <a data-section="languages">🌐 语言支持</a>
-    <a data-section="structure">📚 内容结构</a>
-    <a data-section="content-pipeline">🧠 内容生产</a>
-    <a data-section="navigation" data-prototype="home">📱 导航与 UI</a>
-    <a data-section="colors">🎨 设计语言</a>
+
+    <div class="group">用户引导</div>
+    <a data-section="wizard" data-prototype="wizard">🎓 新用户向导</a>
 
     <div class="group">功能模块</div>
     <a data-section="learning" data-prototype="home">📚 学习</a>
-    <a data-section="ranking" data-prototype="leaderboard">🏆 排行</a>
-    <a data-section="interaction" data-prototype="social">💬 互动</a>
-    <a data-section="personal" data-prototype="profile">👤 个人</a>
+    <a class="disabled" data-section="ranking" data-prototype="leaderboard">🏆 排行 <span class="tag">暂不开发</span></a>
+    <a class="disabled" data-section="interaction" data-prototype="social">💬 互动 <span class="tag">暂不开发</span></a>
+    <a data-section="personal" data-prototype="profile" data-tab="profile">👤 个人</a>
 
   </div>
 </aside>
@@ -129,13 +129,15 @@ body {
   var protoPane = document.getElementById('protoPane');
 
   // Load content into panes
-  function load(section, prototype) {
+  function load(section, prototype, tab) {
     // Update description pane only if a section is specified
     if (section) {
       if (section === 'coming-soon') {
         descFrame.src = 'pages/sections/coming-soon.html?embed=1';
       } else {
-        descFrame.src = 'pages/sections/' + section + '.html?embed=1';
+        var url = 'pages/sections/' + section + '.html?embed=1';
+        if (tab) url += '&tab=' + tab;
+        descFrame.src = url;
       }
     }
     // Update prototype pane
@@ -159,21 +161,21 @@ body {
     a.addEventListener('click', function() {
       document.querySelectorAll('.sidebar a').forEach(function(x) { x.classList.remove('active'); });
       this.classList.add('active');
-      load(this.dataset.section, this.dataset.prototype);
+      load(this.dataset.section, this.dataset.prototype, this.dataset.tab);
     });
   });
 
   // Listen for sub-module navigation from iframes (postMessage)
   window.addEventListener('message', function(e) {
     if (e.data && e.data.type === 'nav') {
-      load(e.data.section, e.data.prototype);
+      load(e.data.section, e.data.prototype, e.data.tab);
     }
   });
 
   // Default: first item
   var first = document.querySelector('.sidebar a.active');
   if (first) {
-    load(first.dataset.section, first.dataset.prototype);
+    load(first.dataset.section, first.dataset.prototype, first.dataset.tab);
   }
 })();
 </script>

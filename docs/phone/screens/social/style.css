@@ -1,5 +1,5 @@
 .bilingual-card {
-  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  background: linear-gradient(135deg, var(--purple), #a855f7);
   border-radius: var(--radius);
   padding: 14px 16px;
   margin-bottom: 10px;

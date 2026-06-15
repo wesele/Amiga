@@ -1,9 +1,7 @@
 window.SCREENS = window.SCREENS || {};
 window.SCREENS.home = {
   init: function () {
-    if (typeof APP !== 'undefined' && APP.renderCoursePath) {
-      APP.renderCoursePath();
-    }
+    this.render();
   },
   render: function () {
     const container = document.getElementById('coursePath');
@@ -25,9 +23,9 @@ window.SCREENS.home = {
       if (node.status === 'completed') html += '<div class="node-check">✓</div>';
       el.innerHTML = html;
       el.style.cursor = node.status !== 'locked' ? 'pointer' : 'default';
-      if (node.status === 'active' && typeof APP !== 'undefined' && APP.showScreen) {
+      if (node.status === 'active') {
         (function (idx) {
-          el.addEventListener('click', function () { APP.showScreen('scrExercise'); if (APP.renderExercise) APP.renderExercise(idx); });
+          el.addEventListener('click', function () { APP.showScreen('scrExercise'); if (window.SCREENS && SCREENS.exercise) SCREENS.exercise.show(idx); });
         })(i);
       }
       container.appendChild(el);

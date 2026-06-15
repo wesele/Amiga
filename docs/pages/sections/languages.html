@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌐 语言支持 - Idioma 产品交互设计文档</title>
+<title>🌐 语言支持 - 阿米加 - Amiga 产品交互设计文档</title>
 <style>:root {
   --green: #58cc02; --green-hover: #46a302; --green-bg: #eaffd6;
   --blue: #1cb0f6; --blue-hover: #1899d6; --blue-bg: #ddf4ff;
@@ -143,48 +143,39 @@ body.embed .main { padding: 20px 32px; max-width: none; }
 
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <h1><span>I</span> Idioma</h1>
+    <h1><span>A</span> 阿米加</h1>
     <div class="sub">Product Design Document v0.1</div>
   </div>
   <nav>
     <div class="section-label">Overview</div>
     <a href="vision.html">🎯 产品定位</a>
     <a href="languages.html" class="active">🌐 语言支持</a>
-    <div class="section-label">Content</div>
-    <a href="structure.html">📚 内容结构</a>
-    <a href="exercises.html">✍️ 练习题型</a>
-    <a href="gamification.html">🎮 游戏化系统</a>
-    <div class="section-label">Design</div>
-    <a href="navigation.html">📱 导航与UI</a>
-    <a href="../prototypes/home.html">🖥️ 界面原型</a>
-    <a href="colors.html">🎨 设计语言</a>
-    <div class="section-label">Data</div>
-    <a href="schema.html">🗄️ 数据模型</a>
-    <a href="ai.html">🤖 AI 功能</a>
-    <a href="roadmap.html">🗺️ 开发路线图</a>
-    <div class="section-label">Modules</div>
-    <a href="modules.html">🧩 模块架构</a>
+      <div class="section-label">Design</div>
+      <a href="navigation.html">📱 导航与UI</a>
+      <a href="../prototypes/home.html">🖥️ 界面原型</a>
+      <a href="colors.html">🎨 设计语言</a>
   </nav>
 </aside>
 
 <main class="main">
   <section class="section">
     <h2>🌐 语言支持</h2>
-    <p class="desc">采用数据与代码分离的可扩展架构，使平台能无限插拔语言对。起始阶段集中打磨中文 ↔ 英语、中文 ↔ 西班牙语四个语言方向，验证学习效果后再逐步扩展。</p>
+    <p class="desc">采用数据与代码分离的可扩展架构，使平台能无限插拔语言对。起始阶段以 <strong>西班牙语为核心锚点语言</strong>，集中打磨中文 ↔ 西班牙语双语互学体验，验证学习效果后再逐步扩展至更多语言。</p>
     <div class="card-row">
-      <div class="card-item"><div class="icon">🇨🇳➜🇬🇧</div><h4>中文 → 英语</h4><p>面向中文母语者设计，从零基础到流利交流。课程涵盖英语发音（国际音标）、基础语法（时态、语态）、日常会话场景（旅行、工作、留学）以及文化背景知识。</p><span class="tag tag-green">起始语言对</span></div>
-      <div class="card-item"><div class="icon">🇬🇧➜🇨🇳</div><h4>英语 → 中文</h4><p>面向英文母语者学习中文，从拼音和声调开始，逐步学习汉字书写、基础语法结构、成语与惯用语，最终达到能阅读新闻和进行深入中文交流的水平。</p><span class="tag tag-green">起始语言对</span></div>
-      <div class="card-item"><div class="icon">🇨🇳➜🇪🇸</div><h4>中文 → 西班牙语</h4><p>覆盖西班牙及拉美西班牙语变体，从基础发音、动词变位到复杂从句，同时融入西语世界的文化、音乐和节庆元素，让学习者在语境中自然习得。</p><span class="tag tag-green">起始语言对</span></div>
-      <div class="card-item"><div class="icon">🇪🇸➜🇨🇳</div><h4>西班牙语 → 中文</h4><p>面向西语母语者，系统教授汉语拼音声调系统、汉字笔画与部首、量词用法及中文特有的话题优先句式，帮助学习者跨越汉字学习障碍。</p><span class="tag tag-green">起始语言对</span></div>
-      <div class="card-item"><div class="icon">➕</div><h4>更多语言对（可扩展）</h4><p>所有课程内容以 JSON/YAML 格式定义，与代码逻辑完全分离。添加新语言对只需提供对应语料包和翻译文件，无需修改核心引擎。未来计划支持日语、韩语、法语、德语、阿拉伯语等热门语言。</p><span class="tag tag-blue">可扩展架构</span></div>
+      <div class="card-item"><div class="icon">🇨🇳➜🇪🇸</div><h4>中文 → 西班牙语</h4><p>面向中文母语者设计，从零基础到流利交流。课程涵盖西班牙语发音（音节与重音规则）、核心语法（名词阴阳性、动词变位系统、常用时态）、日常会话场景以及西班牙及拉美文化背景知识。</p><span class="tag tag-green">首推语言对</span></div>
+      <div class="card-item"><div class="icon">🇪🇸➜🇨🇳</div><h4>西班牙语 → 中文</h4><p>面向西语母语者学习中文，从拼音和四个声调开始，逐步学习汉字书写、基础语法结构、量词用法及中文特有的话题优先句式，帮助学习者跨越汉字学习障碍。</p><span class="tag tag-green">首推语言对</span></div>
+      <div class="card-item"><div class="icon">➕</div><h4>更多语言对（后续扩展）</h4><p>所有课程内容以 JSON/YAML 格式定义，与代码逻辑完全分离。添加新语言对只需提供对应语料包和翻译文件，无需修改核心引擎。西班牙语核心体验打磨完成后依次支持英语、日语、韩语、法语、德语、阿拉伯语等热门语言。</p><span class="tag tag-blue">可扩展架构</span></div>
     </div>
     <div class="card">
-      <h3>可扩展架构设计</h3>
+      <h3>以西班牙语为锚点的设计理念</h3>
       <div class="card-row" style="margin-top:12px;">
+        <div class="card-item"><div class="icon">🎯</div><h4>深度打磨</h4><p>与其初期覆盖多语言导致体验平庸，不如将一种语言的课程做到极致。西班牙语作为全球近 5 亿母语者的第二大语言，同时是中文学者最热门的外语选择之一，具备足够的学习者基数来验证产品价值。</p></div>
+        <div class="card-item"><div class="icon">🧩</div><h4>西语特色教学</h4><p>西班牙语的动词变位体系、虚拟式用法、体貌特征（完成体/未完成体）等都是学习的重点和难点。课程设计将围绕这些特色语法现象进行专项训练，辅以 AI 实时纠错。</p></div>
+        <div class="card-item"><div class="icon">🌎</div><h4>多方言覆盖</h4><p>同时覆盖西班牙本土西语（castellano）和拉美西语（español latinoamericano）的主要差异，包括 vosotros 的使用、seseo/ceceo 发音区别、以及各地词汇差异（如 computadora vs. ordenador）。</p></div>
         <div class="card-item"><div class="icon">📂</div><h4>数据驱动</h4><p>课程数据、词汇表、语法规则、练习模板均以结构化数据文件存储。每个语言对独立维护一套数据目录，包含课程编排、例句、音频映射和本地化字符串。</p></div>
         <div class="card-item"><div class="icon">⚙️</div><h4>通用引擎</h4><p>练习引擎、语音评测、进度追踪等核心模块与具体语言无关。同一套答题交互逻辑适用于任意语言对，仅需替换题目数据和语音模型。</p></div>
         <div class="card-item"><div class="icon">🧩</div><h4>插件式添加</h4><p>新语言对通过注册 manifest.json 声明语言信息、字体资源、TTS 语音标识即可接入。支持社区贡献者通过 Pull Request 提交语言包。</p></div>
-        <div class="card-item"><div class="icon">🗺️</div><h4>未来路线</h4><p>首批验证中文↔英语、中文↔西班牙语之后，计划依次接入日语、韩语、法语、德语、阿拉伯语、俄语、葡萄牙语、意大利语、泰语、越南语等，覆盖亚洲、欧洲主要语言。</p></div>
+        <div class="card-item"><div class="icon">🗺️</div><h4>未来路线</h4><p>首批验证中文↔西班牙语之后，计划依次接入英语、日语、韩语、法语、德语、阿拉伯语、俄语、葡萄牙语、意大利语、泰语、越南语等，覆盖亚洲、欧洲主要语言。</p></div>
       </div>
     </div>
   </section>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>✍️ 练习题型 - Idioma 产品交互设计文档</title>
+<title>✍️ 练习题型 - 阿米加 - Amiga 产品交互设计文档</title>
 <style>:root {
   --green: #58cc02; --green-hover: #46a302; --green-bg: #eaffd6;
   --blue: #1cb0f6; --blue-hover: #1899d6; --blue-bg: #ddf4ff;
@@ -143,27 +143,17 @@ body.embed .main { padding: 20px 32px; max-width: none; }
 
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <h1><span>I</span> Idioma</h1>
+    <h1><span>A</span> 阿米加</h1>
     <div class="sub">Product Design Document v0.1</div>
   </div>
   <nav>
     <div class="section-label">Overview</div>
     <a href="vision.html">🎯 产品定位</a>
     <a href="languages.html">🌐 语言支持</a>
-    <div class="section-label">Content</div>
-    <a href="structure.html">📚 内容结构</a>
-    <a href="exercises.html" class="active">✍️ 练习题型</a>
-    <a href="gamification.html">🎮 游戏化系统</a>
-    <div class="section-label">Design</div>
-    <a href="navigation.html">📱 导航与UI</a>
-    <a href="../prototypes/home.html">🖥️ 界面原型</a>
-    <a href="colors.html">🎨 设计语言</a>
-    <div class="section-label">Data</div>
-    <a href="schema.html">🗄️ 数据模型</a>
-    <a href="ai.html">🤖 AI 功能</a>
-    <a href="roadmap.html">🗺️ 开发路线图</a>
-    <div class="section-label">Modules</div>
-    <a href="modules.html">🧩 模块架构</a>
+      <div class="section-label">Design</div>
+      <a href="navigation.html">📱 导航与UI</a>
+      <a href="../prototypes/home.html">🖥️ 界面原型</a>
+      <a href="colors.html">🎨 设计语言</a>
   </nav>
 </aside>
 
@@ -206,7 +196,7 @@ body.embed .main { padding: 20px 32px; max-width: none; }
 window.DATA = window.DATA || {};
 window.DATA.demos = {
   image_select: '<div class="t-center"><div class="demo-icon-big">🍎 🍌 🍊 🍇</div><div class="demo-title">🖼️ 图片选词</div><p class="demo-desc">看图片选择对应的外语词</p><div class="demo-opt-grid-2"><div class="demo-opt-item normal">manzana</div><div class="demo-opt-item highlight">plátano ✓</div><div class="demo-opt-item normal">naranja</div><div class="demo-opt-item normal">uva</div></div></div>',
-  translate: '<div class="t-center"><div style="font-size:20px;font-weight:600;color:var(--blue);margin-bottom:8px;">&quot;I would like a coffee.&quot;</div><div class="demo-desc">选择正确的中文翻译</div><div class="demo-opt-grid"><div class="demo-opt-item normal">我喜欢咖啡。</div><div class="demo-opt-item highlight">我想要一杯咖啡。✓</div><div class="demo-opt-item normal">我需要咖啡。</div></div></div>',
+  translate: '<div class="t-center"><div style="font-size:20px;font-weight:600;color:var(--blue);margin-bottom:8px;">&quot;我想要一杯咖啡。&quot;</div><div class="demo-desc">选择正确的西语翻译</div><div class="demo-opt-grid"><div class="demo-opt-item normal">Me gusta el café.</div><div class="demo-opt-item highlight">Quiero un café. ✓</div><div class="demo-opt-item normal">Necesito café.</div></div></div>',
   sentence_sort: '<div class="t-center"><div class="demo-title">📝 句子排序</div><p class="demo-desc">打乱的单词 → 拖拽排成正确句子</p><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:16px;"><span class="demo-word-chip">Quiero</span><span class="demo-word-chip">agua</span><span class="demo-word-chip">de</span><span class="demo-word-chip">un</span><span class="demo-word-chip">vaso</span></div><div style="color:var(--green);font-weight:600;">→ Quiero un vaso de agua</div></div>',
   spelling: '<div class="t-center"><div style="font-size:40px;margin-bottom:8px;">🔊</div><div class="demo-title">⌨️ 拼写题</div><p class="demo-desc">听发音 → 输入拼写</p><div style="max-width:250px;margin:0 auto;"><input type="text" placeholder="输入单词..." value="gracias" class="demo-input-correct"><div style="color:var(--green);margin-top:8px;font-weight:600;">✅ 正确！</div></div></div>',
   listening: '<div class="t-center"><div style="font-size:40px;margin-bottom:8px;cursor:pointer;">🔊</div><div class="demo-title">🎧 听力选择</div><p class="demo-desc">播放录音 → 选择对应的翻译</p><div class="demo-opt-grid-2"><div class="demo-opt-item highlight">你好 ✓</div><div class="demo-opt-item normal">谢谢</div><div class="demo-opt-item normal">再见</div><div class="demo-opt-item normal">对不起</div></div></div>',
