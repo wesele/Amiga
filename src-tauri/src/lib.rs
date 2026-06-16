@@ -54,6 +54,8 @@ pub fn run() {
             commands::llm::get_llm_config_cmd,
             commands::llm::save_setting_cmd,
             commands::llm::get_setting_cmd,
+            commands::llm::get_bilingual_cmd,
+            commands::llm::translate_text_cmd,
             // News commands
             commands::news::fetch_news_cmd,
             commands::news::get_articles_cmd,

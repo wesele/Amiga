@@ -105,6 +105,12 @@ impl Log for FileLogger {
 }
 
 pub fn init_logging() {
+    #[cfg(target_os = "android")]
+    let log_dir = PathBuf::from("/data/data/com.idioma.app/files")
+        .join("idioma")
+        .join("logs");
+
+    #[cfg(not(target_os = "android"))]
     let log_dir = dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("idioma")

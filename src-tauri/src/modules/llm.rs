@@ -1,4 +1,5 @@
 use reqwest;
+use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use log;
 use crate::modules::database::DatabasePool;
@@ -7,7 +8,7 @@ use crate::modules::database::DatabasePool;
 pub struct ModelConfig {
     pub base_url: String,
     pub api_key: String,
-    pub model_name: String,
+    pub model: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -16,7 +17,7 @@ pub struct LlmConfig {
     pub backup: Option<ModelConfig>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct ChatMessage {
     role: String,
     content: String,
@@ -69,12 +70,16 @@ impl LlmClient {
     async fn chat(&self, config: &ModelConfig, messages: Vec<ChatMessage>) -> Result<String, String> {
         let url = format!("{}/chat/completions", config.base_url.trim_end_matches('/'));
 
+        // Standard OpenAI-compatible request body
         let body = serde_json::json!({
-            "model": config.model_name,
+            "model": config.model,
             "messages": messages,
             "temperature": 0.3,
-            "max_tokens": 2000
+            "max_tokens": 4096,
+            "max_completion_tokens": 4096
         });
+
+        log::debug!("LLM request to {}: model={}", url, config.model);
 
         let response = self.http
             .post(&url)
@@ -88,16 +93,52 @@ impl LlmClient {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            return Err(format!("API error {}: {}", status, text));
+            return Err(format!("API error {}: {}", status, &text[..text.len().min(300)]));
         }
 
-        let chat_resp: ChatResponse = response.json().await
-            .map_err(|e| format!("Failed to parse response: {}", e))?;
+        let raw_text = response.text().await
+            .map_err(|e| format!("Failed to read response body: {}", e))?;
 
-        chat_resp.choices
-            .first()
-            .map(|c| c.message.content.clone())
-            .ok_or_else(|| "Empty response from model".to_string())
+        let json: serde_json::Value = serde_json::from_str(&raw_text)
+            .map_err(|e| format!("Invalid JSON response: {}", e))?;
+
+        // Standard OpenAI: choices[0].message.content
+        if let Some(content) = json.pointer("/choices/0/message/content").and_then(|v| v.as_str()) {
+            if !content.is_empty() {
+                log::debug!("LLM response: content field ({} chars)", content.len());
+                return Ok(content.to_string());
+            }
+        }
+
+        // Reasoning models: reasoning_content (DeepSeek-style) or reasoning (Nemotron-style)
+        // Contains chain-of-thought, NOT the final answer
+        let reasoning = json.pointer("/choices/0/message/reasoning_content")
+            .or_else(|| json.pointer("/choices/0/message/reasoning"))
+            .and_then(|v| v.as_str());
+
+        if let Some(reason) = reasoning {
+            log::warn!("LLM returned reasoning ({} chars) but content is null/empty. \
+                       The model may need more token budget. Trying to extract answer from reasoning...", reason.len());
+
+            // Try to find a JSON block in the reasoning (some models embed the answer there)
+            if let Some(json_start) = reason.find('{') {
+                if let Some(json_end) = reason.rfind('}') {
+                    let candidate = &reason[json_start..=json_end];
+                    log::debug!("Extracted JSON from reasoning: {} chars", candidate.len());
+                    return Ok(candidate.to_string());
+                }
+            }
+
+            // If no JSON found, return reasoning as-is
+            return Ok(reason.to_string());
+        }
+
+        // Other fallback formats
+        if let Some(content) = json.pointer("/choices/0/text").and_then(|v| v.as_str()) {
+            return Ok(content.to_string());
+        }
+
+        Err(format!("LLM returned empty content. Response: {}", &raw_text[..raw_text.len().min(500)]))
     }
 
     pub async fn chat_with_fallback(
@@ -106,12 +147,14 @@ impl LlmClient {
         messages: Vec<ChatMessage>,
     ) -> Result<String, String> {
         let config = get_llm_config(db)?;
+        let mut primary_error = String::new();
 
         // Try primary model first
         if let Some(primary) = &config.primary {
             match self.chat(primary, messages.clone()).await {
                 Ok(result) => return Ok(result),
                 Err(e) => {
+                    primary_error = e.clone();
                     log::warn!("Primary model failed: {}. Trying backup...", e);
                 }
             }
@@ -126,20 +169,33 @@ impl LlmClient {
                 }
                 Err(e) => {
                     log::error!("Backup model also failed: {}", e);
-                    return Err(format!("AI 功能暂时不可用，请检查 API 配置。主模型和备用模型均无法连接。"));
+                    return Err(format!("AI 功能暂时不可用。主模型错误: {}，备用模型错误: {}", primary_error, e));
                 }
             }
+        }
+
+        // No backup and primary failed
+        if !primary_error.is_empty() {
+            return Err(format!("AI 功能不可用: {}", primary_error));
         }
 
         Err("未配置大模型 API，请在设置中配置 API 密钥。".to_string())
     }
 
     pub async fn test_connection(&self, config: &ModelConfig) -> TestResult {
-        let url = format!("{}/models", config.base_url.trim_end_matches('/'));
+        let url = format!("{}/chat/completions", config.base_url.trim_end_matches('/'));
+
+        let body = serde_json::json!({
+            "model": config.model,
+            "messages": [{"role": "user", "content": "Hi"}],
+            "max_tokens": 5
+        });
 
         match self.http
-            .get(&url)
+            .post(&url)
             .header("Authorization", format!("Bearer {}", config.api_key))
+            .header("Content-Type", "application/json")
+            .json(&body)
             .send()
             .await
         {
@@ -147,9 +203,14 @@ impl LlmClient {
                 success: true,
                 message: "连接成功，模型可用".to_string(),
             },
-            Ok(resp) => TestResult {
-                success: false,
-                message: format!("连接失败: HTTP {}", resp.status()),
+            Ok(resp) => {
+                let status = resp.status();
+                let text = resp.text().await.unwrap_or_default();
+                let short_msg = if text.len() > 100 { &text[..100] } else { &text };
+                TestResult {
+                    success: false,
+                    message: format!("连接失败: HTTP {} - {}", status, short_msg),
+                }
             },
             Err(e) => TestResult {
                 success: false,
@@ -264,6 +325,63 @@ pub async fn translate_word(
     Ok(result)
 }
 
+/// Translate multiple paragraphs in a single LLM call
+pub async fn translate_paragraphs(
+    client: &LlmClient,
+    db: &DatabasePool,
+    paragraphs: &[String],
+    native_lang: &str,
+) -> Result<Vec<String>, String> {
+    let lang_name = match native_lang {
+        "zh" => "中文",
+        "en" => "English",
+        _ => native_lang,
+    };
+
+    let numbered: Vec<String> = paragraphs
+        .iter()
+        .enumerate()
+        .map(|(i, p)| format!("{}. {}", i + 1, p))
+        .collect();
+
+    let prompt = format!(
+        "请将以下西班牙语段落逐段翻译为{}。每段独立翻译，保持原文段落结构。\n\n\
+        段落列表：\n{}\n\n\
+        返回严格的 JSON 数组格式，每个元素对应一段的翻译。例如：[\"第一段翻译\", \"第二段翻译\"]\n\
+        不要添加任何额外文字或解释。",
+        lang_name,
+        numbered.join("\n")
+    );
+
+    let messages = vec![
+        ChatMessage {
+            role: "system".to_string(),
+            content: format!("你是专业翻译，只返回 JSON 数组格式。"),
+        },
+        ChatMessage {
+            role: "user".to_string(),
+            content: prompt,
+        },
+    ];
+
+    let response = client.chat_with_fallback(db, messages).await?;
+
+    let cleaned = response.trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+
+    let translations: Vec<String> = serde_json::from_str(cleaned)
+        .map_err(|e| {
+            log::error!("Failed to parse paragraph translations: {}. Raw: {}", e, response);
+            format!("段落翻译格式异常: {}", e)
+        })?;
+
+    log::info!("Translated {} paragraphs", translations.len());
+    Ok(translations)
+}
+
 // --- Settings persistence ---
 
 pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
@@ -283,7 +401,7 @@ pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
         let model_name = get_setting("primary_model");
         match (base_url, api_key, model_name) {
             (Some(b), Some(k), Some(m)) if !b.is_empty() && !k.is_empty() && !m.is_empty() => {
-                Some(ModelConfig { base_url: b, api_key: k, model_name: m })
+                Some(ModelConfig { base_url: b, api_key: k, model: m })
             }
             _ => None,
         }
@@ -295,7 +413,7 @@ pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
         let model_name = get_setting("backup_model");
         match (base_url, api_key, model_name) {
             (Some(b), Some(k), Some(m)) if !b.is_empty() && !k.is_empty() && !m.is_empty() => {
-                Some(ModelConfig { base_url: b, api_key: k, model_name: m })
+                Some(ModelConfig { base_url: b, api_key: k, model: m })
             }
             _ => None,
         }

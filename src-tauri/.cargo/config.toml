@@ -1,3 +1,8 @@
+[env]
+CC_x86_64_linux_android = "C:\\Android\\sdk\\ndk\\27.0.12077973\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\x86_64-linux-android34-clang.cmd"
+CXX_x86_64_linux_android = "C:\\Android\\sdk\\ndk\\27.0.12077973\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\x86_64-linux-android34-clang++.cmd"
+AR_x86_64_linux_android = "C:\\Android\\sdk\\ndk\\27.0.12077973\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\llvm-ar.exe"
+
 [target.x86_64-pc-windows-gnu]
 linker = "C:\\Users\\wh101\\.rustup\\toolchains\\stable-x86_64-pc-windows-gnu\\lib\\rustlib\\x86_64-pc-windows-gnu\\bin\\self-contained\\x86_64-w64-mingw32-gcc.exe"
 

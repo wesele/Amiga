@@ -4,6 +4,7 @@
 pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
     vec![
         (1, "Initial schema - core tables", MIGRATION_V1),
+        (2, "Add bilingual_cache to news_articles", MIGRATION_V2),
     ]
 }
 
@@ -105,4 +106,8 @@ CREATE TABLE IF NOT EXISTS streak_records (
     words_learned INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, date)
 );
+"#;
+
+const MIGRATION_V2: &str = r#"
+ALTER TABLE news_articles ADD COLUMN bilingual_cache TEXT;
 "#;

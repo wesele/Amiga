@@ -37,10 +37,14 @@ async function bootstrap() {
 
   // Load feature modules
   await kernel.loadModule("wizard");
-  await kernel.loadModule("news");
-  await kernel.loadModule("profile");
+  await kernel.loadModule("news", { parent: "shell" });
+  await kernel.loadModule("profile", { parent: "shell" });
 
   app.mount("#app");
+
+  // Fix: force re-resolve after mount to handle race condition
+  // between async beforeEach guard and dynamic route registration
+  await router.replace(router.currentRoute.value.fullPath);
 }
 
 bootstrap();

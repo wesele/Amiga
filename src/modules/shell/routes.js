@@ -3,6 +3,7 @@ import AppShell from "./AppShell.vue";
 export default [
   {
     path: "/",
+    name: "shell",
     component: AppShell,
     children: [
       {

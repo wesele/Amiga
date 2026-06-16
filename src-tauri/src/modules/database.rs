@@ -32,6 +32,13 @@ impl DatabasePool {
     }
 
     fn db_path() -> PathBuf {
+        #[cfg(target_os = "android")]
+        {
+            return PathBuf::from("/data/data/com.idioma.app/files")
+                .join("idioma")
+                .join("idioma.db");
+        }
+
         dirs::data_local_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join("idioma")

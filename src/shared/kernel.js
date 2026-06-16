@@ -26,7 +26,7 @@ class Kernel {
     this._plugins.push(plugin);
   }
 
-  async loadModule(name) {
+  async loadModule(name, { parent } = {}) {
     if (this._modules.has(name)) {
       return this._modules.get(name);
     }
@@ -36,7 +36,11 @@ class Kernel {
       this._modules.set(name, definition);
       if (definition.routes) {
         definition.routes.forEach((route) => {
-          this._router.addRoute(route);
+          if (parent) {
+            this._router.addRoute(parent, route);
+          } else {
+            this._router.addRoute(route);
+          }
         });
       }
       if (definition.init) {

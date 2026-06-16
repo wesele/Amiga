@@ -186,10 +186,10 @@ onMounted(async () => {
         primaryBaseUrl.value = config.primary.base_url || "https://api.openai.com/v1";
         primaryModel.value = config.primary.model || "gpt-4o-mini";
       }
-      if (config.fallback) {
-        fallbackApiKey.value = config.fallback.api_key || "";
-        fallbackBaseUrl.value = config.fallback.base_url || "https://api.openai.com/v1";
-        fallbackModel.value = config.fallback.model || "gpt-4o-mini";
+      if (config.backup) {
+        fallbackApiKey.value = config.backup.api_key || "";
+        fallbackBaseUrl.value = config.backup.base_url || "https://api.openai.com/v1";
+        fallbackModel.value = config.backup.model || "gpt-4o-mini";
       }
     }
   } catch (e) {
@@ -229,7 +229,7 @@ async function saveConfig() {
       base_url: primaryBaseUrl.value,
       model: primaryModel.value,
     });
-    await saveLlmConfig("fallback", {
+    await saveLlmConfig("backup", {
       api_key: fallbackApiKey.value,
       base_url: fallbackBaseUrl.value,
       model: fallbackModel.value,

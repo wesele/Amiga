@@ -102,7 +102,7 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> R
 
                             let image_url = entry.media.iter()
                                 .filter_map(|m| m.thumbnails.first())
-                                .map(|t| t.uri.to_string())
+                                .map(|t| t.image.uri.to_string())
                                 .next();
 
                             conn.execute(
@@ -304,13 +304,35 @@ pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(),
     Ok(())
 }
 
+/// Get bilingual cache for an article
+pub fn get_bilingual_cache(db: &DatabasePool, article_id: i32) -> Result<Option<String>, String> {
+    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let result = conn.query_row(
+        "SELECT bilingual_cache FROM news_articles WHERE id = ?1",
+        params![article_id],
+        |row| row.get(0),
+    ).ok().flatten();
+    Ok(result)
+}
+
+/// Save bilingual cache for an article
+pub fn save_bilingual_cache(db: &DatabasePool, article_id: i32, cache_json: &str) -> Result<(), String> {
+    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    conn.execute(
+        "UPDATE news_articles SET bilingual_cache = ?1 WHERE id = ?2",
+        params![cache_json, article_id],
+    ).map_err(|e| format!("Failed to save bilingual cache: {}", e))?;
+    log::debug!("Bilingual cache saved for article {}", article_id);
+    Ok(())
+}
+
 /// Sample articles for demo when RSS fails
 fn get_sample_articles(region: &str) -> Vec<Article> {
     vec![
         Article {
             id: None,
             original_title: "El gobierno anuncia nuevas medidas económicas".to_string(),
-            original_body: "El gobierno de España anunció ayer un paquete de nuevas medidas económicas destinadas a impulsar el crecimiento y reducir el desempleo. Las medidas incluyen incentivos fiscales para pequeñas empresas, aumentos en el gasto público para infraestructura y programas de formación profesional para jóvenes. El ministro de Economía presentó el plan en una rueda de prensa en Madrid, destacando que estas iniciativas beneficiarán a millones de ciudadanos.".to_string(),
+            original_body: Some("El gobierno de España anunció ayer un paquete de nuevas medidas económicas destinadas a impulsar el crecimiento y reducir el desempleo. Las medidas incluyen incentivos fiscales para pequeñas empresas, aumentos en el gasto público para infraestructura y programas de formación profesional para jóvenes. El ministro de Economía presentó el plan en una rueda de prensa en Madrid, destacando que estas iniciativas beneficiarán a millones de ciudadanos.".to_string()),
             rewritten_body: None,
             rewrite_level: None,
             source: Some("sample".to_string()),
@@ -323,7 +345,7 @@ fn get_sample_articles(region: &str) -> Vec<Article> {
         Article {
             id: None,
             original_title: "Descubren nueva especie en el Amazonas".to_string(),
-            original_body: "Un equipo de científicos internacionales ha descubierto una nueva especie de rana en la selva amazónica de Perú. La rana, que mide apenas dos centímetros, tiene colores brillantes y un canto único. Los investigadores creen que esta especie podría ser clave para entender la biodiversidad de la región. El hallazgo fue publicado en la revista científica Nature.".to_string(),
+            original_body: Some("Un equipo de científicos internacionales ha descubierto una nueva especie de rana en la selva amazónica de Perú. La rana, que mide apenas dos centímetros, tiene colores brillantes y un canto único. Los investigadores creen que esta especie podría ser clave para entender la biodiversidad de la región. El hallazgo fue publicado en la revista científica Nature.".to_string()),
             rewritten_body: None,
             rewrite_level: None,
             source: Some("sample".to_string()),
@@ -336,7 +358,7 @@ fn get_sample_articles(region: &str) -> Vec<Article> {
         Article {
             id: None,
             original_title: "El Real Madrid gana la Champions League".to_string(),
-            original_body: "El Real Madrid conquistó su decimoquinta Liga de Campeones al vencer al Manchester City en la final disputada en el estadio de Wembley. El partido terminó 2-1 con goles de Vinícius Junior y Jude Bellingham. El entrenador Carlo Ancelotti celebró su quinto título de Champions, convirtiéndose en el técnico más exitoso en la historia de la competición.".to_string(),
+            original_body: Some("El Real Madrid conquistó su decimoquinta Liga de Campeones al vencer al Manchester City en la final disputada en el estadio de Wembley. El partido terminó 2-1 con goles de Vinícius Junior y Jude Bellingham. El entrenador Carlo Ancelotti celebró su quinto título de Champions, convirtiéndose en el técnico más exitoso en la historia de la competición.".to_string()),
             rewritten_body: None,
             rewrite_level: None,
             source: Some("sample".to_string()),

@@ -35,9 +35,13 @@ export const translateWord = (word, context, nativeLang) =>
   invoke("translate_word_cmd", { word, context, nativeLang });
 export const testLlmConnection = (config) =>
   invoke("test_llm_connection_cmd", { config });
-export const saveLlmConfig = (key, value) =>
-  invoke("save_llm_config_cmd", { key, value });
+export const saveLlmConfig = (key, config) =>
+  invoke("save_llm_config_cmd", { key, config });
 export const getLlmConfig = () => invoke("get_llm_config_cmd");
+export const getBilingual = (articleId, nativeLang) =>
+  invoke("get_bilingual_cmd", { articleId, nativeLang });
+export const translateText = (text, nativeLang) =>
+  invoke("translate_text_cmd", { text, nativeLang });
 
 // ─── Settings ───
 export const saveSetting = (key, value) =>
