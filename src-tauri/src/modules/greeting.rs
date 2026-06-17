@@ -1,11 +1,13 @@
-pub struct GreetingModule;
+#[allow(dead_code)]
+struct GreetingModule;
 
+#[allow(dead_code)]
 impl GreetingModule {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self
     }
 
-    pub fn greet(&self, name: &str) -> String {
+    fn greet(&self, name: &str) -> String {
         format!("Hello, {}! Welcome to Idioma.", name)
     }
 }

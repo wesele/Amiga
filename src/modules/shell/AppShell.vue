@@ -12,6 +12,14 @@
         </div>
         <span class="nav-label">学习</span>
       </router-link>
+      <router-link to="/vocab" class="nav-item" active-class="active">
+        <div class="nav-icon">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12zm-7-1h2v-4h4V9h-4V5h-2v4H9v2h4v4z"/>
+          </svg>
+        </div>
+        <span class="nav-label">单词</span>
+      </router-link>
       <router-link to="/profile" class="nav-item" active-class="active">
         <div class="nav-icon">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
@@ -40,14 +48,16 @@ const showNav = computed(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 0;
   overflow: hidden;
 }
 
 .app-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .bottom-nav {
@@ -61,6 +71,7 @@ const showNav = computed(() => {
   box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.04);
   flex-shrink: 0;
   z-index: 100;
+  position: relative;
 }
 
 .nav-item {

@@ -5,6 +5,65 @@ use log;
 
 use super::migrations;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_in_memory_creates_database() {
+        let pool = DatabasePool::new_in_memory();
+        let conn = pool.conn.lock().unwrap();
+        let version: i32 = conn
+            .query_row("SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |row| row.get(0))
+            .unwrap_or(0);
+        assert!(version > 0, "Migrations should have run");
+    }
+
+    #[test]
+    fn test_new_in_memory_creates_all_tables() {
+        let pool = DatabasePool::new_in_memory();
+        let conn = pool.conn.lock().unwrap();
+
+        let tables: Vec<String> = conn
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let expected = vec![
+            "app_settings", "learning_goals", "news_articles",
+            "news_reading_log", "schema_version", "streak_records",
+            "user_vocab", "vocab_bank", "users",
+        ];
+        for table in &expected {
+            assert!(tables.contains(&table.to_string()), "Missing table: {}", table);
+        }
+    }
+
+    #[test]
+    fn test_foreign_keys_enabled() {
+        let pool = DatabasePool::new_in_memory();
+        let conn = pool.conn.lock().unwrap();
+        let fk_enabled: i32 = conn
+            .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
+            .unwrap_or(0);
+        assert_eq!(fk_enabled, 1, "Foreign keys should be enabled");
+    }
+
+    #[test]
+    fn test_schema_version_tracking() {
+        let pool = DatabasePool::new_in_memory();
+        let conn = pool.conn.lock().unwrap();
+
+        let count: i32 = conn
+            .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
+            .unwrap_or(0);
+        assert_eq!(count, 3, "Should have 3 migrations applied");
+    }
+}
+
 pub struct DatabasePool {
     pub conn: Mutex<Connection>,
 }
@@ -23,6 +82,21 @@ impl DatabasePool {
             .expect("Failed to set database pragmas");
 
         log::info!("Database opened at: {:?}", db_path);
+
+        let pool = Self {
+            conn: Mutex::new(conn),
+        };
+        pool.run_migrations();
+        pool
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn new_in_memory() -> Self {
+        let conn = Connection::open_in_memory()
+            .expect("Failed to create in-memory database");
+
+        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
+            .expect("Failed to set database pragmas");
 
         let pool = Self {
             conn: Mutex::new(conn),

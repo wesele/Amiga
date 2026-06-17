@@ -5,6 +5,7 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
     vec![
         (1, "Initial schema - core tables", MIGRATION_V1),
         (2, "Add bilingual_cache to news_articles", MIGRATION_V2),
+        (3, "Add prompts table for LLM prompt management", MIGRATION_V3),
     ]
 }
 
@@ -110,4 +111,15 @@ CREATE TABLE IF NOT EXISTS streak_records (
 
 const MIGRATION_V2: &str = r#"
 ALTER TABLE news_articles ADD COLUMN bilingual_cache TEXT;
+"#;
+
+const MIGRATION_V3: &str = r#"
+CREATE TABLE IF NOT EXISTS prompts (
+    key TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'general',
+    system_prompt TEXT NOT NULL,
+    user_prompt_template TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 "#;

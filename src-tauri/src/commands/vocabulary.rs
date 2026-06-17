@@ -37,3 +37,50 @@ pub async fn get_unknown_words_cmd(
 pub async fn get_user_vocab_stats_cmd(db: State<'_, DatabasePool>, user_id: String) -> Result<vocab_mod::VocabStats, String> {
     vocab_mod::get_user_vocab_stats(&db, &user_id)
 }
+
+#[tauri::command]
+pub async fn get_user_vocab_by_level_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+    language: String,
+    cefr_level: String,
+) -> Result<Vec<vocab_mod::UserVocabWord>, String> {
+    vocab_mod::get_user_vocab_by_level(&db, &user_id, &language, &cefr_level)
+}
+
+#[tauri::command]
+pub async fn get_user_vocab_stats_by_level_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+    language: String,
+) -> Result<Vec<vocab_mod::LevelStats>, String> {
+    vocab_mod::get_user_vocab_stats_by_level(&db, &user_id, &language)
+}
+
+#[tauri::command]
+pub async fn mark_words_seen_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+    word_ids: Vec<i32>,
+) -> Result<(), String> {
+    vocab_mod::mark_words_seen(&db, &user_id, &word_ids)
+}
+
+#[tauri::command]
+pub async fn lookup_word_ids_cmd(
+    db: State<'_, DatabasePool>,
+    words: Vec<String>,
+    language: String,
+) -> Result<Vec<i32>, String> {
+    vocab_mod::lookup_word_ids(&db, &words, &language)
+}
+
+#[tauri::command]
+pub async fn reset_user_vocab_by_level_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+    language: String,
+    cefr_level: String,
+) -> Result<(), String> {
+    vocab_mod::reset_user_vocab_by_level(&db, &user_id, &language, &cefr_level)
+}

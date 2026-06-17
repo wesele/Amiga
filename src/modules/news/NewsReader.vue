@@ -30,7 +30,7 @@
     </div>
 
     <!-- Article body -->
-    <div v-else class="article-body">
+    <div v-else class="article-body" @mouseup="onBodyMouseUp" @touchend="onBodyTouchEnd">
       <!-- Original mode -->
       <div v-if="!bilingualMode" class="article-text">
         <template v-for="(token, idx) in tokens" :key="idx">
@@ -46,9 +46,15 @@
 
       <!-- Bilingual mode -->
       <div v-else-if="translations.length > 0" class="article-text bilingual">
-        <template v-for="(para, idx) in paragraphs" :key="idx">
-          <p class="para-original">{{ para }}</p>
-          <p class="para-translation">{{ translations[idx] || '…' }}</p>
+        <template v-for="(tokens, pidx) in paraTokens" :key="pidx">
+          <p class="para-original">
+            <template v-for="(token, idx) in tokens" :key="idx">
+              <span v-if="token.isNewWord" class="word new-word" @click.stop="onWordTap(token)">{{ token.text }}</span>
+              <span v-else-if="token.isWord" class="word" @click.stop="onWordTap(token)">{{ token.text }}</span>
+              <span v-else>{{ token.text }}</span>
+            </template>
+          </p>
+          <p class="para-translation">{{ translations[pidx] || '…' }}</p>
         </template>
       </div>
       <div v-else-if="loadingTranslation" class="loading-center">
@@ -71,6 +77,19 @@
         @known="onWordKnown"
         @unknown="onWordUnknown"
       />
+    </Transition>
+
+    <!-- Selection translate popup -->
+    <Transition name="popup">
+      <div v-if="selectionText" class="sel-overlay" @click.self="clearSelection">
+        <div class="sel-popup">
+          <div class="sel-source">{{ selectionText }}</div>
+          <div v-if="selectionLoading" class="sel-loading">翻译中…</div>
+          <div v-else-if="selectionResult" class="sel-result">{{ selectionResult }}</div>
+          <div v-else-if="selectionError" class="sel-error">{{ selectionError }}</div>
+          <button class="sel-close" @click="clearSelection">✕</button>
+        </div>
+      </div>
     </Transition>
 
     <!-- Fixed bottom bar -->
@@ -99,7 +118,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText } from "@/shared/api.js";
+import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, getLearningGoals } from "@/shared/api.js";
 import WordPopup from "./components/WordPopup.vue";
 
 const props = defineProps({ id: [String, Number] });
@@ -114,11 +133,13 @@ const known = ref(0);
 const unknown = ref(0);
 const knownWordIds = ref(new Set());
 const startTime = ref(Date.now());
+let targetLang = "es";
 
 // Bilingual mode state
 const bilingualMode = ref(false);
 const translations = ref([]);
 const paragraphs = ref([]);
+const paraTokens = ref([]);
 const titleTranslation = ref("");
 const loadingTranslation = ref(false);
 const translationError = ref("");
@@ -131,6 +152,10 @@ onMounted(async () => {
     const user = await getCurrentUser();
     userId = user.id;
     nativeLang = user.native_language || "zh";
+    const goals = await getLearningGoals(userId);
+    if (goals && goals.length > 0) {
+      targetLang = goals[0].target_language || "es";
+    }
     const art = await getArticle(Number(props.id));
     article.value = art;
     if (!art.rewritten_body) {
@@ -157,8 +182,31 @@ onBeforeUnmount(async () => {
     } catch (e) {
       console.error("Failed to save reading log:", e);
     }
+
+    // Mark article words as "seen" in vocab_bank
+    try {
+      const body = article.value?.rewritten_body || article.value?.original_body || "";
+      const title = article.value?.original_title || "";
+      const allText = `${title} ${body}`;
+      const wordTokens = extractWordTexts(allText);
+      if (wordTokens.length > 0) {
+        const ids = await lookupWordIds(wordTokens, targetLang);
+        if (ids.length > 0) {
+          await markWordsSeen(userId, ids);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to mark words as seen:", e);
+    }
   }
 });
+
+function extractWordTexts(text) {
+  if (!text) return [];
+  const matches = text.match(/\b\p{L}{2,}\b/gu);
+  if (!matches) return [];
+  return [...new Set(matches.map(w => w.toLowerCase()))];
+}
 
 async function doRewrite() {
   rewriting.value = true;
@@ -188,6 +236,7 @@ async function loadBilingual() {
     // Split body into paragraphs
     const body = article.value?.rewritten_body || article.value?.original_body || "";
     paragraphs.value = body.split("\n\n").map(p => p.trim()).filter(p => p);
+    paraTokens.value = paragraphs.value.map(p => tokenize(p));
     const result = await getBilingual(Number(props.id), nativeLang);
     translations.value = result;
     // Translate title
@@ -209,28 +258,23 @@ async function loadBilingual() {
 
 // Tokenize article body
 const tokens = ref([]);
-function parseText(text) {
-  if (!text) return;
-  // Split by spaces but keep punctuation
+function tokenize(text) {
+  if (!text) return [];
   const parts = text.split(/(\s+)/);
   const result = [];
-  let inBold = false;
 
   for (const part of parts) {
     if (part.trim() === "" && part.length > 0) {
-      // Space token
       result.push({ text: part, isWord: false, isNewWord: false, context: "" });
       continue;
     }
 
-    // Check for **bold** markers
     const boldRegex = /\*\*(.+?)\*\*/g;
     let match;
     let lastIdx = 0;
     const tempStr = part;
 
     while ((match = boldRegex.exec(tempStr)) !== null) {
-      // Add text before match
       if (match.index > lastIdx) {
         const prefix = tempStr.slice(lastIdx, match.index);
         for (const w of prefix.split(/(?<=\P{L})(?=\p{L})|(?<=\p{L})(?=\P{L})/u)) {
@@ -241,12 +285,10 @@ function parseText(text) {
           }
         }
       }
-      // Bold word
       result.push({ text: match[1], isWord: true, isNewWord: true, context: getContext(text, match[1]) });
       lastIdx = match.index + match[0].length;
     }
 
-    // Remaining text after last bold
     if (lastIdx < tempStr.length) {
       const suffix = tempStr.slice(lastIdx);
       for (const w of suffix.split(/(?<=\P{L})(?=\p{L})|(?<=\p{L})(?=\P{L})/u)) {
@@ -258,7 +300,11 @@ function parseText(text) {
       }
     }
   }
-  tokens.value = result;
+  return result;
+}
+
+function parseText(text) {
+  tokens.value = tokenize(text);
 }
 
 function getContext(fullText, word) {
@@ -281,16 +327,86 @@ function onWordTap(token) {
   if (!token.isWord) return;
   selectedWord.value = token;
   lookedUp.value++;
+  knownWordIds.value.add(token.text);
 }
 
-function onWordKnown() {
+async function onWordKnown() {
   known.value++;
+  if (selectedWord.value) {
+    knownWordIds.value.add(selectedWord.value.text);
+    try {
+      const ids = await lookupWordIds([selectedWord.value.text], targetLang);
+      if (ids.length > 0) {
+        await updateWordMastery(userId, ids[0], 2, "news_reading");
+      }
+    } catch (_) {}
+  }
   selectedWord.value = null;
 }
 
-function onWordUnknown() {
+async function onWordUnknown() {
   unknown.value++;
+  if (selectedWord.value) {
+    knownWordIds.value.add(selectedWord.value.text);
+    try {
+      const ids = await lookupWordIds([selectedWord.value.text], targetLang);
+      if (ids.length > 0) {
+        await updateWordMastery(userId, ids[0], 0, "news_reading");
+      }
+    } catch (_) {}
+  }
   selectedWord.value = null;
+}
+
+// Selection translate state
+const selectionText = ref("");
+const selectionResult = ref("");
+const selectionLoading = ref(false);
+const selectionError = ref("");
+let selectionTimer = null;
+
+function onBodyMouseUp(e) {
+  clearTimeout(selectionTimer);
+  selectionTimer = setTimeout(() => handleSelection(e), 200);
+}
+
+function onBodyTouchEnd(e) {
+  clearTimeout(selectionTimer);
+  selectionTimer = setTimeout(() => handleSelection(e), 300);
+}
+
+function handleSelection(e) {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+  const text = sel.toString().trim();
+  if (!text || text.length === 0) return;
+
+  // If only one word, let WordPopup handle it
+  if (text.split(/\s+/).length <= 1) return;
+
+  selectionText.value = text;
+  selectionLoading.value = true;
+  selectionResult.value = "";
+  selectionError.value = "";
+
+  translateText(text, nativeLang || "zh")
+    .then(result => {
+      selectionResult.value = result;
+      selectionLoading.value = false;
+    })
+    .catch(err => {
+      selectionError.value = typeof err === "string" ? err : "翻译暂不可用";
+      selectionLoading.value = false;
+    });
+
+  sel.removeAllRanges();
+}
+
+function clearSelection() {
+  selectionText.value = "";
+  selectionResult.value = "";
+  selectionError.value = "";
+  selectionLoading.value = false;
 }
 
 function goBack() {
@@ -442,6 +558,7 @@ function formatSource(source) {
 /* Article text */
 .article-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 20px 20px 80px;
 }
@@ -450,7 +567,7 @@ function formatSource(source) {
   font-size: 17px;
   line-height: 2.0;
   color: var(--text);
-  user-select: none;
+  user-select: text;
 }
 
 .word {
@@ -481,27 +598,26 @@ function formatSource(source) {
   flex-shrink: 0;
   border-top: 1px solid var(--border);
   background: var(--surface);
-  padding: 8px 16px;
-  padding-bottom: calc(8px + var(--safe-bottom));
+  padding: 12px 16px;
+  padding-bottom: calc(12px + var(--safe-bottom));
 }
 
 /* Mode bar */
 .mode-bar {
   display: flex;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .mode-btn {
   flex: 1;
-  max-width: 60px;
-  padding: 3px 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  padding: 10px 0;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text-light);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
   transition: all var(--transition);
   font-family: inherit;
@@ -511,14 +627,16 @@ function formatSource(source) {
   border-color: var(--blue);
   background: var(--blue-bg);
   color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(28, 176, 246, 0.2);
 }
 
 /* Bottom stats */
 .reading-stats {
   display: flex;
   justify-content: space-around;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-lighter);
+  font-weight: 500;
 }
 
 /* Bilingual paragraphs */
@@ -533,6 +651,88 @@ function formatSource(source) {
   margin-bottom: 20px;
   padding-left: 12px;
   border-left: 2px solid var(--border);
+}
+
+/* Selection translate popup */
+.sel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 500;
+  padding: 20px;
+  padding-bottom: calc(20px + 80px);
+}
+
+.sel-popup {
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-sm);
+  padding: 20px 24px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.2s cubic-bezier(0.2, 0, 0, 1);
+  position: relative;
+}
+
+.sel-source {
+  font-size: 15px;
+  color: var(--text-light);
+  margin-bottom: 8px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-all;
+}
+
+.sel-loading {
+  font-size: 14px;
+  color: var(--text-lighter);
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.sel-result {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--purple);
+  line-height: 1.5;
+  padding: 4px 0;
+}
+
+.sel-error {
+  font-size: 13px;
+  color: var(--red);
+}
+
+.sel-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--surface-variant);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  transition: background var(--transition);
+}
+
+.sel-close:hover {
+  background: var(--border);
 }
 
 /* Popup transition */

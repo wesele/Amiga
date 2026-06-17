@@ -3,6 +3,190 @@ use serde::{Deserialize, Serialize};
 use log;
 use crate::modules::database::DatabasePool;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_pool() -> DatabasePool {
+        DatabasePool::new_in_memory()
+    }
+
+    #[test]
+    fn test_get_or_create_user_creates_default() {
+        let pool = test_pool();
+        let user = get_or_create_user(&pool).unwrap();
+        assert_eq!(user.nickname, "学习者");
+        assert_eq!(user.avatar, "😊");
+        assert_eq!(user.native_language, "zh");
+        assert_eq!(user.country, "CN");
+        assert_eq!(user.wizard_completed, false);
+    }
+
+    #[test]
+    fn test_get_or_create_user_returns_same_user() {
+        let pool = test_pool();
+        let user1 = get_or_create_user(&pool).unwrap();
+        let user2 = get_or_create_user(&pool).unwrap();
+        assert_eq!(user1.id, user2.id);
+    }
+
+    #[test]
+    fn test_create_user_from_wizard_creates_user() {
+        let pool = test_pool();
+        let request = CreateUserRequest {
+            nickname: "TestUser".to_string(),
+            avatar: "🐱".to_string(),
+            native_language: "en".to_string(),
+            country: "US".to_string(),
+            gender: Some("male".to_string()),
+            birth_year: Some(1990),
+        };
+        let user = create_user_from_wizard(&pool, request).unwrap();
+        assert_eq!(user.nickname, "TestUser");
+        assert_eq!(user.avatar, "🐱");
+        assert_eq!(user.wizard_completed, true);
+    }
+
+    #[test]
+    fn test_create_user_from_wizard_sets_wizard_completed() {
+        let pool = test_pool();
+        let request = CreateUserRequest {
+            nickname: "Test".to_string(),
+            avatar: "😊".to_string(),
+            native_language: "zh".to_string(),
+            country: "CN".to_string(),
+            gender: None,
+            birth_year: None,
+        };
+        let user = create_user_from_wizard(&pool, request).unwrap();
+        assert_eq!(user.wizard_completed, true);
+    }
+
+    #[test]
+    fn test_wizard_completed_false_by_default() {
+        let pool = test_pool();
+        let completed = is_wizard_completed(&pool).unwrap();
+        assert_eq!(completed, false);
+    }
+
+    #[test]
+    fn test_wizard_completed_true_after_create() {
+        let pool = test_pool();
+        let request = CreateUserRequest {
+            nickname: "Test".to_string(),
+            avatar: "😊".to_string(),
+            native_language: "zh".to_string(),
+            country: "CN".to_string(),
+            gender: None,
+            birth_year: None,
+        };
+        create_user_from_wizard(&pool, request).unwrap();
+        let completed = is_wizard_completed(&pool).unwrap();
+        assert_eq!(completed, true);
+    }
+
+    #[test]
+    fn test_update_user_nickname() {
+        let pool = test_pool();
+        let user = get_or_create_user(&pool).unwrap();
+        let update = UpdateUserRequest {
+            id: user.id.clone(),
+            nickname: Some("NewName".to_string()),
+            avatar: None,
+            native_language: None,
+            country: None,
+            gender: None,
+            birth_year: None,
+        };
+        let updated = update_user(&pool, update).unwrap();
+        assert_eq!(updated.nickname, "NewName");
+    }
+
+    #[test]
+    fn test_update_user_avatar() {
+        let pool = test_pool();
+        let user = get_or_create_user(&pool).unwrap();
+        let update = UpdateUserRequest {
+            id: user.id,
+            nickname: None,
+            avatar: Some("🌟".to_string()),
+            native_language: None,
+            country: None,
+            gender: None,
+            birth_year: None,
+        };
+        let updated = update_user(&pool, update).unwrap();
+        assert_eq!(updated.avatar, "🌟");
+    }
+
+    #[test]
+    fn test_save_and_get_learning_goals() {
+        let pool = test_pool();
+        let user = get_or_create_user(&pool).unwrap();
+        let goal = LearningGoal {
+            id: None,
+            user_id: user.id.clone(),
+            target_language: "es".to_string(),
+            cefr_level: "A1".to_string(),
+            daily_minutes: 15,
+            objective: "daily_conversation".to_string(),
+        };
+        let saved = save_learning_goal(&pool, goal).unwrap();
+        assert!(saved.id.is_some());
+
+        let goals = get_learning_goals(&pool, &user.id).unwrap();
+        assert_eq!(goals.len(), 1);
+        assert_eq!(goals[0].target_language, "es");
+        assert_eq!(goals[0].cefr_level, "A1");
+    }
+
+    #[test]
+    fn test_multiple_learning_goals() {
+        let pool = test_pool();
+        let user = get_or_create_user(&pool).unwrap();
+
+        for lang in &["es", "fr", "de"] {
+            let goal = LearningGoal {
+                id: None,
+                user_id: user.id.clone(),
+                target_language: lang.to_string(),
+                cefr_level: "A1".to_string(),
+                daily_minutes: 15,
+                objective: "daily_conversation".to_string(),
+            };
+            save_learning_goal(&pool, goal).unwrap();
+        }
+
+        let goals = get_learning_goals(&pool, &user.id).unwrap();
+        assert_eq!(goals.len(), 3);
+    }
+
+    #[test]
+    fn test_get_learning_goals_empty_for_unknown_user() {
+        let pool = test_pool();
+        let goals = get_learning_goals(&pool, "nonexistent-user").unwrap();
+        assert!(goals.is_empty());
+    }
+
+    #[test]
+    fn test_reset_wizard() {
+        let pool = test_pool();
+        let request = CreateUserRequest {
+            nickname: "Test".to_string(),
+            avatar: "😊".to_string(),
+            native_language: "zh".to_string(),
+            country: "CN".to_string(),
+            gender: None,
+            birth_year: None,
+        };
+        create_user_from_wizard(&pool, request).unwrap();
+        assert_eq!(is_wizard_completed(&pool).unwrap(), true);
+
+        reset_wizard(&pool).unwrap();
+        assert_eq!(is_wizard_completed(&pool).unwrap(), false);
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct User {
     pub id: String,

@@ -1,4 +1,4 @@
-class EventBus {
+export class EventBus {
   constructor() {
     this._listeners = new Map();
   }
@@ -30,6 +30,10 @@ class EventBus {
       this.off(event, wrapper);
     };
     this.on(event, wrapper);
+  }
+
+  clear() {
+    this._listeners.clear();
   }
 }
 

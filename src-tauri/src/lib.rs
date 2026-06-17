@@ -20,6 +20,9 @@ pub fn run() {
         log::error!("Failed to import vocabulary bank: {}", e);
     }
 
+    // Insert default prompts if not already present
+    modules::prompts::ensure_default_prompts(&db_pool);
+
     // Create LLM client
     let llm_state = LlmState {
         client: LlmClient::new(),
@@ -46,6 +49,11 @@ pub fn run() {
             commands::vocabulary::update_word_mastery_cmd,
             commands::vocabulary::get_unknown_words_cmd,
             commands::vocabulary::get_user_vocab_stats_cmd,
+            commands::vocabulary::get_user_vocab_by_level_cmd,
+            commands::vocabulary::get_user_vocab_stats_by_level_cmd,
+            commands::vocabulary::mark_words_seen_cmd,
+            commands::vocabulary::lookup_word_ids_cmd,
+            commands::vocabulary::reset_user_vocab_by_level_cmd,
             // LLM commands
             commands::llm::rewrite_article_cmd,
             commands::llm::translate_word_cmd,
@@ -61,6 +69,14 @@ pub fn run() {
             commands::news::get_articles_cmd,
             commands::news::get_article_cmd,
             commands::news::save_reading_log_cmd,
+            // Prompt commands
+            commands::prompts::get_all_prompts_cmd,
+            commands::prompts::get_prompt_cmd,
+            commands::prompts::save_prompt_cmd,
+            commands::prompts::reset_prompt_cmd,
+            commands::prompts::reset_all_prompts_cmd,
+            // Update commands
+            commands::update::check_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

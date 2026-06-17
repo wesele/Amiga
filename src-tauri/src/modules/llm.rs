@@ -18,17 +18,19 @@ pub struct LlmConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct ChatMessage {
-    role: String,
-    content: String,
+pub(crate) struct ChatMessage {
+    pub(crate) role: String,
+    pub(crate) content: String,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct ChatResponse {
     choices: Vec<ChatChoice>,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct ChatChoice {
     message: ChatMessage,
 }
@@ -220,6 +222,34 @@ impl LlmClient {
     }
 }
 
+fn build_chat_messages(db: &DatabasePool, prompt_key: &str, vars: &[(&str, &str)]) -> Vec<ChatMessage> {
+    let (sys, usr) = match crate::modules::prompts::get_prompt(db, prompt_key) {
+        Ok(p) => (p.system_prompt, p.user_prompt_template),
+        Err(_) => {
+            log::warn!("Prompt '{}' not found, using default", prompt_key);
+            return vec![];
+        }
+    };
+
+    let mut filled = usr;
+    for (k, v) in vars {
+        filled = filled.replace(&format!("{{{{{}}}}}", k), v);
+    }
+
+    vec![
+        ChatMessage { role: "system".to_string(), content: sys },
+        ChatMessage { role: "user".to_string(), content: filled },
+    ]
+}
+
+/// Fallback build messages for when DB prompts are not available
+fn build_chat_messages_fallback(system: &str, user: &str) -> Vec<ChatMessage> {
+    vec![
+        ChatMessage { role: "system".to_string(), content: system.to_string() },
+        ChatMessage { role: "user".to_string(), content: user.to_string() },
+    ]
+}
+
 pub async fn rewrite_article(
     client: &LlmClient,
     db: &DatabasePool,
@@ -229,30 +259,36 @@ pub async fn rewrite_article(
     new_words: &[String],
 ) -> Result<RewriteResult, String> {
     let words_list = new_words.join(", ");
-    let prompt = format!(
-        "你是一个西班牙语语言学习助手。请将以下新闻改写为 CEFR {} 级别。\n\n\
-        规则：\n\
-        1. 新闻事实（人名、地名、数字、日期）一字不改\n\
-        2. 句式简化为 {} 对应的复杂度（A1用简单短句，A2可用简单复合句，B1+可用从句）\n\
-        3. 从以下词汇中挑选新词自然植入文章：{}\n\
-        4. 新词用 **加粗** 标记（markdown格式）\n\
-        5. 文章长度控制：A1约3-5句，A2约1-2段，B1+完整新闻\n\
-        6. 返回严格的 JSON 格式：{{\"rewritten\": \"改写后的全文\", \"new_words_used\": [\"实际植入的词\"]}}\n\n\
-        新闻标题：{}\n\
-        新闻原文：{}",
-        cefr_level, cefr_level, words_list, original_title, original_text
-    );
-
-    let messages = vec![
-        ChatMessage {
-            role: "system".to_string(),
-            content: "你是专业的语言学习改写助手，擅长根据CEFR等级调整文章难度。只返回JSON格式。".to_string(),
-        },
-        ChatMessage {
-            role: "user".to_string(),
-            content: prompt,
-        },
+    let vars = [
+        ("CEFR_LEVEL", cefr_level),
+        ("NEW_WORDS", &words_list),
+        ("TITLE", original_title),
+        ("TEXT", original_text),
     ];
+
+    let messages = build_chat_messages(db, "rewrite-article", &vars);
+
+    // Fallback to hardcoded prompt if DB prompt not available
+    let messages = if messages.is_empty() {
+        let prompt = format!(
+            "请将以下西班牙语新闻改写成适合 CEFR {} 级别学习者阅读的版本。\n\n\
+             要求：\n\
+             1. 忠实原文 — 新闻事实、人名、地名、数字、日期不得改动\n\
+             2. 用词限制 — 全文尽量使用 {} 级及以下级别的单词\n\
+             3. 超纲词 — 最多允许5个超级别单词，超纲词用 **加粗** 标记\n\
+             4. 可选植入词 — {} 选自然植入，同样需加粗\n\n\
+             返回 JSON：{{\"rewritten\": \"改写后的全文\", \"new_words_used\": [\"实际植入的词\"]}}\n\n\
+             标题：{}\n\
+             正文：{}",
+            cefr_level, cefr_level, words_list, original_title, original_text
+        );
+        build_chat_messages_fallback(
+            "你是专业的语言学习改写助手，只返回JSON格式。",
+            &prompt,
+        )
+    } else {
+        messages
+    };
 
     let response = client.chat_with_fallback(db, messages).await?;
 
@@ -287,25 +323,30 @@ pub async fn translate_word(
         _ => native_lang,
     };
 
-    let prompt = format!(
-        "翻译以下西班牙语单词，基于给定上下文：\n\
-        单词: {}\n\
-        上下文: {}\n\
-        目标翻译语言: {}\n\
-        返回严格的 JSON 格式：{{\"translation_zh\": \"中文翻译\", \"translation_es\": \"西语释义\", \"ipa\": \"IPA音标\", \"pos\": \"词性(名词/动词/形容词等)\", \"example\": \"一个简单例句\"}}",
-        word, context, lang_name
-    );
-
-    let messages = vec![
-        ChatMessage {
-            role: "system".to_string(),
-            content: "你是专业的西班牙语翻译助手。给出准确的翻译和音标信息。只返回JSON格式。".to_string(),
-        },
-        ChatMessage {
-            role: "user".to_string(),
-            content: prompt,
-        },
+    let vars = [
+        ("WORD", word),
+        ("CONTEXT", context),
+        ("TARGET_LANG", lang_name),
     ];
+
+    let messages = build_chat_messages(db, "translate-word", &vars);
+
+    let messages = if messages.is_empty() {
+        let prompt = format!(
+            "翻译以下西班牙语单词，基于给定上下文：\n\
+             单词: {}\n\
+             上下文: {}\n\
+             目标翻译语言: {}\n\
+             返回严格的 JSON 格式：{{\"translation_zh\": \"中文翻译\", \"translation_es\": \"西语释义\", \"ipa\": \"IPA音标\", \"pos\": \"词性(名词/动词/形容词等)\", \"example\": \"一个简单例句\"}}",
+            word, context, lang_name
+        );
+        build_chat_messages_fallback(
+            "你是专业的西班牙语翻译助手。给出准确的翻译和音标信息。只返回JSON格式。",
+            &prompt,
+        )
+    } else {
+        messages
+    };
 
     let response = client.chat_with_fallback(db, messages).await?;
 
@@ -343,26 +384,31 @@ pub async fn translate_paragraphs(
         .enumerate()
         .map(|(i, p)| format!("{}. {}", i + 1, p))
         .collect();
+    let paras_str = numbered.join("\n");
 
-    let prompt = format!(
-        "请将以下西班牙语段落逐段翻译为{}。每段独立翻译，保持原文段落结构。\n\n\
-        段落列表：\n{}\n\n\
-        返回严格的 JSON 数组格式，每个元素对应一段的翻译。例如：[\"第一段翻译\", \"第二段翻译\"]\n\
-        不要添加任何额外文字或解释。",
-        lang_name,
-        numbered.join("\n")
-    );
-
-    let messages = vec![
-        ChatMessage {
-            role: "system".to_string(),
-            content: format!("你是专业翻译，只返回 JSON 数组格式。"),
-        },
-        ChatMessage {
-            role: "user".to_string(),
-            content: prompt,
-        },
+    let vars = [
+        ("TARGET_LANG", lang_name),
+        ("PARAGRAPHS", &paras_str),
     ];
+
+    let messages = build_chat_messages(db, "translate-paragraphs", &vars);
+
+    let messages = if messages.is_empty() {
+        let prompt = format!(
+            "请将以下西班牙语段落逐段翻译为{}。每段独立翻译，保持原文段落结构。\n\n\
+             段落列表：\n{}\n\n\
+             返回严格的 JSON 数组格式，每个元素对应一段的翻译。例如：[\"第一段翻译\", \"第二段翻译\"]\n\
+             不要添加任何额外文字或解释。",
+            lang_name,
+            paras_str,
+        );
+        build_chat_messages_fallback(
+            "你是专业翻译，只返回 JSON 数组格式。",
+            &prompt,
+        )
+    } else {
+        messages
+    };
 
     let response = client.chat_with_fallback(db, messages).await?;
 

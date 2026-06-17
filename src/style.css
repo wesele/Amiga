@@ -66,12 +66,16 @@
   box-sizing: border-box;
 }
 
+html { height: 100%; overflow: hidden; }
+
 body {
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
 }
 
 #app {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }

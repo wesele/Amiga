@@ -38,6 +38,8 @@ async function bootstrap() {
   // Load feature modules
   await kernel.loadModule("wizard");
   await kernel.loadModule("news", { parent: "shell" });
+  await kernel.loadModule("vocab", { parent: "shell" });
+  await kernel.loadModule("prompts", { parent: "shell" });
   await kernel.loadModule("profile", { parent: "shell" });
 
   app.mount("#app");

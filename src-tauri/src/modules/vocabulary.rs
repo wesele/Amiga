@@ -1,7 +1,362 @@
-use rusqlite::params;
+use rusqlite::{params, types::ToSql};
 use serde::{Deserialize, Serialize};
 use log;
 use crate::modules::database::DatabasePool;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn test_pool() -> DatabasePool {
+        DatabasePool::new_in_memory()
+    }
+
+    fn create_test_user(conn: &Connection) -> String {
+        let id = "test-user-id";
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES (?1, 'TestUser')",
+            params![id],
+        ).unwrap();
+        id.to_string()
+    }
+
+    fn insert_test_word(conn: &Connection, word: &str, level: &str, lang: &str) -> i32 {
+        conn.execute(
+            "INSERT INTO vocab_bank (word, lemma, pos, cefr_level, language, frequency)
+             VALUES (?1, ?2, 'noun', ?3, ?4, 100)",
+            params![word, word, level, lang],
+        ).unwrap();
+        conn.last_insert_rowid() as i32
+    }
+
+    #[test]
+    fn test_import_vocab_bank_returns_count() {
+        let pool = test_pool();
+        let result = import_vocab_bank(&pool);
+        assert!(result.is_ok());
+        let count = result.unwrap();
+        assert!(count > 0, "Should import at least some vocab words");
+    }
+
+    #[test]
+    fn test_import_vocab_bank_idempotent() {
+        let pool = test_pool();
+        let first = import_vocab_bank(&pool).unwrap();
+        let second = import_vocab_bank(&pool).unwrap();
+        assert_eq!(first, second, "Second import should return same count");
+    }
+
+    #[test]
+    fn test_init_user_vocab_no_op_does_not_insert_records() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        insert_test_word(&conn, "hola", "A1", "es");
+        drop(conn);
+
+        init_user_vocab(&pool, &uid, "A1").unwrap();
+
+        let conn = pool.conn.lock().unwrap();
+        let count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM user_vocab uv
+                 JOIN vocab_bank vb ON uv.word_id = vb.id
+                 WHERE uv.user_id = ?1 AND vb.word = 'hola'",
+                params![uid],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 0, "No user_vocab record should exist (all words start as unseen)");
+    }
+
+    #[test]
+    fn test_init_user_vocab_empty_level() {
+        let pool = test_pool();
+        let result = init_user_vocab(&pool, "user-1", "");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_update_word_mastery_inserts_new_record() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        let wid = insert_test_word(&conn, "adios", "A1", "es");
+        drop(conn);
+
+        update_word_mastery(&pool, &uid, wid, 1, "test").unwrap();
+
+        let conn = pool.conn.lock().unwrap();
+        let mastery: i32 = conn
+            .query_row(
+                "SELECT mastery FROM user_vocab WHERE user_id = ?1 AND word_id = ?2",
+                params![uid, wid],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(mastery, 1);
+    }
+
+    #[test]
+    fn test_update_word_mastery_updates_existing() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        let wid = insert_test_word(&conn, "gracias", "A1", "es");
+        drop(conn);
+
+        update_word_mastery(&pool, &uid, wid, 1, "test").unwrap();
+        update_word_mastery(&pool, &uid, wid, 2, "exercise").unwrap();
+
+        let conn = pool.conn.lock().unwrap();
+        let mastery: i32 = conn
+            .query_row(
+                "SELECT mastery FROM user_vocab WHERE user_id = ?1 AND word_id = ?2",
+                params![uid, wid],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(mastery, 2);
+    }
+
+    #[test]
+    fn test_get_unknown_words_returns_unmastered() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        let known = insert_test_word(&conn, "casa", "A1", "es");
+        let unknown = insert_test_word(&conn, "perro", "A1", "es");
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source)
+             VALUES (?1, ?2, 2, 'init')",
+            params![uid, known],
+        ).unwrap();
+        drop(conn);
+
+        let words = get_unknown_words(&pool, &uid, "A2", 10).unwrap();
+        let ids: Vec<i32> = words.iter().map(|w| w.id).collect();
+        assert!(!ids.contains(&known), "Known word should not appear in unknown");
+        assert!(ids.contains(&unknown), "Unmastered word should appear as unknown");
+    }
+
+    #[test]
+    fn test_get_unknown_words_respects_limit() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        for i in 0..5 {
+            insert_test_word(&conn, &format!("word{}", i), "A1", "es");
+        }
+        drop(conn);
+
+        let words = get_unknown_words(&pool, &uid, "A2", 3).unwrap();
+        assert!(words.len() <= 3, "Should return at most 3 words");
+    }
+
+    #[test]
+    fn test_get_user_vocab_by_level_returns_all_level_words() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        insert_test_word(&conn, "hola", "A1", "es");
+        insert_test_word(&conn, "adios", "A1", "es");
+        insert_test_word(&conn, "casa", "A2", "es");
+        drop(conn);
+
+        let a1 = get_user_vocab_by_level(&pool, &uid, "es", "A1").unwrap();
+        assert_eq!(a1.len(), 2);
+        assert!(a1.iter().all(|w| w.cefr_level == "A1"));
+    }
+
+    #[test]
+    fn test_get_user_vocab_by_level_mastery_status() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        let wid = insert_test_word(&conn, "hola", "A1", "es");
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 2, 'test')",
+            params![uid, wid],
+        ).unwrap();
+        drop(conn);
+
+        let words = get_user_vocab_by_level(&pool, &uid, "es", "A1").unwrap();
+        assert_eq!(words.len(), 1);
+        assert_eq!(words[0].mastery, Some(2));
+    }
+
+    #[test]
+    fn test_get_user_vocab_by_level_empty_language() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        insert_test_word(&conn, "hola", "A1", "es");
+        drop(conn);
+
+        let words = get_user_vocab_by_level(&pool, &uid, "fr", "A1").unwrap();
+        assert!(words.is_empty(), "Should be empty for unknown language");
+    }
+
+    #[test]
+    fn test_get_user_vocab_stats_by_level_groups_correctly() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        let w1 = insert_test_word(&conn, "uno", "A1", "es");
+        let w2 = insert_test_word(&conn, "dos", "A1", "es");
+        let _w3 = insert_test_word(&conn, "tres", "A2", "es");
+
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 2, 'test')",
+            params![uid, w1],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 1, 'test')",
+            params![uid, w2],
+        ).unwrap();
+        // w3 has no user_vocab record → unseen
+        drop(conn);
+
+        let stats = get_user_vocab_stats_by_level(&pool, &uid, "es").unwrap();
+        assert_eq!(stats.len(), 2, "Should have 2 levels");
+
+        let a1 = stats.iter().find(|s| s.level == "A1").unwrap();
+        assert_eq!(a1.total, 2);
+        assert_eq!(a1.mastered, 1);
+        assert_eq!(a1.seen, 1);
+        assert_eq!(a1.not_mastered, 0);
+        assert_eq!(a1.unseen, 0);
+
+        let a2 = stats.iter().find(|s| s.level == "A2").unwrap();
+        assert_eq!(a2.total, 1);
+        assert_eq!(a2.unseen, 1);
+        assert_eq!(a2.seen, 0);
+        assert_eq!(a2.not_mastered, 0);
+        assert_eq!(a2.mastered, 0);
+    }
+
+    #[test]
+    fn test_mark_words_seen_inserts_new_records() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        let w1 = insert_test_word(&conn, "hola", "A1", "es");
+        let w2 = insert_test_word(&conn, "adios", "A1", "es");
+        drop(conn);
+
+        mark_words_seen(&pool, &uid, &[w1, w2]).unwrap();
+
+        let conn = pool.conn.lock().unwrap();
+        let count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM user_vocab WHERE user_id = ?1 AND mastery = 1 AND source = 'news_reading'",
+                params![uid],
+                |row| row.get(0),
+            ).unwrap();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_mark_words_seen_does_not_overwrite_existing() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        let w1 = insert_test_word(&conn, "hola", "A1", "es");
+        let w2 = insert_test_word(&conn, "adios", "A1", "es");
+
+        // Pre-insert a known word (mastery=2)
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 2, 'wizard_init')",
+            params![uid, w1],
+        ).unwrap();
+        drop(conn);
+
+        mark_words_seen(&pool, &uid, &[w1, w2]).unwrap();
+
+        let conn = pool.conn.lock().unwrap();
+        let m1: i32 = conn
+            .query_row(
+                "SELECT mastery FROM user_vocab WHERE user_id = ?1 AND word_id = ?2",
+                params![uid, w1],
+                |row| row.get(0),
+            ).unwrap();
+        assert_eq!(m1, 2, "Existing mastery=2 should not be overwritten");
+
+        let m2: i32 = conn
+            .query_row(
+                "SELECT mastery FROM user_vocab WHERE user_id = ?1 AND word_id = ?2",
+                params![uid, w2],
+                |row| row.get(0),
+            ).unwrap();
+        assert_eq!(m2, 1, "New word should be marked as seen (mastery=1)");
+    }
+
+    #[test]
+    fn test_mark_words_seen_empty_list() {
+        let pool = test_pool();
+        let result = mark_words_seen(&pool, "user-1", &[]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_lookup_word_ids_finds_exact_matches() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let _w1 = insert_test_word(&conn, "hola", "A1", "es");
+        let _w2 = insert_test_word(&conn, "adios", "A1", "es");
+        drop(conn);
+
+        let ids = lookup_word_ids(
+            &pool,
+            &["hola".to_string(), "adios".to_string(), "unknown".to_string()],
+            "es",
+        ).unwrap();
+
+        assert_eq!(ids.len(), 2, "Should find 2 of 3 words");
+    }
+
+    #[test]
+    fn test_lookup_word_ids_case_insensitive() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let _w1 = insert_test_word(&conn, "Hola", "A1", "es");
+        drop(conn);
+
+        let ids = lookup_word_ids(&pool, &["hola".to_string()], "es").unwrap();
+        assert_eq!(ids.len(), 1, "Should match case-insensitively");
+    }
+
+    #[test]
+    fn test_get_user_vocab_stats() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        let w1 = insert_test_word(&conn, "uno", "A1", "es");
+        let w2 = insert_test_word(&conn, "dos", "A1", "es");
+        let w3 = insert_test_word(&conn, "tres", "A1", "es");
+
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 2, 'test')",
+            params![uid, w1],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 1, 'test')",
+            params![uid, w2],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 0, 'test')",
+            params![uid, w3],
+        ).unwrap();
+        drop(conn);
+
+        let stats = get_user_vocab_stats(&pool, &uid).unwrap();
+        assert_eq!(stats.total_known, 1);
+        assert_eq!(stats.total_learning, 1);
+        assert_eq!(stats.total_unknown, 1);
+        assert!(stats.total >= 3);
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VocabWord {
@@ -75,50 +430,8 @@ pub fn import_vocab_bank(db: &DatabasePool) -> Result<i32, String> {
 }
 
 /// Initialize user vocabulary based on CEFR level from wizard
-pub fn init_user_vocab(db: &DatabasePool, user_id: &str, cefr_level: &str) -> Result<(), String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
-
-    // Determine which levels to mark as known
-    let levels: Vec<&str> = match cefr_level {
-        "A1" => vec!["A1"],
-        "A2" => vec!["A1", "A2"],
-        "B1" => vec!["A1", "A2", "B1"],
-        "B2" => vec!["A1", "A2", "B1", "B2"],
-        "C1" => vec!["A1", "A2", "B1", "B2", "C1"],
-        _ => vec![], // Zero-based: no pre-loaded words
-    };
-
-    if levels.is_empty() {
-        log::info!("CEFR level is zero-based, no vocab initialization");
-        return Ok(());
-    }
-
-    // Get all word IDs for these levels
-    let placeholders: Vec<String> = levels.iter().enumerate().map(|(i, _)| format!("?{}", i + 1)).collect();
-    let query = format!(
-        "SELECT id FROM vocab_bank WHERE cefr_level IN ({})",
-        placeholders.join(",")
-    );
-
-    let mut stmt = conn.prepare(&query).map_err(|e| format!("Query error: {}", e))?;
-    let params_vec: Vec<&dyn rusqlite::types::ToSql> = levels.iter().map(|l| l as &dyn rusqlite::types::ToSql).collect();
-
-    let word_ids: Vec<i32> = stmt
-        .query_map(params_vec.as_slice(), |row| row.get(0))
-        .map_err(|e| format!("Failed to query vocab words: {}", e))?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    // Batch insert user_vocab records
-    for word_id in &word_ids {
-        conn.execute(
-            "INSERT OR REPLACE INTO user_vocab (user_id, word_id, mastery, source, updated_at)
-             VALUES (?1, ?2, 2, 'wizard_init', datetime('now'))",
-            params![user_id, word_id],
-        ).map_err(|e| format!("Failed to insert user vocab: {}", e))?;
-    }
-
-    log::info!("Initialized {} words for user {} at level {:?}", word_ids.len(), user_id, levels);
+pub fn init_user_vocab(_db: &DatabasePool, _user_id: &str, _cefr_level: &str) -> Result<(), String> {
+    log::info!("init_user_vocab is a no-op: all words start as unseen");
     Ok(())
 }
 
@@ -225,4 +538,296 @@ pub fn get_user_vocab_stats(db: &DatabasePool, user_id: &str) -> Result<VocabSta
         total_unknown: unknown,
         total,
     })
+}
+
+// ─── New structures for Vocab module ───
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserVocabWord {
+    pub id: i32,
+    pub word: String,
+    pub lemma: Option<String>,
+    pub pos: Option<String>,
+    pub cefr_level: String,
+    pub mastery: Option<i32>,
+    pub source: Option<String>,
+    pub updated_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LevelStats {
+    pub level: String,
+    pub total: i32,
+    pub unseen: i32,
+    pub seen: i32,
+    pub not_mastered: i32,
+    pub mastered: i32,
+}
+
+/// Get user vocab words by level with mastery status
+pub fn get_user_vocab_by_level(
+    db: &DatabasePool,
+    user_id: &str,
+    language: &str,
+    cefr_level: &str,
+) -> Result<Vec<UserVocabWord>, String> {
+    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+
+    let mut stmt = conn.prepare(
+        "SELECT vb.id, vb.word, vb.lemma, vb.pos, vb.cefr_level,
+                uv.mastery, uv.source, uv.updated_at
+         FROM vocab_bank vb
+         LEFT JOIN user_vocab uv ON vb.id = uv.word_id AND uv.user_id = ?1
+         WHERE vb.language = ?2 AND vb.cefr_level = ?3
+         ORDER BY vb.frequency DESC"
+    ).map_err(|e| format!("Query error: {}", e))?;
+
+    let words: Vec<UserVocabWord> = stmt
+        .query_map(params![user_id, language, cefr_level], |row| {
+            Ok(UserVocabWord {
+                id: row.get(0)?,
+                word: row.get(1)?,
+                lemma: row.get(2)?,
+                pos: row.get(3)?,
+                cefr_level: row.get(4)?,
+                mastery: row.get(5)?,
+                source: row.get(6)?,
+                updated_at: row.get(7)?,
+            })
+        })
+        .map_err(|e| format!("Failed to query user vocab: {}", e))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(words)
+}
+
+/// Get vocabulary statistics grouped by CEFR level
+pub fn get_user_vocab_stats_by_level(
+    db: &DatabasePool,
+    user_id: &str,
+    language: &str,
+) -> Result<Vec<LevelStats>, String> {
+    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+
+    let mut stmt = conn.prepare(
+        "SELECT vb.cefr_level,
+                COUNT(*) as total,
+                COUNT(*) - COUNT(uv.mastery) as unseen,
+                SUM(CASE WHEN uv.mastery = 1 THEN 1 ELSE 0 END) as seen,
+                SUM(CASE WHEN uv.mastery = 0 THEN 1 ELSE 0 END) as not_mastered,
+                SUM(CASE WHEN uv.mastery >= 2 THEN 1 ELSE 0 END) as mastered
+         FROM vocab_bank vb
+         LEFT JOIN user_vocab uv ON vb.id = uv.word_id AND uv.user_id = ?1
+         WHERE vb.language = ?2
+         GROUP BY vb.cefr_level
+         ORDER BY vb.cefr_level"
+    ).map_err(|e| format!("Query error: {}", e))?;
+
+    let stats: Vec<LevelStats> = stmt
+        .query_map(params![user_id, language], |row| {
+            Ok(LevelStats {
+                level: row.get(0)?,
+                total: row.get(1)?,
+                unseen: row.get(2)?,
+                seen: row.get(3)?,
+                not_mastered: row.get(4)?,
+                mastered: row.get(5)?,
+            })
+        })
+        .map_err(|e| format!("Failed to query level stats: {}", e))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(stats)
+}
+
+/// Mark words as seen (mastery=1) when they appear in a read article.
+/// Only inserts if no user_vocab record exists yet (respects existing user choices).
+pub fn mark_words_seen(
+    db: &DatabasePool,
+    user_id: &str,
+    word_ids: &[i32],
+) -> Result<(), String> {
+    if word_ids.is_empty() {
+        return Ok(());
+    }
+
+    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+
+    let placeholders: Vec<String> = (0..word_ids.len())
+        .map(|i| format!("?{}", i + 2))
+        .collect();
+    let sql = format!(
+        "INSERT OR IGNORE INTO user_vocab (user_id, word_id, mastery, source, updated_at)
+         SELECT ?1, id, 1, 'news_reading', datetime('now')
+         FROM vocab_bank WHERE id IN ({})",
+        placeholders.join(",")
+    );
+
+    let mut params_vec: Vec<Box<dyn ToSql>> = vec![Box::new(user_id.to_string())];
+    for wid in word_ids {
+        params_vec.push(Box::new(*wid));
+    }
+    let param_refs: Vec<&dyn ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
+
+    conn.execute(&sql, param_refs.as_slice())
+        .map_err(|e| format!("Failed to mark words seen: {}", e))?;
+
+    log::debug!("Marked {} words as seen for user {}", word_ids.len(), user_id);
+    Ok(())
+}
+
+/// Look up word IDs by text (case-insensitive) for a given language
+pub fn lookup_word_ids(
+    db: &DatabasePool,
+    words: &[String],
+    language: &str,
+) -> Result<Vec<i32>, String> {
+    if words.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+
+    let placeholders: Vec<String> = (0..words.len())
+        .map(|i| format!("?{}", i + 2))
+        .collect();
+    let sql = format!(
+        "SELECT DISTINCT v.id FROM vocab_bank v
+         WHERE LOWER(v.word) IN ({}) AND v.language = ?1",
+        placeholders.join(",")
+    );
+
+    let mut params_vec: Vec<Box<dyn ToSql>> = vec![Box::new(language.to_string())];
+    for w in words {
+        params_vec.push(Box::new(w.to_lowercase()));
+    }
+    let param_refs: Vec<&dyn ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
+
+    let mut stmt = conn.prepare(&sql)
+        .map_err(|e| format!("Query error: {}", e))?;
+
+    let ids: Vec<i32> = stmt
+        .query_map(param_refs.as_slice(), |row| row.get(0))
+        .map_err(|e| format!("Failed to lookup word IDs: {}", e))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(ids)
+}
+
+/// Reset all user_vocab records for a given level back to unseen
+pub fn reset_user_vocab_by_level(
+    db: &DatabasePool,
+    user_id: &str,
+    language: &str,
+    cefr_level: &str,
+) -> Result<(), String> {
+    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+
+    let deleted = conn
+        .execute(
+            "DELETE FROM user_vocab WHERE user_id = ?1 AND word_id IN (
+                SELECT id FROM vocab_bank WHERE language = ?2 AND cefr_level = ?3
+            )",
+            params![user_id, language, cefr_level],
+        )
+        .map_err(|e| format!("Failed to reset vocab: {}", e))?;
+
+    log::info!("Reset {} user_vocab records for {} {} {}", deleted, user_id, language, cefr_level);
+    Ok(())
+}
+
+#[cfg(test)]
+mod reset_tests {
+    use super::*;
+
+    fn test_pool() -> DatabasePool {
+        DatabasePool::new_in_memory()
+    }
+
+    fn create_test_user(conn: &rusqlite::Connection) -> String {
+        let id = "test-user-id";
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES (?1, 'TestUser')",
+            params![id],
+        ).unwrap();
+        id.to_string()
+    }
+
+    fn insert_test_word(conn: &rusqlite::Connection, word: &str, level: &str, lang: &str) -> i32 {
+        conn.execute(
+            "INSERT INTO vocab_bank (word, lemma, pos, cefr_level, language, frequency)
+             VALUES (?1, ?2, 'noun', ?3, ?4, 100)",
+            params![word, word, level, lang],
+        ).unwrap();
+        conn.last_insert_rowid() as i32
+    }
+
+    #[test]
+    fn test_reset_deletes_user_vocab_records() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        let w1 = insert_test_word(&conn, "hola", "A1", "es");
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 2, 'test')",
+            params![uid, w1],
+        ).unwrap();
+        drop(conn);
+
+        reset_user_vocab_by_level(&pool, &uid, "es", "A1").unwrap();
+
+        let conn = pool.conn.lock().unwrap();
+        let count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM user_vocab WHERE user_id = ?1",
+                params![uid],
+                |row| row.get(0),
+            ).unwrap();
+        assert_eq!(count, 0, "All user_vocab records for A1 should be deleted");
+    }
+
+    #[test]
+    fn test_reset_only_deletes_specified_level() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        let w1 = insert_test_word(&conn, "hola", "A1", "es");
+        let w2 = insert_test_word(&conn, "adios", "A2", "es");
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 2, 'test')",
+            params![uid, w1],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 1, 'test')",
+            params![uid, w2],
+        ).unwrap();
+        drop(conn);
+
+        reset_user_vocab_by_level(&pool, &uid, "es", "A1").unwrap();
+
+        let conn = pool.conn.lock().unwrap();
+        let count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM user_vocab WHERE user_id = ?1",
+                params![uid],
+                |row| row.get(0),
+            ).unwrap();
+        assert_eq!(count, 1, "A2 record should remain");
+    }
+
+    #[test]
+    fn test_reset_idempotent() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        let uid = create_test_user(&conn);
+        drop(conn);
+
+        let r1 = reset_user_vocab_by_level(&pool, &uid, "es", "A1");
+        let r2 = reset_user_vocab_by_level(&pool, &uid, "es", "A1");
+        assert!(r1.is_ok());
+        assert!(r2.is_ok());
+    }
 }

@@ -72,10 +72,15 @@ docs/
 - 复杂功能模块（如学习）使用 Tab 切换子功能，Tab 切换时同步更新右侧原型
 
 ### 开发工作流
-1. `npm run tauri dev` - 启动 Windows 开发服务器
-2. `npm run tauri build` - 构建 Windows 版本
-3. `npm run tauri android dev` - Android 开发
-4. `npm run tauri android build` - 构建 Android APK
+- **每次修改代码后**，运行 `npm run tauri dev` 启动应用验证
+- `npm run tauri dev` - 启动 Windows 开发服务器
+- `npm run tauri build` - 构建 Windows 版本
+- `npm run tauri android dev` - Android 开发
+- `npm run tauri android build` - 构建 Android APK
+
+### 开发工作流（AI 使用）
+- **每次修改代码并测试通过后**，运行 `.\run-windows.bat`（或 `Start-Process -FilePath "run-windows.bat"`）启动 Tauri 开发服务器，让用户可以直接看到界面效果
+- `run-windows.bat` 会打开新 CMD 窗口执行 `npm run tauri dev`
 
 ## Content Studio (内容生产系统)
 位于 `content-studio/` 目录，是一个独立的内部工具集，用于课程设计和题目生产。
@@ -87,10 +92,64 @@ docs/
 - **Frontend**: Vue 3 + Vite + Vue Router + Pinia
 - **Desktop**: Tauri 2.x (Rust)
 - **Mobile**: Tauri Mobile (Android)
-- **Database**: SQLite via tauri-plugin-sql
+- **Database**: SQLite via rusqlite (Rust native, not tauri-plugin-sql)
 - **Audio**: tauri-plugin-audio / system TTS
 - **I18n**: vue-i18n
 - **Build**: Vite + Cargo
+
+## 自动化测试
+
+### 测试命令
+| 命令 | 说明 |
+|------|------|
+| `npm test` | 运行前端 Vitest 测试 |
+| `npm run test:watch` | 前端测试监听模式 |
+| `npm run test:rust` | 运行 Rust 后端测试 |
+| `npm run test:all` | 运行全部测试（前端 + 后端） |
+
+### 测试架构
+
+#### 前端测试 (Vitest + happy-dom)
+- **位置**: `src/**/__tests__/*.spec.js`
+- **框架**: Vitest v4 + happy-dom + @vue/test-utils
+- **测试范围**:
+  - `src/shared/__tests__/api.spec.js` — API 函数的 invoke 调用验证
+  - `src/shared/__tests__/kernel.spec.js` — 模块加载、路由注册、插件系统
+  - `src/shared/__tests__/eventBus.spec.js` — 事件总线发布/订阅/清理
+  - `src/stores/__tests__/app.spec.js` — Pinia 存储状态管理
+  - `src/modules/**/__tests__/*.spec.js` — 各模块业务逻辑
+
+#### Rust 后端测试 (内置 `#[cfg(test)]`)
+- **位置**: 各模块文件内以 `#[cfg(test)] mod tests` 形式编写
+- **数据库测试**: 使用 `DatabasePool::new_in_memory()` 创建内存 SQLite 数据库，无需文件系统
+- **测试范围**:
+  - `database.rs` — 数据库初始化、迁移版本追踪、外键约束、表结构
+  - `user.rs` — 用户 CRUD、向导状态、学习目标 CRUD
+  - `vocabulary.rs` — 词库导入、用户词汇初始化、掌握度更新、未知词查询、统计
+  - `news.rs` — 文章 CRUD、阅读日志、连载记录、改写保存、双语缓存
+
+### 测试规范（必须遵守）
+
+1. **每次代码更新必须同步编写或更新自动化测试**
+2. **修改 Rust 后端模块**（user.rs / vocabulary.rs / news.rs / llm.rs / database.rs）后，必须在同一文件的 `#[cfg(test)]` 区块中为新增功能添加测试
+3. **修改前端共享层**（api.js / kernel.js / eventBus.js / stores）后，必须在对应的 `__tests__/` 目录下添加/更新测试
+4. **新增模块**（`src/modules/*/`）必须创建对应的 `__tests__/` 目录并编写测试
+5. **运行 `npm run test:all` 确认全部测试通过**，方可提交代码
+6. 禁止提交导致测试失败的代码
+
+### 架构对测试的支持
+
+为了让代码可测试，以下架构约定已建立：
+
+#### 前端可测试性约定
+- **API 层可注入**: `api.js` 导出 `__setInvoke(fn)` / `__resetInvoke()`，测试时可用 mock 函数替换 Tauri 的 `invoke`，验证 API 调用参数和返回值
+- **Kernel 可实例化**: 导出 `Kernel` 类和预置 `kernel` 单例，测试可创建独立实例（`new Kernel()`），通过 `loader` 参数注入模块模拟，避免真实动态导入
+- **EventBus 可清理**: 导出 `EventBus` 类和 `clear()` 方法，测试间通过 `clear()` 隔离状态
+- **Pinia Store 可隔离**: Vitest 中通过 `setActivePinia(createPinia())` 为每个测试创建独立 store
+
+#### Rust 可测试性约定
+- **内存数据库**: `DatabasePool::new_in_memory()` 使用 SQLite 内存模式，无需文件 I/O，每个测试独立数据库
+- **模块独立测试**: 每个模块的测试只依赖自己的函数，不依赖 Tauri 运行时
 
 ## 当前状态
 - [x] 项目初始化 & AGENTS.md
@@ -98,9 +157,11 @@ docs/
 - [x] Shell 模块（AppShell 布局）+ Hello 演示模块
 - [x] Rust 后端骨架（commands / modules / tauri 配置）
 - [x] Content Studio 内容生产系统（词库、题型、AI 生成、Prompt 管理）
+- [x] 自动化测试体系（Vitest 前端 + Cargo test 后端）
 - [ ] 正在设计功能说明书，所有功能设计修改请同步更新 ./docs 下的 html
   - [x] 产品定位、语言支持、内容结构、设计语言、导航
   - [x] 学习模块：晋级之路（CEFR 分级题库 A1/A2/B1）、AI 口语练习、单词本、新闻阅读
   - [x] 排行模块、互动模块（好友+双语聊天）、个人模块
   - [x] 新用户向导
+  - [x] 自动化测试框架搭建
   - [ ] 游戏化系统、进度追踪、测验考试、模块架构、数据模型、AI 功能、开发路线图（文件已创建，待整合到侧边栏）

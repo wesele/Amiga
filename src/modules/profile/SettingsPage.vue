@@ -43,36 +43,17 @@
         <div v-if="showPrimary" class="card-body">
           <div class="form-group">
             <label class="form-label">API Key</label>
-            <input
-              v-model="primaryApiKey"
-              type="password"
-              class="form-input"
-              placeholder="sk-..."
-            />
+            <input v-model="primaryApiKey" type="password" class="form-input" placeholder="sk-..." @input="debounceSaveLlm" />
           </div>
           <div class="form-group">
             <label class="form-label">Base URL</label>
-            <input
-              v-model="primaryBaseUrl"
-              type="text"
-              class="form-input"
-              placeholder="https://api.openai.com/v1"
-            />
+            <input v-model="primaryBaseUrl" type="text" class="form-input" placeholder="https://api.openai.com/v1" @input="debounceSaveLlm" />
           </div>
           <div class="form-group">
             <label class="form-label">模型名称</label>
-            <input
-              v-model="primaryModel"
-              type="text"
-              class="form-input"
-              placeholder="gpt-4o-mini"
-            />
+            <input v-model="primaryModel" type="text" class="form-input" placeholder="gpt-4o-mini" @input="debounceSaveLlm" />
           </div>
-          <button
-            class="btn-test"
-            :disabled="testing === 'primary'"
-            @click="testConnection('primary')"
-          >
+          <button class="btn-test" :disabled="testing === 'primary'" @click="testConnection('primary')">
             {{ testing === 'primary' ? '测试中…' : '测试连接' }}
           </button>
           <p v-if="testResult.primary" class="test-result" :class="testResult.primary">
@@ -93,36 +74,17 @@
         <div v-if="showFallback" class="card-body">
           <div class="form-group">
             <label class="form-label">API Key</label>
-            <input
-              v-model="fallbackApiKey"
-              type="password"
-              class="form-input"
-              placeholder="sk-..."
-            />
+            <input v-model="fallbackApiKey" type="password" class="form-input" placeholder="sk-..." @input="debounceSaveLlm" />
           </div>
           <div class="form-group">
             <label class="form-label">Base URL</label>
-            <input
-              v-model="fallbackBaseUrl"
-              type="text"
-              class="form-input"
-              placeholder="https://api.openai.com/v1"
-            />
+            <input v-model="fallbackBaseUrl" type="text" class="form-input" placeholder="https://api.openai.com/v1" @input="debounceSaveLlm" />
           </div>
           <div class="form-group">
             <label class="form-label">模型名称</label>
-            <input
-              v-model="fallbackModel"
-              type="text"
-              class="form-input"
-              placeholder="gpt-4o-mini"
-            />
+            <input v-model="fallbackModel" type="text" class="form-input" placeholder="gpt-4o-mini" @input="debounceSaveLlm" />
           </div>
-          <button
-            class="btn-test"
-            :disabled="testing === 'fallback'"
-            @click="testConnection('fallback')"
-          >
+          <button class="btn-test" :disabled="testing === 'fallback'" @click="testConnection('fallback')">
             {{ testing === 'fallback' ? '测试中…' : '测试连接' }}
           </button>
           <p v-if="testResult.fallback" class="test-result" :class="testResult.fallback">
@@ -130,9 +92,19 @@
           </p>
         </div>
       </div>
+    </section>
 
-      <button class="btn-save" @click="saveConfig">保存配置</button>
-      <p v-if="saveMsg" class="save-msg">{{ saveMsg }}</p>
+    <!-- News Settings -->
+    <section class="settings-section">
+      <h3 class="section-title">新闻设置</h3>
+      <div class="expandable-card">
+        <div class="card-body" style="border-top: none; padding-top: 0;">
+          <div class="form-group">
+            <label class="form-label">每次刷新获取数量</label>
+            <input v-model.number="newsLimit" type="number" min="1" max="20" class="form-input" @input="debounceSaveNewsLimit" />
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Danger Zone -->
@@ -152,6 +124,8 @@ import {
   saveLlmConfig,
   testLlmConnection,
   resetWizard as resetWizardApi,
+  getSetting,
+  saveSetting,
 } from "@/shared/api.js";
 
 const router = useRouter();
@@ -175,7 +149,12 @@ const fallbackModel = ref("gpt-4o-mini");
 
 const testing = ref(null);
 const testResult = ref({ primary: null, fallback: null });
-const saveMsg = ref("");
+
+// News settings
+const newsLimit = ref(5);
+
+let llmSaveTimer = null;
+let newsSaveTimer = null;
 
 onMounted(async () => {
   try {
@@ -195,7 +174,45 @@ onMounted(async () => {
   } catch (e) {
     console.error("Failed to load LLM config:", e);
   }
+
+  try {
+    const val = await getSetting("news_fetch_limit");
+    if (val) newsLimit.value = parseInt(val, 10) || 5;
+  } catch (e) {
+    console.error("Failed to load news limit:", e);
+  }
 });
+
+function debounceSaveLlm() {
+  clearTimeout(llmSaveTimer);
+  llmSaveTimer = setTimeout(async () => {
+    try {
+      await saveLlmConfig("primary", {
+        api_key: primaryApiKey.value,
+        base_url: primaryBaseUrl.value,
+        model: primaryModel.value,
+      });
+      await saveLlmConfig("backup", {
+        api_key: fallbackApiKey.value,
+        base_url: fallbackBaseUrl.value,
+        model: fallbackModel.value,
+      });
+    } catch (e) {
+      console.error("Failed to auto-save LLM config:", e);
+    }
+  }, 600);
+}
+
+function debounceSaveNewsLimit() {
+  clearTimeout(newsSaveTimer);
+  newsSaveTimer = setTimeout(async () => {
+    try {
+      await saveSetting("news_fetch_limit", String(newsLimit.value));
+    } catch (e) {
+      console.error("Failed to auto-save news limit:", e);
+    }
+  }, 400);
+}
 
 async function testConnection(modelType) {
   testing.value = modelType;
@@ -219,25 +236,6 @@ async function testConnection(modelType) {
     testResult.value[modelType] = "fail";
   } finally {
     testing.value = null;
-  }
-}
-
-async function saveConfig() {
-  try {
-    await saveLlmConfig("primary", {
-      api_key: primaryApiKey.value,
-      base_url: primaryBaseUrl.value,
-      model: primaryModel.value,
-    });
-    await saveLlmConfig("backup", {
-      api_key: fallbackApiKey.value,
-      base_url: fallbackBaseUrl.value,
-      model: fallbackModel.value,
-    });
-    saveMsg.value = "✓ 配置已保存";
-    setTimeout(() => (saveMsg.value = ""), 2000);
-  } catch (e) {
-    saveMsg.value = "✗ 保存失败";
   }
 }
 

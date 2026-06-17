@@ -20,6 +20,7 @@ impl FileLogger {
         }
     }
 
+    #[allow(dead_code)]
     fn today_str() -> String {
         chrono::Local::now().format("%Y-%m-%d").to_string()
     }

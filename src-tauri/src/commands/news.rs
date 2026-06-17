@@ -8,7 +8,7 @@ pub async fn fetch_news_cmd(
     region: String,
     target_lang: String,
 ) -> Result<Vec<news_mod::Article>, String> {
-    news_mod::fetch_news(&db, &region, &target_lang).await
+    Ok(news_mod::fetch_news(&db, &region, &target_lang).await)
 }
 
 #[tauri::command]
@@ -16,7 +16,7 @@ pub async fn get_articles_cmd(
     db: State<'_, DatabasePool>,
     region: String,
 ) -> Result<Vec<news_mod::Article>, String> {
-    news_mod::get_articles(&db, &region)
+    Ok(news_mod::get_articles(&db, &region).unwrap_or_default())
 }
 
 #[tauri::command]

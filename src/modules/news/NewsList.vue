@@ -33,7 +33,7 @@
           <div class="card-meta">
             <span v-if="article.rewritten_body" class="badge-rewritten">AI 已改写</span>
             <span v-else class="badge-raw">原文</span>
-            <span class="card-source">{{ formatSource(article.source) }}</span>
+              <span class="card-source clickable" @click.stop="openSource(article.source)">{{ formatSource(article.source) }}</span>
           </div>
         </div>
       </button>
@@ -48,17 +48,25 @@
 
     <!-- Loading overlay for refresh -->
     <div v-if="loading && articles.length > 0" class="loading-bar">刷新中…</div>
+
+    <!-- Status toast -->
+    <Transition name="popup">
+      <div v-if="statusText" class="status-toast">{{ statusText }}</div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
+import { open } from "@tauri-apps/plugin-shell";
 import { getArticles, fetchNews } from "@/shared/api.js";
 
 const router = useRouter();
 const articles = ref([]);
 const loading = ref(false);
+const statusText = ref("");
+let statusTimer = null;
 
 const formattedDate = computed(() => {
   const d = new Date();
@@ -82,14 +90,26 @@ async function loadArticles() {
   }
 }
 
+function showStatus(msg) {
+  statusText.value = msg;
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => { statusText.value = ""; }, 3000);
+}
+
 async function onRefresh() {
   loading.value = true;
   try {
-    await fetchNews("CN", "es");
-    await loadArticles();
+    const result = await fetchNews("CN", "es");
+    if (result.length > 0) {
+      showStatus(`已获取 ${result.length} 条最新新闻`);
+    } else {
+      showStatus("暂无最新新闻，请检查网络连接");
+    }
   } catch (e) {
     console.error("Failed to fetch news:", e);
+    showStatus("刷新失败，请检查网络连接");
   } finally {
+    await loadArticles();
     loading.value = false;
   }
 }
@@ -99,13 +119,22 @@ function openArticle(id) {
 }
 
 function formatSource(source) {
-  if (!source || source === "sample") return "示例";
+  if (!source) return "";
   try {
     const url = new URL(source);
-    return url.hostname.replace("feeds.", "").replace("www.", "");
+    let name = url.hostname.replace("feeds.", "").replace("www.", "");
+    const known = { "bbci.co.uk": "BBC", "bbc.com": "BBC", "elpais.com": "El País",
+      "rtve.es": "RTVE", "uecdn.es": "El Mundo", "abc.es": "ABC",
+      "chinadaily.com.cn": "China Daily", "cgtn.com": "CGTN",
+      "npr.org": "NPR", "nytimes.com": "NYT" };
+    return known[name] || name;
   } catch {
     return source?.slice(0, 20) || "";
   }
+}
+
+function openSource(url) {
+  if (url) open(url);
 }
 </script>
 
@@ -310,6 +339,17 @@ function formatSource(source) {
   color: var(--text-lighter);
 }
 
+.clickable {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.clickable:hover {
+  color: var(--green);
+}
+
 /* Empty state */
 .empty-state {
   flex: 1;
@@ -367,5 +407,22 @@ function formatSource(source) {
   50% {
     opacity: 0.5;
   }
+}
+
+/* Status toast */
+.status-toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 300;
+  white-space: nowrap;
+  box-shadow: var(--shadow-lg);
 }
 </style>

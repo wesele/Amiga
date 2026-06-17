@@ -1,4 +1,4 @@
-class Kernel {
+export class Kernel {
   constructor() {
     this._router = null;
     this._pinia = null;
@@ -26,13 +26,15 @@ class Kernel {
     this._plugins.push(plugin);
   }
 
-  async loadModule(name, { parent } = {}) {
+  async loadModule(name, { parent, loader } = {}) {
     if (this._modules.has(name)) {
       return this._modules.get(name);
     }
     try {
-      const module = await import(`../modules/${name}/index.js`);
-      const definition = module.default;
+      const mod = loader
+        ? await loader(name)
+        : await import(`../modules/${name}/index.js`);
+      const definition = mod.default;
       this._modules.set(name, definition);
       if (definition.routes) {
         definition.routes.forEach((route) => {
@@ -55,6 +57,13 @@ class Kernel {
 
   getModule(name) {
     return this._modules.get(name) || null;
+  }
+
+  reset() {
+    this._router = null;
+    this._pinia = null;
+    this._modules.clear();
+    this._plugins = [];
   }
 }
 
