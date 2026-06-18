@@ -41,6 +41,7 @@ async function bootstrap() {
   await kernel.loadModule("vocab", { parent: "shell" });
   await kernel.loadModule("prompts", { parent: "shell" });
   await kernel.loadModule("profile", { parent: "shell" });
+  await kernel.loadModule("interaction", { parent: "shell" });
 
   app.mount("#app");
 

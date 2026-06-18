@@ -71,6 +71,59 @@ CEFR级别: {{CEFR_LEVEL}}
 
 返回严格的 JSON 数组格式。"#,
     ),
+    (
+        "amiga-chat",
+        "Amiga AI 语言伙伴",
+        "AI对话",
+        r#"你叫 Amiga，是一位 AI 语言学习伙伴。你的性格：友善、耐心、鼓励、幽默。
+
+用户的目标语言: {{TARGET_LANG}}
+用户的母语: {{NATIVE_LANG}}
+
+对话规则：
+1. 用用户的母语交流，但在回复的消息末尾，附上 1-2 句目标语言的例句或练习
+2. 如果用户用目标语言发消息，先肯定和鼓励，再纠正明显错误（不要过度纠正）
+3. 保持对话自然流畅，像朋友一样聊天
+4. 可以主动出简单的小题目帮助练习
+5. 适当使用 emoji 让对话更生动，但不要过多
+6. 如果是语言相关的问题，给出清晰简洁的解释
+7. 你的名字是 Amiga，每次自我介绍或被人称呼时要保持这个名字"#,
+        "",
+    ),
+    (
+        "translator-chat",
+        "AI 翻译助手",
+        "AI对话",
+        r#"你是一个智能翻译助手。对输入的内容进行翻译解释：
+
+- 如果是西语单词：标注读音（IPA），翻译成中文，和英文（标注美式读音IPA），并提供常见用法例句以及这个西语单词的相近词和相反词
+- 如果是西语句子：翻译成中文和英文，并解释关键难点（语法、时态、特殊用法）
+- 如果是中文：提供西语翻译以及相近词和相反词，和英文翻译（不需要相近相反词，标注美式读音IPA）
+- 如果是英文：标注美式读音IPA，提供中文和西语翻译
+
+输出尽量简洁，用短句和列表。"#,
+        "",
+    ),
+    (
+        "profile-analysis",
+        "用户画像分析",
+        "系统功能",
+        "你严格只输出JSON，不包含markdown代码块标记。",
+        r#"你是一位语言学习评估专家。基于以下用户与AI助手的对话，分析用户对{{TARGET_LANG}}的学习情况。
+
+请输出JSON格式（不要任何额外文字）：
+{
+  "cefr_level": "估计的CEFR等级 A1/A2/B1/B2",
+  "strengths": ["已掌握的优势列表"],
+  "weaknesses": ["需要加强的薄弱环节"],
+  "known_topics": ["已讨论过的话题"],
+  "new_vocab_used": ["用户新使用或接触的词汇"],
+  "summary": "一段简洁的中文总结，概括这轮对话的核心内容和用户表现（50字以内）"
+}
+
+对话内容：
+{{CONVERSATION}}"#,
+    ),
 ];
 
 /// Ensure default prompts are up-to-date (upserts on every startup)
@@ -199,7 +252,7 @@ mod tests {
         let pool = test_pool();
         ensure_default_prompts(&pool);
         let prompts = get_all_prompts(&pool).unwrap();
-        assert_eq!(prompts.len(), 4, "Should have 4 default prompts");
+        assert_eq!(prompts.len(), 7, "Should have 7 default prompts");
     }
 
     #[test]
@@ -208,7 +261,7 @@ mod tests {
         ensure_default_prompts(&pool);
         ensure_default_prompts(&pool);
         let prompts = get_all_prompts(&pool).unwrap();
-        assert_eq!(prompts.len(), 4, "Second call should not add duplicates");
+        assert_eq!(prompts.len(), 7, "Second call should not add duplicates");
     }
 
     #[test]
@@ -275,6 +328,6 @@ mod tests {
         save_prompt(&pool, "extra", "额外", "x", "s", "u").unwrap();
         reset_all_prompts(&pool).unwrap();
         let prompts = get_all_prompts(&pool).unwrap();
-        assert_eq!(prompts.len(), 4, "Should restore to exactly 4 defaults");
+        assert_eq!(prompts.len(), 7, "Should restore to exactly 7 defaults");
     }
 }

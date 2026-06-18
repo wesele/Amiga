@@ -5,3 +5,4 @@ pub mod llm;
 pub mod news;
 pub mod prompts;
 pub mod update;
+pub mod chat;

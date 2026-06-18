@@ -80,6 +80,24 @@ docs/
 
 ### 开发工作流（AI 使用）
 - **每次修改代码并测试通过后**，运行 `.\run-windows.bat`（或 `Start-Process -FilePath "run-windows.bat"`）启动 Tauri 开发服务器，让用户可以直接看到界面效果
+- **不要自动发布到 GitHub**，等待用户明确指令
+- **版本号规则**：除非用户明确要求增加 major 或 minor 版本号，否则只增加第三位（patch）版本号。例如：0.2.0 → 0.2.1
+
+### 大模型提示词管理规范（必须遵守）
+- **App 中所有调用大模型的系统级提示词（system prompt）都必须可配置**，不能硬编码在后端 Rust 代码中
+- 默认存放在 `prompts` 数据库表中，通过 `提示词管理`（Prompt Management）功能管理
+- 当需要新增 AI 功能时，必须在 `modules/prompts.rs` 的 `ensure_default_prompts()` 中添加默认提示词，并提供对应的 key
+- 前端调用 LLM 时，应优先从数据库读取 prompt，数据库无记录时再 fallback 到硬编码（兼容旧数据）
+- **所有提示词（包括 AI 对话、翻译、画像分析等）都必须通过提示词管理功能配置**，不允许任何硬编码的系统提示词存在于 Rust 后端代码中
+- 新增任何调用 LLM 的功能时，必须先定义 prompt key 并在 `prompts.rs` 中添加默认值，再在功能代码中通过 `get_prompt()` 加载使用
+
+### 配置管理界面规范（必须遵守）
+- **所有配置管理界面（如 API 设置、模型参数等）都必须使用单独的页面管理**，不能在当前页面内联展开
+- 每个独立配置项作为一个独立页面，通过路由访问（如 `/profile/llm-config`），而不是在父页面中通过展开/折叠形式展示
+- 配置页面应包含顶部返回按钮导航回上一级，表单操作（保存/测试）使用显式按钮触发，不应使用自动保存
+- 用户从设置菜单或列表页点击配置项时，导航到独立配置页面进行编辑
+
+## GitHub Release 工作流
 - `run-windows.bat` 会打开新 CMD 窗口执行 `npm run tauri dev`
 
 ## GitHub Release 工作流

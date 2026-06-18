@@ -33,7 +33,8 @@ mod tests {
             .collect();
 
         let expected = vec![
-            "app_settings", "learning_goals", "news_articles",
+            "app_settings", "chat_messages", "chat_sessions",
+            "learning_goals", "news_articles",
             "news_reading_log", "schema_version", "streak_records",
             "user_vocab", "vocab_bank", "users",
         ];
@@ -60,7 +61,7 @@ mod tests {
         let count: i32 = conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
             .unwrap_or(0);
-        assert_eq!(count, 3, "Should have 3 migrations applied");
+        assert_eq!(count, 5, "Should have 5 migrations applied");
     }
 }
 

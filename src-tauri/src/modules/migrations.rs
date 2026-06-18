@@ -6,6 +6,8 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
         (1, "Initial schema - core tables", MIGRATION_V1),
         (2, "Add bilingual_cache to news_articles", MIGRATION_V2),
         (3, "Add prompts table for LLM prompt management", MIGRATION_V3),
+        (4, "Add chat sessions and messages tables", MIGRATION_V4),
+        (5, "Add contact_type to chat_sessions", MIGRATION_V5),
     ]
 }
 
@@ -122,4 +124,34 @@ CREATE TABLE IF NOT EXISTS prompts (
     user_prompt_template TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+"#;
+
+const MIGRATION_V4: &str = r#"
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    title TEXT NOT NULL DEFAULT '新对话',
+    user_profile_json TEXT NOT NULL DEFAULT '{}',
+    conversation_summary TEXT NOT NULL DEFAULT '',
+    message_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
+"#;
+
+const MIGRATION_V5: &str = r#"
+ALTER TABLE chat_sessions ADD COLUMN contact_type TEXT NOT NULL DEFAULT 'amiga';
+ALTER TABLE chat_sessions ADD COLUMN last_message TEXT NOT NULL DEFAULT '';
 "#;

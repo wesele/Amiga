@@ -32,6 +32,12 @@ const routes = [
     meta: { title: 'AI 提示词管理', icon: '🪄' }
   },
   {
+    path: '/prompt-manager/edit/:id',
+    name: 'prompt-editor',
+    component: () => import('../views/PromptEditor.vue'),
+    meta: { title: '编辑提示词', icon: '🪄' }
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('../views/Settings.vue'),

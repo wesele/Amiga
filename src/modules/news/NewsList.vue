@@ -1,6 +1,7 @@
 <template>
   <div class="news-list">
     <header class="list-header">
+      <h1 class="page-title">今日热搜</h1>
       <div class="header-top">
         <span class="today-label">{{ formattedDate }}</span>
         <button class="refresh-btn" :disabled="loading" @click="onRefresh">
@@ -9,7 +10,6 @@
           </svg>
         </button>
       </div>
-      <h1 class="page-title">今日热搜</h1>
     </header>
 
     <!-- Loading skeleton -->
@@ -33,7 +33,7 @@
           <div class="card-meta">
             <span v-if="article.rewritten_body" class="badge-rewritten">AI 已改写</span>
             <span v-else class="badge-raw">原文</span>
-              <span class="card-source clickable" @click.stop="openSource(article.source)">{{ formatSource(article.source) }}</span>
+              <span class="card-source clickable" @click.stop="openSourceUrl(article.source)">{{ formatSource(article.source) }}</span>
           </div>
         </div>
       </button>
@@ -59,8 +59,8 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
-import { open } from "@tauri-apps/plugin-shell";
 import { getArticles, fetchNews } from "@/shared/api.js";
+import { openSourceUrl } from "./utils.js";
 
 const router = useRouter();
 const articles = ref([]);
@@ -131,10 +131,6 @@ function formatSource(source) {
   } catch {
     return source?.slice(0, 20) || "";
   }
-}
-
-function openSource(url) {
-  if (url) open(url);
 }
 </script>
 

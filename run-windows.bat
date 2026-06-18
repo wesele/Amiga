@@ -1,7 +1,10 @@
 @echo off
-chcp 65001 >nul
 cd /d "%~dp0"
-echo [Amiga] 正在启动 Windows 开发服务器...
+taskkill /f /im idioma.exe >nul 2>&1
+taskkill /f /im Amiga.exe >nul 2>&1
+taskkill /f /im cargo.exe >nul 2>&1
+taskkill /f /im node.exe >nul 2>&1
+echo [Amiga] Starting dev server...
 echo.
 npm run tauri dev
 pause

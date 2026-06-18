@@ -77,6 +77,15 @@ pub fn run() {
             commands::prompts::reset_all_prompts_cmd,
             // Update commands
             commands::update::check_update,
+            // Chat commands
+            commands::chat::chat_completion_cmd,
+            commands::chat::chat_completion_with_session_cmd,
+            commands::chat::create_chat_session_cmd,
+            commands::chat::get_chat_sessions_cmd,
+            commands::chat::delete_chat_session_cmd,
+            commands::chat::get_chat_messages_cmd,
+            commands::chat::update_chat_session_title_cmd,
+            commands::chat::get_amiga_profile_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

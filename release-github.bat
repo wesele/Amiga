@@ -9,25 +9,103 @@ echo  Amiga - GitHub Release Publisher
 echo ============================================
 echo.
 
-:: Read version from package.json
+:: ── Version bump ──
+echo Current version (from package.json):
 for /f "tokens=2 delims=:," %%a in ('findstr "version" package.json') do (
     set raw=%%a
     set raw=!raw:"=!
     set raw=!raw: =!
-    set VERSION=!raw!
-    goto :got_version
+    set CUR_VER=!raw!
+    goto :got_curver
 )
-:got_version
-if "%VERSION%"=="" (
-    echo [ERROR] Cannot read version from package.json
+:got_curver
+echo   !CUR_VER!
+echo.
+
+echo How to bump the version?
+echo   [p] Patch (default) — bump third digit: !CUR_VAR! → x.x.(+1)
+echo   [m] Minor — bump second digit: x.(+1).0
+echo   [M] Major — bump first digit: (+1).0.0
+echo   [n] None — keep current version
+set /p BUMP_CHOICE="Choice (p/m/M/n): "
+
+if /i "!BUMP_CHOICE!"=="m" (
+    for /f "tokens=1,2,3 delims=." %%a in ("!CUR_VER!") do (
+        set /a MAJOR=%%a
+        set /a MINOR=%%b + 1
+        set PATCH=0
+    )
+    set NEW_VER=!MAJOR!.!MINOR!.!PATCH!
+) else if /i "!BUMP_CHOICE!"=="M" (
+    for /f "tokens=1,2,3 delims=." %%a in ("!CUR_VER!") do (
+        set /a MAJOR=%%a + 1
+        set MINOR=0
+        set PATCH=0
+    )
+    set NEW_VER=!MAJOR!.!MINOR!.!PATCH!
+) else if /i "!BUMP_CHOICE!"=="n" (
+    set NEW_VER=!CUR_VER!
+) else (
+    :: Default: patch bump
+    for /f "tokens=1,2,3 delims=." %%a in ("!CUR_VER!") do (
+        set MAJOR=%%a
+        set MINOR=%%b
+        set /a PATCH=%%c + 1
+    )
+    set NEW_VER=!MAJOR!.!MINOR!.!PATCH!
+)
+
+echo.
+echo New version: !NEW_VER!
+echo.
+
+:: Write new version to package.json
+set "TMPFILE=%TEMP%\amiga-pkg.json"
+powershell -Command "(Get-Content 'package.json' -Raw) -replace '\"version\": \"%CUR_VER%\"', '\"version\": \"%NEW_VER%\"' | Set-Content -Encoding UTF8 '%~dp0package.json'"
+if errorlevel 1 (
+    echo [ERROR] Failed to update package.json
     pause
     exit /b 1
 )
-echo Version: %VERSION%
+
+:: Sync Cargo.toml
+powershell -Command "(Get-Content 'src-tauri\Cargo.toml' -Raw) -replace 'version = \"%CUR_VER%\"', 'version = \"%NEW_VER%\"' | Set-Content -Encoding UTF8 'src-tauri\Cargo.toml'"
+
+:: Sync tauri.conf.json
+powershell -Command "(Get-Content 'src-tauri\tauri.conf.json' -Raw) -replace '\"version\": \"%CUR_VER%\"', '\"version\": \"%NEW_VER%\"' | Set-Content -Encoding UTF8 'src-tauri\tauri.conf.json'"
+
+:: Sync Cargo.lock if it has the version string
+findstr /C:"version = \"%CUR_VER%\"" src-tauri\Cargo.lock >nul 2>&1
+if not errorlevel 1 (
+    powershell -Command "(Get-Content 'src-tauri\Cargo.lock' -Raw) -replace 'version = \"%CUR_VER%\"', 'version = \"%NEW_VER%\"' | Set-Content -Encoding UTF8 'src-tauri\Cargo.lock'"
+)
+
+:: Sync tauri.properties
+if exist "src-tauri\gen\android\tauri.properties" (
+    powershell -Command "(Get-Content 'src-tauri\gen\android\tauri.properties' -Raw) -replace 'appVersion=%CUR_VER%', 'appVersion=%NEW_VER%' | Set-Content -Encoding UTF8 'src-tauri\gen\android\tauri.properties'"
+)
+
+:: Sync module index.js files
+for /r "src\modules" %%f in (index.js) do (
+    powershell -Command "(Get-Content '%%f' -Raw) -replace 'version: \"%CUR_VER%\"', 'version: \"%NEW_VER%\"' | Set-Content -Encoding UTF8 '%%f'"
+)
+
+set VERSION=!NEW_VER!
+
+:: Git commit the version bump
+echo.
+echo Committing version !VERSION! ...
+git add -A >nul 2>&1
+git commit -m "Bump version to !VERSION!" >nul 2>&1
+git push >nul 2>&1
+if errorlevel 1 (
+    echo [WARNING] Git commit/push failed. Continuing anyway...
+)
 echo.
 
+
 :: Tag name
-set TAG=v%VERSION%
+set TAG=v!VERSION!
 
 :: Check gh CLI
 gh --version >nul 2>&1
@@ -60,8 +138,8 @@ if not exist "src-tauri\gen\android\app\keystore.properties" (
 )
 
 :: Confirm
-echo This will build and publish version %VERSION% to GitHub.
-echo Tag: %TAG%
+echo This will build and publish version !VERSION! to GitHub.
+echo Tag: !TAG!
 echo.
 set /p CONFIRM="Continue? (y/N) "
 if /i not "!CONFIRM!"=="y" (
@@ -102,10 +180,10 @@ if errorlevel 1 (
 echo.
 
 :: ── Step 4: Create GitHub release ──
-echo [4/4] Creating GitHub release %TAG% ...
+echo [4/4] Creating GitHub release !TAG! ...
 
 :: Create temp release notes file
-set NOTESFILE=%TEMP%\amiga-release-notes-%VERSION%.md
+set NOTESFILE=%TEMP%\amiga-release-notes-!VERSION!.md
 
 :: Bilingual release notes prompt
 echo.
@@ -171,9 +249,9 @@ if "%ARTIFACTS%"=="" (
 )
 
 :: Create GitHub release
-gh release create "%TAG%" ^
-    --title "v%VERSION%" ^
-    --notes-file "%NOTESFILE%" ^
+gh release create "!TAG!" ^
+    --title "v!VERSION!" ^
+    --notes-file "!NOTESFILE!" ^
     %ARTIFACTS%
 
 if errorlevel 1 (
@@ -187,7 +265,7 @@ del "%NOTESFILE%" 2>nul
 
 echo.
 echo ============================================
-echo  Release v%VERSION% published successfully!
+echo  Release v!VERSION! published successfully!
 echo ============================================
 echo.
 pause
