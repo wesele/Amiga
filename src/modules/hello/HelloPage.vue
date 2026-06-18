@@ -37,7 +37,7 @@ import { greet } from "../../shared/api.js";
 
 const name = ref("");
 const greeting = ref("");
-const version = "0.1.0";
+const version = "0.2.0";
 
 async function doGreet() {
   if (!name.value.trim()) return;
