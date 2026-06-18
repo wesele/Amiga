@@ -79,7 +79,7 @@ echo.
 
 :: ── Step 3: Android APK build ──
 echo [3/4] Building Android APK (arm64-v8a)...
-call npm run tauri android build -- --target aarch64 --apk
+npx -- tauri android build --target aarch64 --apk
 if errorlevel 1 (
     echo [ERROR] Android build failed!
     pause
@@ -87,8 +87,28 @@ if errorlevel 1 (
 )
 echo.
 
-:: ── Step 4: Collect artifacts ──
-echo [4/4] Creating GitHub release %TAG% ...
+:: ── Step 4: Sign Android APK ──
+echo [4/5] Signing Android APK with debug key...
+set UNSIGNED_APK=src-tauri\gen\android\app\build\outputs\apk\universal\release\app-universal-release-unsigned.apk
+set SIGNED_APK=src-tauri\gen\android\app\build\outputs\apk\universal\release\app-universal-release.apk
+set DEBUG_KEYSTORE=%ANDROID_HOME%\.android\debug.keystore
+if not exist "%DEBUG_KEYSTORE%" (
+    echo [WARNING] Debug keystore not found at %DEBUG_KEYSTORE%
+    echo Signing skipped - APK will be unsigned.
+) else (
+    apksigner sign --ks "%DEBUG_KEYSTORE%" --ks-key-alias androiddebugkey ^
+        --ks-pass pass:android --key-pass pass:android ^
+        --out "%SIGNED_APK%" "%UNSIGNED_APK%"
+    if errorlevel 1 (
+        echo [WARNING] APK signing failed - will upload unsigned APK.
+    ) else (
+        echo APK signed successfully.
+    )
+)
+echo.
+
+:: ── Step 5: Collect artifacts ──
+echo [5/5] Creating GitHub release %TAG% ...
 
 :: Create temp release notes file
 set NOTESFILE=%TEMP%\amiga-release-notes-%VERSION%.md
@@ -127,9 +147,11 @@ if exist "src-tauri\target\release\idioma.exe" (
     set ARTIFACTS=!ARTIFACTS! "src-tauri\target\release\idioma.exe"
 )
 
-:: Android APK
-if exist "src-tauri\gen\android\app\build\outputs\apk\universal\release\app-universal-release.apk" (
-    set ARTIFACTS=!ARTIFACTS! "src-tauri\gen\android\app\build\outputs\apk\universal\release\app-universal-release.apk"
+:: Android APK (prefer signed, fallback to unsigned or debug)
+if exist "%SIGNED_APK%" (
+    set ARTIFACTS=!ARTIFACTS! "%SIGNED_APK%"
+) else if exist "%UNSIGNED_APK%" (
+    set ARTIFACTS=!ARTIFACTS! "%UNSIGNED_APK%"
 ) else if exist "src-tauri\gen\android\app\build\outputs\apk\universal\debug\app-universal-debug.apk" (
     set ARTIFACTS=!ARTIFACTS! "src-tauri\gen\android\app\build\outputs\apk\universal\debug\app-universal-debug.apk"
 )
