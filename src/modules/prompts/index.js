@@ -2,7 +2,7 @@ import routes from "./routes.js";
 
 export default {
   name: "prompts",
-  displayName: "提示词管�?,
+  displayName: "提示词管理",
   version: "0.2.0",
   routes,
   init(kernel) {},
