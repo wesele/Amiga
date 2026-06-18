@@ -3,7 +3,7 @@
     <div class="hello-card">
       <div class="logo">
         <span class="logo-icon">I</span>
-        <h1>Idioma</h1>
+        <h1>Amiga</h1>
       </div>
       <p class="subtitle">Language Learning App</p>
 

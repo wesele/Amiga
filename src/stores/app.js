@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 
 export const useAppStore = defineStore("app", () => {
-  const title = ref("Idioma");
+  const title = ref("Amiga");
   const loadedModules = ref([]);
 
   function setTitle(t) {

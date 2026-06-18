@@ -7,9 +7,9 @@ describe("useAppStore", () => {
   });
 
   describe("initial state", () => {
-    it("has default title 'Idioma'", () => {
+    it("has default title 'Amiga'", () => {
       const store = useAppStore();
-      expect(store.title).toBe("Idioma");
+      expect(store.title).toBe("Amiga");
     });
 
     it("starts with empty loadedModules", () => {

@@ -5,6 +5,6 @@ export default [
     path: "/",
     name: "hello",
     component: HelloPage,
-    meta: { title: "Idioma" },
+    meta: { title: "Amiga" },
   },
 ];
