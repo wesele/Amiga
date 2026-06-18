@@ -45,6 +45,20 @@ if errorlevel 1 (
     exit /b 1
 )
 
+:: Check release keystore
+if not exist "src-tauri\amiga-release.keystore" (
+    echo [ERROR] Release keystore not found at src-tauri\amiga-release.keystore
+    pause
+    exit /b 1
+)
+
+:: Check keystore properties
+if not exist "src-tauri\gen\android\app\keystore.properties" (
+    echo [ERROR] keystore.properties not found at src-tauri\gen\android\app\keystore.properties
+    pause
+    exit /b 1
+)
+
 :: Confirm
 echo This will build and publish version %VERSION% to GitHub.
 echo Tag: %TAG%
@@ -77,8 +91,8 @@ if errorlevel 1 (
 )
 echo.
 
-:: ── Step 3: Android APK build ──
-echo [3/4] Building Android APK (arm64-v8a)...
+:: ── Step 3: Android APK build (release-signed) ──
+echo [3/4] Building Android APK (arm64-v8a, release-signed)...
 npx -- tauri android build --target aarch64 --apk
 if errorlevel 1 (
     echo [ERROR] Android build failed!
@@ -87,53 +101,53 @@ if errorlevel 1 (
 )
 echo.
 
-:: ── Step 4: Sign Android APK ──
-echo [4/5] Signing Android APK with debug key...
-set UNSIGNED_APK=src-tauri\gen\android\app\build\outputs\apk\universal\release\app-universal-release-unsigned.apk
-set SIGNED_APK=src-tauri\gen\android\app\build\outputs\apk\universal\release\app-universal-release.apk
-set DEBUG_KEYSTORE=%ANDROID_HOME%\.android\debug.keystore
-if not exist "%DEBUG_KEYSTORE%" (
-    echo [WARNING] Debug keystore not found at %DEBUG_KEYSTORE%
-    echo Signing skipped - APK will be unsigned.
-) else (
-    apksigner sign --ks "%DEBUG_KEYSTORE%" --ks-key-alias androiddebugkey ^
-        --ks-pass pass:android --key-pass pass:android ^
-        --out "%SIGNED_APK%" "%UNSIGNED_APK%"
-    if errorlevel 1 (
-        echo [WARNING] APK signing failed - will upload unsigned APK.
-    ) else (
-        echo APK signed successfully.
-    )
-)
-echo.
-
-:: ── Step 5: Collect artifacts ──
-echo [5/5] Creating GitHub release %TAG% ...
+:: ── Step 4: Create GitHub release ──
+echo [4/4] Creating GitHub release %TAG% ...
 
 :: Create temp release notes file
 set NOTESFILE=%TEMP%\amiga-release-notes-%VERSION%.md
 
-:: Ask for release notes
+:: Bilingual release notes prompt
 echo.
-echo Enter release notes (press Enter twice to finish):
-echo ---
+echo ============================================
+echo  Enter release notes in Chinese + English
+echo  (separate with "---ENGLISH---" on its own line)
+echo  Press Enter on empty line to finish.
+echo ============================================
+echo.
+echo Example:
+echo   ## v%VERSION%
+echo.
+echo   新功能：
+echo   - ...
+echo.
+echo   ---ENGLISH---
+echo.
+echo   ## v%VERSION%
+echo.
+echo   New features:
+echo   - ...
+echo.
+echo ============================================
+echo.
+
+setlocal enabledelayedexpansion
+set "line="
 (
-    set /p LINE1=
-    set /p LINE2=
-    set /p LINE3=
-    set /p LINE4=
-    set /p LINE5=
-    set /p LINE6=
-    set /p LINE7=
-    set /p LINE8=
-    set /p LINE9=
-    set /p LINE10=
+    for /l %%i in (1,1,100) do (
+        set /p "input="
+        if "!input!"=="" goto :notes_done
+        echo(!input!
+    )
 ) > "%NOTESFILE%"
+:notes_done
+endlocal
 
 echo. >nul
 
 :: Collect artifact paths
 set ARTIFACTS=
+set APK_PATH=src-tauri\gen\android\app\build\outputs\apk\universal\release\app-universal-release.apk
 
 :: Windows installer (NSIS)
 if exist "src-tauri\target\release\bundle\nsis\*.exe" (
@@ -147,13 +161,9 @@ if exist "src-tauri\target\release\idioma.exe" (
     set ARTIFACTS=!ARTIFACTS! "src-tauri\target\release\idioma.exe"
 )
 
-:: Android APK (prefer signed, fallback to unsigned or debug)
-if exist "%SIGNED_APK%" (
-    set ARTIFACTS=!ARTIFACTS! "%SIGNED_APK%"
-) else if exist "%UNSIGNED_APK%" (
-    set ARTIFACTS=!ARTIFACTS! "%UNSIGNED_APK%"
-) else if exist "src-tauri\gen\android\app\build\outputs\apk\universal\debug\app-universal-debug.apk" (
-    set ARTIFACTS=!ARTIFACTS! "src-tauri\gen\android\app\build\outputs\apk\universal\debug\app-universal-debug.apk"
+:: Android release APK (signed by Gradle)
+if exist "%APK_PATH%" (
+    set ARTIFACTS=!ARTIFACTS! "%APK_PATH%"
 )
 
 if "%ARTIFACTS%"=="" (

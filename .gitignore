@@ -24,3 +24,7 @@ content-studio/studio.config.json
 
 # Content Studio 数据文件（服务端持久化 JSON）
 content-studio/data/
+
+# Release keystore
+src-tauri/amiga-release.keystore
+src-tauri/gen/android/app/keystore.properties

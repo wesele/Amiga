@@ -82,6 +82,23 @@ docs/
 - **每次修改代码并测试通过后**，运行 `.\run-windows.bat`（或 `Start-Process -FilePath "run-windows.bat"`）启动 Tauri 开发服务器，让用户可以直接看到界面效果
 - `run-windows.bat` 会打开新 CMD 窗口执行 `npm run tauri dev`
 
+## GitHub Release 工作流
+
+### 发布规范
+- **所有 GitHub Release 说明必须使用中英双语**，中文在上，英文在下，中间用 `---ENGLISH---` 分隔
+- 发布由 `release-github.bat` 自动完成，顺序：前端构建 → Windows 构建 → Android 构建 → 发布到 GitHub
+
+### Android APK 签名
+- Release APK 使用 `src-tauri/amiga-release.keystore` 签名（详见 `src-tauri/gen/android/app/build.gradle.kts`）
+- Keystore 密码：见 `src-tauri/gen/android/app/keystore.properties`（已 .gitignore，不提交）
+- 生产环境请更换密码并安全保管 keystore
+
+### 发布步骤
+1. 确认所有代码已提交且测试通过
+2. 运行 `release-github.bat`
+3. 输入双语发布说明
+4. 脚本自动构建所有平台产物并上传至 GitHub Releases
+
 ## Content Studio (内容生产系统)
 位于 `content-studio/` 目录，是一个独立的内部工具集，用于课程设计和题目生产。
 - **核心功能**: 语言对管理、词库管理、基于 AI 的单元框架设计、自动题目生成、以及 AI 提示词管理。
