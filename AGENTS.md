@@ -82,6 +82,7 @@ docs/
 - **每次修改代码并测试通过后**，运行 `.\run-windows.bat`（或 `Start-Process -FilePath "run-windows.bat"`）启动 Tauri 开发服务器，让用户可以直接看到界面效果
 - **不要自动发布到 GitHub**，等待用户明确指令
 - **版本号规则**：除非用户明确要求增加 major 或 minor 版本号，否则只增加第三位（patch）版本号。例如：0.2.0 → 0.2.1
+- **发布前必须执行** `npm run build` 确认前端构建无 BOM 错误
 
 ### 大模型提示词管理规范（必须遵守）
 - **App 中所有调用大模型的系统级提示词（system prompt）都必须可配置**，不能硬编码在后端 Rust 代码中
@@ -98,9 +99,6 @@ docs/
 - 用户从设置菜单或列表页点击配置项时，导航到独立配置页面进行编辑
 
 ## GitHub Release 工作流
-- `run-windows.bat` 会打开新 CMD 窗口执行 `npm run tauri dev`
-
-## GitHub Release 工作流
 
 ### 发布规范
 - **所有 GitHub Release 说明必须使用中英双语**，中文在上，英文在下，中间用 `---ENGLISH---` 分隔
@@ -113,9 +111,21 @@ docs/
 
 ### 发布步骤
 1. 确认所有代码已提交且测试通过
-2. 运行 `release-github.bat`
-3. 输入双语发布说明
-4. 脚本自动构建所有平台产物并上传至 GitHub Releases
+2. 更新版本号：运行 `release-github.bat` 或手动用 Node.js 修改（**严禁使用 PowerShell `Set-Content`**，否则 UTF-8 中文会损坏/添加 BOM）
+3. 运行 `release-github.bat`（交互式，需手动输入版本选择和双语发布说明）
+4. 脚本自动构建 Windows（MSI + NSIS + EXE）和 Android APK 并上传至 GitHub Releases
+
+### ⚠️ 版本更新注意事项（重要）
+- **禁止使用 PowerShell 的 `Set-Content` 修改含中文的文件**（会写入 UTF-8 BOM 破坏 Vite 构建并导致中文乱码）
+- **正确做法**：使用 Node.js 脚本读写文件（`fs.readFileSync(path, 'utf8')` / `fs.writeFileSync(path, content, 'utf8')`）进行版本替换
+- 如果不小心用 PowerShell 添加了 BOM，用以下 Node.js 代码移除：
+  ```js
+  const fs = require('fs');
+  const buf = fs.readFileSync(path);
+  if (buf[0] === 0xEF && buf[1] === 0xBB && buf[2] === 0xBF)
+    fs.writeFileSync(path, buf.slice(3));
+  ```
+- 构建前运行 `npm run build` 确认没有 BOM/Vite 解析错误
 
 ## Content Studio (内容生产系统)
 位于 `content-studio/` 目录，是一个独立的内部工具集，用于课程设计和题目生产。
