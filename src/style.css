@@ -75,8 +75,10 @@ body {
 }
 
 #app {
-  height: 100vh;
+  position: fixed;
+  inset: 0;
   padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
   display: flex;
   flex-direction: column;
   overflow: hidden;

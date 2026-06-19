@@ -23,7 +23,7 @@ echo   !CUR_VER!
 echo.
 
 echo How to bump the version?
-echo   [p] Patch (default) — bump third digit: !CUR_VAR! → x.x.(+1)
+echo   [p] Patch (default) — bump third digit: !CUR_VER! → x.x.(+1)
 echo   [m] Minor — bump second digit: x.(+1).0
 echo   [M] Major — bump first digit: (+1).0.0
 echo   [n] None — keep current version
@@ -59,35 +59,31 @@ echo.
 echo New version: !NEW_VER!
 echo.
 
-:: Write new version to package.json
-set "TMPFILE=%TEMP%\amiga-pkg.json"
-powershell -Command "(Get-Content 'package.json' -Raw) -replace '\"version\": \"%CUR_VER%\"', '\"version\": \"%NEW_VER%\"' | Set-Content -Encoding UTF8 '%~dp0package.json'"
+:: Write new version to all config files using Node.js (UTF-8, no BOM)
+call node scripts\bump-version.cjs "%CUR_VER%" "%NEW_VER%" ^
+    package.json ^
+    src-tauri\Cargo.toml ^
+    src-tauri\tauri.conf.json
 if errorlevel 1 (
-    echo [ERROR] Failed to update package.json
+    echo [ERROR] Failed to update version files
     pause
     exit /b 1
 )
 
-:: Sync Cargo.toml
-powershell -Command "(Get-Content 'src-tauri\Cargo.toml' -Raw) -replace 'version = \"%CUR_VER%\"', 'version = \"%NEW_VER%\"' | Set-Content -Encoding UTF8 'src-tauri\Cargo.toml'"
-
-:: Sync tauri.conf.json
-powershell -Command "(Get-Content 'src-tauri\tauri.conf.json' -Raw) -replace '\"version\": \"%CUR_VER%\"', '\"version\": \"%NEW_VER%\"' | Set-Content -Encoding UTF8 'src-tauri\tauri.conf.json'"
-
 :: Sync Cargo.lock if it has the version string
 findstr /C:"version = \"%CUR_VER%\"" src-tauri\Cargo.lock >nul 2>&1
 if not errorlevel 1 (
-    powershell -Command "(Get-Content 'src-tauri\Cargo.lock' -Raw) -replace 'version = \"%CUR_VER%\"', 'version = \"%NEW_VER%\"' | Set-Content -Encoding UTF8 'src-tauri\Cargo.lock'"
+    call node scripts\bump-version.cjs "%CUR_VER%" "%NEW_VER%" src-tauri\Cargo.lock
 )
 
 :: Sync tauri.properties
 if exist "src-tauri\gen\android\tauri.properties" (
-    powershell -Command "(Get-Content 'src-tauri\gen\android\tauri.properties' -Raw) -replace 'appVersion=%CUR_VER%', 'appVersion=%NEW_VER%' | Set-Content -Encoding UTF8 'src-tauri\gen\android\tauri.properties'"
+    call node scripts\bump-version.cjs "%CUR_VER%" "%NEW_VER%" src-tauri\gen\android\tauri.properties
 )
 
 :: Sync module index.js files
 for /r "src\modules" %%f in (index.js) do (
-    powershell -Command "(Get-Content '%%f' -Raw) -replace 'version: \"%CUR_VER%\"', 'version: \"%NEW_VER%\"' | Set-Content -Encoding UTF8 '%%f'"
+    call node scripts\bump-version.cjs "%CUR_VER%" "%NEW_VER%" "%%f"
 )
 
 set VERSION=!NEW_VER!
@@ -171,7 +167,7 @@ echo.
 
 :: ── Step 3: Android APK build (release-signed) ──
 echo [3/4] Building Android APK (arm64-v8a, release-signed)...
-npx -- tauri android build --target aarch64 --apk
+call npx tauri android build --target aarch64 --apk
 if errorlevel 1 (
     echo [ERROR] Android build failed!
     pause
@@ -225,8 +221,6 @@ echo. >nul
 
 :: Collect artifact paths
 set ARTIFACTS=
-set APK_PATH=src-tauri\gen\android\app\build\outputs\apk\universal\release\app-universal-release.apk
-
 :: Windows installer (NSIS)
 if exist "src-tauri\target\release\bundle\nsis\*.exe" (
     for %%f in ("src-tauri\target\release\bundle\nsis\*.exe") do set ARTIFACTS=!ARTIFACTS! "%%f"
@@ -239,9 +233,9 @@ if exist "src-tauri\target\release\idioma.exe" (
     set ARTIFACTS=!ARTIFACTS! "src-tauri\target\release\idioma.exe"
 )
 
-:: Android release APK (signed by Gradle)
-if exist "%APK_PATH%" (
-    set ARTIFACTS=!ARTIFACTS! "%APK_PATH%"
+:: Android release APK — find any APK in build output
+for /r "src-tauri\gen\android\app\build\outputs\apk" %%f in (*-release.apk) do (
+    if not "%%f"=="" set ARTIFACTS=!ARTIFACTS! "%%f"
 )
 
 if "%ARTIFACTS%"=="" (

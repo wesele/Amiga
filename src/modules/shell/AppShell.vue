@@ -47,7 +47,7 @@ import { useRoute } from "vue-router";
 
 const route = useRoute();
 const showNav = computed(() => {
-  const noNavRoutes = ["wizard", "reader"];
+  const noNavRoutes = ["wizard", "reader", "interaction-chat"];
   return !noNavRoutes.includes(route.name);
 });
 </script>
@@ -73,8 +73,7 @@ const showNav = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  height: calc(64px + var(--safe-bottom));
-  padding-bottom: var(--safe-bottom);
+  height: 64px;
   background: var(--surface);
   border-top: 1px solid var(--border);
   box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.04);

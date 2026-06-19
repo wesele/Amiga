@@ -55,6 +55,7 @@
         class="chat-input"
         placeholder="输入消息…"
         @keydown.enter.prevent="sendMessage"
+        @focus="onInputFocus"
         :disabled="loading"
       />
       <button class="send-btn" @click="sendMessage" :disabled="loading || !inputText.trim()">
@@ -67,7 +68,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from "vue";
+import { ref, nextTick, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   getCurrentUser,
@@ -92,6 +93,26 @@ const contactName = ref("Amiga");
 const contactAvatar = ref("🤖");
 const targetLang = ref("es");
 const nativeLang = ref("zh");
+const keyboardHeight = ref(0);
+let cachedViewportHeight = 0;
+
+const vv = window.visualViewport;
+function onViewportResize() {
+  if (!vv) return;
+  const diff = cachedViewportHeight - vv.height;
+  if (diff > 80) {
+    keyboardHeight.value = diff;
+    document.documentElement.style.setProperty("--keyboard-height", `${diff}px`);
+    scrollToBottom();
+  } else {
+    keyboardHeight.value = 0;
+    document.documentElement.style.setProperty("--keyboard-height", "0px");
+  }
+}
+
+function onInputFocus() {
+  scrollToBottom();
+}
 
 function scrollToBottom() {
   nextTick(() => {
@@ -146,7 +167,17 @@ async function deleteCurrentSession() {
   } catch { /* ignore */ }
 }
 
+onUnmounted(() => {
+  if (vv) {
+    vv.removeEventListener("resize", onViewportResize);
+  }
+});
+
 onMounted(async () => {
+  if (vv) {
+    cachedViewportHeight = vv.height;
+    vv.addEventListener("resize", onViewportResize);
+  }
   sessionId.value = route.params.sessionId;
 
   try {
@@ -271,6 +302,7 @@ onMounted(async () => {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+  padding-bottom: calc(var(--keyboard-height, 0px) + 16px);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -356,7 +388,7 @@ onMounted(async () => {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  padding-bottom: calc(10px + var(--safe-bottom));
+  padding-bottom: calc(10px + var(--keyboard-height, 0px));
   background: var(--white);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
