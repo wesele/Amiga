@@ -58,7 +58,6 @@
 
   /* Spacing */
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-top: env(safe-area-inset-top, 0px);
 }
 
 * {
@@ -76,10 +75,7 @@ body {
 }
 
 #app {
-  position: fixed;
-  inset: 0;
-  padding-top: var(--safe-top);
-  padding-bottom: var(--safe-bottom);
+  height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;

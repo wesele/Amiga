@@ -30,7 +30,7 @@
     </div>
 
     <!-- Article body -->
-    <div v-else class="article-body">
+    <div v-else class="article-body" @mouseup="onBodyMouseUp" @touchend="onBodyTouchEnd">
       <!-- Original mode -->
       <div v-if="!bilingualMode" class="article-text">
         <template v-for="(token, idx) in tokens" :key="idx">
@@ -148,7 +148,6 @@ let nativeLang = "zh";
 
 onMounted(async () => {
   startTime.value = Date.now();
-  document.addEventListener("selectionchange", onSelectionChange);
   try {
     const user = await getCurrentUser();
     userId = user.id;
@@ -168,7 +167,6 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(async () => {
-  document.removeEventListener("selectionchange", onSelectionChange);
   if (userId && article.value) {
     const elapsed = Math.round((Date.now() - startTime.value) / 1000);
     try {
@@ -367,32 +365,41 @@ const selectionLoading = ref(false);
 const selectionError = ref("");
 let selectionTimer = null;
 
-function onSelectionChange() {
-  if (selectionTimer) clearTimeout(selectionTimer);
-  selectionTimer = setTimeout(() => {
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-    const text = sel.toString().trim();
-    if (!text || text.length === 0) return;
-    if (text.split(/\s+/).length <= 1) return;
+function onBodyMouseUp(e) {
+  clearTimeout(selectionTimer);
+  selectionTimer = setTimeout(() => handleSelection(e), 200);
+}
 
-    selectionText.value = text;
-    selectionLoading.value = true;
-    selectionResult.value = "";
-    selectionError.value = "";
+function onBodyTouchEnd(e) {
+  clearTimeout(selectionTimer);
+  selectionTimer = setTimeout(() => handleSelection(e), 300);
+}
 
-    translateText(text, nativeLang || "zh")
-      .then(result => {
-        selectionResult.value = result;
-        selectionLoading.value = false;
-      })
-      .catch(err => {
-        selectionError.value = typeof err === "string" ? err : "翻译暂不可用";
-        selectionLoading.value = false;
-      });
+function handleSelection(e) {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+  const text = sel.toString().trim();
+  if (!text || text.length === 0) return;
 
-    sel.removeAllRanges();
-  }, 300);
+  // If only one word, let WordPopup handle it
+  if (text.split(/\s+/).length <= 1) return;
+
+  selectionText.value = text;
+  selectionLoading.value = true;
+  selectionResult.value = "";
+  selectionError.value = "";
+
+  translateText(text, nativeLang || "zh")
+    .then(result => {
+      selectionResult.value = result;
+      selectionLoading.value = false;
+    })
+    .catch(err => {
+      selectionError.value = typeof err === "string" ? err : "翻译暂不可用";
+      selectionLoading.value = false;
+    });
+
+  sel.removeAllRanges();
 }
 
 function clearSelection() {
