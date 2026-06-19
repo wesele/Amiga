@@ -34,10 +34,7 @@
       <!-- Original mode -->
       <div v-if="!bilingualMode" class="article-text">
         <template v-for="(token, idx) in tokens" :key="idx">
-          <span v-if="token.isNewWord" class="word new-word" @click.stop="onWordTap(token)">
-            {{ token.text }}
-          </span>
-          <span v-else-if="token.isWord" class="word" @click.stop="onWordTap(token)">
+          <span v-if="token.isWord" class="word" @click.stop="onWordTap(token)">
             {{ token.text }}
           </span>
           <span v-else>{{ token.text }}</span>
@@ -49,8 +46,7 @@
         <template v-for="(tokens, pidx) in paraTokens" :key="pidx">
           <p class="para-original">
             <template v-for="(token, idx) in tokens" :key="idx">
-              <span v-if="token.isNewWord" class="word new-word" @click.stop="onWordTap(token)">{{ token.text }}</span>
-              <span v-else-if="token.isWord" class="word" @click.stop="onWordTap(token)">{{ token.text }}</span>
+              <span v-if="token.isWord" class="word" @click.stop="onWordTap(token)">{{ token.text }}</span>
               <span v-else>{{ token.text }}</span>
             </template>
           </p>
@@ -169,6 +165,10 @@ onMounted(async () => {
 
 onBeforeUnmount(async () => {
   document.removeEventListener("selectionchange", onSelectionChange);
+  if (selectionTimer) {
+    clearTimeout(selectionTimer);
+    selectionTimer = null;
+  }
   if (userId && article.value) {
     const elapsed = Math.round((Date.now() - startTime.value) / 1000);
     try {
@@ -287,7 +287,7 @@ function tokenize(text) {
           }
         }
       }
-      result.push({ text: match[1], isWord: true, isNewWord: true, context: getContext(text, match[1]) });
+      result.push({ text: match[1], isWord: true, isNewWord: false, context: getContext(text, match[1]) });
       lastIdx = match.index + match[0].length;
     }
 
@@ -327,6 +327,11 @@ watch(() => article.value?.original_body, (val) => {
 
 function onWordTap(token) {
   if (!token.isWord) return;
+  // If there's an active multi-character text selection, this click likely
+  // resulted from the user finishing a drag-selection — don't open the word
+  // popup; let the selectionchange handler process the selection instead.
+  const sel = window.getSelection();
+  if (sel && sel.toString().trim().length > 0) return;
   selectedWord.value = token;
   lookedUp.value++;
   knownWordIds.value.add(token.text);
@@ -370,6 +375,7 @@ let selectionTimer = null;
 function onSelectionChange() {
   if (selectionTimer) clearTimeout(selectionTimer);
   selectionTimer = setTimeout(() => {
+    selectionTimer = null;
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
     const text = sel.toString().trim();
@@ -396,6 +402,10 @@ function onSelectionChange() {
 }
 
 function clearSelection() {
+  if (selectionTimer) {
+    clearTimeout(selectionTimer);
+    selectionTimer = null;
+  }
   selectionText.value = "";
   selectionResult.value = "";
   selectionError.value = "";
@@ -553,6 +563,8 @@ function formatSource(source) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 20px 20px 80px;
 }
 
@@ -560,7 +572,11 @@ function formatSource(source) {
   font-size: 17px;
   line-height: 2.0;
   color: var(--text);
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
   user-select: text;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: auto;
 }
 
 .word {
@@ -568,22 +584,12 @@ function formatSource(source) {
   padding: 0 1px;
   border-radius: 3px;
   transition: background 0.1s;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .word:hover {
   background: var(--blue-bg);
-}
-
-.word.new-word {
-  font-weight: 800;
-  color: var(--purple);
-  background: var(--purple-bg);
-  border-radius: 3px;
-}
-
-.word.new-word:hover {
-  background: var(--purple);
-  color: #fff;
 }
 
 /* Fixed bottom bar */
@@ -592,7 +598,7 @@ function formatSource(source) {
   border-top: 1px solid var(--border);
   background: var(--surface);
   padding: 12px 16px;
-  padding-bottom: calc(12px + var(--safe-bottom));
+  padding-bottom: 12px;
 }
 
 /* Mode bar */

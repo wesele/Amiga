@@ -7,7 +7,7 @@
     <!-- User Account Card -->
     <section class="settings-section">
       <div class="account-card">
-        <div class="account-row" @click="$router.push('/profile/settings')">
+        <div class="account-row">
           <div class="account-avatar">{{ user?.avatar || '😊' }}</div>
           <div class="account-info">
             <div class="account-name">{{ user?.nickname || '学习者' }}</div>
@@ -16,16 +16,8 @@
               <span v-else>未设置学习目标</span>
             </div>
           </div>
-          <svg class="av-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M9.29 15.88L13.17 12 9.29 8.12a.996.996 0 111.41-1.41l4.59 4.59c.39.39.39 1.02 0 1.41L10.7 15.3a.996.996 0 01-1.41 0c-.38-.39-.39-1.03 0-1.42z"/>
-          </svg>
         </div>
         <div class="stats-row">
-          <div class="stat-cell">
-            <div class="stat-value">0</div>
-            <div class="stat-label">学习天数</div>
-          </div>
-          <div class="stat-divider" />
           <div class="stat-cell">
             <div class="stat-value">{{ vocabStats?.total_known || 0 }}</div>
             <div class="stat-label">已掌握词汇</div>
@@ -34,11 +26,6 @@
           <div class="stat-cell">
             <div class="stat-value">0</div>
             <div class="stat-label">已读文章</div>
-          </div>
-          <div class="stat-divider" />
-          <div class="stat-cell">
-            <div class="stat-value">0</div>
-            <div class="stat-label">连续天数</div>
           </div>
         </div>
       </div>
@@ -49,7 +36,6 @@
       <h3 class="section-header">通用</h3>
       <div class="settings-card">
         <SettingsItem icon="⚙️" title="设置" subtitle="界面语言、AI 配置、新闻设置" to="/profile/settings" />
-        <SettingsItem icon="🤖" title="提示词管理" subtitle="管理 AI 对话提示词" to="/prompts" :showDivider="false" />
       </div>
     </section>
 

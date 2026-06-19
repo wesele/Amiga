@@ -272,14 +272,13 @@ pub async fn rewrite_article(
     let messages = if messages.is_empty() {
         let prompt = format!(
             "请将以下西班牙语新闻改写成适合 CEFR {} 级别学习者阅读的版本。\n\n\
-             要求：\n\
-             1. 忠实原文 — 新闻事实、人名、地名、数字、日期不得改动\n\
-             2. 用词限制 — 全文尽量使用 {} 级及以下级别的单词\n\
-             3. 超纲词 — 最多允许5个超级别单词，超纲词用 **加粗** 标记\n\
-             4. 可选植入词 — {} 选自然植入，同样需加粗\n\n\
-             返回 JSON：{{\"rewritten\": \"改写后的全文\", \"new_words_used\": [\"实际植入的词\"]}}\n\n\
-             标题：{}\n\
-             正文：{}",
+              要求：\n\
+              1. 忠实原文 — 新闻事实、人名、地名、数字、日期不得改动\n\
+              2. 用词限制 — 全文尽量使用 {} 级及以下级别的单词\n\
+              3. 可选植入词 — {} 选自然植入\n\n\
+              返回 JSON：{{\"rewritten\": \"改写后的全文\", \"new_words_used\": [\"实际植入的词\"]}}\n\n\
+              标题：{}\n\
+              正文：{}",
             cefr_level, cefr_level, words_list, original_title, original_text
         );
         build_chat_messages_fallback(
