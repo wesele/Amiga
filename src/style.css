@@ -67,11 +67,12 @@
   box-sizing: border-box;
 }
 
-html { height: 100%; overflow: hidden; }
+html { height: 100%; overflow: hidden; overscroll-behavior: none; }
 
 body {
   height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 #app {
@@ -82,4 +83,5 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  overscroll-behavior: none;
 }

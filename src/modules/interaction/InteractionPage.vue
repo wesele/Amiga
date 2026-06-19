@@ -1,8 +1,8 @@
 <template>
-  <div class="chat-view">
+  <div class="chat-view" ref="chatView">
     <header class="chat-header">
       <button class="back-btn" @click="$router.push('/interaction')">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="pointer-events:none">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
       </button>
@@ -57,11 +57,7 @@
         @keydown.enter.prevent="sendMessage"
         @focus="onInputFocus"
       />
-       <button class="send-btn" @mousedown.prevent @touchstart.prevent @click="sendMessage" :disabled="loading || !inputText.trim()">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-        </svg>
-      </button>
+        <div class="send-btn" :class="{ disabled: loading || !inputText.trim() }" @click="sendMessage">发送</div>
     </div>
   </div>
 </template>
@@ -85,6 +81,7 @@ const inputText = ref("");
 const loading = ref(false);
 const msgList = ref(null);
 const inputEl = ref(null);
+const chatView = ref(null);
 const showMenu = ref(false);
 const sessionId = ref("");
 const contactType = ref("amiga");
@@ -92,30 +89,39 @@ const contactName = ref("Amiga");
 const contactAvatar = ref("🤖");
 const targetLang = ref("es");
 const nativeLang = ref("zh");
-const keyboardHeight = ref(0);
 let cachedViewportHeight = 0;
-let syncAnimationFrame = null;
-
+let syncRaf = null;
 const vv = window.visualViewport;
-function syncViewport() {
-  if (!vv) return;
-  document.documentElement.style.setProperty('--vv-top', `${vv.offsetTop}px`);
-  syncAnimationFrame = requestAnimationFrame(syncViewport);
+
+function startSync() {
+  if (!vv || !chatView.value) return;
+  function tick() {
+    if (!chatView.value) return;
+    const v = chatView.value;
+    v.style.top = `${vv.offsetTop}px`;
+    v.style.height = `${vv.height}px`;
+    syncRaf = requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+function stopSync() {
+  if (syncRaf) {
+    cancelAnimationFrame(syncRaf);
+    syncRaf = null;
+  }
 }
 
 function onViewportResize() {
   if (!vv) return;
-  if (!syncAnimationFrame) {
-    syncViewport();
-  }
   const diff = cachedViewportHeight - vv.height;
   if (diff > 80) {
-    keyboardHeight.value = diff;
+    startSync();
     scrollToBottom();
   } else {
-    keyboardHeight.value = 0;
+    stopSync();
   }
-}
+}  
 
 function onInputFocus() {
   scrollToBottom();
@@ -176,18 +182,16 @@ async function deleteCurrentSession() {
 }
 
 onUnmounted(() => {
+  stopSync();
   if (vv) {
     vv.removeEventListener("resize", onViewportResize);
-  }
-  if (syncAnimationFrame) {
-    cancelAnimationFrame(syncAnimationFrame);
   }
 });
 
 onMounted(async () => {
   if (vv) {
     cachedViewportHeight = vv.height;
-    syncViewport();
+    startSync();
     vv.addEventListener("resize", onViewportResize);
   }
   sessionId.value = route.params.sessionId;
@@ -224,22 +228,19 @@ onMounted(async () => {
 
 <style scoped>
 .chat-view {
+  position: fixed;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
   overflow: hidden;
   background: var(--bg);
-  position: relative;
+  box-sizing: border-box;
+  overscroll-behavior: none;
 }
 
 /* ─── Header ─── */
 .chat-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  transform: translateY(var(--vv-top, 0px));
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -318,7 +319,7 @@ onMounted(async () => {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 72px 16px 80px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -400,11 +401,7 @@ onMounted(async () => {
 
 /* ─── Input bar ─── */
 .chat-input-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -429,24 +426,22 @@ onMounted(async () => {
   opacity: 0.5;
 }
 .send-btn {
-  width: 40px;
-  height: 40px;
+  flex-shrink: 0;
   border: none;
-  border-radius: 50%;
+  border-radius: 20px;
   background: var(--green);
   color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 16px;
   cursor: pointer;
-  flex-shrink: 0;
   transition: background var(--transition);
 }
-.send-btn:disabled {
+.send-btn.disabled {
   background: var(--border);
-  cursor: default;
+  pointer-events: none;
 }
-.send-btn:not(:disabled):hover {
+.send-btn:not(.disabled):hover {
   background: var(--green-hover);
 }
 </style>

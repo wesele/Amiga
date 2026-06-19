@@ -3,7 +3,7 @@ import vocabRoutes from "./routes.js";
 export default {
   name: "vocab",
   displayName: "单词本",
-  version: "0.3.3",
+  version: "0.3.4",
   routes: vocabRoutes,
   init(kernel) {},
 };

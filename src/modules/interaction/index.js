@@ -3,7 +3,7 @@
 export default {
   name: "interaction",
   displayName: "互动",
-  version: "0.3.3",
+  version: "0.3.4",
   routes,
   init(kernel) {},
 };
