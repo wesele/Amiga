@@ -11,14 +11,31 @@ if (!oldVer || !newVer || files.length === 0) {
 for (const f of files) {
   try {
     let c = fs.readFileSync(f, 'utf8');
-    const updated = c
-      .replace(`"version": "${oldVer}"`, `"version": "${newVer}"`)
-      .replace(`"version":"${oldVer}"`, `"version":"${newVer}"`)
-      .replace(`version = "${oldVer}"`, `version = "${newVer}"`)
-      .replace(`version: "${oldVer}"`, `version: "${newVer}"`)
-      .replace(`appVersion=${oldVer}`, `appVersion=${newVer}`);
+    let updated;
+    if (f.endsWith('Cargo.lock')) {
+      updated = c.replace(
+        new RegExp(`(name = "idioma"\\s*\\nversion = ")${escapeRegex(oldVer)}(")`),
+        `$1${newVer}$2`
+      );
+    } else {
+      updated = c
+        .replace(`"version": "${oldVer}"`, `"version": "${newVer}"`)
+        .replace(`"version":"${oldVer}"`, `"version":"${newVer}"`)
+        .replace(`version = "${oldVer}"`, `version = "${newVer}"`)
+        .replace(`version: "${oldVer}"`, `version: "${newVer}"`)
+        .replace(`appVersion=${oldVer}`, `appVersion=${newVer}`);
+    }
     if (updated !== c) {
       fs.writeFileSync(f, updated, 'utf8');
+      console.log(`  Updated: ${f}`);
+    } else {
+      console.log(`  No change: ${f}`);
     }
-  } catch (_) {}
+  } catch (e) {
+    console.log(`  Skipped: ${f} (${e.message})`);
+  }
+}
+
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

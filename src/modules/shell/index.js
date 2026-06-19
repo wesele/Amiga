@@ -3,7 +3,7 @@ import shellRoutes from "./routes.js";
 export default {
   name: "shell",
   displayName: "App Shell",
-  version: "0.2.2",
+  version: "0.3.1",
   routes: shellRoutes,
   init(kernel) {},
 };

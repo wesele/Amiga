@@ -3,7 +3,7 @@ import routes from "./routes.js";
 export default {
   name: "hello",
   displayName: "Hello",
-  version: "0.2.2",
+  version: "0.3.1",
   routes,
   init(kernel) {
     console.log("[hello] module initialized");
