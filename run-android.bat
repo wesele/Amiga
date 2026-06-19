@@ -2,7 +2,14 @@
 set JAVA_HOME=C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot
 set ANDROID_HOME=C:\Android\sdk
 set NDK_HOME=C:\Android\sdk\ndk\27.0.12077973
+set TAURI_DEV_HOST=192.168.31.9
 set PATH=C:\msys64\mingw64\bin;%PATH%
+
+echo Checking for existing dev server on port 1420...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :1420') do (
+  echo Killing process %%a...
+  taskkill /f /pid %%a 2>nul
+)
 
 cd /d "%~dp0"
 npx tauri android dev

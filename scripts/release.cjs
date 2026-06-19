@@ -11,6 +11,16 @@ const rl = readline.createInterface({
 
 const question = (query) => new Promise((resolve) => rl.question(query, resolve));
 
+function compareVersions(v1, v2) {
+  const p1 = v1.split('.').map(Number);
+  const p2 = v2.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if (p1[i] > p2[i]) return 1;
+    if (p1[i] < p2[i]) return -1;
+  }
+  return 0;
+}
+
 async function run() {
   console.log('============================================');
   console.log('  Amiga - GitHub Release Publisher (Node)');
@@ -45,17 +55,33 @@ async function run() {
   try {
     // 1. Version Bump
     await trackStep('Version Bump', async () => {
-      console.log('[1/7] Determining base version from GitHub...');
-      let curVer;
+      console.log('[1/7] Determining base version...');
+      
+      // Get version from package.json
+      const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+      const localVer = packageJson.version;
+      
+      // Get version from GitHub
+      let ghVer = null;
       try {
         const latestTag = execSync('gh release view --json tagName --template "{{.tagName}}"', { encoding: 'utf8' }).trim();
-        curVer = latestTag.replace(/^v/, '');
-        console.log(`  Latest GitHub Release: ${latestTag} -> Base: ${curVer}`);
+        ghVer = latestTag.replace(/^v/, '');
       } catch (e) {
-        console.log('  No GitHub release found. Falling back to package.json...');
-        const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        curVer = packageJson.version;
+        console.log('  No GitHub release found.');
       }
+
+      // Use the maximum of the two as the base
+      let curVer = localVer;
+      if (ghVer && compareVersions(ghVer, localVer) > 0) {
+        curVer = ghVer;
+        console.log(`  GitHub version (${ghVer}) is newer than local (${localVer}). Using GitHub as base.`);
+      } else if (ghVer) {
+        console.log(`  Local version (${localVer}) is up-to-date or newer than GitHub (${ghVer}).`);
+      } else {
+        console.log(`  Using local version as base: ${localVer}`);
+      }
+
+      console.log(`  Base Version: ${curVer}`);
 
       let newVer = curVer;
       const parts = curVer.split('.').map(Number);
@@ -74,19 +100,44 @@ async function run() {
         process.exit(0);
       }
 
-      // Update version files
-      execSync(`node scripts/bump-version.cjs "${curVer}" "${newVer}" package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json`, { stdio: 'inherit' });
-      execSync(`node scripts/bump-version.cjs "${curVer}" "${newVer}" src-tauri/Cargo.lock`, { stdio: 'inherit' });
+      // To ensure bump-version.cjs works, we must pass the version that's ACTUALLY in the files.
+      // Since we might have bumped GitHub base higher than local, 
+      // we should first sync all files to curVer if they aren't already.
+      
+      // 1a. Sync all files to curVer (the determined base)
+      // This prevents the "nothing to replace" issue when GitHub base > Local base
+      const filesToSync = [
+        'package.json', 
+        'src-tauri/Cargo.toml', 
+        'src-tauri/tauri.conf.json', 
+        'src-tauri/Cargo.lock'
+      ];
+      if (fs.existsSync('src-tauri/gen/android/tauri.properties')) {
+        filesToSync.push('src-tauri/gen/android/tauri.properties');
+      }
+      const modules = ['wizard', 'vocab', 'shell', 'prompts', 'profile', 'news', 'interaction', 'hello'];
+      modules.forEach(m => {
+        const p = `src/modules/${m}/index.js`;
+        if (fs.existsSync(p)) filesToSync.push(p);
+      });
+
+      // We don't have a simple "force set version" script, but we can use a temporary dummy version
+      // or just rely on the fact that most files are already at localVer.
+      // The safest way is to bump from localVer -> newVer if localVer is the actual content.
+      
+      // Correct logic: the files currently contain localVer. We want them to contain newVer.
+      // If we just use (localVer, newVer), it will work regardless of what GitHub says.
+      execSync(`node scripts/bump-version.cjs "${localVer}" "${newVer}" package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json`, { stdio: 'inherit' });
+      execSync(`node scripts/bump-version.cjs "${localVer}" "${newVer}" src-tauri/Cargo.lock`, { stdio: 'inherit' });
       
       if (fs.existsSync('src-tauri/gen/android/tauri.properties')) {
-        execSync(`node scripts/bump-version.cjs "${curVer}" "${newVer}" src-tauri/gen/android/tauri.properties`, { stdio: 'inherit' });
+        execSync(`node scripts/bump-version.cjs "${localVer}" "${newVer}" src-tauri/gen/android/tauri.properties`, { stdio: 'inherit' });
       }
 
-      const modules = ['wizard', 'vocab', 'shell', 'prompts', 'profile', 'news', 'interaction', 'hello'];
       for (const m of modules) {
         const p = `src/modules/${m}/index.js`;
         if (fs.existsSync(p)) {
-          execSync(`node scripts/bump-version.cjs "${curVer}" "${newVer}" "${p}"`, { stdio: 'inherit' });
+          execSync(`node scripts/bump-version.cjs "${localVer}" "${newVer}" "${p}"`, { stdio: 'inherit' });
         }
       }
       

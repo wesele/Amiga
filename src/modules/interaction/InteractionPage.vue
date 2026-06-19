@@ -56,9 +56,8 @@
         placeholder="输入消息…"
         @keydown.enter.prevent="sendMessage"
         @focus="onInputFocus"
-        :disabled="loading"
       />
-      <button class="send-btn" @click="sendMessage" :disabled="loading || !inputText.trim()">
+       <button class="send-btn" @mousedown.prevent @touchstart.prevent @click="sendMessage" :disabled="loading || !inputText.trim()">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
           <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
         </svg>
@@ -95,18 +94,26 @@ const targetLang = ref("es");
 const nativeLang = ref("zh");
 const keyboardHeight = ref(0);
 let cachedViewportHeight = 0;
+let syncAnimationFrame = null;
 
 const vv = window.visualViewport;
+function syncViewport() {
+  if (!vv) return;
+  document.documentElement.style.setProperty('--vv-top', `${vv.offsetTop}px`);
+  syncAnimationFrame = requestAnimationFrame(syncViewport);
+}
+
 function onViewportResize() {
   if (!vv) return;
+  if (!syncAnimationFrame) {
+    syncViewport();
+  }
   const diff = cachedViewportHeight - vv.height;
   if (diff > 80) {
     keyboardHeight.value = diff;
-    document.documentElement.style.setProperty("--keyboard-height", `${diff}px`);
     scrollToBottom();
   } else {
     keyboardHeight.value = 0;
-    document.documentElement.style.setProperty("--keyboard-height", "0px");
   }
 }
 
@@ -135,6 +142,7 @@ async function loadMessages() {
 }
 
 async function sendMessage() {
+  focusInput();
   const text = inputText.value.trim();
   if (!text || loading.value || !sessionId.value) return;
   inputText.value = "";
@@ -171,11 +179,15 @@ onUnmounted(() => {
   if (vv) {
     vv.removeEventListener("resize", onViewportResize);
   }
+  if (syncAnimationFrame) {
+    cancelAnimationFrame(syncAnimationFrame);
+  }
 });
 
 onMounted(async () => {
   if (vv) {
     cachedViewportHeight = vv.height;
+    syncViewport();
     vv.addEventListener("resize", onViewportResize);
   }
   sessionId.value = route.params.sessionId;
@@ -222,13 +234,18 @@ onMounted(async () => {
 
 /* ─── Header ─── */
 .chat-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  transform: translateY(var(--vv-top, 0px));
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: calc(8px + var(--safe-top)) 12px 8px;
   background: var(--white);
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
 }
 .back-btn {
   background: none;
@@ -301,8 +318,7 @@ onMounted(async () => {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
-  padding-bottom: calc(var(--keyboard-height, 0px) + 16px);
+  padding: 72px 16px 80px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -384,14 +400,17 @@ onMounted(async () => {
 
 /* ─── Input bar ─── */
 .chat-input-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  padding-bottom: calc(10px + var(--keyboard-height, 0px));
+  padding: 10px 12px calc(10px + var(--safe-bottom));
   background: var(--white);
   border-top: 1px solid var(--border);
-  flex-shrink: 0;
 }
 .chat-input {
   flex: 1;
