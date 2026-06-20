@@ -97,10 +97,10 @@ export const chatCompletion = (messages, nativeLang, targetLang) =>
   _invoke("chat_completion_cmd", { messages, nativeLang, targetLang });
 export const chatCompletionWithSession = (sessionId, message, nativeLang, targetLang) =>
   _invoke("chat_completion_with_session_cmd", { sessionId, message, nativeLang, targetLang });
-export const createChatSession = (userId, title, contactType) =>
-  _invoke("create_chat_session_cmd", { userId, title, contactType });
-export const getChatSessions = () =>
-  _invoke("get_chat_sessions_cmd");
+export const createChatSession = (userId, title, contactType, targetLang) =>
+  _invoke("create_chat_session_cmd", { userId, title, contactType, targetLang });
+export const getChatSessions = (targetLang) =>
+  _invoke("get_chat_sessions_cmd", { targetLang });
 export const deleteChatSession = (sessionId) =>
   _invoke("delete_chat_session_cmd", { sessionId });
 export const getChatMessages = (sessionId, limit = 50) =>

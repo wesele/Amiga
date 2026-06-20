@@ -33,18 +33,19 @@ describe("Interaction API", () => {
     });
   });
 
-  it("createChatSession calls invoke with contactType", () => {
-    api.createChatSession("user-1", "New Chat", "amiga");
+  it("createChatSession calls invoke with contactType and targetLang", () => {
+    api.createChatSession("user-1", "New Chat", "amiga", "es");
     expect(mockInvoke).toHaveBeenCalledWith("create_chat_session_cmd", {
       userId: "user-1",
       title: "New Chat",
       contactType: "amiga",
+      targetLang: "es",
     });
   });
 
-  it("getChatSessions calls invoke", () => {
-    api.getChatSessions();
-    expect(mockInvoke).toHaveBeenCalledWith("get_chat_sessions_cmd");
+  it("getChatSessions calls invoke with targetLang", () => {
+    api.getChatSessions("en");
+    expect(mockInvoke).toHaveBeenCalledWith("get_chat_sessions_cmd", { targetLang: "en" });
   });
 
   it("deleteChatSession calls invoke", () => {

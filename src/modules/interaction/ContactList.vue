@@ -22,17 +22,19 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUser, getChatSessions, createChatSession } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
-import { useTargetLangStore } from "@/stores/targetLang.js";
+import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
+import { eventBus } from "@/shared/eventBus.js";
 import { displayLang } from "@/shared/constants.js";
 
 const router = useRouter();
 const { t, locale } = useI18n();
 const targetLangStore = useTargetLangStore();
 const sessions = ref([]);
+let unsubscribe = null;
 
 const CONTACTS = computed(() => {
   const targetLabel = displayLang(targetLangStore.code, locale.value);
@@ -76,13 +78,21 @@ const contactsWithSessions = computed(() => {
   });
 });
 
+async function refreshSessions() {
+  const lang = targetLangStore.code || (await targetLangStore.load());
+  try {
+    sessions.value = await getChatSessions(lang);
+  } catch { /* empty */ }
+}
+
 async function openChat(contact) {
   let session = sessions.value.find((s) => s.contact_type === contact.contactType);
   if (!session) {
     try {
       const user = await getCurrentUser();
       const uid = user?.id || "default";
-      const sid = await createChatSession(uid, contact.name, contact.contactType);
+      const lang = targetLangStore.code || (await targetLangStore.load());
+      const sid = await createChatSession(uid, contact.name, contact.contactType, lang);
       session = { id: sid, contact_type: contact.contactType };
     } catch {
       return;
@@ -91,10 +101,15 @@ async function openChat(contact) {
   router.push(`/interaction/chat/${session.id}`);
 }
 
+onUnmounted(() => {
+  if (unsubscribe) unsubscribe();
+});
+
 onMounted(async () => {
-  try {
-    sessions.value = await getChatSessions();
-  } catch { /* empty */ }
+  await refreshSessions();
+  unsubscribe = eventBus.on(TARGET_LANG_CHANGED, () => {
+    refreshSessions();
+  });
 });
 </script>
 

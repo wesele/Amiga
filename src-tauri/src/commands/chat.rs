@@ -41,15 +41,17 @@ pub async fn create_chat_session_cmd(
     user_id: String,
     title: String,
     contact_type: String,
+    target_lang: String,
 ) -> Result<String, String> {
-    crate::modules::chat::create_session(&db, &user_id, &title, &contact_type)
+    crate::modules::chat::create_session(&db, &user_id, &title, &contact_type, &target_lang)
 }
 
 #[tauri::command]
 pub async fn get_chat_sessions_cmd(
     db: State<'_, DatabasePool>,
+    target_lang: String,
 ) -> Result<Vec<crate::modules::chat::ChatSession>, String> {
-    crate::modules::chat::get_sessions(&db)
+    crate::modules::chat::get_sessions(&db, &target_lang)
 }
 
 #[tauri::command]

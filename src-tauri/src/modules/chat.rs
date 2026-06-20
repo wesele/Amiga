@@ -17,6 +17,7 @@ pub struct ChatSession {
     pub conversation_summary: String,
     pub message_count: i32,
     pub contact_type: String,
+    pub target_language: String,
     pub last_message: String,
     pub created_at: String,
     pub updated_at: String,
@@ -38,24 +39,25 @@ pub fn create_session(
     user_id: &str,
     title: &str,
     contact_type: &str,
+    target_lang: &str,
 ) -> Result<String, String> {
     let id = Uuid::new_v4().to_string();
     let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
     conn.execute(
-        "INSERT INTO chat_sessions (id, user_id, title, contact_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, datetime('now'), datetime('now'))",
-        params![id, user_id, title, contact_type],
+        "INSERT INTO chat_sessions (id, user_id, title, contact_type, target_language, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'), datetime('now'))",
+        params![id, user_id, title, contact_type, target_lang],
     ).map_err(|e| format!("Failed to create session: {}", e))?;
     Ok(id)
 }
 
-pub fn get_sessions(db: &DatabasePool) -> Result<Vec<ChatSession>, String> {
+pub fn get_sessions(db: &DatabasePool, target_lang: &str) -> Result<Vec<ChatSession>, String> {
     let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
     let mut stmt = conn.prepare(
-        "SELECT id, user_id, title, user_profile_json, conversation_summary, message_count, contact_type, last_message, created_at, updated_at FROM chat_sessions ORDER BY updated_at DESC"
+        "SELECT id, user_id, title, user_profile_json, conversation_summary, message_count, contact_type, target_language, last_message, created_at, updated_at FROM chat_sessions WHERE target_language = ?1 ORDER BY updated_at DESC"
     ).map_err(|e| format!("Failed to prepare: {}", e))?;
 
     let sessions = stmt
-        .query_map([], |row| {
+        .query_map(params![target_lang], |row| {
             Ok(ChatSession {
                 id: row.get(0)?,
                 user_id: row.get(1)?,
@@ -64,9 +66,10 @@ pub fn get_sessions(db: &DatabasePool) -> Result<Vec<ChatSession>, String> {
                 conversation_summary: row.get(4)?,
                 message_count: row.get(5)?,
                 contact_type: row.get(6)?,
-                last_message: row.get(7)?,
-                created_at: row.get(8)?,
-                updated_at: row.get(9)?,
+                target_language: row.get(7)?,
+                last_message: row.get(8)?,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
             })
         })
         .map_err(|e| format!("Failed to query: {}", e))?;
@@ -534,19 +537,20 @@ mod tests {
     #[test]
     fn test_create_and_get_sessions() {
         let db = setup_db();
-        let id = create_session(&db, "test-user", "测试对话", "amiga").unwrap();
-        let sessions = get_sessions(&db).unwrap();
+        let id = create_session(&db, "test-user", "测试对话", "amiga", "es").unwrap();
+        let sessions = get_sessions(&db, "es").unwrap();
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].id, id);
         assert_eq!(sessions[0].title, "测试对话");
         assert_eq!(sessions[0].contact_type, "amiga");
+        assert_eq!(sessions[0].target_language, "es");
         assert_eq!(sessions[0].message_count, 0);
     }
 
     #[test]
     fn test_save_and_get_messages() {
         let db = setup_db();
-        let sid = create_session(&db, "test-user", "Test", "amiga").unwrap();
+        let sid = create_session(&db, "test-user", "Test", "amiga", "es").unwrap();
         let mid = save_message(&db, &sid, "user", "你好").unwrap();
         assert!(mid > 0);
 
@@ -555,7 +559,7 @@ mod tests {
         assert_eq!(msgs[0].role, "user");
         assert_eq!(msgs[0].content, "你好");
 
-        let sessions = get_sessions(&db).unwrap();
+        let sessions = get_sessions(&db, "es").unwrap();
         assert_eq!(sessions[0].message_count, 1);
         assert_eq!(sessions[0].last_message, "你好");
     }
@@ -563,7 +567,7 @@ mod tests {
     #[test]
     fn test_message_limit() {
         let db = setup_db();
-        let sid = create_session(&db, "test-user", "Test", "amiga").unwrap();
+        let sid = create_session(&db, "test-user", "Test", "amiga", "es").unwrap();
         for i in 0..5 {
             save_message(&db, &sid, "user", &format!("msg {}", i)).unwrap();
         }
@@ -575,26 +579,26 @@ mod tests {
     #[test]
     fn test_delete_session() {
         let db = setup_db();
-        let sid = create_session(&db, "test-user", "Del", "amiga").unwrap();
+        let sid = create_session(&db, "test-user", "Del", "amiga", "es").unwrap();
         save_message(&db, &sid, "user", "test").unwrap();
         delete_session(&db, &sid).unwrap();
-        let sessions = get_sessions(&db).unwrap();
+        let sessions = get_sessions(&db, "es").unwrap();
         assert_eq!(sessions.len(), 0);
     }
 
     #[test]
     fn test_update_title() {
         let db = setup_db();
-        let sid = create_session(&db, "test-user", "Old", "amiga").unwrap();
+        let sid = create_session(&db, "test-user", "Old", "amiga", "es").unwrap();
         update_session_title(&db, &sid, "New Title").unwrap();
-        let sessions = get_sessions(&db).unwrap();
+        let sessions = get_sessions(&db, "es").unwrap();
         assert_eq!(sessions[0].title, "New Title");
     }
 
     #[test]
     fn test_profile_update() {
         let db = setup_db();
-        let sid = create_session(&db, "test-user", "Profile", "amiga").unwrap();
+        let sid = create_session(&db, "test-user", "Profile", "amiga", "es").unwrap();
         let profile = r#"{"cefr_level":"A1","vocab":["hola"]}"#;
         update_profile(&db, &sid, profile, "简单对话").unwrap();
         let (p, s, _, _) = get_session_profile(&db, &sid).unwrap();
@@ -612,21 +616,49 @@ mod tests {
     #[test]
     fn test_contact_type_translator() {
         let db = setup_db();
-        let _sid = create_session(&db, "test-user", "翻译", "translator").unwrap();
-        let sessions = get_sessions(&db).unwrap();
+        let _sid = create_session(&db, "test-user", "翻译", "translator", "es").unwrap();
+        let sessions = get_sessions(&db, "es").unwrap();
         assert_eq!(sessions[0].contact_type, "translator");
+    }
+
+    #[test]
+    fn test_sessions_isolated_by_target_language() {
+        let db = setup_db();
+        let _es_amiga = create_session(&db, "test-user", "ES Amiga", "amiga", "es").unwrap();
+        let en_amiga = create_session(&db, "test-user", "EN Amiga", "amiga", "en").unwrap();
+        let _en_translator =
+            create_session(&db, "test-user", "EN Translator", "translator", "en").unwrap();
+
+        let es_sessions = get_sessions(&db, "es").unwrap();
+        assert_eq!(es_sessions.len(), 1);
+        assert_eq!(es_sessions[0].title, "ES Amiga");
+        assert_eq!(es_sessions[0].target_language, "es");
+
+        let en_sessions = get_sessions(&db, "en").unwrap();
+        assert_eq!(en_sessions.len(), 2);
+        for s in &en_sessions {
+            assert_eq!(s.target_language, "en");
+        }
+        let en_amiga_session = en_sessions
+            .iter()
+            .find(|s| s.contact_type == "amiga")
+            .unwrap();
+        assert_eq!(en_amiga_session.id, en_amiga);
+
+        let zh_sessions = get_sessions(&db, "zh").unwrap();
+        assert_eq!(zh_sessions.len(), 0);
     }
 
     #[test]
     fn test_save_message_long_unicode() {
         let db = setup_db();
-        let sid = create_session(&db, "test-user", "unicode", "amiga").unwrap();
+        let sid = create_session(&db, "test-user", "unicode", "amiga", "es").unwrap();
         // More than 60 bytes of Chinese (each char is 3 bytes)
         let long = "中文翻译：什么？/ 怎么了？\n英文翻译：How? /haʊ/\n\n关键难点解释：\n1. 多重含义：cómo 是西语中最常用的词之一";
         let mid = save_message(&db, &sid, "assistant", long).unwrap();
         assert!(mid > 0);
 
-        let sessions = get_sessions(&db).unwrap();
+        let sessions = get_sessions(&db, "es").unwrap();
         // Preview should be truncated to 60 chars (not bytes), safely
         assert!(sessions[0].last_message.len() <= 60 * 3); // at most 60 chars * 3 bytes
         assert!(!sessions[0].last_message.contains("��")); // no replacement chars

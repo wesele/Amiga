@@ -29,8 +29,13 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
         ),
         (
             9,
-            "Split bilingual_cache into per-native_lang rows so the same article can be cached for multiple user languages",
+            "Move news_articles.bilingual_cache into per-native_lang table news_bilingual_cache",
             MIGRATION_V9,
+        ),
+        (
+            10,
+            "Wipe legacy chat history and scope chat_sessions to (user_id, target_language)",
+            MIGRATION_V10,
         ),
     ]
 }
@@ -234,4 +239,22 @@ INSERT OR IGNORE INTO news_bilingual_cache (article_id, native_lang, paragraphs_
 SELECT id, 'zh', bilingual_cache
 FROM news_articles
 WHERE bilingual_cache IS NOT NULL AND bilingual_cache != '';
+"#;
+
+const MIGRATION_V10: &str = r#"
+-- Per (user, target_language, contact_type) we now keep an independent
+-- chat history. The previous schema shared a single history across all
+-- target languages, which caused cross-language contamination in the
+-- system prompt (vocab/weaknesses/summary) and the recent-message
+-- context. Wipe the legacy data and add a target_language column with
+-- an index scoped to the new lookup key.
+
+-- CASCADE on chat_messages.session_id handles the messages table.
+DELETE FROM chat_sessions;
+
+ALTER TABLE chat_sessions
+    ADD COLUMN target_language TEXT NOT NULL DEFAULT 'es';
+
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_lang
+    ON chat_sessions(user_id, target_language, contact_type);
 "#;
