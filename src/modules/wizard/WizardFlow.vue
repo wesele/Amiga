@@ -22,7 +22,12 @@
     <!-- Steps -->
     <div class="steps-container">
       <Transition :name="transitionName" mode="out-in">
-        <component :is="currentComponent" :key="current" @next="onNext" />
+        <component
+          :is="currentComponent"
+          :key="current"
+          :data="stepData"
+          @next="onNext"
+        />
       </Transition>
     </div>
   </div>
@@ -39,16 +44,19 @@ import {
   saveLearningGoal,
   initUserVocab,
   getCurrentUser,
+  setTargetLanguage,
 } from "@/shared/api.js";
+import { useI18n } from "@/shared/i18n";
 
+const { t } = useI18n();
 const router = useRouter();
 const current = ref(0);
 const prevStep = ref(0);
 
 const steps = [
-  { component: StepBasicInfo, title: "基本信息" },
-  { component: StepLearningGoal, title: "学习目标" },
-  { component: StepComplete, title: "完成" },
+  { component: StepBasicInfo, title: "wizard.basic" },
+  { component: StepLearningGoal, title: "wizard.goal" },
+  { component: StepComplete, title: "wizard.complete" },
 ];
 
 const currentComponent = computed(() => steps[current.value].component);
@@ -59,6 +67,12 @@ const transitionName = computed(() =>
 
 const basicInfo = ref(null);
 const learningGoal = ref(null);
+
+const stepData = computed(() => ({
+  basicInfo: basicInfo.value,
+  learningGoal: learningGoal.value,
+  targetLanguage: learningGoal.value?.targetLanguage,
+}));
 
 const emitted = ref(false);
 
@@ -87,7 +101,7 @@ async function saveToBackend() {
 
     // Create/update user
     const user = await createUser({
-      nickname: info.nickname || "学习者",
+      nickname: info.nickname || t("common.learner"),
       avatar: info.avatar || "😊",
       native_language: info.nativeLanguage || "zh",
       country: info.country || "CN",
@@ -95,14 +109,24 @@ async function saveToBackend() {
       birth_year: info.birthYear || null,
     });
 
+    const targetLang = goal.targetLanguage || "es";
+
     // Save learning goal
     await saveLearningGoal({
       user_id: user.id,
-      target_language: goal.targetLanguage || "es",
+      target_language: targetLang,
       cefr_level: goal.cefrLevel || "A1",
       daily_minutes: goal.dailyMinutes || 15,
       objective: goal.objective || "daily_conversation",
     });
+
+    // Persist the wizard's choice as the active target language so
+    // downstream pages (news/vocab/chat) read it from the same source.
+    try {
+      await setTargetLanguage(targetLang);
+    } catch (e) {
+      console.warn("setTargetLanguage failed during wizard", e);
+    }
 
     // Initialize vocabulary
     if (goal.cefrLevel && goal.cefrLevel !== "A0") {

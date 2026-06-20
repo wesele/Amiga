@@ -1,6 +1,6 @@
-use tauri::State;
 use crate::modules::database::DatabasePool;
 use crate::modules::vocabulary as vocab_mod;
+use tauri::State;
 
 #[tauri::command]
 pub async fn import_vocab_bank_cmd(db: State<'_, DatabasePool>) -> Result<i32, String> {
@@ -8,7 +8,16 @@ pub async fn import_vocab_bank_cmd(db: State<'_, DatabasePool>) -> Result<i32, S
 }
 
 #[tauri::command]
-pub async fn init_user_vocab_cmd(db: State<'_, DatabasePool>, user_id: String, cefr_level: String) -> Result<(), String> {
+pub async fn reimport_vocab_bank_cmd(db: State<'_, DatabasePool>) -> Result<i32, String> {
+    vocab_mod::reimport_vocab_bank(&db)
+}
+
+#[tauri::command]
+pub async fn init_user_vocab_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+    cefr_level: String,
+) -> Result<(), String> {
     vocab_mod::init_user_vocab(&db, &user_id, &cefr_level)
 }
 
@@ -34,7 +43,10 @@ pub async fn get_unknown_words_cmd(
 }
 
 #[tauri::command]
-pub async fn get_user_vocab_stats_cmd(db: State<'_, DatabasePool>, user_id: String) -> Result<vocab_mod::VocabStats, String> {
+pub async fn get_user_vocab_stats_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+) -> Result<vocab_mod::VocabStats, String> {
     vocab_mod::get_user_vocab_stats(&db, &user_id)
 }
 

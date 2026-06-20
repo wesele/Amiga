@@ -1,6 +1,6 @@
-use tauri::State;
 use crate::modules::database::DatabasePool;
 use crate::modules::llm as llm_mod;
+use tauri::State;
 
 // We need to store the LlmClient as Tauri state too
 pub struct LlmState {
@@ -27,11 +27,25 @@ pub async fn rewrite_article_cmd(
     let new_words: Vec<String> = unknown_words.iter().map(|w| w.word.clone()).collect();
 
     // Rewrite using LLM
-    let result = llm_mod::rewrite_article(&llm.client, &db, &original, &article.original_title, &cefr_level, &new_words).await?;
+    let result = llm_mod::rewrite_article(
+        &llm.client,
+        &db,
+        &original,
+        &article.original_title,
+        &cefr_level,
+        &new_words,
+    )
+    .await?;
 
     // Save rewritten article
     let new_words_json = serde_json::to_string(&result.new_words_used).unwrap_or_default();
-    news_mod::save_rewritten_article(&db, article_id, &result.rewritten, &cefr_level, &new_words_json)?;
+    news_mod::save_rewritten_article(
+        &db,
+        article_id,
+        &result.rewritten,
+        &cefr_level,
+        &new_words_json,
+    )?;
 
     // Return updated article
     let updated = news_mod::get_article(&db, article_id)?;
@@ -76,12 +90,19 @@ pub async fn get_llm_config_cmd(db: State<'_, DatabasePool>) -> Result<llm_mod::
 }
 
 #[tauri::command]
-pub async fn save_setting_cmd(db: State<'_, DatabasePool>, key: String, value: String) -> Result<(), String> {
+pub async fn save_setting_cmd(
+    db: State<'_, DatabasePool>,
+    key: String,
+    value: String,
+) -> Result<(), String> {
     llm_mod::save_setting(&db, &key, &value)
 }
 
 #[tauri::command]
-pub async fn get_setting_cmd(db: State<'_, DatabasePool>, key: String) -> Result<Option<String>, String> {
+pub async fn get_setting_cmd(
+    db: State<'_, DatabasePool>,
+    key: String,
+) -> Result<Option<String>, String> {
     llm_mod::get_setting(&db, &key)
 }
 
@@ -103,7 +124,8 @@ pub async fn get_bilingual_cmd(
 
     // Get article and split into paragraphs
     let article = news_mod::get_article(&db, article_id)?;
-    let body = article.rewritten_body
+    let body = article
+        .rewritten_body
         .or(article.original_body)
         .unwrap_or_default();
 
@@ -118,7 +140,8 @@ pub async fn get_bilingual_cmd(
     }
 
     // Translate all paragraphs
-    let translations = llm_mod::translate_paragraphs(&llm.client, &db, &paragraphs, &native_lang).await?;
+    let translations =
+        llm_mod::translate_paragraphs(&llm.client, &db, &paragraphs, &native_lang).await?;
 
     // Save cache
     let cache_json = serde_json::to_string(&translations).unwrap_or_default();
@@ -138,6 +161,7 @@ pub async fn translate_text_cmd(
         return Ok(String::new());
     }
     let paragraphs = vec![text.trim().to_string()];
-    let results = llm_mod::translate_paragraphs(&llm.client, &db, &paragraphs, &native_lang).await?;
+    let results =
+        llm_mod::translate_paragraphs(&llm.client, &db, &paragraphs, &native_lang).await?;
     Ok(results.into_iter().next().unwrap_or_default())
 }

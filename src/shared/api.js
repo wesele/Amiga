@@ -1,6 +1,13 @@
-import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+import { invoke as tauriInvoke, isTauri } from "@tauri-apps/api/core";
 
 let _invoke = tauriInvoke;
+
+// In a plain browser (vite dev without Tauri shell), every Tauri call throws.
+// The components already handle that with try/catch + empty states, so we just
+// route the calls through `tauriInvoke` and let them reject. The reason we
+// expose `isTauri` is so pages can skip certain interactions entirely in
+// browser dev mode if needed.
+export const inTauri = isTauri;
 
 export function __setInvoke(fn) {
   _invoke = fn;
@@ -18,9 +25,13 @@ export const saveLearningGoal = (goal) => _invoke("save_learning_goal_cmd", { go
 export const getLearningGoals = (userId) => _invoke("get_learning_goals_cmd", { userId });
 export const isWizardCompleted = () => _invoke("is_wizard_completed_cmd");
 export const resetWizard = () => _invoke("reset_wizard_cmd");
+export const setTargetLanguage = (language) =>
+  _invoke("set_target_language_cmd", { language });
+export const getTargetLanguage = () => _invoke("get_target_language_cmd");
 
 // ─── Vocabulary ───
 export const importVocabBank = () => _invoke("import_vocab_bank_cmd");
+export const reimportVocabBank = () => _invoke("reimport_vocab_bank_cmd");
 export const initUserVocab = (userId, cefrLevel) =>
   _invoke("init_user_vocab_cmd", { userId, cefrLevel });
 export const updateWordMastery = (userId, wordId, mastery, source) =>
@@ -47,6 +58,8 @@ export const getArticles = (region) => _invoke("get_articles_cmd", { region });
 export const getArticle = (articleId) => _invoke("get_article_cmd", { articleId });
 export const saveReadingLog = (logEntry) =>
   _invoke("save_reading_log_cmd", { logEntry });
+export const getReadArticleCount = (userId) =>
+  _invoke("get_read_article_count_cmd", { userId });
 
 // ─── LLM ───
 export const rewriteArticle = (articleId, cefrLevel, userId) =>

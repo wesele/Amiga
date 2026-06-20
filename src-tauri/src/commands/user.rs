@@ -1,9 +1,12 @@
-use tauri::State;
 use crate::modules::database::DatabasePool;
 use crate::modules::user as user_mod;
+use tauri::State;
 
 #[tauri::command]
-pub async fn create_user(db: State<'_, DatabasePool>, request: user_mod::CreateUserRequest) -> Result<user_mod::User, String> {
+pub async fn create_user(
+    db: State<'_, DatabasePool>,
+    request: user_mod::CreateUserRequest,
+) -> Result<user_mod::User, String> {
     user_mod::create_user_from_wizard(&db, request)
 }
 
@@ -13,17 +16,26 @@ pub async fn get_current_user(db: State<'_, DatabasePool>) -> Result<user_mod::U
 }
 
 #[tauri::command]
-pub async fn update_user_cmd(db: State<'_, DatabasePool>, request: user_mod::UpdateUserRequest) -> Result<user_mod::User, String> {
+pub async fn update_user_cmd(
+    db: State<'_, DatabasePool>,
+    request: user_mod::UpdateUserRequest,
+) -> Result<user_mod::User, String> {
     user_mod::update_user(&db, request)
 }
 
 #[tauri::command]
-pub async fn save_learning_goal_cmd(db: State<'_, DatabasePool>, goal: user_mod::LearningGoal) -> Result<user_mod::LearningGoal, String> {
+pub async fn save_learning_goal_cmd(
+    db: State<'_, DatabasePool>,
+    goal: user_mod::LearningGoal,
+) -> Result<user_mod::LearningGoal, String> {
     user_mod::save_learning_goal(&db, goal)
 }
 
 #[tauri::command]
-pub async fn get_learning_goals_cmd(db: State<'_, DatabasePool>, user_id: String) -> Result<Vec<user_mod::LearningGoal>, String> {
+pub async fn get_learning_goals_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+) -> Result<Vec<user_mod::LearningGoal>, String> {
     user_mod::get_learning_goals(&db, &user_id)
 }
 
@@ -35,4 +47,17 @@ pub async fn is_wizard_completed_cmd(db: State<'_, DatabasePool>) -> Result<bool
 #[tauri::command]
 pub async fn reset_wizard_cmd(db: State<'_, DatabasePool>) -> Result<(), String> {
     user_mod::reset_wizard(&db)
+}
+
+#[tauri::command]
+pub async fn set_target_language_cmd(
+    db: State<'_, DatabasePool>,
+    language: String,
+) -> Result<String, String> {
+    user_mod::set_target_language(&db, &language)
+}
+
+#[tauri::command]
+pub async fn get_target_language_cmd(db: State<'_, DatabasePool>) -> Result<String, String> {
+    user_mod::get_target_language(&db)
 }

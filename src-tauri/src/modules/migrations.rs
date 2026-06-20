@@ -5,9 +5,28 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
     vec![
         (1, "Initial schema - core tables", MIGRATION_V1),
         (2, "Add bilingual_cache to news_articles", MIGRATION_V2),
-        (3, "Add prompts table for LLM prompt management", MIGRATION_V3),
+        (
+            3,
+            "Add prompts table for LLM prompt management",
+            MIGRATION_V3,
+        ),
         (4, "Add chat sessions and messages tables", MIGRATION_V4),
         (5, "Add contact_type to chat_sessions", MIGRATION_V5),
+        (
+            6,
+            "Merge user_vocab mastery 0 into unseen (drop 状态'未掌握')",
+            MIGRATION_V6,
+        ),
+        (
+            7,
+            "Wipe user_vocab legacy data (was bulk-set mastery=2 by old init_user_vocab)",
+            MIGRATION_V7,
+        ),
+        (
+            8,
+            "Add unique index on vocab_bank(word, cefr_level, language) and import default content (zh/en/es A1+A2) from vocabulary.json",
+            MIGRATION_V8,
+        ),
     ]
 }
 
@@ -154,4 +173,34 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id
 const MIGRATION_V5: &str = r#"
 ALTER TABLE chat_sessions ADD COLUMN contact_type TEXT NOT NULL DEFAULT 'amiga';
 ALTER TABLE chat_sessions ADD COLUMN last_message TEXT NOT NULL DEFAULT '';
+"#;
+
+const MIGRATION_V6: &str = r#"
+-- Merge "已展示" (mastery=1) and "未掌握" (mastery=0) into a single "已展示" state.
+-- Drop the obsolete mastery=0 records (now equivalent to unseen).
+DELETE FROM user_vocab WHERE mastery = 0;
+"#;
+
+const MIGRATION_V7: &str = r#"
+-- Reset user_vocab to recover from a legacy bug where the wizard's
+-- init_user_vocab() bulk-inserted every CEFR-level word as mastery=2
+-- (source='wizard_init'). That made "已掌握词汇" report inflated counts.
+-- Wipe all per-user mastery rows so each user starts fresh; the no-op
+-- init_user_vocab() in code means new records only appear via real
+-- reading/review actions.
+DELETE FROM user_vocab;
+"#;
+
+const MIGRATION_V8: &str = r#"
+-- Wipe user_vocab first to satisfy the FK from user_vocab.word_id → vocab_bank.id.
+-- Wiping user_vocab is acceptable here: a content update (adding Chinese / English
+-- graded lists) is a reasonable moment to reset per-user mastery, which was just
+-- bulk-inserted by the legacy init path in earlier versions.
+DELETE FROM user_vocab;
+DELETE FROM vocab_bank;
+
+-- Enforce uniqueness so the import function (which uses INSERT OR IGNORE) can
+-- be re-run safely and won't duplicate rows when the JSON source is updated.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_vocab_bank_unique
+  ON vocab_bank(word, cefr_level, language);
 "#;

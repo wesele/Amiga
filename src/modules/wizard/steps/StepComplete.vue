@@ -4,21 +4,35 @@
       <Transition name="bounce" appear>
         <div class="big-icon">🎉</div>
       </Transition>
-      <h2>准备好了！</h2>
-      <p>你的专属学习路径已生成</p>
+      <h2>{{ t('wizard.completeTitle') }}</h2>
+      <p>{{ t('wizard.completeDesc') }}</p>
       <p class="detail">
-        基于你的目标和水平，我们为你推荐了<br />
-        西班牙语入门学习内容
+        {{ t('wizard.completeDetail') }}<br />
+        {{ t('wizard.completeTarget', { lang: targetLangName }) }}
       </p>
     </div>
     <div class="wizard-footer">
-      <button class="btn-primary" @click="emitNext">开始学习 →</button>
+      <button class="btn-primary" @click="emitNext">{{ t('wizard.startLearning') }} →</button>
     </div>
   </div>
 </template>
 
 <script setup>
+import { computed } from "vue";
+import { useI18n } from "@/shared/i18n";
+
+const props = defineProps({
+  data: { type: Object, default: () => ({}) },
+});
+
 const emit = defineEmits(["next"]);
+const { t, locale } = useI18n();
+
+const targetLangName = computed(() => {
+  const code = props.data?.targetLanguage || "es";
+  const map = { es: "Español", en: "English", zh: "中文", ja: "日本語", fr: "Français" };
+  return map[code] || code;
+});
 
 function emitNext() {
   emit("next");

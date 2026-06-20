@@ -2,11 +2,11 @@
   <Teleport to="body">
     <div v-if="show" class="confirm-overlay" @click.self="$emit('cancel')">
       <div class="confirm-card" :class="{ danger }">
-        <h3 class="confirm-title">{{ title }}</h3>
+        <h3 class="confirm-title">{{ titleText }}</h3>
         <p class="confirm-message">{{ message }}</p>
         <div class="confirm-actions">
-          <button class="confirm-btn cancel" @click="$emit('cancel')">{{ cancelText }}</button>
-          <button class="confirm-btn confirm" :class="{ danger }" @click="$emit('confirm')">{{ confirmText }}</button>
+          <button class="confirm-btn cancel" @click="$emit('cancel')">{{ cancelBtn }}</button>
+          <button class="confirm-btn confirm" :class="{ danger }" @click="$emit('confirm')">{{ confirmBtn }}</button>
         </div>
       </div>
     </div>
@@ -14,15 +14,23 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from "vue";
+import { useI18n } from "@/shared/i18n";
+
+const props = defineProps({
   show: Boolean,
-  title: { type: String, default: "确认" },
+  title: { type: String, default: "" },
   message: { type: String, default: "" },
-  confirmText: { type: String, default: "确定" },
-  cancelText: { type: String, default: "取消" },
+  confirmText: { type: String, default: "" },
+  cancelText: { type: String, default: "" },
   danger: Boolean,
 });
 defineEmits(["confirm", "cancel"]);
+
+const { t } = useI18n();
+const titleText = computed(() => props.title || t("confirm.defaultTitle"));
+const confirmBtn = computed(() => props.confirmText || t("confirm.defaultConfirm"));
+const cancelBtn = computed(() => props.cancelText || t("confirm.defaultCancel"));
 </script>
 
 <style scoped>

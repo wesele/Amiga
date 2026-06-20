@@ -6,8 +6,8 @@
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
       </button>
-      <h1 class="page-title">{{ isNew ? '新建提示词' : '编辑提示词' }}</h1>
-      <button v-if="!isNew" class="reset-one-btn" @click="showResetDialog = true">重置</button>
+      <h1 class="page-title">{{ isNew ? t('prompts.new') : t('prompts.edit') }}</h1>
+      <button v-if="!isNew" class="reset-one-btn" @click="showResetDialog = true">{{ t('prompts.reset') }}</button>
     </header>
 
     <div v-if="loading" class="loading-center">
@@ -19,35 +19,35 @@
       <div v-if="success" class="success-banner">{{ success }}</div>
 
       <div class="editor-field">
-        <label>Key</label>
+        <label>{{ t('prompts.fields.key') }}</label>
         <input
           v-model="form.key"
           class="input mono"
           :disabled="!isNew"
-          placeholder="唯一标识符，如 my-prompt-key"
+          :placeholder="t('prompts.fields.keyPlaceholder')"
         />
       </div>
 
       <div class="editor-field">
-        <label>名称</label>
-        <input v-model="form.name" class="input" placeholder="提示词显示名称" />
+        <label>{{ t('prompts.fields.name') }}</label>
+        <input v-model="form.name" class="input" :placeholder="t('prompts.fields.namePlaceholder')" />
       </div>
 
       <div class="editor-field">
-        <label>分类</label>
-        <input v-model="form.category" class="input" placeholder="如：学习功能、AI对话" />
+        <label>{{ t('prompts.fields.category') }}</label>
+        <input v-model="form.category" class="input" :placeholder="t('prompts.fields.categoryPlaceholder')" />
       </div>
 
       <div class="editor-field">
-        <label>系统提示词 (System Prompt)</label>
-        <textarea v-model="form.system_prompt" class="textarea" rows="8" placeholder="系统级提示词内容" />
+        <label>{{ t('prompts.fields.system') }}</label>
+        <textarea v-model="form.system_prompt" class="textarea" rows="8" :placeholder="t('prompts.fields.systemPlaceholder')" />
       </div>
 
       <div class="editor-field">
-        <label>用户提示词模板 (User Prompt Template)</label>
-        <textarea v-model="form.user_prompt_template" class="textarea code" rows="10" placeholder="用户消息模板，支持 {{变量}} 替换" />
+        <label>{{ t('prompts.fields.user') }}</label>
+        <textarea v-model="form.user_prompt_template" class="textarea code" rows="10" :placeholder="t('prompts.fields.userPlaceholder')" />
         <div class="field-hint">
-          可用变量示例:
+          {{ t('prompts.fields.variables') }}:
           <code>TARGET_LANG</code> <code>NATIVE_LANG</code>
           <code>CEFR_LEVEL</code> <code>WORD</code>
           <code>TEXT</code> <code>CONVERSATION</code>
@@ -56,16 +56,16 @@
 
       <div class="editor-actions">
         <button class="btn-save" @click="savePrompt" :disabled="saving">
-          {{ saving ? '保存中...' : '保存' }}
+          {{ saving ? t('common.saved') + '...' : t('common.save') }}
         </button>
       </div>
     </div>
 
     <ConfirmDialog
       :show="showResetDialog"
-      title="重置提示词"
-      message="确认重置此提示词为默认值？"
-      confirmText="重置"
+      :title="t('prompts.resetOneConfirmTitle')"
+      :message="t('prompts.resetOneConfirmMsg')"
+      :confirmText="t('prompts.reset')"
       danger
       @confirm="resetToDefault"
       @cancel="showResetDialog = false"
@@ -78,9 +78,11 @@ import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getPrompt, savePrompt as apiSavePrompt, resetPrompt as apiResetPrompt } from "@/shared/api.js";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
+import { useI18n } from "@/shared/i18n";
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 
 const loading = ref(true);
 const saving = ref(false);
@@ -112,18 +114,18 @@ async function loadPrompt() {
     const p = await getPrompt(promptKey);
     form.value = { ...p };
   } catch (e) {
-    error.value = "加载提示词失败: " + (typeof e === "string" ? e : e.message);
+    error.value = t("prompts.loadFail") + ": " + (typeof e === "string" ? e : e.message);
   }
 }
 
 async function savePrompt() {
   const f = form.value;
   if (!f.key.trim()) {
-    error.value = "请输入 Key";
+    error.value = t("prompts.keyRequired");
     return;
   }
   if (!f.name.trim()) {
-    error.value = "请输入名称";
+    error.value = t("prompts.nameRequired");
     return;
   }
   saving.value = true;
@@ -131,10 +133,10 @@ async function savePrompt() {
   success.value = "";
   try {
     await apiSavePrompt(f.key, f.name, f.category, f.system_prompt, f.user_prompt_template);
-    success.value = "保存成功";
+    success.value = t("prompts.saveSuccess");
     setTimeout(() => router.push("/prompts"), 800);
   } catch (e) {
-    error.value = "保存失败: " + (typeof e === "string" ? e : e.message);
+    error.value = t("prompts.saveFail") + ": " + (typeof e === "string" ? e : e.message);
   } finally {
     saving.value = false;
   }
@@ -145,9 +147,9 @@ async function resetToDefault() {
   try {
     const p = await apiResetPrompt(promptKey);
     form.value = { ...p };
-    success.value = "已重置为默认值";
+    success.value = t("prompts.resetDone");
   } catch (e) {
-    error.value = "重置失败";
+    error.value = t("prompts.resetFail");
   }
 }
 

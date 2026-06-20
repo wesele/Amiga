@@ -15,18 +15,18 @@
     </header>
 
     <!-- Loading / Rewrite prompt -->
-    <div v-if="!article" class="loading-center">加载中…</div>
+    <div v-if="!article" class="loading-center">{{ t('news.loading') }}</div>
     <div v-else-if="!article.rewritten_body && !rewriting && !rewriteError" class="rewrite-prompt">
-      <p>这篇文章尚未改写为你当前级别的版本。</p>
-      <button class="btn-rewrite" @click="doRewrite">AI 智能改写</button>
+      <p>{{ t('news.rewritePrompt') }}</p>
+      <button class="btn-rewrite" @click="doRewrite">{{ t('news.rewriteBtn') }}</button>
     </div>
     <div v-else-if="rewriting" class="loading-center">
       <div class="spinner" />
-      <p>AI 正在改写文章…</p>
+      <p>{{ t('news.rewriting') }}</p>
     </div>
     <div v-else-if="rewriteError" class="rewrite-prompt">
       <p class="error-text">{{ rewriteError }}</p>
-      <button class="btn-rewrite" @click="doRewrite">重试</button>
+      <button class="btn-rewrite" @click="doRewrite">{{ t('common.retry') }}</button>
     </div>
 
     <!-- Article body -->
@@ -55,11 +55,11 @@
       </div>
       <div v-else-if="loadingTranslation" class="loading-center">
         <div class="spinner" />
-        <p>正在翻译…</p>
+        <p>{{ t('news.translating') }}</p>
       </div>
       <div v-else class="loading-center">
-        <p class="error-text">{{ translationError || '翻译加载失败' }}</p>
-        <button class="btn-rewrite" @click="loadBilingual">重试</button>
+        <p class="error-text">{{ translationError || t('news.bilingualLoadFail') }}</p>
+        <button class="btn-rewrite" @click="loadBilingual">{{ t('common.retry') }}</button>
       </div>
     </div>
 
@@ -80,7 +80,7 @@
       <div v-if="selectionText" class="sel-overlay" @click.self="clearSelection">
         <div class="sel-popup">
           <div class="sel-source">{{ selectionText }}</div>
-          <div v-if="selectionLoading" class="sel-loading">翻译中…</div>
+          <div v-if="selectionLoading" class="sel-loading">{{ t('news.translating') }}</div>
           <div v-else-if="selectionResult" class="sel-result">{{ selectionResult }}</div>
           <div v-else-if="selectionError" class="sel-error">{{ selectionError }}</div>
           <button class="sel-close" @click="clearSelection">✕</button>
@@ -95,18 +95,14 @@
           class="mode-btn"
           :class="{ active: !bilingualMode }"
           @click="bilingualMode = false"
-        >原文</button>
+        >{{ t('news.original') }}</button>
         <button
           class="mode-btn"
           :class="{ active: bilingualMode }"
           @click="toggleBilingual"
-        >双语</button>
+        >{{ t('news.bilingual') }}</button>
       </div>
-      <div class="reading-stats">
-        <span>已查 {{ lookedUp }} 词</span>
-        <span>✅ {{ known }} 认识</span>
-        <span>❌ {{ unknown }} 不认识</span>
-      </div>
+
     </div>
   </div>
 </template>
@@ -114,9 +110,11 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, getLearningGoals } from "@/shared/api.js";
+import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, getTargetLanguage } from "@/shared/api.js";
 import WordPopup from "./components/WordPopup.vue";
+import { useI18n } from "@/shared/i18n";
 
+const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
 const router = useRouter();
 
@@ -124,12 +122,11 @@ const article = ref(null);
 const rewriting = ref(false);
 const rewriteError = ref("");
 const selectedWord = ref(null);
-const lookedUp = ref(0);
-const known = ref(0);
-const unknown = ref(0);
 const knownWordIds = ref(new Set());
 const startTime = ref(Date.now());
 let targetLang = "es";
+let userId = "";
+let nativeLang = "zh";
 
 // Bilingual mode state
 const bilingualMode = ref(false);
@@ -139,8 +136,6 @@ const paraTokens = ref([]);
 const titleTranslation = ref("");
 const loadingTranslation = ref(false);
 const translationError = ref("");
-let userId = "";
-let nativeLang = "zh";
 
 onMounted(async () => {
   startTime.value = Date.now();
@@ -153,10 +148,10 @@ onMounted(async () => {
     const user = await getCurrentUser();
     userId = user.id;
     nativeLang = user.native_language || "zh";
-    const goals = await getLearningGoals(userId);
-    if (goals && goals.length > 0) {
-      targetLang = goals[0].target_language || "es";
-    }
+    try {
+      const lang = await getTargetLanguage();
+      if (lang) targetLang = lang;
+    } catch (_) { /* keep default */ }
     const art = await getArticle(Number(props.id));
     article.value = art;
     if (!art.rewritten_body) {
@@ -224,7 +219,7 @@ async function doRewrite() {
     article.value = result;
   } catch (e) {
     console.error("Failed to rewrite article:", e);
-    rewriteError.value = typeof e === "string" ? e : (e?.message || "AI 改写失败，请检查 API 配置后重试");
+    rewriteError.value = typeof e === "string" ? e : (e?.message || t("news.rewriteFail"));
   } finally {
     rewriting.value = false;
   }
@@ -258,7 +253,7 @@ async function loadBilingual() {
     }
   } catch (e) {
     console.error("Failed to load bilingual:", e);
-    translationError.value = typeof e === "string" ? e : (e?.message || "翻译加载失败");
+    translationError.value = typeof e === "string" ? e : (e?.message || t("news.bilingualLoadFail"));
   } finally {
     loadingTranslation.value = false;
   }
@@ -339,12 +334,10 @@ function onWordTap(token) {
   const sel = window.getSelection();
   if (sel && sel.toString().trim().length > 0) return;
   selectedWord.value = token;
-  lookedUp.value++;
   knownWordIds.value.add(token.text);
 }
 
 async function onWordKnown() {
-  known.value++;
   if (selectedWord.value) {
     knownWordIds.value.add(selectedWord.value.text);
     try {
@@ -358,13 +351,12 @@ async function onWordKnown() {
 }
 
 async function onWordUnknown() {
-  unknown.value++;
   if (selectedWord.value) {
     knownWordIds.value.add(selectedWord.value.text);
     try {
       const ids = await lookupWordIds([selectedWord.value.text], targetLang);
       if (ids.length > 0) {
-        await updateWordMastery(userId, ids[0], 0, "news_reading");
+        await updateWordMastery(userId, ids[0], 1, "news_reading");
       }
     } catch (_) {}
   }
@@ -395,7 +387,7 @@ function translateSelection(text) {
       selectionLoading.value = false;
     })
     .catch(err => {
-      selectionError.value = typeof err === "string" ? err : "翻译暂不可用";
+      selectionError.value = typeof err === "string" ? err : t("news.translateFail");
       selectionLoading.value = false;
     });
 
@@ -458,7 +450,7 @@ function goBack() {
 }
 
 function formatSource(source) {
-  if (!source || source === "sample") return "示例";
+  if (!source || source === "sample") return t("news.sample");
   try {
     const url = new URL(source);
     return url.hostname;
@@ -668,15 +660,6 @@ function formatSource(source) {
   background: var(--blue-bg);
   color: var(--blue);
   box-shadow: 0 0 0 2px rgba(28, 176, 246, 0.2);
-}
-
-/* Bottom stats */
-.reading-stats {
-  display: flex;
-  justify-content: space-around;
-  font-size: 12px;
-  color: var(--text-lighter);
-  font-weight: 500;
 }
 
 /* Bilingual paragraphs */

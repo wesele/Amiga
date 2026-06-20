@@ -1,7 +1,7 @@
 <template>
   <div class="contact-list">
     <header class="list-header">
-      <h2>互动</h2>
+      <h2>{{ t('interaction.title') }}</h2>
     </header>
     <div class="contact-list-scroll">
       <div
@@ -25,28 +25,30 @@
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUser, getChatSessions, createChatSession } from "@/shared/api.js";
+import { useI18n } from "@/shared/i18n";
 
 const router = useRouter();
+const { t } = useI18n();
 const sessions = ref([]);
 
-const CONTACTS = [
-  { id: "amiga", name: "Amiga", avatar: "🤖", contactType: "amiga", desc: "你的 AI 语言学习伙伴" },
-  { id: "translator", name: "AI 翻译", avatar: "🌐", contactType: "translator", desc: "翻译、解释、例句" },
-];
+const CONTACTS = computed(() => [
+  { id: "amiga", name: t("interaction.amiga"), avatar: "🤖", contactType: "amiga", desc: t("interaction.amigaDesc") },
+  { id: "translator", name: t("interaction.translator"), avatar: "🌐", contactType: "translator", desc: t("interaction.translatorDesc") },
+]);
 
 function formatTime(dateStr) {
   if (!dateStr) return "";
   const d = new Date(dateStr + "Z");
   const now = new Date();
   const diff = (now - d) / 1000;
-  if (diff < 60) return "刚刚";
-  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
+  if (diff < 60) return t("time.justNow");
+  if (diff < 3600) return t("time.minutesAgo", { n: Math.floor(diff / 60) });
+  if (diff < 86400) return t("time.hoursAgo", { n: Math.floor(diff / 3600) });
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 const contactsWithSessions = computed(() => {
-  return CONTACTS.map((c) => {
+  return CONTACTS.value.map((c) => {
     const session = sessions.value.find((s) => s.contact_type === c.contactType);
     return {
       ...c,

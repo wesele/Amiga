@@ -1,7 +1,7 @@
+use crate::modules::database::DatabasePool;
+use log;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
-use log;
-use crate::modules::database::DatabasePool;
 
 #[cfg(test)]
 mod tests {
@@ -17,7 +17,8 @@ mod tests {
             "INSERT INTO news_articles (original_title, original_body, region, hot_rank)
              VALUES (?1, ?2, ?3, 1)",
             params![title, "Test body content for ", region],
-        ).unwrap();
+        )
+        .unwrap();
         conn.last_insert_rowid() as i32
     }
 
@@ -58,10 +59,14 @@ mod tests {
         }
 
         let world_articles = get_articles(&pool, "world").unwrap();
-        assert!(world_articles.iter().any(|a| a.region == Some("world".to_string())));
+        assert!(world_articles
+            .iter()
+            .any(|a| a.region == Some("world".to_string())));
 
         let tech_articles = get_articles(&pool, "tech").unwrap();
-        assert!(tech_articles.iter().any(|a| a.region == Some("tech".to_string())));
+        assert!(tech_articles
+            .iter()
+            .any(|a| a.region == Some("tech".to_string())));
     }
 
     #[test]
@@ -73,7 +78,8 @@ mod tests {
         conn.execute(
             "INSERT INTO users (id, nickname) VALUES ('user-1', 'Test')",
             [],
-        ).unwrap();
+        )
+        .unwrap();
         let aid = insert_test_article(&conn, "Readable Article", "world");
         drop(conn);
 
@@ -91,7 +97,9 @@ mod tests {
 
         let conn = pool.conn.lock().unwrap();
         let count: i32 = conn
-            .query_row("SELECT COUNT(*) FROM news_reading_log", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM news_reading_log", [], |row| {
+                row.get(0)
+            })
             .unwrap();
         assert_eq!(count, 1);
     }
@@ -100,7 +108,11 @@ mod tests {
     fn test_reading_log_updates_streak() {
         let pool = test_pool();
         let conn = pool.conn.lock().unwrap();
-        conn.execute("INSERT INTO users (id, nickname) VALUES ('user-1', 'Test')", []).unwrap();
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES ('user-1', 'Test')",
+            [],
+        )
+        .unwrap();
         let aid = insert_test_article(&conn, "Streak Article", "world");
         drop(conn);
 
@@ -133,10 +145,20 @@ mod tests {
         let aid = insert_test_article(&conn, "Rewrite Test", "world");
         drop(conn);
 
-        save_rewritten_article(&pool, aid, "Rewritten body here", "A2", r#"["word1","word2"]"#).unwrap();
+        save_rewritten_article(
+            &pool,
+            aid,
+            "Rewritten body here",
+            "A2",
+            r#"["word1","word2"]"#,
+        )
+        .unwrap();
 
         let article = get_article(&pool, aid).unwrap();
-        assert_eq!(article.rewritten_body, Some("Rewritten body here".to_string()));
+        assert_eq!(
+            article.rewritten_body,
+            Some("Rewritten body here".to_string())
+        );
         assert_eq!(article.rewrite_level, Some("A2".to_string()));
         assert_eq!(article.new_words, Some(r#"["word1","word2"]"#.to_string()));
     }
@@ -156,6 +178,91 @@ mod tests {
         save_bilingual_cache(&pool, aid, r#"["Hola mundo","Adiós"]"#).unwrap();
         let cache = get_bilingual_cache(&pool, aid).unwrap();
         assert_eq!(cache, Some(r#"["Hola mundo","Adiós"]"#.to_string()));
+    }
+
+    #[test]
+    fn test_get_read_article_count() {
+        let pool = test_pool();
+        let conn = pool.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES ('user-r', 'Reader')",
+            [],
+        )
+        .unwrap();
+        let a1 = insert_test_article(&conn, "Read Count A", "world");
+        let a2 = insert_test_article(&conn, "Read Count B", "world");
+        let a3 = insert_test_article(&conn, "Read Count C", "world");
+        drop(conn);
+
+        // no reads yet
+        assert_eq!(get_read_article_count(&pool, "user-r").unwrap(), 0);
+
+        // first completed read of a1
+        save_reading_log(
+            &pool,
+            &ReadingLog {
+                user_id: "user-r".to_string(),
+                article_id: a1,
+                words_looked_up: None,
+                words_known: None,
+                words_unknown: None,
+                reading_time_sec: 30,
+                completed: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(get_read_article_count(&pool, "user-r").unwrap(), 1);
+
+        // re-read a1 (same article) — distinct count should stay 1
+        save_reading_log(
+            &pool,
+            &ReadingLog {
+                user_id: "user-r".to_string(),
+                article_id: a1,
+                words_looked_up: None,
+                words_known: None,
+                words_unknown: None,
+                reading_time_sec: 25,
+                completed: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(get_read_article_count(&pool, "user-r").unwrap(), 1);
+
+        // completed a2
+        save_reading_log(
+            &pool,
+            &ReadingLog {
+                user_id: "user-r".to_string(),
+                article_id: a2,
+                words_looked_up: None,
+                words_known: None,
+                words_unknown: None,
+                reading_time_sec: 60,
+                completed: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(get_read_article_count(&pool, "user-r").unwrap(), 2);
+
+        // non-completed read of a3 should not count
+        save_reading_log(
+            &pool,
+            &ReadingLog {
+                user_id: "user-r".to_string(),
+                article_id: a3,
+                words_looked_up: None,
+                words_known: None,
+                words_unknown: None,
+                reading_time_sec: 5,
+                completed: false,
+            },
+        )
+        .unwrap();
+        assert_eq!(get_read_article_count(&pool, "user-r").unwrap(), 2);
+
+        // other user has no reads
+        assert_eq!(get_read_article_count(&pool, "other-user").unwrap(), 0);
     }
 }
 
@@ -264,18 +371,26 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
                 let body = response.text().await.unwrap_or_default();
                 if let Ok(feed) = feed_rs::parser::parse(body.as_bytes()) {
                     for entry in feed.entries.iter().take(limit - raw_entries.len() as usize) {
-                        let title = entry.title.as_ref()
+                        let title = entry
+                            .title
+                            .as_ref()
                             .map(|t| t.content.clone())
                             .unwrap_or_else(|| "Untitled".to_string());
-                        let summary = entry.summary.as_ref()
+                        let summary = entry
+                            .summary
+                            .as_ref()
                             .map(|s| s.content.clone())
                             .or_else(|| entry.content.as_ref().and_then(|c| c.body.clone()))
                             .unwrap_or_default();
-                        let image_url = entry.media.iter()
+                        let image_url = entry
+                            .media
+                            .iter()
                             .filter_map(|m| m.thumbnails.first())
                             .map(|t| t.image.uri.to_string())
                             .next();
-                        let article_url = entry.links.first()
+                        let article_url = entry
+                            .links
+                            .first()
                             .map(|l| l.href.clone())
                             .unwrap_or_else(|| feed_url.to_string());
                         raw_entries.push((title, summary, image_url, article_url, rank));
@@ -309,7 +424,10 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
         log::error!("Failed to delete existing articles: {}", e);
         return Vec::new();
     }
-    log::info!("Deleted all existing articles, inserting {} new", raw_entries.len());
+    log::info!(
+        "Deleted all existing articles, inserting {} new",
+        raw_entries.len()
+    );
 
     // Insert new articles
     let mut articles = Vec::new();
@@ -348,15 +466,20 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
 
 /// Get cached articles
 pub fn get_articles(db: &DatabasePool, region: &str) -> Result<Vec<Article>, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
-    let mut stmt = conn.prepare(
-        "SELECT id, original_title, original_body, rewritten_body, rewrite_level,
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, original_title, original_body, rewritten_body, rewrite_level,
                 source, image_url, region, hot_rank, new_words, fetched_at
          FROM news_articles
          WHERE region = ?1 OR region IS NULL
          ORDER BY hot_rank ASC, fetched_at DESC
-         LIMIT 10"
-    ).map_err(|e| format!("Query error: {}", e))?;
+         LIMIT 10",
+        )
+        .map_err(|e| format!("Query error: {}", e))?;
 
     let articles: Vec<Article> = stmt
         .query_map(params![region], |row| {
@@ -383,7 +506,10 @@ pub fn get_articles(db: &DatabasePool, region: &str) -> Result<Vec<Article>, Str
 
 /// Get single article
 pub fn get_article(db: &DatabasePool, article_id: i32) -> Result<Article, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
     conn.query_row(
         "SELECT id, original_title, original_body, rewritten_body, rewrite_level,
                 source, image_url, region, hot_rank, new_words, fetched_at
@@ -404,7 +530,8 @@ pub fn get_article(db: &DatabasePool, article_id: i32) -> Result<Article, String
                 fetched_at: row.get(10)?,
             })
         },
-    ).map_err(|e| format!("Article not found: {}", e))
+    )
+    .map_err(|e| format!("Article not found: {}", e))
 }
 
 /// Save rewritten article body
@@ -415,7 +542,10 @@ pub fn save_rewritten_article(
     level: &str,
     new_words_json: &str,
 ) -> Result<(), String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
     conn.execute(
         "UPDATE news_articles SET rewritten_body = ?1, rewrite_level = ?2, new_words = ?3 WHERE id = ?4",
         params![rewritten_body, level, new_words_json, article_id],
@@ -426,7 +556,10 @@ pub fn save_rewritten_article(
 
 /// Save reading log
 pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(), String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
     conn.execute(
         "INSERT INTO news_reading_log (user_id, article_id, words_looked_up, words_known, words_unknown, reading_time_sec, completed)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -448,32 +581,67 @@ pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(),
          VALUES (?1, ?2, 1)
          ON CONFLICT(user_id, date) DO UPDATE SET articles_read = articles_read + 1",
         params![log_entry.user_id, today],
-    ).ok();
+    )
+    .ok();
 
-    log::info!("Reading log saved: user={} article={}", log_entry.user_id, log_entry.article_id);
+    log::info!(
+        "Reading log saved: user={} article={}",
+        log_entry.user_id,
+        log_entry.article_id
+    );
     Ok(())
 }
 
 /// Get bilingual cache for an article
 pub fn get_bilingual_cache(db: &DatabasePool, article_id: i32) -> Result<Option<String>, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
-    let result = conn.query_row(
-        "SELECT bilingual_cache FROM news_articles WHERE id = ?1",
-        params![article_id],
-        |row| row.get(0),
-    ).ok().flatten();
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
+    let result = conn
+        .query_row(
+            "SELECT bilingual_cache FROM news_articles WHERE id = ?1",
+            params![article_id],
+            |row| row.get(0),
+        )
+        .ok()
+        .flatten();
     Ok(result)
 }
 
 /// Save bilingual cache for an article
-pub fn save_bilingual_cache(db: &DatabasePool, article_id: i32, cache_json: &str) -> Result<(), String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+pub fn save_bilingual_cache(
+    db: &DatabasePool,
+    article_id: i32,
+    cache_json: &str,
+) -> Result<(), String> {
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
     conn.execute(
         "UPDATE news_articles SET bilingual_cache = ?1 WHERE id = ?2",
         params![cache_json, article_id],
-    ).map_err(|e| format!("Failed to save bilingual cache: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to save bilingual cache: {}", e))?;
     log::debug!("Bilingual cache saved for article {}", article_id);
     Ok(())
 }
 
-
+/// Count distinct articles a user has completed reading.
+/// Re-reads of the same article count as one; non-completed reads are excluded.
+pub fn get_read_article_count(db: &DatabasePool, user_id: &str) -> Result<i32, String> {
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
+    let count: i32 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT article_id) FROM news_reading_log
+             WHERE user_id = ?1 AND completed = 1",
+            params![user_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    Ok(count)
+}

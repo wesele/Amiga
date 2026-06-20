@@ -1,6 +1,6 @@
-use tauri::State;
 use crate::modules::database::DatabasePool;
 use crate::modules::news as news_mod;
+use tauri::State;
 
 #[tauri::command]
 pub async fn fetch_news_cmd(
@@ -33,4 +33,12 @@ pub async fn save_reading_log_cmd(
     log_entry: news_mod::ReadingLog,
 ) -> Result<(), String> {
     news_mod::save_reading_log(&db, &log_entry)
+}
+
+#[tauri::command]
+pub async fn get_read_article_count_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+) -> Result<i32, String> {
+    news_mod::get_read_article_count(&db, &user_id)
 }

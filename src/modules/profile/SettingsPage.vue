@@ -7,39 +7,39 @@
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
       </button>
-      <h1 class="page-title">设置</h1>
+      <h1 class="page-title">{{ t('settings.title') }}</h1>
     </header>
 
     <!-- Interface -->
     <section class="settings-section">
-      <h3 class="section-header">界面</h3>
+      <h3 class="section-header">{{ t('settings.interface') }}</h3>
       <div class="settings-card">
-        <SettingsItem title="界面语言" :trailingText="uiLang === 'zh' ? '中文' : 'English'" @click="showLangDialog = true" :showDivider="false" />
+        <SettingsItem :title="t('settings.uiLang')" :trailingText="currentLangLabel" @click="showLangDialog = true" :showDivider="false" />
       </div>
     </section>
 
     <!-- AI Configuration -->
     <section class="settings-section">
-      <h3 class="section-header">AI 配置</h3>
+      <h3 class="section-header">{{ t('settings.ai') }}</h3>
       <div class="settings-card">
-        <SettingsItem title="主模型配置" subtitle="设置 API Key、模型等" to="/profile/llm-config/primary" />
-        <SettingsItem title="备用模型配置" subtitle="主模型失败时自动切换" to="/profile/llm-config/fallback" :showDivider="false" />
+        <SettingsItem :title="t('settings.primaryModel')" :subtitle="t('settings.primaryModelSub')" to="/profile/llm-config/primary" />
+        <SettingsItem :title="t('settings.fallbackModel')" :subtitle="t('settings.fallbackModelSub')" to="/profile/llm-config/fallback" :showDivider="false" />
       </div>
     </section>
 
     <!-- Content -->
     <section class="settings-section">
-      <h3 class="section-header">内容</h3>
+      <h3 class="section-header">{{ t('settings.content') }}</h3>
       <div class="settings-card">
-        <SettingsItem title="新闻获取数量" :trailingText="`${newsLimit} 条`" @click="showNewsDialog = true" :showDivider="false" />
+        <SettingsItem :title="t('settings.newsCount')" :trailingText="String(newsLimit)" @click="showNewsDialog = true" :showDivider="false" />
       </div>
     </section>
 
     <!-- Data Management -->
     <section class="settings-section">
-      <h3 class="section-header">数据管理</h3>
+      <h3 class="section-header">{{ t('settings.data') }}</h3>
       <div class="settings-card">
-        <SettingsItem title="重新开始向导" subtitle="清除学习数据并重新设置" danger @click="showResetDialog = true" :showDivider="false" />
+        <SettingsItem :title="t('settings.restart')" :subtitle="t('settings.restartSub')" danger @click="showResetDialog = true" :showDivider="false" />
       </div>
     </section>
 
@@ -47,22 +47,23 @@
     <Teleport to="body">
       <div v-if="showLangDialog" class="modal-overlay" @click.self="showLangDialog = false">
         <div class="modal-content dialog-sm">
-          <h3 class="dialog-title">界面语言</h3>
+          <h3 class="dialog-title">{{ t('settings.pick') }}</h3>
+          <p class="dialog-desc">{{ t('settings.pickDesc') }}</p>
           <div class="dialog-options">
-            <label class="dialog-option" :class="{ selected: uiLang === 'zh' }">
-              <input type="radio" name="lang" value="zh" v-model="uiLang" class="dialog-radio" />
-              <span class="dialog-option-text">中文</span>
-              <span v-if="uiLang === 'zh'" class="dialog-check">✓</span>
-            </label>
-            <label class="dialog-option" :class="{ selected: uiLang === 'en' }">
-              <input type="radio" name="lang" value="en" v-model="uiLang" class="dialog-radio" />
-              <span class="dialog-option-text">English</span>
-              <span v-if="uiLang === 'en'" class="dialog-check">✓</span>
+            <label
+              v-for="opt in langOptions"
+              :key="opt.code"
+              class="dialog-option"
+              :class="{ selected: uiLang === opt.code }"
+            >
+              <input type="radio" name="lang" :value="opt.code" v-model="uiLang" class="dialog-radio" />
+              <span class="dialog-option-text">{{ opt.flag }} {{ opt.label }}</span>
+              <span v-if="uiLang === opt.code" class="dialog-check">✓</span>
             </label>
           </div>
           <div class="dialog-actions">
-            <button class="dialog-btn" @click="showLangDialog = false">取消</button>
-            <button class="dialog-btn primary" @click="saveLang; showLangDialog = false">确定</button>
+            <button class="dialog-btn" @click="showLangDialog = false">{{ t('common.cancel') }}</button>
+            <button class="dialog-btn primary" @click="saveLang; showLangDialog = false">{{ t('common.ok') }}</button>
           </div>
         </div>
       </div>
@@ -72,16 +73,16 @@
     <Teleport to="body">
       <div v-if="showNewsDialog" class="modal-overlay" @click.self="showNewsDialog = false">
         <div class="modal-content dialog-sm">
-          <h3 class="dialog-title">新闻获取数量</h3>
-          <p class="dialog-desc">每次刷新时获取的文章数量</p>
+          <h3 class="dialog-title">{{ t('settings.newsCount') }}</h3>
+          <p class="dialog-desc">{{ t('settings.newsCountDesc') }}</p>
           <div class="dialog-input-row">
             <button class="stepper-btn" :disabled="newsLimit <= 1" @click="newsLimit = Math.max(1, newsLimit - 1)">−</button>
             <span class="stepper-value">{{ newsLimit }}</span>
             <button class="stepper-btn" :disabled="newsLimit >= 20" @click="newsLimit = Math.min(20, newsLimit + 1)">+</button>
           </div>
           <div class="dialog-actions">
-            <button class="dialog-btn" @click="showNewsDialog = false">取消</button>
-            <button class="dialog-btn primary" @click="saveNewsLimit; showNewsDialog = false">确定</button>
+            <button class="dialog-btn" @click="showNewsDialog = false">{{ t('common.cancel') }}</button>
+            <button class="dialog-btn primary" @click="saveNewsLimit; showNewsDialog = false">{{ t('common.ok') }}</button>
           </div>
         </div>
       </div>
@@ -91,11 +92,11 @@
     <Teleport to="body">
       <div v-if="showResetDialog" class="modal-overlay" @click.self="showResetDialog = false">
         <div class="modal-content dialog-sm">
-          <h3 class="dialog-title">重新开始向导</h3>
-          <p class="dialog-desc">这将清除你的学习数据并重新进入新用户向导。此操作不可撤销。</p>
+          <h3 class="dialog-title">{{ t('settings.restart') }}</h3>
+          <p class="dialog-desc">{{ t('settings.restartDesc') }}</p>
           <div class="dialog-actions">
-            <button class="dialog-btn" @click="showResetDialog = false">取消</button>
-            <button class="dialog-btn danger" @click="confirmReset">确定重置</button>
+            <button class="dialog-btn" @click="showResetDialog = false">{{ t('common.cancel') }}</button>
+            <button class="dialog-btn danger" @click="confirmReset">{{ t('settings.restartConfirm') }}</button>
           </div>
         </div>
       </div>
@@ -104,12 +105,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { resetWizard as resetWizardApi, getSetting, saveSetting } from "@/shared/api.js";
 import SettingsItem from "./components/SettingsItem.vue";
+import { useI18n } from "@/shared/i18n";
 
 const router = useRouter();
+const { t, locale, setLocale } = useI18n();
 
 const uiLang = ref("zh");
 const newsLimit = ref(5);
@@ -117,17 +120,33 @@ const showLangDialog = ref(false);
 const showNewsDialog = ref(false);
 const showResetDialog = ref(false);
 
-onMounted(async () => {
+const langOptions = computed(() => [
+  { code: "zh", flag: "🇨🇳", label: t("lang.zh") },
+  { code: "en", flag: "🇬🇧", label: t("lang.en") },
+  { code: "es", flag: "🇪🇸", label: t("lang.es") },
+]);
+
+const currentLangLabel = computed(() => {
+  const found = langOptions.value.find((o) => o.code === locale.value);
+  return found ? `${found.flag} ${found.label}` : locale.value;
+});
+
+onMounted(() => {
+  // Initialise the picker from the active i18n locale.
+  uiLang.value = locale.value || "zh";
   try {
-    const val = await getSetting("news_fetch_limit");
-    if (val) newsLimit.value = parseInt(val, 10) || 5;
+    getSetting("news_fetch_limit").then((val) => {
+      if (val) newsLimit.value = parseInt(val, 10) || 5;
+    });
   } catch (e) {
     console.error("Failed to load news limit:", e);
   }
 });
 
 function saveLang() {
-  saveSetting("ui_language", uiLang.value).catch(console.error);
+  // setLocale handles persistence to app_settings under "ui_language" and
+  // broadcasts the change to every component that calls useI18n().
+  setLocale(uiLang.value);
 }
 
 function saveNewsLimit() {

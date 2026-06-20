@@ -1,7 +1,7 @@
-use tauri::State;
+use crate::commands::llm::LlmState;
 use crate::modules::database::DatabasePool;
 use crate::modules::llm as llm_mod;
-use crate::commands::llm::LlmState;
+use tauri::State;
 
 #[tauri::command]
 pub async fn chat_completion_cmd(
@@ -11,14 +11,8 @@ pub async fn chat_completion_cmd(
     native_lang: String,
     target_lang: String,
 ) -> Result<String, String> {
-    crate::modules::chat::chat_completion(
-        &llm.client,
-        &db,
-        messages,
-        &native_lang,
-        &target_lang,
-    )
-    .await
+    crate::modules::chat::chat_completion(&llm.client, &db, messages, &native_lang, &target_lang)
+        .await
 }
 
 #[tauri::command]

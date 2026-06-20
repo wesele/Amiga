@@ -32,7 +32,11 @@ struct GithubAsset {
 
 #[tauri::command]
 pub async fn check_update(app: tauri::AppHandle) -> Result<UpdateInfo, String> {
-    let current_version = app.config().version.clone().unwrap_or_else(|| "0.0.0".to_string());
+    let current_version = app
+        .config()
+        .version
+        .clone()
+        .unwrap_or_else(|| "0.0.0".to_string());
     let owner = "wesele";
     let repo = "Amiga";
     let api_url = format!(
@@ -122,5 +126,4 @@ mod tests {
         assert_eq!(compare_versions("1.1", "1.0.5"), Ordering::Greater);
         assert_eq!(compare_versions("1.0", "1.0.1"), Ordering::Less);
     }
-
 }

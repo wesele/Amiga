@@ -6,8 +6,8 @@
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
       </button>
-      <h1 class="page-title">提示词管理</h1>
-      <button class="reset-all-btn" @click="showResetDialog = true">全部重置</button>
+      <h1 class="page-title">{{ t('prompts.title') }}</h1>
+      <button class="reset-all-btn" @click="showResetDialog = true">{{ t('prompts.resetAll') }}</button>
     </header>
 
     <div v-if="loading" class="loading-center">
@@ -33,14 +33,14 @@
         </div>
       </div>
 
-      <div v-if="Object.keys(grouped).length === 0" class="empty-state">暂无提示词</div>
+      <div v-if="Object.keys(grouped).length === 0" class="empty-state">{{ t('prompts.empty') }}</div>
     </template>
 
     <ConfirmDialog
       :show="showResetDialog"
-      title="重置所有提示词"
-      message="确认重置所有提示词为默认值？"
-      confirmText="重置"
+      :title="t('prompts.resetConfirmTitle')"
+      :message="t('prompts.resetConfirmMsg')"
+      :confirmText="t('prompts.reset')"
       danger
       @confirm="resetAll"
       @cancel="showResetDialog = false"
@@ -53,8 +53,10 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { getAllPrompts, resetAllPrompts as apiResetAll } from "@/shared/api.js";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
+import { useI18n } from "@/shared/i18n";
 
 const router = useRouter();
+const { t } = useI18n();
 const loading = ref(true);
 const error = ref("");
 const prompts = ref([]);
@@ -63,7 +65,7 @@ const showResetDialog = ref(false);
 const grouped = computed(() => {
   const g = {};
   for (const p of prompts.value) {
-    const c = p.category || "未分类";
+    const c = p.category || t("prompts.uncategorized");
     if (!g[c]) g[c] = [];
     g[c].push(p);
   }
@@ -84,7 +86,7 @@ async function resetAll() {
     await apiResetAll();
     await loadPrompts();
   } catch (e) {
-    error.value = "重置失败";
+    error.value = t("prompts.resetFail");
   }
 }
 
@@ -92,7 +94,7 @@ async function loadPrompts() {
   try {
     prompts.value = await getAllPrompts();
   } catch (e) {
-    error.value = "加载失败";
+    error.value = t("common.fail");
     prompts.value = [];
   }
 }

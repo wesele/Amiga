@@ -1,7 +1,7 @@
+use crate::modules::database::DatabasePool;
+use log;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
-use log;
-use crate::modules::database::DatabasePool;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Prompt {
@@ -152,12 +152,17 @@ pub fn ensure_default_prompts(db: &DatabasePool) {
 }
 
 pub fn get_all_prompts(db: &DatabasePool) -> Result<Vec<Prompt>, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
 
-    let mut stmt = conn.prepare(
-        "SELECT key, name, category, system_prompt, user_prompt_template, updated_at
-         FROM prompts ORDER BY category, key"
-    ).map_err(|e| format!("Query error: {}", e))?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT key, name, category, system_prompt, user_prompt_template, updated_at
+         FROM prompts ORDER BY category, key",
+        )
+        .map_err(|e| format!("Query error: {}", e))?;
 
     let prompts: Vec<Prompt> = stmt
         .query_map([], |row| {
@@ -178,7 +183,10 @@ pub fn get_all_prompts(db: &DatabasePool) -> Result<Vec<Prompt>, String> {
 }
 
 pub fn get_prompt(db: &DatabasePool, key: &str) -> Result<Prompt, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
 
     conn.query_row(
         "SELECT key, name, category, system_prompt, user_prompt_template, updated_at
@@ -194,7 +202,8 @@ pub fn get_prompt(db: &DatabasePool, key: &str) -> Result<Prompt, String> {
                 updated_at: row.get(5)?,
             })
         },
-    ).map_err(|e| format!("Prompt '{}' not found: {}", key, e))
+    )
+    .map_err(|e| format!("Prompt '{}' not found: {}", key, e))
 }
 
 pub fn save_prompt(
@@ -205,7 +214,10 @@ pub fn save_prompt(
     system_prompt: &str,
     user_prompt_template: &str,
 ) -> Result<(), String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
 
     conn.execute(
         "INSERT INTO prompts (key, name, category, system_prompt, user_prompt_template, updated_at)
@@ -220,7 +232,9 @@ pub fn save_prompt(
 }
 
 pub fn reset_prompt_to_default(db: &DatabasePool, key: &str) -> Result<Prompt, String> {
-    let default = DEFAULTS.iter().find(|(k, _, _, _, _)| *k == key)
+    let default = DEFAULTS
+        .iter()
+        .find(|(k, _, _, _, _)| *k == key)
         .ok_or_else(|| format!("No default defined for prompt '{}'", key))?;
 
     save_prompt(db, default.0, default.1, default.2, default.3, default.4)?;
@@ -228,7 +242,10 @@ pub fn reset_prompt_to_default(db: &DatabasePool, key: &str) -> Result<Prompt, S
 }
 
 pub fn reset_all_prompts(db: &DatabasePool) -> Result<usize, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
 
     conn.execute("DELETE FROM prompts", [])
         .map_err(|e| format!("Failed to clear prompts: {}", e))?;
@@ -273,7 +290,10 @@ mod tests {
         ensure_default_prompts(&pool);
         let p = get_prompt(&pool, "rewrite-article").unwrap();
         assert_eq!(p.name, "新闻文章改写", "Should revert to default name");
-        assert_eq!(p.system_prompt, "你是专业的语言学习改写助手，只返回JSON格式。", "Should revert to default system prompt");
+        assert_eq!(
+            p.system_prompt, "你是专业的语言学习改写助手，只返回JSON格式。",
+            "Should revert to default system prompt"
+        );
     }
 
     #[test]
@@ -315,7 +335,15 @@ mod tests {
     fn test_reset_prompt_to_default() {
         let pool = test_pool();
         ensure_default_prompts(&pool);
-        save_prompt(&pool, "rewrite-article", "改过的", "x", "changed", "changed").unwrap();
+        save_prompt(
+            &pool,
+            "rewrite-article",
+            "改过的",
+            "x",
+            "changed",
+            "changed",
+        )
+        .unwrap();
         let p = reset_prompt_to_default(&pool, "rewrite-article").unwrap();
         assert_eq!(p.name, "新闻文章改写");
     }

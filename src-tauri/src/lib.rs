@@ -1,10 +1,10 @@
 mod commands;
 mod modules;
 
-use modules::database::DatabasePool;
-use modules::logging;
 use commands::llm::LlmState;
+use modules::database::DatabasePool;
 use modules::llm::LlmClient;
+use modules::logging;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -43,8 +43,11 @@ pub fn run() {
             commands::user::get_learning_goals_cmd,
             commands::user::is_wizard_completed_cmd,
             commands::user::reset_wizard_cmd,
+            commands::user::set_target_language_cmd,
+            commands::user::get_target_language_cmd,
             // Vocabulary commands
             commands::vocabulary::import_vocab_bank_cmd,
+            commands::vocabulary::reimport_vocab_bank_cmd,
             commands::vocabulary::init_user_vocab_cmd,
             commands::vocabulary::update_word_mastery_cmd,
             commands::vocabulary::get_unknown_words_cmd,
@@ -69,6 +72,7 @@ pub fn run() {
             commands::news::get_articles_cmd,
             commands::news::get_article_cmd,
             commands::news::save_reading_log_cmd,
+            commands::news::get_read_article_count_cmd,
             // Prompt commands
             commands::prompts::get_all_prompts_cmd,
             commands::prompts::get_prompt_cmd,

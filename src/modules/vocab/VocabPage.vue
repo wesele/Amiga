@@ -3,7 +3,7 @@
     <!-- Stats overview -->
     <template v-if="!drilledLevel">
       <header class="page-header">
-        <h1 class="page-title">我的单词本</h1>
+        <h1 class="page-title">{{ t('vocab.title') }}</h1>
       </header>
 
       <div v-if="loading" class="loading-center">
@@ -30,7 +30,6 @@
             <div class="card-stats-row">
               <span class="stat-dot dot-mastered" />{{ s.mastered }}
               <span class="stat-dot dot-seen" />{{ s.seen }}
-              <span class="stat-dot dot-not-mastered" />{{ s.not_mastered }}
               <span class="stat-dot dot-unseen" />{{ s.unseen }}
             </div>
           </button>
@@ -50,9 +49,9 @@
             <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
           </svg>
         </button>
-        <h1 class="page-title">{{ drilledLevel }} 单词</h1>
-        <div class="detail-total">{{ filteredWords.length }} 词</div>
-        <button class="reset-btn" @click="resetLevel" title="重置所有单词为未展示">重置</button>
+        <h1 class="page-title">{{ drilledLevel }}</h1>
+        <div class="detail-total">{{ t('vocab.words', { n: filteredWords.length }) }}</div>
+        <button class="reset-btn" @click="resetLevel" :title="t('vocab.reset')">{{ t('vocab.reset') }}</button>
       </header>
 
       <div class="status-tabs">
@@ -99,9 +98,11 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
-import { getCurrentUser, getLearningGoals, getUserVocabByLevel, getUserVocabStatsByLevel, lookupWordIds, updateWordMastery, resetUserVocabByLevel } from "@/shared/api.js";
+import { getCurrentUser, getUserVocabByLevel, getUserVocabStatsByLevel, updateWordMastery, resetUserVocabByLevel, getTargetLanguage } from "@/shared/api.js";
+import { useI18n } from "@/shared/i18n";
 import WordPopup from "./components/WordPopup.vue";
 
+const { t, locale } = useI18n();
 const loading = ref(true);
 const error = ref("");
 const stats = ref([]);
@@ -112,21 +113,19 @@ const userLang = ref("es");
 const userId = ref("");
 const selectedWord = ref(null);
 
-const statusTabs = [
-  { label: "全部", value: "all" },
-  { label: "未展示", value: "unseen" },
-  { label: "已展示", value: "seen" },
-  { label: "未掌握", value: "not_mastered" },
-  { label: "已掌握", value: "mastered" },
-];
+const statusTabs = computed(() => [
+  { label: t("vocab.tabs.all"), value: "all" },
+  { label: t("vocab.tabs.unseen"), value: "unseen" },
+  { label: t("vocab.tabs.seen"), value: "seen" },
+  { label: t("vocab.tabs.mastered"), value: "mastered" },
+]);
 
 const noVocabMessage = computed(() => {
-  return `「${userLang.value}」暂无词汇数据`;
+  return t("vocab.noData", { lang: langDisplayName(userLang.value) });
 });
 
 const noWordsInStatus = computed(() => {
-  const tab = statusTabs.find(t => t.value === activeStatus.value);
-  return `该状态下没有单词`;
+  return t("vocab.emptyStatus");
 });
 
 const filteredWords = computed(() => {
@@ -135,18 +134,22 @@ const filteredWords = computed(() => {
     switch (activeStatus.value) {
       case "unseen": return m === undefined || m === null;
       case "seen": return m === 1;
-      case "not_mastered": return m === 0;
       case "mastered": return m >= 2;
       default: return true;
     }
   });
 });
 
+function langDisplayName(code) {
+  const map = { es: "Español", en: "English", zh: "中文" };
+  return map[code] || code;
+}
+
 function chipClass(mastery) {
   if (mastery === undefined || mastery === null) return "chip-unseen";
   if (mastery >= 2) return "chip-mastered";
   if (mastery === 1) return "chip-seen";
-  return "chip-not-mastered";
+  return "chip-unseen";
 }
 
 function enterLevel(level) {
@@ -174,7 +177,7 @@ async function loadStats() {
   try {
     stats.value = await getUserVocabStatsByLevel(userId.value, userLang.value);
   } catch (e) {
-    error.value = "加载统计数据失败";
+    error.value = t("common.fail");
   }
 }
 
@@ -197,14 +200,14 @@ async function onUnknown() {
   if (!selectedWord.value) return;
   const w = selectedWord.value;
   try {
-    await updateWordMastery(userId.value, w.id, 0, "vocab_review");
-    w.mastery = 0;
+    await updateWordMastery(userId.value, w.id, 1, "vocab_review");
+    w.mastery = 1;
   } catch (_) {}
   selectedWord.value = null;
 }
 
 async function resetLevel() {
-  if (!confirm(`确认重置「${drilledLevel.value}」所有单词为未展示？`)) return;
+  if (!confirm(t("vocab.resetConfirm", { level: drilledLevel.value }))) return;
   try {
     await resetUserVocabByLevel(userId.value, userLang.value, drilledLevel.value);
     await loadWords(drilledLevel.value);
@@ -218,17 +221,24 @@ async function init() {
   try {
     const user = await getCurrentUser();
     userId.value = user.id;
-    const goals = await getLearningGoals(user.id);
-    if (goals && goals.length > 0) {
-      userLang.value = goals[0].target_language;
-    }
+    try {
+      const lang = await getTargetLanguage();
+      if (lang) userLang.value = lang;
+    } catch (_) { /* keep default */ }
     await loadStats();
   } catch (e) {
-    error.value = "加载失败，请重试";
+    error.value = t("common.fail");
   } finally {
     loading.value = false;
   }
 }
+
+// React to the user changing the learning language elsewhere (Profile page).
+watch(userLang, async () => {
+  drilledLevel.value = "";
+  words.value = [];
+  await loadStats();
+});
 
 init();
 </script>
@@ -420,7 +430,6 @@ init();
 
 .dot-unseen { background: var(--border); }
 .dot-seen { background: var(--blue); }
-.dot-not-mastered { background: var(--red); }
 .dot-mastered { background: var(--green); }
 
 /* Status tabs */
@@ -480,7 +489,6 @@ init();
 
 .chip-unseen { color: var(--text); }
 .chip-seen { color: var(--blue); font-weight: 600; }
-.chip-not-mastered { color: var(--red); font-weight: 600; }
 .chip-mastered { color: var(--green); font-weight: 700; }
 
 /* Popup transition */

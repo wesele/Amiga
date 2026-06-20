@@ -33,7 +33,12 @@ pub struct ChatMessageItem {
 
 // ─── Session CRUD ───
 
-pub fn create_session(db: &DatabasePool, user_id: &str, title: &str, contact_type: &str) -> Result<String, String> {
+pub fn create_session(
+    db: &DatabasePool,
+    user_id: &str,
+    title: &str,
+    contact_type: &str,
+) -> Result<String, String> {
     let id = Uuid::new_v4().to_string();
     let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
     conn.execute(
@@ -49,45 +54,65 @@ pub fn get_sessions(db: &DatabasePool) -> Result<Vec<ChatSession>, String> {
         "SELECT id, user_id, title, user_profile_json, conversation_summary, message_count, contact_type, last_message, created_at, updated_at FROM chat_sessions ORDER BY updated_at DESC"
     ).map_err(|e| format!("Failed to prepare: {}", e))?;
 
-    let sessions = stmt.query_map([], |row| {
-        Ok(ChatSession {
-            id: row.get(0)?,
-            user_id: row.get(1)?,
-            title: row.get(2)?,
-            user_profile_json: row.get(3)?,
-            conversation_summary: row.get(4)?,
-            message_count: row.get(5)?,
-            contact_type: row.get(6)?,
-            last_message: row.get(7)?,
-            created_at: row.get(8)?,
-            updated_at: row.get(9)?,
+    let sessions = stmt
+        .query_map([], |row| {
+            Ok(ChatSession {
+                id: row.get(0)?,
+                user_id: row.get(1)?,
+                title: row.get(2)?,
+                user_profile_json: row.get(3)?,
+                conversation_summary: row.get(4)?,
+                message_count: row.get(5)?,
+                contact_type: row.get(6)?,
+                last_message: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
+            })
         })
-    }).map_err(|e| format!("Failed to query: {}",e))?;
+        .map_err(|e| format!("Failed to query: {}", e))?;
 
-    sessions.collect::<Result<Vec<_>, _>>().map_err(|e| format!("Failed to collect: {}", e))
+    sessions
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to collect: {}", e))
 }
 
 pub fn delete_session(db: &DatabasePool, session_id: &str) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
-    conn.execute("DELETE FROM chat_messages WHERE session_id = ?1", params![session_id])
-        .map_err(|e| format!("Failed to delete messages: {}", e))?;
-    conn.execute("DELETE FROM chat_sessions WHERE id = ?1", params![session_id])
-        .map_err(|e| format!("Failed to delete session: {}", e))?;
+    conn.execute(
+        "DELETE FROM chat_messages WHERE session_id = ?1",
+        params![session_id],
+    )
+    .map_err(|e| format!("Failed to delete messages: {}", e))?;
+    conn.execute(
+        "DELETE FROM chat_sessions WHERE id = ?1",
+        params![session_id],
+    )
+    .map_err(|e| format!("Failed to delete session: {}", e))?;
     Ok(())
 }
 
-pub fn update_session_title(db: &DatabasePool, session_id: &str, title: &str) -> Result<(), String> {
+pub fn update_session_title(
+    db: &DatabasePool,
+    session_id: &str,
+    title: &str,
+) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
     conn.execute(
         "UPDATE chat_sessions SET title = ?1, updated_at = datetime('now') WHERE id = ?2",
         params![title, session_id],
-    ).map_err(|e| format!("Failed to update title: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to update title: {}", e))?;
     Ok(())
 }
 
 // ─── Message CRUD ───
 
-pub fn save_message(db: &DatabasePool, session_id: &str, role: &str, content: &str) -> Result<i64, String> {
+pub fn save_message(
+    db: &DatabasePool,
+    session_id: &str,
+    role: &str,
+    content: &str,
+) -> Result<i64, String> {
     let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
     conn.execute(
         "INSERT INTO chat_messages (session_id, role, content, created_at) VALUES (?1, ?2, ?3, datetime('now'))",
@@ -104,31 +129,44 @@ pub fn save_message(db: &DatabasePool, session_id: &str, role: &str, content: &s
     Ok(id)
 }
 
-pub fn get_messages(db: &DatabasePool, session_id: &str, limit: usize) -> Result<Vec<ChatMessageItem>, String> {
+pub fn get_messages(
+    db: &DatabasePool,
+    session_id: &str,
+    limit: usize,
+) -> Result<Vec<ChatMessageItem>, String> {
     let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
     let mut stmt = conn.prepare(
         "SELECT id, session_id, role, content, created_at FROM chat_messages WHERE session_id = ?1 ORDER BY id ASC"
     ).map_err(|e| format!("Failed to prepare: {}", e))?;
 
-    let all = stmt.query_map(params![session_id], |row| {
-        Ok(ChatMessageItem {
-            id: row.get(0)?,
-            session_id: row.get(1)?,
-            role: row.get(2)?,
-            content: row.get(3)?,
-            created_at: row.get(4)?,
+    let all = stmt
+        .query_map(params![session_id], |row| {
+            Ok(ChatMessageItem {
+                id: row.get(0)?,
+                session_id: row.get(1)?,
+                role: row.get(2)?,
+                content: row.get(3)?,
+                created_at: row.get(4)?,
+            })
         })
-    }).map_err(|e| format!("Failed to query: {}", e))?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| format!("Failed to collect: {}", e))?;
+        .map_err(|e| format!("Failed to query: {}", e))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to collect: {}", e))?;
 
-    let start = if all.len() > limit { all.len() - limit } else { 0 };
+    let start = if all.len() > limit {
+        all.len() - limit
+    } else {
+        0
+    };
     Ok(all[start..].to_vec())
 }
 
 // ─── Profile / Summary ───
 
-pub fn get_session_profile(db: &DatabasePool, session_id: &str) -> Result<(String, String, i32, String), String> {
+pub fn get_session_profile(
+    db: &DatabasePool,
+    session_id: &str,
+) -> Result<(String, String, i32, String), String> {
     let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
     conn.query_row(
         "SELECT user_profile_json, conversation_summary, message_count, contact_type FROM chat_sessions WHERE id = ?1",
@@ -137,7 +175,12 @@ pub fn get_session_profile(db: &DatabasePool, session_id: &str) -> Result<(Strin
     ).map_err(|e| format!("Session not found: {}", e))
 }
 
-pub fn update_profile(db: &DatabasePool, session_id: &str, profile_json: &str, summary: &str) -> Result<(), String> {
+pub fn update_profile(
+    db: &DatabasePool,
+    session_id: &str,
+    profile_json: &str,
+    summary: &str,
+) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
     conn.execute(
         "UPDATE chat_sessions SET user_profile_json = ?1, conversation_summary = ?2, updated_at = datetime('now') WHERE id = ?3",
@@ -148,7 +191,11 @@ pub fn update_profile(db: &DatabasePool, session_id: &str, profile_json: &str, s
 
 // ─── Prompt loading helpers ───
 
-fn load_system_prompt(db: &DatabasePool, prompt_key: &str, vars: &[(&str, &str)]) -> Option<String> {
+fn load_system_prompt(
+    db: &DatabasePool,
+    prompt_key: &str,
+    vars: &[(&str, &str)],
+) -> Option<String> {
     match prompts::get_prompt(db, prompt_key) {
         Ok(p) => {
             let mut content = p.system_prompt;
@@ -161,7 +208,11 @@ fn load_system_prompt(db: &DatabasePool, prompt_key: &str, vars: &[(&str, &str)]
     }
 }
 
-fn load_user_prompt_template(db: &DatabasePool, prompt_key: &str, vars: &[(&str, &str)]) -> Option<String> {
+fn load_user_prompt_template(
+    db: &DatabasePool,
+    prompt_key: &str,
+    vars: &[(&str, &str)],
+) -> Option<String> {
     match prompts::get_prompt(db, prompt_key) {
         Ok(p) => {
             let mut content = p.user_prompt_template;
@@ -212,7 +263,10 @@ pub async fn chat_completion_with_session(
     };
 
     let recent = get_messages(db, session_id, MAX_CONTEXT_MESSAGES)?;
-    let mut full_messages = vec![ChatMessage { role: "system".to_string(), content: system }];
+    let mut full_messages = vec![ChatMessage {
+        role: "system".to_string(),
+        content: system,
+    }];
     for msg in &recent {
         full_messages.push(ChatMessage {
             role: msg.role.clone(),
@@ -227,14 +281,22 @@ pub async fn chat_completion_with_session(
     if contact_type == "amiga" {
         let new_count = msg_count + 1;
         if new_count % PROFILE_UPDATE_INTERVAL == 0 {
-            let _ = update_profile_from_conversation(client, db, session_id, native_lang, target_lang).await;
+            let _ =
+                update_profile_from_conversation(client, db, session_id, native_lang, target_lang)
+                    .await;
         }
     }
 
     Ok(reply)
 }
 
-fn build_amiga_system_prompt(db: &DatabasePool, native_lang: &str, target_lang: &str, profile_json: &str, summary: &str) -> String {
+fn build_amiga_system_prompt(
+    db: &DatabasePool,
+    native_lang: &str,
+    target_lang: &str,
+    profile_json: &str,
+    summary: &str,
+) -> String {
     let vars = [("NATIVE_LANG", native_lang), ("TARGET_LANG", target_lang)];
     let mut system = match load_system_prompt(db, "amiga-chat", &vars) {
         Some(p) => p,
@@ -274,7 +336,10 @@ fn build_amiga_system_prompt(db: &DatabasePool, native_lang: &str, target_lang: 
     }
 
     if !summary.is_empty() {
-        system.push_str(&format!("\n\n上一轮对话总结：{}\n请根据这些信息调整回复难度，重点练习薄弱环节。", summary));
+        system.push_str(&format!(
+            "\n\n上一轮对话总结：{}\n请根据这些信息调整回复难度，重点练习薄弱环节。",
+            summary
+        ));
     }
 
     system
@@ -308,7 +373,8 @@ async fn update_profile_from_conversation(
         return Ok(());
     }
 
-    let conversation: String = all_messages.iter()
+    let conversation: String = all_messages
+        .iter()
         .map(|m| format!("{}: {}", m.role, m.content))
         .collect::<Vec<_>>()
         .join("\n");
@@ -318,7 +384,14 @@ async fn update_profile_from_conversation(
         None => "你严格只输出JSON，不包含markdown代码块标记。".to_string(),
     };
 
-    let user_prompt = match load_user_prompt_template(db, "profile-analysis", &[("TARGET_LANG", target_lang), ("CONVERSATION", &conversation)]) {
+    let user_prompt = match load_user_prompt_template(
+        db,
+        "profile-analysis",
+        &[
+            ("TARGET_LANG", target_lang),
+            ("CONVERSATION", &conversation),
+        ],
+    ) {
         Some(p) => p,
         None => {
             // Fallback
@@ -332,22 +405,38 @@ async fn update_profile_from_conversation(
     };
 
     let messages = vec![
-        ChatMessage { role: "system".to_string(), content: sys_prompt },
-        ChatMessage { role: "user".to_string(), content: user_prompt },
+        ChatMessage {
+            role: "system".to_string(),
+            content: sys_prompt,
+        },
+        ChatMessage {
+            role: "user".to_string(),
+            content: user_prompt,
+        },
     ];
 
     match client.chat_with_fallback(db, messages).await {
         Ok(response) => {
-            let cleaned = response.trim()
+            let cleaned = response
+                .trim()
                 .trim_start_matches("```json")
                 .trim_start_matches("```")
                 .trim_end_matches("```")
                 .trim();
 
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(cleaned) {
-                let (existing_profile, _, _, _) = get_session_profile(db, session_id).unwrap_or(("{}".to_string(), String::new(), 0, "amiga".to_string()));
+                let (existing_profile, _, _, _) = get_session_profile(db, session_id).unwrap_or((
+                    "{}".to_string(),
+                    String::new(),
+                    0,
+                    "amiga".to_string(),
+                ));
                 let merged = merge_profiles(&existing_profile, &val);
-                let summary = val.get("summary").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let summary = val
+                    .get("summary")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
 
                 update_profile(db, session_id, &merged, &summary).ok();
             }
@@ -359,17 +448,20 @@ async fn update_profile_from_conversation(
 }
 
 fn merge_profiles(existing: &str, new: &serde_json::Value) -> String {
-    let mut profile: serde_json::Value = serde_json::from_str(existing).unwrap_or(serde_json::json!({}));
+    let mut profile: serde_json::Value =
+        serde_json::from_str(existing).unwrap_or(serde_json::json!({}));
 
     if let Some(cefr) = new.get("cefr_level").and_then(|v| v.as_str()) {
         profile["cefr_level"] = serde_json::Value::String(cefr.to_string());
     }
     if let Some(new_vocab) = new.get("new_vocab_used").and_then(|v| v.as_array()) {
-        let existing_vocab = profile.get("vocab")
+        let existing_vocab = profile
+            .get("vocab")
             .and_then(|v| v.as_array())
             .cloned()
             .unwrap_or_default();
-        let mut known: Vec<String> = existing_vocab.iter()
+        let mut known: Vec<String> = existing_vocab
+            .iter()
             .filter_map(|v| v.as_str().map(|s| s.to_string()))
             .collect();
         for v in new_vocab {
@@ -378,7 +470,12 @@ fn merge_profiles(existing: &str, new: &serde_json::Value) -> String {
                 known.push(word.to_string());
             }
         }
-        profile["vocab"] = serde_json::Value::Array(known.iter().map(|s| serde_json::Value::String(s.clone())).collect());
+        profile["vocab"] = serde_json::Value::Array(
+            known
+                .iter()
+                .map(|s| serde_json::Value::String(s.clone()))
+                .collect(),
+        );
     }
     if let Some(weak) = new.get("weaknesses").and_then(|v| v.as_array()) {
         profile["weaknesses"] = serde_json::Value::Array(weak.clone());
@@ -399,9 +496,8 @@ mod tests {
         let db = DatabasePool::new_in_memory();
         {
             let conn = db.conn.lock().unwrap();
-            conn.execute_batch(
-                "INSERT INTO users (id) VALUES ('test-user');"
-            ).unwrap();
+            conn.execute_batch("INSERT INTO users (id) VALUES ('test-user');")
+                .unwrap();
         }
         db
     }

@@ -15,18 +15,18 @@
     <div v-if="showMenu" class="menu-overlay" @click="showMenu = false" />
     <transition name="fade">
       <div v-if="showMenu" class="menu-panel">
-        <div class="menu-item danger" @click="deleteCurrentSession">删除对话</div>
+        <div class="menu-item danger" @click="deleteCurrentSession">{{ t('interaction.deleteChat') }}</div>
       </div>
     </transition>
 
     <div class="chat-messages" ref="msgList">
       <div v-if="messages.length === 0 && contactType === 'amiga'" class="welcome-box">
-        <p>你好！我是 Amiga 🤖，你的 AI 语言学习伙伴。</p>
-        <p>我们可以用中文聊天，也可以一起练习你想学的语言。</p>
+        <p>{{ t('interaction.welcomeAmiga1') }}</p>
+        <p>{{ t('interaction.welcomeAmiga2') }}</p>
       </div>
       <div v-if="messages.length === 0 && contactType === 'translator'" class="welcome-box">
-        <p>你好！我是 AI 翻译 🌐</p>
-        <p>输入任何语言的单词或句子，我帮你翻译和解释。</p>
+        <p>{{ t('interaction.welcomeTranslator1') }}</p>
+        <p>{{ t('interaction.welcomeTranslator2') }}</p>
       </div>
       <div
         v-for="(msg, i) in messages"
@@ -36,7 +36,8 @@
       >
         <div v-if="msg.role !== 'user'" class="msg-avatar">{{ contactAvatar }}</div>
         <div class="msg-bubble">
-          <div class="msg-text">{{ msg.content }}</div>
+          <MarkdownText v-if="msg.role !== 'user'" class="msg-text" :content="msg.content" />
+          <div v-else class="msg-text msg-text-plain">{{ msg.content }}</div>
         </div>
         <div v-if="msg.role === 'user'" class="msg-avatar user-avatar">😊</div>
       </div>
@@ -53,11 +54,11 @@
         ref="inputEl"
         v-model="inputText"
         class="chat-input"
-        placeholder="输入消息…"
+        :placeholder="t('interaction.input')"
         @keydown.enter.prevent="sendMessage"
         @focus="onInputFocus"
       />
-        <div class="send-btn" :class="{ disabled: loading || !inputText.trim() }" @click="sendMessage">发送</div>
+        <div class="send-btn" :class="{ disabled: loading || !inputText.trim() }" @click="sendMessage">{{ t('interaction.send') }}</div>
     </div>
   </div>
 </template>
@@ -67,12 +68,15 @@ import { ref, nextTick, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   getCurrentUser,
-  getLearningGoals,
+  getTargetLanguage,
   chatCompletionWithSession,
   getChatMessages,
   deleteChatSession,
 } from "@/shared/api.js";
+import MarkdownText from "@/shared/components/MarkdownText.vue";
+import { useI18n } from "@/shared/i18n";
 
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
@@ -166,7 +170,7 @@ async function sendMessage() {
     );
     messages.value.push({ id: Date.now() + 1, role: "assistant", content: reply });
   } catch {
-    messages.value.push({ id: Date.now() + 2, role: "assistant", content: "抱歉，我暂时无法回复。请检查网络连接或稍后再试。🙇" });
+    messages.value.push({ id: Date.now() + 2, role: "assistant", content: t("interaction.replyFail") });
   }
   loading.value = false;
   scrollToBottom();
@@ -198,10 +202,10 @@ onMounted(async () => {
 
   try {
     const user = await getCurrentUser();
-    const goals = await getLearningGoals();
-    if (goals && goals.length > 0) {
-      targetLang.value = goals[0].target_language || "es";
-    }
+    try {
+      const lang = await getTargetLanguage();
+      if (lang) targetLang.value = lang;
+    } catch (_) { /* keep default */ }
     if (user?.native_language) {
       nativeLang.value = user.native_language;
     }
@@ -215,7 +219,7 @@ onMounted(async () => {
     if (sess) {
       contactType.value = sess.contact_type;
       if (sess.contact_type === "translator") {
-        contactName.value = "AI 翻译";
+        contactName.value = t("interaction.translator");
         contactAvatar.value = "🌐";
       }
     }
@@ -374,9 +378,11 @@ onMounted(async () => {
 }
 .msg-text {
   font-size: 14px;
-  line-height: 1.6;
-  white-space: pre-wrap;
+  line-height: 1.5;
   word-break: break-word;
+}
+.msg-text-plain {
+  white-space: pre-wrap;
 }
 
 .typing {

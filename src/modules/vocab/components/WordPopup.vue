@@ -5,7 +5,7 @@
 
       <div v-if="loading" class="popup-loading">
         <div class="mini-spinner" />
-        <span>翻译中…</span>
+        <span>{{ t('popup.translating') }}</span>
       </div>
 
       <template v-else-if="translation">
@@ -16,11 +16,11 @@
         </div>
       </template>
 
-      <div v-else-if="error" class="popup-error">{{ error }}</div>
+      <div v-else-if="error" class="popup-error">{{ error || t('popup.fail') }}</div>
 
       <div class="popup-actions">
-        <button class="act-known" @click="$emit('known'); emitClose()">✅ 认识</button>
-        <button class="act-unknown" @click="$emit('unknown'); emitClose()">❌ 不认识</button>
+        <button class="act-known" @click="$emit('known'); emitClose()">✅ {{ t('popup.known') }}</button>
+        <button class="act-unknown" @click="$emit('unknown'); emitClose()">❌ {{ t('popup.unknown') }}</button>
       </div>
     </div>
   </div>
@@ -29,6 +29,7 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { translateWord } from "@/shared/api.js";
+import { useI18n } from "@/shared/i18n";
 
 const props = defineProps({
   word: { type: String, required: true },
@@ -36,6 +37,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["close", "known", "unknown"]);
+const { t } = useI18n();
 
 const translation = ref(null);
 const loading = ref(true);
@@ -46,7 +48,7 @@ onMounted(async () => {
     const result = await translateWord(props.word, props.context, "zh");
     translation.value = result;
   } catch (e) {
-    error.value = "翻译暂不可用";
+    error.value = t("popup.fail");
   } finally {
     loading.value = false;
   }

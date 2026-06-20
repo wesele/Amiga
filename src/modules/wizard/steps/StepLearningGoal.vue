@@ -1,11 +1,11 @@
 <template>
   <div class="step-goal">
-    <h2 class="step-title">设定学习目标</h2>
-    <p class="step-sub">为你定制专属学习路径</p>
+    <h2 class="step-title">{{ t('wizard.goalTitle') }}</h2>
+    <p class="step-sub">{{ t('wizard.goalSub') }}</p>
 
     <!-- Target Language -->
     <div class="form-group">
-      <label class="form-label">目标语言</label>
+      <label class="form-label">{{ t('wizard.targetLang') }}</label>
       <div class="pill-group">
         <button
           v-for="lang in targetLanguages"
@@ -21,7 +21,7 @@
 
     <!-- CEFR Level -->
     <div class="form-group">
-      <label class="form-label">当前水平</label>
+      <label class="form-label">{{ t('wizard.level') }}</label>
       <div class="pill-group">
         <button
           v-for="level in levels"
@@ -37,7 +37,7 @@
 
     <!-- Learning Objective -->
     <div class="form-group">
-      <label class="form-label">学习目标</label>
+      <label class="form-label">{{ t('wizard.objective') }}</label>
       <div class="pill-group">
         <button
           v-for="obj in objectives"
@@ -53,7 +53,7 @@
 
     <!-- Daily Duration -->
     <div class="form-group">
-      <label class="form-label">每天学习时间</label>
+      <label class="form-label">{{ t('wizard.daily') }}</label>
       <div class="pill-group">
         <button
           v-for="d in durations"
@@ -68,46 +68,48 @@
     </div>
 
     <div class="wizard-footer">
-      <button class="btn-primary" @click="emitNext">开始学习！</button>
+      <button class="btn-primary" @click="emitNext">{{ t('wizard.startLearning') }}</button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive } from "vue";
+import { reactive, computed } from "vue";
+import { useI18n } from "@/shared/i18n";
 
 const emit = defineEmits(["next"]);
+const { t } = useI18n();
 
-const targetLanguages = [
-  { value: "es", flag: "🇪🇸", label: "西班牙语" },
-  { value: "zh", flag: "🇨🇳", label: "中文" },
-  { value: "en", flag: "🇬🇧", label: "英语" },
-  { value: "ja", flag: "🇯🇵", label: "日语" },
-  { value: "fr", flag: "🇫🇷", label: "法语" },
-];
+const targetLanguages = computed(() => [
+  { value: "es", flag: "🇪🇸", label: t("learningLang.es") },
+  { value: "zh", flag: "🇨🇳", label: t("learningLang.zh") },
+  { value: "en", flag: "🇬🇧", label: t("learningLang.en") },
+  { value: "ja", flag: "🇯🇵", label: "日本語" },
+  { value: "fr", flag: "🇫🇷", label: "Français" },
+]);
 
-const levels = [
-  { value: "A0", label: "零基础" },
-  { value: "A1", label: "初级 A1" },
-  { value: "A2", label: "初级 A2" },
-  { value: "B1", label: "中级 B1" },
-  { value: "B2", label: "中级 B2" },
-  { value: "C1", label: "高级 C1" },
-];
+const levels = computed(() => [
+  { value: "A0", label: t("wizard.levels.A0") },
+  { value: "A1", label: t("wizard.levels.A1") },
+  { value: "A2", label: t("wizard.levels.A2") },
+  { value: "B1", label: t("wizard.levels.B1") },
+  { value: "B2", label: t("wizard.levels.B2") },
+  { value: "C1", label: t("wizard.levels.C1") },
+]);
 
-const objectives = [
-  { value: "daily_conversation", label: "日常对话" },
-  { value: "travel", label: "旅行交流" },
-  { value: "exam", label: "考试准备" },
-  { value: "fluent", label: "流利掌握" },
-];
+const objectives = computed(() => [
+  { value: "daily_conversation", label: t("wizard.objectives.daily_conversation") },
+  { value: "travel", label: t("wizard.objectives.travel") },
+  { value: "exam", label: t("wizard.objectives.exam") },
+  { value: "fluent", label: t("wizard.objectives.fluent") },
+]);
 
-const durations = [
-  { value: 5, label: "5 分钟" },
-  { value: 15, label: "15 分钟" },
-  { value: 30, label: "30 分钟" },
-  { value: 60, label: "1 小时+" },
-];
+const durations = computed(() => [
+  { value: 5, label: t("wizard.durations.5") },
+  { value: 15, label: t("wizard.durations.15") },
+  { value: 30, label: t("wizard.durations.30") },
+  { value: 60, label: t("wizard.durations.60") },
+]);
 
 const form = reactive({
   targetLanguage: "es",

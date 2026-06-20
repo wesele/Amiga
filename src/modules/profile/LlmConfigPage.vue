@@ -13,7 +13,7 @@
       <!-- Fields -->
       <div class="settings-card">
         <div class="field-group">
-          <label class="field-label">API Key</label>
+          <label class="field-label">{{ t('llm.apiKey') }}</label>
           <div class="api-key-wrapper">
             <input
               :type="showKey ? 'text' : 'password'"
@@ -21,7 +21,7 @@
               class="field-input"
               placeholder="sk-..."
             />
-            <button class="toggle-key-btn" @click="showKey = !showKey" :title="showKey ? '隐藏' : '显示'">
+            <button class="toggle-key-btn" @click="showKey = !showKey">
               <svg v-if="!showKey" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                 <path d="M12 6.5c2.76 0 5 2.24 5 5 0 .51-.1 1-.24 1.46l3.06 3.06c1.39-1.23 2.49-2.77 3.18-4.53C21.27 7.11 17 4 12 4c-1.27 0-2.49.2-3.64.57l2.17 2.17c.47-.14.96-.24 1.47-.24zM2.71 3.16a.996.996 0 000 1.41l1.97 1.97A11.892 11.892 0 001 11.5C2.73 15.89 7 19 12 19c1.52 0 2.97-.3 4.31-.82l2.72 2.72a.996.996 0 101.41-1.41L4.13 3.16c-.39-.39-1.03-.39-1.42 0zM12 16.5c-2.76 0-5-2.24-5-5 0-.77.18-1.5.49-2.15l1.67 1.67C9 11.33 9 11.66 9 12c0 1.66 1.34 3 3 3 .34 0 .67 0 .98-.15l1.67 1.67c-.65.31-1.38.48-2.15.48z"/>
               </svg>
@@ -33,12 +33,12 @@
         </div>
         <div class="field-divider" />
         <div class="field-group">
-          <label class="field-label">Base URL</label>
+          <label class="field-label">{{ t('llm.baseUrl') }}</label>
           <input v-model="baseUrl" type="text" class="field-input" placeholder="https://api.openai.com/v1" />
         </div>
         <div class="field-divider" />
         <div class="field-group">
-          <label class="field-label">模型名称</label>
+          <label class="field-label">{{ t('llm.model') }}</label>
           <input v-model="modelName" type="text" class="field-input" placeholder="gpt-4o-mini" />
         </div>
       </div>
@@ -46,20 +46,20 @@
       <!-- Test connection -->
       <button class="btn-test" :disabled="testing" @click="testConnection">
         <span v-if="testing" class="test-spinner" />
-        <span>{{ testing ? '测试中…' : '测试连接' }}</span>
+        <span>{{ testing ? t('llm.testing') : t('llm.test') }}</span>
       </button>
       <div v-if="testResult" class="test-result" :class="testResult">
-        {{ testResult === 'ok' ? '连接成功' : '连接失败，请检查配置' }}
+        {{ testResult === 'ok' ? t('llm.testOk') : t('llm.testFail') }}
       </div>
 
       <!-- Save -->
       <button class="btn-save" @click="saveConfig">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
-        保存配置
+        {{ t('llm.save') }}
       </button>
 
       <transition name="fade">
-        <div v-if="saved" class="save-toast">配置已保存</div>
+        <div v-if="saved" class="save-toast">{{ t('llm.saved') }}</div>
       </transition>
     </div>
   </div>
@@ -69,10 +69,12 @@
 import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { getLlmConfig, saveLlmConfig, testLlmConnection } from "@/shared/api.js";
+import { useI18n } from "@/shared/i18n";
 
+const { t } = useI18n();
 const route = useRoute();
 const modelType = computed(() => route.params.type === "fallback" ? "backup" : "primary");
-const pageTitle = computed(() => route.params.type === "fallback" ? "备用模型配置" : "主模型配置");
+const pageTitle = computed(() => route.params.type === "fallback" ? t("llm.fallbackTitle") : t("llm.primaryTitle"));
 
 const apiKey = ref("");
 const baseUrl = ref("https://api.openai.com/v1");

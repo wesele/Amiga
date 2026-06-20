@@ -1,7 +1,7 @@
+use crate::modules::database::DatabasePool;
+use log;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
-use log;
-use crate::modules::database::DatabasePool;
 
 #[cfg(test)]
 mod tests {
@@ -185,6 +185,61 @@ mod tests {
         reset_wizard(&pool).unwrap();
         assert_eq!(is_wizard_completed(&pool).unwrap(), false);
     }
+
+    #[test]
+    fn test_get_target_language_defaults_to_es() {
+        let pool = test_pool();
+        let lang = get_target_language(&pool).unwrap();
+        assert_eq!(lang, "es");
+    }
+
+    #[test]
+    fn test_set_target_language_creates_goal_and_persists() {
+        let pool = test_pool();
+        // Need a user to be referenced from the goal row.
+        get_or_create_user(&pool).unwrap();
+
+        set_target_language(&pool, "en").unwrap();
+
+        // Returns the same value.
+        assert_eq!(get_target_language(&pool).unwrap(), "en");
+
+        // A learning_goals row should have been created for the user.
+        let conn = pool.conn.lock().unwrap();
+        let count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM learning_goals WHERE target_language = 'en'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(count >= 1, "Should have at least one en goal row");
+    }
+
+    #[test]
+    fn test_set_target_language_switching_preserves_other_goals() {
+        let pool = test_pool();
+        get_or_create_user(&pool).unwrap();
+
+        set_target_language(&pool, "es").unwrap();
+        set_target_language(&pool, "en").unwrap();
+        set_target_language(&pool, "zh").unwrap();
+
+        let langs: Vec<String> = {
+            let conn = pool.conn.lock().unwrap();
+            let mut stmt = conn
+                .prepare("SELECT target_language FROM learning_goals ORDER BY id")
+                .unwrap();
+            stmt.query_map([], |row| row.get(0))
+                .unwrap()
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+        assert_eq!(langs, vec!["es", "en", "zh"]);
+
+        // The current setting still points at the last one.
+        assert_eq!(get_target_language(&pool).unwrap(), "zh");
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -233,7 +288,10 @@ pub struct LearningGoal {
 }
 
 pub fn get_or_create_user(db: &DatabasePool) -> Result<User, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
 
     // Try to get existing user
     let result = conn.query_row(
@@ -264,7 +322,8 @@ pub fn get_or_create_user(db: &DatabasePool) -> Result<User, String> {
             conn.execute(
                 "UPDATE users SET last_active_date = ?1 WHERE id = ?2",
                 params![today, user.id],
-            ).ok();
+            )
+            .ok();
             log::debug!("Existing user loaded: {}", user.id);
             Ok(user)
         }
@@ -296,8 +355,14 @@ pub fn get_or_create_user(db: &DatabasePool) -> Result<User, String> {
     }
 }
 
-pub fn create_user_from_wizard(db: &DatabasePool, request: CreateUserRequest) -> Result<User, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+pub fn create_user_from_wizard(
+    db: &DatabasePool,
+    request: CreateUserRequest,
+) -> Result<User, String> {
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
 
     // Check if user already exists
     let existing: Option<String> = conn
@@ -341,25 +406,52 @@ pub fn create_user_from_wizard(db: &DatabasePool, request: CreateUserRequest) ->
 }
 
 pub fn update_user(db: &DatabasePool, request: UpdateUserRequest) -> Result<User, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
 
     if let Some(nickname) = &request.nickname {
-        conn.execute("UPDATE users SET nickname = ?1 WHERE id = ?2", params![nickname, request.id]).ok();
+        conn.execute(
+            "UPDATE users SET nickname = ?1 WHERE id = ?2",
+            params![nickname, request.id],
+        )
+        .ok();
     }
     if let Some(avatar) = &request.avatar {
-        conn.execute("UPDATE users SET avatar = ?1 WHERE id = ?2", params![avatar, request.id]).ok();
+        conn.execute(
+            "UPDATE users SET avatar = ?1 WHERE id = ?2",
+            params![avatar, request.id],
+        )
+        .ok();
     }
     if let Some(native_language) = &request.native_language {
-        conn.execute("UPDATE users SET native_language = ?1 WHERE id = ?2", params![native_language, request.id]).ok();
+        conn.execute(
+            "UPDATE users SET native_language = ?1 WHERE id = ?2",
+            params![native_language, request.id],
+        )
+        .ok();
     }
     if let Some(country) = &request.country {
-        conn.execute("UPDATE users SET country = ?1 WHERE id = ?2", params![country, request.id]).ok();
+        conn.execute(
+            "UPDATE users SET country = ?1 WHERE id = ?2",
+            params![country, request.id],
+        )
+        .ok();
     }
     if let Some(gender) = &request.gender {
-        conn.execute("UPDATE users SET gender = ?1 WHERE id = ?2", params![gender, request.id]).ok();
+        conn.execute(
+            "UPDATE users SET gender = ?1 WHERE id = ?2",
+            params![gender, request.id],
+        )
+        .ok();
     }
     if let Some(birth_year) = request.birth_year {
-        conn.execute("UPDATE users SET birth_year = ?1 WHERE id = ?2", params![birth_year, request.id]).ok();
+        conn.execute(
+            "UPDATE users SET birth_year = ?1 WHERE id = ?2",
+            params![birth_year, request.id],
+        )
+        .ok();
     }
 
     drop(conn);
@@ -368,7 +460,10 @@ pub fn update_user(db: &DatabasePool, request: UpdateUserRequest) -> Result<User
 }
 
 fn get_user_by_id(db: &DatabasePool, id: &str) -> Result<User, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
     conn.query_row(
         "SELECT id, nickname, avatar, native_language, country, gender, birth_year,
                 wizard_completed, created_at, last_active_date
@@ -388,19 +483,30 @@ fn get_user_by_id(db: &DatabasePool, id: &str) -> Result<User, String> {
                 last_active_date: row.get(9)?,
             })
         },
-    ).map_err(|e| format!("User not found: {}", e))
+    )
+    .map_err(|e| format!("User not found: {}", e))
 }
 
 pub fn is_wizard_completed(db: &DatabasePool) -> Result<bool, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
     let result: i32 = conn
-        .query_row("SELECT COALESCE(MAX(wizard_completed), 0) FROM users", [], |row| row.get(0))
+        .query_row(
+            "SELECT COALESCE(MAX(wizard_completed), 0) FROM users",
+            [],
+            |row| row.get(0),
+        )
         .unwrap_or(0);
     Ok(result != 0)
 }
 
 pub fn save_learning_goal(db: &DatabasePool, goal: LearningGoal) -> Result<LearningGoal, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
 
     conn.execute(
         "INSERT INTO learning_goals (user_id, target_language, cefr_level, daily_minutes, objective)
@@ -409,7 +515,12 @@ pub fn save_learning_goal(db: &DatabasePool, goal: LearningGoal) -> Result<Learn
     ).map_err(|e| format!("Failed to save learning goal: {}", e))?;
 
     let id = conn.last_insert_rowid() as i32;
-    log::info!("Learning goal saved: user={} lang={} level={}", goal.user_id, goal.target_language, goal.cefr_level);
+    log::info!(
+        "Learning goal saved: user={} lang={} level={}",
+        goal.user_id,
+        goal.target_language,
+        goal.cefr_level
+    );
 
     Ok(LearningGoal {
         id: Some(id),
@@ -418,11 +529,16 @@ pub fn save_learning_goal(db: &DatabasePool, goal: LearningGoal) -> Result<Learn
 }
 
 pub fn get_learning_goals(db: &DatabasePool, user_id: &str) -> Result<Vec<LearningGoal>, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
-    let mut stmt = conn.prepare(
-        "SELECT id, user_id, target_language, cefr_level, daily_minutes, objective
-         FROM learning_goals WHERE user_id = ?1"
-    ).map_err(|e| format!("Failed to prepare query: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, user_id, target_language, cefr_level, daily_minutes, objective
+         FROM learning_goals WHERE user_id = ?1",
+        )
+        .map_err(|e| format!("Failed to prepare query: {}", e))?;
 
     let goals: Vec<LearningGoal> = stmt
         .query_map(params![user_id], |row| {
@@ -443,9 +559,95 @@ pub fn get_learning_goals(db: &DatabasePool, user_id: &str) -> Result<Vec<Learni
 }
 
 pub fn reset_wizard(db: &DatabasePool) -> Result<(), String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
     conn.execute("UPDATE users SET wizard_completed = 0", [])
         .map_err(|e| format!("Failed to reset wizard: {}", e))?;
     log::info!("Wizard reset");
     Ok(())
+}
+
+/// Set the user's currently active target language. The choice is persisted
+/// in `app_settings` under the key `current_target_language` and is the
+/// single source of truth for "which language am I learning right now?".
+/// The function also ensures a `learning_goals` row exists for that language
+/// (creating one with default level A1 / 15min / daily_conversation if not)
+/// so that downstream queries that join on goals continue to work.
+pub fn set_target_language(db: &DatabasePool, language: &str) -> Result<String, String> {
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
+
+    // Look up the user (single-user local mode).
+    let user_id: String = conn
+        .query_row("SELECT id FROM users LIMIT 1", [], |row| row.get(0))
+        .map_err(|e| format!("No user found: {}", e))?;
+
+    // Persist the choice in app_settings.
+    conn.execute(
+        "INSERT INTO app_settings (key, value) VALUES ('current_target_language', ?1)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![language],
+    )
+    .map_err(|e| format!("Failed to persist current_target_language: {}", e))?;
+
+    // Ensure a learning_goals row exists for this language.
+    let existing: Option<i32> = conn
+        .query_row(
+            "SELECT id FROM learning_goals WHERE user_id = ?1 AND target_language = ?2",
+            params![user_id, language],
+            |row| row.get(0),
+        )
+        .ok();
+
+    if existing.is_none() {
+        conn.execute(
+            "INSERT INTO learning_goals (user_id, target_language, cefr_level, daily_minutes, objective)
+             VALUES (?1, ?2, 'A1', 15, 'daily_conversation')",
+            params![user_id, language],
+        )
+        .map_err(|e| format!("Failed to create learning goal: {}", e))?;
+        log::info!("Created new learning goal for {} in {}", user_id, language);
+    }
+
+    log::info!("Current target language set to {}", language);
+    Ok(language.to_string())
+}
+
+/// Get the user's currently active target language. Resolution order:
+/// 1. `app_settings.current_target_language` (set by `set_target_language`)
+/// 2. `learning_goals.target_language` of the most recent goal
+/// 3. Default to "es"
+pub fn get_target_language(db: &DatabasePool) -> Result<String, String> {
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
+
+    let from_settings: Option<String> = conn
+        .query_row(
+            "SELECT value FROM app_settings WHERE key = 'current_target_language'",
+            [],
+            |row| row.get(0),
+        )
+        .ok();
+
+    if let Some(lang) = from_settings {
+        if !lang.is_empty() {
+            return Ok(lang);
+        }
+    }
+
+    let from_goals: Option<String> = conn
+        .query_row(
+            "SELECT target_language FROM learning_goals ORDER BY id DESC LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .ok();
+
+    Ok(from_goals.unwrap_or_else(|| "es".to_string()))
 }

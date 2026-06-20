@@ -1,7 +1,7 @@
 <template>
   <div class="profile-page">
     <header class="page-header">
-      <h1 class="page-title">学习设置</h1>
+      <h1 class="page-title">{{ t('profile.title') }}</h1>
     </header>
 
     <!-- User Account Card -->
@@ -10,40 +10,60 @@
         <div class="account-row">
           <div class="account-avatar">{{ user?.avatar || '😊' }}</div>
           <div class="account-info">
-            <div class="account-name">{{ user?.nickname || '学习者' }}</div>
+            <div class="account-name">{{ user?.nickname || t('common.learner') }}</div>
             <div class="account-detail">
-              <span v-if="goals.length > 0">{{ langLabel(goals[0].target_language) }} · {{ goals[0].cefr_level }}</span>
-              <span v-else>未设置学习目标</span>
+              <span v-if="currentTargetLang">{{ t('learningLang.' + currentTargetLang) }} · {{ currentLevel }}</span>
+              <span v-else>{{ t('profile.noGoal') }}</span>
             </div>
           </div>
         </div>
         <div class="stats-row">
           <div class="stat-cell">
             <div class="stat-value">{{ vocabStats?.total_known || 0 }}</div>
-            <div class="stat-label">已掌握词汇</div>
+            <div class="stat-label">{{ t('profile.words') }}</div>
           </div>
           <div class="stat-divider" />
           <div class="stat-cell">
-            <div class="stat-value">0</div>
-            <div class="stat-label">已读文章</div>
+            <div class="stat-value">{{ readArticleCount }}</div>
+            <div class="stat-label">{{ t('profile.articles') }}</div>
           </div>
         </div>
       </div>
     </section>
 
+    <!-- Learning language switcher -->
+    <section class="settings-section">
+      <h3 class="section-header">{{ t('learningLang.section') }}</h3>
+      <p class="section-desc">{{ t('learningLang.desc') }}</p>
+      <div class="lang-pills">
+        <button
+          v-for="lang in availableLanguages"
+          :key="lang.code"
+          class="lang-pill"
+          :class="{ active: currentTargetLang === lang.code }"
+          :disabled="switching"
+          @click="onSwitchLang(lang.code)"
+        >
+          <span class="lang-flag">{{ lang.flag }}</span>
+          <span class="lang-name">{{ t(lang.nameKey) }}</span>
+          <span v-if="currentTargetLang === lang.code" class="lang-check">✓</span>
+        </button>
+      </div>
+    </section>
+
     <!-- General Settings -->
     <section class="settings-section">
-      <h3 class="section-header">通用</h3>
+      <h3 class="section-header">{{ t('profile.general') }}</h3>
       <div class="settings-card">
-        <SettingsItem icon="⚙️" title="设置" subtitle="界面语言、AI 配置、新闻设置" to="/profile/settings" />
+        <SettingsItem icon="⚙️" :title="t('settings.title')" :subtitle="t('profile.learnSettingsSub')" to="/profile/settings" />
       </div>
     </section>
 
     <!-- About -->
     <section class="settings-section">
-      <h3 class="section-header">关于</h3>
+      <h3 class="section-header">{{ t('profile.about') }}</h3>
       <div class="settings-card">
-        <SettingsItem icon="🔄" title="检查更新" subtitle="检查新版本" :showArrow="true" @click="handleCheckUpdate" :showDivider="false" />
+        <SettingsItem icon="🔄" :title="t('profile.checkUpdate')" :subtitle="t('profile.checkUpdateSub')" :showArrow="true" @click="handleCheckUpdate" :showDivider="false" />
       </div>
     </section>
 
@@ -61,21 +81,21 @@
               <span class="version-badge latest">v{{ updateInfo.latest_version }}</span>
             </div>
             <div class="release-notes">
-              <h4>更新内容</h4>
+              <h4>{{ t('update.releaseNotes') }}</h4>
               <pre>{{ updateInfo.release_notes }}</pre>
             </div>
             <div class="download-section" v-if="updateInfo.download_urls.length > 0">
-              <h4>下载</h4>
+              <h4>{{ t('update.download') }}</h4>
               <a v-for="asset in updateInfo.download_urls" :key="asset.name" class="download-link" :href="asset.url" target="_blank" @click.prevent="openUrl(asset.url)">
                 ⬇ {{ asset.name }}
               </a>
             </div>
-            <a class="download-link all-releases" :href="updateInfo.release_url" target="_blank" @click.prevent="openUrl(updateInfo.release_url)">查看所有版本 →</a>
+            <a class="download-link all-releases" :href="updateInfo.release_url" target="_blank" @click.prevent="openUrl(updateInfo.release_url)">{{ t('update.viewAll') }}</a>
           </div>
           <div class="modal-body" v-else-if="updateDialog.type === 'latest'">
             <div class="up-to-date">
               <div class="up-to-date-icon">✅</div>
-              <p>当前已是最新版本 (v{{ updateInfo.current_version }})</p>
+              <p>{{ t('profile.upToDateDesc', { version: updateInfo.current_version }) }}</p>
             </div>
           </div>
           <div class="modal-body" v-else-if="updateDialog.type === 'error'">
@@ -85,7 +105,7 @@
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn-dialog-close" @click="showUpdateDialog = false">知道了</button>
+            <button class="btn-dialog-close" @click="showUpdateDialog = false">{{ t('profile.knowIt') }}</button>
           </div>
         </div>
       </div>
@@ -94,24 +114,68 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
-import { getCurrentUser, getLearningGoals, getUserVocabStats, checkUpdate } from "@/shared/api.js";
+import { ref, onMounted, computed } from "vue";
+import {
+  getCurrentUser,
+  getLearningGoals,
+  getUserVocabStats,
+  getReadArticleCount,
+  checkUpdate,
+  getTargetLanguage,
+  setTargetLanguage,
+} from "@/shared/api.js";
 import { open } from "@tauri-apps/plugin-shell";
 import SettingsItem from "./components/SettingsItem.vue";
+import { useI18n } from "@/shared/i18n";
+import { AVAILABLE_LANGUAGES } from "@/shared/constants.js";
 
+const { t } = useI18n();
 const user = ref(null);
 const goals = ref([]);
 const vocabStats = ref(null);
+const readArticleCount = ref(0);
+const currentTargetLang = ref("");
+const currentLevel = ref("A1");
+const switching = ref(false);
+const availableLanguages = AVAILABLE_LANGUAGES;
 
 onMounted(async () => {
   try {
     user.value = await getCurrentUser();
     goals.value = await getLearningGoals(user.value.id);
     vocabStats.value = await getUserVocabStats(user.value.id);
+    readArticleCount.value = await getReadArticleCount(user.value.id);
+    try {
+      const lang = await getTargetLanguage();
+      if (lang) currentTargetLang.value = lang;
+    } catch (_) { /* keep default */ }
+    // Find the current level from the goal row matching the active target.
+    const g = goals.value.find((x) => x.target_language === currentTargetLang.value) || goals.value[0];
+    if (g) currentLevel.value = g.cefr_level;
   } catch (e) {
     console.error("Failed to load profile:", e);
   }
 });
+
+async function onSwitchLang(code) {
+  if (switching.value || code === currentTargetLang.value) return;
+  switching.value = true;
+  try {
+    await setTargetLanguage(code);
+    currentTargetLang.value = code;
+    // Refresh goals list so the level summary updates.
+    try {
+      const u = user.value;
+      if (u) goals.value = await getLearningGoals(u.id);
+      const g = goals.value.find((x) => x.target_language === code);
+      if (g) currentLevel.value = g.cefr_level;
+    } catch (_) { /* ignore */ }
+  } catch (e) {
+    console.error("Failed to switch target language:", e);
+  } finally {
+    switching.value = false;
+  }
+}
 
 const showUpdateDialog = ref(false);
 const updateInfo = ref({ current_version: "", latest_version: "", has_update: false, release_notes: "", release_url: "", download_urls: [] });
@@ -125,12 +189,12 @@ async function handleCheckUpdate() {
     const info = await checkUpdate();
     updateInfo.value = info;
     updateDialog.value = info.has_update
-      ? { type: "available", title: "发现新版本" }
-      : { type: "latest", title: "已是最新版本" };
+      ? { type: "available", title: t("profile.updateAvailable") }
+      : { type: "latest", title: t("profile.upToDate") };
     showUpdateDialog.value = true;
   } catch (e) {
     updateInfo.value = { current_version: "", latest_version: "", has_update: false, release_notes: "", release_url: "", download_urls: [] };
-    updateDialog.value = { type: "error", title: "检查更新失败", errorMsg: e?.toString() || "网络请求失败，请检查网络连接" };
+    updateDialog.value = { type: "error", title: t("profile.updateCheckFail"), errorMsg: e?.toString() || e?.message || "" };
     showUpdateDialog.value = true;
   } finally {
     checking = false;
@@ -139,11 +203,6 @@ async function handleCheckUpdate() {
 
 async function openUrl(url) {
   try { await open(url); } catch { window.open(url, "_blank"); }
-}
-
-function langLabel(code) {
-  const map = { es: "西班牙语", zh: "中文", en: "英语", ja: "日语", fr: "法语" };
-  return map[code] || code;
 }
 </script>
 
@@ -174,6 +233,62 @@ function langLabel(code) {
   color: var(--text-light);
   padding: 0 20px;
   margin-bottom: 4px;
+}
+
+.section-desc {
+  font-size: 12px;
+  color: var(--text-lighter);
+  padding: 0 20px 8px;
+  margin: 0;
+}
+
+.lang-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 8px;
+}
+
+.lang-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.lang-pill:hover:not(:disabled) {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.lang-pill.active {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+
+.lang-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lang-flag {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.lang-check {
+  font-weight: 700;
+  margin-left: 2px;
 }
 .settings-card {
   margin: 0 16px;

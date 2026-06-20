@@ -1,10 +1,10 @@
 <template>
   <div class="news-list">
     <header class="list-header">
-      <h1 class="page-title">今日热搜</h1>
+      <h1 class="page-title">{{ t('news.title') }}</h1>
       <div class="header-top">
         <span class="today-label">{{ formattedDate }}</span>
-        <button class="refresh-btn" :disabled="loading" @click="onRefresh">
+        <button class="refresh-btn" :disabled="loading" :title="t('news.refresh')" @click="onRefresh">
           <svg :class="{ spinning: loading }" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M17.65 6.35A7.96 7.96 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
           </svg>
@@ -31,8 +31,8 @@
         <div class="card-body">
           <h3 class="card-title">{{ article.original_title }}</h3>
           <div class="card-meta">
-            <span v-if="article.rewritten_body" class="badge-rewritten">AI 已改写</span>
-            <span v-else class="badge-raw">原文</span>
+            <span v-if="article.rewritten_body" class="badge-rewritten">{{ t('news.aiRewritten') }}</span>
+            <span v-else class="badge-raw">{{ t('news.raw') }}</span>
               <span class="card-source clickable" @click.stop="openSourceUrl(article.source)">{{ formatSource(article.source) }}</span>
           </div>
         </div>
@@ -42,12 +42,12 @@
     <!-- Empty state -->
     <div v-if="!loading && articles.length === 0" class="empty-state">
       <div class="empty-icon">📰</div>
-      <p>暂无新闻</p>
-      <button class="btn-secondary" @click="onRefresh">点击刷新</button>
+      <p>{{ t('news.empty') }}</p>
+      <button class="btn-secondary" @click="onRefresh">{{ t('news.clickRefresh') }}</button>
     </div>
 
     <!-- Loading overlay for refresh -->
-    <div v-if="loading && articles.length > 0" class="loading-bar">刷新中…</div>
+    <div v-if="loading && articles.length > 0" class="loading-bar">{{ t('news.refreshing') }}</div>
 
     <!-- Status toast -->
     <Transition name="popup">
@@ -57,23 +57,42 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticles, fetchNews } from "@/shared/api.js";
+import { getArticles, fetchNews, getTargetLanguage, getCurrentUser } from "@/shared/api.js";
 import { openSourceUrl } from "./utils.js";
+import { useI18n } from "@/shared/i18n";
 
+const { t, locale } = useI18n();
 const router = useRouter();
 const articles = ref([]);
 const loading = ref(false);
 const statusText = ref("");
 let statusTimer = null;
+let userId = "";
+
+const targetLang = ref("es");
 
 const formattedDate = computed(() => {
   const d = new Date();
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 });
 
+async function refreshTargetLang() {
+  try {
+    const lang = await getTargetLanguage();
+    if (lang) targetLang.value = lang;
+  } catch (e) {
+    // default to es
+  }
+}
+
 onMounted(async () => {
+  try {
+    const u = await getCurrentUser();
+    userId = u?.id || "";
+  } catch (e) { /* dev mode without tauri */ }
+  await refreshTargetLang();
   await loadArticles();
   // Auto-fetch if no articles
   if (articles.value.length === 0) {
@@ -81,12 +100,34 @@ onMounted(async () => {
   }
 });
 
+// When the user switches the target language elsewhere (Profile page),
+// refresh the article list immediately.
+watch(targetLang, async () => {
+  articles.value = [];
+  await loadArticles();
+  if (articles.value.length === 0) {
+    await onRefresh();
+  }
+});
+
 async function loadArticles() {
   try {
-    articles.value = await getArticles("CN");
+    // Region is derived from the target language (CN→zh, US/WORLD→en,
+    // ES→es) so the user gets the right feed.
+    const region = regionForLang(targetLang.value);
+    articles.value = await getArticles(region);
   } catch (e) {
     console.error("Failed to load articles:", e);
     articles.value = [];
+  }
+}
+
+function regionForLang(lang) {
+  switch (lang) {
+    case "zh": return "CN";
+    case "en": return "US";
+    case "es": return "ES";
+    default: return "CN";
   }
 }
 
@@ -99,15 +140,15 @@ function showStatus(msg) {
 async function onRefresh() {
   loading.value = true;
   try {
-    const result = await fetchNews("CN", "es");
+    const result = await fetchNews(regionForLang(targetLang.value), targetLang.value);
     if (result.length > 0) {
-      showStatus(`已获取 ${result.length} 条最新新闻`);
+      showStatus(t("news.refreshed", { n: result.length }));
     } else {
-      showStatus("暂无最新新闻，请检查网络连接");
+      showStatus(t("news.noNew"));
     }
   } catch (e) {
     console.error("Failed to fetch news:", e);
-    showStatus("刷新失败，请检查网络连接");
+    showStatus(t("news.refreshFail"));
   } finally {
     await loadArticles();
     loading.value = false;

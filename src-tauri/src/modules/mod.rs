@@ -1,10 +1,10 @@
+pub mod chat;
 pub mod database;
 pub mod greeting;
+pub mod llm;
 pub mod logging;
 pub mod migrations;
-pub mod user;
-pub mod vocabulary;
-pub mod llm;
 pub mod news;
 pub mod prompts;
-pub mod chat;
+pub mod user;
+pub mod vocabulary;

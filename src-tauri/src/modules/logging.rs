@@ -124,5 +124,8 @@ pub fn init_logging() {
     log::set_max_level(LevelFilter::Debug);
 
     log::info!("=== Idioma application started ===");
-    log::debug!("Log directory: {:?}", dirs::data_local_dir().map(|p| p.join("idioma/logs")));
+    log::debug!(
+        "Log directory: {:?}",
+        dirs::data_local_dir().map(|p| p.join("idioma/logs"))
+    );
 }

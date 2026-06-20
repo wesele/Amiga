@@ -2,16 +2,16 @@
   <div class="step-basic">
     <div class="welcome-logo">
       <div class="logo-icon">A</div>
-      <h1 class="app-name">阿米加</h1>
-      <p class="tagline">学语言，连世界</p>
+      <h1 class="app-name">{{ t('app.name') }}</h1>
+      <p class="tagline">{{ t('app.tagline') }}</p>
     </div>
 
-    <h2 class="step-title">完善个人资料</h2>
-    <p class="step-sub">让我们更好地了解你</p>
+    <h2 class="step-title">{{ t('wizard.welcome') }}</h2>
+    <p class="step-sub">{{ t('wizard.welcomeSub') }}</p>
 
     <!-- Avatar -->
     <div class="form-group">
-      <label class="form-label">头像</label>
+      <label class="form-label">{{ t('wizard.fields.avatar') }}</label>
       <div class="avatar-select">
         <button
           v-for="emoji in avatars"
@@ -27,21 +27,21 @@
 
     <!-- Nickname -->
     <div class="form-group">
-      <label class="form-label" for="nickname">昵称</label>
+      <label class="form-label" for="nickname">{{ t('wizard.fields.nickname') }}</label>
       <input
         id="nickname"
         v-model="form.nickname"
         class="form-input"
         type="text"
         maxlength="20"
-        placeholder="你的学习昵称"
+        :placeholder="t('wizard.fields.nicknamePlaceholder')"
       />
       <span class="char-count">{{ form.nickname.length }}/20</span>
     </div>
 
     <!-- Native Language -->
     <div class="form-group">
-      <label class="form-label">母语</label>
+      <label class="form-label">{{ t('wizard.fields.native') }}</label>
       <div class="pill-group">
         <button
           v-for="lang in languages"
@@ -57,7 +57,7 @@
 
     <!-- Country -->
     <div class="form-group">
-      <label class="form-label">国家/地区</label>
+      <label class="form-label">{{ t('wizard.fields.country') }}</label>
       <select v-model="form.country" class="form-input">
         <option v-for="c in countries" :key="c.value" :value="c.value">
           {{ c.flag }} {{ c.label }}
@@ -67,7 +67,10 @@
 
     <!-- Gender -->
     <div class="form-group">
-      <label class="form-label">性别 <span class="optional">（选填）</span></label>
+      <label class="form-label">
+        {{ t('wizard.fields.gender') }}
+        <span class="optional">{{ t('wizard.fields.genderOptional') }}</span>
+      </label>
       <div class="pill-group">
         <button
           v-for="g in genders"
@@ -83,54 +86,59 @@
 
     <!-- Birth Year -->
     <div class="form-group">
-      <label class="form-label">出生年份 <span class="optional">（选填）</span></label>
+      <label class="form-label">
+        {{ t('wizard.fields.year') }}
+        <span class="optional">{{ t('wizard.fields.genderOptional') }}</span>
+      </label>
       <select v-model="form.birthYear" class="form-input">
-        <option :value="null">选择出生年份</option>
+        <option :value="null">{{ t('wizard.fields.yearPlaceholder') }}</option>
         <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</option>
       </select>
     </div>
 
     <div class="wizard-footer">
-      <button class="btn-primary" @click="emitNext">下一步</button>
-      <button class="btn-link" @click="emitNext">跳过，以后再说</button>
+      <button class="btn-primary" @click="emitNext">{{ t('wizard.next') }}</button>
+      <button class="btn-link" @click="emitNext">{{ t('wizard.skip') }}</button>
     </div>
   </div>
 </template>
 
 <script setup>
 import { reactive, computed } from "vue";
+import { useI18n } from "@/shared/i18n";
 
 const emit = defineEmits(["next"]);
+const { t } = useI18n();
 
 const avatars = ["😊", "😎", "🤓", "🌸", "🦊", "🐱", "🐶", "🐻", "🦉", "🌟", "🎯", "🎨"];
 
-const languages = [
-  { value: "zh", flag: "🇨🇳", label: "中文" },
-  { value: "en", flag: "🇬🇧", label: "English" },
-  { value: "es", flag: "🇪🇸", label: "Español" },
+const languages = computed(() => [
+  { value: "zh", flag: "🇨🇳", label: t("lang.zh") },
+  { value: "en", flag: "🇬🇧", label: t("lang.en") },
+  { value: "es", flag: "🇪🇸", label: t("lang.es") },
   { value: "ja", flag: "🇯🇵", label: "日本語" },
   { value: "fr", flag: "🇫🇷", label: "Français" },
   { value: "de", flag: "🇩🇪", label: "Deutsch" },
-];
+]);
 
-const countries = [
-  { value: "CN", flag: "🇨🇳", label: "中国" },
-  { value: "ES", flag: "🇪🇸", label: "西班牙" },
-  { value: "MX", flag: "🇲🇽", label: "墨西哥" },
-  { value: "AR", flag: "🇦🇷", label: "阿根廷" },
-  { value: "US", flag: "🇺🇸", label: "美国" },
-  { value: "JP", flag: "🇯🇵", label: "日本" },
-];
+const countries = computed(() => [
+  { value: "CN", flag: "🇨🇳", label: t("country.CN") },
+  { value: "ES", flag: "🇪🇸", label: t("country.ES") },
+  { value: "MX", flag: "🇲🇽", label: t("country.MX") },
+  { value: "AR", flag: "🇦🇷", label: t("country.AR") },
+  { value: "US", flag: "🇺🇸", label: t("country.US") },
+  { value: "JP", flag: "🇯🇵", label: t("country.JP") },
+]);
 
-const genders = [
-  { value: "male", label: "男" },
-  { value: "female", label: "女" },
-  { value: "private", label: "不公开" },
-];
+const genders = computed(() => [
+  { value: "male", label: t("wizard.genders.male") },
+  { value: "female", label: t("wizard.genders.female") },
+  { value: "private", label: t("wizard.genders.private") },
+]);
 
 const form = reactive({
   avatar: "😊",
-  nickname: "学习者",
+  nickname: "",
   nativeLanguage: "zh",
   country: "CN",
   gender: "private",

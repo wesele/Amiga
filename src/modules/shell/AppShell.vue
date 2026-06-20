@@ -10,7 +10,7 @@
             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h5V7h-5v10zm-2 0V7H5v10h5z"/>
           </svg>
         </div>
-        <span class="nav-label">学习</span>
+        <span class="nav-label">{{ t('nav.learn') }}</span>
       </router-link>
       <router-link to="/vocab" class="nav-item" active-class="active">
         <div class="nav-icon">
@@ -18,7 +18,7 @@
             <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12zm-7-1h2v-4h4V9h-4V5h-2v4H9v2h4v4z"/>
           </svg>
         </div>
-        <span class="nav-label">单词</span>
+        <span class="nav-label">{{ t('nav.vocab') }}</span>
       </router-link>
       <router-link to="/interaction" class="nav-item" active-class="active">
         <div class="nav-icon">
@@ -27,7 +27,7 @@
             <path d="M7 9h2v2H7V9zm4 0h2v2h-2V9zm4 0h2v2h-2V9z"/>
           </svg>
         </div>
-        <span class="nav-label">互动</span>
+        <span class="nav-label">{{ t('nav.interaction') }}</span>
       </router-link>
       <router-link to="/profile" class="nav-item" active-class="active">
         <div class="nav-icon">
@@ -35,7 +35,7 @@
             <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
           </svg>
         </div>
-        <span class="nav-label">我的</span>
+        <span class="nav-label">{{ t('nav.profile') }}</span>
       </router-link>
     </nav>
   </div>
@@ -44,7 +44,9 @@
 <script setup>
 import { computed } from "vue";
 import { useRoute } from "vue-router";
+import { useI18n } from "@/shared/i18n";
 
+const { t } = useI18n();
 const route = useRoute();
 const showNav = computed(() => {
   const noNavRoutes = ["wizard", "reader", "interaction-chat"];

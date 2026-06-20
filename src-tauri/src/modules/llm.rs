@@ -1,8 +1,8 @@
+use crate::modules::database::DatabasePool;
+use log;
 use reqwest;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
-use log;
-use crate::modules::database::DatabasePool;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ModelConfig {
@@ -69,7 +69,11 @@ impl LlmClient {
         Self { http }
     }
 
-    async fn chat(&self, config: &ModelConfig, messages: Vec<ChatMessage>) -> Result<String, String> {
+    async fn chat(
+        &self,
+        config: &ModelConfig,
+        messages: Vec<ChatMessage>,
+    ) -> Result<String, String> {
         let url = format!("{}/chat/completions", config.base_url.trim_end_matches('/'));
 
         // Standard OpenAI-compatible request body
@@ -83,7 +87,8 @@ impl LlmClient {
 
         log::debug!("LLM request to {}: model={}", url, config.model);
 
-        let response = self.http
+        let response = self
+            .http
             .post(&url)
             .header("Authorization", format!("Bearer {}", config.api_key))
             .header("Content-Type", "application/json")
@@ -95,17 +100,26 @@ impl LlmClient {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            return Err(format!("API error {}: {}", status, &text[..text.len().min(300)]));
+            return Err(format!(
+                "API error {}: {}",
+                status,
+                &text[..text.len().min(300)]
+            ));
         }
 
-        let raw_text = response.text().await
+        let raw_text = response
+            .text()
+            .await
             .map_err(|e| format!("Failed to read response body: {}", e))?;
 
-        let json: serde_json::Value = serde_json::from_str(&raw_text)
-            .map_err(|e| format!("Invalid JSON response: {}", e))?;
+        let json: serde_json::Value =
+            serde_json::from_str(&raw_text).map_err(|e| format!("Invalid JSON response: {}", e))?;
 
         // Standard OpenAI: choices[0].message.content
-        if let Some(content) = json.pointer("/choices/0/message/content").and_then(|v| v.as_str()) {
+        if let Some(content) = json
+            .pointer("/choices/0/message/content")
+            .and_then(|v| v.as_str())
+        {
             if !content.is_empty() {
                 log::debug!("LLM response: content field ({} chars)", content.len());
                 return Ok(content.to_string());
@@ -114,7 +128,8 @@ impl LlmClient {
 
         // Reasoning models: reasoning_content (DeepSeek-style) or reasoning (Nemotron-style)
         // Contains chain-of-thought, NOT the final answer
-        let reasoning = json.pointer("/choices/0/message/reasoning_content")
+        let reasoning = json
+            .pointer("/choices/0/message/reasoning_content")
             .or_else(|| json.pointer("/choices/0/message/reasoning"))
             .and_then(|v| v.as_str());
 
@@ -140,7 +155,10 @@ impl LlmClient {
             return Ok(content.to_string());
         }
 
-        Err(format!("LLM returned empty content. Response: {}", &raw_text[..raw_text.len().min(500)]))
+        Err(format!(
+            "LLM returned empty content. Response: {}",
+            &raw_text[..raw_text.len().min(500)]
+        ))
     }
 
     pub async fn chat_with_fallback(
@@ -171,7 +189,10 @@ impl LlmClient {
                 }
                 Err(e) => {
                     log::error!("Backup model also failed: {}", e);
-                    return Err(format!("AI 功能暂时不可用。主模型错误: {}，备用模型错误: {}", primary_error, e));
+                    return Err(format!(
+                        "AI 功能暂时不可用。主模型错误: {}，备用模型错误: {}",
+                        primary_error, e
+                    ));
                 }
             }
         }
@@ -193,7 +214,8 @@ impl LlmClient {
             "max_tokens": 5
         });
 
-        match self.http
+        match self
+            .http
             .post(&url)
             .header("Authorization", format!("Bearer {}", config.api_key))
             .header("Content-Type", "application/json")
@@ -208,12 +230,16 @@ impl LlmClient {
             Ok(resp) => {
                 let status = resp.status();
                 let text = resp.text().await.unwrap_or_default();
-                let short_msg = if text.len() > 100 { &text[..100] } else { &text };
+                let short_msg = if text.len() > 100 {
+                    &text[..100]
+                } else {
+                    &text
+                };
                 TestResult {
                     success: false,
                     message: format!("连接失败: HTTP {} - {}", status, short_msg),
                 }
-            },
+            }
             Err(e) => TestResult {
                 success: false,
                 message: format!("连接失败: {}", e),
@@ -222,7 +248,11 @@ impl LlmClient {
     }
 }
 
-fn build_chat_messages(db: &DatabasePool, prompt_key: &str, vars: &[(&str, &str)]) -> Vec<ChatMessage> {
+fn build_chat_messages(
+    db: &DatabasePool,
+    prompt_key: &str,
+    vars: &[(&str, &str)],
+) -> Vec<ChatMessage> {
     let (sys, usr) = match crate::modules::prompts::get_prompt(db, prompt_key) {
         Ok(p) => (p.system_prompt, p.user_prompt_template),
         Err(_) => {
@@ -237,16 +267,28 @@ fn build_chat_messages(db: &DatabasePool, prompt_key: &str, vars: &[(&str, &str)
     }
 
     vec![
-        ChatMessage { role: "system".to_string(), content: sys },
-        ChatMessage { role: "user".to_string(), content: filled },
+        ChatMessage {
+            role: "system".to_string(),
+            content: sys,
+        },
+        ChatMessage {
+            role: "user".to_string(),
+            content: filled,
+        },
     ]
 }
 
 /// Fallback build messages for when DB prompts are not available
 fn build_chat_messages_fallback(system: &str, user: &str) -> Vec<ChatMessage> {
     vec![
-        ChatMessage { role: "system".to_string(), content: system.to_string() },
-        ChatMessage { role: "user".to_string(), content: user.to_string() },
+        ChatMessage {
+            role: "system".to_string(),
+            content: system.to_string(),
+        },
+        ChatMessage {
+            role: "user".to_string(),
+            content: user.to_string(),
+        },
     ]
 }
 
@@ -281,10 +323,7 @@ pub async fn rewrite_article(
               正文：{}",
             cefr_level, cefr_level, words_list, original_title, original_text
         );
-        build_chat_messages_fallback(
-            "你是专业的语言学习改写助手，只返回JSON格式。",
-            &prompt,
-        )
+        build_chat_messages_fallback("你是专业的语言学习改写助手，只返回JSON格式。", &prompt)
     } else {
         messages
     };
@@ -292,19 +331,22 @@ pub async fn rewrite_article(
     let response = client.chat_with_fallback(db, messages).await?;
 
     // Parse JSON response
-    let cleaned = response.trim()
+    let cleaned = response
+        .trim()
         .trim_start_matches("```json")
         .trim_start_matches("```")
         .trim_end_matches("```")
         .trim();
 
-    let result: RewriteResult = serde_json::from_str(cleaned)
-        .map_err(|e| {
-            log::error!("Failed to parse rewrite response: {}. Raw: {}", e, response);
-            format!("AI 返回格式异常: {}", e)
-        })?;
+    let result: RewriteResult = serde_json::from_str(cleaned).map_err(|e| {
+        log::error!("Failed to parse rewrite response: {}. Raw: {}", e, response);
+        format!("AI 返回格式异常: {}", e)
+    })?;
 
-    log::info!("Article rewritten successfully, {} new words used", result.new_words_used.len());
+    log::info!(
+        "Article rewritten successfully, {} new words used",
+        result.new_words_used.len()
+    );
     Ok(result)
 }
 
@@ -349,17 +391,21 @@ pub async fn translate_word(
 
     let response = client.chat_with_fallback(db, messages).await?;
 
-    let cleaned = response.trim()
+    let cleaned = response
+        .trim()
         .trim_start_matches("```json")
         .trim_start_matches("```")
         .trim_end_matches("```")
         .trim();
 
-    let result: TranslationResult = serde_json::from_str(cleaned)
-        .map_err(|e| {
-            log::error!("Failed to parse translation response: {}. Raw: {}", e, response);
-            format!("翻译返回格式异常: {}", e)
-        })?;
+    let result: TranslationResult = serde_json::from_str(cleaned).map_err(|e| {
+        log::error!(
+            "Failed to parse translation response: {}. Raw: {}",
+            e,
+            response
+        );
+        format!("翻译返回格式异常: {}", e)
+    })?;
 
     log::debug!("Word translated: {} -> {}", word, result.translation_zh);
     Ok(result)
@@ -385,10 +431,7 @@ pub async fn translate_paragraphs(
         .collect();
     let paras_str = numbered.join("\n");
 
-    let vars = [
-        ("TARGET_LANG", lang_name),
-        ("PARAGRAPHS", &paras_str),
-    ];
+    let vars = [("TARGET_LANG", lang_name), ("PARAGRAPHS", &paras_str)];
 
     let messages = build_chat_messages(db, "translate-paragraphs", &vars);
 
@@ -401,27 +444,28 @@ pub async fn translate_paragraphs(
             lang_name,
             paras_str,
         );
-        build_chat_messages_fallback(
-            "你是专业翻译，只返回 JSON 数组格式。",
-            &prompt,
-        )
+        build_chat_messages_fallback("你是专业翻译，只返回 JSON 数组格式。", &prompt)
     } else {
         messages
     };
 
     let response = client.chat_with_fallback(db, messages).await?;
 
-    let cleaned = response.trim()
+    let cleaned = response
+        .trim()
         .trim_start_matches("```json")
         .trim_start_matches("```")
         .trim_end_matches("```")
         .trim();
 
-    let translations: Vec<String> = serde_json::from_str(cleaned)
-        .map_err(|e| {
-            log::error!("Failed to parse paragraph translations: {}. Raw: {}", e, response);
-            format!("段落翻译格式异常: {}", e)
-        })?;
+    let translations: Vec<String> = serde_json::from_str(cleaned).map_err(|e| {
+        log::error!(
+            "Failed to parse paragraph translations: {}. Raw: {}",
+            e,
+            response
+        );
+        format!("段落翻译格式异常: {}", e)
+    })?;
 
     log::info!("Translated {} paragraphs", translations.len());
     Ok(translations)
@@ -430,14 +474,18 @@ pub async fn translate_paragraphs(
 // --- Settings persistence ---
 
 pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
 
     let get_setting = |key: &str| -> Option<String> {
         conn.query_row(
             "SELECT value FROM app_settings WHERE key = ?1",
             params![key],
             |row| row.get(0),
-        ).ok()
+        )
+        .ok()
     };
 
     let primary = {
@@ -446,7 +494,11 @@ pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
         let model_name = get_setting("primary_model");
         match (base_url, api_key, model_name) {
             (Some(b), Some(k), Some(m)) if !b.is_empty() && !k.is_empty() && !m.is_empty() => {
-                Some(ModelConfig { base_url: b, api_key: k, model: m })
+                Some(ModelConfig {
+                    base_url: b,
+                    api_key: k,
+                    model: m,
+                })
             }
             _ => None,
         }
@@ -458,7 +510,11 @@ pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
         let model_name = get_setting("backup_model");
         match (base_url, api_key, model_name) {
             (Some(b), Some(k), Some(m)) if !b.is_empty() && !k.is_empty() && !m.is_empty() => {
-                Some(ModelConfig { base_url: b, api_key: k, model: m })
+                Some(ModelConfig {
+                    base_url: b,
+                    api_key: k,
+                    model: m,
+                })
             }
             _ => None,
         }
@@ -468,23 +524,32 @@ pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
 }
 
 pub fn save_llm_setting(db: &DatabasePool, key: &str, value: &str) -> Result<(), String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
     conn.execute(
         "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
          ON CONFLICT(key) DO UPDATE SET value = ?2",
         params![key, value],
-    ).map_err(|e| format!("Failed to save setting: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to save setting: {}", e))?;
     log::debug!("Setting saved: {}", key);
     Ok(())
 }
 
 pub fn get_setting(db: &DatabasePool, key: &str) -> Result<Option<String>, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock error: {}", e))?;
-    let result = conn.query_row(
-        "SELECT value FROM app_settings WHERE key = ?1",
-        params![key],
-        |row| row.get(0),
-    ).ok();
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|e| format!("DB lock error: {}", e))?;
+    let result = conn
+        .query_row(
+            "SELECT value FROM app_settings WHERE key = ?1",
+            params![key],
+            |row| row.get(0),
+        )
+        .ok();
     Ok(result)
 }
 

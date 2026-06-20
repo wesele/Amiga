@@ -5,14 +5,35 @@ import { createRouter } from "./router";
 import "./style.css";
 import { kernel } from "./shared/kernel";
 import { isWizardCompleted } from "./shared/api.js";
+import i18nPlugin, { initLocale, i18n } from "./shared/i18n/index.js";
 
 async function bootstrap() {
+  // Browser-dev escape hatch: `?locale=en` (or `es` / `zh`) overrides the
+  // persistent setting. Useful for headless screenshots and for previewing
+  // translations without having a Tauri shell running.
+  if (typeof window !== "undefined") {
+    const params = new URLSearchParams(window.location.search);
+    const queryLocale = params.get("locale");
+    if (queryLocale) {
+      const { setLocale } = await import("./shared/i18n/index.js");
+      setLocale(queryLocale, { persist: false });
+    }
+  }
+
+  // Hydrate the UI language from persistent storage before the first render,
+  // so the wizard / shell display in the user's chosen language.
+  await initLocale();
+
   const app = createApp(App);
   const pinia = createPinia();
   const router = createRouter();
 
   app.use(pinia);
   app.use(router);
+  app.use(i18nPlugin);
+
+  // Mirror the locale on <html lang> for accessibility / OS-level tooling.
+  document.documentElement.lang = i18n.locale.value;
 
   kernel.init(router, pinia);
 
