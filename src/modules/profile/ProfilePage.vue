@@ -121,34 +121,32 @@ import {
   getUserVocabStats,
   getReadArticleCount,
   checkUpdate,
-  getTargetLanguage,
-  setTargetLanguage,
 } from "@/shared/api.js";
 import { open } from "@tauri-apps/plugin-shell";
 import SettingsItem from "./components/SettingsItem.vue";
 import { useI18n } from "@/shared/i18n";
+import { useTargetLangStore } from "@/stores/targetLang.js";
 import { AVAILABLE_LANGUAGES } from "@/shared/constants.js";
 
 const { t } = useI18n();
+const targetLangStore = useTargetLangStore();
 const user = ref(null);
 const goals = ref([]);
 const vocabStats = ref(null);
 const readArticleCount = ref(0);
-const currentTargetLang = ref("");
+const currentTargetLang = computed(() => targetLangStore.code || "");
 const currentLevel = ref("A1");
-const switching = ref(false);
+const switching = computed(() => targetLangStore.updating);
 const availableLanguages = AVAILABLE_LANGUAGES;
 
 onMounted(async () => {
   try {
+    // Idempotent — main.js has already called this before mount.
+    await targetLangStore.load();
     user.value = await getCurrentUser();
     goals.value = await getLearningGoals(user.value.id);
     vocabStats.value = await getUserVocabStats(user.value.id);
     readArticleCount.value = await getReadArticleCount(user.value.id);
-    try {
-      const lang = await getTargetLanguage();
-      if (lang) currentTargetLang.value = lang;
-    } catch (_) { /* keep default */ }
     // Find the current level from the goal row matching the active target.
     const g = goals.value.find((x) => x.target_language === currentTargetLang.value) || goals.value[0];
     if (g) currentLevel.value = g.cefr_level;
@@ -159,10 +157,8 @@ onMounted(async () => {
 
 async function onSwitchLang(code) {
   if (switching.value || code === currentTargetLang.value) return;
-  switching.value = true;
   try {
-    await setTargetLanguage(code);
-    currentTargetLang.value = code;
+    await targetLangStore.set(code);
     // Refresh goals list so the level summary updates.
     try {
       const u = user.value;
@@ -172,8 +168,6 @@ async function onSwitchLang(code) {
     } catch (_) { /* ignore */ }
   } catch (e) {
     console.error("Failed to switch target language:", e);
-  } finally {
-    switching.value = false;
   }
 }
 

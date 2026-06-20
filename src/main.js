@@ -5,6 +5,7 @@ import { createRouter } from "./router";
 import "./style.css";
 import { kernel } from "./shared/kernel";
 import { isWizardCompleted } from "./shared/api.js";
+import { useTargetLangStore } from "./stores/targetLang.js";
 import i18nPlugin, { initLocale, i18n } from "./shared/i18n/index.js";
 
 async function bootstrap() {
@@ -36,6 +37,11 @@ async function bootstrap() {
   document.documentElement.lang = i18n.locale.value;
 
   kernel.init(router, pinia);
+
+  // Hydrate the active target language before any module mounts, so the
+  // first onMounted in news/vocab/interaction reads a ready store instead of
+  // racing against the backend roundtrip.
+  await useTargetLangStore(pinia).load();
 
   // Load shell first (provides the layout)
   await kernel.loadModule("shell");

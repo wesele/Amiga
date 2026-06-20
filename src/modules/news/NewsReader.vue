@@ -110,13 +110,16 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, getTargetLanguage } from "@/shared/api.js";
+import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen } from "@/shared/api.js";
 import WordPopup from "./components/WordPopup.vue";
 import { useI18n } from "@/shared/i18n";
+import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
+import { eventBus } from "@/shared/eventBus.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
 const router = useRouter();
+const targetLangStore = useTargetLangStore();
 
 const article = ref(null);
 const rewriting = ref(false);
@@ -127,6 +130,7 @@ const startTime = ref(Date.now());
 let targetLang = "es";
 let userId = "";
 let nativeLang = "zh";
+let unsubscribe = null;
 
 // Bilingual mode state
 const bilingualMode = ref(false);
@@ -148,10 +152,7 @@ onMounted(async () => {
     const user = await getCurrentUser();
     userId = user.id;
     nativeLang = user.native_language || "zh";
-    try {
-      const lang = await getTargetLanguage();
-      if (lang) targetLang = lang;
-    } catch (_) { /* keep default */ }
+    targetLang = (await targetLangStore.load()) || "es";
     const art = await getArticle(Number(props.id));
     article.value = art;
     if (!art.rewritten_body) {
@@ -160,9 +161,18 @@ onMounted(async () => {
   } catch (e) {
     console.error("Failed to load article:", e);
   }
+  // The reader is bound to a single article; if the user switches target
+  // language elsewhere, jump back to the list so NewsList can refetch
+  // articles in the new language.
+  unsubscribe = eventBus.on(TARGET_LANG_CHANGED, () => {
+    if (router.currentRoute.value.path.startsWith("/news/")) {
+      router.replace("/news");
+    }
+  });
 });
 
 onBeforeUnmount(async () => {
+  if (unsubscribe) unsubscribe();
   document.removeEventListener("selectionchange", onSelectionChange);
   document.removeEventListener("pointerup", onPointerUp);
   delete window.__amigaTranslateSelection;

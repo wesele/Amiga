@@ -57,57 +57,54 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from "vue";
+import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { useRouter } from "vue-router";
-import { getArticles, fetchNews, getTargetLanguage, getCurrentUser } from "@/shared/api.js";
+import { getArticles, fetchNews, getCurrentUser } from "@/shared/api.js";
 import { openSourceUrl } from "./utils.js";
 import { useI18n } from "@/shared/i18n";
+import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
+import { eventBus } from "@/shared/eventBus.js";
 
 const { t, locale } = useI18n();
 const router = useRouter();
+const targetLangStore = useTargetLangStore();
 const articles = ref([]);
 const loading = ref(false);
 const statusText = ref("");
 let statusTimer = null;
 let userId = "";
 
-const targetLang = ref("es");
+const targetLang = computed(() => targetLangStore.code || "es");
+let unsubscribe = null;
 
 const formattedDate = computed(() => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 });
 
-async function refreshTargetLang() {
-  try {
-    const lang = await getTargetLanguage();
-    if (lang) targetLang.value = lang;
-  } catch (e) {
-    // default to es
-  }
-}
-
 onMounted(async () => {
   try {
     const u = await getCurrentUser();
     userId = u?.id || "";
   } catch (e) { /* dev mode without tauri */ }
-  await refreshTargetLang();
+  await targetLangStore.load();
   await loadArticles();
   // Auto-fetch if no articles
   if (articles.value.length === 0) {
     await onRefresh();
   }
+  // React to language switches from any other page (Profile).
+  unsubscribe = eventBus.on(TARGET_LANG_CHANGED, async () => {
+    articles.value = [];
+    await loadArticles();
+    if (articles.value.length === 0) {
+      await onRefresh();
+    }
+  });
 });
 
-// When the user switches the target language elsewhere (Profile page),
-// refresh the article list immediately.
-watch(targetLang, async () => {
-  articles.value = [];
-  await loadArticles();
-  if (articles.value.length === 0) {
-    await onRefresh();
-  }
+onBeforeUnmount(() => {
+  if (unsubscribe) unsubscribe();
 });
 
 async function loadArticles() {

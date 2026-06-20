@@ -44,12 +44,13 @@ import {
   saveLearningGoal,
   initUserVocab,
   getCurrentUser,
-  setTargetLanguage,
 } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
+import { useTargetLangStore } from "@/stores/targetLang.js";
 
 const { t } = useI18n();
 const router = useRouter();
+const targetLangStore = useTargetLangStore();
 const current = ref(0);
 const prevStep = ref(0);
 
@@ -122,8 +123,11 @@ async function saveToBackend() {
 
     // Persist the wizard's choice as the active target language so
     // downstream pages (news/vocab/chat) read it from the same source.
+    // The store emits a `targetLang:changed` event so any mounted consumers
+    // refresh immediately; here it has no listeners yet but the value
+    // is what the first onMounted will read.
     try {
-      await setTargetLanguage(targetLang);
+      await targetLangStore.set(targetLang);
     } catch (e) {
       console.warn("setTargetLanguage failed during wizard", e);
     }

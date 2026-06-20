@@ -97,22 +97,26 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
-import { getCurrentUser, getUserVocabByLevel, getUserVocabStatsByLevel, updateWordMastery, resetUserVocabByLevel, getTargetLanguage } from "@/shared/api.js";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { getCurrentUser, getUserVocabByLevel, getUserVocabStatsByLevel, updateWordMastery, resetUserVocabByLevel } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
+import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
+import { eventBus } from "@/shared/eventBus.js";
 import { displayLang } from "@/shared/constants.js";
 import WordPopup from "./components/WordPopup.vue";
 
 const { t, locale } = useI18n();
+const targetLangStore = useTargetLangStore();
 const loading = ref(true);
 const error = ref("");
 const stats = ref([]);
 const words = ref([]);
 const drilledLevel = ref("");
 const activeStatus = ref("all");
-const userLang = ref("es");
+const userLang = computed(() => targetLangStore.code || "es");
 const userId = ref("");
 const selectedWord = ref(null);
+let unsubscribe = null;
 
 const statusTabs = computed(() => [
   { label: t("vocab.tabs.all"), value: "all" },
@@ -215,23 +219,29 @@ async function resetLevel() {
   } catch (_) {}
 }
 
-async function init() {
+onMounted(async () => {
   loading.value = true;
   error.value = "";
   try {
     const user = await getCurrentUser();
     userId.value = user.id;
-    try {
-      const lang = await getTargetLanguage();
-      if (lang) userLang.value = lang;
-    } catch (_) { /* keep default */ }
+    await targetLangStore.load();
     await loadStats();
   } catch (e) {
     error.value = t("common.fail");
   } finally {
     loading.value = false;
   }
-}
+  unsubscribe = eventBus.on(TARGET_LANG_CHANGED, async () => {
+    drilledLevel.value = "";
+    words.value = [];
+    await loadStats();
+  });
+});
+
+onBeforeUnmount(() => {
+  if (unsubscribe) unsubscribe();
+});
 
 // React to the user changing the learning language elsewhere (Profile page).
 watch(userLang, async () => {
@@ -239,8 +249,6 @@ watch(userLang, async () => {
   words.value = [];
   await loadStats();
 });
-
-init();
 </script>
 
 <style scoped>

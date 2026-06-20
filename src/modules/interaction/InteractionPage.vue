@@ -68,17 +68,19 @@ import { ref, nextTick, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   getCurrentUser,
-  getTargetLanguage,
   chatCompletionWithSession,
   getChatMessages,
   deleteChatSession,
 } from "@/shared/api.js";
 import MarkdownText from "@/shared/components/MarkdownText.vue";
 import { useI18n } from "@/shared/i18n";
+import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
+import { eventBus } from "@/shared/eventBus.js";
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const targetLangStore = useTargetLangStore();
 
 const messages = ref([]);
 const inputText = ref("");
@@ -95,6 +97,7 @@ const targetLang = ref("es");
 const nativeLang = ref("zh");
 let cachedViewportHeight = 0;
 let syncRaf = null;
+let unsubscribe = null;
 const vv = window.visualViewport;
 
 function startSync() {
@@ -187,6 +190,7 @@ async function deleteCurrentSession() {
 
 onUnmounted(() => {
   stopSync();
+  if (unsubscribe) unsubscribe();
   if (vv) {
     vv.removeEventListener("resize", onViewportResize);
   }
@@ -202,10 +206,7 @@ onMounted(async () => {
 
   try {
     const user = await getCurrentUser();
-    try {
-      const lang = await getTargetLanguage();
-      if (lang) targetLang.value = lang;
-    } catch (_) { /* keep default */ }
+    targetLang.value = (await targetLangStore.load()) || "es";
     if (user?.native_language) {
       nativeLang.value = user.native_language;
     }
@@ -224,6 +225,12 @@ onMounted(async () => {
       }
     }
   } catch { /* default amiga */ }
+
+  // The ongoing conversation keeps its history; subsequent messages use
+  // the freshly selected target language.
+  unsubscribe = eventBus.on(TARGET_LANG_CHANGED, (newCode) => {
+    targetLang.value = newCode || "es";
+  });
 
   await loadMessages();
   focusInput();
