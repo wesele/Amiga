@@ -258,7 +258,7 @@ pub async fn chat_completion_with_session(
     let (profile_json, summary, msg_count, contact_type) = get_session_profile(db, session_id)?;
 
     let system = match contact_type.as_str() {
-        "translator" => build_translator_system_prompt(db),
+        "translator" => build_translator_system_prompt(db, target_lang, native_lang),
         _ => build_amiga_system_prompt(db, native_lang, target_lang, &profile_json, &summary),
     };
 
@@ -297,12 +297,28 @@ fn build_amiga_system_prompt(
     profile_json: &str,
     summary: &str,
 ) -> String {
-    let vars = [("NATIVE_LANG", native_lang), ("TARGET_LANG", target_lang)];
+    let native_label = crate::modules::llm::lang_name(native_lang);
+    let target_label = crate::modules::llm::lang_name(target_lang);
+    let vars = [("NATIVE_LANG", native_label), ("TARGET_LANG", target_label)];
     let mut system = match load_system_prompt(db, "amiga-chat", &vars) {
         Some(p) => p,
         None => {
-            // Fallback (should not happen after ensure_default_prompts)
-            format!("你叫 Amiga，是一位 AI 语言学习伙伴。你的性格：友善、耐心、鼓励、幽默。\n\n用户的目标语言: {}\n用户的母语: {}\n\n对话规则：\n1. 用用户的母语交流，但在回复的消息末尾，附上 1-2 句目标语言的例句或练习\n2. 如果用户用目标语言发消息，先肯定和鼓励，再纠正明显错误（不要过度纠正）\n3. 保持对话自然流畅，像朋友一样聊天\n4. 可以主动出简单的小题目帮助练习\n5. 适当使用 emoji 让对话更生动，但不要过多\n6. 如果是语言相关的问题，给出清晰简洁的解释\n7. 你的名字是 Amiga，每次自我介绍或被人称呼时要保持这个名字", target_lang, native_lang)
+            // Fallback (should not happen after ensure_default_prompts).
+            // The user wrote the default in English so the same fallback
+            // works regardless of the user's target language.
+            format!(
+                "You are Amiga, an AI language-learning buddy. Your personality: friendly, patient, encouraging, light-hearted.\n\n\
+                 User's target language: {target_label}\n\
+                 User's native language: {native_label}\n\n\
+                 Conversation rules:\n\
+                 1. Chat in the user's native language, but append 1-2 example sentences or a small practice in {target_label} at the end of every reply\n\
+                 2. If the user writes in {target_label}, affirm and encourage first, then gently correct obvious errors (do not over-correct)\n\
+                 3. Keep the conversation natural and flowing, like chatting with a friend\n\
+                 4. Proactively offer short practice exercises when appropriate\n\
+                 5. Use emoji to make the conversation lively, but do not overuse\n\
+                 6. For language questions, give clear and concise explanations\n\
+                 7. Your name is Amiga — keep it whenever you introduce yourself or are addressed"
+            )
         }
     };
 
@@ -345,18 +361,27 @@ fn build_amiga_system_prompt(
     system
 }
 
-fn build_translator_system_prompt(db: &DatabasePool) -> String {
-    match load_system_prompt(db, "translator-chat", &[]) {
+fn build_translator_system_prompt(
+    db: &DatabasePool,
+    source_lang: &str,
+    target_lang: &str,
+) -> String {
+    let source_label = crate::modules::llm::lang_name(source_lang);
+    let target_label = crate::modules::llm::lang_name(target_lang);
+    let vars = [("SOURCE_LANG", source_label), ("TARGET_LANG", target_label)];
+    match load_system_prompt(db, "translator-chat", &vars) {
         Some(p) => p,
         None => {
-            r#"你是一个智能翻译助手。对输入的内容进行翻译解释：
-
-- 如果是西语单词：标注读音（IPA），翻译成中文，和英文（标注美式读音IPA），并提供常见用法例句以及这个西语单词的相近词和相反词
-- 如果是西语句子：翻译成中文和英文，并解释关键难点（语法、时态、特殊用法）
-- 如果是中文：提供西语翻译以及相近词和相反词，和英文翻译（不需要相近相反词，标注美式读音IPA）
-- 如果是英文：标注美式读音IPA，提供中文和西语翻译
-
-输出尽量简洁，用短句和列表。"#.to_string()
+            // Language-agnostic fallback: handles any {source_label} word/sentence
+            // and translates into {target_label}.
+            format!(
+                "You are a smart translation assistant. Identify the source language of the user's input and translate/explain it:\n\n\
+                 - If the source is a single {source_label} word: provide IPA pronunciation, translate it into {target_label}, and give a simple usage example plus a similar word and an opposite word\n\
+                 - If the source is a {source_label} sentence: translate it into {target_label} and explain any key difficulties (grammar, tense, idioms)\n\
+                 - For a single word in any other language: provide IPA (American English if applicable), translate it into {target_label}, and (for non-English sources) a similar word and an opposite word\n\
+                 - For a sentence in any other language: translate it into {target_label}\n\n\
+                 Keep the output concise. Prefer short sentences and bullet lists."
+            )
         }
     }
 }
@@ -365,7 +390,7 @@ async fn update_profile_from_conversation(
     client: &LlmClient,
     db: &DatabasePool,
     session_id: &str,
-    _native_lang: &str,
+    native_lang: &str,
     target_lang: &str,
 ) -> Result<(), String> {
     let all_messages = get_messages(db, session_id, MAX_CONTEXT_MESSAGES * 2)?;
@@ -381,25 +406,29 @@ async fn update_profile_from_conversation(
 
     let sys_prompt = match load_system_prompt(db, "profile-analysis", &[]) {
         Some(p) => p,
-        None => "你严格只输出JSON，不包含markdown代码块标记。".to_string(),
+        None => "You output only JSON, no markdown code fences.".to_string(),
     };
 
+    let target_label = crate::modules::llm::lang_name(target_lang);
+    let native_label = crate::modules::llm::lang_name(native_lang);
     let user_prompt = match load_user_prompt_template(
         db,
         "profile-analysis",
         &[
-            ("TARGET_LANG", target_lang),
+            ("TARGET_LANG", target_label),
+            ("NATIVE_LANG", native_label),
             ("CONVERSATION", &conversation),
         ],
     ) {
         Some(p) => p,
         None => {
-            // Fallback
+            // Fallback: same language-agnostic schema, just with {{NATIVE_LANG}}
+            // interpolation for the summary field.
             format!(
-                "你是一位语言学习评估专家。基于以下用户与AI助手的对话，分析用户对{}的学习情况。\n\n请输出JSON格式（不要任何额外文字）：\n{}对话内容：\n{}",
-                target_lang,
-                "{{\n  \"cefr_level\": \"估计的CEFR等级 A1/A2/B1/B2\",\n  \"strengths\": [...],\n  \"weaknesses\": [...],\n  \"known_topics\": [...],\n  \"new_vocab_used\": [...],\n  \"summary\": \"...\"\n}}\n\n",
-                conversation
+                "You are a language-learning assessment expert. Based on the conversation below, analyze the user's progress learning {target_label}.\n\n\
+                 Output JSON (no extra prose):\n\
+                 {{\n  \"cefr_level\": \"A1/A2/B1/B2\",\n  \"strengths\": [...],\n  \"weaknesses\": [...],\n  \"known_topics\": [...],\n  \"new_vocab_used\": [...],\n  \"summary\": \"<concise summary in {native_label}, 50 words>\"\n}}\n\n\
+                 Conversation:\n{conversation}"
             )
         }
     };

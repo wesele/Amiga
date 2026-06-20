@@ -43,11 +43,33 @@ pub struct RewriteResult {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TranslationResult {
-    pub translation_zh: String,
-    pub translation_es: Option<String>,
+    /// Translation of the word in the user's native language.
+    pub translation: String,
     pub ipa: Option<String>,
     pub pos: Option<String>,
     pub example: Option<String>,
+}
+
+/// Map a language code to a human-readable name (used in LLM prompts and
+/// bio strings). Falls back to the raw code for unsupported languages.
+pub fn lang_name(code: &str) -> &'static str {
+    match code {
+        "zh" => "Chinese",
+        "en" => "English",
+        "es" => "Spanish",
+        _ => "the target language",
+    }
+}
+
+/// Map a language code to its localized name (Chinese UI). Used for
+/// Chinese-locale prompts.
+pub fn lang_name_zh(code: &str) -> &'static str {
+    match code {
+        "zh" => "中文",
+        "en" => "英语",
+        "es" => "西班牙语",
+        _ => "目标语言",
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -299,11 +321,14 @@ pub async fn rewrite_article(
     original_title: &str,
     cefr_level: &str,
     new_words: &[String],
+    source_lang: &str,
 ) -> Result<RewriteResult, String> {
     let words_list = new_words.join(", ");
+    let source_label = lang_name(source_lang);
     let vars = [
         ("CEFR_LEVEL", cefr_level),
         ("NEW_WORDS", &words_list),
+        ("SOURCE_LANG", source_label),
         ("TITLE", original_title),
         ("TEXT", original_text),
     ];
@@ -313,17 +338,19 @@ pub async fn rewrite_article(
     // Fallback to hardcoded prompt if DB prompt not available
     let messages = if messages.is_empty() {
         let prompt = format!(
-            "请将以下西班牙语新闻改写成适合 CEFR {} 级别学习者阅读的版本。\n\n\
-              要求：\n\
-              1. 忠实原文 — 新闻事实、人名、地名、数字、日期不得改动\n\
-              2. 用词限制 — 全文尽量使用 {} 级及以下级别的单词\n\
-              3. 可选植入词 — {} 选自然植入\n\n\
-              返回 JSON：{{\"rewritten\": \"改写后的全文\", \"new_words_used\": [\"实际植入的词\"]}}\n\n\
-              标题：{}\n\
-              正文：{}",
-            cefr_level, cefr_level, words_list, original_title, original_text
+            "Rewrite the following {source_label} news article for a CEFR {cefr_level} language learner.\n\n\
+             Requirements:\n\
+             1. Stay faithful — keep all facts, names, places, numbers, and dates intact\n\
+             2. Word level — prefer vocabulary at CEFR {cefr_level} or below\n\
+             3. Optional words — naturally weave in: {words_list}\n\n\
+             Return JSON: {{\"rewritten\": \"the rewritten article\", \"new_words_used\": [\"words actually used\"]}}\n\n\
+             Title: {original_title}\n\
+             Body: {original_text}"
         );
-        build_chat_messages_fallback("你是专业的语言学习改写助手，只返回JSON格式。", &prompt)
+        build_chat_messages_fallback(
+            "You are a language-learning rewrite assistant. Output only JSON, no extra prose.",
+            &prompt,
+        )
     } else {
         messages
     };
@@ -340,7 +367,7 @@ pub async fn rewrite_article(
 
     let result: RewriteResult = serde_json::from_str(cleaned).map_err(|e| {
         log::error!("Failed to parse rewrite response: {}. Raw: {}", e, response);
-        format!("AI 返回格式异常: {}", e)
+        format!("AI response format error: {}", e)
     })?;
 
     log::info!(
@@ -355,34 +382,35 @@ pub async fn translate_word(
     db: &DatabasePool,
     word: &str,
     context: &str,
+    source_lang: &str,
     native_lang: &str,
 ) -> Result<TranslationResult, String> {
-    let lang_name = match native_lang {
-        "zh" => "中文",
-        "en" => "English",
-        "es" => "Español",
-        _ => native_lang,
-    };
+    let native_label = lang_name(native_lang);
+    let source_label = lang_name(source_lang);
 
     let vars = [
         ("WORD", word),
         ("CONTEXT", context),
-        ("TARGET_LANG", lang_name),
+        ("SOURCE_LANG", source_label),
+        ("TARGET_LANG", native_label),
     ];
 
     let messages = build_chat_messages(db, "translate-word", &vars);
 
     let messages = if messages.is_empty() {
         let prompt = format!(
-            "翻译以下西班牙语单词，基于给定上下文：\n\
-             单词: {}\n\
-             上下文: {}\n\
-             目标翻译语言: {}\n\
-             返回严格的 JSON 格式：{{\"translation_zh\": \"中文翻译\", \"translation_es\": \"西语释义\", \"ipa\": \"IPA音标\", \"pos\": \"词性(名词/动词/形容词等)\", \"example\": \"一个简单例句\"}}",
-            word, context, lang_name
+            "Translate the following {source_label} word, given its context. \
+             Output a translation in {native_label}.\n\
+             Word: {word}\n\
+             Context: {context}\n\
+             Return a strict JSON object: \
+             {{\"translation\": \"<translation in {native_label}>\", \
+             \"ipa\": \"IPA pronunciation\", \
+             \"pos\": \"part of speech (noun/verb/adjective/etc.)\", \
+             \"example\": \"one simple example sentence in {source_label}\"}}"
         );
         build_chat_messages_fallback(
-            "你是专业的西班牙语翻译助手。给出准确的翻译和音标信息。只返回JSON格式。",
+            "You are a precise dictionary assistant. Output only the requested JSON, no extra prose.",
             &prompt,
         )
     } else {
@@ -404,10 +432,10 @@ pub async fn translate_word(
             e,
             response
         );
-        format!("翻译返回格式异常: {}", e)
+        format!("Translation response format error: {}", e)
     })?;
 
-    log::debug!("Word translated: {} -> {}", word, result.translation_zh);
+    log::debug!("Word translated: {} -> {}", word, result.translation);
     Ok(result)
 }
 
@@ -416,13 +444,11 @@ pub async fn translate_paragraphs(
     client: &LlmClient,
     db: &DatabasePool,
     paragraphs: &[String],
+    source_lang: &str,
     native_lang: &str,
 ) -> Result<Vec<String>, String> {
-    let lang_name = match native_lang {
-        "zh" => "中文",
-        "en" => "English",
-        _ => native_lang,
-    };
+    let source_label = lang_name(source_lang);
+    let native_label = lang_name(native_lang);
 
     let numbered: Vec<String> = paragraphs
         .iter()
@@ -431,20 +457,27 @@ pub async fn translate_paragraphs(
         .collect();
     let paras_str = numbered.join("\n");
 
-    let vars = [("TARGET_LANG", lang_name), ("PARAGRAPHS", &paras_str)];
+    let vars = [
+        ("SOURCE_LANG", source_label),
+        ("TARGET_LANG", native_label),
+        ("PARAGRAPHS", &paras_str),
+    ];
 
     let messages = build_chat_messages(db, "translate-paragraphs", &vars);
 
     let messages = if messages.is_empty() {
         let prompt = format!(
-            "请将以下西班牙语段落逐段翻译为{}。每段独立翻译，保持原文段落结构。\n\n\
-             段落列表：\n{}\n\n\
-             返回严格的 JSON 数组格式，每个元素对应一段的翻译。例如：[\"第一段翻译\", \"第二段翻译\"]\n\
-             不要添加任何额外文字或解释。",
-            lang_name,
-            paras_str,
+            "Translate the following {source_label} paragraphs into {native_label}, \
+             one translation per paragraph, preserving order.\n\n\
+             Paragraphs:\n{paras_str}\n\n\
+             Return a strict JSON array where each element is the translation of the \
+             corresponding paragraph, e.g. [\"first translation\", \"second translation\"]. \
+             No extra prose."
         );
-        build_chat_messages_fallback("你是专业翻译，只返回 JSON 数组格式。", &prompt)
+        build_chat_messages_fallback(
+            "You are a professional translator. Output only JSON.",
+            &prompt,
+        )
     } else {
         messages
     };
@@ -464,7 +497,7 @@ pub async fn translate_paragraphs(
             e,
             response
         );
-        format!("段落翻译格式异常: {}", e)
+        format!("Paragraph translation format error: {}", e)
     })?;
 
     log::info!("Translated {} paragraphs", translations.len());

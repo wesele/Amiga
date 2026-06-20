@@ -69,6 +69,7 @@
         v-if="selectedWord"
         :word="selectedWord.text"
         :context="selectedWord.context"
+        :source-lang="targetLang"
         :native-lang="nativeLang"
         @close="selectedWord = null"
         @known="onWordKnown"
@@ -259,13 +260,13 @@ async function loadBilingual() {
     const body = article.value?.rewritten_body || article.value?.original_body || "";
     paragraphs.value = body.split("\n\n").map(p => p.trim()).filter(p => p);
     paraTokens.value = paragraphs.value.map(p => tokenize(p));
-    const result = await getBilingual(Number(props.id), nativeLang);
+    const result = await getBilingual(Number(props.id), targetLang, nativeLang);
     translations.value = result;
     // Translate title
     const title = article.value?.original_title || "";
     if (title) {
       try {
-        titleTranslation.value = await translateText(title, nativeLang);
+        titleTranslation.value = await translateText(title, targetLang, nativeLang);
       } catch (_) {
         titleTranslation.value = "";
       }
@@ -400,7 +401,7 @@ function translateSelection(text) {
   selectionResult.value = "";
   selectionError.value = "";
 
-  translateText(text, nativeLang || "zh")
+  translateText(text, targetLang, nativeLang || "zh")
     .then(result => {
       selectionResult.value = result;
       selectionLoading.value = false;

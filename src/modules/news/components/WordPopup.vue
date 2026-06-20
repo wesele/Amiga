@@ -9,7 +9,7 @@
       </div>
 
       <template v-else-if="translation">
-        <div class="popup-trans">{{ translation.translation_zh }}</div>
+        <div class="popup-trans">{{ translation.translation }}</div>
         <div class="popup-extra" v-if="translation.pos || translation.ipa">
           <span v-if="translation.pos" class="tag-pos">{{ translation.pos }}</span>
           <span v-if="translation.ipa" class="tag-ipa">{{ translation.ipa }}</span>
@@ -48,6 +48,7 @@ import { useI18n } from "@/shared/i18n";
 const props = defineProps({
   word: { type: String, required: true },
   context: { type: String, default: "" },
+  sourceLang: { type: String, default: "es" },
   nativeLang: { type: String, default: "zh" },
 });
 
@@ -60,7 +61,7 @@ const error = ref("");
 
 onMounted(async () => {
   try {
-    const result = await translateWord(props.word, props.context, props.nativeLang);
+    const result = await translateWord(props.word, props.context, props.sourceLang, props.nativeLang);
     translation.value = result;
   } catch (e) {
     error.value = t("popup.fail");

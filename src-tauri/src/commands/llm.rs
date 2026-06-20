@@ -37,6 +37,7 @@ pub async fn rewrite_article_cmd(
         &article.original_title,
         &cefr_level,
         &new_words,
+        &target_lang,
     )
     .await?;
 
@@ -61,9 +62,18 @@ pub async fn translate_word_cmd(
     llm: State<'_, LlmState>,
     word: String,
     context: String,
+    source_lang: String,
     native_lang: String,
 ) -> Result<llm_mod::TranslationResult, String> {
-    llm_mod::translate_word(&llm.client, &db, &word, &context, &native_lang).await
+    llm_mod::translate_word(
+        &llm.client,
+        &db,
+        &word,
+        &context,
+        &source_lang,
+        &native_lang,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -114,6 +124,7 @@ pub async fn get_bilingual_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,
     article_id: i32,
+    source_lang: String,
     native_lang: String,
 ) -> Result<Vec<String>, String> {
     use crate::modules::news as news_mod;
@@ -144,7 +155,8 @@ pub async fn get_bilingual_cmd(
 
     // Translate all paragraphs
     let translations =
-        llm_mod::translate_paragraphs(&llm.client, &db, &paragraphs, &native_lang).await?;
+        llm_mod::translate_paragraphs(&llm.client, &db, &paragraphs, &source_lang, &native_lang)
+            .await?;
 
     // Save cache
     let cache_json = serde_json::to_string(&translations).unwrap_or_default();
@@ -158,6 +170,7 @@ pub async fn translate_text_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,
     text: String,
+    source_lang: String,
     native_lang: String,
 ) -> Result<String, String> {
     if text.trim().is_empty() {
@@ -165,6 +178,7 @@ pub async fn translate_text_cmd(
     }
     let paragraphs = vec![text.trim().to_string()];
     let results =
-        llm_mod::translate_paragraphs(&llm.client, &db, &paragraphs, &native_lang).await?;
+        llm_mod::translate_paragraphs(&llm.client, &db, &paragraphs, &source_lang, &native_lang)
+            .await?;
     Ok(results.into_iter().next().unwrap_or_default())
 }

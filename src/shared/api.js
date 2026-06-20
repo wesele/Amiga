@@ -64,17 +64,17 @@ export const getReadArticleCount = (userId) =>
 // ─── LLM ───
 export const rewriteArticle = (articleId, cefrLevel, userId, targetLang) =>
   _invoke("rewrite_article_cmd", { articleId, cefrLevel, userId, targetLang });
-export const translateWord = (word, context, nativeLang) =>
-  _invoke("translate_word_cmd", { word, context, nativeLang });
+export const translateWord = (word, context, sourceLang, nativeLang) =>
+  _invoke("translate_word_cmd", { word, context, sourceLang, nativeLang });
 export const testLlmConnection = (config) =>
   _invoke("test_llm_connection_cmd", { config });
 export const saveLlmConfig = (key, config) =>
   _invoke("save_llm_config_cmd", { key, config });
 export const getLlmConfig = () => _invoke("get_llm_config_cmd");
-export const getBilingual = (articleId, nativeLang) =>
-  _invoke("get_bilingual_cmd", { articleId, nativeLang });
-export const translateText = (text, nativeLang) =>
-  _invoke("translate_text_cmd", { text, nativeLang });
+export const getBilingual = (articleId, sourceLang, nativeLang) =>
+  _invoke("get_bilingual_cmd", { articleId, sourceLang, nativeLang });
+export const translateText = (text, sourceLang, nativeLang) =>
+  _invoke("translate_text_cmd", { text, sourceLang, nativeLang });
 
 // ─── Settings ───
 export const saveSetting = (key, value) =>

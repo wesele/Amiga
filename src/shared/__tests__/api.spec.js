@@ -154,10 +154,10 @@ describe("API module", () => {
       });
     });
 
-    it("translateWord calls invoke with word, context, nativeLang", () => {
-      api.translateWord("hola", "Hola amigo", "zh");
+    it("translateWord calls invoke with word, context, sourceLang, nativeLang", () => {
+      api.translateWord("hola", "Hola amigo", "es", "zh");
       expect(mockInvoke).toHaveBeenCalledWith("translate_word_cmd", {
-        word: "hola", context: "Hola amigo", nativeLang: "zh",
+        word: "hola", context: "Hola amigo", sourceLang: "es", nativeLang: "zh",
       });
     });
 
@@ -178,14 +178,14 @@ describe("API module", () => {
       expect(mockInvoke).toHaveBeenCalledWith("get_llm_config_cmd");
     });
 
-    it("getBilingual calls invoke with articleId and nativeLang", () => {
-      api.getBilingual(1, "zh");
-      expect(mockInvoke).toHaveBeenCalledWith("get_bilingual_cmd", { articleId: 1, nativeLang: "zh" });
+    it("getBilingual calls invoke with articleId, sourceLang and nativeLang", () => {
+      api.getBilingual(1, "es", "zh");
+      expect(mockInvoke).toHaveBeenCalledWith("get_bilingual_cmd", { articleId: 1, sourceLang: "es", nativeLang: "zh" });
     });
 
-    it("translateText calls invoke with text and nativeLang", () => {
-      api.translateText("Hola mundo", "zh");
-      expect(mockInvoke).toHaveBeenCalledWith("translate_text_cmd", { text: "Hola mundo", nativeLang: "zh" });
+    it("translateText calls invoke with text, sourceLang and nativeLang", () => {
+      api.translateText("Hola mundo", "es", "zh");
+      expect(mockInvoke).toHaveBeenCalledWith("translate_text_cmd", { text: "Hola mundo", sourceLang: "es", nativeLang: "zh" });
     });
   });
 

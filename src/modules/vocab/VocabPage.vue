@@ -87,6 +87,8 @@
           v-if="selectedWord"
           :word="selectedWord.word"
           :context="selectedWord.word"
+          :source-lang="userLang"
+          :native-lang="nativeLang"
           @close="selectedWord = null"
           @known="onKnown"
           @unknown="onUnknown"
@@ -116,6 +118,7 @@ const activeStatus = ref("all");
 const userLang = computed(() => targetLangStore.code || "es");
 const userId = ref("");
 const selectedWord = ref(null);
+const nativeLang = ref("zh");
 let unsubscribe = null;
 
 const statusTabs = computed(() => [
@@ -225,6 +228,7 @@ onMounted(async () => {
   try {
     const user = await getCurrentUser();
     userId.value = user.id;
+    if (user?.native_language) nativeLang.value = user.native_language;
     await targetLangStore.load();
     await loadStats();
   } catch (e) {
