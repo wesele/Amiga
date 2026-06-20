@@ -22,6 +22,17 @@
 - 任务**完全独立**（如纯调研、生成测试数据）→ 单独 subagent
 - 派 subagent 时：在 prompt 中明确"研究还是改代码"、验证方式、要返回什么
 
+### 3.5 Rust 后端重新编译（必做）
+- 改了 `src-tauri/` 下的任何 `.rs` / `Cargo.toml` / `tauri*.conf.json` / `capabilities/*.json` → **必须**在测试 / 截屏 / 提交**之前**重新编译后端
+- 默认执行增量编译（首次 ~30s，之后几秒）：
+  ```
+  cd src-tauri && cargo build
+  ```
+- 编译失败 / 警告 → 先修，再走测试流程
+- **不要**用 `npm run dev`（裸 Vite）验证 Rust 改动——invoke 走 stub，根本不会调用后端，掩盖问题
+- 想边改边看就用 `run-windows.bat` 或 `npm run tauri dev`（自动重编 + 启 Tauri shell）
+- Android 改动用 `build-android.bat`
+
 ### 4. 测试
 - **所有修改完成后必须测试**：
   - 改 Rust → `npm run test:rust`（或 `cargo test`）
