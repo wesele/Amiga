@@ -3,6 +3,7 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { createRouter, createMemoryHistory } from "vue-router";
 import * as api from "@/shared/api.js";
+import { getLocale, setLocale, i18n } from "@/shared/i18n";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
@@ -37,8 +38,11 @@ describe("WizardFlow", () => {
 
   beforeEach(() => {
     setActivePinia(createPinia());
-    mockInvoke = vi.fn();
+    mockInvoke = vi.fn().mockResolvedValue(undefined);
     api.__setInvoke(mockInvoke);
+    // Reset locale to a known state so the "switches UI locale" test is
+    // independent of whatever the previous test left behind.
+    setLocale("zh", { persist: false });
   });
 
   it("renders 4 step dots", () => {
@@ -65,6 +69,32 @@ describe("WizardFlow", () => {
     await wrapper.findAll("button.btn-primary")[0].trigger("click");
     await flushPromises();
     expect(wrapper.findComponent(StepLearning).exists()).toBe(true);
+  });
+
+  it("picking a native language switches the UI locale to match", async () => {
+    expect(getLocale()).toBe("zh");
+    mockInvoke.mockResolvedValue(undefined);
+    const wrapper = mountWizard();
+    // Click the second pill (en)
+    const pills = wrapper.findAll(".step-profile .pill-group").at(0).findAll(".pill");
+    await pills[1].trigger("click");
+    await wrapper.find("input#nickname").setValue("TestUser");
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    expect(getLocale()).toBe("en");
+    expect(mockInvoke).toHaveBeenCalledWith("save_setting_cmd", {
+      key: "ui_language",
+      value: "en",
+    });
+  });
+
+  it("keeps the locale unchanged when the user keeps the default native language", async () => {
+    expect(getLocale()).toBe("zh");
+    const wrapper = mountWizard();
+    await wrapper.find("input#nickname").setValue("TestUser");
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    expect(getLocale()).toBe("zh");
   });
 
   it("advances to StepDemographics after Step 2 selection", async () => {

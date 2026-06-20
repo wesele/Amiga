@@ -44,7 +44,7 @@ import {
   saveLearningGoal,
   initUserVocab,
 } from "@/shared/api.js";
-import { useI18n } from "@/shared/i18n";
+import { useI18n, setLocale } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 
 const { t } = useI18n();
@@ -89,6 +89,12 @@ async function onNext(data) {
 
   if (current.value === 0) {
     profile.value = { ...profile.value, ...data };
+    // Native language maps 1:1 to UI locale (zh/en/es). Switching here so
+    // the rest of the wizard and the main app both render in the user's
+    // language without a second detour to settings.
+    if (data.nativeLanguage) {
+      setLocale(data.nativeLanguage, { persist: true });
+    }
   } else if (current.value === 1) {
     learning.value = { ...learning.value, ...data };
   } else if (current.value === 2) {
