@@ -76,17 +76,18 @@
 <script setup>
 import { reactive, computed } from "vue";
 import { useI18n } from "@/shared/i18n";
+import { AVAILABLE_LANGUAGES } from "@/shared/constants.js";
 
 const emit = defineEmits(["next"]);
 const { t } = useI18n();
 
-const targetLanguages = computed(() => [
-  { value: "es", flag: "🇪🇸", label: t("learningLang.es") },
-  { value: "zh", flag: "🇨🇳", label: t("learningLang.zh") },
-  { value: "en", flag: "🇬🇧", label: t("learningLang.en") },
-  { value: "ja", flag: "🇯🇵", label: t("lang.ja") },
-  { value: "fr", flag: "🇫🇷", label: t("lang.fr") },
-]);
+const targetLanguages = computed(() =>
+  AVAILABLE_LANGUAGES.map((l) => ({
+    value: l.code,
+    flag: l.flag,
+    label: t(l.nameKey),
+  })),
+);
 
 const levels = computed(() => [
   { value: "A0", label: t("wizard.levels.A0") },
