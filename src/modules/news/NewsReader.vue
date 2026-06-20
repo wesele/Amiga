@@ -225,7 +225,7 @@ async function doRewrite() {
   rewriting.value = true;
   rewriteError.value = "";
   try {
-    const result = await rewriteArticle(Number(props.id), "A1", userId);
+    const result = await rewriteArticle(Number(props.id), "A1", userId, targetLang);
     article.value = result;
   } catch (e) {
     console.error("Failed to rewrite article:", e);

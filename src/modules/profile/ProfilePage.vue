@@ -145,7 +145,7 @@ onMounted(async () => {
     await targetLangStore.load();
     user.value = await getCurrentUser();
     goals.value = await getLearningGoals(user.value.id);
-    vocabStats.value = await getUserVocabStats(user.value.id);
+    vocabStats.value = await getUserVocabStats(user.value.id, currentTargetLang.value);
     readArticleCount.value = await getReadArticleCount(user.value.id);
     // Find the current level from the goal row matching the active target.
     const g = goals.value.find((x) => x.target_language === currentTargetLang.value) || goals.value[0];

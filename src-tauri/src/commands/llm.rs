@@ -14,6 +14,7 @@ pub async fn rewrite_article_cmd(
     article_id: i32,
     cefr_level: String,
     user_id: String,
+    target_lang: String,
 ) -> Result<serde_json::Value, String> {
     use crate::modules::news as news_mod;
     use crate::modules::vocabulary as vocab_mod;
@@ -22,8 +23,10 @@ pub async fn rewrite_article_cmd(
     let article = news_mod::get_article(&db, article_id)?;
     let original = article.original_body.unwrap_or_default();
 
-    // Get unknown words for new word selection
-    let unknown_words = vocab_mod::get_unknown_words(&db, &user_id, &cefr_level, 20)?;
+    // Get unknown words for new word selection, scoped to the article's
+    // target language so an English learner gets English words, not the
+    // Spanish defaults.
+    let unknown_words = vocab_mod::get_unknown_words(&db, &user_id, &cefr_level, 20, &target_lang)?;
     let new_words: Vec<String> = unknown_words.iter().map(|w| w.word.clone()).collect();
 
     // Rewrite using LLM

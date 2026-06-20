@@ -251,6 +251,8 @@ mod tests {
         let uid = create_test_user(&conn);
         let known = insert_test_word(&conn, "casa", "A1", "es");
         let unknown = insert_test_word(&conn, "perro", "A1", "es");
+        // An English word should be ignored when we filter to Spanish.
+        let _en_word = insert_test_word(&conn, "house", "A1", "en");
         conn.execute(
             "INSERT INTO user_vocab (user_id, word_id, mastery, source)
              VALUES (?1, ?2, 2, 'init')",
@@ -259,7 +261,7 @@ mod tests {
         .unwrap();
         drop(conn);
 
-        let words = get_unknown_words(&pool, &uid, "A2", 10).unwrap();
+        let words = get_unknown_words(&pool, &uid, "A2", 10, "es").unwrap();
         let ids: Vec<i32> = words.iter().map(|w| w.id).collect();
         assert!(
             !ids.contains(&known),
@@ -268,6 +270,10 @@ mod tests {
         assert!(
             ids.contains(&unknown),
             "Unmastered word should appear as unknown"
+        );
+        assert!(
+            words.iter().all(|w| w.language == "es"),
+            "Should only return words in the target language"
         );
     }
 
@@ -281,7 +287,7 @@ mod tests {
         }
         drop(conn);
 
-        let words = get_unknown_words(&pool, &uid, "A2", 3).unwrap();
+        let words = get_unknown_words(&pool, &uid, "A2", 3, "es").unwrap();
         assert!(words.len() <= 3, "Should return at most 3 words");
     }
 
@@ -474,6 +480,8 @@ mod tests {
         let w1 = insert_test_word(&conn, "uno", "A1", "es");
         let w2 = insert_test_word(&conn, "dos", "A1", "es");
         let _w3 = insert_test_word(&conn, "tres", "A1", "es");
+        // A French word should not count toward the Spanish total.
+        let _fr = insert_test_word(&conn, "un", "A1", "fr");
 
         conn.execute(
             "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 2, 'test')",
@@ -488,10 +496,10 @@ mod tests {
         // w3 has no user_vocab record → unseen (not in known/learning counts)
         drop(conn);
 
-        let stats = get_user_vocab_stats(&pool, &uid).unwrap();
+        let stats = get_user_vocab_stats(&pool, &uid, "es").unwrap();
         assert_eq!(stats.total_known, 1);
         assert_eq!(stats.total_learning, 1);
-        assert!(stats.total >= 3);
+        assert!(stats.total >= 3, "Should count at least 3 Spanish words");
     }
 }
 
@@ -651,6 +659,7 @@ pub fn get_unknown_words(
     user_id: &str,
     cefr_level: &str,
     limit: i32,
+    target_lang: &str,
 ) -> Result<Vec<VocabWord>, String> {
     let conn = db
         .conn
@@ -665,14 +674,14 @@ pub fn get_unknown_words(
          LEFT JOIN user_vocab uv ON v.id = uv.word_id AND uv.user_id = ?1
          WHERE (uv.mastery IS NULL OR uv.mastery < 2)
            AND v.cefr_level <= ?2
-           AND v.language = 'es'
+           AND v.language = ?4
          ORDER BY v.frequency DESC
          LIMIT ?3",
         )
         .map_err(|e| format!("Query error: {}", e))?;
 
     let words: Vec<VocabWord> = stmt
-        .query_map(params![user_id, cefr_level, limit], |row| {
+        .query_map(params![user_id, cefr_level, limit, target_lang], |row| {
             Ok(VocabWord {
                 id: row.get(0)?,
                 word: row.get(1)?,
@@ -693,8 +702,12 @@ pub fn get_unknown_words(
     Ok(words)
 }
 
-/// Get vocabulary statistics for a user
-pub fn get_user_vocab_stats(db: &DatabasePool, user_id: &str) -> Result<VocabStats, String> {
+/// Get vocabulary statistics for a user, scoped to the given target language.
+pub fn get_user_vocab_stats(
+    db: &DatabasePool,
+    user_id: &str,
+    target_lang: &str,
+) -> Result<VocabStats, String> {
     let conn = db
         .conn
         .lock()
@@ -702,8 +715,8 @@ pub fn get_user_vocab_stats(db: &DatabasePool, user_id: &str) -> Result<VocabSta
 
     let total: i32 = conn
         .query_row(
-            "SELECT COUNT(*) FROM vocab_bank WHERE language = 'es'",
-            [],
+            "SELECT COUNT(*) FROM vocab_bank WHERE language = ?1",
+            params![target_lang],
             |row| row.get(0),
         )
         .unwrap_or(0);

@@ -71,15 +71,15 @@ describe("API module", () => {
     });
 
     it("getUnknownWords calls invoke with filtered params", () => {
-      api.getUnknownWords("u1", "A2", 10);
+      api.getUnknownWords("u1", "A2", 10, "en");
       expect(mockInvoke).toHaveBeenCalledWith("get_unknown_words_cmd", {
-        userId: "u1", cefrLevel: "A2", limit: 10,
+        userId: "u1", cefrLevel: "A2", limit: 10, targetLang: "en",
       });
     });
 
-    it("getUserVocabStats calls invoke with userId", () => {
-      api.getUserVocabStats("u1");
-      expect(mockInvoke).toHaveBeenCalledWith("get_user_vocab_stats_cmd", { userId: "u1" });
+    it("getUserVocabStats calls invoke with userId and targetLang", () => {
+      api.getUserVocabStats("u1", "en");
+      expect(mockInvoke).toHaveBeenCalledWith("get_user_vocab_stats_cmd", { userId: "u1", targetLang: "en" });
     });
 
     it("getUserVocabByLevel calls invoke with userId, language, cefrLevel", () => {
@@ -147,10 +147,10 @@ describe("API module", () => {
   });
 
   describe("LLM API", () => {
-    it("rewriteArticle calls invoke with articleId, cefrLevel, userId", () => {
-      api.rewriteArticle(1, "A2", "u1");
+    it("rewriteArticle calls invoke with articleId, cefrLevel, userId, targetLang", () => {
+      api.rewriteArticle(1, "A2", "u1", "en");
       expect(mockInvoke).toHaveBeenCalledWith("rewrite_article_cmd", {
-        articleId: 1, cefrLevel: "A2", userId: "u1",
+        articleId: 1, cefrLevel: "A2", userId: "u1", targetLang: "en",
       });
     });
 

@@ -38,16 +38,18 @@ pub async fn get_unknown_words_cmd(
     user_id: String,
     cefr_level: String,
     limit: i32,
+    target_lang: String,
 ) -> Result<Vec<vocab_mod::VocabWord>, String> {
-    vocab_mod::get_unknown_words(&db, &user_id, &cefr_level, limit)
+    vocab_mod::get_unknown_words(&db, &user_id, &cefr_level, limit, &target_lang)
 }
 
 #[tauri::command]
 pub async fn get_user_vocab_stats_cmd(
     db: State<'_, DatabasePool>,
     user_id: String,
+    target_lang: String,
 ) -> Result<vocab_mod::VocabStats, String> {
-    vocab_mod::get_user_vocab_stats(&db, &user_id)
+    vocab_mod::get_user_vocab_stats(&db, &user_id, &target_lang)
 }
 
 #[tauri::command]

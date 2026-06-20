@@ -36,10 +36,10 @@ export const initUserVocab = (userId, cefrLevel) =>
   _invoke("init_user_vocab_cmd", { userId, cefrLevel });
 export const updateWordMastery = (userId, wordId, mastery, source) =>
   _invoke("update_word_mastery_cmd", { userId, wordId, mastery, source });
-export const getUnknownWords = (userId, cefrLevel, limit) =>
-  _invoke("get_unknown_words_cmd", { userId, cefrLevel, limit });
-export const getUserVocabStats = (userId) =>
-  _invoke("get_user_vocab_stats_cmd", { userId });
+export const getUnknownWords = (userId, cefrLevel, limit, targetLang) =>
+  _invoke("get_unknown_words_cmd", { userId, cefrLevel, limit, targetLang });
+export const getUserVocabStats = (userId, targetLang) =>
+  _invoke("get_user_vocab_stats_cmd", { userId, targetLang });
 export const getUserVocabByLevel = (userId, language, cefrLevel) =>
   _invoke("get_user_vocab_by_level_cmd", { userId, language, cefrLevel });
 export const getUserVocabStatsByLevel = (userId, language) =>
@@ -62,8 +62,8 @@ export const getReadArticleCount = (userId) =>
   _invoke("get_read_article_count_cmd", { userId });
 
 // ─── LLM ───
-export const rewriteArticle = (articleId, cefrLevel, userId) =>
-  _invoke("rewrite_article_cmd", { articleId, cefrLevel, userId });
+export const rewriteArticle = (articleId, cefrLevel, userId, targetLang) =>
+  _invoke("rewrite_article_cmd", { articleId, cefrLevel, userId, targetLang });
 export const translateWord = (word, context, nativeLang) =>
   _invoke("translate_word_cmd", { word, context, nativeLang });
 export const testLlmConnection = (config) =>
