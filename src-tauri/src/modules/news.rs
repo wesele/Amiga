@@ -171,13 +171,22 @@ mod tests {
         drop(conn);
 
         // initially empty
-        let cache = get_bilingual_cache(&pool, aid).unwrap();
+        let cache = get_bilingual_cache(&pool, aid, "zh").unwrap();
         assert!(cache.is_none());
 
-        // save and retrieve
-        save_bilingual_cache(&pool, aid, r#"["Hola mundo","Adiós"]"#).unwrap();
-        let cache = get_bilingual_cache(&pool, aid).unwrap();
-        assert_eq!(cache, Some(r#"["Hola mundo","Adiós"]"#.to_string()));
+        // save and retrieve for one native language
+        save_bilingual_cache(&pool, aid, "zh", r#"["你好世界","再见"]"#).unwrap();
+        let cache = get_bilingual_cache(&pool, aid, "zh").unwrap();
+        assert_eq!(cache, Some(r#"["你好世界","再见"]"#.to_string()));
+
+        // the same article should have a separate slot for another native_lang
+        assert!(get_bilingual_cache(&pool, aid, "en").unwrap().is_none());
+        save_bilingual_cache(&pool, aid, "en", r#"["Hello world","Bye"]"#).unwrap();
+        let en = get_bilingual_cache(&pool, aid, "en").unwrap();
+        assert_eq!(en, Some(r#"["Hello world","Bye"]"#.to_string()));
+        // zh slot is still its own value
+        let zh = get_bilingual_cache(&pool, aid, "zh").unwrap();
+        assert_eq!(zh, Some(r#"["你好世界","再见"]"#.to_string()));
     }
 
     #[test]
@@ -592,16 +601,22 @@ pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(),
     Ok(())
 }
 
-/// Get bilingual cache for an article
-pub fn get_bilingual_cache(db: &DatabasePool, article_id: i32) -> Result<Option<String>, String> {
+/// Get bilingual cache for an article, scoped to the user's native language.
+/// Returns the cached paragraphs JSON if present.
+pub fn get_bilingual_cache(
+    db: &DatabasePool,
+    article_id: i32,
+    native_lang: &str,
+) -> Result<Option<String>, String> {
     let conn = db
         .conn
         .lock()
         .map_err(|e| format!("DB lock error: {}", e))?;
     let result = conn
         .query_row(
-            "SELECT bilingual_cache FROM news_articles WHERE id = ?1",
-            params![article_id],
+            "SELECT paragraphs_json FROM news_bilingual_cache
+             WHERE article_id = ?1 AND native_lang = ?2",
+            params![article_id, native_lang],
             |row| row.get(0),
         )
         .ok()
@@ -609,10 +624,12 @@ pub fn get_bilingual_cache(db: &DatabasePool, article_id: i32) -> Result<Option<
     Ok(result)
 }
 
-/// Save bilingual cache for an article
+/// Save bilingual cache for an article, scoped to the user's native language.
+/// Overwrites any existing row for the same (article_id, native_lang) pair.
 pub fn save_bilingual_cache(
     db: &DatabasePool,
     article_id: i32,
+    native_lang: &str,
     cache_json: &str,
 ) -> Result<(), String> {
     let conn = db
@@ -620,11 +637,19 @@ pub fn save_bilingual_cache(
         .lock()
         .map_err(|e| format!("DB lock error: {}", e))?;
     conn.execute(
-        "UPDATE news_articles SET bilingual_cache = ?1 WHERE id = ?2",
-        params![cache_json, article_id],
+        "INSERT INTO news_bilingual_cache (article_id, native_lang, paragraphs_json, fetched_at)
+         VALUES (?1, ?2, ?3, datetime('now'))
+         ON CONFLICT(article_id, native_lang) DO UPDATE SET
+         paragraphs_json = excluded.paragraphs_json,
+         fetched_at = datetime('now')",
+        params![article_id, native_lang, cache_json],
     )
     .map_err(|e| format!("Failed to save bilingual cache: {}", e))?;
-    log::debug!("Bilingual cache saved for article {}", article_id);
+    log::debug!(
+        "Bilingual cache saved for article {} (native_lang={})",
+        article_id,
+        native_lang
+    );
     Ok(())
 }
 

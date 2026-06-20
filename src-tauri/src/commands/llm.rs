@@ -130,7 +130,7 @@ pub async fn get_bilingual_cmd(
     use crate::modules::news as news_mod;
 
     // Check cache first
-    if let Some(cache) = news_mod::get_bilingual_cache(&db, article_id)? {
+    if let Some(cache) = news_mod::get_bilingual_cache(&db, article_id, &native_lang)? {
         if let Ok(translations) = serde_json::from_str::<Vec<String>>(&cache) {
             return Ok(translations);
         }
@@ -158,9 +158,9 @@ pub async fn get_bilingual_cmd(
         llm_mod::translate_paragraphs(&llm.client, &db, &paragraphs, &source_lang, &native_lang)
             .await?;
 
-    // Save cache
+    // Save cache (scoped to this native_lang)
     let cache_json = serde_json::to_string(&translations).unwrap_or_default();
-    news_mod::save_bilingual_cache(&db, article_id, &cache_json)?;
+    news_mod::save_bilingual_cache(&db, article_id, &native_lang, &cache_json)?;
 
     Ok(translations)
 }

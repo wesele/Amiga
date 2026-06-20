@@ -27,6 +27,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add unique index on vocab_bank(word, cefr_level, language) and import default content (zh/en/es A1+A2) from vocabulary.json",
             MIGRATION_V8,
         ),
+        (
+            9,
+            "Split bilingual_cache into per-native_lang rows so the same article can be cached for multiple user languages",
+            MIGRATION_V9,
+        ),
     ]
 }
 
@@ -203,4 +208,30 @@ DELETE FROM vocab_bank;
 -- be re-run safely and won't duplicate rows when the JSON source is updated.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_vocab_bank_unique
   ON vocab_bank(word, cefr_level, language);
+"#;
+
+const MIGRATION_V9: &str = r#"
+-- Per-article bilingual translations must be cached once per user native
+-- language, otherwise a Chinese user and an English user would either
+-- share a Chinese-only cache or invalidate each other's translations.
+-- The legacy `news_articles.bilingual_cache` TEXT column held a single
+-- Vec<String> for the whole article regardless of native_lang, so we
+-- move it into a dedicated table with a (article_id, native_lang) key.
+
+CREATE TABLE IF NOT EXISTS news_bilingual_cache (
+    article_id INTEGER NOT NULL REFERENCES news_articles(id) ON DELETE CASCADE,
+    native_lang TEXT NOT NULL DEFAULT 'zh',
+    paragraphs_json TEXT NOT NULL,
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (article_id, native_lang)
+);
+
+-- Migrate any existing single-language cache rows. We cannot recover the
+-- original native_lang from the old column, so we default to 'zh'; if
+-- that's wrong, the next request from a different native_lang will simply
+-- re-translate and overwrite.
+INSERT OR IGNORE INTO news_bilingual_cache (article_id, native_lang, paragraphs_json)
+SELECT id, 'zh', bilingual_cache
+FROM news_articles
+WHERE bilingual_cache IS NOT NULL AND bilingual_cache != '';
 "#;
