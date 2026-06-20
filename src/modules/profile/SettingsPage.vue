@@ -63,7 +63,7 @@
           </div>
           <div class="dialog-actions">
             <button class="dialog-btn" @click="showLangDialog = false">{{ t('common.cancel') }}</button>
-            <button class="dialog-btn primary" @click="saveLang; showLangDialog = false">{{ t('common.ok') }}</button>
+            <button class="dialog-btn primary" @click="saveLang(); showLangDialog = false">{{ t('common.ok') }}</button>
           </div>
         </div>
       </div>
@@ -82,7 +82,7 @@
           </div>
           <div class="dialog-actions">
             <button class="dialog-btn" @click="showNewsDialog = false">{{ t('common.cancel') }}</button>
-            <button class="dialog-btn primary" @click="saveNewsLimit; showNewsDialog = false">{{ t('common.ok') }}</button>
+            <button class="dialog-btn primary" @click="saveNewsLimit(); showNewsDialog = false">{{ t('common.ok') }}</button>
           </div>
         </div>
       </div>
