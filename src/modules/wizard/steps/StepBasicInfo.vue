@@ -116,9 +116,9 @@ const languages = computed(() => [
   { value: "zh", flag: "🇨🇳", label: t("lang.zh") },
   { value: "en", flag: "🇬🇧", label: t("lang.en") },
   { value: "es", flag: "🇪🇸", label: t("lang.es") },
-  { value: "ja", flag: "🇯🇵", label: "日本語" },
-  { value: "fr", flag: "🇫🇷", label: "Français" },
-  { value: "de", flag: "🇩🇪", label: "Deutsch" },
+  { value: "ja", flag: "🇯🇵", label: t("lang.ja") },
+  { value: "fr", flag: "🇫🇷", label: t("lang.fr") },
+  { value: "de", flag: "🇩🇪", label: t("lang.de") },
 ]);
 
 const countries = computed(() => [

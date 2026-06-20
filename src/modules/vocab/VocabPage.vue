@@ -100,6 +100,7 @@
 import { ref, computed, watch } from "vue";
 import { getCurrentUser, getUserVocabByLevel, getUserVocabStatsByLevel, updateWordMastery, resetUserVocabByLevel, getTargetLanguage } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
+import { displayLang } from "@/shared/constants.js";
 import WordPopup from "./components/WordPopup.vue";
 
 const { t, locale } = useI18n();
@@ -141,8 +142,7 @@ const filteredWords = computed(() => {
 });
 
 function langDisplayName(code) {
-  const map = { es: "Español", en: "English", zh: "中文" };
-  return map[code] || code;
+  return displayLang(code, locale.value);
 }
 
 function chipClass(mastery) {

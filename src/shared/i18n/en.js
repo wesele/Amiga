@@ -265,6 +265,11 @@ export default {
     defaultCancel: "Cancel",
   },
 
+  preview: {
+    title: "Markdown render preview",
+    subtitle: "How AI chat messages render with Markdown",
+  },
+
   popup: {
     translating: "Translating…",
     known: "Known",
@@ -285,6 +290,9 @@ export default {
     zh: "Chinese",
     en: "English",
     es: "Spanish",
+    ja: "Japanese",
+    fr: "French",
+    de: "German",
   },
 
   time: {

@@ -268,6 +268,11 @@ export default {
     defaultCancel: "取消",
   },
 
+  preview: {
+    title: "Markdown 渲染预览",
+    subtitle: "AI 聊天消息的 Markdown 显示效果",
+  },
+
   popup: {
     translating: "翻译中…",
     known: "认识",
@@ -288,6 +293,9 @@ export default {
     zh: "中文",
     en: "English",
     es: "Español",
+    ja: "日语",
+    fr: "法语",
+    de: "德语",
   },
 
   time: {

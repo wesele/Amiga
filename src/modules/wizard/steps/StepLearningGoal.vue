@@ -84,8 +84,8 @@ const targetLanguages = computed(() => [
   { value: "es", flag: "🇪🇸", label: t("learningLang.es") },
   { value: "zh", flag: "🇨🇳", label: t("learningLang.zh") },
   { value: "en", flag: "🇬🇧", label: t("learningLang.en") },
-  { value: "ja", flag: "🇯🇵", label: "日本語" },
-  { value: "fr", flag: "🇫🇷", label: "Français" },
+  { value: "ja", flag: "🇯🇵", label: t("lang.ja") },
+  { value: "fr", flag: "🇫🇷", label: t("lang.fr") },
 ]);
 
 const levels = computed(() => [

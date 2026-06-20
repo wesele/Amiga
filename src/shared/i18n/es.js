@@ -265,6 +265,11 @@ export default {
     defaultCancel: "Cancelar",
   },
 
+  preview: {
+    title: "Vista previa de Markdown",
+    subtitle: "Cómo se renderizan los mensajes del chat IA con Markdown",
+  },
+
   popup: {
     translating: "Traduciendo…",
     known: "Conozco",
@@ -285,6 +290,9 @@ export default {
     zh: "Chino",
     en: "Inglés",
     es: "Español",
+    ja: "Japonés",
+    fr: "Francés",
+    de: "Alemán",
   },
 
   time: {

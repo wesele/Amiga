@@ -1,8 +1,8 @@
 <template>
   <div class="md-preview">
     <header class="md-preview-header">
-      <h2>Markdown 渲染预览</h2>
-      <p>AI 聊天消息的 Markdown 显示效果</p>
+      <h2>{{ t('preview.title') }}</h2>
+      <p>{{ t('preview.subtitle') }}</p>
     </header>
     <div class="md-preview-list">
       <div
@@ -21,7 +21,12 @@
 
 <script setup>
 import MarkdownText from "@/shared/components/MarkdownText.vue";
+import { useI18n } from "@/shared/i18n";
 
+const { t } = useI18n();
+
+// Sample chat replies from the AI. These illustrate how Markdown content
+// renders in the chat bubble, not the UI labels.
 const samples = [
   "你好！我是 **Amiga**，你的 AI 语言学习伙伴 🤖\n\n很高兴见到你。",
   "当然可以！学习西班牙语有以下几个步骤：\n\n1. **掌握发音规则**\n2. *学习基础语法*\n3. 练习日常对话\n4. 阅读简单文章\n\n> 持之以恒是最重要的！",

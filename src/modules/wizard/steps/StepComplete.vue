@@ -20,6 +20,7 @@
 <script setup>
 import { computed } from "vue";
 import { useI18n } from "@/shared/i18n";
+import { displayLang } from "@/shared/constants.js";
 
 const props = defineProps({
   data: { type: Object, default: () => ({}) },
@@ -30,8 +31,7 @@ const { t, locale } = useI18n();
 
 const targetLangName = computed(() => {
   const code = props.data?.targetLanguage || "es";
-  const map = { es: "Español", en: "English", zh: "中文", ja: "日本語", fr: "Français" };
-  return map[code] || code;
+  return displayLang(code, locale.value);
 });
 
 function emitNext() {
