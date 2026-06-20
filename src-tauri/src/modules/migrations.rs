@@ -37,6 +37,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Wipe legacy chat history and scope chat_sessions to (user_id, target_language)",
             MIGRATION_V10,
         ),
+        (
+            11,
+            "Add age_range to users (wizard collects 4 buckets instead of exact birth_year)",
+            MIGRATION_V11,
+        ),
     ]
 }
 
@@ -257,4 +262,11 @@ ALTER TABLE chat_sessions
 
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_lang
     ON chat_sessions(user_id, target_language, contact_type);
+"#;
+
+const MIGRATION_V11: &str = r#"
+-- Wizard now collects a 4-bucket age range (under_18 / 18_36 / 37_54 / over_54)
+-- instead of an exact birth_year. Keep the legacy column for now; we just stop
+-- reading it from the new wizard.
+ALTER TABLE users ADD COLUMN age_range TEXT;
 "#;

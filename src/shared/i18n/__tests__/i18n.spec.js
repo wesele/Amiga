@@ -38,9 +38,7 @@ describe("i18n", () => {
 
     it("leaves unreplaced {name} tokens intact when param is undefined", () => {
       setLocale("zh", { persist: false });
-      expect(t("wizard.completeTarget", { lang: undefined })).toContain(
-        "{lang}",
-      );
+      expect(t("news.refreshed", { n: undefined })).toContain("{n}");
     });
   });
 

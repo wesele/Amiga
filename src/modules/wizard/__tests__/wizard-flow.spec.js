@@ -1,170 +1,248 @@
-import { setActivePinia, createPinia } from "pinia";
-import { nextTick } from "vue";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { mount, flushPromises } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
+import { createRouter, createMemoryHistory } from "vue-router";
+import * as api from "@/shared/api.js";
 
-describe("WizardFlow component logic", () => {
+vi.mock("@tauri-apps/plugin-shell", () => ({}));
+
+const WizardFlow = (await import("@/modules/wizard/WizardFlow.vue")).default;
+const StepProfile = (await import("@/modules/wizard/steps/StepProfile.vue")).default;
+const StepLearning = (await import("@/modules/wizard/steps/StepLearning.vue")).default;
+const StepDemographics = (await import("@/modules/wizard/steps/StepDemographics.vue")).default;
+const StepAvatar = (await import("@/modules/wizard/steps/StepAvatar.vue")).default;
+
+function makeRouter() {
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: "/", component: { template: "<div/>" } },
+      { path: "/wizard", component: WizardFlow },
+      { path: "/news", component: { template: "<div/>" } },
+    ],
+  });
+}
+
+function mountWizard() {
+  const router = makeRouter();
+  return mount(WizardFlow, {
+    global: {
+      plugins: [router],
+    },
+  });
+}
+
+describe("WizardFlow", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockInvoke = vi.fn();
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("renders 4 step dots", () => {
+    const wrapper = mountWizard();
+    expect(wrapper.findAll(".step-dot")).toHaveLength(4);
+  });
+
+  it("starts on StepProfile (native language + nickname)", () => {
+    const wrapper = mountWizard();
+    expect(wrapper.findComponent(StepProfile).exists()).toBe(true);
+  });
+
+  it("disables Next on Step 1 until nickname is filled", async () => {
+    const wrapper = mountWizard();
+    const next = wrapper.find("button.btn-primary");
+    expect(next.attributes("disabled")).toBeDefined();
+    await wrapper.find("input#nickname").setValue("TestUser");
+    expect(next.attributes("disabled")).toBeUndefined();
+  });
+
+  it("advances to StepLearning after valid Step 1 submission", async () => {
+    const wrapper = mountWizard();
+    await wrapper.find("input#nickname").setValue("TestUser");
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    expect(wrapper.findComponent(StepLearning).exists()).toBe(true);
+  });
+
+  it("advances to StepDemographics after Step 2 selection", async () => {
+    const wrapper = mountWizard();
+    await wrapper.find("input#nickname").setValue("TestUser");
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    expect(wrapper.findComponent(StepDemographics).exists()).toBe(true);
+  });
+
+  it("Step 3 (demographics) allows advancing with no selection", async () => {
+    const wrapper = mountWizard();
+    await wrapper.find("input#nickname").setValue("TestUser");
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    const step3Next = wrapper.findAll("button.btn-primary")[0];
+    expect(step3Next.attributes("disabled")).toBeUndefined();
+    await step3Next.trigger("click");
+    await flushPromises();
+    expect(wrapper.findComponent(StepAvatar).exists()).toBe(true);
+  });
+
+  it("picking an avatar on Step 4 saves the user and navigates to /news", async () => {
+    const router = makeRouter();
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "create_user") return Promise.resolve({ id: "user-1" });
+      if (cmd === "save_learning_goal_cmd") return Promise.resolve({});
+      if (cmd === "init_user_vocab_cmd") return Promise.resolve(undefined);
+      if (cmd === "set_target_language_cmd") return Promise.resolve(undefined);
+      return Promise.resolve(undefined);
+    });
+    const wrapper = mount(WizardFlow, { global: { plugins: [router] } });
+    await router.push("/wizard");
+    await flushPromises();
+    await wrapper.find("input#nickname").setValue("TestUser");
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    const avatars = wrapper.findAll(".avatar-circle");
+    expect(avatars.length).toBeGreaterThan(0);
+    await avatars[1].trigger("click");
+    await flushPromises();
+    const createUserCall = mockInvoke.mock.calls.find((c) => c[0] === "create_user");
+    expect(createUserCall).toBeTruthy();
+    expect(createUserCall[1].request).toMatchObject({
+      nickname: "TestUser",
+      avatar: expect.any(String),
+      age_range: null,
+    });
+    expect(mockInvoke).toHaveBeenCalledWith("save_learning_goal_cmd", expect.any(Object));
+    expect(mockInvoke).toHaveBeenCalledWith("init_user_vocab_cmd", expect.any(Object));
+    expect(router.currentRoute.value.path).toBe("/news");
+  });
+
+  it("sends age_range when selected", async () => {
+    const router = makeRouter();
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "create_user") return Promise.resolve({ id: "user-1" });
+      return Promise.resolve(undefined);
+    });
+    const wrapper = mount(WizardFlow, { global: { plugins: [router] } });
+    await router.push("/wizard");
+    await flushPromises();
+    await wrapper.find("input#nickname").setValue("TestUser");
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    const agePills = wrapper.findAll(".step-demo .pill-group").at(0).findAll(".pill");
+    await agePills[0].trigger("click");
+    await flushPromises();
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    await wrapper.findAll(".avatar-circle")[0].trigger("click");
+    await flushPromises();
+    const createUserCall = mockInvoke.mock.calls.find((c) => c[0] === "create_user");
+    expect(createUserCall).toBeTruthy();
+    expect(createUserCall[1].request).toMatchObject({ age_range: "under_18" });
+  });
+});
+
+describe("StepProfile", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
   });
 
-  describe("onNext step transitions", () => {
-    it("increments current step from 0 to 1", async () => {
-      const current = { value: 0 };
-      const prevStep = { value: 0 };
-      const emitted = { value: false };
-
-      async function onNext(data) {
-        if (emitted.value) return;
-        if (current.value === 0) {
-          current.value = 1;
-        }
-        prevStep.value = current.value;
-      }
-
-      await onNext({ nickname: "Test" });
-      expect(current.value).toBe(1);
-      expect(emitted.value).toBe(false);
-    });
-
-    it("does not increment past step 2 without emit guard", async () => {
-      const current = { value: 0 };
-      const prevStep = { value: 0 };
-      const emitted = { value: false };
-
-      async function onNext(data) {
-        if (emitted.value) return;
-        if (current.value === 0) {
-          current.value = 1;
-        } else if (current.value === 1) {
-          current.value = 2;
-        }
-        prevStep.value = current.value;
-      }
-
-      await onNext({ nickname: "Test" });
-      await onNext({ targetLanguage: "es" });
-      expect(current.value).toBe(2);
-    });
+  it("emits next with nickname and native language", async () => {
+    const wrapper = mount(StepProfile);
+    await wrapper.find("input#nickname").setValue("Alice");
+    const pills = wrapper.findAll(".pill");
+    await pills[1].trigger("click");
+    await wrapper.find("button.btn-primary").trigger("click");
+    const emitted = wrapper.emitted("next");
+    expect(emitted).toBeTruthy();
+    expect(emitted[0][0]).toMatchObject({ nickname: "Alice", nativeLanguage: "en" });
   });
 
-  describe("saveToBackend", () => {
-    it("handles missing goal gracefully", async () => {
-      const basicInfo = { value: { nickname: "Test", nativeLanguage: "zh" } };
-      const learningGoal = { value: { targetLanguage: "es", cefrLevel: "A1", dailyMinutes: 15 } };
-      const apiCalls = [];
+  it("keeps next button disabled with empty nickname", async () => {
+    const wrapper = mount(StepProfile);
+    expect(wrapper.find("button.btn-primary").attributes("disabled")).toBeDefined();
+  });
+});
 
-      const mockApi = {
-        createUser: vi.fn().mockResolvedValue({ id: "user-1" }),
-        saveLearningGoal: vi.fn().mockResolvedValue({}),
-        initUserVocab: vi.fn().mockResolvedValue(undefined),
-      };
+describe("StepLearning", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
 
-      async function saveToBackend() {
-        const info = basicInfo.value;
-        const goal = learningGoal.value;
-        await mockApi.createUser({
-          nickname: info.nickname || "学习者",
-          avatar: "😊",
-          native_language: info.nativeLanguage || "zh",
-          country: "CN",
-          gender: "private",
-          birth_year: null,
-        });
-        await mockApi.saveLearningGoal({
-          user_id: "user-1",
-          target_language: goal.targetLanguage || "es",
-          cefr_level: goal.cefrLevel || "A1",
-          daily_minutes: goal.dailyMinutes || 15,
-          objective: "daily_conversation",
-        });
-        if (goal.cefrLevel && goal.cefrLevel !== "A0") {
-          await mockApi.initUserVocab("user-1", goal.cefrLevel);
-        }
-      }
+  it("only shows A1 and A2 levels", () => {
+    const wrapper = mount(StepLearning);
+    const levelPills = wrapper.findAll(".form-group").at(1).findAll(".pill");
+    expect(levelPills).toHaveLength(2);
+    expect(levelPills[0].text()).toContain("A1");
+    expect(levelPills[1].text()).toContain("A2");
+  });
 
-      await saveToBackend();
+  it("shows all available target languages", () => {
+    const wrapper = mount(StepLearning);
+    const langPills = wrapper.findAll(".form-group").at(0).findAll(".pill");
+    expect(langPills.length).toBe(3);
+  });
+});
 
-      expect(mockApi.createUser).toHaveBeenCalledWith({
-        nickname: "Test",
-        avatar: "😊",
-        native_language: "zh",
-        country: "CN",
-        gender: "private",
-        birth_year: null,
-      });
-      expect(mockApi.saveLearningGoal).toHaveBeenCalledWith({
-        user_id: "user-1",
-        target_language: "es",
-        cefr_level: "A1",
-        daily_minutes: 15,
-        objective: "daily_conversation",
-      });
-      expect(mockApi.initUserVocab).toHaveBeenCalledWith("user-1", "A1");
-    });
+describe("StepDemographics", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
 
-    it("skips vocab init when cefrLevel is A0", async () => {
-      const basicInfo = { value: { nickname: "Test" } };
-      const learningGoal = { value: { cefrLevel: "A0" } };
-      const mockApi = {
-        createUser: vi.fn().mockResolvedValue({ id: "user-1" }),
-        saveLearningGoal: vi.fn().mockResolvedValue({}),
-        initUserVocab: vi.fn(),
-      };
+  it("has 4 age range pills and 3 gender pills", () => {
+    const wrapper = mount(StepDemographics);
+    const groups = wrapper.findAll(".form-group");
+    expect(groups[0].findAll(".pill")).toHaveLength(4);
+    expect(groups[1].findAll(".pill")).toHaveLength(3);
+  });
 
-      async function saveToBackend() {
-        const info = basicInfo.value;
-        const goal = learningGoal.value;
-        await mockApi.createUser({
-          nickname: info.nickname || "学习者",
-          avatar: "😊",
-          native_language: "zh",
-          country: "CN",
-          gender: "private",
-          birth_year: null,
-        });
-        await mockApi.saveLearningGoal({
-          user_id: "user-1",
-          target_language: "es",
-          cefr_level: "A1",
-          daily_minutes: 15,
-          objective: "daily_conversation",
-        });
-        if (goal.cefrLevel && goal.cefrLevel !== "A0") {
-          await mockApi.initUserVocab("user-1", goal.cefrLevel);
-        }
-      }
+  it("emits null when nothing is selected", async () => {
+    const wrapper = mount(StepDemographics);
+    await wrapper.find("button.btn-primary").trigger("click");
+    const emitted = wrapper.emitted("next");
+    expect(emitted[0][0]).toMatchObject({ ageRange: null, gender: null });
+  });
 
-      await saveToBackend();
-      expect(mockApi.initUserVocab).not.toHaveBeenCalled();
-    });
+  it("deselects a pill when clicked twice", async () => {
+    const wrapper = mount(StepDemographics);
+    const agePills = wrapper.findAll(".form-group").at(0).findAll(".pill");
+    await agePills[0].trigger("click");
+    expect(wrapper.vm.form.ageRange).toBe("under_18");
+    await agePills[0].trigger("click");
+    expect(wrapper.vm.form.ageRange).toBeNull();
+  });
+});
 
-    it("handles API errors gracefully", async () => {
-      const basicInfo = { value: { nickname: "Test" } };
-      const learningGoal = { value: { cefrLevel: "A1" } };
-      const mockApi = {
-        createUser: vi.fn().mockRejectedValue(new Error("DB error")),
-        saveLearningGoal: vi.fn(),
-        initUserVocab: vi.fn(),
-      };
+describe("StepAvatar", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
 
-      async function saveToBackend() {
-        try {
-          const info = basicInfo.value;
-          const goal = learningGoal.value;
-          await mockApi.createUser({
-            nickname: info.nickname || "学习者",
-            avatar: "😊",
-            native_language: "zh",
-            country: "CN",
-            gender: "private",
-            birth_year: null,
-          });
-        } catch (e) {
-        }
-      }
+  it("emits next immediately when an avatar is picked", async () => {
+    const wrapper = mount(StepAvatar);
+    const circles = wrapper.findAll(".avatar-circle");
+    expect(circles.length).toBeGreaterThan(0);
+    await circles[0].trigger("click");
+    const emitted = wrapper.emitted("next");
+    expect(emitted).toBeTruthy();
+    expect(emitted[0][0]).toHaveProperty("avatar");
+  });
 
-      await saveToBackend();
-      expect(mockApi.createUser).toHaveBeenCalled();
-      expect(mockApi.saveLearningGoal).not.toHaveBeenCalled();
-    });
+  it("skip button emits the default avatar", async () => {
+    const wrapper = mount(StepAvatar);
+    await wrapper.find("button.btn-link").trigger("click");
+    const emitted = wrapper.emitted("next");
+    expect(emitted[0][0]).toMatchObject({ avatar: "😊" });
   });
 });

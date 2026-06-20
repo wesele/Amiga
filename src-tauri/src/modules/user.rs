@@ -40,11 +40,13 @@ mod tests {
             country: "US".to_string(),
             gender: Some("male".to_string()),
             birth_year: Some(1990),
+            age_range: Some("37_54".to_string()),
         };
         let user = create_user_from_wizard(&pool, request).unwrap();
         assert_eq!(user.nickname, "TestUser");
         assert_eq!(user.avatar, "🐱");
         assert_eq!(user.wizard_completed, true);
+        assert_eq!(user.age_range, Some("37_54".to_string()));
     }
 
     #[test]
@@ -57,6 +59,7 @@ mod tests {
             country: "CN".to_string(),
             gender: None,
             birth_year: None,
+            age_range: None,
         };
         let user = create_user_from_wizard(&pool, request).unwrap();
         assert_eq!(user.wizard_completed, true);
@@ -79,6 +82,7 @@ mod tests {
             country: "CN".to_string(),
             gender: None,
             birth_year: None,
+            age_range: None,
         };
         create_user_from_wizard(&pool, request).unwrap();
         let completed = is_wizard_completed(&pool).unwrap();
@@ -97,6 +101,7 @@ mod tests {
             country: None,
             gender: None,
             birth_year: None,
+            age_range: None,
         };
         let updated = update_user(&pool, update).unwrap();
         assert_eq!(updated.nickname, "NewName");
@@ -114,6 +119,7 @@ mod tests {
             country: None,
             gender: None,
             birth_year: None,
+            age_range: None,
         };
         let updated = update_user(&pool, update).unwrap();
         assert_eq!(updated.avatar, "🌟");
@@ -178,6 +184,7 @@ mod tests {
             country: "CN".to_string(),
             gender: None,
             birth_year: None,
+            age_range: None,
         };
         create_user_from_wizard(&pool, request).unwrap();
         assert_eq!(is_wizard_completed(&pool).unwrap(), true);
@@ -251,6 +258,7 @@ pub struct User {
     pub country: String,
     pub gender: String,
     pub birth_year: Option<i32>,
+    pub age_range: Option<String>,
     pub wizard_completed: bool,
     pub created_at: String,
     pub last_active_date: Option<String>,
@@ -264,6 +272,7 @@ pub struct CreateUserRequest {
     pub country: String,
     pub gender: Option<String>,
     pub birth_year: Option<i32>,
+    pub age_range: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -275,6 +284,7 @@ pub struct UpdateUserRequest {
     pub country: Option<String>,
     pub gender: Option<String>,
     pub birth_year: Option<i32>,
+    pub age_range: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -295,7 +305,7 @@ pub fn get_or_create_user(db: &DatabasePool) -> Result<User, String> {
 
     // Try to get existing user
     let result = conn.query_row(
-        "SELECT id, nickname, avatar, native_language, country, gender, birth_year,
+        "SELECT id, nickname, avatar, native_language, country, gender, birth_year, age_range,
                 wizard_completed, created_at, last_active_date
          FROM users LIMIT 1",
         [],
@@ -308,9 +318,10 @@ pub fn get_or_create_user(db: &DatabasePool) -> Result<User, String> {
                 country: row.get(4)?,
                 gender: row.get(5).unwrap_or_else(|_| "private".to_string()),
                 birth_year: row.get(6)?,
-                wizard_completed: row.get::<_, i32>(7)? != 0,
-                created_at: row.get(8)?,
-                last_active_date: row.get(9)?,
+                age_range: row.get(7)?,
+                wizard_completed: row.get::<_, i32>(8)? != 0,
+                created_at: row.get(9)?,
+                last_active_date: row.get(10)?,
             })
         },
     );
@@ -346,6 +357,7 @@ pub fn get_or_create_user(db: &DatabasePool) -> Result<User, String> {
                 country: "CN".to_string(),
                 gender: "private".to_string(),
                 birth_year: None,
+                age_range: None,
                 wizard_completed: false,
                 created_at: today.clone(),
                 last_active_date: Some(today),
@@ -372,18 +384,24 @@ pub fn create_user_from_wizard(
     let id = existing.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
+    let gender_value = request
+        .gender
+        .clone()
+        .unwrap_or_else(|| "private".to_string());
+
     conn.execute(
-        "INSERT OR REPLACE INTO users (id, nickname, avatar, native_language, country, gender, birth_year,
+        "INSERT OR REPLACE INTO users (id, nickname, avatar, native_language, country, gender, birth_year, age_range,
          wizard_completed, created_at, last_active_date)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, ?9)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, ?10)",
         params![
             id,
             request.nickname,
             request.avatar,
             request.native_language,
             request.country,
-            request.gender.unwrap_or_else(|| "private".to_string()),
+            gender_value,
             request.birth_year,
+            request.age_range,
             today,
             today,
         ],
@@ -397,8 +415,9 @@ pub fn create_user_from_wizard(
         avatar: request.avatar,
         native_language: request.native_language,
         country: request.country,
-        gender: "private".to_string(),
+        gender: gender_value,
         birth_year: request.birth_year,
+        age_range: request.age_range,
         wizard_completed: true,
         created_at: today.clone(),
         last_active_date: Some(today),
@@ -453,6 +472,13 @@ pub fn update_user(db: &DatabasePool, request: UpdateUserRequest) -> Result<User
         )
         .ok();
     }
+    if let Some(age_range) = &request.age_range {
+        conn.execute(
+            "UPDATE users SET age_range = ?1 WHERE id = ?2",
+            params![age_range, request.id],
+        )
+        .ok();
+    }
 
     drop(conn);
     // Return updated user
@@ -465,7 +491,7 @@ fn get_user_by_id(db: &DatabasePool, id: &str) -> Result<User, String> {
         .lock()
         .map_err(|e| format!("DB lock error: {}", e))?;
     conn.query_row(
-        "SELECT id, nickname, avatar, native_language, country, gender, birth_year,
+        "SELECT id, nickname, avatar, native_language, country, gender, birth_year, age_range,
                 wizard_completed, created_at, last_active_date
          FROM users WHERE id = ?1",
         params![id],
@@ -478,9 +504,10 @@ fn get_user_by_id(db: &DatabasePool, id: &str) -> Result<User, String> {
                 country: row.get(4)?,
                 gender: row.get(5).unwrap_or_else(|_| "private".to_string()),
                 birth_year: row.get(6)?,
-                wizard_completed: row.get::<_, i32>(7)? != 0,
-                created_at: row.get(8)?,
-                last_active_date: row.get(9)?,
+                age_range: row.get(7)?,
+                wizard_completed: row.get::<_, i32>(8)? != 0,
+                created_at: row.get(9)?,
+                last_active_date: row.get(10)?,
             })
         },
     )
