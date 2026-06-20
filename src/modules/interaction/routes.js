@@ -1,5 +1,6 @@
 import ContactList from "./ContactList.vue";
 import InteractionPage from "./InteractionPage.vue";
+import MarkdownPreview from "./MarkdownPreview.vue";
 
 export default [
   {
@@ -11,5 +12,10 @@ export default [
     path: "/interaction/chat/:sessionId",
     name: "interaction-chat",
     component: InteractionPage,
+  },
+  {
+    path: "/interaction/preview",
+    name: "interaction-preview",
+    component: MarkdownPreview,
   },
 ];

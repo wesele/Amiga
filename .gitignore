@@ -28,3 +28,6 @@ content-studio/data/
 # Release keystore
 src-tauri/amiga-release.keystore
 src-tauri/gen/android/app/keystore.properties
+
+# Screenshot test artifacts
+screenshots/

@@ -24,7 +24,7 @@
               :class="{ active: selectedLang === lang && selectedLevel === level }"
               @click="selectLevel(lang, level)"
             >
-              {{ level }}
+              <span class="level-label">{{ level }} <span class="level-count">({{ levelWordCount(lang, level) }})</span></span>
               <button @click.stop="removeLevel(lang, level)" class="btn-icon btn-sm">✕</button>
             </div>
             <div class="level-add">
@@ -102,6 +102,12 @@ const wordCount = computed(() => {
   if (!currentWords.value) return 0
   return currentWords.value.split(',').filter(w => w.trim()).length
 })
+
+function levelWordCount(lang, level) {
+  const words = getWords(lang, level)
+  if (!words) return 0
+  return words.split(',').filter(w => w.trim()).length
+}
 
 function selectLevel(lang, level) {
   selectedLang.value = lang
@@ -205,6 +211,13 @@ function saveLanguage() {
   align-items: center;
   transition: all 0.2s;
   color: var(--text-light);
+}
+
+.level-count {
+  color: var(--text-light);
+  font-weight: 400;
+  font-size: 12px;
+  margin-left: 2px;
 }
 
 .level-item:hover {

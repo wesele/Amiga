@@ -139,6 +139,11 @@ describe("API module", () => {
       api.saveReadingLog(log);
       expect(mockInvoke).toHaveBeenCalledWith("save_reading_log_cmd", { logEntry: log });
     });
+
+    it("getReadArticleCount calls invoke with userId", () => {
+      api.getReadArticleCount("u1");
+      expect(mockInvoke).toHaveBeenCalledWith("get_read_article_count_cmd", { userId: "u1" });
+    });
   });
 
   describe("LLM API", () => {
