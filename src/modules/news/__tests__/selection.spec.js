@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Replicate the onWordTap guard logic from NewsReader.vue to verify the
-// selection-guard behaviour that prevents the word popup from blocking
-// drag-to-select translation.
+// Replicate the onWordTap guard logic from NewsReader.vue.
 function createOnWordTap(state) {
   return function onWordTap(token) {
     if (!token.isWord) return;
@@ -14,35 +12,67 @@ function createOnWordTap(state) {
   };
 }
 
-// Replicate the onSelectionChange debounced logic (without the real timer —
-// we invoke the inner callback synchronously via jest fake timers).
-function createOnSelectionChange(state, mockTranslateText) {
-  return function onSelectionChange() {
+// Replicate the refactored selection logic from NewsReader.vue:
+//   translateSelection(text)     — core: triggers translation for given text
+//   onSelectionChange()          — drag phase: only marks isSelecting
+//   onPointerUp()                — Windows: processes selection after release
+//   handleNativeTranslate(text)  — Android: called from native "翻译" menu item
+function createSelectionHandlers(state, mockTranslateText) {
+  function translateSelection(text) {
+    if (!text || text.length === 0) return false;
+    if (text.split(/\s+/).length <= 1) return false;
+
+    state.selectionText = text;
+    state.selectionLoading = true;
+
+    mockTranslateText(text)
+      .then((result) => {
+        state.selectionResult = result;
+        state.selectionLoading = false;
+      })
+      .catch((err) => {
+        state.selectionError = typeof err === "string" ? err : "翻译暂不可用";
+        state.selectionLoading = false;
+      });
+
+    return true;
+  }
+
+  function onSelectionChange() {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+      state.isSelecting = false;
+      return;
+    }
+    const text = sel.toString().trim();
+    if (text && text.split(/\s+/).length > 1) {
+      state.isSelecting = true;
+    }
+  }
+
+  function onPointerUp() {
     if (state.selectionTimer) clearTimeout(state.selectionTimer);
     state.selectionTimer = setTimeout(() => {
       state.selectionTimer = null;
+      if (!state.isSelecting) return;
+      state.isSelecting = false;
+
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
       const text = sel.toString().trim();
-      if (!text || text.length === 0) return;
-      if (text.split(/\s+/).length <= 1) return;
-
-      state.selectionText = text;
-      state.selectionLoading = true;
-
-      mockTranslateText(text)
-        .then((result) => {
-          state.selectionResult = result;
-          state.selectionLoading = false;
-        })
-        .catch((err) => {
-          state.selectionError = typeof err === "string" ? err : "翻译暂不可用";
-          state.selectionLoading = false;
-        });
-
+      if (!translateSelection(text)) return;
       sel.removeAllRanges();
-    }, 300);
-  };
+    }, 50);
+  }
+
+  function handleNativeTranslate(text) {
+    state.isSelecting = false;
+    if (!translateSelection(text)) return;
+    const sel = window.getSelection();
+    if (sel) sel.removeAllRanges();
+  }
+
+  return { onSelectionChange, onPointerUp, handleNativeTranslate, translateSelection };
 }
 
 describe("NewsReader selection logic", () => {
@@ -67,6 +97,17 @@ describe("NewsReader selection logic", () => {
     };
     window.getSelection = vi.fn(() => sel);
     return sel;
+  }
+
+  function makeState() {
+    return {
+      selectionText: "",
+      selectionResult: "",
+      selectionLoading: false,
+      selectionError: "",
+      selectionTimer: null,
+      isSelecting: false,
+    };
   }
 
   describe("onWordTap selection guard", () => {
@@ -94,13 +135,11 @@ describe("NewsReader selection logic", () => {
       expect(state.knownWordIds.has("hola")).toBe(false);
     });
 
-    it("skips word popup when selection is only whitespace", () => {
-      // toString returns spaces but trim() makes it empty → no guard
+    it("opens popup for whitespace-only selection (trim → empty)", () => {
       mockSelection("   ");
       const state = { selectedWord: null, lookedUp: 0, knownWordIds: new Set() };
       const onWordTap = createOnWordTap(state);
 
-      // trim() → "" → length 0 → guard NOT triggered → popup opens
       onWordTap({ text: "hola", isWord: true });
 
       expect(state.selectedWord).not.toBeNull();
@@ -119,151 +158,232 @@ describe("NewsReader selection logic", () => {
     });
   });
 
-  describe("onSelectionChange processing", () => {
-    it("translates multi-word selection and clears native selection", async () => {
-      const removeAllRanges = vi.fn();
-      mockSelection("hola mundo bonito", { removeAllRanges });
-      const mockTranslateText = vi.fn().mockResolvedValue("hello pretty world");
-      const state = {
-        selectionText: "",
-        selectionResult: "",
-        selectionLoading: false,
-        selectionError: "",
-        selectionTimer: null,
-      };
-      const onSelectionChange = createOnSelectionChange(state, mockTranslateText);
+  describe("translateSelection (core)", () => {
+    it("translates multi-word text and returns true", async () => {
+      const mockTranslateText = vi.fn().mockResolvedValue("hello world");
+      const state = makeState();
+      const { translateSelection } = createSelectionHandlers(state, mockTranslateText);
 
-      onSelectionChange();
-      expect(state.selectionText).toBe(""); // not yet — debounced
+      const ok = translateSelection("hola mundo");
 
-      vi.advanceTimersByTime(300);
-
-      expect(state.selectionText).toBe("hola mundo bonito");
+      expect(ok).toBe(true);
+      expect(state.selectionText).toBe("hola mundo");
       expect(state.selectionLoading).toBe(true);
-      expect(removeAllRanges).toHaveBeenCalled();
 
       await Promise.resolve();
       await Promise.resolve();
-      expect(state.selectionResult).toBe("hello pretty world");
+      expect(state.selectionResult).toBe("hello world");
       expect(state.selectionLoading).toBe(false);
     });
 
-    it("skips single-word selections", () => {
-      const removeAllRanges = vi.fn();
-      mockSelection("hola", { removeAllRanges });
+    it("returns false for single-word text", () => {
       const mockTranslateText = vi.fn();
-      const state = {
-        selectionText: "",
-        selectionResult: "",
-        selectionLoading: false,
-        selectionError: "",
-        selectionTimer: null,
-      };
-      const onSelectionChange = createOnSelectionChange(state, mockTranslateText);
+      const state = makeState();
+      const { translateSelection } = createSelectionHandlers(state, mockTranslateText);
 
-      onSelectionChange();
-      vi.advanceTimersByTime(300);
+      const ok = translateSelection("hola");
 
-      expect(state.selectionText).toBe("");
+      expect(ok).toBe(false);
       expect(mockTranslateText).not.toHaveBeenCalled();
     });
 
-    it("skips collapsed (empty) selections", () => {
-      mockSelection("", { isCollapsed: true, rangeCount: 0 });
+    it("returns false for empty text", () => {
       const mockTranslateText = vi.fn();
-      const state = {
-        selectionText: "",
-        selectionResult: "",
-        selectionLoading: false,
-        selectionError: "",
-        selectionTimer: null,
-      };
-      const onSelectionChange = createOnSelectionChange(state, mockTranslateText);
+      const state = makeState();
+      const { translateSelection } = createSelectionHandlers(state, mockTranslateText);
 
-      onSelectionChange();
-      vi.advanceTimersByTime(300);
-
-      expect(state.selectionText).toBe("");
+      expect(translateSelection("")).toBe(false);
+      expect(translateSelection(null)).toBe(false);
       expect(mockTranslateText).not.toHaveBeenCalled();
     });
 
-    it("sets error state when translation fails", async () => {
-      const removeAllRanges = vi.fn();
-      mockSelection("hola mundo", { removeAllRanges });
-      const mockTranslateText = vi.fn().mockRejectedValue(new Error("API down"));
-      const state = {
-        selectionText: "",
-        selectionResult: "",
-        selectionLoading: false,
-        selectionError: "",
-        selectionTimer: null,
-      };
-      const onSelectionChange = createOnSelectionChange(state, mockTranslateText);
+    it("sets error state on translation failure", async () => {
+      const mockTranslateText = vi.fn().mockRejectedValue(new Error("down"));
+      const state = makeState();
+      const { translateSelection } = createSelectionHandlers(state, mockTranslateText);
 
-      onSelectionChange();
-      vi.advanceTimersByTime(300);
+      translateSelection("hola mundo");
 
-      expect(state.selectionLoading).toBe(true);
       await Promise.resolve();
       await Promise.resolve();
       expect(state.selectionError).toBe("翻译暂不可用");
       expect(state.selectionLoading).toBe(false);
     });
+  });
 
-    it("debounces — only fires after 300ms of no changes", () => {
+  describe("onSelectionChange (drag phase)", () => {
+    it("marks isSelecting=true for multi-word selection", () => {
+      mockSelection("hola mundo");
+      const state = makeState();
+      const { onSelectionChange } = createSelectionHandlers(state, vi.fn());
+
+      onSelectionChange();
+
+      expect(state.isSelecting).toBe(true);
+      expect(state.selectionText).toBe("");
+    });
+
+    it("does not mark isSelecting for single-word selection", () => {
+      mockSelection("hola");
+      const state = makeState();
+      const { onSelectionChange } = createSelectionHandlers(state, vi.fn());
+
+      onSelectionChange();
+
+      expect(state.isSelecting).toBe(false);
+    });
+
+    it("resets isSelecting when selection collapses", () => {
+      mockSelection("hola mundo");
+      const state = makeState();
+      const { onSelectionChange } = createSelectionHandlers(state, vi.fn());
+
+      onSelectionChange();
+      expect(state.isSelecting).toBe(true);
+
+      mockSelection("", { isCollapsed: true, rangeCount: 0 });
+      onSelectionChange();
+      expect(state.isSelecting).toBe(false);
+    });
+  });
+
+  describe("onPointerUp (Windows release)", () => {
+    it("translates after finger/mouse release", async () => {
+      const removeAllRanges = vi.fn();
+      mockSelection("hola mundo bonito", { removeAllRanges });
+      const mockTranslateText = vi.fn().mockResolvedValue("hello pretty world");
+      const state = makeState();
+      const { onSelectionChange, onPointerUp } = createSelectionHandlers(
+        state, mockTranslateText,
+      );
+
+      onSelectionChange();
+      onPointerUp();
+      vi.advanceTimersByTime(50);
+
+      expect(state.selectionText).toBe("hola mundo bonito");
+      expect(removeAllRanges).toHaveBeenCalled();
+
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(state.selectionResult).toBe("hello pretty world");
+    });
+
+    it("does NOT translate while dragging (no pointerup)", () => {
+      mockSelection("hola mundo");
+      const mockTranslateText = vi.fn();
+      const state = makeState();
+      const { onSelectionChange } = createSelectionHandlers(state, mockTranslateText);
+
+      onSelectionChange();
+      vi.advanceTimersByTime(1000);
+
+      expect(mockTranslateText).not.toHaveBeenCalled();
+    });
+
+    it("does not fire before 50ms delay", () => {
+      mockSelection("hola mundo");
+      const mockTranslateText = vi.fn().mockResolvedValue("hello world");
+      const state = makeState();
+      const { onSelectionChange, onPointerUp } = createSelectionHandlers(
+        state, mockTranslateText,
+      );
+
+      onSelectionChange();
+      onPointerUp();
+      vi.advanceTimersByTime(49);
+
+      expect(mockTranslateText).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1);
+      expect(mockTranslateText).toHaveBeenCalledWith("hola mundo");
+    });
+  });
+
+  describe("handleNativeTranslate (Android menu item)", () => {
+    it("translates the text passed from native and clears selection", async () => {
       const removeAllRanges = vi.fn();
       mockSelection("hola mundo", { removeAllRanges });
       const mockTranslateText = vi.fn().mockResolvedValue("hello world");
-      const state = {
-        selectionText: "",
-        selectionResult: "",
-        selectionLoading: false,
-        selectionError: "",
-        selectionTimer: null,
-      };
-      const onSelectionChange = createOnSelectionChange(state, mockTranslateText);
+      const state = makeState();
+      const { handleNativeTranslate } = createSelectionHandlers(
+        state, mockTranslateText,
+      );
+
+      handleNativeTranslate("hola mundo");
+
+      expect(state.selectionText).toBe("hola mundo");
+      expect(state.selectionLoading).toBe(true);
+      expect(removeAllRanges).toHaveBeenCalled();
+
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(state.selectionResult).toBe("hello world");
+    });
+
+    it("resets isSelecting to prevent pointerup double-fire", () => {
+      mockSelection("hola mundo");
+      const mockTranslateText = vi.fn().mockResolvedValue("hello world");
+      const state = makeState();
+      const { onSelectionChange, handleNativeTranslate, onPointerUp } =
+        createSelectionHandlers(state, mockTranslateText);
 
       onSelectionChange();
-      vi.advanceTimersByTime(200);
-      expect(state.selectionText).toBe(""); // not yet
+      expect(state.isSelecting).toBe(true);
 
-      onSelectionChange(); // reset timer
-      vi.advanceTimersByTime(200);
-      expect(state.selectionText).toBe(""); // still not yet
+      handleNativeTranslate("hola mundo");
+      expect(state.isSelecting).toBe(false);
 
-      vi.advanceTimersByTime(100); // total 300 since last call
-      expect(state.selectionText).toBe("hola mundo");
+      // pointerup should NOT re-trigger because isSelecting was cleared
+      onPointerUp();
+      vi.advanceTimersByTime(50);
+
+      expect(mockTranslateText).toHaveBeenCalledTimes(1);
+    });
+
+    it("skips single-word text from native", () => {
+      mockSelection("hola");
+      const mockTranslateText = vi.fn();
+      const state = makeState();
+      const { handleNativeTranslate } = createSelectionHandlers(state, mockTranslateText);
+
+      handleNativeTranslate("hola");
+
+      expect(state.selectionText).toBe("");
+      expect(mockTranslateText).not.toHaveBeenCalled();
+    });
+
+    it("skips empty text from native", () => {
+      const mockTranslateText = vi.fn();
+      const state = makeState();
+      const { handleNativeTranslate } = createSelectionHandlers(state, mockTranslateText);
+
+      handleNativeTranslate("");
+      handleNativeTranslate(null);
+
+      expect(mockTranslateText).not.toHaveBeenCalled();
     });
   });
 
   describe("clearSelection timer cleanup", () => {
-    it("clears pending debounce timer so stale translation does not fire", () => {
+    it("clears pending pointerup timer so stale translation does not fire", () => {
       mockSelection("hola mundo", { removeAllRanges: vi.fn() });
       const mockTranslateText = vi.fn().mockResolvedValue("hello world");
-      const state = {
-        selectionText: "",
-        selectionResult: "",
-        selectionLoading: false,
-        selectionError: "",
-        selectionTimer: null,
-      };
-      const onSelectionChange = createOnSelectionChange(state, mockTranslateText);
+      const state = makeState();
+      const { onSelectionChange, onPointerUp } = createSelectionHandlers(
+        state, mockTranslateText,
+      );
 
       onSelectionChange();
+      onPointerUp();
       expect(state.selectionTimer).not.toBeNull();
 
-      // Simulate clearSelection
       if (state.selectionTimer) {
         clearTimeout(state.selectionTimer);
         state.selectionTimer = null;
       }
-      state.selectionText = "";
-      state.selectionResult = "";
-      state.selectionError = "";
-      state.selectionLoading = false;
 
       vi.advanceTimersByTime(500);
-      expect(state.selectionText).toBe(""); // stale timer did not fire
       expect(mockTranslateText).not.toHaveBeenCalled();
     });
   });

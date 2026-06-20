@@ -35,69 +35,6 @@
 └─────────────────────────────────────────────────────┘
 ```
 
-### 模块化设计原则
-- 每个功能模块独立文件夹，包含：组件、路由、状态、定义
-- 模块注册系统：模块通过 `ModuleDefinition` 接口注册到内核
-- 插件架构：支持模块间通信和扩展
-- 延迟加载：模块可被懒加载
-
-## 功能说明书 (Product Design Docs)
-位于 `./docs` 目录，采用纯 HTML 格式的交互式产品交互设计文档，可直接浏览器打开。
-
-### 文档架构
-```
-docs/
-├── index.html                    # 导航主页（左中右三栏布局：侧边栏 + 功能说明 + 原型预览）
-├── pages/
-│   ├── sections/*.html           # 功能章节页面（可独立打开，也可嵌入 index.html）
-│   └── prototypes/*.html         # 手机端原型页面（模拟手机 UI 的交互原型）
-├── shared/                       # 共享 CSS / JS / 数据
-│   ├── base.css, components.css, variables.css, phone.css
-│   ├── data.js                   # 全局数据定义（题库、排行榜、课程节点等）
-│   └── app.js
-└── phone/                        # 手机原型组件（screens + tabbar）
-```
-
-### 已完成章节
-| 分类 | 章节 | 文件 |
-|------|------|------|
-| 整体介绍 | 产品定位 | vision |
-| 用户引导 | 新用户向导 | wizard |
-| 功能模块 | 学习（新闻阅读）、排行(暂不开发)、互动(暂不开发)、个人 | learning / ranking / interaction / personal |
-
-### 编写规范
-- 所有功能设计修改请同步更新 `./docs` 下的 HTML 文件
-- 每个 section 页面支持 `?embed=1` 参数，嵌入模式下隐藏侧边栏、调整间距
-- 通过 `parent.postMessage({type:'nav', ...})` 与 index.html 父页面通信切换原型
-- 复杂功能模块（如学习）使用 Tab 切换子功能，Tab 切换时同步更新右侧原型
-
-### 开发工作流
-- **每次修改代码后**，运行 `npm run tauri dev` 启动应用验证
-- `npm run tauri dev` - 启动 Windows 开发服务器
-- `npm run tauri build` - 构建 Windows 版本
-- `npm run tauri android dev` - Android 开发
-- `npm run tauri android build` - 构建 Android APK
-
-### 开发工作流（AI 使用）
-- **每次修改代码并测试通过后**，运行 `.\run-windows.bat`（或 `Start-Process -FilePath "run-windows.bat"`）启动 Tauri 开发服务器，让用户可以直接看到界面效果
-- **不要自动发布到 GitHub**，等待用户明确指令
-- **版本号规则**：除非用户明确要求增加 major 或 minor 版本号，否则只增加第三位（patch）版本号。例如：0.2.0 → 0.2.1
-- **发布前必须执行** `npm run build` 确认前端构建无 BOM 错误
-
-### 大模型提示词管理规范（必须遵守）
-- **App 中所有调用大模型的系统级提示词（system prompt）都必须可配置**，不能硬编码在后端 Rust 代码中
-- 默认存放在 `prompts` 数据库表中，通过 `提示词管理`（Prompt Management）功能管理
-- 当需要新增 AI 功能时，必须在 `modules/prompts.rs` 的 `ensure_default_prompts()` 中添加默认提示词，并提供对应的 key
-- 前端调用 LLM 时，应优先从数据库读取 prompt，数据库无记录时再 fallback 到硬编码（兼容旧数据）
-- **所有提示词（包括 AI 对话、翻译、画像分析等）都必须通过提示词管理功能配置**，不允许任何硬编码的系统提示词存在于 Rust 后端代码中
-- 新增任何调用 LLM 的功能时，必须先定义 prompt key 并在 `prompts.rs` 中添加默认值，再在功能代码中通过 `get_prompt()` 加载使用
-
-### 配置管理界面规范（必须遵守）
-- **所有配置管理界面（如 API 设置、模型参数等）都必须使用单独的页面管理**，不能在当前页面内联展开
-- 每个独立配置项作为一个独立页面，通过路由访问（如 `/profile/llm-config`），而不是在父页面中通过展开/折叠形式展示
-- 配置页面应包含顶部返回按钮导航回上一级，表单操作（保存/测试）使用显式按钮触发，不应使用自动保存
-- 用户从设置菜单或列表页点击配置项时，导航到独立配置页面进行编辑
-
 ## GitHub Release 工作流
 
 ### 发布规范
@@ -195,18 +132,3 @@ docs/
 #### Rust 可测试性约定
 - **内存数据库**: `DatabasePool::new_in_memory()` 使用 SQLite 内存模式，无需文件 I/O，每个测试独立数据库
 - **模块独立测试**: 每个模块的测试只依赖自己的函数，不依赖 Tauri 运行时
-
-## 当前状态
-- [x] 项目初始化 & AGENTS.md
-- [x] 模块化内核（Kernel）+ 模块注册/懒加载机制
-- [x] Shell 模块（AppShell 布局）+ Hello 演示模块
-- [x] Rust 后端骨架（commands / modules / tauri 配置）
-- [x] Content Studio 内容生产系统（词库、题型、AI 生成、Prompt 管理）
-- [x] 自动化测试体系（Vitest 前端 + Cargo test 后端）
-- [ ] 正在设计功能说明书，所有功能设计修改请同步更新 ./docs 下的 html
-  - [x] 产品定位、语言支持、内容结构、设计语言、导航
-  - [x] 学习模块：晋级之路（CEFR 分级题库 A1/A2/B1）、AI 口语练习、单词本、新闻阅读
-  - [x] 排行模块、互动模块（好友+双语聊天）、个人模块
-  - [x] 新用户向导
-  - [x] 自动化测试框架搭建
-  - [ ] 游戏化系统、进度追踪、测验考试、模块架构、数据模型、AI 功能、开发路线图（文件已创建，待整合到侧边栏）

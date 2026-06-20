@@ -145,6 +145,10 @@ let nativeLang = "zh";
 onMounted(async () => {
   startTime.value = Date.now();
   document.addEventListener("selectionchange", onSelectionChange);
+  document.addEventListener("pointerup", onPointerUp);
+  // Android: the system text-selection toolbar calls this global function
+  // when the user taps the "翻译" menu item (see MainActivity.kt).
+  window.__amigaTranslateSelection = handleNativeTranslate;
   try {
     const user = await getCurrentUser();
     userId = user.id;
@@ -165,6 +169,8 @@ onMounted(async () => {
 
 onBeforeUnmount(async () => {
   document.removeEventListener("selectionchange", onSelectionChange);
+  document.removeEventListener("pointerup", onPointerUp);
+  delete window.__amigaTranslateSelection;
   if (selectionTimer) {
     clearTimeout(selectionTimer);
     selectionTimer = null;
@@ -371,34 +377,69 @@ const selectionResult = ref("");
 const selectionLoading = ref(false);
 const selectionError = ref("");
 let selectionTimer = null;
+let isSelecting = false;
 
+// Core translation logic shared by pointerup (Windows) and native menu (Android).
+function translateSelection(text) {
+  if (!text || text.length === 0) return false;
+  if (text.split(/\s+/).length <= 1) return false;
+
+  selectionText.value = text;
+  selectionLoading.value = true;
+  selectionResult.value = "";
+  selectionError.value = "";
+
+  translateText(text, nativeLang || "zh")
+    .then(result => {
+      selectionResult.value = result;
+      selectionLoading.value = false;
+    })
+    .catch(err => {
+      selectionError.value = typeof err === "string" ? err : "翻译暂不可用";
+      selectionLoading.value = false;
+    });
+
+  return true;
+}
+
+// Track selection changes while the user is actively dragging — only record
+// that a selection is in progress, don't trigger translation yet.
 function onSelectionChange() {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+    isSelecting = false;
+    return;
+  }
+  const text = sel.toString().trim();
+  if (text && text.split(/\s+/).length > 1) {
+    isSelecting = true;
+  }
+}
+
+// Windows: when the user releases the mouse, check if there was a valid
+// multi-word selection and trigger translation.
+function onPointerUp() {
   if (selectionTimer) clearTimeout(selectionTimer);
   selectionTimer = setTimeout(() => {
     selectionTimer = null;
+    if (!isSelecting) return;
+    isSelecting = false;
+
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
     const text = sel.toString().trim();
-    if (!text || text.length === 0) return;
-    if (text.split(/\s+/).length <= 1) return;
-
-    selectionText.value = text;
-    selectionLoading.value = true;
-    selectionResult.value = "";
-    selectionError.value = "";
-
-    translateText(text, nativeLang || "zh")
-      .then(result => {
-        selectionResult.value = result;
-        selectionLoading.value = false;
-      })
-      .catch(err => {
-        selectionError.value = typeof err === "string" ? err : "翻译暂不可用";
-        selectionLoading.value = false;
-      });
-
+    if (!translateSelection(text)) return;
     sel.removeAllRanges();
-  }, 300);
+  }, 50);
+}
+
+// Android: called from the native "翻译" menu item (see MainActivity.kt).
+// The selected text is passed in from Kotlin via evaluateJavascript.
+function handleNativeTranslate(text) {
+  isSelecting = false; // prevent pointerup from double-firing
+  if (!translateSelection(text)) return;
+  const sel = window.getSelection();
+  if (sel) sel.removeAllRanges();
 }
 
 function clearSelection() {
