@@ -48,6 +48,7 @@ import { useI18n } from "@/shared/i18n";
 const props = defineProps({
   word: { type: String, required: true },
   context: { type: String, default: "" },
+  nativeLang: { type: String, default: "zh" },
 });
 
 const emit = defineEmits(["close", "known", "unknown"]);
@@ -59,7 +60,7 @@ const error = ref("");
 
 onMounted(async () => {
   try {
-    const result = await translateWord(props.word, props.context, "zh");
+    const result = await translateWord(props.word, props.context, props.nativeLang);
     translation.value = result;
   } catch (e) {
     error.value = t("popup.fail");

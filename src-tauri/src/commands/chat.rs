@@ -79,11 +79,17 @@ pub async fn update_chat_session_title_cmd(
 }
 
 #[tauri::command]
-pub async fn get_amiga_profile_cmd() -> Result<serde_json::Value, String> {
+pub async fn get_amiga_profile_cmd(target_lang: String) -> Result<serde_json::Value, String> {
+    let lang_label = match target_lang.as_str() {
+        "es" => "Spanish",
+        "en" => "English",
+        "zh" => "Chinese",
+        _ => "your target language",
+    };
     Ok(serde_json::json!({
         "id": "amiga",
         "nickname": "Amiga",
         "avatar": "🤖",
-        "bio": "你的 AI 语言学习伙伴"
+        "bio": format!("Your AI language buddy for {}", lang_label)
     }))
 }

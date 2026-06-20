@@ -22,7 +22,7 @@
     <div class="chat-messages" ref="msgList">
       <div v-if="messages.length === 0 && contactType === 'amiga'" class="welcome-box">
         <p>{{ t('interaction.welcomeAmiga1') }}</p>
-        <p>{{ t('interaction.welcomeAmiga2') }}</p>
+        <p>{{ t('interaction.welcomeAmiga2', { target: targetLabel }) }}</p>
       </div>
       <div v-if="messages.length === 0 && contactType === 'translator'" class="welcome-box">
         <p>{{ t('interaction.welcomeTranslator1') }}</p>
@@ -64,7 +64,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, onUnmounted } from "vue";
+import { ref, nextTick, onMounted, onUnmounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   getCurrentUser,
@@ -76,8 +76,9 @@ import MarkdownText from "@/shared/components/MarkdownText.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
+import { displayLang } from "@/shared/constants.js";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const targetLangStore = useTargetLangStore();
@@ -95,6 +96,7 @@ const contactName = ref("Amiga");
 const contactAvatar = ref("🤖");
 const targetLang = ref("es");
 const nativeLang = ref("zh");
+const targetLabel = computed(() => displayLang(targetLang.value, locale.value));
 let cachedViewportHeight = 0;
 let syncRaf = null;
 let unsubscribe = null;

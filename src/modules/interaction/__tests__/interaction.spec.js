@@ -70,8 +70,8 @@ describe("Interaction API", () => {
     });
   });
 
-  it("getAmigaProfile calls invoke", () => {
-    api.getAmigaProfile();
-    expect(mockInvoke).toHaveBeenCalledWith("get_amiga_profile_cmd");
+  it("getAmigaProfile calls invoke with targetLang", () => {
+    api.getAmigaProfile("en");
+    expect(mockInvoke).toHaveBeenCalledWith("get_amiga_profile_cmd", { targetLang: "en" });
   });
 });

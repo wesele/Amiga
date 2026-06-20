@@ -26,15 +26,33 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUser, getChatSessions, createChatSession } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
+import { useTargetLangStore } from "@/stores/targetLang.js";
+import { displayLang } from "@/shared/constants.js";
 
 const router = useRouter();
-const { t } = useI18n();
+const { t, locale } = useI18n();
+const targetLangStore = useTargetLangStore();
 const sessions = ref([]);
 
-const CONTACTS = computed(() => [
-  { id: "amiga", name: t("interaction.amiga"), avatar: "🤖", contactType: "amiga", desc: t("interaction.amigaDesc") },
-  { id: "translator", name: t("interaction.translator"), avatar: "🌐", contactType: "translator", desc: t("interaction.translatorDesc") },
-]);
+const CONTACTS = computed(() => {
+  const targetLabel = displayLang(targetLangStore.code, locale.value);
+  return [
+    {
+      id: "amiga",
+      name: t("interaction.amiga"),
+      avatar: "🤖",
+      contactType: "amiga",
+      desc: t("interaction.amigaDesc", { target: targetLabel }),
+    },
+    {
+      id: "translator",
+      name: t("interaction.translator"),
+      avatar: "🌐",
+      contactType: "translator",
+      desc: t("interaction.translatorDesc", { target: targetLabel }),
+    },
+  ];
+});
 
 function formatTime(dateStr) {
   if (!dateStr) return "";

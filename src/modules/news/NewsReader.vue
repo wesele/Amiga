@@ -69,6 +69,7 @@
         v-if="selectedWord"
         :word="selectedWord.text"
         :context="selectedWord.context"
+        :native-lang="nativeLang"
         @close="selectedWord = null"
         @known="onWordKnown"
         @unknown="onWordUnknown"
@@ -110,7 +111,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen } from "@/shared/api.js";
+import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, getLearningGoals } from "@/shared/api.js";
 import WordPopup from "./components/WordPopup.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -130,6 +131,7 @@ const startTime = ref(Date.now());
 let targetLang = "es";
 let userId = "";
 let nativeLang = "zh";
+let currentLevel = "A1";
 let unsubscribe = null;
 
 // Bilingual mode state
@@ -153,6 +155,13 @@ onMounted(async () => {
     userId = user.id;
     nativeLang = user.native_language || "zh";
     targetLang = (await targetLangStore.load()) || "es";
+    // Pick the CEFR level matching the user's current target language,
+    // so the rewrite is calibrated to what they're actually studying.
+    try {
+      const goals = await getLearningGoals(userId);
+      const g = goals.find((x) => x.target_language === targetLang);
+      if (g?.cefr_level) currentLevel = g.cefr_level;
+    } catch (_) { /* fall back to A1 */ }
     const art = await getArticle(Number(props.id));
     article.value = art;
     if (!art.rewritten_body) {
@@ -225,7 +234,7 @@ async function doRewrite() {
   rewriting.value = true;
   rewriteError.value = "";
   try {
-    const result = await rewriteArticle(Number(props.id), "A1", userId, targetLang);
+    const result = await rewriteArticle(Number(props.id), currentLevel, userId, targetLang);
     article.value = result;
   } catch (e) {
     console.error("Failed to rewrite article:", e);

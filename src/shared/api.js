@@ -107,7 +107,8 @@ export const getChatMessages = (sessionId, limit = 50) =>
   _invoke("get_chat_messages_cmd", { sessionId, limit });
 export const updateChatSessionTitle = (sessionId, title) =>
   _invoke("update_chat_session_title_cmd", { sessionId, title });
-export const getAmigaProfile = () => _invoke("get_amiga_profile_cmd");
+export const getAmigaProfile = (targetLang) =>
+  _invoke("get_amiga_profile_cmd", { targetLang });
 
 // ─── Legacy ───
 export const greet = (name) => _invoke("greet", { name });
