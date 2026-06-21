@@ -122,7 +122,7 @@ import {
   getReadArticleCount,
   checkUpdate,
 } from "@/shared/api.js";
-import { open } from "@tauri-apps/plugin-shell";
+import { openExternalUrl } from "@/shared/external.js";
 import SettingsItem from "./components/SettingsItem.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
@@ -196,7 +196,7 @@ async function handleCheckUpdate() {
 }
 
 async function openUrl(url) {
-  try { await open(url); } catch { window.open(url, "_blank"); }
+  await openExternalUrl(url);
 }
 </script>
 
