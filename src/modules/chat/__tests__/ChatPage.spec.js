@@ -115,13 +115,13 @@ describe("ChatPage", () => {
 
     expect(sessionsArgs).toMatchObject({ targetLang: "en" });
     expect(wrapper.find(".header-name").text()).toBe("Amiga");
-    // The amiga avatar is now rendered as the green Android app-icon SVG
-    // (a green rounded square with a white "I"), so the header avatar
-    // should contain an <svg> with a rect + a text "I" — no 🤖 emoji.
+    // The amiga avatar is the Android launcher icon (green rounded
+    // square with a white "I") served as /amiga-icon.png — not the
+    // 🤖 emoji, not an inline SVG.
     const avatar = wrapper.find(".contact-avatar");
-    expect(avatar.find("svg").exists()).toBe(true);
-    expect(avatar.find("svg rect").exists()).toBe(true);
-    expect(avatar.find("svg text").text()).toBe("I");
+    const img = avatar.find("img");
+    expect(img.exists()).toBe(true);
+    expect(img.attributes("src")).toBe("/amiga-icon.png");
   });
 
   it("getChatSessions is invoked with the active targetLang (regression: was called with no arg)", async () => {

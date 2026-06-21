@@ -64,7 +64,7 @@ describe("ContactList", () => {
     expect(names).toContain("AI 翻译");
   });
 
-  it("Amiga contact uses the green Android app-icon SVG, not the 🤖 emoji", async () => {
+  it("Amiga contact uses the Android app-icon image, not the 🤖 emoji", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
       return Promise.resolve(null);
@@ -76,12 +76,13 @@ describe("ContactList", () => {
       .find((el) => el.find(".contact-name").text() === "Amiga");
     expect(amigaItem).toBeTruthy();
     const avatar = amigaItem.find(".contact-avatar");
-    // The avatar is now an SVG that mirrors the Android app icon:
-    // a green rounded square with a white "I" inside. No 🤖 emoji.
-    expect(avatar.find("svg").exists()).toBe(true);
-    expect(avatar.find("svg rect").exists()).toBe(true);
-    const label = avatar.find("svg text").text();
-    expect(label).toBe("I");
+    // The avatar is the Android launcher icon rendered as an <img>
+    // (green rounded square with a white "I"), served from
+    // /amiga-icon.png. No 🤖 emoji, no inline SVG.
+    const img = avatar.find("img");
+    expect(img.exists()).toBe(true);
+    expect(img.attributes("src")).toBe("/amiga-icon.png");
+    expect(img.attributes("alt")).toBe("Amiga");
   });
 
   it("clicking the AI 翻译 contact creates a translator session and navigates to it", async () => {
