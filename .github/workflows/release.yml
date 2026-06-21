@@ -113,43 +113,54 @@ jobs:
           keyAlias=${AMIGA_KEY_ALIAS}
           keyPassword=${AMIGA_KEY_PASSWORD}
           EOF
-          echo "--- keystore.properties (storeFile visible, secrets redacted) ---"
-          awk -F= 'BEGIN{OFS="="} {if($1=="storeFile") print $1,$2; else print $1,"<REDACTED>"}' \
-            src-tauri/gen/android/app/keystore.properties
-          echo "--- keystore file ---"
-          ls -l src-tauri/amiga-release.keystore
-          test -f src-tauri/amiga-release.keystore && echo "keystore file exists" || echo "::error::keystore file MISSING"
-          echo "--- hexdump first 16 bytes (PKCS12 magic) ---"
-          head -c 16 src-tauri/amiga-release.keystore | od -c | head -2
       - name: Build APK (aarch64)
         run: npx tauri android build --target aarch64 --apk
-      - name: Verify produced APK is signed
+      - name: Sign APK (post-step, apksigner)
+        # Tauri's gradle signingConfig isn't picking up keystore.properties
+        # in CI for unknown reasons (file is written, build reads it, but
+        # the produced APK is still named *-unsigned.apk). Sign manually
+        # with apksigner as a robust post-step.
+        env:
+          AMIGA_KEYSTORE_PASSWORD: ${{ secrets.AMIGA_KEYSTORE_PASSWORD }}
+          AMIGA_KEY_ALIAS: ${{ secrets.AMIGA_KEY_ALIAS }}
+          AMIGA_KEY_PASSWORD: ${{ secrets.AMIGA_KEY_PASSWORD }}
         run: |
-          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -1)
-          if [ -z "$APK" ]; then
-            echo "::error::No APK produced"
+          UNSIGNED=$(find src-tauri/gen/android/app/build/outputs/apk -name '*-unsigned.apk' | head -1)
+          if [ -z "$UNSIGNED" ]; then
+            echo "::error::No unsigned APK found to sign"
             exit 1
           fi
-          echo "APK: $APK ($(stat -c%s "$APK") bytes)"
-          BASENAME=$(basename "$APK")
-          if [[ "$BASENAME" == *-unsigned.apk ]]; then
-            echo "::warning::APK is unsigned; keystore.properties was not picked up by build.gradle.kts"
-            echo "--- keystore.properties ---"
-            sed 's/Password=.*/Password=<REDACTED>/' src-tauri/gen/android/app/keystore.properties
-            echo "--- keystore file ---"
-            ls -l src-tauri/amiga-release.keystore
-          else
-            echo "✓ APK is signed: $BASENAME"
-          fi
+          echo "Signing: $UNSIGNED"
+          SIGNED="${UNSIGNED/-unsigned.apk/.apk}"
+          ZIPALIGN=$(ls -d /usr/local/lib/android/sdk/build-tools/*/zipalign | head -1)
+          APKSIGNER=$(ls -d /usr/local/lib/android/sdk/build-tools/*/apksigner | head -1)
+          echo "Using zipalign: $ZIPALIGN"
+          echo "Using apksigner: $APKSIGNER"
+          "$ZIPALIGN" -f -p 4 "$UNSIGNED" "$SIGNED"
+          "$APKSIGNER" sign \
+            --ks src-tauri/amiga-release.keystore \
+            --ks-key-alias "$AMIGA_KEY_ALIAS" \
+            --ks-pass "pass:$AMIGA_KEYSTORE_PASSWORD" \
+            --key-pass "pass:$AMIGA_KEY_PASSWORD" \
+            --out "$SIGNED" \
+            "$SIGNED"
+          "$APKSIGNER" verify --verbose "$SIGNED" | head -5
+          echo "✓ Signed APK: $SIGNED"
       - name: Collect APK
         run: |
           mkdir -p dist-artifacts
-          # Match both signed (app-*-release.apk) and unsigned
-          # (app-*-release-unsigned.apk) outputs. The presence of -unsigned
-          # in the filename means the signingConfig in build.gradle.kts
-          # didn't pick up keystore.properties — investigate separately.
-          find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' \
-            -exec cp {} dist-artifacts/ \;
+          # Pick the signed APK (post-build apksigner step produces it next
+          # to the unsigned one). Fall back to the unsigned if signing step
+          # was skipped (shouldn't happen).
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name 'app-universal-release.apk' | head -1)
+          if [ -z "$APK" ]; then
+            APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' ! -name '*-unsigned.apk' | head -1)
+          fi
+          if [ -z "$APK" ]; then
+            echo "::error::No signed APK to collect"
+            exit 1
+          fi
+          cp "$APK" dist-artifacts/
           ls -l dist-artifacts/
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4
