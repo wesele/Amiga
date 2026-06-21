@@ -1,6 +1,5 @@
 /// Database migration definitions
 /// Each migration: (version_number, description, SQL)
-
 pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
     vec![
         (1, "Initial schema - core tables", MIGRATION_V1),

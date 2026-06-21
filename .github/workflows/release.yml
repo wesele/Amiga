@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -36,6 +36,17 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libssl-dev libgtk-3-dev \
             libayatana-appindicator3-dev librsvg2-dev
+      # content-studio/data/vocabulary.json is gitignored. The release builds
+      # may compile a Rust lib that `include_str!`s it. Provide a placeholder
+      # when missing so the Android pipeline can build; the released APK uses
+      # its own seed data baked in by the project workflow, not this file.
+      - name: Ensure vocabulary.json exists (CI placeholder)
+        run: |
+          mkdir -p content-studio/data
+          if [ ! -f content-studio/data/vocabulary.json ]; then
+            echo '{"data":{}}' > content-studio/data/vocabulary.json
+            echo "Created placeholder vocabulary.json for CI"
+          fi
       - name: Restore Android SDK + NDK
         uses: actions/cache@v4
         with:
@@ -105,13 +116,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
+      # Same placeholder as the Android job: vocabulary.json is gitignored.
+      - name: Ensure vocabulary.json exists (CI placeholder)
+        run: |
+          mkdir -p content-studio/data
+          if [ -f content-studio/data/vocabulary.json ]; then exit 0; fi
+          echo '{"data":{}}' > content-studio/data/vocabulary.json
       - name: npm ci
         run: npm ci
       - name: Build Tauri bundle
