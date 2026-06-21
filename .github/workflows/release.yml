@@ -113,11 +113,14 @@ jobs:
           keyAlias=${AMIGA_KEY_ALIAS}
           keyPassword=${AMIGA_KEY_PASSWORD}
           EOF
-          echo "--- keystore.properties (redacted) ---"
-          sed 's/=.*/=<REDACTED>/' src-tauri/gen/android/app/keystore.properties
-          echo "--- keystore file (path check) ---"
-          ls -l src-tauri/amiga-release.keystore 2>&1 | head -1
+          echo "--- keystore.properties (storeFile visible, secrets redacted) ---"
+          awk -F= 'BEGIN{OFS="="} {if($1=="storeFile") print $1,$2; else print $1,"<REDACTED>"}' \
+            src-tauri/gen/android/app/keystore.properties
+          echo "--- keystore file ---"
+          ls -l src-tauri/amiga-release.keystore
           test -f src-tauri/amiga-release.keystore && echo "keystore file exists" || echo "::error::keystore file MISSING"
+          echo "--- hexdump first 16 bytes (PKCS12 magic) ---"
+          head -c 16 src-tauri/amiga-release.keystore | od -c | head -2
       - name: Build APK (aarch64)
         run: npx tauri android build --target aarch64 --apk
       - name: Verify produced APK is signed
