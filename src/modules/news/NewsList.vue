@@ -19,11 +19,15 @@
 
     <!-- Article cards -->
     <div v-if="!loading || articles.length > 0" class="article-list">
-      <button
+      <div
         v-for="article in articles"
         :key="article.id"
         class="article-card"
+        role="button"
+        tabindex="0"
         @click="openArticle(article.id)"
+        @keydown.enter="openArticle(article.id)"
+        @keydown.space.prevent="openArticle(article.id)"
       >
         <div class="card-rank" :class="'rank-' + article.hot_rank">
           {{ article.hot_rank }}
@@ -33,10 +37,18 @@
           <div class="card-meta">
             <span v-if="article.rewritten_body" class="badge-rewritten">{{ t('news.aiRewritten') }}</span>
             <span v-else class="badge-raw">{{ t('news.raw') }}</span>
-              <span class="card-source clickable" @click.stop="openSourceUrl(article.source)">{{ formatSource(article.source) }}</span>
+            <a
+              v-if="article.source"
+              class="card-source clickable"
+              :href="article.source"
+              target="_blank"
+              rel="noopener noreferrer"
+              :title="article.source"
+              @click.stop.prevent="openSourceUrl(article.source)"
+            >{{ formatSource(article.source) }}</a>
           </div>
         </div>
-      </button>
+      </div>
     </div>
 
     <!-- Empty state -->
@@ -288,6 +300,11 @@ function formatSource(source) {
   box-shadow: var(--shadow);
   width: 100%;
   font-family: inherit;
+  outline: none;
+}
+
+.article-card:focus-visible {
+  box-shadow: var(--shadow-lg), 0 0 0 2px var(--green);
 }
 
 .article-card:hover {
@@ -371,6 +388,7 @@ function formatSource(source) {
 .card-source {
   font-size: 11px;
   color: var(--text-lighter);
+  text-decoration: none;
 }
 
 .clickable {

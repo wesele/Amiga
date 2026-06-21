@@ -39,19 +39,30 @@ function mountShell() {
 }
 
 describe("AppShell bottom-nav safe-area", () => {
-  it("AppShell.vue bottom-nav declares padding-bottom: var(--safe-bottom)", () => {
+  it("AppShell.vue owns the system safe area via a sibling .bottom-nav-safe strip, not via padding on .bottom-nav", () => {
     const css = read("src/modules/shell/AppShell.vue");
-    const block = css.match(/\.bottom-nav\s*\{[^}]+\}/);
-    expect(block, ".bottom-nav block not found in AppShell.vue").toBeTruthy();
-    // On Android the safe area is enforced by WebView.setPadding() in
-    // MainActivity, so this padding resolves to 0 there (env() returns
-    // 0 on Android WebView). On iOS / WKWebView the env() returns the
-    // real value and this padding keeps the nav above the home
-    // indicator. The point of asserting the var is in the rule is
-    // belt-and-braces: if someone deletes the safe-area hooks in
-    // style.css, the fallback expression in this rule still keeps the
-    // nav visible on iOS.
-    expect(block[0]).toMatch(/padding-bottom\s*:\s*var\(--safe-bottom/);
+    const navBlock = css.match(/\.bottom-nav\s*\{[^}]+\}/);
+    expect(navBlock, ".bottom-nav block not found in AppShell.vue").toBeTruthy();
+    const safeBlock = css.match(/\.bottom-nav-safe\s*\{[^}]+\}/);
+    expect(safeBlock, ".bottom-nav-safe block not found in AppShell.vue").toBeTruthy();
+    // The interactive .bottom-nav must be a fixed 64px bar with NO
+    // safe-area padding — padding on the flex container shrinks the
+    // flex line cross-size and pushes the items to the top of the
+    // visual bar.
+    expect(navBlock[0]).toMatch(/height\s*:\s*64px/);
+    expect(navBlock[0]).not.toMatch(/padding-bottom\s*:\s*var\(--safe-bottom/);
+    // The safe-area strip is a sibling, not a padding region of the
+    // nav. It inherits the nav's surface background so the two read
+    // as a single visual bar.
+    expect(safeBlock[0]).toMatch(/height\s*:\s*var\(--safe-bottom/);
+    expect(safeBlock[0]).toMatch(/background\s*:\s*var\(--surface/);
+  });
+
+  it("AppShell.vue template renders .bottom-nav and .bottom-nav-safe as siblings", () => {
+    const vue = read("src/modules/shell/AppShell.vue");
+    // The two elements must be siblings under the same v-if so they
+    // appear and disappear together.
+    expect(vue).toMatch(/<nav class="bottom-nav">[\s\S]*?<\/nav>\s*<div class="bottom-nav-safe"/);
   });
 
   it("style.css #app keeps padding-top and padding-bottom for the global safe area", () => {
@@ -80,6 +91,11 @@ describe("AppShell render", () => {
     const wrapper = mountShell();
     const items = wrapper.findAll(".bottom-nav .nav-item");
     expect(items.length).toBe(4);
+  });
+
+  it("renders the .bottom-nav-safe strip alongside the bottom-nav", () => {
+    const wrapper = mountShell();
+    expect(wrapper.find(".bottom-nav-safe").exists()).toBe(true);
   });
 
   it("hides the bottom-nav on the wizard, reader, and chat-session routes", async () => {
