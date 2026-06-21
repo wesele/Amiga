@@ -118,7 +118,11 @@ jobs:
       - name: Collect APK
         run: |
           mkdir -p dist-artifacts
-          find src-tauri/gen/android/app/build/outputs/apk -type f -name '*-release.apk' \
+          # Match both signed (app-*-release.apk) and unsigned
+          # (app-*-release-unsigned.apk) outputs. The presence of -unsigned
+          # in the filename means the signingConfig in build.gradle.kts
+          # didn't pick up keystore.properties — investigate separately.
+          find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' \
             -exec cp {} dist-artifacts/ \;
           ls -l dist-artifacts/
       - name: Upload Android artifacts
