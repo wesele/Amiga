@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Amiga's custom additions to the generated AndroidManifest.xml.
+
+  The full manifest Tauri generates lives at
+  src-tauri/gen/android/app/src/main/AndroidManifest.xml and is
+  overwritten by `tauri android init` and CLI upgrades, so we keep
+  this fragment tracked here and have scripts/android-patch.cjs
+  merge it into the generated file on every Android build.
+
+  Why <queries> is here:
+
+    tauri-plugin-shell's `open()` (see ShellPlugin.kt) launches URLs
+    via `Intent.ACTION_VIEW` + `startActivity`. On Android 11+ (API 30)
+    the OS restricts which apps each app can see — without an explicit
+    <queries> block, the package manager reports "no activity found"
+    for http(s) VIEW intents and startActivity throws
+    ActivityNotFoundException. The JS side then falls back to
+    `window.open(url, "_blank")`, which the Tauri WebView implements
+    as a new in-app WebView window — so external links (e.g. the
+    "source" badge in the news list) end up loading inside the app
+    instead of in the user's browser.
+
+    The two <intent> entries below make Chrome / Firefox / etc.
+    visible to our Intent.ACTION_VIEW calls, restoring the expected
+    "tap to open in system browser" behavior. See
+    https://developer.android.com/training/package-visibility for
+    the full background.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
+    </queries>
+</manifest>
