@@ -115,9 +115,10 @@ describe("ChatPage", () => {
 
     expect(sessionsArgs).toMatchObject({ targetLang: "en" });
     expect(wrapper.find(".header-name").text()).toBe("Amiga");
-    // The amiga avatar is the Android launcher icon (green rounded
-    // square with a white "I") served as /amiga-icon.png — not the
-    // 🤖 emoji, not an inline SVG.
+    // The amiga avatar is the Android launcher brand mark (orange +
+    // blue ring) extracted from the built APK and served as
+    // /amiga-icon.png — not the 🤖 emoji, not an inline SVG, not the
+    // green "I" placeholder from src-tauri/icons/android/.
     const avatar = wrapper.find(".contact-avatar");
     const img = avatar.find("img");
     expect(img.exists()).toBe(true);

@@ -115,6 +115,15 @@ C:\Code\Idioma\
 
 **前后端桥**：Tauri `invoke()`，`src/shared/api.js` 的 invoke 名 ↔ `src-tauri/src/commands/` 的 Rust 函数名一一对应。
 
+## 应用图标
+
+聊天页 / 联系人列表里的「Amiga 头像」来自 `public/amiga-icon.png`，**不是** `src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png`（那是 3186 字节的绿方块占位图，不是 Android 桌面上看到的品牌图标）。
+
+- 源：构建出的 release APK 里的最高分辨率 launcher PNG（如 `res/as.png` 432×432）
+- 提取：先 `build-android.bat` 跑出 `app-universal-release.apk`，再 `node scripts/extract-android-icon.cjs` 把最大 PNG 拷到 `public/amiga-icon.png`
+- 用法：`<img src="/amiga-icon.png">`，由 Vite 走 `public/` pipeline 字节原样输出
+- 重新换品牌：换源 PNG → 重建 release APK → 跑脚本
+
 ## 前端模块
 
 ### 模块形状
@@ -335,6 +344,7 @@ window.__amigaGoBack = () => {
 | `scripts/release.cjs` | 全自动发布：版本更新 → 提交 → 前端构建 → Android 构建 → GitHub Release |
 | `scripts/bump-version.cjs` | 同步 `package.json` / `Cargo.toml` / `tauri.conf.json` 等版本号 |
 | `scripts/screenshot.ps1` | 按窗口标题截屏到 PNG（默认标题 `Amiga`） |
+| `scripts/extract-android-icon.cjs` | 从 release APK 提取最高分辨率 launcher icon → `public/amiga-icon.png` |
 | `scripts/test-bump-lock.cjs` / `test-cargo-lock*.cjs` | 锁文件一致性测试 |
 
 ## Content Studio
