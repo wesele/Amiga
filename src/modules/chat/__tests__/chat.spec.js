@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import * as api from "@/shared/api.js";
 
-describe("Interaction API", () => {
+describe("Chat API", () => {
   let mockInvoke;
 
   beforeEach(() => {

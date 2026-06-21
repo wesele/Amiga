@@ -375,16 +375,12 @@ fn build_translator_system_prompt(
     match load_system_prompt(db, "translator-chat", &vars) {
         Some(p) => p,
         None => {
-            // Language-agnostic fallback: handles any {source_label} word/sentence
-            // and translates into {target_label}.
-            format!(
-                "You are a smart translation assistant. Identify the source language of the user's input and translate/explain it:\n\n\
-                 - If the source is a single {source_label} word: provide IPA pronunciation, translate it into {target_label}, and give a simple usage example plus a similar word and an opposite word\n\
-                 - If the source is a {source_label} sentence: translate it into {target_label} and explain any key difficulties (grammar, tense, idioms)\n\
-                 - For a single word in any other language: provide IPA (American English if applicable), translate it into {target_label}, and (for non-English sources) a similar word and an opposite word\n\
-                 - For a sentence in any other language: translate it into {target_label}\n\n\
-                 Keep the output concise. Prefer short sentences and bullet lists."
-            )
+            // Fallback: keep in sync with the default in modules/prompts.rs.
+            // The default is loaded at startup via ensure_default_prompts,
+            // so this branch only fires if the prompts table is somehow
+            // unavailable. The prompt is bilingual-aware (handles es / en / zh
+            // inputs explicitly) so it doesn't need source/target variables.
+            "对输入的内容进行翻译解释。输入如果是西语单词，标注读音，翻译成中文，和英文（标注美式读音），并提供常见用法例句以及这个西语单词的相近相反的词。如果是西语句子，翻译成中英文，并解释关键难点。如果是中文，提供西语以及相近相反的词，和英文翻译（不需要相近相反的词，标注美式读音）。如果是英文，标注美式读音，提供中文和西语翻译。输出尽量简洁。".to_string()
         }
     }
 }

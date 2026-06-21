@@ -36,8 +36,8 @@ async function bootstrap() {
   //
   // Why we don't use `history.back()`: that walks the *URL* history,
   // not the route hierarchy. A user who navigates /news → /news/123
-  // → /interaction/chat via a link would, on back, jump to /news/123
-  // (the previous URL) instead of /interaction (the parent). On
+  // → /chat/:id via a link would, on back, jump to /news/123
+  // (the previous URL) instead of /chat (the parent). On
   // re-entry the same back presses can also re-trigger cross-tree
   // navigation and loop.
 
@@ -80,7 +80,7 @@ async function bootstrap() {
   kernel.init(router, pinia);
 
   // Hydrate the active target language before any module mounts, so the
-  // first onMounted in news/vocab/interaction reads a ready store instead of
+  // first onMounted in news/vocab/chat reads a ready store instead of
   // racing against the backend roundtrip.
   await useTargetLangStore(pinia).load();
 
@@ -108,7 +108,7 @@ async function bootstrap() {
   await kernel.loadModule("news", { parent: "shell" });
   await kernel.loadModule("vocab", { parent: "shell" });
   await kernel.loadModule("profile", { parent: "shell" });
-  await kernel.loadModule("interaction", { parent: "shell" });
+  await kernel.loadModule("chat", { parent: "shell" });
 
   app.mount("#app");
 

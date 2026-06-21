@@ -82,11 +82,11 @@ describe("AppShell render", () => {
     expect(items.length).toBe(4);
   });
 
-  it("hides the bottom-nav on the wizard, reader, and interaction-chat routes", async () => {
+  it("hides the bottom-nav on the wizard, reader, and chat-session routes", async () => {
     const router = makeRouter();
     router.addRoute({ path: "/wizard", name: "wizard", component: { template: "<div />" } });
     router.addRoute({ path: "/news/:id", name: "reader", component: { template: "<div />" } });
-    router.addRoute({ path: "/interaction/chat/:id", name: "interaction-chat", component: { template: "<div />" } });
+    router.addRoute({ path: "/chat/:id", name: "chat-session", component: { template: "<div />" } });
 
     const wrapper = mount(AppShell, {
       global: {
@@ -96,7 +96,7 @@ describe("AppShell render", () => {
     });
     await flushPromises();
 
-    for (const path of ["/news", "/wizard", "/news/123", "/interaction/chat/abc"]) {
+    for (const path of ["/news", "/wizard", "/news/123", "/chat/abc"]) {
       await router.push(path);
       await flushPromises();
       const isHidden = path !== "/news";

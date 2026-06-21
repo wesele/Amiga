@@ -115,7 +115,7 @@ async function run() {
       if (fs.existsSync('src-tauri/gen/android/tauri.properties')) {
         filesToSync.push('src-tauri/gen/android/tauri.properties');
       }
-      const modules = ['wizard', 'vocab', 'shell', 'prompts', 'profile', 'news', 'interaction', 'hello'];
+      const modules = ['wizard', 'vocab', 'shell', 'prompts', 'profile', 'news', 'chat', 'hello'];
       modules.forEach(m => {
         const p = `src/modules/${m}/index.js`;
         if (fs.existsSync(p)) filesToSync.push(p);

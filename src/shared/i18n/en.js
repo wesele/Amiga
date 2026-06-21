@@ -23,7 +23,7 @@ export default {
   nav: {
     learn: "Learn",
     vocab: "Words",
-    interaction: "Chat",
+    chat: "Chat",
     profile: "Me",
   },
 
@@ -131,7 +131,7 @@ export default {
     wordMastery: "Mastery",
   },
 
-  interaction: {
+  chat: {
     title: "Chat",
     amiga: "Amiga",
     amigaDesc: "Your AI language buddy for {{target}}",
@@ -140,7 +140,7 @@ export default {
     input: "Type a message…",
     send: "Send",
     deleteChat: "Delete chat",
-    welcomeAmiga1: "Hi! I'm Amiga 🤖, your AI language buddy.",
+    welcomeAmiga1: "Hi! I'm Amiga, your AI language buddy.",
     welcomeAmiga2: "We can chat in your native language, or practice {{target}} together.",
     welcomeTranslator1: "Hi! I'm AI Translator 🌐",
     welcomeTranslator2: "Type any word or sentence — I'll translate and explain it.",

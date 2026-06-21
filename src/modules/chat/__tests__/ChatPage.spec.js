@@ -7,7 +7,7 @@ import { setLocale } from "@/shared/i18n";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
-const InteractionPage = (await import("@/modules/interaction/InteractionPage.vue")).default;
+const ChatPage = (await import("@/modules/chat/ChatPage.vue")).default;
 
 function makeRouter(sessionId) {
   return createRouter({
@@ -15,9 +15,9 @@ function makeRouter(sessionId) {
     routes: [
       { path: "/", component: { template: "<div/>" } },
       {
-        path: "/interaction/chat/:sessionId",
-        name: "interaction-chat",
-        component: InteractionPage,
+        path: "/chat/:sessionId",
+        name: "chat-session",
+        component: ChatPage,
         props: true,
       },
     ],
@@ -26,14 +26,14 @@ function makeRouter(sessionId) {
 
 async function mountPage(sessionId, mockInvoke) {
   const router = makeRouter(sessionId);
-  await router.push(`/interaction/chat/${sessionId}`);
+  await router.push(`/chat/${sessionId}`);
   await router.isReady();
-  return mount(InteractionPage, {
+  return mount(ChatPage, {
     global: { plugins: [router] },
   });
 }
 
-describe("InteractionPage", () => {
+describe("ChatPage", () => {
   let mockInvoke;
 
   beforeEach(() => {
@@ -115,7 +115,13 @@ describe("InteractionPage", () => {
 
     expect(sessionsArgs).toMatchObject({ targetLang: "en" });
     expect(wrapper.find(".header-name").text()).toBe("Amiga");
-    expect(wrapper.find(".contact-avatar").text()).toBe("🤖");
+    // The amiga avatar is now rendered as the green Android app-icon SVG
+    // (a green rounded square with a white "I"), so the header avatar
+    // should contain an <svg> with a rect + a text "I" — no 🤖 emoji.
+    const avatar = wrapper.find(".contact-avatar");
+    expect(avatar.find("svg").exists()).toBe(true);
+    expect(avatar.find("svg rect").exists()).toBe(true);
+    expect(avatar.find("svg text").text()).toBe("I");
   });
 
   it("getChatSessions is invoked with the active targetLang (regression: was called with no arg)", async () => {

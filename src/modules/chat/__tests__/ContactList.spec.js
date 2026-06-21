@@ -7,27 +7,27 @@ import { setLocale } from "@/shared/i18n";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
-const ContactList = (await import("@/modules/interaction/ContactList.vue")).default;
+const ContactList = (await import("@/modules/chat/ContactList.vue")).default;
 
 function makeRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: "/interaction", name: "interaction", component: { template: "<div/>" } },
-      { path: "/interaction/chat/:sessionId", name: "interaction-chat", component: { template: "<div/>" } },
+      { path: "/chat", name: "chat", component: { template: "<div/>" } },
+      { path: "/chat/:sessionId", name: "chat-session", component: { template: "<div/>" } },
     ],
   });
 }
 
 function makeStubRoute(query = {}) {
-  return { params: {}, query, path: "/interaction", name: "interaction" };
+  return { params: {}, query, path: "/chat", name: "chat" };
 }
 
 function makeStubRouter() {
   return {
     push: vi.fn(),
     replace: vi.fn(),
-    currentRoute: { value: { fullPath: "/interaction" } },
+    currentRoute: { value: { fullPath: "/chat" } },
   };
 }
 
@@ -64,6 +64,26 @@ describe("ContactList", () => {
     expect(names).toContain("AI 翻译");
   });
 
+  it("Amiga contact uses the green Android app-icon SVG, not the 🤖 emoji", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+    const wrapper = mountList();
+    await flushPromises();
+    const amigaItem = wrapper
+      .findAll(".contact-item")
+      .find((el) => el.find(".contact-name").text() === "Amiga");
+    expect(amigaItem).toBeTruthy();
+    const avatar = amigaItem.find(".contact-avatar");
+    // The avatar is now an SVG that mirrors the Android app icon:
+    // a green rounded square with a white "I" inside. No 🤖 emoji.
+    expect(avatar.find("svg").exists()).toBe(true);
+    expect(avatar.find("svg rect").exists()).toBe(true);
+    const label = avatar.find("svg text").text();
+    expect(label).toBe("I");
+  });
+
   it("clicking the AI 翻译 contact creates a translator session and navigates to it", async () => {
     let createdArgs = null;
     mockInvoke.mockImplementation((cmd, args) => {
@@ -94,8 +114,8 @@ describe("ContactList", () => {
     await flushPromises();
 
     // The session must be created with contactType="translator" — the
-    // bug that previously caused InteractionPage to render the wrong
-    // header was that the backend had this field set correctly but the
+    // bug that previously caused ChatPage to render the wrong header
+    // was that the backend had this field set correctly but the
     // page's session-lookup was using the wrong target_lang, so it
     // couldn't find the row. This test pins the *creation* half.
     expect(createdArgs).toMatchObject({
@@ -103,7 +123,7 @@ describe("ContactList", () => {
       contactType: "translator",
     });
     expect(pushSpy).toHaveBeenCalledWith(
-      "/interaction/chat/translator-session-id",
+      "/chat/translator-session-id",
     );
   });
 
@@ -141,7 +161,7 @@ describe("ContactList", () => {
       contactType: "amiga",
     });
     expect(pushSpy).toHaveBeenCalledWith(
-      "/interaction/chat/amiga-session-id",
+      "/chat/amiga-session-id",
     );
   });
 
@@ -178,7 +198,7 @@ describe("ContactList", () => {
 
     expect(createCalls).toBe(0);
     expect(pushSpy).toHaveBeenCalledWith(
-      "/interaction/chat/existing-translator-id",
+      "/chat/existing-translator-id",
     );
   });
 });

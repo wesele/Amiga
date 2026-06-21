@@ -1,8 +1,8 @@
 ﻿import routes from "./routes.js";
 
 export default {
-  name: "interaction",
-  displayName: "互动",
+  name: "chat",
+  displayName: "聊天",
   version: "0.3.6",
   routes,
   init(kernel) {},

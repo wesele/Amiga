@@ -61,10 +61,10 @@ function routeFileForName(name) {
     case "reader":
     case "news":
       return "src/modules/news/routes.js";
-    case "interaction-chat":
-    case "interaction-preview":
-    case "interaction":
-      return "src/modules/interaction/routes.js";
+    case "chat-session":
+    case "chat-preview":
+    case "chat":
+      return "src/modules/chat/routes.js";
     case "settings":
     case "llm-config":
     case "profile":
@@ -187,24 +187,24 @@ describe("__amigaGoBack bridge", () => {
     expect(window.__amigaGoBack()).toBe("at-root");
   });
 
-  it("interaction-chat → interaction → at-root (covers the back-button UX for the translator)", async () => {
+  it("chat-session → chat → at-root (covers the back-button UX for the translator)", async () => {
     const router = makeRouter([
-      { path: "/interaction", name: "interaction", component: { template: "<div />" } },
+      { path: "/chat", name: "chat", component: { template: "<div />" } },
       {
-        path: "/interaction/chat/:id",
-        name: "interaction-chat",
+        path: "/chat/:id",
+        name: "chat-session",
         component: { template: "<div />" },
-        meta: { parent: "interaction" },
+        meta: { parent: "chat" },
       },
     ]);
     installAmigaGoBack(router);
-    await router.push("/interaction/chat/abc");
-    expect(router.currentRoute.value.name).toBe("interaction-chat");
+    await router.push("/chat/abc");
+    expect(router.currentRoute.value.name).toBe("chat-session");
 
     const pushSpy = vi.spyOn(router, "push");
     expect(window.__amigaGoBack()).toBe("navigated");
     await pushSpy.mock.results[0].value;
-    expect(router.currentRoute.value.name).toBe("interaction");
+    expect(router.currentRoute.value.name).toBe("chat");
     pushSpy.mockRestore();
 
     expect(window.__amigaGoBack()).toBe("at-root");
@@ -218,8 +218,8 @@ describe("__amigaGoBack bridge", () => {
     // the wrong screen and re-introduce the "previous page" loop.
     const detailRoutes = [
       { name: "reader", parent: "news" },
-      { name: "interaction-chat", parent: "interaction" },
-      { name: "interaction-preview", parent: "interaction" },
+      { name: "chat-session", parent: "chat" },
+      { name: "chat-preview", parent: "chat" },
       { name: "settings", parent: "profile" },
       { name: "llm-config", parent: "settings" },
       { name: "prompts", parent: "settings" },

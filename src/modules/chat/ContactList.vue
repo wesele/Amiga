@@ -1,7 +1,7 @@
 <template>
   <div class="contact-list">
     <header class="list-header">
-      <h2>{{ t('interaction.title') }}</h2>
+      <h2>{{ t('chat.title') }}</h2>
     </header>
     <div class="contact-list-scroll">
       <div
@@ -10,7 +10,10 @@
         class="contact-item"
         @click="openChat(c)"
       >
-        <div class="contact-avatar">{{ c.avatar }}</div>
+        <div class="contact-avatar">
+          <component v-if="c.component" :is="c.component" :size="40" />
+          <span v-else>{{ c.avatar }}</span>
+        </div>
         <div class="contact-info">
           <div class="contact-name">{{ c.name }}</div>
           <div class="contact-desc">{{ c.desc }}</div>
@@ -22,13 +25,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, markRaw } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentUser, getChatSessions, createChatSession } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
 import { displayLang } from "@/shared/constants.js";
+import AmigaIcon from "@/shared/components/AmigaIcon.vue";
 
 const router = useRouter();
 const { t, locale } = useI18n();
@@ -41,17 +45,17 @@ const CONTACTS = computed(() => {
   return [
     {
       id: "amiga",
-      name: t("interaction.amiga"),
-      avatar: "🤖",
+      name: t("chat.amiga"),
+      component: markRaw(AmigaIcon),
       contactType: "amiga",
-      desc: t("interaction.amigaDesc", { target: targetLabel }),
+      desc: t("chat.amigaDesc", { target: targetLabel }),
     },
     {
       id: "translator",
-      name: t("interaction.translator"),
+      name: t("chat.translator"),
       avatar: "🌐",
       contactType: "translator",
-      desc: t("interaction.translatorDesc", { target: targetLabel }),
+      desc: t("chat.translatorDesc", { target: targetLabel }),
     },
   ];
 });
@@ -98,7 +102,7 @@ async function openChat(contact) {
       return;
     }
   }
-  router.push(`/interaction/chat/${session.id}`);
+  router.push(`/chat/${session.id}`);
 }
 
 onUnmounted(() => {

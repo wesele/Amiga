@@ -1,12 +1,15 @@
 <template>
   <div class="chat-view" ref="chatView">
     <header class="chat-header">
-      <button class="back-btn" @click="$router.push('/interaction')">
+      <button class="back-btn" @click="$router.push('/chat')">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="pointer-events:none">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
       </button>
-      <div class="contact-avatar">{{ contactAvatar }}</div>
+      <div class="contact-avatar">
+        <component v-if="isAmiga" :is="amigaIcon" :size="32" />
+        <span v-else>{{ contactAvatar }}</span>
+      </div>
       <div class="header-info">
         <div class="header-name">{{ contactName }}</div>
       </div>
@@ -15,18 +18,18 @@
     <div v-if="showMenu" class="menu-overlay" @click="showMenu = false" />
     <transition name="fade">
       <div v-if="showMenu" class="menu-panel">
-        <div class="menu-item danger" @click="deleteCurrentSession">{{ t('interaction.deleteChat') }}</div>
+        <div class="menu-item danger" @click="deleteCurrentSession">{{ t('chat.deleteChat') }}</div>
       </div>
     </transition>
 
     <div class="chat-messages" ref="msgList">
       <div v-if="messages.length === 0 && contactType === 'amiga'" class="welcome-box">
-        <p>{{ t('interaction.welcomeAmiga1') }}</p>
-        <p>{{ t('interaction.welcomeAmiga2', { target: targetLabel }) }}</p>
+        <p>{{ t('chat.welcomeAmiga1') }}</p>
+        <p>{{ t('chat.welcomeAmiga2', { target: targetLabel }) }}</p>
       </div>
       <div v-if="messages.length === 0 && contactType === 'translator'" class="welcome-box">
-        <p>{{ t('interaction.welcomeTranslator1') }}</p>
-        <p>{{ t('interaction.welcomeTranslator2') }}</p>
+        <p>{{ t('chat.welcomeTranslator1') }}</p>
+        <p>{{ t('chat.welcomeTranslator2') }}</p>
       </div>
       <div
         v-for="(msg, i) in messages"
@@ -34,7 +37,10 @@
         class="msg-row"
         :class="msg.role === 'user' ? 'msg-user' : 'msg-other'"
       >
-        <div v-if="msg.role !== 'user'" class="msg-avatar">{{ contactAvatar }}</div>
+        <div v-if="msg.role !== 'user'" class="msg-avatar">
+          <component v-if="isAmiga" :is="amigaIcon" :size="28" />
+          <span v-else>{{ contactAvatar }}</span>
+        </div>
         <div class="msg-bubble">
           <MarkdownText v-if="msg.role !== 'user'" class="msg-text" :content="msg.content" />
           <div v-else class="msg-text msg-text-plain">{{ msg.content }}</div>
@@ -42,7 +48,10 @@
         <div v-if="msg.role === 'user'" class="msg-avatar user-avatar">😊</div>
       </div>
       <div v-if="loading" class="msg-row msg-other">
-        <div class="msg-avatar">{{ contactAvatar }}</div>
+        <div class="msg-avatar">
+          <component v-if="isAmiga" :is="amigaIcon" :size="28" />
+          <span v-else>{{ contactAvatar }}</span>
+        </div>
         <div class="msg-bubble typing">
           <span class="dot" /><span class="dot" /><span class="dot" />
         </div>
@@ -54,17 +63,17 @@
         ref="inputEl"
         v-model="inputText"
         class="chat-input"
-        :placeholder="t('interaction.input')"
+        :placeholder="t('chat.input')"
         @keydown.enter.prevent="sendMessage"
         @focus="onInputFocus"
       />
-        <div class="send-btn" :class="{ disabled: loading || !inputText.trim() }" @click="sendMessage">{{ t('interaction.send') }}</div>
+        <div class="send-btn" :class="{ disabled: loading || !inputText.trim() }" @click="sendMessage">{{ t('chat.send') }}</div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, onUnmounted, computed } from "vue";
+import { ref, nextTick, onMounted, onUnmounted, computed, markRaw } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   getCurrentUser,
@@ -73,6 +82,7 @@ import {
   deleteChatSession,
 } from "@/shared/api.js";
 import MarkdownText from "@/shared/components/MarkdownText.vue";
+import AmigaIcon from "@/shared/components/AmigaIcon.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -82,6 +92,7 @@ const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const targetLangStore = useTargetLangStore();
+const amigaIcon = markRaw(AmigaIcon);
 
 const messages = ref([]);
 const inputText = ref("");
@@ -93,10 +104,11 @@ const showMenu = ref(false);
 const sessionId = ref("");
 const contactType = ref("amiga");
 const contactName = ref("Amiga");
-const contactAvatar = ref("🤖");
+const contactAvatar = ref("🌐");
 const targetLang = ref("es");
 const nativeLang = ref("zh");
 const targetLabel = computed(() => displayLang(targetLang.value, locale.value));
+const isAmiga = computed(() => contactType.value === "amiga");
 let cachedViewportHeight = 0;
 let syncRaf = null;
 let unsubscribe = null;
@@ -130,7 +142,7 @@ function onViewportResize() {
   } else {
     stopSync();
   }
-}  
+}
 
 function onInputFocus() {
   scrollToBottom();
@@ -175,7 +187,7 @@ async function sendMessage() {
     );
     messages.value.push({ id: Date.now() + 1, role: "assistant", content: reply });
   } catch {
-    messages.value.push({ id: Date.now() + 2, role: "assistant", content: t("interaction.replyFail") });
+    messages.value.push({ id: Date.now() + 2, role: "assistant", content: t("chat.replyFail") });
   }
   loading.value = false;
   scrollToBottom();
@@ -186,7 +198,7 @@ async function deleteCurrentSession() {
   showMenu.value = false;
   try {
     await deleteChatSession(sessionId.value);
-    router.push("/interaction");
+    router.push("/chat");
   } catch { /* ignore */ }
 }
 
@@ -227,7 +239,7 @@ onMounted(async () => {
     if (sess) {
       contactType.value = sess.contact_type;
       if (sess.contact_type === "translator") {
-        contactName.value = t("interaction.translator");
+        contactName.value = t("chat.translator");
         contactAvatar.value = "🌐";
       }
     }
@@ -279,8 +291,10 @@ onMounted(async () => {
   background: var(--bg);
 }
 .contact-avatar {
-  font-size: 32px;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .header-info {
   flex: 1;
@@ -371,9 +385,11 @@ onMounted(async () => {
 }
 
 .msg-avatar {
-  font-size: 28px;
   line-height: 1;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .user-avatar {
   font-size: 28px;

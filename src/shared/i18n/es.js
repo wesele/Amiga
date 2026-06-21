@@ -23,7 +23,7 @@ export default {
   nav: {
     learn: "Aprender",
     vocab: "Palabras",
-    interaction: "Chat",
+    chat: "Chat",
     profile: "Yo",
   },
 
@@ -131,7 +131,7 @@ export default {
     wordMastery: "Dominio",
   },
 
-  interaction: {
+  chat: {
     title: "Chat",
     amiga: "Amiga",
     amigaDesc: "Tu compañero de idiomas con IA para {{target}}",
@@ -140,7 +140,7 @@ export default {
     input: "Escribe un mensaje…",
     send: "Enviar",
     deleteChat: "Eliminar chat",
-    welcomeAmiga1: "¡Hola! Soy Amiga 🤖, tu compañero de idiomas con IA.",
+    welcomeAmiga1: "¡Hola! Soy Amiga, tu compañero de idiomas con IA.",
     welcomeAmiga2: "Podemos charlar en tu idioma nativo o practicar {{target}} juntos.",
     welcomeTranslator1: "¡Hola! Soy el Traductor IA 🌐",
     welcomeTranslator2: "Escribe cualquier palabra u oración — la traduzco y la explico.",

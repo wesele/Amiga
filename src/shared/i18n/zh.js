@@ -26,7 +26,7 @@ export default {
   nav: {
     learn: "学习",
     vocab: "单词",
-    interaction: "互动",
+    chat: "聊天",
     profile: "我的",
   },
 
@@ -134,8 +134,8 @@ export default {
     wordMastery: "掌握度",
   },
 
-  interaction: {
-    title: "互动",
+  chat: {
+    title: "聊天",
     amiga: "Amiga",
     amigaDesc: "你的 {{target}} AI 语言学习伙伴",
     translator: "AI 翻译",
@@ -143,7 +143,7 @@ export default {
     input: "输入消息…",
     send: "发送",
     deleteChat: "删除对话",
-    welcomeAmiga1: "你好！我是 Amiga 🤖，你的 AI 语言学习伙伴。",
+    welcomeAmiga1: "你好！我是 Amiga，你的 AI 语言学习伙伴。",
     welcomeAmiga2: "我们可以用你的母语聊天，也可以一起练习 {{target}}。",
     welcomeTranslator1: "你好！我是 AI 翻译 🌐",
     welcomeTranslator2: "输入任何语言的单词或句子，我帮你翻译和解释。",

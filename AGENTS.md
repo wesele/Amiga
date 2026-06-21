@@ -144,12 +144,12 @@ await kernel.loadModule("news", { parent: "shell" });  // 其余挂在 shell 下
 
 | 模块 | 路由 | 功能 |
 |------|------|------|
-| `shell` | `/` | 主布局 + 底部导航（学习/单词/互动/我的） |
+| `shell` | `/` | 主布局 + 底部导航（学习/单词/聊天/我的） |
 | `wizard` | `/wizard` | 新用户引导（基本信息 → 学习目标 → 完成） |
 | `news` | `/news`, `/news/:id` | RSS 新闻阅读、AI 改写、双语翻译、生词弹窗 |
 | `vocab` | `/vocab` | 词库管理、CEFR 分级、掌握度追踪 |
 | `profile` | `/profile`, `/profile/settings`, `/profile/llm-config/:type` | 用户设置、LLM 配置 |
-| `interaction` | `/interaction`, `/interaction/chat/:sessionId` | AI 语言伙伴聊天、翻译机器人 |
+| `chat` | `/chat`, `/chat/:sessionId`, `/chat/preview` | AI 语言伙伴聊天、翻译机器人 |
 | `prompts` | `/prompts`, `/prompts/:key` | LLM 系统提示词管理 |
 
 ## Rust 后端
@@ -253,9 +253,9 @@ window.__amigaGoBack = () => {
 /news            → (root)
 /news/:id        → news
 /vocab           → (root)
-/interaction              → (root)
-/interaction/chat/:id     → interaction
-/interaction/preview      → interaction
+/chat             → (root)
+/chat/:id          → chat
+/chat/preview      → chat
 /profile                  → (root)
 /profile/settings         → profile
 /profile/llm-config/:type → settings
