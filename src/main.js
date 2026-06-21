@@ -21,6 +21,34 @@ async function bootstrap() {
     }
   }
 
+  // Android safe-area bridge: the native MainActivity calls
+  // `window.__amigaSetInsets({top, bottom, left, right})` whenever the
+  // system-bar insets change (status bar / nav bar / IME). We mirror
+  // them onto :root as `--amiga-safe-*` so the CSS env()-free fallback
+  // picks them up. On desktop / iOS the native side never calls this,
+  // and the env() fallback in style.css handles the (rare) case where
+  // the page is shown in a WKWebView with actual safe-area insets.
+  //
+  // The function MUST be defined before the native bridge first fires,
+  // which is right after onWebViewCreate — so install it synchronously
+  // at the very top of bootstrap, ahead of any module load.
+  if (typeof window !== "undefined") {
+    window.__amigaSetInsets = (insets) => {
+      if (!insets || typeof insets !== "object") return;
+      const root = document.documentElement;
+      const set = (k, v) => {
+        const n = Number(v);
+        if (Number.isFinite(n) && n >= 0) {
+          root.style.setProperty(`--amiga-safe-${k}`, `${Math.round(n)}px`);
+        }
+      };
+      set("top", insets.top);
+      set("bottom", insets.bottom);
+      set("left", insets.left);
+      set("right", insets.right);
+    };
+  }
+
   // Hydrate the UI language from persistent storage before the first render,
   // so the wizard / shell display in the user's chosen language.
   await initLocale();

@@ -56,9 +56,25 @@
   color: var(--text);
   background: var(--bg);
 
-  /* Spacing */
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-top: env(safe-area-inset-top, 0px);
+  /* Spacing
+   * --amiga-safe-{top,bottom,left,right}: populated at runtime by the
+   *   Android side via window.__amigaSetInsets() (see
+   *   src-tauri/android/.../MainActivity.kt). On Android WebView
+   *   `env(safe-area-inset-*)` returns 0, so without this bridge the
+   *   bottom nav and chat input would slide under the system bars.
+   *   On desktop / iOS / browser the bridge never fires, so the env()
+   *   fallback below is what actually carries the value.
+   * --safe-{top,bottom}: the value the layout actually consumes. JS
+   *   value wins if present, else env() (which works on iOS / WKWebView
+   *   and on desktop browsers that emulate the env). */
+  --amiga-safe-top: 0px;
+  --amiga-safe-bottom: 0px;
+  --amiga-safe-left: 0px;
+  --amiga-safe-right: 0px;
+  --safe-top: var(--amiga-safe-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--amiga-safe-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-left: var(--amiga-safe-left, env(safe-area-inset-left, 0px));
+  --safe-right: var(--amiga-safe-right, env(safe-area-inset-right, 0px));
 }
 
 * {

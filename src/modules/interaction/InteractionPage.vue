@@ -214,10 +214,15 @@ onMounted(async () => {
     }
   } catch { /* use defaults */ }
 
-  // Determine contact type from session list
+  // Determine contact type from session list. Sessions are isolated by
+  // (user, target_language, contact_type) (see chat.rs::get_sessions),
+  // so we must scope the lookup to the current targetLang — otherwise
+  // the query runs with target_language = '' and returns nothing,
+  // causing the header to silently fall back to the amiga defaults
+  // even when the user opened the translator contact.
   try {
     const { getChatSessions } = await import("@/shared/api.js");
-    const sessions = await getChatSessions();
+    const sessions = await getChatSessions(targetLang.value);
     const sess = sessions.find((s) => s.id === sessionId.value);
     if (sess) {
       contactType.value = sess.contact_type;

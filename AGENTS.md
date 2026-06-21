@@ -206,6 +206,35 @@ pub fn update_user(...)               // 跟 command 撞名 → command 加 _cmd
 
 **加 Tauri 权限**（如 `core:fs:allow-read`）→ 同时更新 `default.json` 和 `mobile.json`，否则桌面/Android 行为不一致。
 
+## Android 自定义（Kotlin / Java）
+
+Tauri 2.x 把整个 Android 工程生成到 `src-tauri/gen/android/`（**已 gitignore**），包括默认的 `MainActivity.kt`。如果直接在 `gen/` 里改，下一次 `tauri android init` / 升级 CLI 时会被模板覆盖——所以项目把"真正想保留"的 Android 源放在 **tracked** 位置，再由构建脚本同步到 `gen/`：
+
+```
+src-tauri/android/app/src/main/java/com/idioma/app/   # 真正的源（git 跟踪）
+src-tauri/gen/android/app/src/main/java/com/idioma/app/   # 构建时实际编译的副本（gitignore）
+```
+
+### 约定
+- **只改** `src-tauri/android/...`；**不要**手动改 `src-tauri/gen/android/...`。
+- `build-android.bat` 会按顺序：
+  1. 跑 `npm run tauri android init`（如果 `gen/` 不存在）
+  2. 跑 `node scripts/android-patch.cjs`，把 `src-tauri/android/` 的文件拷到 `gen/`（mtime 比对，源变才覆盖）
+  3. 跑 `npm run tauri android build -- --target aarch64 --apk`
+- 想强刷可以 `node scripts/android-patch.cjs --force`。
+
+### 已自定义的入口
+- `MainActivity.kt` — `enableEdgeToEdge()` + `WindowInsetsCompat` 桥接到 WebView 的 `window.__amigaSetInsets()`，让前端能拿到真实 system-bar / IME 高度（因为 Android WebView 的 `env(safe-area-inset-*)` 恒为 0）。
+- `TranslateWindowCallback.kt` — 用 `WebView.setCustomSelectionActionModeCallback` 注入长按文本选区菜单的「翻译」项，点击后调 `window.__amigaTranslateSelection(text)`，由 `NewsReader.vue` 接收。
+
+### 测试
+- Kotlin 端**没有** JVM 单元测试（Android-only 路径，happy-dom/jsdom 不可用）。每次 Android 改动后必须用真机/模拟器 adb 验证：
+  ```
+  adb exec-out screencap -p > screenshots/android-<module>-<step>.png
+  ```
+- 前端对应的 JS 入口（`__amigaSetInsets` / `__amigaTranslateSelection`）由 `src/modules/shell/__tests__/AppShell.spec.js` 和 `src/modules/news/__tests__/selection.spec.js` 覆盖。
+- **写 Kotlin 改动时配套加 JS 侧测试**：JS 入口（`__amigaSetInsets` / `__amigaTranslateSelection`）的契约稳定、容易测；Kotlin 端可以重构，但**契约不能动**，否则 AppShell/NewsReader 的单测会断。
+
 ## 添加新功能
 
 ### 新增一个前端模块

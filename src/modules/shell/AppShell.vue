@@ -76,6 +76,13 @@ const showNav = computed(() => {
   align-items: center;
   justify-content: space-around;
   height: 64px;
+  /* Pad our own bottom by the system-nav-bar height: #app already has
+   * padding-bottom: var(--safe-bottom), but the safe-area env() is
+   * unreliable on Android WebView (returns 0) and the JS bridge only
+   * fires once the WebView is created. Belt-and-braces: own the inset
+   * here so the nav never slips behind the system bar even before the
+   * bridge delivers the first value. */
+  padding-bottom: var(--safe-bottom, env(safe-area-inset-bottom, 0px));
   background: var(--surface);
   border-top: 1px solid var(--border);
   box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.04);
