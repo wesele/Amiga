@@ -178,7 +178,7 @@ function emitNext() {
 
 .btn-primary:disabled {
   background: var(--surface-variant);
-  color: var(--text-lighter);
+  color: var(--text-light);
   cursor: not-allowed;
 }
 </style>
