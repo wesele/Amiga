@@ -68,6 +68,7 @@ jobs:
       - name: Install Android SDK packages
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
+          PATH: /usr/local/lib/android/sdk/cmdline-tools/16.0/bin:${{ env.PATH }}
         run: |
           set -e
           yes | sdkmanager --licenses >/dev/null
