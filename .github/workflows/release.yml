@@ -62,11 +62,20 @@ jobs:
             ~/Android/Sdk
             ~/.gradle
           key: android-${{ runner.os }}-${{ hashFiles('src-tauri/gen/android/app/build.gradle.kts', 'src-tauri/gen/android/build.gradle.kts') }}
-      - name: Install Android SDK + NDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: >-
-            cmdline-tools;latest,platform-tools,platforms;android-36,build-tools;36.0.0,ndk;27.0.12077973
+      # android-actions/setup-android@v3 解析 packages 时把整段当成一个包名，
+      # 所以绕过去用 sdkmanager 直接装。GitHub 自带 cmdline-tools 16.0 +
+      # 已接受 license，只装缺失的 package。
+      - name: Install Android SDK packages
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          set -e
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;27.0.12077973"
       - name: Decode release keystore
         env:
           AMIGA_KEYSTORE_BASE64: ${{ secrets.AMIGA_KEYSTORE_BASE64 }}
