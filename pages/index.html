@@ -70,7 +70,11 @@
     <img src="/amiga-icon.png" alt="Amiga" class="icon">
     <h1>Amiga</h1>
     <p class="subtitle">你的 AI 外语学习伙伴</p>
-    <span class="version" id="version">v0.3.8</span>
+    <!-- __AMIGA_VERSION__ is replaced by .github/workflows/release.yml
+         (deploy-pages job) at deploy time with the actual tag name
+         (e.g. v0.3.9). Don't hand-edit a version here — the placeholder
+         gets rewritten to the real one every release. -->
+    <span class="version" id="version">__AMIGA_VERSION__</span>
     <p class="desc">通过 AI 新闻阅读、智能聊天、词库管理，轻松掌握新语言。</p>
 
     <a class="btn" href="/Amiga.apk" download>
