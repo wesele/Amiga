@@ -62,11 +62,15 @@ jobs:
             ~/Android/Sdk
             ~/.gradle
           key: android-${{ runner.os }}-${{ hashFiles('src-tauri/gen/android/app/build.gradle.kts', 'src-tauri/gen/android/build.gradle.kts') }}
-      - name: Install Android SDK
+      - name: Install Android SDK + NDK
         uses: android-actions/setup-android@v3
         with:
-          api-level: 36
-          ndk-version: r27
+          packages: |
+            cmdline-tools;latest
+            platform-tools
+            platforms;android-36
+            build-tools;36.0.0
+            ndk;27.0.12077973
       - name: Decode release keystore
         env:
           AMIGA_KEYSTORE_BASE64: ${{ secrets.AMIGA_KEYSTORE_BASE64 }}
@@ -131,12 +135,17 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-      # Same minimal fixture as the Android job.
+      # Same minimal fixture as the Android job. Use PowerShell on Windows
+      # because the default `bash` on windows-latest does not support the
+      # heredoc-with-newline form we use on Linux.
       - name: Ensure vocabulary.json exists (CI minimal fixture)
+        shell: pwsh
         run: |
-          mkdir -p content-studio/data
-          if [ -f content-studio/data/vocabulary.json ]; then exit 0; fi
-          cat > content-studio/data/vocabulary.json <<'JSON'
+          $dir = 'content-studio/data'
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $file = Join-Path $dir 'vocabulary.json'
+          if (Test-Path -LiteralPath $file) { exit 0 }
+          @'
           {
             "data": {
               "English": { "A1": "the, be, to" },
@@ -144,7 +153,7 @@ jobs:
               "中文":   { "A1": "的, 是, 我" }
             }
           }
-          JSON
+          '@ | Set-Content -LiteralPath $file -Encoding utf8
       - name: npm ci
         run: npm ci
       - name: Build Tauri bundle
