@@ -6,42 +6,83 @@
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
       </button>
-      <h1 class="page-title">{{ pageTitle }}</h1>
+      <h1 class="page-title">{{ t('llm.primaryTitle') }}</h1>
     </header>
 
     <div class="config-body">
-      <!-- Fields -->
+      <!-- Source toggle -->
       <div class="settings-card">
         <div class="field-group">
-          <label class="field-label">{{ t('llm.apiKey') }}</label>
-          <div class="api-key-wrapper">
-            <input
-              :type="showKey ? 'text' : 'password'"
-              v-model="apiKey"
-              class="field-input"
-              placeholder="sk-..."
-            />
-            <button class="toggle-key-btn" @click="showKey = !showKey">
-              <svg v-if="!showKey" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                <path d="M12 6.5c2.76 0 5 2.24 5 5 0 .51-.1 1-.24 1.46l3.06 3.06c1.39-1.23 2.49-2.77 3.18-4.53C21.27 7.11 17 4 12 4c-1.27 0-2.49.2-3.64.57l2.17 2.17c.47-.14.96-.24 1.47-.24zM2.71 3.16a.996.996 0 000 1.41l1.97 1.97A11.892 11.892 0 001 11.5C2.73 15.89 7 19 12 19c1.52 0 2.97-.3 4.31-.82l2.72 2.72a.996.996 0 101.41-1.41L4.13 3.16c-.39-.39-1.03-.39-1.42 0zM12 16.5c-2.76 0-5-2.24-5-5 0-.77.18-1.5.49-2.15l1.67 1.67C9 11.33 9 11.66 9 12c0 1.66 1.34 3 3 3 .34 0 .67 0 .98-.15l1.67 1.67c-.65.31-1.38.48-2.15.48z"/>
-              </svg>
-              <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-              </svg>
-            </button>
+          <label class="field-label">{{ t('llm.source') }}</label>
+          <div class="source-options">
+            <label
+              class="source-option"
+              :class="{ selected: mode === 'builtin' }"
+            >
+              <input type="radio" name="llm-source" value="builtin" v-model="mode" class="source-radio" />
+              <div class="source-text">
+                <span class="source-title">{{ t('llm.builtin') }}</span>
+                <span class="source-sub">{{ t('llm.builtinDesc') }}</span>
+              </div>
+              <span v-if="mode === 'builtin'" class="source-check">✓</span>
+            </label>
+            <label
+              class="source-option"
+              :class="{ selected: mode === 'custom' }"
+            >
+              <input type="radio" name="llm-source" value="custom" v-model="mode" class="source-radio" />
+              <div class="source-text">
+                <span class="source-title">{{ t('llm.custom') }}</span>
+                <span class="source-sub">{{ t('llm.customDesc') }}</span>
+              </div>
+              <span v-if="mode === 'custom'" class="source-check">✓</span>
+            </label>
           </div>
         </div>
-        <div class="field-divider" />
-        <div class="field-group">
-          <label class="field-label">{{ t('llm.baseUrl') }}</label>
-          <input v-model="baseUrl" type="text" class="field-input" placeholder="https://api.openai.com/v1" />
-        </div>
-        <div class="field-divider" />
-        <div class="field-group">
-          <label class="field-label">{{ t('llm.model') }}</label>
-          <input v-model="modelName" type="text" class="field-input" placeholder="gpt-4o-mini" />
-        </div>
       </div>
+
+      <!-- Built-in: only show a warning notice, hide connection parameters -->
+      <template v-if="mode === 'builtin'">
+        <div class="notice-card">
+          <div class="notice-icon">!</div>
+          <div class="notice-text">{{ t('llm.freeNotice') }}</div>
+        </div>
+      </template>
+
+      <!-- Custom: editable form -->
+      <template v-else>
+        <div class="settings-card">
+          <div class="field-group">
+            <label class="field-label">{{ t('llm.apiKey') }}</label>
+            <div class="api-key-wrapper">
+              <input
+                :type="showKey ? 'text' : 'password'"
+                v-model="apiKey"
+                class="field-input"
+                placeholder="sk-..."
+              />
+              <button class="toggle-key-btn" @click="showKey = !showKey" type="button">
+                <svg v-if="!showKey" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                  <path d="M12 6.5c2.76 0 5 2.24 5 5 0 .51-.1 1-.24 1.46l3.06 3.06c1.39-1.23 2.49-2.77 3.18-4.53C21.27 7.11 17 4 12 4c-1.27 0-2.49.2-3.64.57l2.17 2.17c.47-.14.96-.24 1.47-.24zM2.71 3.16a.996.996 0 000 1.41l1.97 1.97A11.892 11.892 0 001 11.5C2.73 15.89 7 19 12 19c1.52 0 2.97-.3 4.31-.82l2.72 2.72a.996.996 0 101.41-1.41L4.13 3.16c-.39-.39-1.03-.39-1.42 0zM12 16.5c-2.76 0-5-2.24-5-5 0-.77.18-1.5.49-2.15l1.67 1.67C9 11.33 9 11.66 9 12c0 1.66 1.34 3 3 3 .34 0 .67 0 .98-.15l1.67 1.67c-.65.31-1.38.48-2.15.48z"/>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                  <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="field-divider" />
+          <div class="field-group">
+            <label class="field-label">{{ t('llm.baseUrl') }}</label>
+            <input v-model="baseUrl" type="text" class="field-input" placeholder="https://api.openai.com/v1" />
+          </div>
+          <div class="field-divider" />
+          <div class="field-group">
+            <label class="field-label">{{ t('llm.model') }}</label>
+            <input v-model="modelName" type="text" class="field-input" placeholder="gpt-4o-mini" />
+          </div>
+        </div>
+      </template>
 
       <!-- Test connection -->
       <button class="btn-test" :disabled="testing" @click="testConnection">
@@ -59,40 +100,55 @@
       </button>
 
       <transition name="fade">
-        <div v-if="saved" class="save-toast">{{ t('llm.saved') }}</div>
+        <div v-if="saved" class="save-toast">{{ savedMessage }}</div>
       </transition>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
-import { useRoute } from "vue-router";
-import { getLlmConfig, saveLlmConfig, testLlmConnection } from "@/shared/api.js";
+import { ref, onMounted } from "vue";
+import {
+  getLlmConfig,
+  saveLlmConfig,
+  testLlmConnection,
+  saveSetting,
+} from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
 
 const { t } = useI18n();
-const route = useRoute();
-const modelType = computed(() => route.params.type === "fallback" ? "backup" : "primary");
-const pageTitle = computed(() => route.params.type === "fallback" ? t("llm.fallbackTitle") : t("llm.primaryTitle"));
 
+const mode = ref("builtin");
 const apiKey = ref("");
 const baseUrl = ref("https://api.openai.com/v1");
 const modelName = ref("");
+const builtin = ref({
+  baseUrl: "",
+  apiKey: "",
+  model: "",
+});
 const showKey = ref(false);
 const testing = ref(false);
 const testResult = ref(null);
 const saved = ref(false);
+const savedMessage = ref("");
 
 onMounted(async () => {
   try {
     const config = await getLlmConfig();
     if (config) {
-      const m = config[modelType.value];
-      if (m) {
-        apiKey.value = m.api_key || "";
-        baseUrl.value = m.base_url || "https://api.openai.com/v1";
-        modelName.value = m.model || "";
+      mode.value = config.mode || "builtin";
+      if (config.builtin) {
+        builtin.value = {
+          baseUrl: config.builtin.base_url || "",
+          apiKey: config.builtin.api_key || "",
+          model: config.builtin.model || "",
+        };
+      }
+      if (config.primary) {
+        apiKey.value = config.primary.api_key || "";
+        baseUrl.value = config.primary.base_url || "https://api.openai.com/v1";
+        modelName.value = config.primary.model || "";
       }
     }
   } catch (e) {
@@ -100,14 +156,36 @@ onMounted(async () => {
   }
 });
 
+function currentConfig() {
+  if (mode.value === "builtin") {
+    return {
+      api_key: builtin.value.apiKey,
+      base_url: builtin.value.baseUrl,
+      model: builtin.value.model,
+    };
+  }
+  return {
+    api_key: apiKey.value,
+    base_url: baseUrl.value,
+    model: modelName.value,
+  };
+}
+
 async function saveConfig() {
   saved.value = false;
   try {
-    await saveLlmConfig(modelType.value, {
-      api_key: apiKey.value,
-      base_url: baseUrl.value,
-      model: modelName.value,
-    });
+    await saveSetting("llm_mode", mode.value);
+    if (mode.value === "custom") {
+      const cfg = currentConfig();
+      if (!cfg.api_key || !cfg.base_url || !cfg.model) {
+        console.warn("Custom config missing required fields");
+        return;
+      }
+      await saveLlmConfig("primary", cfg);
+      savedMessage.value = t("llm.saved");
+    } else {
+      savedMessage.value = t("llm.savedBuiltin");
+    }
     saved.value = true;
     setTimeout(() => { saved.value = false; }, 2500);
   } catch (e) {
@@ -116,10 +194,16 @@ async function saveConfig() {
 }
 
 async function testConnection() {
+  if (mode.value === "custom") {
+    if (!apiKey.value || !baseUrl.value || !modelName.value) {
+      testResult.value = "fail";
+      return;
+    }
+  }
   testing.value = true;
   testResult.value = null;
   try {
-    await testLlmConnection({ api_key: apiKey.value, base_url: baseUrl.value, model: modelName.value });
+    await testLlmConnection(currentConfig());
     testResult.value = "ok";
   } catch (e) {
     testResult.value = "fail";
@@ -190,7 +274,7 @@ async function testConnection() {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-lighter);
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 .field-input {
   width: 100%;
@@ -212,6 +296,94 @@ async function testConnection() {
   height: 1px;
   background: var(--border);
   margin: 0 16px;
+}
+
+/* Source radio */
+.source-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.source-option {
+  display: flex;
+  align-items: center;
+  padding: 12px 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition);
+}
+.source-option:hover {
+  background: var(--surface-variant);
+}
+.source-radio {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--outline-variant);
+  border-radius: 50%;
+  margin-right: 14px;
+  position: relative;
+  transition: border-color var(--transition);
+  flex-shrink: 0;
+}
+.source-radio:checked {
+  border-color: var(--blue);
+}
+.source-radio:checked::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--blue);
+}
+.source-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.source-title {
+  font-size: 15px;
+  color: var(--text);
+  font-weight: 500;
+}
+.source-sub {
+  font-size: 12px;
+  color: var(--text-lighter);
+}
+.source-check {
+  color: var(--blue);
+  font-weight: 600;
+  font-size: 18px;
+}
+
+/* Notice card */
+.notice-card {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #fff7e6;
+  color: #8a5a00;
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.notice-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #ffa940;
+  color: #fff;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+.notice-text {
+  flex: 1;
 }
 
 /* API key input + toggle */

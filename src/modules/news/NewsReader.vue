@@ -90,6 +90,25 @@
       </div>
     </Transition>
 
+    <!--
+      Custom Android "translate" affordance. The Chromium WebView on
+      API 34+ removed setCustomSelectionActionModeCallback, so we
+      cannot inject a "翻译" item into the system selection toolbar
+      (see MainActivity.kt onActionModeStarted hook — it does fire
+      for some action modes, but the selection action mode the
+      WebView creates is TYPE_FLOATING and the system bypasses the
+      activity hook for it on this build). The fallback below is
+      pure JS: when the user has a multi-word selection in the
+      article body, show a small floating button near the
+      selection. Tapping it triggers translation.
+    -->
+    <button
+      v-if="showTranslateButton"
+      class="translate-fab"
+      :style="{ top: translateButtonY + 'px', left: translateButtonX + 'px' }"
+      @click="onTranslateButtonClick"
+    >{{ t('news.translate') }}</button>
+
     <!-- Fixed bottom bar -->
     <div v-if="article?.rewritten_body" class="bottom-bar">
       <div class="mode-bar">
@@ -391,6 +410,14 @@ const selectionError = ref("");
 let selectionTimer = null;
 let isSelecting = false;
 
+// Pure-JS translate affordance: a small floating button that
+// appears over the article body when the user has selected text.
+// Replaces the missing Android selection-toolbar "翻译" item
+// (see template comment).
+const showTranslateButton = ref(false);
+const translateButtonX = ref(0);
+const translateButtonY = ref(0);
+
 // Core translation logic shared by pointerup (Windows) and native menu (Android).
 function translateSelection(text) {
   if (!text || text.length === 0) return false;
@@ -420,12 +447,53 @@ function onSelectionChange() {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
     isSelecting = false;
+    showTranslateButton.value = false;
     return;
   }
   const text = sel.toString().trim();
   if (text && text.split(/\s+/).length > 1) {
     isSelecting = true;
+    positionTranslateButton(sel);
+  } else {
+    showTranslateButton.value = false;
   }
+}
+
+function positionTranslateButton(sel) {
+  // Place the floating button just above the selection's top-right
+  // corner. If the selection is near the top of the viewport we
+  // place it below instead.
+  const range = sel.getRangeAt(0);
+  const rect = range.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) {
+    showTranslateButton.value = false;
+    return;
+  }
+  const articleBody = document.querySelector(".article-body");
+  // Don't show the button for selections that aren't inside the
+  // article body (e.g. selections in the header or footer).
+  if (articleBody && !articleBody.contains(range.commonAncestorContainer)) {
+    showTranslateButton.value = false;
+    return;
+  }
+  const buttonWidth = 88;
+  const margin = 8;
+  // Prefer above the selection; flip below if there's no room.
+  let y = rect.top - 40;
+  if (y < 60) y = rect.bottom + 8;
+  translateButtonX.value = Math.max(margin, Math.min(window.innerWidth - buttonWidth - margin, rect.right - buttonWidth));
+  translateButtonY.value = y;
+  showTranslateButton.value = true;
+}
+
+function onTranslateButtonClick() {
+  const sel = window.getSelection();
+  if (!sel) return;
+  const text = sel.toString().trim();
+  if (!text) return;
+  if (!translateSelection(text)) return;
+  sel.removeAllRanges();
+  showTranslateButton.value = false;
 }
 
 // Windows: when the user releases the mouse, check if there was a valid
@@ -710,6 +778,29 @@ function formatSource(source) {
   z-index: 500;
   padding: 20px;
   padding-bottom: calc(20px + 80px);
+}
+
+/* Floating "翻译" button that appears over the user's text
+   selection. Pure-JS fallback for Android (system selection
+   toolbar doesn't have a translate item). */
+.translate-fab {
+  position: fixed;
+  z-index: 600;
+  background: var(--purple, #7c3aed);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  border: none;
+  border-radius: 18px;
+  padding: 6px 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.translate-fab:active {
+  transform: scale(0.96);
 }
 
 .sel-popup {

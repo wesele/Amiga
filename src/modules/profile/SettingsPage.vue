@@ -22,8 +22,7 @@
     <section class="settings-section">
       <h3 class="section-header">{{ t('settings.ai') }}</h3>
       <div class="settings-card">
-        <SettingsItem :title="t('settings.primaryModel')" :subtitle="t('settings.primaryModelSub')" to="/profile/llm-config/primary" />
-        <SettingsItem :title="t('settings.fallbackModel')" :subtitle="t('settings.fallbackModelSub')" to="/profile/llm-config/fallback" :showDivider="false" />
+        <SettingsItem :title="t('settings.primaryModel')" :subtitle="t('settings.primaryModelSub')" to="/profile/llm-config" :showDivider="false" />
       </div>
     </section>
 

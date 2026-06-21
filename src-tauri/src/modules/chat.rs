@@ -245,7 +245,7 @@ pub async fn chat_completion(
     }];
     full_messages.extend(messages);
 
-    client.chat_with_fallback(db, full_messages).await
+    client.chat(db, full_messages).await
 }
 
 pub async fn chat_completion_with_session(
@@ -277,7 +277,7 @@ pub async fn chat_completion_with_session(
         });
     }
 
-    let reply = client.chat_with_fallback(db, full_messages).await?;
+    let reply = client.chat(db, full_messages).await?;
 
     save_message(db, session_id, "assistant", &reply)?;
 
@@ -447,7 +447,7 @@ async fn update_profile_from_conversation(
         },
     ];
 
-    match client.chat_with_fallback(db, messages).await {
+    match client.chat(db, messages).await {
         Ok(response) => {
             let cleaned = response
                 .trim()

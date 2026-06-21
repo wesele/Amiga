@@ -90,10 +90,18 @@ pub async fn save_llm_config_cmd(
     key: String,
     config: llm_mod::ModelConfig,
 ) -> Result<(), String> {
-    let prefix = &key; // "primary" or "backup"
-    llm_mod::save_llm_setting(&db, &format!("{}_base_url", prefix), &config.base_url)?;
-    llm_mod::save_llm_setting(&db, &format!("{}_api_key", prefix), &config.api_key)?;
-    llm_mod::save_llm_setting(&db, &format!("{}_model", prefix), &config.model)?;
+    // The fallback model was removed — only the custom ("primary") slot is
+    // user-editable now. Reject anything else so the old `backup` rows in
+    // the DB stay untouched.
+    if key != "primary" {
+        return Err(format!(
+            "Unknown LLM config key '{}': only 'primary' (custom) is supported",
+            key
+        ));
+    }
+    llm_mod::save_llm_setting(&db, "primary_base_url", &config.base_url)?;
+    llm_mod::save_llm_setting(&db, "primary_api_key", &config.api_key)?;
+    llm_mod::save_llm_setting(&db, "primary_model", &config.model)?;
     Ok(())
 }
 

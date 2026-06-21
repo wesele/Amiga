@@ -150,7 +150,7 @@ describe("__amigaGoBack bridge", () => {
     expect(pushSpy).not.toHaveBeenCalled();
   });
 
-  it("walks multi-level chains: /profile/llm-config/primary → /profile/settings → /profile → exit", async () => {
+  it("walks multi-level chains: /profile/llm-config → /profile/settings → /profile → exit", async () => {
     const router = makeRouter([
       { path: "/profile", name: "profile", component: { template: "<div />" } },
       {
@@ -160,14 +160,14 @@ describe("__amigaGoBack bridge", () => {
         meta: { parent: "profile" },
       },
       {
-        path: "/profile/llm-config/:type",
+        path: "/profile/llm-config",
         name: "llm-config",
         component: { template: "<div />" },
         meta: { parent: "settings" },
       },
     ]);
     installAmigaGoBack(router);
-    await router.push("/profile/llm-config/primary");
+    await router.push("/profile/llm-config");
     expect(router.currentRoute.value.name).toBe("llm-config");
 
     {

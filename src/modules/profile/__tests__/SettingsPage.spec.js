@@ -10,7 +10,7 @@ const SettingsPage = (await import("@/modules/profile/SettingsPage.vue")).defaul
 function makeRoutes() {
   return [
     { path: "/profile/settings", name: "settings", component: { template: "<div/>" } },
-    { path: "/profile/llm-config/:type", name: "llm-config", component: { template: "<div/>" } },
+    { path: "/profile/llm-config", name: "llm-config", component: { template: "<div/>" } },
   ];
 }
 

@@ -46,6 +46,7 @@
   - 涉及 Tauri 集成（窗口/IPC/native）用 app：`pwsh scripts/screenshot.ps1 -Mode App`
   - 同一页面改前/改后各截一张，便于对比
   - 跨平台 UI 改动需额外在 Android 验证
+- 设计Android平台的bug或者功能一定要在Android模拟器或者ADB连接好的真机测试。
 - 同步更新测试（参考下方"测试"章节的规范）
 
 ### 5. 提交

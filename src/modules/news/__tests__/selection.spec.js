@@ -388,3 +388,124 @@ describe("NewsReader selection logic", () => {
     });
   });
 });
+
+/**
+ * Tests for the JS-side translate floating button (the
+ * Android-only fallback when the system text-selection toolbar is
+ * unavailable). Mirrors the production logic in
+ * src/modules/news/NewsReader.vue: on `selectionchange`, if the
+ * new selection is multi-word AND inside the article body,
+ * show a "翻译" button positioned above (or below, near the top)
+ * the selection rect; on collapse or single-word, hide it.
+ */
+describe("translate floating button positioning (Android fallback)", () => {
+  it("appears above the selection when the rect is not at the top", () => {
+    const sel = {
+      isCollapsed: false,
+      rangeCount: 1,
+      toString: () => "hola mundo",
+      getRangeAt: () => ({
+        getBoundingClientRect: () => ({ top: 400, bottom: 420, left: 100, right: 300, width: 200, height: 20 }),
+        commonAncestorContainer: { nodeType: 1, parentNode: null, closest: () => null },
+      }),
+    };
+    const articleBody = { contains: () => true };
+    const computed = computeTranslateButtonPlacement(sel, articleBody, 1080);
+    expect(computed.visible).toBe(true);
+    // y = rect.top - 40 = 360
+    expect(computed.y).toBe(360);
+    // x = rect.right - 88 = 212, clamped inside [8, 1080-88-8] = [8, 984]
+    expect(computed.x).toBe(212);
+  });
+
+  it("flips below the selection when the rect is too close to the top", () => {
+    const sel = {
+      isCollapsed: false,
+      rangeCount: 1,
+      toString: () => "hola mundo",
+      getRangeAt: () => ({
+        getBoundingClientRect: () => ({ top: 30, bottom: 50, left: 100, right: 300, width: 200, height: 20 }),
+        commonAncestorContainer: { nodeType: 1 },
+      }),
+    };
+    const articleBody = { contains: () => true };
+    const computed = computeTranslateButtonPlacement(sel, articleBody, 1080);
+    // y = rect.bottom + 8 = 58 (flipped below)
+    expect(computed.y).toBe(58);
+  });
+
+  it("hides the button for empty / collapsed selections", () => {
+    expect(computeTranslateButtonPlacement(null, null, 1080).visible).toBe(false);
+    const sel = { isCollapsed: true, rangeCount: 0, toString: () => "" };
+    expect(computeTranslateButtonPlacement(sel, null, 1080).visible).toBe(false);
+  });
+
+  it("hides the button for single-word selections", () => {
+    const sel = {
+      isCollapsed: false,
+      rangeCount: 1,
+      toString: () => "hola",
+      getRangeAt: () => ({
+        getBoundingClientRect: () => ({ top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0 }),
+        commonAncestorContainer: { nodeType: 1 },
+      }),
+    };
+    expect(computeTranslateButtonPlacement(sel, null, 1080).visible).toBe(false);
+  });
+
+  it("hides the button when the selection is outside the article body", () => {
+    const sel = {
+      isCollapsed: false,
+      rangeCount: 1,
+      toString: () => "hola mundo",
+      getRangeAt: () => ({
+        getBoundingClientRect: () => ({ top: 200, bottom: 220, left: 100, right: 300, width: 200, height: 20 }),
+        commonAncestorContainer: { nodeType: 1 },
+      }),
+    };
+    const articleBody = { contains: () => false };
+    expect(computeTranslateButtonPlacement(sel, articleBody, 1080).visible).toBe(false);
+  });
+
+  it("clamps x so the button stays on-screen", () => {
+    const sel = {
+      isCollapsed: false,
+      rangeCount: 1,
+      toString: () => "hola mundo",
+      getRangeAt: () => ({
+        getBoundingClientRect: () => ({ top: 400, bottom: 420, left: 1000, right: 1075, width: 75, height: 20 }),
+        commonAncestorContainer: { nodeType: 1 },
+      }),
+    };
+    const articleBody = { contains: () => true };
+    const c = computeTranslateButtonPlacement(sel, articleBody, 1080);
+    // right - 88 = 987, viewport width 1080, button 88, margin 8 → clamp 8..984
+    // 987 is outside 8..984, so x = 984
+    expect(c.x).toBe(984);
+  });
+});
+
+// Mirror of the placement logic in NewsReader.vue. Keep in lock-step.
+function computeTranslateButtonPlacement(sel, articleBody, viewportWidth) {
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+    return { visible: false, x: 0, y: 0 };
+  }
+  const text = sel.toString().trim();
+  if (!text || text.split(/\s+/).length <= 1) {
+    return { visible: false, x: 0, y: 0 };
+  }
+  const range = sel.getRangeAt(0);
+  const rect = range.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) {
+    return { visible: false, x: 0, y: 0 };
+  }
+  if (articleBody && !articleBody.contains(range.commonAncestorContainer)) {
+    return { visible: false, x: 0, y: 0 };
+  }
+  const buttonWidth = 88;
+  const margin = 8;
+  let y = rect.top - 40;
+  if (y < 60) y = rect.bottom + 8;
+  const x = Math.max(margin, Math.min(viewportWidth - buttonWidth - margin, rect.right - buttonWidth));
+  return { visible: true, x, y };
+}

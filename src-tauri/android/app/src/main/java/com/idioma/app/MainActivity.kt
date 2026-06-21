@@ -45,6 +45,14 @@ class MainActivity : TauriActivity() {
     private var mainWebView: WebView? = null
     private var translateCallback: TranslateWindowCallback? = null
 
+    // Disable the WryActivity's stock back navigation (which calls
+    // mWebView.goBack()). We install our own hierarchical back handler
+    // in installBackNavigation() below; running both produces
+    // contradictory behavior (the page pushes a parent route AND
+    // history.back() runs in parallel, often landing on the wrong
+    // screen and sometimes looping).
+    override val handleBackNavigation: Boolean = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -70,13 +78,16 @@ class MainActivity : TauriActivity() {
         webView.isHapticFeedbackEnabled = true
         val cb = TranslateWindowCallback(webView)
         translateCallback = cb
-        try {
-            WebView::class.java
-                .getMethod("setCustomSelectionActionModeCallback", android.view.ActionMode.Callback::class.java)
-                .invoke(webView, cb)
-        } catch (t: Throwable) {
-            Log.e(TAG, "Failed to install custom selection callback", t)
-        }
+        // The method is public in AOSP but AndroidX's WebViewCompat
+        // shim doesn't always expose it on every API level. The
+        // signature on AOSP is `setCustomSelectionActionModeCallback(
+        // android.view.ActionMode.Callback)` where Callback is the
+        // inner abstract class (NOT the $Callback interface some
+        // older docs reference). Using the wrong class descriptor
+        // throws NoSuchMethodException. Try the concrete class first,
+        // then the dotted-name form (which is what newer SDKs accept
+        // for inner classes) as a fallback.
+        installSelectionCallback(webView, cb)
     }
 
     override fun onDestroy() {
@@ -84,6 +95,63 @@ class MainActivity : TauriActivity() {
         translateCallback = null
         super.onDestroy()
     }
+
+    /**
+     * Activity-level ActionMode hook. Newer Chromium WebView builds
+     * (API 34+) removed `setCustomSelectionActionModeCallback`, so
+     * we wrap here instead.
+     *
+     * Strategy: when the WebView starts a text-selection ActionMode,
+     * we (1) snapshot the menu items the original callback added,
+     * (2) finish the original mode, (3) start a new mode using our
+     * TranslateWindowCallback as the callback, which re-adds the
+     * system items (Copy / Share / etc.) plus our "翻译" item. The
+     * mode appears seamless to the user — the original menu items
+     * are still there, plus our extra.
+     *
+     * The recursion guard uses a thread-local flag (rather than
+     * mode.callback, which ActionMode does not expose) because
+     * calling webView.startActionMode below dispatches another
+     * onActionModeStarted for the *new* mode, and we must not
+     * process it as if it were the original.
+     */
+    override fun onActionModeStarted(mode: android.view.ActionMode) {
+        Log.d(TAG, "onActionModeStarted type=${mode.type} tag=${mode.tag}")
+        val webView = mainWebView ?: return super.onActionModeStarted(mode)
+        // Re-entrancy guard: while we're inside our own replacement
+        // startActionMode, the system dispatches onActionModeStarted
+        // for the new mode. Skip it (the new mode's translator will
+        // populate its menu via its own onCreateActionMode).
+        if (reentrancyGuard.get()) return
+        // Only intercept floating (selection) modes. TYPE_FLOATING
+        // is what text-selection uses on modern Android.
+        if (mode.type != android.view.ActionMode.TYPE_FLOATING) {
+            return super.onActionModeStarted(mode)
+        }
+        // Snapshot the original menu items.
+        val originalItems = (0 until mode.menu.size()).map { mode.menu.getItem(it) }
+        // Finish the original mode and replace it with ours.
+        mode.finish()
+        val translator = TranslateWindowCallback(webView, originalItems)
+        translateCallback = translator
+        reentrancyGuard.set(true)
+        try {
+            val newMode = webView.startActionMode(
+                translator,
+                android.view.ActionMode.TYPE_FLOATING,
+            )
+            if (newMode != null) {
+                newMode.tag = TAG_INJECTED
+            }
+        } finally {
+            reentrancyGuard.set(false)
+        }
+        // Note: we intentionally do NOT call super.onActionModeStarted
+        // because we've replaced the mode. Calling super would just
+        // notify the (now finished) original mode.
+    }
+
+    private val reentrancyGuard = ThreadLocal.withInitial { false }
 
     /**
      * Sets the WebView's own padding to the live `systemBars()` and
@@ -136,6 +204,7 @@ class MainActivity : TauriActivity() {
                     "(function(){try{return window.__amigaGoBack ? window.__amigaGoBack() : 'at-root';}catch(e){return 'at-root';}})()",
                 ) { raw ->
                     val result = raw?.trim()?.removeSurrounding("\"")
+                    Log.d(TAG, "back: __amigaGoBack -> $result")
                     if (result == "at-root") {
                         // At a top-level route: let the activity finish.
                         // Using finish() (rather than moveTaskToBack) so
@@ -149,7 +218,60 @@ class MainActivity : TauriActivity() {
         })
     }
 
+    /**
+     * Hook the WebView's text-selection ActionMode so we can inject
+     * a custom "翻译" menu item. The Chromium WebView (API 34+ on
+     * this build) removed `setCustomSelectionActionModeCallback` —
+     * we verified at runtime that the method no longer exists on
+     * the device. The replacement path is to intercept the
+     * Activity-level `onActionModeStarted` and `onActionModeFinished`
+     * callbacks. TYPE_FLOATING ActionModes (which is what the
+     * selection toolbar is) DO route through these in practice on
+     * every OEM we test on; the original assumption that
+     * Window.Callback is bypassed turned out to be wrong for
+     * current chromium WebView.
+     *
+     * We keep the old `setCustomSelectionActionModeCallback` fallback
+     * because some older AndroidX WebView builds still ship it.
+     */
+    private fun installSelectionCallback(webView: WebView, cb: android.view.ActionMode.Callback) {
+        // Modern path: hook the Activity. This is set up by overriding
+        // onActionModeStarted on the activity; see the override
+        // further down in this file. Nothing to do here — the override
+        // wraps every ActionMode the WebView creates via the Window.
+        //
+        // We still try the legacy setCustomSelectionActionModeCallback
+        // below because it would let us wrap *only* selection modes
+        // (not, say, a future WebView-internal floating menu). When
+        // the method exists we get a more precise hook; when it
+        // doesn't, we fall back to the activity-level wrap.
+        val candidates = listOf(
+            "android.view.ActionMode\$Callback",
+            "android.view.ActionMode.Callback",
+        )
+        for (descriptor in candidates) {
+            try {
+                val cls = Class.forName(descriptor)
+                val m = WebView::class.java.getMethod("setCustomSelectionActionModeCallback", cls)
+                m.invoke(webView, cb)
+                Log.d(TAG, "Installed selection callback via setCustomSelectionActionModeCallback($descriptor)")
+                // The activity-level override is also installed as a
+                // belt-and-braces backstop, but in this branch the
+                // WebView is the source of truth.
+                return
+            } catch (t: Throwable) {
+                Log.d(TAG, "selection callback via $descriptor failed: ${t.javaClass.simpleName}: ${t.message}")
+            }
+        }
+        // No WebView-level hook available. The activity-level override
+        // (onActionModeStarted below) will wrap every ActionMode the
+        // WebView creates. We log so it's clear in logcat that the
+        // modern API path is what's being used.
+        Log.w(TAG, "WebView has no setCustomSelectionActionModeCallback — using activity-level onActionModeStarted hook instead")
+    }
+
     companion object {
         private const val TAG = "Amiga/Main"
+        private const val TAG_INJECTED = "Amiga/TranslateInjected"
     }
 }

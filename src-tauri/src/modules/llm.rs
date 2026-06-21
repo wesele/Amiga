@@ -4,6 +4,22 @@ use reqwest;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
+/// Built-in (system-provided) model configuration. Free tier hosted by
+/// NVIDIA; offered out of the box so new users have a working AI without
+/// having to bring their own API key.
+pub const BUILTIN_BASE_URL: &str = "https://integrate.api.nvidia.com/v1";
+pub const BUILTIN_API_KEY: &str =
+    "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";
+pub const BUILTIN_MODEL: &str = "google/diffusiongemma-26b-a4b-it";
+
+pub fn builtin_config() -> ModelConfig {
+    ModelConfig {
+        base_url: BUILTIN_BASE_URL.to_string(),
+        api_key: BUILTIN_API_KEY.to_string(),
+        model: BUILTIN_MODEL.to_string(),
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ModelConfig {
     pub base_url: String,
@@ -11,10 +27,54 @@ pub struct ModelConfig {
     pub model: String,
 }
 
+/// Which model the user wants the app to use right now. The "builtin" option
+/// always works out of the box; "custom" requires a user-supplied config.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum LlmMode {
+    Builtin,
+    Custom,
+}
+
+impl LlmMode {
+    pub fn from_setting(value: Option<&str>) -> Self {
+        match value {
+            Some("custom") => LlmMode::Custom,
+            // Default to builtin for new users so the app works without any
+            // setup. Existing users keep whatever they had saved.
+            _ => LlmMode::Builtin,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LlmMode::Builtin => "builtin",
+            LlmMode::Custom => "custom",
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LlmConfig {
+    pub mode: LlmMode,
+    /// User's stored custom config (if any). Optional: a brand-new user on
+    /// the custom mode will have this as None until they save it.
     pub primary: Option<ModelConfig>,
-    pub backup: Option<ModelConfig>,
+    /// Always populated from the built-in constants.
+    pub builtin: ModelConfig,
+}
+
+impl LlmConfig {
+    /// Resolve the model config the app should actually use, based on `mode`.
+    pub fn active(&self) -> Result<&ModelConfig, String> {
+        match self.mode {
+            LlmMode::Builtin => Ok(&self.builtin),
+            LlmMode::Custom => self.primary.as_ref().ok_or_else(|| {
+                "未配置自定义大模型 API。请填写 API Key、Base URL 和模型后保存。".to_string()
+            }),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -91,7 +151,8 @@ impl LlmClient {
         Self { http }
     }
 
-    async fn chat(
+    /// Low-level: send the messages to a specific config. No fallback chain.
+    async fn call(
         &self,
         config: &ModelConfig,
         messages: Vec<ChatMessage>,
@@ -183,48 +244,17 @@ impl LlmClient {
         ))
     }
 
-    pub async fn chat_with_fallback(
+    /// Send messages using whichever model is currently active (per
+    /// `LlmConfig::active`). Errors out if the chosen mode is custom but
+    /// no custom config has been saved yet.
+    pub async fn chat(
         &self,
         db: &DatabasePool,
         messages: Vec<ChatMessage>,
     ) -> Result<String, String> {
         let config = get_llm_config(db)?;
-        let mut primary_error = String::new();
-
-        // Try primary model first
-        if let Some(primary) = &config.primary {
-            match self.chat(primary, messages.clone()).await {
-                Ok(result) => return Ok(result),
-                Err(e) => {
-                    primary_error = e.clone();
-                    log::warn!("Primary model failed: {}. Trying backup...", e);
-                }
-            }
-        }
-
-        // Try backup model
-        if let Some(backup) = &config.backup {
-            match self.chat(backup, messages).await {
-                Ok(result) => {
-                    log::info!("Backup model succeeded, returning fallback result");
-                    return Ok(result);
-                }
-                Err(e) => {
-                    log::error!("Backup model also failed: {}", e);
-                    return Err(format!(
-                        "AI 功能暂时不可用。主模型错误: {}，备用模型错误: {}",
-                        primary_error, e
-                    ));
-                }
-            }
-        }
-
-        // No backup and primary failed
-        if !primary_error.is_empty() {
-            return Err(format!("AI 功能不可用: {}", primary_error));
-        }
-
-        Err("未配置大模型 API，请在设置中配置 API 密钥。".to_string())
+        let active = config.active()?;
+        self.call(active, messages).await
     }
 
     pub async fn test_connection(&self, config: &ModelConfig) -> TestResult {
@@ -355,7 +385,7 @@ pub async fn rewrite_article(
         messages
     };
 
-    let response = client.chat_with_fallback(db, messages).await?;
+    let response = client.chat(db, messages).await?;
 
     // Parse JSON response
     let cleaned = response
@@ -417,7 +447,7 @@ pub async fn translate_word(
         messages
     };
 
-    let response = client.chat_with_fallback(db, messages).await?;
+    let response = client.chat(db, messages).await?;
 
     let cleaned = response
         .trim()
@@ -482,7 +512,7 @@ pub async fn translate_paragraphs(
         messages
     };
 
-    let response = client.chat_with_fallback(db, messages).await?;
+    let response = client.chat(db, messages).await?;
 
     let cleaned = response
         .trim()
@@ -521,6 +551,7 @@ pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
         .ok()
     };
 
+    let mode = LlmMode::from_setting(get_setting("llm_mode").as_deref());
     let primary = {
         let base_url = get_setting("primary_base_url");
         let api_key = get_setting("primary_api_key");
@@ -537,23 +568,11 @@ pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
         }
     };
 
-    let backup = {
-        let base_url = get_setting("backup_base_url");
-        let api_key = get_setting("backup_api_key");
-        let model_name = get_setting("backup_model");
-        match (base_url, api_key, model_name) {
-            (Some(b), Some(k), Some(m)) if !b.is_empty() && !k.is_empty() && !m.is_empty() => {
-                Some(ModelConfig {
-                    base_url: b,
-                    api_key: k,
-                    model: m,
-                })
-            }
-            _ => None,
-        }
-    };
-
-    Ok(LlmConfig { primary, backup })
+    Ok(LlmConfig {
+        mode,
+        primary,
+        builtin: builtin_config(),
+    })
 }
 
 pub fn save_llm_setting(db: &DatabasePool, key: &str, value: &str) -> Result<(), String> {
@@ -588,4 +607,117 @@ pub fn get_setting(db: &DatabasePool, key: &str) -> Result<Option<String>, Strin
 
 pub fn save_setting(db: &DatabasePool, key: &str, value: &str) -> Result<(), String> {
     save_llm_setting(db, key, value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::modules::database::DatabasePool;
+
+    fn empty_db() -> DatabasePool {
+        DatabasePool::new_in_memory()
+    }
+
+    #[test]
+    fn builtin_config_matches_constants() {
+        let c = builtin_config();
+        assert_eq!(c.base_url, BUILTIN_BASE_URL);
+        assert_eq!(c.api_key, BUILTIN_API_KEY);
+        assert_eq!(c.model, BUILTIN_MODEL);
+    }
+
+    #[test]
+    fn llm_mode_default_is_builtin() {
+        assert_eq!(LlmMode::from_setting(None), LlmMode::Builtin);
+        assert_eq!(LlmMode::from_setting(Some("")), LlmMode::Builtin);
+        assert_eq!(LlmMode::from_setting(Some("garbage")), LlmMode::Builtin);
+        assert_eq!(LlmMode::from_setting(Some("custom")), LlmMode::Custom);
+    }
+
+    #[test]
+    fn llm_mode_round_trip() {
+        for m in [LlmMode::Builtin, LlmMode::Custom] {
+            assert_eq!(LlmMode::from_setting(Some(m.as_str())), m);
+            let json = serde_json::to_string(&m).unwrap();
+            let back: LlmMode = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, m);
+        }
+    }
+
+    #[test]
+    fn config_defaults_to_builtin_with_no_saved_settings() {
+        let db = empty_db();
+        let cfg = get_llm_config(&db).unwrap();
+        assert_eq!(cfg.mode, LlmMode::Builtin);
+        assert!(cfg.primary.is_none());
+        assert_eq!(cfg.builtin.base_url, BUILTIN_BASE_URL);
+        assert_eq!(cfg.builtin.model, BUILTIN_MODEL);
+    }
+
+    #[test]
+    fn config_preserves_user_custom_when_saved() {
+        let db = empty_db();
+        save_llm_setting(&db, "llm_mode", "custom").unwrap();
+        save_llm_setting(&db, "primary_base_url", "https://api.example.com/v1").unwrap();
+        save_llm_setting(&db, "primary_api_key", "sk-test").unwrap();
+        save_llm_setting(&db, "primary_model", "gpt-4o-mini").unwrap();
+
+        let cfg = get_llm_config(&db).unwrap();
+        assert_eq!(cfg.mode, LlmMode::Custom);
+        let primary = cfg.primary.expect("primary should be set");
+        assert_eq!(primary.base_url, "https://api.example.com/v1");
+        assert_eq!(primary.api_key, "sk-test");
+        assert_eq!(primary.model, "gpt-4o-mini");
+        // Builtin is still populated for display.
+        assert_eq!(cfg.builtin.model, BUILTIN_MODEL);
+    }
+
+    #[test]
+    fn config_custom_mode_without_saved_config_has_no_primary() {
+        let db = empty_db();
+        save_llm_setting(&db, "llm_mode", "custom").unwrap();
+        let cfg = get_llm_config(&db).unwrap();
+        assert_eq!(cfg.mode, LlmMode::Custom);
+        assert!(cfg.primary.is_none());
+    }
+
+    #[test]
+    fn active_returns_builtin_when_mode_builtin() {
+        let cfg = LlmConfig {
+            mode: LlmMode::Builtin,
+            primary: None,
+            builtin: builtin_config(),
+        };
+        let a = cfg.active().unwrap();
+        assert_eq!(a.base_url, BUILTIN_BASE_URL);
+    }
+
+    #[test]
+    fn active_returns_primary_when_mode_custom_and_set() {
+        let cfg = LlmConfig {
+            mode: LlmMode::Custom,
+            primary: Some(ModelConfig {
+                base_url: "https://x".into(),
+                api_key: "k".into(),
+                model: "m".into(),
+            }),
+            builtin: builtin_config(),
+        };
+        let a = cfg.active().unwrap();
+        assert_eq!(a.base_url, "https://x");
+    }
+
+    #[test]
+    fn active_errors_when_mode_custom_but_primary_missing() {
+        let cfg = LlmConfig {
+            mode: LlmMode::Custom,
+            primary: None,
+            builtin: builtin_config(),
+        };
+        let err = cfg.active().unwrap_err();
+        assert!(
+            err.contains("自定义"),
+            "should mention custom config: {err}"
+        );
+    }
 }

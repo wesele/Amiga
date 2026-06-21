@@ -16,7 +16,7 @@ export default [
     meta: { parent: "profile" },
   },
   {
-    path: "/profile/llm-config/:type",
+    path: "/profile/llm-config",
     name: "llm-config",
     component: LlmConfigPage,
     meta: { parent: "settings" },

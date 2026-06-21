@@ -33,6 +33,15 @@ import androidx.core.view.MenuItemCompat
  */
 class TranslateWindowCallback(
     private val webView: WebView,
+    /**
+     * Menu items that the system callback added before we took over
+     * the ActionMode (Copy, Share, Select all, etc.). We re-add them
+     * to our replacement mode so the user still sees the system
+     * items alongside our "翻译" item. Empty when this callback is
+     * installed via the legacy `setCustomSelectionActionModeCallback`
+     * path (which doesn't take pre-existing items).
+     */
+    private val originalItems: List<MenuItem> = emptyList(),
 ) : ActionMode.Callback {
 
     /**
@@ -103,6 +112,12 @@ class TranslateWindowCallback(
             return
         }
         val sizeBefore = menu.size()
+        // Re-add the items the system callback had already populated
+        // (Copy, Share, etc.). They keep their original IDs so any
+        // framework or OEM handling still matches.
+        for (orig in originalItems) {
+            menu.add(orig.groupId, orig.itemId, orig.order, orig.title)
+        }
         val item = menu.add(0, MENU_TRANSLATE_ID, Menu.FIRST, "翻译")
         // SHOW_AS_ACTION_ALWAYS is required for TYPE_FLOATING: without it
         // the item is treated as overflow and is never rendered.
