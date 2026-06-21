@@ -113,8 +113,31 @@ jobs:
           keyAlias=${AMIGA_KEY_ALIAS}
           keyPassword=${AMIGA_KEY_PASSWORD}
           EOF
+          echo "--- keystore.properties (redacted) ---"
+          sed 's/=.*/=<REDACTED>/' src-tauri/gen/android/app/keystore.properties
+          echo "--- keystore file (path check) ---"
+          ls -l src-tauri/amiga-release.keystore 2>&1 | head -1
+          test -f src-tauri/amiga-release.keystore && echo "keystore file exists" || echo "::error::keystore file MISSING"
       - name: Build APK (aarch64)
         run: npx tauri android build --target aarch64 --apk
+      - name: Verify produced APK is signed
+        run: |
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -1)
+          if [ -z "$APK" ]; then
+            echo "::error::No APK produced"
+            exit 1
+          fi
+          echo "APK: $APK ($(stat -c%s "$APK") bytes)"
+          BASENAME=$(basename "$APK")
+          if [[ "$BASENAME" == *-unsigned.apk ]]; then
+            echo "::warning::APK is unsigned; keystore.properties was not picked up by build.gradle.kts"
+            echo "--- keystore.properties ---"
+            sed 's/Password=.*/Password=<REDACTED>/' src-tauri/gen/android/app/keystore.properties
+            echo "--- keystore file ---"
+            ls -l src-tauri/amiga-release.keystore
+          else
+            echo "✓ APK is signed: $BASENAME"
+          fi
       - name: Collect APK
         run: |
           mkdir -p dist-artifacts
