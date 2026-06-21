@@ -264,10 +264,16 @@ async function openUrl(url) {
   color: var(--green);
 }
 
-.lang-pill.active {
+.lang-pill.active,
+.lang-pill.active:hover:not(:disabled) {
   background: var(--green);
   color: #fff;
   border-color: var(--green);
+}
+
+.lang-pill.active:hover:not(:disabled) {
+  background: var(--green-hover);
+  border-color: var(--green-hover);
 }
 
 .lang-pill:disabled {

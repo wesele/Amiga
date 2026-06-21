@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({
   open: vi.fn(),
@@ -129,5 +132,16 @@ describe("ProfilePage", () => {
     await enPill.trigger("click");
     await flushPromises();
     expect(switched).toBe("en");
+  });
+
+  it("active language pill stays readable (white text) on hover", () => {
+    // Regression for the green-on-green bug: the generic `.lang-pill:hover`
+    // rule was more specific than `.lang-pill.active` and clobbered `color`,
+    // making the text invisible against the green background.
+    // We assert the SFC source contains an `.active:hover` override that
+    // pins the text to white — guardrail against accidental CSS changes.
+    const sfcPath = resolve(dirname(fileURLToPath(import.meta.url)), "..", "ProfilePage.vue");
+    const css = readFileSync(sfcPath, "utf8");
+    expect(css).toMatch(/\.lang-pill\.active:hover[^{]*\{[\s\S]*?color:\s*#fff/);
   });
 });
