@@ -63,14 +63,15 @@ jobs:
             ~/.gradle
           key: android-${{ runner.os }}-${{ hashFiles('src-tauri/gen/android/app/build.gradle.kts', 'src-tauri/gen/android/build.gradle.kts') }}
       # android-actions/setup-android@v3 解析 packages 时把整段当成一个包名，
-      # 所以绕过去用 sdkmanager 直接装。GitHub 自带 cmdline-tools 16.0 +
-      # 已接受 license，只装缺失的 package。
+      # 所以绕过去用 sdkmanager 直接装。GitHub runner 自带 cmdline-tools
+      # 在 /usr/local/lib/android/sdk/cmdline-tools/<rev>/bin/，取第一个就是。
       - name: Install Android SDK packages
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
           set -e
-          SDKMANAGER=/usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager
+          SDKMANAGER=$(ls -d /usr/local/lib/android/sdk/cmdline-tools/*/bin/sdkmanager | head -1)
+          echo "Using sdkmanager: $SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null
           "$SDKMANAGER" \
             "platform-tools" \
