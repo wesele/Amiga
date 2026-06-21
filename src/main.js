@@ -21,33 +21,25 @@ async function bootstrap() {
     }
   }
 
-  // Android safe-area bridge: the native MainActivity calls
-  // `window.__amigaSetInsets({top, bottom, left, right})` whenever the
-  // system-bar insets change (status bar / nav bar / IME). We mirror
-  // them onto :root as `--amiga-safe-*` so the CSS env()-free fallback
-  // picks them up. On desktop / iOS the native side never calls this,
-  // and the env() fallback in style.css handles the (rare) case where
-  // the page is shown in a WKWebView with actual safe-area insets.
+  // Android hierarchical back-navigation bridge.
   //
-  // The function MUST be defined before the native bridge first fires,
-  // which is right after onWebViewCreate — so install it synchronously
-  // at the very top of bootstrap, ahead of any module load.
-  if (typeof window !== "undefined") {
-    window.__amigaSetInsets = (insets) => {
-      if (!insets || typeof insets !== "object") return;
-      const root = document.documentElement;
-      const set = (k, v) => {
-        const n = Number(v);
-        if (Number.isFinite(n) && n >= 0) {
-          root.style.setProperty(`--amiga-safe-${k}`, `${Math.round(n)}px`);
-        }
-      };
-      set("top", insets.top);
-      set("bottom", insets.bottom);
-      set("left", insets.left);
-      set("right", insets.right);
-    };
-  }
+  // The native MainActivity (see
+  // src-tauri/android/.../MainActivity.kt) intercepts the system back
+  // press and calls `window.__amigaGoBack()`. We then look at the
+  // current Vue Router entry's `meta.parent` and either:
+  //   - push that parent route, or
+  //   - return the string `"at-root"` so the activity finishes.
+  //
+  // The function captures `router` from the enclosing scope (or, if
+  // the bridge fires before the router is wired — which can happen
+  // during a very early back press — we treat it as "at-root").
+  //
+  // Why we don't use `history.back()`: that walks the *URL* history,
+  // not the route hierarchy. A user who navigates /news → /news/123
+  // → /interaction/chat via a link would, on back, jump to /news/123
+  // (the previous URL) instead of /interaction (the parent). On
+  // re-entry the same back presses can also re-trigger cross-tree
+  // navigation and loop.
 
   // Hydrate the UI language from persistent storage before the first render,
   // so the wizard / shell display in the user's chosen language.
@@ -56,6 +48,27 @@ async function bootstrap() {
   const app = createApp(App);
   const pinia = createPinia();
   const router = createRouter();
+
+  if (typeof window !== "undefined") {
+    // The native side evaluates this expression and reads the returned
+    // string back. We push the parent route and return "navigated" so
+    // Kotlin knows to leave the page alone; on a top-level route we
+    // return "at-root" so Kotlin calls finish() on the activity.
+    //
+    // meta.parent is a *route name* (e.g. "news", "settings"), not a
+    // path — names are stable across path refactors. We pass it as
+    // `{ name: parent }` because `router.push("news")` would be
+    // interpreted as a relative path "news" (no leading /) and fail.
+    window.__amigaGoBack = () => {
+      const route = router.currentRoute.value;
+      const parent = route?.meta?.parent;
+      if (parent) {
+        router.push({ name: parent });
+        return "navigated";
+      }
+      return "at-root";
+    };
+  }
 
   app.use(pinia);
   app.use(router);

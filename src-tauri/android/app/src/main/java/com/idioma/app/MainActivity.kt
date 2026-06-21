@@ -1,33 +1,45 @@
 package com.idioma.app
 
 import android.annotation.SuppressLint
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.webkit.WebView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import org.json.JSONObject
 
 /**
- * Custom activity that bridges native Android system-bar insets into the
- * WebView and installs our long-press "翻译" menu item.
+ * Custom activity for Amiga.
  *
- * Why we do this in code instead of relying on the CSS `safe-area-inset-*`
- * env(): that env() is an iOS WebKit feature. Android WebView returns 0 for
- * it in all current versions, so on Android the only reliable way to keep
- * the bottom nav and chat input above the system navigation bar is to read
- * the real insets from [WindowInsetsCompat] and push them into the page as
- * CSS custom properties (`--amiga-safe-top`, `--amiga-safe-bottom`).
+ * Three things happen here that the stock [TauriActivity] does not do:
  *
- * The page exposes a global `__amigaSetInsets(top, bottom, left, right)`
- * which we call from here. It writes the values to `:root` and also fires
- * a `resize` so any visualViewport-based layouts re-measure.
+ * 1. **Safe area at the app layer, not the HTML layer.** We read the
+ *    real [WindowInsetsCompat] for `systemBars()` and `ime()` and apply
+ *    them as the WebView's own padding, so the WebView's drawing area
+ *    is *exactly* the safe area. The HTML inside the WebView does not
+ *    need to know about Android system bars at all — `100vh` / `100vw`
+ *    just work. The previous CSS-only approach (`env(safe-area-inset-*)`
+ *    + a JS bridge from Kotlin) was unreliable because Android WebView
+ *    returns 0 for that env() and the JS bridge has timing issues.
  *
- * See: [MainActivityTest.kt] (no JVM unit tests for the WebView bridge;
- * verified end-to-end on device and via the WebView's evaluateJavascript
- * logs in Logcat).
+ * 2. **Hierarchical back navigation.** Android's back button defaults
+ *    to `history.back()`, which goes to the *previous URL* — that is
+ *    why "返回" sometimes loops or lands on the wrong screen. We
+ *    intercept the back press, ask the page to compute the *parent*
+ *    route from the current Vue Router entry, and push that. If the
+ *    current route has no parent, we finish() the activity. The page
+ *    publishes `window.__amigaGoBack()` which returns either
+ *    `"navigated"` or `"at-root"`.
+ *
+ * 3. **Long-press "翻译" menu item in the WebView text-selection
+ *    floating toolbar.** [TranslateWindowCallback] hooks
+ *    `setCustomSelectionActionModeCallback` to inject our item. The
+ *    page registers `window.__amigaTranslateSelection(text)` and we
+ *    dispatch to it when the user taps the item.
  */
 class MainActivity : TauriActivity() {
     private var mainWebView: WebView? = null
@@ -42,10 +54,17 @@ class MainActivity : TauriActivity() {
     override fun onWebViewCreate(webView: WebView) {
         mainWebView = webView
 
-        // 1) Insets → JS bridge
-        installInsetsBridge(webView)
+        // 1) Safe-area at the app layer: WebView's own padding equals
+        //    the systemBars + IME insets, so the WebView never draws
+        //    under the status bar / nav bar / keyboard.
+        installSafeAreaPadding(webView)
 
-        // 2) Long-press text selection: inject "翻译" item
+        // 2) Hierarchical back navigation: the system back press goes
+        //    through __amigaGoBack() and finishes the activity when
+        //    the current route has no parent.
+        installBackNavigation(webView)
+
+        // 3) Long-press text selection: inject "翻译" item.
         webView.setOnLongClickListener(null)
         webView.isLongClickable = true
         webView.isHapticFeedbackEnabled = true
@@ -67,44 +86,67 @@ class MainActivity : TauriActivity() {
     }
 
     /**
-     * Read the current [WindowInsetsCompat] for the WebView's host and
-     * forward it to the page. The bridge is also re-fired on every
-     * inset change (e.g. when the user toggles the IME, swipes the
-     * gesture bar, or rotates) so the page always reflects the latest
-     * layout.
+     * Sets the WebView's own padding to the live `systemBars()` and
+     * `ime()` insets. The WebView is shrunk inward; its inner
+     * coordinate system starts at the safe area's top-left and
+     * ends at the safe area's bottom-right. The HTML inside
+     * does `100vh` / `100vw` and never overlaps any system UI.
+     *
+     * IME wins over the system nav bar at the bottom (whichever is
+     * taller is what we pad by), so the chat input stays above the
+     * keyboard when it's up and above the nav bar when it isn't.
      */
-    private fun installInsetsBridge(webView: WebView) {
-        val rootView = webView.parent as? View ?: run {
-            // Fallback: defer until attached. Tauri attaches the WebView to
-            // the activity's decor view, so this branch only fires for
-            // unusual hosting setups.
-            webView.post { installInsetsBridge(webView) }
-            return
-        }
-
-        fun push(insets: WindowInsetsCompat) {
-            val sysBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
-            // The IME insets replace the bottom system bar when the
-            // keyboard is up; the page only needs the *effective* bottom
-            // to keep the chat input visible.
-            val bottom = maxOf(sysBars.bottom, ime.bottom)
-            val payload = JSONObject().apply {
-                put("top", sysBars.top)
-                put("bottom", bottom)
-                put("left", sysBars.left)
-                put("right", sysBars.right)
+    private fun installSafeAreaPadding(webView: WebView) {
+        // The WebView may not be attached to a parent at this exact
+        // moment. Defer the listener install until it is.
+        fun attach() {
+            val host = webView.parent as? View
+            if (host == null) {
+                webView.post { attach() }
+                return
             }
-            val js = "window.__amigaSetInsets && window.__amigaSetInsets(${payload});"
-            webView.evaluateJavascript(js, null)
+            ViewCompat.setOnApplyWindowInsetsListener(host) { _, insets ->
+                val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+                val bottom = maxOf(bars.bottom, ime.bottom)
+                webView.setPadding(bars.left, bars.top, bars.right, bottom)
+                insets
+            }
+            // Force the first dispatch so the WebView is sized correctly
+            // even before any UI change fires.
+            host.requestApplyInsets()
         }
+        attach()
+    }
 
-        // Initial push (ViewCompat dispatches with the current insets).
-        ViewCompat.setOnApplyWindowInsetsListener(rootView) { _, insets ->
-            push(insets)
-            insets
-        }
-        rootView.requestApplyInsets()
+    /**
+     * Wire the system back press to the page's `__amigaGoBack()`.
+     * The page returns `"navigated"` (we leave the page to do the
+     * navigation) or `"at-root"` (we finish the activity).
+     *
+     * On Android 13+ (API 33+) we use the modern
+     * [OnBackPressedCallback] path so the OS "predictive back" gesture
+     * still works. On older API levels, the same callback is delivered
+     * via the deprecated `onBackPressed()` shim, which still works.
+     */
+    private fun installBackNavigation(webView: WebView) {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                webView.evaluateJavascript(
+                    "(function(){try{return window.__amigaGoBack ? window.__amigaGoBack() : 'at-root';}catch(e){return 'at-root';}})()",
+                ) { raw ->
+                    val result = raw?.trim()?.removeSurrounding("\"")
+                    if (result == "at-root") {
+                        // At a top-level route: let the activity finish.
+                        // Using finish() (rather than moveTaskToBack) so
+                        // the user gets the standard Android exit feel.
+                        this@MainActivity.finish()
+                    }
+                    // For "navigated" the page has already pushed the
+                    // parent route; we don't need to do anything.
+                }
+            }
+        })
     }
 
     companion object {

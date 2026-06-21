@@ -2,6 +2,7 @@ import ProfilePage from "./ProfilePage.vue";
 import SettingsPage from "./SettingsPage.vue";
 import LlmConfigPage from "./LlmConfigPage.vue";
 
+// See src/modules/news/routes.js for the meta.parent convention.
 export default [
   {
     path: "/profile",
@@ -12,10 +13,12 @@ export default [
     path: "/profile/settings",
     name: "settings",
     component: SettingsPage,
+    meta: { parent: "profile" },
   },
   {
     path: "/profile/llm-config/:type",
     name: "llm-config",
     component: LlmConfigPage,
+    meta: { parent: "settings" },
   },
 ];
