@@ -179,6 +179,8 @@ export default {
     ai: "AI configuration",
     primaryModel: "AI model",
     primaryModelSub: "Built-in or custom",
+    prompts: "Prompt manager",
+    promptsSub: "View and edit system prompts",
     content: "Content",
     newsCount: "News count",
     newsCountDesc: "How many articles to fetch per refresh",

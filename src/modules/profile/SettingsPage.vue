@@ -22,7 +22,8 @@
     <section class="settings-section">
       <h3 class="section-header">{{ t('settings.ai') }}</h3>
       <div class="settings-card">
-        <SettingsItem :title="t('settings.primaryModel')" :subtitle="t('settings.primaryModelSub')" to="/profile/llm-config" :showDivider="false" />
+        <SettingsItem :title="t('settings.primaryModel')" :subtitle="t('settings.primaryModelSub')" to="/profile/llm-config" />
+        <SettingsItem :title="t('settings.prompts')" :subtitle="t('settings.promptsSub')" to="/prompts" :showDivider="false" />
       </div>
     </section>
 
@@ -133,13 +134,9 @@ const currentLangLabel = computed(() => {
 onMounted(() => {
   // Initialise the picker from the active i18n locale.
   uiLang.value = locale.value || "zh";
-  try {
-    getSetting("news_fetch_limit").then((val) => {
-      if (val) newsLimit.value = parseInt(val, 10) || 5;
-    });
-  } catch (e) {
-    console.error("Failed to load news limit:", e);
-  }
+  getSetting("news_fetch_limit").then((val) => {
+    if (val) newsLimit.value = parseInt(val, 10) || 5;
+  }).catch((e) => console.error("Failed to load news fetch limit:", e));
 });
 
 function saveLang() {

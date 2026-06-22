@@ -182,6 +182,8 @@ export default {
     ai: "AI 配置",
     primaryModel: "AI 模型配置",
     primaryModelSub: "选择系统内置或自定义",
+    prompts: "提示词管理",
+    promptsSub: "查看和编辑系统提示词",
     content: "内容",
     newsCount: "新闻获取数量",
     newsCountDesc: "每次刷新时获取的文章数量",

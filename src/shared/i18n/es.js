@@ -179,6 +179,8 @@ export default {
     ai: "Configuración de IA",
     primaryModel: "Modelo de IA",
     primaryModelSub: "Integrado o personalizado",
+    prompts: "Gestor de prompts",
+    promptsSub: "Ver y editar prompts del sistema",
     content: "Contenido",
     newsCount: "Cantidad de noticias",
     newsCountDesc: "Cuántos artículos obtener en cada actualización",
