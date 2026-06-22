@@ -1,0 +1,69 @@
+name: Deploy to Gitee Pages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to deploy (e.g. v0.3.15)
+        required: true
+
+jobs:
+  deploy:
+    name: Deploy APK to Gitee Pages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag name
+        id: tag
+        run: |
+          TAG="${{ github.event.release.tag_name || github.event.inputs.tag }}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Using tag: ${TAG}"
+
+      - name: Download APK from GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          mkdir -p pages-dist
+          gh release download "${TAG}" \
+            --pattern "amiga-v*.apk" \
+            --dir pages-dist
+          APK=$(ls pages-dist/amiga-v*.apk | head -1)
+          if [ -z "$APK" ]; then
+            echo "::error::No APK asset found in release ${TAG}"
+            exit 1
+          fi
+          mv "$APK" pages-dist/Amiga.apk
+
+      - name: Stage static assets
+        run: |
+          cp pages/amiga-icon.png pages-dist/amiga-icon.png
+          cp pages/index.html pages-dist/index.html
+
+      - name: Inject version into HTML
+        env:
+          VERSION: ${{ steps.tag.outputs.tag }}
+        run: |
+          sed -i "s|__AMIGA_VERSION__|${VERSION}|g" pages-dist/index.html
+
+      - name: Push to Gitee and trigger Pages rebuild
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          git clone https://oauth2:${GITEE_TOKEN}@gitee.com/whwesele/deploy.git gitee
+          rm -rf gitee/*
+          cp -r pages-dist/* gitee/
+          cd gitee
+          git config user.name "Amiga Release Bot"
+          git config user.email "bot@amiga.app"
+          git add -A
+          git commit -m "deploy: Amiga ${TAG}"
+          git push
+          curl -s -X POST "https://gitee.com/api/v5/repos/whwesele/deploy/pages/build" \
+            -H "Content-Type: application/json" \
+            -d "{\"access_token\": \"${GITEE_TOKEN}\"}"
