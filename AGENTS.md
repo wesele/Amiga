@@ -22,64 +22,15 @@
 - 任务**完全独立**（如纯调研、生成测试数据）→ 单独 subagent
 - 派 subagent 时：在 prompt 中明确"研究还是改代码"、验证方式、要返回什么
 
-### 3.5 Rust 后端重新编译（必做）
-- 改了 `src-tauri/` 下的任何 `.rs` / `Cargo.toml` / `tauri*.conf.json` / `capabilities/*.json` → **必须**在测试 / 截屏 / 提交**之前**重新编译后端
-- 默认执行增量编译（首次 ~30s，之后几秒）：
-  ```
-  cd src-tauri && cargo build
-  ```
-- 编译失败 / 警告 → 先修，再走测试流程
-- **不要**用 `npm run dev`（裸 Vite）验证 Rust 改动——invoke 走 stub，根本不会调用后端，掩盖问题
-- 想边改边看就用 `run-windows.bat` 或 `npm run tauri dev`（自动重编 + 启 Tauri shell）
-- Android 改动用 `build-android.bat`
-
-### 4. 测试
-- **所有修改完成后必须测试**：
-  - 改 Rust → `npm run test:rust`（或 `cargo test`）
-  - 改前端 / 共享层 → `npm test`
-  - 改两端 → `npm run test:all`
-  - Rust 提交前 `cargo fmt` + `cargo clippy` 必须无警告
-- 涉及**界面、功能、视觉效果** → 截屏测试：
-  - Windows 默认使用 **Windows 版**
-  - 默认模式（auto）跑 `pwsh scripts/screenshot.ps1 -OutFile screenshots/<module>-<step>.png`：先截 Tauri 窗口，找不到时自动回退到 Edge headless 截 `http://localhost:1420/`
-  - 纯前端改动用 headless：`pwsh scripts/screenshot.ps1 -Mode Headless -Url http://localhost:1420/<route>`
-  - 涉及 Tauri 集成（窗口/IPC/native）用 app：`pwsh scripts/screenshot.ps1 -Mode App`
-  - 同一页面改前/改后各截一张，便于对比
-  - 跨平台 UI 改动需额外在 Android 验证
-- 设计Android平台的bug或者功能一定要在Android模拟器或者ADB连接好的真机测试。
-- Android 安装 APK 必须用 `adb install -r -g <apk>`（先卸载会导致手机弹出确认弹窗，阻塞自动化）。`-r` 覆盖安装，`-g` 自动授予运行时权限。
-- 同步更新测试（参考下方"测试"章节的规范）
+### 4. 编译与测试
+- 改了 `src-tauri/` 下的任何 `.rs` / `Cargo.toml` / `tauri*.conf.json` / `capabilities/*.json` → **必须**重新编译（`cd src-tauri && cargo build`）再测试
+- **不要**用 `npm run dev`（裸 Vite）验证 Rust 改动——invoke 走 stub，不会调用后端
+- 想边改边看就用 `run-windows.bat` 或 `npm run tauri dev`
+- 测试规范与截屏流程 → 详见 [docs/testing.md](./docs/testing.md)
 
 ### 5. 提交
 - 任务收尾时自动 commit 到**本地 git**（用户不要求也要做）；push / 发版仍需用户明确要求
-- 提交前确认 `git status` / `git diff` 干净、无敏感信息
-- 提交信息**中英双语**，用 `---ENGLISH---` 分隔（与 release notes 同风格），格式：
-
-  ```
-  <type>: <中文摘要>
-
-  <中文详细说明，可选>
-
-  ---ENGLISH---
-
-  <English summary>
-
-  <English details, optional>
-  ```
-
-  示例：
-  ```
-  refactor: 统一外部链接打开方式，封装 openExternalUrl
-
-  新增 src/shared/external.js 提供 openExternalUrl(url) 统一入口。
-
-  ---ENGLISH---
-
-  refactor: Unify external link opener via openExternalUrl
-
-  Add src/shared/external.js as single entry for opening external URLs.
-  ```
-- `type` 前缀可选：`feat` / `fix` / `refactor` / `docs` / `test` / `ci` / `chore` / `build` / `perf` / `style`
+- 提交格式与命名约定 → 详见 [docs/conventions.md](./docs/conventions.md)
 
 ## 项目结构
 
@@ -92,7 +43,7 @@ C:\Code\Idioma\
 │   │   └── constants.js      # AVAILABLE_LANGUAGES 等共享常量
 │   ├── stores/               # Pinia 全局状态
 │   ├── router/               # vue-router 工厂
-│   ├── composables/          # 组合式函数
+│   ├── composables/           # 组合式函数
 │   ├── assets/  public/
 │   ├── App.vue  main.js  style.css
 │   └── index.html
@@ -106,8 +57,8 @@ C:\Code\Idioma\
 │   ├── amiga-release.keystore
 │   └── Cargo.toml
 ├── content-studio/           # 独立子项目（提示词 / 内容管理 UI），单独装依赖
-├── scripts/                  # release.cjs / bump-version.cjs / screenshot.ps1
-├── docs/                     # 文档（CONTENT_STUDIO.md / PRODUCT_DESIGN.md）
+├── scripts/                  # release.cjs / bump-version.cjs / screenshot.ps1 等
+├── docs/                     # 详细文档
 ├── run-windows.bat / run-windows-vite.bat / run-windows-exe.bat
 ├── build-android.bat / release-github.bat
 ├── package.json / vite.config.js / vitest.config.js
@@ -120,19 +71,14 @@ C:\Code\Idioma\
 |------|------|
 | `npm run dev` | 启动 Vite 开发服务器（仅前端，浏览器打开） |
 | `npm run build` | 前端生产构建到 `dist/` |
-| `npm test` | 前端 Vitest（一次性） |
-| `npm run test:watch` | 前端 Vitest watch 模式 |
+| `npm test` | 前端 Vitest |
 | `npm run test:rust` | Rust `cargo test` |
 | `npm run test:all` | 前后端全部测试 |
 | `npm run tauri` | Tauri CLI 入口（如 `npm run tauri dev` / `build`） |
-| `cargo fmt` / `cargo clippy` | Rust 格式化 / lint（**提交前必跑**） |
 | `run-windows.bat` | Windows 端开发启动（Vite + Tauri） |
-| `run-windows-vite.bat` | 仅启动 Vite（无 Tauri shell） |
-| `run-windows-exe.bat` | 构建并运行已编译的 EXE |
 | `build-android.bat` | Android APK 构建 |
-| `release-github.bat` | 调 `scripts/release.cjs` 全自动发布 |
 
-> **注意**：项目目前**没有**前端 lint / format 工具（无 eslint / prettier / vue-tsc），改前端只跑 `npm test`。
+> 更多测试命令（watch / clippy / fmt）见 [docs/testing.md](./docs/testing.md)，脚索引见 [docs/release-and-scripts.md](./docs/release-and-scripts.md)。
 
 ## 架构
 
@@ -141,15 +87,6 @@ C:\Code\Idioma\
 **后端**：分层 `commands/`（薄 IPC 层，纯 `#[tauri::command]` 转发）→ `modules/`（业务逻辑）。`database.rs` 用 rusqlite + 启动跑 migrations；`logging.rs` 写文件日志（3 天清理）；`llm.rs` 是 OpenAI 兼容客户端。
 
 **前后端桥**：Tauri `invoke()`，`src/shared/api.js` 的 invoke 名 ↔ `src-tauri/src/commands/` 的 Rust 函数名一一对应。
-
-## 应用图标
-
-聊天页 / 联系人列表里的「Amiga 头像」来自 `public/amiga-icon.png`，**不是** `src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png`（那是 3186 字节的绿方块占位图，不是 Android 桌面上看到的品牌图标）。
-
-- 源：构建出的 release APK 里的最高分辨率 launcher PNG（如 `res/as.png` 432×432）
-- 提取：先 `build-android.bat` 跑出 `app-universal-release.apk`，再 `node scripts/extract-android-icon.cjs` 把最大 PNG 拷到 `public/amiga-icon.png`
-- 用法：`<img src="/amiga-icon.png">`，由 Vite 走 `public/` pipeline 字节原样输出
-- 重新换品牌：换源 PNG → 重建 release APK → 跑脚本
 
 ## 前端模块
 
@@ -195,21 +132,9 @@ await kernel.loadModule("news", { parent: "shell" });  // 其余挂在 shell 下
 - `modules/<area>.rs`：业务逻辑，签名形如 `fn xxx(db: &DatabasePool, ...) -> Result<T, String>`
 - `commands/<area>.rs`：薄层，每个函数 `#[tauri::command] pub async fn xxx(...) -> Result<T, String>`，仅转发到 `modules/`
 
-### Tauri 命令命名约定
+### 命名约定
 
-`<verb>_<noun>` 蛇形命名。**当 command 名会与 `modules/` 同模块函数同名时，加 `_cmd` 后缀**（如 `update_user` 模块函数 → `update_user_cmd` command）。`src/shared/api.js` 的 invoke 名要和 Rust 函数名完全一致。
-
-实际现状（`commands/user.rs`）：
-
-```rust
-// modules/user.rs
-pub fn create_user_from_wizard(...)   // 内部函数，名字不同 → command 不用 _cmd
-pub fn update_user(...)               // 跟 command 撞名 → command 加 _cmd
-
-// commands/user.rs
-#[tauri::command] pub async fn create_user(...)       // OK
-#[tauri::command] pub async fn update_user_cmd(...)   // 加 _cmd 区分
-```
+`<verb>_<noun>` 蛇形命名。command 与 module 同名时加 `_cmd` 后缀。详见 [docs/conventions.md](./docs/conventions.md)。
 
 ### modules/
 
@@ -239,75 +164,13 @@ pub fn update_user(...)               // 跟 command 撞名 → command 加 _cmd
 | Tauri 权限 | `src-tauri/capabilities/default.json`（桌面）/ `mobile.json`（Android） |
 | 截屏产物 | `screenshots/`（已 gitignore） |
 
-**改 schema** → 在 `migrations.rs` 追加 `MIGRATION_V<N+1>` 并加入 `all_migrations()`，**不要**改历史 migration。
+## Android 自定义
 
-**加 Tauri 权限**（如 `core:fs:allow-read`）→ 同时更新 `default.json` 和 `mobile.json`，否则桌面/Android 行为不一致。
+→ 详见 [docs/android-native.md](./docs/android-native.md)
 
-## Android 自定义（Kotlin / Java）
-
-Tauri 2.x 把整个 Android 工程生成到 `src-tauri/gen/android/`（**已 gitignore**），包括默认的 `MainActivity.kt`。如果直接在 `gen/` 里改，下一次 `tauri android init` / 升级 CLI 时会被模板覆盖——所以项目把"真正想保留"的 Android 源放在 **tracked** 位置，再由构建脚本同步到 `gen/`：
-
-```
-src-tauri/android/app/src/main/java/com/idioma/app/   # 真正的源（git 跟踪）
-src-tauri/gen/android/app/src/main/java/com/idioma/app/   # 构建时实际编译的副本（gitignore）
-```
-
-### 约定
-- **只改** `src-tauri/android/...`；**不要**手动改 `src-tauri/gen/android/...`。
-- `build-android.bat` 会按顺序：
-  1. 跑 `npm run tauri android init`（如果 `gen/` 不存在）
-  2. 跑 `node scripts/android-patch.cjs`，把 `src-tauri/android/` 的文件拷到 `gen/`（mtime 比对，源变才覆盖）
-  3. 跑 `npm run tauri android build -- --target aarch64 --apk`
-- 想强刷可以 `node scripts/android-patch.cjs --force`。
-
-### 已自定义的入口
-- `MainActivity.kt` —
-  - `enableEdgeToEdge()` 让 status / nav bar 透明
-  - `setOnApplyWindowInsetsListener` 把 `systemBars()` + `ime()` inset 直接设到 **WebView 自己的 `setPadding()`**：WebView 的渲染区就是安全区，HTML 完全不用知道系统栏的存在（`100vh` / `100vw` 直接 work）。这是 **app 层** 解决，不是 HTML 层。
-  - `OnBackPressedCallback` 拦截系统返回键，调用 `window.__amigaGoBack()`：JS 端读当前路由的 `meta.parent`，有父级就 `router.push({ name: parent })`、无父级返回 `"at-root"`，Kotlin 收到 `"at-root"` 就 `finish()` Activity。这避开了 `history.back()` 走"上一个 URL"的死循环问题。
-- `TranslateWindowCallback.kt` — 用 `WebView.setCustomSelectionActionModeCallback` 注入长按文本选区菜单的「翻译」项，点击后调 `window.__amigaTranslateSelection(text)`，由 `NewsReader.vue` 接收。
-
-### 路由父级（`meta.parent`）
-
-JS 端（`src/main.js`）的 `__amigaGoBack` 协议：
-
-```js
-window.__amigaGoBack = () => {
-  const parent = router.currentRoute.value?.meta?.parent;
-  if (parent) {
-    router.push({ name: parent });  // 注意：必须是 { name }，裸字符串会被当 path
-    return "navigated";
-  }
-  return "at-root";  // Kotlin 收到这个就 finish() 退出
-};
-```
-
-每条子路由必须声明 `meta: { parent: "<父级 route name>" }`。当前层级：
-
-```
-/wizard          → (root)
-/news            → (root)
-/news/:id        → news
-/vocab           → (root)
-/chat             → (root)
-/chat/:id          → chat
-/chat/preview      → chat
-/profile                  → (root)
-/profile/settings         → profile
-/profile/llm-config/:type → settings
-/prompts                  → settings
-/prompts/:key             → prompts
-```
-
-`src/modules/shell/__tests__/AmigaGoBack.spec.js` 用字符串正则扫每条 routes.js 确认 `meta.parent` 没漏写——加新 detail 路由忘了声明父级会被这条测试抓住。
-
-### 测试
-- Kotlin 端**没有** JVM 单元测试（Android-only 路径，happy-dom/jsdom 不可用）。每次 Android 改动后必须用真机/模拟器 adb 验证：
-  ```
-  adb exec-out screencap -p > screenshots/android-<module>-<step>.png
-  ```
-- 前端对应的 JS 入口（`__amigaSetInsets` / `__amigaTranslateSelection`）由 `src/modules/shell/__tests__/AppShell.spec.js` 和 `src/modules/news/__tests__/selection.spec.js` 覆盖。
-- **写 Kotlin 改动时配套加 JS 侧测试**：JS 入口（`__amigaSetInsets` / `__amigaTranslateSelection`）的契约稳定、容易测；Kotlin 端可以重构，但**契约不能动**，否则 AppShell/NewsReader 的单测会断。
+核心要点：
+- 源码只改 `src-tauri/android/...`，不改 `gen/`
+- JS↔Kotlin 契约（`__amigaGoBack` / `__amigaSetInsets` / `__amigaTranslateSelection`）不可随意改动，前端单测依赖
 
 ## 添加新功能
 
@@ -327,52 +190,18 @@ window.__amigaGoBack = () => {
 
 ## 测试
 
-| 命令 | 范围 |
-|------|------|
-| `npm test` | 前端 Vitest（一次性） |
-| `npm run test:watch` | 前端 watch |
-| `npm run test:rust` | Rust `cargo test`（内存 SQLite） |
-| `npm run test:all` | 前后端全部 |
+→ 详见 [docs/testing.md](./docs/testing.md)
 
-### 规范
-1. **改代码必须同步改测试**。Rust module → 同文件 `#[cfg(test)]`；前端 shared/模块 → 对应 `__tests__/`
-2. 新模块必须建 `__tests__/`
-3. 提交前 `npm run test:all` + `cargo fmt` + `cargo clippy` 必须通过
+核心：改代码必须同步改测试；提交前 `npm run test:all` + `cargo fmt` + `cargo clippy` 必须 through。
 
-### 截屏测试（界面/视觉改动必做）
-- **首选（auto）**：`pwsh scripts/screenshot.ps1 -OutFile screenshots/<module>-<step>.png`
-  - 检测到 "Amiga" 窗口 → 截 Tauri 窗口
-  - 否则若 Vite 在 :1420 → 用 Edge headless 截 `http://localhost:1420/`
-  - 都没有则报错
-- **纯前端**（快、不启 Tauri）：`npm run dev` 后
-  - `pwsh scripts/screenshot.ps1 -Mode Headless -Url http://localhost:1420/<route> -OutFile screenshots/<module>-<step>.png`
-- **Tauri 集成**：启动 `run-windows.bat` 后
-  - `pwsh scripts/screenshot.ps1 -Mode App -OutFile screenshots/<module>-<step>.png`
-- 同一页面改前/改后各截一张，产物放 `screenshots/`（已 gitignore）
-- Android 用 `adb exec-out screencap -p > screenshots/<module>-<step>.png`
+## 发布与脚本
 
-## 发布
+→ 详见 [docs/release-and-scripts.md](./docs/release-and-scripts.md)
 
-### 规范
-- GitHub Release 说明 **中英双语**，`---ENGLISH---` 分隔
-- `release-github.bat` → `scripts/release.cjs`（自动版本号 + 构建 + 发布）
-- 版本更新用 Node.js 脚本，**严禁 PowerShell `Set-Content`**（BOM 破坏 Vite）
-- 版本号同步：`package.json` / `Cargo.toml` / `tauri.conf.json` / `tauri.android.conf.json`
+## 约定
 
-### 构建
-- Windows: MSI + NSIS + EXE
-- Android: `build-android.bat` → `tauri android build --target aarch64 --apk`
-- Android APK 用 `src-tauri/amiga-release.keystore` 签名
-
-## 脚本
-
-| 文件 | 职责 |
-|------|------|
-| `scripts/release.cjs` | 全自动发布：版本更新 → 提交 → 前端构建 → Android 构建 → GitHub Release |
-| `scripts/bump-version.cjs` | 同步 `package.json` / `Cargo.toml` / `tauri.conf.json` 等版本号 |
-| `scripts/screenshot.ps1` | 按窗口标题截屏到 PNG（默认标题 `Amiga`） |
-| `scripts/extract-android-icon.cjs` | 从 release APK 提取最高分辨率 launcher icon → `public/amiga-icon.png` |
-| `scripts/test-bump-lock.cjs` / `test-cargo-lock*.cjs` | 锁文件一致性测试 |
+提交格式、命令命名、migration / 权限约定 → 详见 [docs/conventions.md](./docs/conventions.md)
 
 ## Content Studio
+
 → 见 [CONTENT_STUDIO.md](./CONTENT_STUDIO.md)。`content-studio/` 是独立子项目，单独 `npm install` + `npm run dev`。
