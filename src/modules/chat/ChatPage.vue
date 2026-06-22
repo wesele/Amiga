@@ -115,6 +115,7 @@ let unsubscribe = null;
 const vv = window.visualViewport;
 
 function startSync() {
+  stopSync();
   if (!vv || !chatView.value) return;
   function tick() {
     if (!chatView.value) return;

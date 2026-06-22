@@ -21,6 +21,7 @@
 
     <!-- Steps -->
     <div class="steps-container">
+      <div v-if="saveError" class="error-banner">{{ t("wizard.saveFail") }}</div>
       <Transition :name="transitionName" mode="out-in">
         <component
           :is="currentComponent"
@@ -83,6 +84,7 @@ const demographics = ref({ ageRange: null, gender: null });
 const avatar = ref({ avatar: "😊" });
 
 const emitted = ref(false);
+const saveError = ref(false);
 
 async function onNext(data) {
   if (emitted.value) return;
@@ -101,7 +103,8 @@ async function onNext(data) {
     demographics.value = { ...demographics.value, ...data };
   } else if (current.value === 3) {
     avatar.value = { ...avatar.value, ...data };
-    await saveToBackend();
+    const ok = await saveToBackend();
+    if (!ok) return;
     emitted.value = true;
     router.push("/news");
     return;
@@ -111,6 +114,7 @@ async function onNext(data) {
 }
 
 async function saveToBackend() {
+  saveError.value = false;
   try {
     const user = await createUser({
       nickname: profile.value.nickname || t("common.learner"),
@@ -139,7 +143,10 @@ async function saveToBackend() {
     await initUserVocab(user.id, learning.value.cefrLevel || "A1");
   } catch (e) {
     console.error("Failed to save wizard data:", e);
+    saveError.value = true;
+    return false;
   }
+  return true;
 }
 </script>
 
@@ -210,6 +217,15 @@ async function saveToBackend() {
   padding: 0 24px;
   display: flex;
   flex-direction: column;
+}
+
+.error-banner {
+  margin-bottom: 12px;
+  padding: 10px 16px;
+  background: var(--red-bg);
+  color: var(--red);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
 }
 
 /* Slide transitions */
