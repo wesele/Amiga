@@ -121,10 +121,13 @@ Conversation:
 
 /// Ensure default prompts are up-to-date (upserts on every startup)
 pub fn ensure_default_prompts(db: &DatabasePool) {
-    let conn = match db.conn.lock() {
+    let conn = match db.conn() {
         Ok(c) => c,
         Err(e) => {
-            log::error!("Failed to lock DB for ensure_default_prompts: {}", e);
+            log::error!(
+                "Failed to get DB connection for ensure_default_prompts: {}",
+                e
+            );
             return;
         }
     };
@@ -146,10 +149,7 @@ pub fn ensure_default_prompts(db: &DatabasePool) {
 }
 
 pub fn get_all_prompts(db: &DatabasePool) -> Result<Vec<Prompt>, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     let mut stmt = conn
         .prepare(
@@ -177,10 +177,7 @@ pub fn get_all_prompts(db: &DatabasePool) -> Result<Vec<Prompt>, String> {
 }
 
 pub fn get_prompt(db: &DatabasePool, key: &str) -> Result<Prompt, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     conn.query_row(
         "SELECT key, name, category, system_prompt, user_prompt_template, updated_at
@@ -208,10 +205,7 @@ pub fn save_prompt(
     system_prompt: &str,
     user_prompt_template: &str,
 ) -> Result<(), String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     conn.execute(
         "INSERT INTO prompts (key, name, category, system_prompt, user_prompt_template, updated_at)
@@ -236,10 +230,7 @@ pub fn reset_prompt_to_default(db: &DatabasePool, key: &str) -> Result<Prompt, S
 }
 
 pub fn reset_all_prompts(db: &DatabasePool) -> Result<usize, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     conn.execute("DELETE FROM prompts", [])
         .map_err(|e| format!("Failed to clear prompts: {}", e))?;

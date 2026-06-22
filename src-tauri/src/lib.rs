@@ -13,7 +13,10 @@ pub fn run() {
     log::info!("Starting Idioma application...");
 
     // Initialize database and run migrations
-    let db_pool = DatabasePool::new();
+    let db_pool = DatabasePool::new().unwrap_or_else(|e| {
+        log::error!("Fatal: database initialization failed: {}", e);
+        panic!("Database initialization failed: {}", e);
+    });
 
     // Import vocabulary bank if not already imported
     if let Err(e) = modules::vocabulary::import_vocab_bank(&db_pool) {

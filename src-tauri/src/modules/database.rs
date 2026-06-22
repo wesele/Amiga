@@ -1,7 +1,8 @@
 use log;
-use rusqlite::{params, Connection};
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::params;
 use std::path::PathBuf;
-use std::sync::Mutex;
 
 use super::migrations;
 
@@ -12,7 +13,7 @@ mod tests {
     #[test]
     fn test_new_in_memory_creates_database() {
         let pool = DatabasePool::new_in_memory();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let version: i32 = conn
             .query_row(
                 "SELECT COALESCE(MAX(version), 0) FROM schema_version",
@@ -26,7 +27,7 @@ mod tests {
     #[test]
     fn test_new_in_memory_creates_all_tables() {
         let pool = DatabasePool::new_in_memory();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
 
         let tables: Vec<String> = conn
             .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -61,7 +62,7 @@ mod tests {
     #[test]
     fn test_foreign_keys_enabled() {
         let pool = DatabasePool::new_in_memory();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let fk_enabled: i32 = conn
             .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
             .unwrap_or(0);
@@ -71,7 +72,7 @@ mod tests {
     #[test]
     fn test_schema_version_tracking() {
         let pool = DatabasePool::new_in_memory();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
 
         let count: i32 = conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
@@ -82,7 +83,7 @@ mod tests {
     #[test]
     fn test_v6_drops_mastery_zero_records() {
         let pool = DatabasePool::new_in_memory();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         conn.execute("INSERT INTO users (id, nickname) VALUES ('u1', 'Test')", [])
             .unwrap();
         conn.execute(
@@ -142,7 +143,7 @@ mod tests {
     fn test_v7_wipes_legacy_user_vocab() {
         // Simulate legacy data: wizard_init bulk-set + a couple of real user records
         let pool = DatabasePool::new_in_memory();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         conn.execute("INSERT INTO users (id, nickname) VALUES ('u1', 'Test')", [])
             .unwrap();
         conn.execute(
@@ -173,42 +174,50 @@ mod tests {
 }
 
 pub struct DatabasePool {
-    pub conn: Mutex<Connection>,
+    pool: Pool<SqliteConnectionManager>,
 }
 
 impl DatabasePool {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, String> {
         let db_path = Self::db_path();
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent).expect("Failed to create database directory");
         }
 
-        let conn = Connection::open(&db_path).expect("Failed to open database connection");
-
-        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
-            .expect("Failed to set database pragmas");
+        let manager = SqliteConnectionManager::file(&db_path).with_init(|c| {
+            c.execute_batch(
+                "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;",
+            )
+        });
+        let pool = Pool::builder()
+            .max_size(8)
+            .build(manager)
+            .map_err(|e| format!("Failed to create database pool: {}", e))?;
 
         log::info!("Database opened at: {:?}", db_path);
 
-        let pool = Self {
-            conn: Mutex::new(conn),
-        };
-        pool.run_migrations();
-        pool
+        let db = Self { pool };
+        db.run_migrations()?;
+        Ok(db)
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn new_in_memory() -> Self {
-        let conn = Connection::open_in_memory().expect("Failed to create in-memory database");
+        let manager = SqliteConnectionManager::memory()
+            .with_init(|c| c.execute_batch("PRAGMA foreign_keys=ON;"));
+        let pool = Pool::builder()
+            .max_size(1)
+            .build(manager)
+            .expect("Failed to create in-memory database pool");
 
-        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
-            .expect("Failed to set database pragmas");
+        let db = Self { pool };
+        db.run_migrations()
+            .expect("In-memory migrations should not fail");
+        db
+    }
 
-        let pool = Self {
-            conn: Mutex::new(conn),
-        };
-        pool.run_migrations();
-        pool
+    pub fn conn(&self) -> Result<r2d2::PooledConnection<SqliteConnectionManager>, String> {
+        self.pool.get().map_err(|e| format!("DB pool error: {}", e))
     }
 
     fn db_path() -> PathBuf {
@@ -225,10 +234,9 @@ impl DatabasePool {
             .join("idioma.db")
     }
 
-    fn run_migrations(&self) {
-        let conn = self.conn.lock().unwrap();
+    fn run_migrations(&self) -> Result<(), String> {
+        let conn = self.conn()?;
 
-        // Create schema_version table if not exists
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY,
@@ -236,9 +244,8 @@ impl DatabasePool {
                 applied_at TEXT NOT NULL DEFAULT (datetime('now'))
             );",
         )
-        .expect("Failed to create schema_version table");
+        .map_err(|e| format!("Failed to create schema_version table: {}", e))?;
 
-        // Get current version
         let current_version: i32 = conn
             .query_row(
                 "SELECT COALESCE(MAX(version), 0) FROM schema_version",
@@ -255,13 +262,8 @@ impl DatabasePool {
             if *version > current_version {
                 log::info!("Applying migration v{}: {}", version, description);
 
-                match conn.execute_batch("BEGIN") {
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::error!("Failed to begin transaction for v{}: {}", version, e);
-                        panic!("Migration v{} failed to begin: {}", version, e);
-                    }
-                }
+                conn.execute_batch("BEGIN")
+                    .map_err(|e| format!("Migration v{} failed to begin: {}", version, e))?;
 
                 match conn.execute_batch(sql) {
                     Ok(_) => {
@@ -269,16 +271,17 @@ impl DatabasePool {
                             "INSERT INTO schema_version (version, description) VALUES (?1, ?2)",
                             params![version, description],
                         )
-                        .expect("Failed to record migration version");
+                        .map_err(|e| format!("Failed to record migration v{}: {}", version, e))?;
 
-                        conn.execute_batch("COMMIT")
-                            .expect("Failed to commit migration");
+                        conn.execute_batch("COMMIT").map_err(|e| {
+                            format!("Failed to commit migration v{}: {}", version, e)
+                        })?;
                         log::info!("Migration v{} applied successfully", version);
                     }
                     Err(e) => {
                         conn.execute_batch("ROLLBACK").ok();
                         log::error!("Migration v{} failed: {}", version, e);
-                        panic!("Database migration v{} failed: {}", version, e);
+                        return Err(format!("Database migration v{} failed: {}", version, e));
                     }
                 }
             }
@@ -293,5 +296,6 @@ impl DatabasePool {
             .unwrap_or(0);
 
         log::info!("Database schema up to date. Version: {}", final_version);
+        Ok(())
     }
 }

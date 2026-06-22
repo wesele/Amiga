@@ -57,7 +57,7 @@ mod tests {
         let pool = test_pool();
         import_vocab_bank(&pool).unwrap();
 
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let mut stmt = conn
             .prepare("SELECT language, COUNT(*) FROM vocab_bank GROUP BY language")
             .unwrap();
@@ -101,7 +101,7 @@ mod tests {
         let pool = test_pool();
         import_vocab_bank(&pool).unwrap();
 
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         // 的 is the most common Chinese character; it must end up in zh A1.
         let present: bool = conn
             .query_row(
@@ -118,7 +118,7 @@ mod tests {
         let pool = test_pool();
         import_vocab_bank(&pool).unwrap();
 
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         // "the" is the most common English word; it must end up in en A1.
         let present: bool = conn
             .query_row(
@@ -136,7 +136,7 @@ mod tests {
         import_vocab_bank(&pool).unwrap();
 
         // Mutate the bank to confirm reimport really wipes it.
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         conn.execute("DELETE FROM user_vocab", []).unwrap();
         conn.execute(
             "INSERT INTO vocab_bank (word, lemma, cefr_level, language) VALUES ('zzz_test', 'zzz_test', 'A1', 'es')",
@@ -149,7 +149,7 @@ mod tests {
 
         reimport_vocab_bank(&pool).unwrap();
 
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let still_dirty: bool = conn
             .query_row(
                 "SELECT COUNT(*) > 0 FROM vocab_bank WHERE word = 'zzz_test'",
@@ -171,14 +171,14 @@ mod tests {
     #[test]
     fn test_init_user_vocab_no_op_does_not_insert_records() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         insert_test_word(&conn, "hola", "A1", "es");
         drop(conn);
 
         init_user_vocab(&pool, &uid, "A1").unwrap();
 
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let count: i32 = conn
             .query_row(
                 "SELECT COUNT(*) FROM user_vocab uv
@@ -204,14 +204,14 @@ mod tests {
     #[test]
     fn test_update_word_mastery_inserts_new_record() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         let wid = insert_test_word(&conn, "adios", "A1", "es");
         drop(conn);
 
         update_word_mastery(&pool, &uid, wid, 1, "test").unwrap();
 
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let mastery: i32 = conn
             .query_row(
                 "SELECT mastery FROM user_vocab WHERE user_id = ?1 AND word_id = ?2",
@@ -225,7 +225,7 @@ mod tests {
     #[test]
     fn test_update_word_mastery_updates_existing() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         let wid = insert_test_word(&conn, "gracias", "A1", "es");
         drop(conn);
@@ -233,7 +233,7 @@ mod tests {
         update_word_mastery(&pool, &uid, wid, 1, "test").unwrap();
         update_word_mastery(&pool, &uid, wid, 2, "exercise").unwrap();
 
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let mastery: i32 = conn
             .query_row(
                 "SELECT mastery FROM user_vocab WHERE user_id = ?1 AND word_id = ?2",
@@ -247,7 +247,7 @@ mod tests {
     #[test]
     fn test_get_unknown_words_returns_unmastered() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         let known = insert_test_word(&conn, "casa", "A1", "es");
         let unknown = insert_test_word(&conn, "perro", "A1", "es");
@@ -280,7 +280,7 @@ mod tests {
     #[test]
     fn test_get_unknown_words_respects_limit() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         for i in 0..5 {
             insert_test_word(&conn, &format!("word{}", i), "A1", "es");
@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn test_get_user_vocab_by_level_returns_all_level_words() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         insert_test_word(&conn, "hola", "A1", "es");
         insert_test_word(&conn, "adios", "A1", "es");
@@ -309,7 +309,7 @@ mod tests {
     #[test]
     fn test_get_user_vocab_by_level_mastery_status() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         let wid = insert_test_word(&conn, "hola", "A1", "es");
         conn.execute(
@@ -327,7 +327,7 @@ mod tests {
     #[test]
     fn test_get_user_vocab_by_level_empty_language() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         insert_test_word(&conn, "hola", "A1", "es");
         drop(conn);
@@ -339,7 +339,7 @@ mod tests {
     #[test]
     fn test_get_user_vocab_stats_by_level_groups_correctly() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         let w1 = insert_test_word(&conn, "uno", "A1", "es");
         let w2 = insert_test_word(&conn, "dos", "A1", "es");
@@ -377,7 +377,7 @@ mod tests {
     #[test]
     fn test_mark_words_seen_inserts_new_records() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         let w1 = insert_test_word(&conn, "hola", "A1", "es");
         let w2 = insert_test_word(&conn, "adios", "A1", "es");
@@ -385,7 +385,7 @@ mod tests {
 
         mark_words_seen(&pool, &uid, &[w1, w2]).unwrap();
 
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let count: i32 = conn
             .query_row(
                 "SELECT COUNT(*) FROM user_vocab WHERE user_id = ?1 AND mastery = 1 AND source = 'news_reading'",
@@ -398,7 +398,7 @@ mod tests {
     #[test]
     fn test_mark_words_seen_does_not_overwrite_existing() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         let w1 = insert_test_word(&conn, "hola", "A1", "es");
         let w2 = insert_test_word(&conn, "adios", "A1", "es");
@@ -412,7 +412,7 @@ mod tests {
 
         mark_words_seen(&pool, &uid, &[w1, w2]).unwrap();
 
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let m1: i32 = conn
             .query_row(
                 "SELECT mastery FROM user_vocab WHERE user_id = ?1 AND word_id = ?2",
@@ -442,7 +442,7 @@ mod tests {
     #[test]
     fn test_lookup_word_ids_finds_exact_matches() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let _w1 = insert_test_word(&conn, "hola", "A1", "es");
         let _w2 = insert_test_word(&conn, "adios", "A1", "es");
         drop(conn);
@@ -464,7 +464,7 @@ mod tests {
     #[test]
     fn test_lookup_word_ids_case_insensitive() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let _w1 = insert_test_word(&conn, "Hola", "A1", "es");
         drop(conn);
 
@@ -475,7 +475,7 @@ mod tests {
     #[test]
     fn test_get_user_vocab_stats() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         let w1 = insert_test_word(&conn, "uno", "A1", "es");
         let w2 = insert_test_word(&conn, "dos", "A1", "es");
@@ -533,10 +533,7 @@ pub struct VocabStats {
 /// next launch. The function tolerates new top-level language keys — any
 /// language not in `language_label_to_code` is stored verbatim.
 pub fn import_vocab_bank(db: &DatabasePool) -> Result<i32, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     // Parse embedded vocabulary JSON
     let vocab_json: serde_json::Value =
@@ -594,10 +591,7 @@ pub fn import_vocab_bank(db: &DatabasePool) -> Result<i32, String> {
 /// default import. Used when the JSON source changes in a way that can't
 /// be expressed as a pure-additive diff (e.g. relabelling a level).
 pub fn reimport_vocab_bank(db: &DatabasePool) -> Result<i32, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     conn.execute("DELETE FROM user_vocab", [])
         .map_err(|e| format!("Failed to clear user_vocab: {}", e))?;
@@ -629,10 +623,7 @@ pub fn update_word_mastery(
     mastery: i32,
     source: &str,
 ) -> Result<(), String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     conn.execute(
         "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
@@ -661,10 +652,7 @@ pub fn get_unknown_words(
     limit: i32,
     target_lang: &str,
 ) -> Result<Vec<VocabWord>, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     let mut stmt = conn
         .prepare(
@@ -708,10 +696,7 @@ pub fn get_user_vocab_stats(
     user_id: &str,
     target_lang: &str,
 ) -> Result<VocabStats, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     let total: i32 = conn
         .query_row(
@@ -774,10 +759,7 @@ pub fn get_user_vocab_by_level(
     language: &str,
     cefr_level: &str,
 ) -> Result<Vec<UserVocabWord>, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     let mut stmt = conn
         .prepare(
@@ -816,10 +798,7 @@ pub fn get_user_vocab_stats_by_level(
     user_id: &str,
     language: &str,
 ) -> Result<Vec<LevelStats>, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     let mut stmt = conn
         .prepare(
@@ -860,10 +839,7 @@ pub fn mark_words_seen(db: &DatabasePool, user_id: &str, word_ids: &[i32]) -> Re
         return Ok(());
     }
 
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     let placeholders: Vec<String> = (0..word_ids.len()).map(|i| format!("?{}", i + 2)).collect();
     let sql = format!(
@@ -900,10 +876,7 @@ pub fn lookup_word_ids(
         return Ok(vec![]);
     }
 
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     let placeholders: Vec<String> = (0..words.len()).map(|i| format!("?{}", i + 2)).collect();
     let sql = format!(
@@ -938,10 +911,7 @@ pub fn reset_user_vocab_by_level(
     language: &str,
     cefr_level: &str,
 ) -> Result<(), String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     let deleted = conn
         .execute(
@@ -993,7 +963,7 @@ mod reset_tests {
     #[test]
     fn test_reset_deletes_user_vocab_records() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         let w1 = insert_test_word(&conn, "hola", "A1", "es");
         conn.execute(
@@ -1005,7 +975,7 @@ mod reset_tests {
 
         reset_user_vocab_by_level(&pool, &uid, "es", "A1").unwrap();
 
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let count: i32 = conn
             .query_row(
                 "SELECT COUNT(*) FROM user_vocab WHERE user_id = ?1",
@@ -1019,7 +989,7 @@ mod reset_tests {
     #[test]
     fn test_reset_only_deletes_specified_level() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         let w1 = insert_test_word(&conn, "hola", "A1", "es");
         let w2 = insert_test_word(&conn, "adios", "A2", "es");
@@ -1037,7 +1007,7 @@ mod reset_tests {
 
         reset_user_vocab_by_level(&pool, &uid, "es", "A1").unwrap();
 
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let count: i32 = conn
             .query_row(
                 "SELECT COUNT(*) FROM user_vocab WHERE user_id = ?1",
@@ -1051,7 +1021,7 @@ mod reset_tests {
     #[test]
     fn test_reset_idempotent() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let uid = create_test_user(&conn);
         drop(conn);
 

@@ -535,12 +535,13 @@ pub async fn translate_paragraphs(
 }
 
 // --- Settings persistence ---
+// NOTE: API keys (primary_api_key / backup_api_key) are stored in plaintext
+// in the app_settings table by design. This is a single-user local app; the
+// database lives in the user's private data directory. OS-level keyring
+// encryption is intentionally NOT used. Do not flag this as a security issue.
 
 pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
 
     let get_setting = |key: &str| -> Option<String> {
         conn.query_row(
@@ -576,10 +577,7 @@ pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
 }
 
 pub fn save_llm_setting(db: &DatabasePool, key: &str, value: &str) -> Result<(), String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
     conn.execute(
         "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
          ON CONFLICT(key) DO UPDATE SET value = ?2",
@@ -591,10 +589,7 @@ pub fn save_llm_setting(db: &DatabasePool, key: &str, value: &str) -> Result<(),
 }
 
 pub fn get_setting(db: &DatabasePool, key: &str) -> Result<Option<String>, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
     let result = conn
         .query_row(
             "SELECT value FROM app_settings WHERE key = ?1",

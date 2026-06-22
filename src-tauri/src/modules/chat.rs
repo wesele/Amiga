@@ -42,7 +42,7 @@ pub fn create_session(
     target_lang: &str,
 ) -> Result<String, String> {
     let id = Uuid::new_v4().to_string();
-    let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
+    let conn = db.conn()?;
     conn.execute(
         "INSERT INTO chat_sessions (id, user_id, title, contact_type, target_language, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'), datetime('now'))",
         params![id, user_id, title, contact_type, target_lang],
@@ -51,7 +51,7 @@ pub fn create_session(
 }
 
 pub fn get_sessions(db: &DatabasePool, target_lang: &str) -> Result<Vec<ChatSession>, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
+    let conn = db.conn()?;
     let mut stmt = conn.prepare(
         "SELECT id, user_id, title, user_profile_json, conversation_summary, message_count, contact_type, target_language, last_message, created_at, updated_at FROM chat_sessions WHERE target_language = ?1 ORDER BY updated_at DESC"
     ).map_err(|e| format!("Failed to prepare: {}", e))?;
@@ -80,7 +80,7 @@ pub fn get_sessions(db: &DatabasePool, target_lang: &str) -> Result<Vec<ChatSess
 }
 
 pub fn delete_session(db: &DatabasePool, session_id: &str) -> Result<(), String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
+    let conn = db.conn()?;
     conn.execute(
         "DELETE FROM chat_messages WHERE session_id = ?1",
         params![session_id],
@@ -99,7 +99,7 @@ pub fn update_session_title(
     session_id: &str,
     title: &str,
 ) -> Result<(), String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
+    let conn = db.conn()?;
     conn.execute(
         "UPDATE chat_sessions SET title = ?1, updated_at = datetime('now') WHERE id = ?2",
         params![title, session_id],
@@ -116,7 +116,7 @@ pub fn save_message(
     role: &str,
     content: &str,
 ) -> Result<i64, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
+    let conn = db.conn()?;
     conn.execute(
         "INSERT INTO chat_messages (session_id, role, content, created_at) VALUES (?1, ?2, ?3, datetime('now'))",
         params![session_id, role, content],
@@ -137,7 +137,7 @@ pub fn get_messages(
     session_id: &str,
     limit: usize,
 ) -> Result<Vec<ChatMessageItem>, String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
+    let conn = db.conn()?;
     let mut stmt = conn.prepare(
         "SELECT id, session_id, role, content, created_at FROM chat_messages WHERE session_id = ?1 ORDER BY id ASC"
     ).map_err(|e| format!("Failed to prepare: {}", e))?;
@@ -170,7 +170,7 @@ pub fn get_session_profile(
     db: &DatabasePool,
     session_id: &str,
 ) -> Result<(String, String, i32, String), String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
+    let conn = db.conn()?;
     conn.query_row(
         "SELECT user_profile_json, conversation_summary, message_count, contact_type FROM chat_sessions WHERE id = ?1",
         params![session_id],
@@ -184,7 +184,7 @@ pub fn update_profile(
     profile_json: &str,
     summary: &str,
 ) -> Result<(), String> {
-    let conn = db.conn.lock().map_err(|e| format!("DB lock: {}", e))?;
+    let conn = db.conn()?;
     conn.execute(
         "UPDATE chat_sessions SET user_profile_json = ?1, conversation_summary = ?2, updated_at = datetime('now') WHERE id = ?3",
         params![profile_json, summary, session_id],
@@ -523,7 +523,7 @@ mod tests {
     fn setup_db() -> DatabasePool {
         let db = DatabasePool::new_in_memory();
         {
-            let conn = db.conn.lock().unwrap();
+            let conn = db.conn().unwrap();
             conn.execute_batch("INSERT INTO users (id) VALUES ('test-user');")
                 .unwrap();
         }

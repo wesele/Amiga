@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn test_insert_and_get_article() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let id = insert_test_article(&conn, "Test Headline", "world");
         drop(conn);
 
@@ -52,7 +52,7 @@ mod tests {
     fn test_get_articles_filters_by_region() {
         let pool = test_pool();
         {
-            let conn = pool.conn.lock().unwrap();
+            let conn = pool.conn().unwrap();
             insert_test_article(&conn, "World News", "world");
             insert_test_article(&conn, "Tech News", "tech");
             insert_test_article(&conn, "Sports News", "sports");
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn test_save_and_get_reading_log() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
 
         // Create a user and an article
         conn.execute(
@@ -95,7 +95,7 @@ mod tests {
 
         save_reading_log(&pool, &log_entry).unwrap();
 
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let count: i32 = conn
             .query_row("SELECT COUNT(*) FROM news_reading_log", [], |row| {
                 row.get(0)
@@ -107,7 +107,7 @@ mod tests {
     #[test]
     fn test_reading_log_updates_streak() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         conn.execute(
             "INSERT INTO users (id, nickname) VALUES ('user-1', 'Test')",
             [],
@@ -127,7 +127,7 @@ mod tests {
         };
         save_reading_log(&pool, &log_entry).unwrap();
 
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let articles_read: i32 = conn
             .query_row(
                 "SELECT articles_read FROM streak_records WHERE user_id = 'user-1'",
@@ -141,7 +141,7 @@ mod tests {
     #[test]
     fn test_save_rewritten_article() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let aid = insert_test_article(&conn, "Rewrite Test", "world");
         drop(conn);
 
@@ -166,7 +166,7 @@ mod tests {
     #[test]
     fn test_bilingual_cache_roundtrip() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         let aid = insert_test_article(&conn, "Bilingual Test", "world");
         drop(conn);
 
@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn test_get_read_article_count() {
         let pool = test_pool();
-        let conn = pool.conn.lock().unwrap();
+        let conn = pool.conn().unwrap();
         conn.execute(
             "INSERT INTO users (id, nickname) VALUES ('user-r', 'Reader')",
             [],
@@ -332,7 +332,7 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
     let feeds = get_rss_feeds(region, target_lang);
 
     // Read configured article limit (default 5)
-    let limit: usize = match db.conn.lock() {
+    let limit: usize = match db.conn() {
         Ok(guard) => {
             match guard.query_row(
                 "SELECT value FROM app_settings WHERE key = 'news_fetch_limit'",
@@ -343,9 +343,8 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
                 Err(_) => 5,
             }
         }
-        Err(poisoned) => {
-            log::warn!("DB mutex was poisoned reading fetch limit, using default 5");
-            drop(poisoned.into_inner());
+        Err(e) => {
+            log::warn!("DB pool error reading fetch limit: {}, using default 5", e);
             5
         }
     };
@@ -416,25 +415,26 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
         }
     }
 
-    // Acquire DB lock (recover from poisoning)
-    let guard = match db.conn.lock() {
+    // Acquire DB connection
+    let guard = match db.conn() {
         Ok(g) => g,
-        Err(poisoned) => {
-            log::warn!("DB mutex was poisoned, recovering...");
-            poisoned.into_inner()
+        Err(e) => {
+            log::error!("DB pool error in fetch_news: {}", e);
+            return Vec::new();
         }
     };
 
-    // Delete all existing articles (must clear child tables first for FK constraints)
-    if let Err(e) = guard.execute("DELETE FROM news_reading_log", []) {
-        log::error!("Failed to clear reading logs: {}", e);
-    }
-    if let Err(e) = guard.execute("DELETE FROM news_articles", []) {
-        log::error!("Failed to delete existing articles: {}", e);
+    // Delete old unread articles for this region only (preserve read articles + reading history)
+    if let Err(e) = guard.execute(
+        "DELETE FROM news_articles WHERE region = ?1 AND id NOT IN (SELECT DISTINCT article_id FROM news_reading_log)",
+        params![region],
+    ) {
+        log::error!("Failed to clear old articles: {}", e);
         return Vec::new();
     }
     log::info!(
-        "Deleted all existing articles, inserting {} new",
+        "Cleared old unread articles for region {}, inserting {} new",
+        region,
         raw_entries.len()
     );
 
@@ -475,10 +475,7 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
 
 /// Get cached articles
 pub fn get_articles(db: &DatabasePool, region: &str) -> Result<Vec<Article>, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
     let mut stmt = conn
         .prepare(
             "SELECT id, original_title, original_body, rewritten_body, rewrite_level,
@@ -515,10 +512,7 @@ pub fn get_articles(db: &DatabasePool, region: &str) -> Result<Vec<Article>, Str
 
 /// Get single article
 pub fn get_article(db: &DatabasePool, article_id: i32) -> Result<Article, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
     conn.query_row(
         "SELECT id, original_title, original_body, rewritten_body, rewrite_level,
                 source, image_url, region, hot_rank, new_words, fetched_at
@@ -551,10 +545,7 @@ pub fn save_rewritten_article(
     level: &str,
     new_words_json: &str,
 ) -> Result<(), String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
     conn.execute(
         "UPDATE news_articles SET rewritten_body = ?1, rewrite_level = ?2, new_words = ?3 WHERE id = ?4",
         params![rewritten_body, level, new_words_json, article_id],
@@ -565,10 +556,7 @@ pub fn save_rewritten_article(
 
 /// Save reading log
 pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(), String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
     conn.execute(
         "INSERT INTO news_reading_log (user_id, article_id, words_looked_up, words_known, words_unknown, reading_time_sec, completed)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -608,10 +596,7 @@ pub fn get_bilingual_cache(
     article_id: i32,
     native_lang: &str,
 ) -> Result<Option<String>, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
     let result = conn
         .query_row(
             "SELECT paragraphs_json FROM news_bilingual_cache
@@ -632,10 +617,7 @@ pub fn save_bilingual_cache(
     native_lang: &str,
     cache_json: &str,
 ) -> Result<(), String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
     conn.execute(
         "INSERT INTO news_bilingual_cache (article_id, native_lang, paragraphs_json, fetched_at)
          VALUES (?1, ?2, ?3, datetime('now'))
@@ -656,10 +638,7 @@ pub fn save_bilingual_cache(
 /// Count distinct articles a user has completed reading.
 /// Re-reads of the same article count as one; non-completed reads are excluded.
 pub fn get_read_article_count(db: &DatabasePool, user_id: &str) -> Result<i32, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|e| format!("DB lock error: {}", e))?;
+    let conn = db.conn()?;
     let count: i32 = conn
         .query_row(
             "SELECT COUNT(DISTINCT article_id) FROM news_reading_log
