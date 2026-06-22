@@ -70,7 +70,7 @@
         :word="selectedWord.text"
         :context="selectedWord.context"
         :source-lang="targetLang"
-        :native-lang="nativeLang"
+        :native-lang="getLocale()"
         @close="selectedWord = null"
         @known="onWordKnown"
         @unknown="onWordUnknown"
@@ -133,7 +133,7 @@ import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
 import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, getLearningGoals } from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
-import { useI18n } from "@/shared/i18n";
+import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
 
@@ -150,7 +150,6 @@ const knownWordIds = ref(new Set());
 const startTime = ref(Date.now());
 let targetLang = "es";
 let userId = "";
-let nativeLang = "zh";
 let currentLevel = "A1";
 let unsubscribe = null;
 
@@ -173,7 +172,6 @@ onMounted(async () => {
   try {
     const user = await getCurrentUser();
     userId = user.id;
-    nativeLang = user.native_language || "zh";
     targetLang = (await targetLangStore.load()) || "es";
     // Pick the CEFR level matching the user's current target language,
     // so the rewrite is calibrated to what they're actually studying.
@@ -279,13 +277,13 @@ async function loadBilingual() {
     const body = article.value?.rewritten_body || article.value?.original_body || "";
     paragraphs.value = body.split("\n\n").map(p => p.trim()).filter(p => p);
     paraTokens.value = paragraphs.value.map(p => tokenize(p));
-    const result = await getBilingual(Number(props.id), targetLang, nativeLang);
+    const result = await getBilingual(Number(props.id), targetLang, getLocale());
     translations.value = result;
     // Translate title
     const title = article.value?.original_title || "";
     if (title) {
       try {
-        titleTranslation.value = await translateText(title, targetLang, nativeLang);
+        titleTranslation.value = await translateText(title, targetLang, getLocale());
       } catch (_) {
         titleTranslation.value = "";
       }
@@ -428,7 +426,7 @@ function translateSelection(text) {
   selectionResult.value = "";
   selectionError.value = "";
 
-  translateText(text, targetLang, nativeLang || "zh")
+  translateText(text, targetLang, getLocale())
     .then(result => {
       selectionResult.value = result;
       selectionLoading.value = false;

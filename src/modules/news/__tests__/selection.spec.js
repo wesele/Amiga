@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { setLocale, getLocale } from "@/shared/i18n/index.js";
 
 // Replicate the onWordTap guard logic from NewsReader.vue.
 function createOnWordTap(state) {
@@ -208,6 +209,28 @@ describe("NewsReader selection logic", () => {
       await Promise.resolve();
       expect(state.selectionError).toBe("翻译暂不可用");
       expect(state.selectionLoading).toBe(false);
+    });
+  });
+
+  describe("nativeLang follows UI locale (getLocale)", () => {
+    it("getLocale() returns the current UI language, not a stale user.native_language", () => {
+      setLocale("en", { persist: false });
+      expect(getLocale()).toBe("en");
+
+      setLocale("zh", { persist: false });
+      expect(getLocale()).toBe("zh");
+
+      setLocale("es", { persist: false });
+      expect(getLocale()).toBe("es");
+    });
+
+    it("switching UI language survives across locale changes", () => {
+      setLocale("en", { persist: false });
+      expect(getLocale()).toBe("en");
+      setLocale("zh", { persist: false });
+      expect(getLocale()).toBe("zh");
+      setLocale("en", { persist: false });
+      expect(getLocale()).toBe("en");
     });
   });
 

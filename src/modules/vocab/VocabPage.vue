@@ -88,7 +88,7 @@
           :word="selectedWord.word"
           :context="selectedWord.word"
           :source-lang="userLang"
-          :native-lang="nativeLang"
+          :native-lang="locale"
           @close="selectedWord = null"
           @known="onKnown"
           @unknown="onUnknown"
@@ -130,7 +130,6 @@ const userLang = computed(() => targetLangStore.code || "es");
 const userId = ref("");
 const selectedWord = ref(null);
 const showResetDialog = ref(false);
-const nativeLang = ref("zh");
 let unsubscribe = null;
 
 const statusTabs = computed(() => [
@@ -244,7 +243,6 @@ onMounted(async () => {
   try {
     const user = await getCurrentUser();
     userId.value = user.id;
-    if (user?.native_language) nativeLang.value = user.native_language;
     await targetLangStore.load();
     await loadStats();
   } catch (e) {

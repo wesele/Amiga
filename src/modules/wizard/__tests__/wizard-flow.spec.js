@@ -73,13 +73,17 @@ describe("WizardFlow", () => {
 
   it("picking a native language switches the UI locale to match", async () => {
     expect(getLocale()).toBe("zh");
-    mockInvoke.mockResolvedValue(undefined);
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "update_user_cmd") return Promise.resolve({ id: "u1", native_language: "en" });
+      return Promise.resolve(undefined);
+    });
     const wrapper = mountWizard();
-    // Click the second pill (en)
     const pills = wrapper.findAll(".step-profile .pill-group").at(0).findAll(".pill");
     await pills[1].trigger("click");
     await wrapper.find("input#nickname").setValue("TestUser");
     await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
     await flushPromises();
     expect(getLocale()).toBe("en");
     expect(mockInvoke).toHaveBeenCalledWith("save_setting_cmd", {

@@ -6,13 +6,15 @@
 //   - Locale is stored in a single module-level `ref` so all components
 //     share it. `t()` reads it, so templates that call `t()` re-render
 //     automatically when the locale changes (Vue tracks the dep).
-//   - The locale is persisted via the existing `app_settings` key-value
-//     store under `ui_language`. On startup, `initLocale()` hydrates it.
+//   - "母语" and "UI 语言" are the same concept: `user.native_language` is
+//     the single source of truth. `setLocale()` syncs both the i18n ref
+//     and the user row; `initLocale()` reads from the user row first, with
+//     `app_settings.ui_language` as a legacy fallback.
 //   - A missing key falls back to the Chinese (default) string and finally
 //     to the key itself, so untranslated keys are visible in the UI.
 
 import { readonly, ref } from "vue";
-import { getSetting, saveSetting } from "@/shared/api.js";
+import { getSetting, saveSetting, getCurrentUser, updateUser } from "@/shared/api.js";
 import zh from "./zh.js";
 import en from "./en.js";
 import es from "./es.js";
@@ -57,7 +59,20 @@ export function setLocale(lang, { persist = true } = {}) {
     saveSetting(SETTINGS_KEY, lang).catch((e) => {
       console.warn("Failed to persist ui_language", e);
     });
+    syncNativeLanguage(lang);
   }
+}
+
+function syncNativeLanguage(lang) {
+  getCurrentUser()
+    .then((user) => {
+      if (user.native_language !== lang) {
+        updateUser({ id: user.id, native_language: lang }).catch((e) => {
+          console.warn("Failed to sync native_language", e);
+        });
+      }
+    })
+    .catch(() => {});
 }
 
 export function getLocale() {
@@ -71,13 +86,19 @@ export function getLocale() {
  */
 export async function initLocale() {
   try {
+    const user = await getCurrentUser();
+    const lang = user.native_language;
+    if (lang && SUPPORTED_LOCALES.includes(lang)) {
+      setLocale(lang, { persist: false });
+      return;
+    }
+  } catch (e) { /* backend unavailable */ }
+  try {
     const saved = await getSetting(SETTINGS_KEY);
     if (saved && SUPPORTED_LOCALES.includes(saved)) {
       setLocale(saved, { persist: false });
     }
-  } catch (e) {
-    // No backend yet (e.g. running in a browser dev environment) — keep the default.
-  }
+  } catch (e) { /* no backend yet */ }
 }
 
 export function useI18n() {

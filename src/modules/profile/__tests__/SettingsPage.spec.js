@@ -42,13 +42,14 @@ describe("SettingsPage", () => {
         return Promise.resolve(null);
       }
       if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "update_user_cmd") return Promise.resolve({ id: "u1", native_language: "en" });
       return Promise.resolve(null);
     });
 
     const wrapper = mountPage();
     await flushPromises();
 
-    // SettingsItem renders a div whose .si-title contains the label.
     const langItem = wrapper
       .findAll(".settings-item")
       .find((el) => el.text().includes("界面语言"));
@@ -56,13 +57,11 @@ describe("SettingsPage", () => {
     await langItem.trigger("click");
     await flushPromises();
 
-    // Pick the English radio.
     const radios = wrapper.findAll('input[type="radio"][value="en"]');
     expect(radios.length).toBe(1);
     await radios[0].setValue(true);
     await flushPromises();
 
-    // OK button in the language dialog (primary).
     const okBtn = wrapper
       .findAll(".dialog-btn.primary")
       .find((b) => b.text() === "确定");
@@ -70,9 +69,44 @@ describe("SettingsPage", () => {
     await okBtn.trigger("click");
     await flushPromises();
 
-    // The dialog must close and the locale must have flipped.
     expect(i18nInstance.locale.value).toBe("en");
     expect(persistedLang).toBe("en");
+  });
+
+  it("switching language also syncs native_language to the user row", async () => {
+    let updateUserArgs = null;
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "save_setting_cmd") return Promise.resolve(null);
+      if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "update_user_cmd") {
+        updateUserArgs = args;
+        return Promise.resolve({ id: "u1", native_language: "en" });
+      }
+      return Promise.resolve(null);
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const langItem = wrapper
+      .findAll(".settings-item")
+      .find((el) => el.text().includes("界面语言"));
+    await langItem.trigger("click");
+    await flushPromises();
+
+    const radios = wrapper.findAll('input[type="radio"][value="en"]');
+    await radios[0].setValue(true);
+    await flushPromises();
+
+    const okBtn = wrapper
+      .findAll(".dialog-btn.primary")
+      .find((b) => b.text() === "确定");
+    await okBtn.trigger("click");
+    await flushPromises();
+    await flushPromises();
+
+    expect(updateUserArgs).toMatchObject({ request: { id: "u1", native_language: "en" } });
   });
 
   it("clicking OK in the news-limit dialog actually persists the value", async () => {
@@ -91,7 +125,6 @@ describe("SettingsPage", () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    // The news-fetch-limit row is the one whose title is "新闻获取数量".
     const newsItem = wrapper
       .findAll(".settings-item")
       .find((el) => el.text().includes("新闻获取数量"));
@@ -99,14 +132,11 @@ describe("SettingsPage", () => {
     await newsItem.trigger("click");
     await flushPromises();
 
-    // Bump to 6 with the + stepper.
     const plus = wrapper.findAll(".stepper-btn").find((b) => b.text() === "+");
     expect(plus).toBeTruthy();
     await plus.trigger("click");
     await flushPromises();
 
-    // OK button in the news dialog (primary, after the language dialog is closed).
-    // The dialog-actions section inside the news dialog contains the OK button.
     const okBtn = wrapper
       .findAll(".dialog-btn.primary")
       .find((b) => b.text() === "确定");

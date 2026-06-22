@@ -106,7 +106,7 @@ const contactType = ref("amiga");
 const contactName = ref("Amiga");
 const contactAvatar = ref("🌐");
 const targetLang = ref("es");
-const nativeLang = ref("zh");
+const nativeLang = computed(() => locale.value);
 const targetLabel = computed(() => displayLang(targetLang.value, locale.value));
 const isAmiga = computed(() => contactType.value === "amiga");
 let cachedViewportHeight = 0;
@@ -222,9 +222,6 @@ onMounted(async () => {
   try {
     const user = await getCurrentUser();
     targetLang.value = (await targetLangStore.load()) || "es";
-    if (user?.native_language) {
-      nativeLang.value = user.native_language;
-    }
   } catch { /* use defaults */ }
 
   // Determine contact type from session list. Sessions are isolated by
