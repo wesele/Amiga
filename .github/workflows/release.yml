@@ -317,13 +317,9 @@ jobs:
             "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects" \
             | python -c "import json,sys; d=json.load(sys.stdin); [print(f\"  {p['name']:<20} subdomain={p.get('subdomain','?')}.pages.dev  prod_branch={p.get('production_branch','?')}\") for p in d['result']]"
       - name: Deploy to Cloudflare Pages (production)
-        # `pages deploy` on the named project pushes to the project's
-        # production environment by default. Project name is the one
-        # whose subdomain matches amiga-7xz.pages.dev (see the list step
-        # above for confirmation).
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: pages deploy pages-dist --project-name=amiga-7xz --commit-dirty=true
+          command: pages deploy pages-dist --project-name=amiga --commit-dirty=true
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
