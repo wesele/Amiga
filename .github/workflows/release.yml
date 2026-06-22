@@ -300,12 +300,27 @@ jobs:
           sed -i "s|__AMIGA_VERSION__|${VERSION}|g" pages-dist/index.html
           echo "Updated version to: ${VERSION}"
           grep "class=\"version\"" pages-dist/index.html
+      - name: List CF Pages projects (diagnostic)
+        # Wrangler needs the *actual* project name, but the old
+        # cloudflare/pages-action@v1 was lenient and accepted any name
+        # (it created or auto-resolved to the project's real name, which
+        # here is the random-suffixed `amiga-7xz` because `amiga` was
+        # already taken on pages.dev). Pull the real names from the CF
+        # API so the next step uses something that actually exists.
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: |
+          echo "Projects in CF account $CF_ACCOUNT_ID:"
+          curl -fsS \
+            -H "Authorization: Bearer $CF_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects" \
+            | python -c "import json,sys; d=json.load(sys.stdin); [print(f\"  {p['name']:<20} subdomain={p.get('subdomain','?')}.pages.dev  prod_branch={p.get('production_branch','?')}\") for p in d['result']]"
       - name: Deploy to Cloudflare Pages (production)
         # `pages deploy` on the named project pushes to the project's
-        # production environment by default. The project name in CF
-        # (`amiga-7xz`) carries the random suffix because `amiga` was
-        # already taken globally; the production URL is therefore
-        # https://amiga-7xz.pages.dev.
+        # production environment by default. Project name is the one
+        # whose subdomain matches amiga-7xz.pages.dev (see the list step
+        # above for confirmation).
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
