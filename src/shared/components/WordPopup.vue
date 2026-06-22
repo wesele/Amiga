@@ -14,11 +14,21 @@
           <span v-if="translation.pos" class="tag-pos">{{ translation.pos }}</span>
           <span v-if="translation.ipa" class="tag-ipa">{{ translation.ipa }}</span>
         </div>
+        <div v-if="!alwaysShowActions" class="popup-actions">
+          <button class="act-known" @click="$emit('known'); emitClose()">✅ {{ t('popup.known') }}</button>
+          <button class="act-unknown" @click="$emit('unknown'); emitClose()">❌ {{ t('popup.unknown') }}</button>
+        </div>
       </template>
 
-      <div v-else-if="error" class="popup-error">{{ error || t('popup.fail') }}</div>
+      <div v-else-if="error" class="popup-error">
+        {{ error || t('popup.fail') }}
+        <div v-if="!alwaysShowActions" class="popup-actions">
+          <button class="act-known" @click="$emit('known'); emitClose()">✅ {{ t('popup.known') }}</button>
+          <button class="act-unknown" @click="$emit('unknown'); emitClose()">❌ {{ t('popup.unknown') }}</button>
+        </div>
+      </div>
 
-      <div class="popup-actions">
+      <div v-if="alwaysShowActions" class="popup-actions">
         <button class="act-known" @click="$emit('known'); emitClose()">✅ {{ t('popup.known') }}</button>
         <button class="act-unknown" @click="$emit('unknown'); emitClose()">❌ {{ t('popup.unknown') }}</button>
       </div>
@@ -36,6 +46,7 @@ const props = defineProps({
   context: { type: String, default: "" },
   sourceLang: { type: String, default: "es" },
   nativeLang: { type: String, default: "zh" },
+  alwaysShowActions: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["close", "known", "unknown"]);

@@ -237,13 +237,6 @@ describe("API module", () => {
     });
   });
 
-  describe("Legacy", () => {
-    it("greet calls invoke with name", () => {
-      api.greet("World");
-      expect(mockInvoke).toHaveBeenCalledWith("greet", { name: "World" });
-    });
-  });
-
   describe("Mock integration", () => {
     it("returns mocked values from invoke", async () => {
       mockInvoke.mockResolvedValue({ id: "123", nickname: "Test" });

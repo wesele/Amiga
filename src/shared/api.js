@@ -110,5 +110,3 @@ export const updateChatSessionTitle = (sessionId, title) =>
 export const getAmigaProfile = (targetLang) =>
   _invoke("get_amiga_profile_cmd", { targetLang });
 
-// ─── Legacy ───
-export const greet = (name) => _invoke("greet", { name });

@@ -92,9 +92,19 @@
           @close="selectedWord = null"
           @known="onKnown"
           @unknown="onUnknown"
+          :always-show-actions="true"
         />
       </Transition>
     </template>
+
+    <ConfirmDialog
+      :show="showResetDialog"
+      :message="t('vocab.resetConfirm', { level: drilledLevel })"
+      :confirmText="t('vocab.reset')"
+      danger
+      @confirm="confirmReset"
+      @cancel="showResetDialog = false"
+    />
   </div>
 </template>
 
@@ -105,7 +115,8 @@ import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
 import { displayLang } from "@/shared/constants.js";
-import WordPopup from "./components/WordPopup.vue";
+import WordPopup from "@/shared/components/WordPopup.vue";
+import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 
 const { t, locale } = useI18n();
 const targetLangStore = useTargetLangStore();
@@ -118,6 +129,7 @@ const activeStatus = ref("all");
 const userLang = computed(() => targetLangStore.code || "es");
 const userId = ref("");
 const selectedWord = ref(null);
+const showResetDialog = ref(false);
 const nativeLang = ref("zh");
 let unsubscribe = null;
 
@@ -213,8 +225,12 @@ async function onUnknown() {
   selectedWord.value = null;
 }
 
-async function resetLevel() {
-  if (!confirm(t("vocab.resetConfirm", { level: drilledLevel.value }))) return;
+function resetLevel() {
+  showResetDialog.value = true;
+}
+
+async function confirmReset() {
+  showResetDialog.value = false;
   try {
     await resetUserVocabByLevel(userId.value, userLang.value, drilledLevel.value);
     await loadWords(drilledLevel.value);
