@@ -1,14 +1,17 @@
 package com.idioma.app
 
 import android.annotation.SuppressLint
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import org.json.JSONObject
 
@@ -17,14 +20,18 @@ import org.json.JSONObject
  *
  * Three things happen here that the stock [TauriActivity] does not do:
  *
- * 1. **Safe area at the app layer, not the HTML layer.** We read the
- *    real [WindowInsetsCompat] for `systemBars()` and `ime()` and apply
- *    them as the WebView's own padding, so the WebView's drawing area
- *    is *exactly* the safe area. The HTML inside the WebView does not
- *    need to know about Android system bars at all — `100vh` / `100vw`
- *    just work. The previous CSS-only approach (`env(safe-area-inset-*)`
- *    + a JS bridge from Kotlin) was unreliable because Android WebView
- *    returns 0 for that env() and the JS bridge has timing issues.
+ * 1. **Safe area via JS bridge, not WebView padding.** We read the
+ *    real [WindowInsetsCompat] for `systemBars()` and `ime()` and
+ *    pass the values to the frontend via `window.__amigaSetInsets(top,
+ *    bottom, left, right)`. The frontend updates its `--safe-*` CSS
+* custom properties, which the layout (`#app` padding-top and the
+     *    `.bottom-nav-safe` strip) already uses. The inset listener
+     *    fires before the WebView has loaded the page, so the initial
+     *    values are stashed on `window.__amigaPendingInsets` and the
+     *    JS side picks them up once it has registered
+     *    `__amigaSetInsets`. This is the same mechanism that works on
+     *    iOS via `env(safe-area-inset-*)`, so both platforms share
+     *    one code path.
  *
  * 2. **Hierarchical back navigation.** Android's back button defaults
  *    to `history.back()`, which goes to the *previous URL* — that is
@@ -56,15 +63,18 @@ class MainActivity : TauriActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.navigationBarColor = Color.TRANSPARENT
     }
 
     @SuppressLint("NewApi")
     override fun onWebViewCreate(webView: WebView) {
         mainWebView = webView
 
-        // 1) Safe-area at the app layer: WebView's own padding equals
-        //    the systemBars + IME insets, so the WebView never draws
-        //    under the status bar / nav bar / keyboard.
+        // 1) Safe-area bridge: pass the real systemBars + IME inset
+        //    values to the frontend via __amigaSetInsets, so CSS
+        //    custom properties --safe-* keep content out of the
+        //    system bar / keyboard area.
         installSafeAreaPadding(webView)
 
         // 2) Hierarchical back navigation: the system back press goes
@@ -154,37 +164,54 @@ class MainActivity : TauriActivity() {
     private val reentrancyGuard = ThreadLocal.withInitial { false }
 
     /**
-     * Sets the WebView's own padding to the live `systemBars()` and
-     * `ime()` insets. The WebView is shrunk inward; its inner
-     * coordinate system starts at the safe area's top-left and
-     * ends at the safe area's bottom-right. The HTML inside
-     * does `100vh` / `100vw` and never overlaps any system UI.
+     * Passes the system bar insets to the WebView's HTML layer by
+     * calling `window.__amigaSetInsets(top, bottom, left, right)` so
+     * the frontend can update its `--safe-*` CSS custom properties.
+     *
+     * Previously we used WebView.setPadding() to shrink the viewport,
+     * but that approach is unreliable across Tauri WebView setups.
+     * Instead we now give the real inset values to the CSS layer
+     * (which already handles safe areas via `env()` on iOS).
+     *
+     * The inset listener fires before the page JS has loaded (the
+     * first `requestApplyInsets()` call happens in `onWebViewCreate`,
+     * before any page URL has been loaded). To bridge this race, we
+     * stash the values on `window.__amigaPendingInsets` and the JS
+     * side replays them once it has registered `__amigaSetInsets`.
+     * Subsequent calls (keyboard show/hide) go straight to
+     * `__amigaSetInsets`.
      *
      * IME wins over the system nav bar at the bottom (whichever is
-     * taller is what we pad by), so the chat input stays above the
+     * taller is what we send), so the chat input stays above the
      * keyboard when it's up and above the nav bar when it isn't.
      */
     private fun installSafeAreaPadding(webView: WebView) {
-        // The WebView may not be attached to a parent at this exact
-        // moment. Defer the listener install until it is.
-        fun attach() {
-            val host = webView.parent as? View
-            if (host == null) {
-                webView.post { attach() }
-                return
-            }
-            ViewCompat.setOnApplyWindowInsetsListener(host) { _, insets ->
-                val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
-                val bottom = maxOf(bars.bottom, ime.bottom)
-                webView.setPadding(bars.left, bars.top, bars.right, bottom)
-                insets
-            }
-            // Force the first dispatch so the WebView is sized correctly
-            // even before any UI change fires.
-            host.requestApplyInsets()
+        val content = window.decorView.findViewById<View>(android.R.id.content) ?: return
+        ViewCompat.setOnApplyWindowInsetsListener(content) { _, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val bottom = maxOf(bars.bottom, ime.bottom)
+            // Store the values on window.__amigaPendingInsets so the
+            // frontend JS can pick them up once it's ready. Also call
+            // __amigaSetInsets if it's already defined (subsequent
+            // insets after the page has loaded).
+            val js = "window.__amigaPendingInsets=[${bars.top},${bottom},${bars.left},${bars.right}];if(window.__amigaSetInsets)window.__amigaSetInsets(${bars.top},${bottom},${bars.left},${bars.right})"
+            Log.d(TAG, "safe-area: $js")
+            webView.evaluateJavascript(js, null)
+            insets
         }
-        attach()
+        content.requestApplyInsets()
+
+        // Expose a JS bridge so the frontend can explicitly request
+        // a re-dispatch of insets once its JS has loaded. This avoids
+        // the race where the inset listener fires during about:blank
+        // and the values are lost on page navigation.
+        webView.addJavascriptInterface(object {
+            @JavascriptInterface
+            fun requestInsets() {
+                content.requestApplyInsets()
+            }
+        }, "__amigaInsets")
     }
 
     /**

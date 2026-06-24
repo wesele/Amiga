@@ -68,6 +68,45 @@ async function bootstrap() {
       }
       return "at-root";
     };
+
+    // Android safe-area bridge.
+    //
+    // The native MainActivity calls this function with the real system
+    // bar inset values (top, bottom, left, right in pixels) whenever
+    // the window insets change (orientation, keyboard, etc.). We update
+    // CSS custom properties on <html> so the layout can use them:
+    //   #app              uses padding-top (for status bar)
+    //   .bottom-nav-safe  uses height (for system nav bar — always
+    //                     rendered, even when the interactive bottom
+    //                     nav is hidden, to avoid double-counting)
+    //
+    // On iOS these same variables come from env(safe-area-inset-*);
+    // on Android they come from this bridge — both platforms share
+    // the same CSS.
+    window.__amigaSetInsets = (top, bottom, left, right) => {
+      const px = (v) => `${v}px`;
+      const root = document.documentElement;
+      root.style.setProperty("--safe-top", px(top));
+      root.style.setProperty("--safe-bottom", px(bottom));
+      root.style.setProperty("--safe-left", px(left));
+      root.style.setProperty("--safe-right", px(right));
+    };
+    // The native side may have already pushed the initial insets via
+    // window.__amigaPendingInsets before this code ran (the inset
+    // listener fires in onWebViewCreate, before the page JS exists).
+    // Replay them now so the layout is correct from the very first
+    // paint.
+    if (Array.isArray(window.__amigaPendingInsets)) {
+      const [t, b, l, r] = window.__amigaPendingInsets;
+      window.__amigaSetInsets(t, b, l, r);
+    }
+    // Now that __amigaSetInsets is registered, ask the native side
+    // to re-dispatch insets. This covers the case where the initial
+    // dispatch happened in a prior JS context (e.g. about:blank)
+    // whose __amigaPendingInsets did not survive page navigation.
+    if (window.__amigaInsets?.requestInsets) {
+      window.__amigaInsets.requestInsets();
+    }
   }
 
   app.use(pinia);
