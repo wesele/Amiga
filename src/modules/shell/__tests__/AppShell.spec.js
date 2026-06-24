@@ -52,25 +52,35 @@ describe("AppShell bottom-nav safe-area", () => {
     expect(navBlock[0]).toMatch(/height\s*:\s*64px/);
     expect(navBlock[0]).not.toMatch(/padding-bottom\s*:\s*var\(--safe-bottom/);
     // The safe-area strip is a sibling, not a padding region of the
-    // nav. It inherits the nav's surface background so the two read
-    // as a single visual bar.
+    // nav. It always renders (even when the nav is hidden) so the
+    // system navigation bar never overlaps content.
     expect(safeBlock[0]).toMatch(/height\s*:\s*var\(--safe-bottom/);
-    expect(safeBlock[0]).toMatch(/background\s*:\s*var\(--surface/);
   });
 
-  it("AppShell.vue template renders .bottom-nav and .bottom-nav-safe as siblings", () => {
+  it("AppShell.vue .bottom-nav-safe has --surface background when bottom-nav is visible, --bg when hidden", () => {
+    const css = read("src/modules/shell/AppShell.vue");
+    // Default: surface (matches nav bar)
+    expect(css).toMatch(/\.bottom-nav-safe\s*\{[^}]*background\s*:\s*var\(--surface\)/);
+    // When nav hidden: switches to page background
+    expect(css).toMatch(/\.bottom-nav-safe/);
+  });
+
+  it("AppShell.vue template always renders .bottom-nav-safe (not gated by v-if)", () => {
     const vue = read("src/modules/shell/AppShell.vue");
-    // The two elements must be siblings under the same v-if so they
-    // appear and disappear together.
-    expect(vue).toMatch(/<nav class="bottom-nav">[\s\S]*?<\/nav>\s*<div class="bottom-nav-safe"/);
+    // .bottom-nav-safe must appear OUTSIDE the <template v-if="showNav">
+    // block so it renders even when the bottom nav is hidden.
+    expect(vue).toMatch(/<\/template>\s*<div class="bottom-nav-safe"/);
   });
 
-  it("style.css #app keeps padding-top and padding-bottom for the global safe area", () => {
+  it("style.css #app keeps padding-top for the global safe area; padding-bottom is handled by .bottom-nav-safe", () => {
     const css = read("src/style.css");
     const block = css.match(/#app\s*\{[^}]+\}/);
     expect(block, "#app block not found in style.css").toBeTruthy();
     expect(block[0]).toMatch(/padding-top\s*:\s*var\(--safe-top/);
-    expect(block[0]).toMatch(/padding-bottom\s*:\s*var\(--safe-bottom/);
+    // padding-bottom on #app is intentionally omitted — the
+    // .bottom-nav-safe strip (always rendered by AppShell) handles
+    // the bottom safe-area instead, avoiding double-counting.
+    expect(block[0]).not.toMatch(/padding-bottom\s*:\s*var\(--safe-bottom/);
   });
 
   it("style.css defines --safe-{top,bottom,left,right} from env() with 0 fallback", () => {
@@ -79,6 +89,15 @@ describe("AppShell bottom-nav safe-area", () => {
     expect(css).toMatch(/--safe-bottom\s*:\s*env\(safe-area-inset-bottom/);
     expect(css).toMatch(/--safe-left\s*:\s*env\(safe-area-inset-left/);
     expect(css).toMatch(/--safe-right\s*:\s*env\(safe-area-inset-right/);
+  });
+
+  it("main.js installs window.__amigaSetInsets that sets --safe-* CSS custom properties on <html>", () => {
+    const main = read("src/main.js");
+    expect(main).toMatch(/window\.__amigaSetInsets\s*=/);
+    expect(main).toMatch(/--safe-top/);
+    expect(main).toMatch(/--safe-bottom/);
+    expect(main).toMatch(/--safe-left/);
+    expect(main).toMatch(/--safe-right/);
   });
 });
 
@@ -93,7 +112,7 @@ describe("AppShell render", () => {
     expect(items.length).toBe(4);
   });
 
-  it("renders the .bottom-nav-safe strip alongside the bottom-nav", () => {
+  it("renders the .bottom-nav-safe strip even when the bottom-nav is hidden", () => {
     const wrapper = mountShell();
     expect(wrapper.find(".bottom-nav-safe").exists()).toBe(true);
   });

@@ -21,6 +21,14 @@
 //     URLs can see the system browser on Android 11+ (API 30) — see
 //     the comment in src-tauri/android/app/src/main/AndroidManifest.xml
 //     for the full context.
+//   - The same idempotent-marker trick is applied to build.gradle.kts to
+//     sign the **debug** buildType with the project's release keystore.
+//     Without this, every `tauri android dev` produces a debug-keystore
+//     APK, while `build-android.bat` produces a release-keystore APK —
+//     the two have different signing certs, so `adb install -r` fails
+//     with INSTALL_FAILED_UPDATE_INCOMPATIBLE when developers switch
+//     between dev and release builds on the same device/emulator.
+//     Signing both with the same keystore removes that class of failures.
 //
 // Usage:
 //   node scripts/android-patch.cjs           # copy (no overwrite unless --force)
@@ -36,12 +44,19 @@ const SRC_JAVA = path.join(ROOT, "src-tauri", "android", "app", "src", "main", "
 const DST_JAVA = path.join(ROOT, "src-tauri", "gen", "android", "app", "src", "main", "java");
 const SRC_MANIFEST = path.join(ROOT, "src-tauri", "android", "app", "src", "main", "AndroidManifest.xml");
 const DST_MANIFEST = path.join(ROOT, "src-tauri", "gen", "android", "app", "src", "main", "AndroidManifest.xml");
+const DST_GRADLE = path.join(ROOT, "src-tauri", "gen", "android", "app", "build.gradle.kts");
 
 // Markers wrapping the merged fragment inside the generated manifest.
 // The string content is what scripts/__tests__/android-patch.spec.js
 // asserts on, so don't change it without updating the tests.
 const PATCH_BEGIN = "<!-- AMIGA-PATCH-BEGIN: amiga-manifest-fragment -->";
 const PATCH_END = "<!-- AMIGA-PATCH-END: amiga-manifest-fragment -->";
+
+// Markers wrapping the debug-signingConfig snippet we inject into the
+// generated app/build.gradle.kts. Idempotent against re-runs just like
+// the manifest fragment. See [mergeGradleDebugSigning] below.
+const PATCH_GRADLE_BEGIN = "// AMIGA-PATCH-BEGIN: debug-signing";
+const PATCH_GRADLE_END = "// AMIGA-PATCH-END: debug-signing";
 
 const FORCE = process.argv.includes("--force");
 
@@ -150,11 +165,92 @@ function mergeManifest(generated, fragmentBody) {
   return next === generated ? generated : next;
 }
 
+/**
+ * Inject a `signingConfig = signingConfigs.getByName("release")` assignment
+ * guarded by a keystore-properties check into the `debug` buildType block
+ * of a Tauri-generated `app/build.gradle.kts`.
+ *
+ * Why: by default Tauri's generated build.gradle.kts only signs the
+ * `release` buildType with the project's release keystore; `debug`
+ * signs with `~/.android/debug.keystore`. Switching between
+ * `tauri android dev` (debug-keystore) and `build-android.bat`
+ * (release-keystore) on the same device triggers
+ * `INSTALL_FAILED_UPDATE_INCOMPATIBLE` because the two certs differ.
+ * Forcing the debug buildType to reuse the release keystore (when one
+ * is configured via keystore.properties) makes the two signatures
+ * identical so `adb install -r` works in both directions.
+ *
+ * The injection happens directly after the `getByName("debug") {` line
+ * so the assignment is the first statement in the block and isn't
+ * reordered relative to other assignments (Kotlin allows free ordering
+ * inside a block).
+ *
+ * Idempotent: a prior patch block (between PATCH_GRADLE_BEGIN and
+ * PATCH_GRADLE_END) is stripped first.
+ *
+ * Returns the patched file content, or the input unchanged if already
+ * patched (i.e. the strip left the file identical and no insertion was
+ * needed).
+ *
+ * Throws if the generated gradle file has no `getByName("debug") {`
+ * block — that would mean Tauri's template changed shape and this
+ * patch's anchor must be updated.
+ */
+function mergeGradleDebugSigning(generated) {
+  // Detect the file's line ending so the inserted block matches the
+  // surrounding style (no mixed CR/LF when re-running on Windows
+  // machines where `tauri android init` writes CRLF).
+  const eol = generated.includes("\r\n") ? "\r\n" : "\n";
+  // The patch body lives at 12 spaces of indent (matches
+  // `getByName("debug") {` body level in Tauri's generated gradle:
+  // 4 spaces for the surrounding `buildTypes {`, 4 more for the
+  // buildType block, 4 more for statements inside it).
+  const bodyLines = [
+    'if (keystoreProperties.getProperty("storeFile") != null) {',
+    "    signingConfig = signingConfigs.getByName(\"release\")",
+    "}",
+  ];
+  const indentedBody = bodyLines.map((l) => "            " + l).join(eol);
+  const block = `            ${PATCH_GRADLE_BEGIN}${eol}${indentedBody}${eol}            ${PATCH_GRADLE_END}${eol}`;
+
+  // Strip any previous patch block first (idempotency). Leading
+  // whitespace before the BEGIN marker (the 12-space indent we add when
+  // inserting) is included in the strip range so re-runs don't leave
+  // the orphan indent behind on the next line; the optional trailing
+  // newline-ish sequence swallows the line break we appended after the
+  // END marker so no blank line accumulates either.
+  const re = new RegExp(
+    `[ ]*${escapeRegExp(PATCH_GRADLE_BEGIN)}[\\s\\S]*?${escapeRegExp(PATCH_GRADLE_END)}\\r?\\n?`,
+    "g",
+  );
+  const stripped = generated.replace(re, "");
+
+  // Anchor: insert immediately after the opening brace of the debug
+  // buildType block. Using a RegExp with the brace (not just a
+  // substring search) avoids accidentally matching the same identifier
+  // inside comments. The optional `\r` lets the patch work on both
+  // CRLF (Windows, default for tauri android init) and LF line endings.
+  const anchorRe = /(\bgetByName\("debug"\)\s*\{\r?\n)/;
+  const m = stripped.match(anchorRe);
+  if (!m) {
+    throw new Error(
+      "generated build.gradle.kts has no `getByName(\"debug\") {` block — " +
+        "Tauri template likely changed; update mergeGradleDebugSigning",
+    );
+  }
+  const insertAt = m.index + m[1].length;
+  const next = stripped.slice(0, insertAt) + block + stripped.slice(insertAt);
+  return next === generated ? generated : next;
+}
+
 module.exports = {
   PATCH_BEGIN,
   PATCH_END,
+  PATCH_GRADLE_BEGIN,
+  PATCH_GRADLE_END,
   extractFragmentBody,
   mergeManifest,
+  mergeGradleDebugSigning,
   dedent,
   trimBlankLines,
 };
@@ -232,7 +328,24 @@ if (require.main === module) {
     }
   }
 
+  // build.gradle.kts: inject the debug-signingConfig snippet so dev
+  // APKs reuse the release keystore (avoids signature mismatches when
+  // switching between dev and release builds on the same device).
+  let gradlePatched = false;
+  if (fs.existsSync(DST_GRADLE)) {
+    const genGradle = fs.readFileSync(DST_GRADLE, "utf8");
+    const nextGradle = mergeGradleDebugSigning(genGradle);
+    if (nextGradle !== genGradle) {
+      fs.writeFileSync(DST_GRADLE, nextGradle);
+      gradlePatched = true;
+    }
+  } else {
+    console.error(`[android-patch] Generated gradle file not found: ${DST_GRADLE}`);
+    console.error("[android-patch] Run `npm run tauri android init` first to generate the Android project, then re-run this script.");
+    process.exit(1);
+  }
+
   console.log(
-    `[android-patch] done. copied=${copied} skipped=${skipped} force=${FORCE} manifestPatched=${manifestPatched}`,
+    `[android-patch] done. copied=${copied} skipped=${skipped} force=${FORCE} manifestPatched=${manifestPatched} gradlePatched=${gradlePatched}`,
   );
 }

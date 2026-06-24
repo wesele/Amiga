@@ -39,8 +39,8 @@
           <span class="nav-label">{{ t('nav.profile') }}</span>
         </router-link>
       </nav>
-      <div class="bottom-nav-safe" aria-hidden="true" />
     </template>
+    <div class="bottom-nav-safe" aria-hidden="true" />
   </div>
 </template>
 
@@ -92,18 +92,25 @@ const showNav = computed(() => {
   position: relative;
 }
 
-/* Safe-area strip below the interactive bar. Same background as the
- * nav so the two read as a single visual bar; height is the system
- * safe-area inset (env() works on iOS/WKWebView, 0 elsewhere — the
- * Android app layer already enforces the system-bar inset via
- * WebView.setPadding in MainActivity.kt, so env() reliably returns
- * 0 there). */
+/* Safe-area strip at the very bottom of the shell. Same background as the
+ * bottom-nav when the nav is visible; matches the page background when the
+ * nav is hidden. On Android, --safe-bottom is set by the
+ * __amigaSetInsets JS bridge from MainActivity.kt; on iOS it comes
+ * from env(safe-area-inset-bottom). This strip always renders so the
+ * system navigation bar never overlaps content, regardless of whether
+ * the interactive bottom-nav is shown. */
 .bottom-nav-safe {
   height: var(--safe-bottom, env(safe-area-inset-bottom, 0px));
   background: var(--surface);
   flex-shrink: 0;
   z-index: 100;
   position: relative;
+}
+
+/* When the bottom-nav is hidden, the safe-area strip should blend with
+ * the page background instead of the nav-bar surface color. */
+.app-shell:not(:has(.bottom-nav)) .bottom-nav-safe {
+  background: var(--bg);
 }
 
 .nav-item {

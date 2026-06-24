@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   PATCH_BEGIN,
   PATCH_END,
+  PATCH_GRADLE_BEGIN,
+  PATCH_GRADLE_END,
   extractFragmentBody,
   mergeManifest,
+  mergeGradleDebugSigning,
 } from "../android-patch.cjs";
 
 // A representative copy of the manifest Tauri currently generates. We
@@ -171,5 +174,187 @@ describe("mergeManifest", () => {
 
   it("throws when the generated manifest has no </manifest> tag", () => {
     expect(() => mergeManifest("<manifest/>", "<x/>")).toThrow(/<\/manifest>/);
+  });
+});
+
+// A representative copy of the gradle file Tauri currently generates.
+// Not read from gen/ (gitignored, may not exist); shape pinned from
+// tauri-cli 2.11.2.
+const GENERATED_GRADLE = `import java.util.Properties
+import java.io.FileInputStream
+
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("rust")
+}
+
+val tauriProperties = Properties().apply {
+    val propFile = file("tauri.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
+}
+
+android {
+    compileSdk = 36
+    namespace = "com.idioma.app"
+    defaultConfig {
+        manifestPlaceholders["usesCleartextTraffic"] = "false"
+        applicationId = "com.idioma.app"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
+        versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    signingConfigs {
+        create("release") {
+            storeFile = keystoreProperties["storeFile"]?.toString()?.let { file(it) }
+            storePassword = keystoreProperties["storePassword"]?.toString() ?: ""
+            keyAlias = keystoreProperties["keyAlias"]?.toString() ?: ""
+            keyPassword = keystoreProperties["keyPassword"]?.toString() ?: ""
+        }
+    }
+    buildTypes {
+        getByName("debug") {
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+            isDebuggable = true
+            isJniDebuggable = true
+            isMinifyEnabled = false
+            packaging {                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
+                jniLibs.keepDebugSymbols.add("*/armeabi-v7a/*.so")
+                jniLibs.keepDebugSymbols.add("*/x86/*.so")
+                jniLibs.keepDebugSymbols.add("*/x86_64/*.so")
+            }
+        }
+        getByName("release") {
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            proguardFiles(
+                *fileTree(".") { include("**/*.pro") }
+                    .plus(getDefaultProguardFile("proguard-android-optimize.txt"))
+                    .toList().toTypedArray()
+            )
+        }
+    }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+    buildFeatures {
+        buildConfig = true
+    }
+}
+
+rust {
+    rootDirRel = "../../../"
+}
+
+dependencies {
+    implementation("androidx.webkit:webkit:1.14.0")
+}
+
+apply(from = "tauri.build.gradle.kts")
+`;
+
+describe("mergeGradleDebugSigning", () => {
+  it("injects the signingConfig assignment at the top of the debug buildType block", () => {
+    const patched = mergeGradleDebugSigning(GENERATED_GRADLE);
+    expect(patched).not.toBe(GENERATED_GRADLE);
+    // Markers present
+    expect(patched).toContain(PATCH_GRADLE_BEGIN);
+    expect(patched).toContain(PATCH_GRADLE_END);
+    expect(patched.indexOf(PATCH_GRADLE_BEGIN)).toBeLessThan(patched.indexOf(PATCH_GRADLE_END));
+    // The signingConfig assignment is inside the patch block
+    expect(patched).toContain('signingConfig = signingConfigs.getByName("release")');
+    // Condition checks that a storeFile property is set before binding
+    expect(patched).toContain('keystoreProperties.getProperty("storeFile") != null');
+    // The patch sits inside the debug block (right after the opening
+    // brace), and BEFORE the existing `manifestPlaceholders` line.
+    const beginIdx = patched.indexOf(PATCH_GRADLE_BEGIN);
+    const debugIdx = patched.indexOf('getByName("debug") {');
+    const debugOpenBraceEndIdx = patched.indexOf("\n", debugIdx) + 1;
+    expect(beginIdx).toBeGreaterThanOrEqual(debugOpenBraceEndIdx);
+    const placeholdersIdx = patched.indexOf('manifestPlaceholders["usesCleartextTraffic"] = "true"');
+    expect(beginIdx).toBeLessThan(placeholdersIdx);
+  });
+
+  it("indents the patch body at 12 spaces (matches the debug block level)", () => {
+    const patched = mergeGradleDebugSigning(GENERATED_GRADLE);
+    // BEGIN marker at 12 spaces of indent
+    expect(patched).toMatch(/\n            \/\/ AMIGA-PATCH-BEGIN: debug-signing\n/);
+    // The `if (keystoreProperties...)` line at 12 spaces
+    expect(patched).toMatch(/\n {12}if \(keystoreProperties\.getProperty\("storeFile"\) != null\) \{\n/);
+    // The inner `signingConfig = ...` line at 16 spaces (12 + 4 for the block body)
+    expect(patched).toMatch(/\n {16}signingConfig = signingConfigs\.getByName\("release"\)\n/);
+    // Closing brace at 12 spaces, then the END marker
+    expect(patched).toMatch(/\n {12}\}\n {12}\/\/ AMIGA-PATCH-END: debug-signing\n/);
+  });
+
+  it("is idempotent — running twice yields the same result", () => {
+    const once = mergeGradleDebugSigning(GENERATED_GRADLE);
+    const twice = mergeGradleDebugSigning(once);
+    expect(twice).toBe(once);
+    // Exactly one BEGIN marker survives
+    const beginCount = (twice.match(new RegExp(PATCH_GRADLE_BEGIN.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
+    expect(beginCount).toBe(1);
+  });
+
+  it("replaces any previous patch block on re-run", () => {
+    const once = mergeGradleDebugSigning(GENERATED_GRADLE);
+    // Pretend a prior patch was written with an obsolete body — we
+    // stuff a stale marker pair then re-run.
+    const stale = once.replace(
+      new RegExp(`(${PATCH_GRADLE_BEGIN}\\s*)([\\s\\S]*?)(${PATCH_GRADLE_END})`),
+      "$1// OLD STALE BODY$3",
+    );
+    // Sanity: the stale body is currently present
+    expect(stale).toContain("// OLD STALE BODY");
+    const repatched = mergeGradleDebugSigning(stale);
+    // Stale body gone, fresh assignment present
+    expect(repatched).not.toContain("// OLD STALE BODY");
+    expect(repatched).toContain('signingConfig = signingConfigs.getByName("release")');
+    // Patched result equals a fresh from-scratch patch (canonical form)
+    const fresh = mergeGradleDebugSigning(GENERATED_GRADLE);
+    expect(repatched).toBe(fresh);
+  });
+
+  it("throws when the generated gradle has no debug buildType block", () => {
+    const broken = GENERATED_GRADLE.replace(/\s*getByName\("debug"\)\s*\{[\s\S]*?\n        \}/, "");
+    expect(() => mergeGradleDebugSigning(broken)).toThrow(/getByName\("debug"\)/);
+  });
+
+  it("returns input unchanged when already patched", () => {
+    const patched = mergeGradleDebugSigning(GENERATED_GRADLE);
+    // Strip a single trailing newline (which the function appends after
+    // the END marker) before re-passing is *not* needed because the
+    // idempotency strip handles it; this just verifies the no-op
+    // short-circuit path.
+    const repatched = mergeGradleDebugSigning(patched);
+    expect(repatched).toBe(patched);
+  });
+
+  it("handles CRLF line endings (Windows, default for tauri android init)", () => {
+    // CRLF version of the gradle file — same byte content, every \n
+    // replaced by \r\n. tauri android init on Windows produces this.
+    constCrLf = GENERATED_GRADLE.replace(/\n/g, "\r\n");
+    const patched = mergeGradleDebugSigning(CRLF);
+    expect(patched).not.toBe(CRLF);
+    // All inserted block lines must use CRLF (no stray LF).
+    const PatchSlice = patched.slice(
+      patched.indexOf(PATCH_GRADLE_BEGIN),
+      patched.indexOf(PATCH_GRADLE_END) + PATCH_GRADLE_END.length,
+    );
+    // Reject any lone \n (i.e. one not preceded by \r): if present,
+    // the patch block introduced mixed line endings.
+    expect(PatchSlice).not.toMatch(/(?<!\r)\n/);
+    // Idempotent under CRLF too.
+    const twice = mergeGradleDebugSigning(patched);
+    expect(twice).toBe(patched);
   });
 });

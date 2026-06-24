@@ -891,7 +891,7 @@ function formatSource(source) {
 .share-toast {
   position: fixed;
   left: 50%;
-  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(80px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
   transform: translateX(-50%);
   background: var(--text);
   color: #fff;

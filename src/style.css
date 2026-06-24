@@ -58,16 +58,24 @@
 
   /* Spacing — safe-area insets.
    *
-   * On Android the safe area is enforced at the *app* layer: the
-   * MainActivity sets WebView.setPadding() from WindowInsetsCompat, so
-   * the WebView's drawing area IS the safe area. The HTML inside
-   * doesn't need to know about system bars — `100vh` / `100vw` just
-   * work, and the CSS variables below resolve to 0 there (env() on
-   * Android WebView returns 0 for safe-area-inset-*).
+   * On Android the safe area is passed from MainActivity.kt via the
+   * __amigaSetInsets JS bridge, which sets these CSS custom properties
+   * on <html> with the real system-bar inset values (in pixels).
    *
-   * On iOS / WKWebView and on any browser that emulates the env,
-   * env() returns the real inset values and the padding on #app and
-   * .bottom-nav below keeps content out of the unsafe area. */
+   * On iOS / WKWebView and on any browser that supports the CSS env(),
+   * env() returns the real inset values; the padding on #app and the
+   * .bottom-nav-safe strip keep content out of the unsafe area.
+   *
+   * Note: #app only uses padding-top (for the status bar). The bottom
+   * safe-area is handled exclusively by the .bottom-nav-safe strip in
+   * AppShell.vue, which always renders regardless of whether the
+   * interactive bottom-nav is visible. This avoids double-counting —
+   * if #app also had padding-bottom:var(--safe-bottom), the safe area
+   * would be applied once by the padding (shrinking the content box)
+   * and again by the .bottom-nav-safe strip inside the content box.
+   *
+   * Both platforms share the same CSS: Android fills --safe-* via the
+   * JS bridge, iOS fills them via env(). */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -92,7 +100,6 @@ body {
   position: fixed;
   inset: 0;
   padding-top: var(--safe-top);
-  padding-bottom: var(--safe-bottom);
   display: flex;
   flex-direction: column;
   overflow: hidden;

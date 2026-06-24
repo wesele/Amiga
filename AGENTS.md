@@ -2,6 +2,11 @@
 
 跨平台外语学习应用，类似多邻国。**Tauri 2.x (Rust)** + **Vue 3**，支持 Windows + Android。窗口固定 480×800（移动端形态）。
 
+## 铁律（不可违反）
+
+1. **涉及界面的改动一定要截屏确认。** 改了任何 `.vue` / `.css` / 布局相关代码，都要在 Windows（`run-windows.bat`）或 Android（`run-android.bat` + `adb exec-out screencap -p`）截一张图，亲眼看过再提交。截屏命令与流程详见 [docs/testing.md](./docs/testing.md) 的"截屏测试"小节和 [docs/android-adb-debugging.md](./docs/android-adb-debugging.md)。
+2. **对于没有图片理解能力的模型，应该使用 `image-describe` 这个 MCP，而不是其他方式。** 截屏后如果当前模型本身不能读图，必须调用 `image-describe_describe_image` 工具（参数：本地截图路径 + 描述指令）来"看"截图，再据此判断改动是否符合预期。不要靠日志 / DOM 文本 / 用户描述替代看图。
+
 ## 开发流程
 
 接到任务后按以下顺序执行：
@@ -27,7 +32,26 @@
 - **不要**用 `npm run dev`（裸 Vite）验证 Rust 改动——invoke 走 stub，不会调用后端
 - 想边改边看就用 `run-windows.bat` 或 `npm run tauri dev`
 - 测试规范与截屏流程 → 详见 [docs/testing.md](./docs/testing.md)
-- **Android ADB 真机调试**（截屏、坐标定位、剪贴板验证、logcat 等）→ 详见 [docs/android-adb-debugging.md](./docs/android-adb-debugging.md)
+- **Android ADB 真机或者模拟器调试**（截屏、坐标定位、剪贴板验证、logcat 等）→ 详见 [docs/android-adb-debugging.md](./docs/android-adb-debugging.md)
+
+### 4.5 Android 开发循环（**重要**，AI 容易走弯路）
+
+日常做 Android 端功能 / bug，**首选 `run-android.bat` 跑 dev 循环**，不要每次都 `build-android.bat` 后 `adb install` 重装。
+
+| 改动类型 | 触发什么 | 耗时（x86_64 模拟器，热缓存） |
+|----------|----------|-----------------------------|
+| Vue / CSS / JS（前端） | **仅 Vite HMR 推到模拟器 WebView**，不重编 Rust、不重装 APK | <1 秒 |
+| Rust（`src-tauri/src/**.rs`） | 增量 `cargo build` + `adb install -r`（**保留用户数据**） | 5–20 秒 |
+| Kotlin（`src-tauri/android/**.kt`） | 完全需**手动重启** dev 循环（`Ctrl+C` 后重跑 `run-android.bat`），`android-patch.cjs` 会自动重新同步 | 30+ 秒 |
+| 只改前端先用纯浏览器 `npm run dev` 不值——需验证 Tauri IPC 行为 | 走 `run-android.bat` 同上 | 同前 |
+
+实操要点：
+1. 起环：`run-android.bat`。它依次设置环境 → `tauri android init`（首次）→ `android-patch.cjs` 同步 Kotlin + 注入 debug 用 release keystore → `npx tauri android dev --target x86_64 --exit-on-panic`。
+2. 模拟器开 API 24+ x86_64（默认 SDK Manager 里"GPhone"档）。`adb devices` 必须看到 `emulator-NNNN device` 才能跑。
+3. **签名一致性已解决**：`android-patch.cjs` 把生成的 `app/build.gradle.kts` 的 `debug` buildType 也指向 `amiga-release.keystore`，所以 dev APK 和 release APK 签名证书相同，`adb install -r` 不会撞 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`。除非你手动装过别人签的 APK 才需要 `adb uninstall com.idioma.app` 一次（会清空 app 数据）。
+4. 改 Kotlin：改 `src-tauri/android/...` 里 tracked 的副本（**不要**手动改 `gen/android/...`），然后**重启 dev 循环**让 patch 把文件再 sync 进 gen/。
+5. 模拟器上点 / 滑 / 截屏 → 见 [docs/android-adb-debugging.md](./docs/android-adb-debugging.md)。
+6. 真机调试（arm64 物理设备）：见 `run-android.bat` 顶部注释里的 `TAURI_DEV_HOST` 与 `--target aarch64` 指引。
 
 ### 5. 提交
 - 任务收尾时自动 commit 到**本地 git**（用户不要求也要做）；push / 发版仍需用户明确要求
@@ -77,7 +101,8 @@ C:\Code\Idioma\
 | `npm run test:all` | 前后端全部测试 |
 | `npm run tauri` | Tauri CLI 入口（如 `npm run tauri dev` / `build`） |
 | `run-windows.bat` | Windows 端开发启动（Vite + Tauri） |
-| `build-android.bat` | Android APK 构建 |
+| `run-android.bat` | **Android 开发循环**（dev server + HMR + 增量 Rust 重装），日常开发首选 |
+| `build-android.bat` | Android release APK 构建（发版 / 一次性安装测试） |
 
 > 更多测试命令（watch / clippy / fmt）见 [docs/testing.md](./docs/testing.md)，脚索引见 [docs/release-and-scripts.md](./docs/release-and-scripts.md)。
 

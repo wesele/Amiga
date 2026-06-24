@@ -84,7 +84,10 @@ async function bootstrap() {
     // on Android they come from this bridge — both platforms share
     // the same CSS.
     window.__amigaSetInsets = (top, bottom, left, right) => {
-      const px = (v) => `${v}px`;
+      // The native side (WindowInsetsCompat) sends device-pixel values.
+      // Divide by devicePixelRatio to convert to CSS logical pixels.
+      const dpr = window.devicePixelRatio || 1;
+      const px = (v) => `${Math.round(v / dpr)}px`;
       const root = document.documentElement;
       root.style.setProperty("--safe-top", px(top));
       root.style.setProperty("--safe-bottom", px(bottom));
