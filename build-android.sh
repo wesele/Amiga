@@ -12,8 +12,14 @@ export NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973"
 export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
 echo ""
-echo "[1/4] Building frontend..."
-npm run build
+
+# Quick check: skip frontend build if dist/ is newer than src/
+echo "[1/4] Building frontend (if needed)..."
+if [ -f "dist/index.html" ] && [ -z "$(find src -name '*.js' -o -name '*.vue' -newer dist/index.html 2>/dev/null | head -1)" ]; then
+  echo "Frontend unchanged since last build, skipping."
+else
+  npm run build
+fi
 echo ""
 
 echo "[2/4] Ensuring Android project (tauri android init)..."

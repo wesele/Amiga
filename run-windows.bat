@@ -1,18 +1,22 @@
 @echo off
 cd /d "%~dp0"
 
-echo [Amiga] Cleaning up previous Windows dev session...
-taskkill /f /im idioma.exe >nul 2>&1
-taskkill /f /im Amiga.exe >nul 2>&1
-taskkill /f /im cargo.exe >nul 2>&1
+echo [Amiga] Starting Windows dev session on port 1420...
 
-echo Checking for existing dev server on port 1420...
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr :1420') do (
-  echo Killing process %%a...
-  taskkill /f /pid %%a 2>nul
+:: Check if port 1420 is already in use — only kill if something is actually listening
+netstat -aon | findstr :1420 >nul 2>&1
+if %errorlevel% equ 0 (
+  echo [Amiga] Port 1420 in use. Cleaning up previous session...
+  taskkill /f /im idioma.exe >nul 2>&1
+  taskkill /f /im Amiga.exe >nul 2>&1
+  for /f "tokens=5" %%a in ('netstat -aon ^| findstr :1420') do (
+    taskkill /f /pid %%a 2>nul
+  )
+  timeout /t 2 >nul
+) else (
+  echo [Amiga] Port 1420 is free.
 )
 
-echo [Amiga] Starting Windows dev server on port 1420...
 echo.
 npm run tauri dev
 pause

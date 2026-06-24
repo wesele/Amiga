@@ -14,15 +14,24 @@ if lsof -ti:1430 &>/dev/null; then
   lsof -ti:1430 | xargs kill -9 2>/dev/null || true
 fi
 
-echo "[Amiga] Starting Android dev server on port 1430..."
 # Tauri dev host (for Android device to reach the dev server)
 export TAURI_DEV_HOST="$(hostname -I | awk '{print $1}')"
 echo "[Amiga] Using TAURI_DEV_HOST=$TAURI_DEV_HOST"
 
+# Quick check: skip frontend build if dist/ is newer than src/
+echo "[1/3] Preparing frontend (if needed)..."
+if [ -f "dist/index.html" ] && [ -z "$(find src -name '*.js' -o -name '*.vue' -newer dist/index.html 2>/dev/null | head -1)" ]; then
+  echo "Frontend unchanged since last build, skipping."
+else
+  npm run build
+fi
+
 # Ensure Android project exists and custom sources are patched
+echo "[2/3] Ensuring Android project..."
 if [ ! -d "src-tauri/gen/android" ]; then
   npx tauri android init
 fi
 node scripts/android-patch.cjs
 
+echo "[3/3] Starting Android dev server..."
 npx tauri android dev

@@ -378,7 +378,7 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
             if response.status().is_success() {
                 let body = response.text().await.unwrap_or_default();
                 if let Ok(feed) = feed_rs::parser::parse(body.as_bytes()) {
-                    for entry in feed.entries.iter().take(limit - raw_entries.len() as usize) {
+                    for entry in feed.entries.iter().take(limit - raw_entries.len()) {
                         let title = entry
                             .title
                             .as_ref()

@@ -21,3 +21,16 @@ ar = "C:\\Android\\sdk\\ndk\\27.0.12077973\\toolchains\\llvm\\prebuilt\\windows-
 [target.i686-linux-android]
 linker = "C:\\Android\\sdk\\ndk\\27.0.12077973\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\i686-linux-android34-clang.cmd"
 ar = "C:\\Android\\sdk\\ndk\\27.0.12077973\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\llvm-ar.exe"
+
+[profile.dev]
+codegen-units = 256
+incremental = true
+debug = 0
+
+[profile.dev.package."*"]
+opt-level = 0
+
+[profile.release]
+strip = "symbols"
+lto = false
+codegen-units = 16

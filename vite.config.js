@@ -3,11 +3,8 @@ import vue from "@vitejs/plugin-vue";
 import { fileURLToPath, URL } from "node:url";
 
 const host = process.env.TAURI_DEV_HOST;
-const port = parseInt(process.env.VITE_PORT || (host ? "1430" : "1420"), 10);
-const hmrPort = parseInt(
-  process.env.VITE_HMR_PORT || (host ? "1431" : "1421"),
-  10,
-);
+const port = parseInt(process.env.VITE_PORT || "1420", 10);
+const hmrPort = parseInt(process.env.VITE_HMR_PORT || "1421", 10);
 
 export default defineConfig({
   plugins: [vue()],
@@ -16,6 +13,7 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  cacheDir: "./node_modules/.vite-cache",
   clearScreen: false,
   server: {
     port,
@@ -31,5 +29,19 @@ export default defineConfig({
     watch: {
       ignored: ["**/src-tauri/**"],
     },
+  },
+  build: {
+    target: "es2020",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["vue", "pinia", "vue-router", "marked"],
+          tauri: ["@tauri-apps/api", "@tauri-apps/plugin-shell"],
+        },
+      },
+    },
+  },
+  optimizeDeps: {
+    include: ["vue", "pinia", "vue-router", "marked", "@tauri-apps/api"],
   },
 });
