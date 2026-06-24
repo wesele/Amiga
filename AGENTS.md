@@ -27,6 +27,7 @@
 - **不要**用 `npm run dev`（裸 Vite）验证 Rust 改动——invoke 走 stub，不会调用后端
 - 想边改边看就用 `run-windows.bat` 或 `npm run tauri dev`
 - 测试规范与截屏流程 → 详见 [docs/testing.md](./docs/testing.md)
+- **Android ADB 真机调试**（截屏、坐标定位、剪贴板验证、logcat 等）→ 详见 [docs/android-adb-debugging.md](./docs/android-adb-debugging.md)
 
 ### 5. 提交
 - 任务收尾时自动 commit 到**本地 git**（用户不要求也要做）；push / 发版仍需用户明确要求
