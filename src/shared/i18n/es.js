@@ -110,6 +110,13 @@ export default {
     known: "Conozco",
     unknown: "No conozco",
     sample: "Muestra",
+    share: "Compartir",
+    sharing: "Compartiendo…",
+    shareTitle: "Compartir en Gemini u otra app para seguir conversando",
+    sharePrompt: "Estoy aprendiendo {target} y acabo de leer esta noticia — me gustaría comentarla contigo.\n\nPor favor ayúdame a:\n1. Resumir los puntos clave\n2. Explicar vocabulario importante y contexto cultural\n3. Proponer algunas preguntas para profundizar\n\n",
+    shareSource: "Fuente: ",
+    shareCopied: "Copiado al portapapeles — pégalo en Gemini u otro asistente para continuar",
+    shareFail: "Error al compartir, inténtalo de nuevo",
   },
 
   vocab: {

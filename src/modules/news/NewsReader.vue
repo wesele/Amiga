@@ -113,18 +113,34 @@
     <div v-if="article?.rewritten_body" class="bottom-bar">
       <div class="mode-bar">
         <button
-          class="mode-btn"
-          :class="{ active: !bilingualMode }"
-          @click="bilingualMode = false"
-        >{{ t('news.original') }}</button>
-        <button
-          class="mode-btn"
-          :class="{ active: bilingualMode }"
+          class="mode-btn mode-toggle"
+          :class="{ 'is-bilingual': bilingualMode }"
+          :title="bilingualMode ? t('news.original') : t('news.bilingual')"
           @click="toggleBilingual"
-        >{{ t('news.bilingual') }}</button>
+        >
+          <span class="mode-toggle-label">{{ bilingualMode ? t('news.bilingual') : t('news.original') }}</span>
+          <svg class="mode-toggle-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+            <path d="M7 10l5 5 5-5z"/>
+          </svg>
+        </button>
+        <button
+          class="mode-btn share-btn"
+          :disabled="sharing"
+          :title="t('news.shareTitle')"
+          @click="onShare"
+        >
+          <svg class="share-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/>
+          </svg>
+          <span>{{ sharing ? t('news.sharing') : t('news.share') }}</span>
+        </button>
       </div>
-
     </div>
+
+    <!-- Share status toast -->
+    <Transition name="popup">
+      <div v-if="shareStatus" class="share-toast">{{ shareStatus }}</div>
+    </Transition>
   </div>
 </template>
 
@@ -136,6 +152,8 @@ import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
+import { buildShareText } from "./utils.js";
+import { displayLang } from "@/shared/constants.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -161,6 +179,11 @@ const paraTokens = ref([]);
 const titleTranslation = ref("");
 const loadingTranslation = ref(false);
 const translationError = ref("");
+
+// Share state
+const sharing = ref(false);
+const shareStatus = ref("");
+let shareStatusTimer = null;
 
 onMounted(async () => {
   startTime.value = Date.now();
@@ -206,6 +229,10 @@ onBeforeUnmount(async () => {
   if (selectionTimer) {
     clearTimeout(selectionTimer);
     selectionTimer = null;
+  }
+  if (shareStatusTimer) {
+    clearTimeout(shareStatusTimer);
+    shareStatusTimer = null;
   }
   if (userId && article.value) {
     const elapsed = Math.round((Date.now() - startTime.value) / 1000);
@@ -531,6 +558,88 @@ function clearSelection() {
   selectionLoading.value = false;
 }
 
+function showShareStatus(msg) {
+  shareStatus.value = msg;
+  if (shareStatusTimer) clearTimeout(shareStatusTimer);
+  shareStatusTimer = setTimeout(() => { shareStatus.value = ""; }, 2500);
+}
+
+async function copyToClipboard(text) {
+  // Prefer the async Clipboard API (works in Tauri WebView on desktop
+  // and on secure-context Android WebViews). Fall back to a hidden
+  // textarea + execCommand for older WebViews where the async API
+  // is unavailable or rejects.
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) { /* fall through to legacy path */ }
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    ta.style.pointerEvents = "none";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand && document.execCommand("copy");
+    document.body.removeChild(ta);
+    return !!ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function onShare() {
+  if (!article.value || sharing.value) return;
+  sharing.value = true;
+  try {
+    const locale = getLocale();
+    const title = article.value.original_title || "";
+    const body = article.value.rewritten_body || article.value.original_body || "";
+    const source = article.value.source || "";
+    const text = buildShareText({
+      title,
+      body,
+      source,
+      prompt: t("news.sharePrompt", { target: displayLang(targetLang, locale) }),
+      sourceLabel: t("news.shareSource"),
+    });
+
+    // Prefer the Web Share API: on Android the OS shows a share sheet
+    // that includes Gemini, the system clipboard, messaging apps, etc.
+    // On desktop Chromium the API may be absent — fall back to copying
+    // the text so the user can paste it into any AI manually.
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: title || t("news.shareTitle"),
+          text,
+          url: source || undefined,
+        });
+        return; // user completed (or dismissed without error) the share sheet
+      } catch (e) {
+        // AbortError = user dismissed the sheet; treat as a no-op,
+        // not a failure. Anything else falls through to clipboard.
+        if (e && e.name === "AbortError") return;
+      }
+    }
+
+    if (await copyToClipboard(text)) {
+      showShareStatus(t("news.shareCopied"));
+    } else {
+      showShareStatus(t("news.shareFail"));
+    }
+  } catch (e) {
+    console.error("Share failed:", e);
+    showShareStatus(t("news.shareFail"));
+  } finally {
+    sharing.value = false;
+  }
+}
+
 function goBack() {
   router.push("/news");
 }
@@ -724,7 +833,7 @@ function formatSource(source) {
 .mode-bar {
   display: flex;
   gap: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 .mode-btn {
@@ -739,13 +848,62 @@ function formatSource(source) {
   cursor: pointer;
   transition: all var(--transition);
   font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
-.mode-btn.active {
+.mode-toggle {
+  /* The single "原文/双语" toggle. Show the current mode and a
+     chevron hint to suggest it can be switched. */
+  color: var(--blue);
   border-color: var(--blue);
   background: var(--blue-bg);
-  color: var(--blue);
-  box-shadow: 0 0 0 2px rgba(28, 176, 246, 0.2);
+  box-shadow: 0 0 0 2px rgba(28, 176, 246, 0.15);
+}
+
+.mode-toggle-icon {
+  opacity: 0.7;
+  margin-top: 1px;
+}
+
+.share-btn {
+  color: var(--green, #58cc02);
+  border-color: var(--green, #58cc02);
+  background: var(--green-bg, rgba(88, 204, 2, 0.08));
+  box-shadow: 0 0 0 2px rgba(88, 204, 2, 0.12);
+}
+
+.share-btn:hover:not(:disabled) {
+  background: var(--green-bg, rgba(88, 204, 2, 0.15));
+}
+
+.share-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.share-icon {
+  flex-shrink: 0;
+}
+
+.share-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  background: var(--text);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 400;
+  max-width: calc(100% - 40px);
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  line-height: 1.4;
 }
 
 /* Bilingual paragraphs */
