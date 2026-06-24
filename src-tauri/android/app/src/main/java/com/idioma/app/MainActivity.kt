@@ -209,7 +209,10 @@ class MainActivity : TauriActivity() {
         webView.addJavascriptInterface(object {
             @JavascriptInterface
             fun requestInsets() {
-                content.requestApplyInsets()
+                // addJavascriptInterface methods run on a WebView
+                // thread, NOT the main thread. requestApplyInsets()
+                // must happen on the main thread.
+                content.post { content.requestApplyInsets() }
             }
         }, "__amigaInsets")
     }
