@@ -166,10 +166,17 @@ jobs:
             echo "$FOUND" | head -20
           fi
           echo "---"
-          # Check if the build output dir exists at all
-          for d in "$APK_DIR" "$APK_DIR/release" "$APK_DIR/debug" "$APK_DIR/universal" "$APK_DIR/universal/release" "$APK_DIR/arm64-v8a" "$APK_DIR/arm64-v8a/release"; do
-            if [ -d "$d" ]; then echo "::warning::Found dir: $d ($(ls "$d" | wc -l) files)"; fi
-          done
+          # Check the entire build output tree
+          echo "::warning::Build output tree:"
+          find src-tauri/gen/android/app/build -maxdepth 6 -type f 2>/dev/null | head -50 || echo "(empty build tree)"
+          echo "::warning::---"
+          # Check outputs/apk recursively
+          find src-tauri/gen/android/app/build/outputs -type f 2>/dev/null | head -30 || echo "(no outputs)"
+          echo "::warning::---"
+          # Check for any .aab files too
+          find src-tauri/gen/android -name '*.aab' -type f 2>/dev/null | head -10 || echo "(no aab)"
+          # Also check src-tauri/target for APKs
+          find src-tauri/target -name '*.apk' -type f 2>/dev/null | head -10 || echo "(no apk in target)"
 
           # Check if a signed APK already exists
           SIGNED=$(find "$APK_DIR" -name '*.apk' ! -name '*-unsigned.apk' | head -1)
