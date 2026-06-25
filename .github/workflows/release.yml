@@ -139,6 +139,12 @@ jobs:
           echo "Using zipalign: $ZIPALIGN"
           echo "Using apksigner: $APKSIGNER"
 
+          # List all APK files for debugging
+          echo "APK output structure:" && find "$APK_DIR" -type f 2>/dev/null | head -30 || echo "(empty $APK_DIR)"
+          echo "---"
+          # Also check broader output paths
+          find src-tauri/gen/android -name '*.apk' -type f 2>/dev/null | head -20 || echo "(no APK files found in gen/)"
+
           # Check if a signed APK already exists
           SIGNED=$(find "$APK_DIR" -name '*.apk' ! -name '*-unsigned.apk' | head -1)
           if [ -n "$SIGNED" ]; then
@@ -154,7 +160,8 @@ jobs:
           UNSIGNED=$(find "$APK_DIR" -name '*-unsigned.apk' | head -1)
           if [ -z "$UNSIGNED" ]; then
             echo "::error::No APK found to sign (searched for signed and unsigned)"
-            find "$APK_DIR" -name '*.apk' 2>/dev/null || echo "(no apk files in $APK_DIR)"
+            # Broader search
+            echo "Broader APK search:" && find / -name '*.apk' -type f 2>/dev/null | head -20
             exit 1
           fi
           echo "Signing unsigned APK: $UNSIGNED"
