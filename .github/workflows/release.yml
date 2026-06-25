@@ -114,7 +114,16 @@ jobs:
           keyPassword=${AMIGA_KEY_PASSWORD}
           EOF
       - name: Build APK (aarch64)
-        run: npx tauri android build --target aarch64 --apk
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: npx tauri android build --target aarch64 --apk --verbose 2>&1 | tee build.log
+      - name: Upload build log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-log
+          path: build.log
+          if-no-files-found: ignore
       - name: Sign APK (post-step, apksigner)
         # Tauri's gradle signingConfig isn't picking up keystore.properties
         # in CI for unknown reasons (file is written, build reads it, but
