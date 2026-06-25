@@ -76,12 +76,12 @@ describe("ContactList", () => {
       .find((el) => el.find(".contact-name").text() === "Amiga");
     expect(amigaItem).toBeTruthy();
     const avatar = amigaItem.find(".contact-avatar");
-    // The avatar is the Android launcher brand mark (orange + blue
-    // ring) extracted from the built APK and served from
-    // /amiga-icon.png. No 🤖 emoji, no inline SVG, no green "I".
+    // The avatar is the brand icon imported via Vite's asset pipeline
+    // (src/assets/amiga-icon.png). URL varies between dev/test and
+    // production builds, so we just match the filename stem.
     const img = avatar.find("img");
     expect(img.exists()).toBe(true);
-    expect(img.attributes("src")).toBe("/amiga-icon.png");
+    expect(img.attributes("src")).toContain("amiga-icon");
     expect(img.attributes("alt")).toBe("Amiga");
   });
 

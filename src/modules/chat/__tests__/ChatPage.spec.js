@@ -115,14 +115,15 @@ describe("ChatPage", () => {
 
     expect(sessionsArgs).toMatchObject({ targetLang: "en" });
     expect(wrapper.find(".header-name").text()).toBe("Amiga");
-    // The amiga avatar is the Android launcher brand mark (orange +
-    // blue ring) extracted from the built APK and served as
-    // /amiga-icon.png — not the 🤖 emoji, not an inline SVG, not the
-    // green "I" placeholder from src-tauri/icons/android/.
+    // The amiga avatar is the brand icon imported via Vite's asset
+    // pipeline (src/assets/amiga-icon.png). In dev/test mode Vite
+    // resolves the import URL to "/src/assets/amiga-icon.png"; in
+    // production it becomes a hashed filename like
+    // "/assets/amiga-icon-BuLrMQ54.png".
     const avatar = wrapper.find(".contact-avatar");
     const img = avatar.find("img");
     expect(img.exists()).toBe(true);
-    expect(img.attributes("src")).toBe("/amiga-icon.png");
+    expect(img.attributes("src")).toContain("amiga-icon");
   });
 
   it("getChatSessions is invoked with the active targetLang (regression: was called with no arg)", async () => {
