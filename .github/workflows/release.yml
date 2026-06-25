@@ -127,10 +127,27 @@ jobs:
           keyAlias=${AMIGA_KEY_ALIAS}
           keyPassword=${AMIGA_KEY_PASSWORD}
           EOF
-      - name: Build APK (aarch64)
+      - name: Build APK
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
-        run: npx tauri android build --target aarch64 --apk --verbose 2>&1 | tee build.log
+        run: |
+          set -e
+          set -o pipefail
+          echo "=== 1. Build frontend ==="
+          npm run build
+
+          echo "=== 2. Build Android (release) ==="
+          cd src-tauri/gen/android
+          ANDROID_HOME=/usr/local/lib/android/sdk \
+          ./gradlew assembleRelease --info 2>&1 | tee ../../../build.log
+
+          echo "=== 3. Gradle exit code: ${PIPESTATUS[0]} ==="
+          cd ../../..
+
+          echo "=== 4. APK output files ==="
+          find src-tauri/gen/android/app/build/outputs -type f 2>/dev/null | head -20
+          ls -la src-tauri/gen/android/app/build/outputs/apk/ 2>/dev/null || echo "(empty apk dir)"
+          find src-tauri/gen/android -name '*.apk' 2>/dev/null | head -10 || echo "::warning::NO APK FOUND ANYWHERE"
       - name: Upload build log (always)
         if: always()
         uses: actions/upload-artifact@v4
