@@ -134,15 +134,18 @@ jobs:
         run: |
           set -e
           set -o pipefail
-          echo "=== Running tauri android build (all targets, default APK+AAB) ==="
-          npx tauri android build --verbose 2>&1 | tee build.log
+          echo "=== Running tauri android build ==="
+          npx tauri android build 2>&1 | tee build.log
           EXIT_CODE=${PIPESTATUS[0]}
           echo "=== Exit code: $EXIT_CODE ==="
-          echo "=== APK output check ==="
-          find src-tauri/gen/android/app/build/outputs -type f 2>/dev/null | head -30 || echo "(empty outputs)"
-          ls -la src-tauri/gen/android/app/build/outputs/apk/ 2>/dev/null || echo "(empty apk dir)"
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "=== Last 50 lines of build log ==="
+            tail -50 build.log
+            echo "::error::tauri android build failed. See build-log artifact for full output."
+            exit $EXIT_CODE
+          fi
+          echo "=== APK output ==="
           find src-tauri/gen/android -name '*.apk' -o -name '*.aab' 2>/dev/null | head -20 || echo "(no apk/aab files)"
-          if [ $EXIT_CODE -ne 0 ]; then exit $EXIT_CODE; fi
       - name: Upload build log (always)
         if: always()
         uses: actions/upload-artifact@v4
