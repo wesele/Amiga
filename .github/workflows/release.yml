@@ -61,7 +61,7 @@ jobs:
           path: |
             ~/Android/Sdk
             ~/.gradle
-          key: android-${{ runner.os }}-${{ hashFiles('src-tauri/gen/android/app/build.gradle.kts', 'src-tauri/gen/android/build.gradle.kts') }}
+          key: android-v2-${{ runner.os }}-${{ hashFiles('src-tauri/gen/android/app/build.gradle.kts', 'src-tauri/gen/android/build.gradle.kts') }}
       # android-actions/setup-android@v3 解析 packages 时把整段当成一个包名，
       # 所以绕过去用 sdkmanager 直接装。GitHub runner 自带 cmdline-tools
       # 在 /usr/local/lib/android/sdk/cmdline-tools/<rev>/bin/，取第一个就是。
@@ -70,28 +70,14 @@ jobs:
           ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
           set -e
-          echo "=== Android SDK structure ==="
-          ls -la /usr/local/lib/android/sdk/ 2>/dev/null || echo "(no sdk dir)"
-          ls -d /usr/local/lib/android/sdk/cmdline-tools/*/ 2>/dev/null || echo "(no cmdline-tools)"
-          SDKMANAGER=$(ls -d /usr/local/lib/android/sdk/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)
-          if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager not found under /usr/local/lib/android/sdk, trying ANDROID_HOME..."
-            SDKMANAGER=$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)
-          fi
-          if [ -z "$SDKMANAGER" ]; then
-            echo "::error::sdkmanager not found. GitHub runner likely changed SDK layout."
-            ls -la /usr/local/lib/android/ 2>/dev/null || true
-            exit 1
-          fi
+          SDKMANAGER=$(ls -d /usr/local/lib/android/sdk/cmdline-tools/*/bin/sdkmanager | head -1)
           echo "Using sdkmanager: $SDKMANAGER"
-          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          echo "=== Installing packages ==="
-          "$SDKMANAGER" --list 2>&1 | grep -E "android-3[5-9]|build-tools;3[5-9]|ndk;" | head -20 || echo "(list failed)"
+          yes | "$SDKMANAGER" --licenses >/dev/null
           "$SDKMANAGER" \
             "platform-tools" \
             "platforms;android-36" \
             "build-tools;36.0.0" \
-            "ndk;27.0.12077973" 2>&1
+            "ndk;27.0.12077973"
       - name: Decode release keystore
         env:
           AMIGA_KEYSTORE_BASE64: ${{ secrets.AMIGA_KEYSTORE_BASE64 }}
