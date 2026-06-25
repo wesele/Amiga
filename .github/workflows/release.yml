@@ -61,7 +61,7 @@ jobs:
           path: |
             ~/Android/Sdk
             ~/.gradle
-          key: android-${{ runner.os }}-${{ hashFiles('src-tauri/gen/android/app/build.gradle.kts', 'src-tauri/gen/android/build.gradle.kts') }}
+          key: android-v2-${{ runner.os }}-${{ hashFiles('src-tauri/gen/android/app/build.gradle.kts', 'src-tauri/gen/android/build.gradle.kts') }}
       # android-actions/setup-android@v3 解析 packages 时把整段当成一个包名，
       # 所以绕过去用 sdkmanager 直接装。GitHub runner 自带 cmdline-tools
       # 在 /usr/local/lib/android/sdk/cmdline-tools/<rev>/bin/，取第一个就是。
@@ -114,28 +114,77 @@ jobs:
           keyPassword=${AMIGA_KEY_PASSWORD}
           EOF
       - name: Build APK (aarch64)
-        run: npx tauri android build --target aarch64 --apk
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: npx tauri android build --target aarch64 --apk 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+      - name: Upload build log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-log
+          path: build.log
+          if-no-files-found: ignore
       - name: Sign APK (post-step, apksigner)
-        # Tauri's gradle signingConfig isn't picking up keystore.properties
-        # in CI for unknown reasons (file is written, build reads it, but
-        # the produced APK is still named *-unsigned.apk). Sign manually
-        # with apksigner as a robust post-step.
+        # Tauri's Gradle signingConfig now picks up keystore.properties
+        # in Tauri 2.11+, so the APK may already be signed. If not, we
+        # find the unsigned APK and sign it with apksigner as a fallback.
         env:
           AMIGA_KEYSTORE_PASSWORD: ${{ secrets.AMIGA_KEYSTORE_PASSWORD }}
           AMIGA_KEY_ALIAS: ${{ secrets.AMIGA_KEY_ALIAS }}
           AMIGA_KEY_PASSWORD: ${{ secrets.AMIGA_KEY_PASSWORD }}
         run: |
-          UNSIGNED=$(find src-tauri/gen/android/app/build/outputs/apk -name '*-unsigned.apk' | head -1)
-          if [ -z "$UNSIGNED" ]; then
-            echo "::error::No unsigned APK found to sign"
-            exit 1
-          fi
-          echo "Signing: $UNSIGNED"
-          SIGNED="${UNSIGNED/-unsigned.apk/.apk}"
+          APK_DIR=src-tauri/gen/android/app/build/outputs/apk
           ZIPALIGN=$(ls -d /usr/local/lib/android/sdk/build-tools/*/zipalign | head -1)
           APKSIGNER=$(ls -d /usr/local/lib/android/sdk/build-tools/*/apksigner | head -1)
           echo "Using zipalign: $ZIPALIGN"
           echo "Using apksigner: $APKSIGNER"
+
+          # List all APK files for debugging (echo'd to log; ::error:: to annotations for visibility)
+          echo "APK_DIR=$APK_DIR"
+          echo "APK output structure:"
+          find "$APK_DIR" -type f 2>/dev/null | head -30 || echo "::warning::(empty $APK_DIR)"
+          echo "---"
+          # Also check broader output paths
+          FOUND=$(find src-tauri/gen/android -name '*.apk' -type f 2>/dev/null)
+          if [ -z "$FOUND" ]; then
+            echo "::warning::No APK files found in gen/"
+          else
+            echo "$FOUND" | head -20
+          fi
+          echo "---"
+          # Check the entire build output tree
+          echo "::warning::Build output tree:"
+          find src-tauri/gen/android/app/build -maxdepth 6 -type f 2>/dev/null | head -50 || echo "(empty build tree)"
+          echo "::warning::---"
+          # Check outputs/apk recursively
+          find src-tauri/gen/android/app/build/outputs -type f 2>/dev/null | head -30 || echo "(no outputs)"
+          echo "::warning::---"
+          # Check for any .aab files too
+          find src-tauri/gen/android -name '*.aab' -type f 2>/dev/null | head -10 || echo "(no aab)"
+          # Also check src-tauri/target for APKs
+          find src-tauri/target -name '*.apk' -type f 2>/dev/null | head -10 || echo "(no apk in target)"
+
+          # Check if a signed APK already exists
+          SIGNED=$(find "$APK_DIR" -name '*.apk' ! -name '*-unsigned.apk' | head -1)
+          if [ -n "$SIGNED" ]; then
+            if "$APKSIGNER" verify --verbose "$SIGNED" 2>&1 | head -5; then
+              echo "✓ APK already signed: $SIGNED"
+              exit 0
+            else
+              echo "APK found but not signed, will sign: $SIGNED"
+            fi
+          fi
+
+          # Fallback: find and sign the unsigned APK
+          UNSIGNED=$(find "$APK_DIR" -name '*-unsigned.apk' | head -1)
+          if [ -z "$UNSIGNED" ]; then
+            echo "::error::No APK found to sign (searched for signed and unsigned)"
+            # Broader search
+            echo "Broader APK search:" && find / -name '*.apk' -type f 2>/dev/null | head -20
+            exit 1
+          fi
+          echo "Signing unsigned APK: $UNSIGNED"
+          SIGNED="${UNSIGNED/-unsigned.apk/.apk}"
           "$ZIPALIGN" -f -p 4 "$UNSIGNED" "$SIGNED"
           "$APKSIGNER" sign \
             --ks src-tauri/amiga-release.keystore \
