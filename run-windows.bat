@@ -3,7 +3,7 @@ cd /d "%~dp0"
 
 echo [Amiga] Starting Windows dev session on port 1420...
 
-:: Check if port 1420 is already in use — only kill if something is actually listening
+:: Check if port 1420 is already in use -- only kill if something is actually listening
 netstat -aon | findstr :1420 >nul 2>&1
 if %errorlevel% equ 0 (
   echo [Amiga] Port 1420 in use. Cleaning up previous session...

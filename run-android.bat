@@ -21,7 +21,7 @@ cd /d "%~dp0"
 ::  -------------------------------------------------
 ::  - Vite dev server runs **on this PC** at http://localhost:1420.
 ::    Editing Vue/CSS/JS pushes HMR straight to the emulator's
-::    WebView — **no Rust recompile, no APK reinstall**.
+::    WebView -- **no Rust recompile, no APK reinstall**.
 ::  - Editing Rust triggers an incremental cargo build (~5-20 s on
 ::    a warm cache) and an automatic `adb install -r` of the new
 ::    APK, preserving app data.
@@ -63,7 +63,7 @@ if %errorlevel% neq 0 (
 
 :: Pick the ABI that matches what's connected: emulator usually
 :: reports x86_64; a physical Pixel reports arm64-v8a. The .bat below
-:: defaults to x86_64 (emulator) — change TARGET_ABI to build for
+:: defaults to x86_64 (emulator) -- change TARGET_ABI to build for
 :: a physical device.
 set TARGET_ABI=x86_64
 
@@ -90,7 +90,7 @@ if not exist "src-tauri\gen\android" (
 )
 
 :: Sync custom Kotlin sources + inject debug-signing patch.
-:: NB: idempotent — safe to run every dev start. Without this, a
+:: NB: idempotent -- safe to run every dev start. Without this, a
 :: fresh `tauri android init` would clobber MainActivity.kt.
 echo [Amiga] Applying Android patch (Kotlin sources + debug signing)...
 node scripts\android-patch.cjs
@@ -106,10 +106,10 @@ if %errorlevel% neq 0 (
 :: totally different key), `adb install -r` inside tauri android
 :: dev will fail with INSTALL_FAILED_UPDATE_INCOMPATIBLE and dev
 :: watch will hang. Our own debug+release builds share
-:: `amiga-release.keystore` so they never trip this — but if you
+:: `amiga-release.keystore` so they never trip this -- but if you
 :: have been installing foreign APKs you may need a one-shot
 :: uninstall. Uncomment the line below to force a clean install
-:: (WARNING: wipes app data — DB, wizard state, vocab progress).
+:: (WARNING: wipes app data -- DB, wizard state, vocab progress).
 ::
 :: "adb uninstall com.idioma.app" >nul 2>&1
 
@@ -126,8 +126,8 @@ if %RC% neq 0 (
   echo [Amiga] tauri android dev exited with code %RC%.
   echo [Amiga] Common causes:
   echo   - Rust panic (see log above). Fix the source and re-run.
-  echo   - INSTALL_FAILED_UPDATE_INCOMPATIBLE — re-run this script
+  echo   - INSTALL_FAILED_UPDATE_INCOMPATIBLE -- re-run this script
   echo     (it pre-uninstalls; resigned-by-us APKs won't trigger this).
-  echo   - Emulator died — restart it and re-run.
+  echo   - Emulator died -- restart it and re-run.
 )
 pause
