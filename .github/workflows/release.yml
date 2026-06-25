@@ -153,11 +153,23 @@ jobs:
           echo "Using zipalign: $ZIPALIGN"
           echo "Using apksigner: $APKSIGNER"
 
-          # List all APK files for debugging
-          echo "APK output structure:" && find "$APK_DIR" -type f 2>/dev/null | head -30 || echo "(empty $APK_DIR)"
+          # List all APK files for debugging (echo'd to log; ::error:: to annotations for visibility)
+          echo "APK_DIR=$APK_DIR"
+          echo "APK output structure:"
+          find "$APK_DIR" -type f 2>/dev/null | head -30 || echo "::warning::(empty $APK_DIR)"
           echo "---"
           # Also check broader output paths
-          find src-tauri/gen/android -name '*.apk' -type f 2>/dev/null | head -20 || echo "(no APK files found in gen/)"
+          FOUND=$(find src-tauri/gen/android -name '*.apk' -type f 2>/dev/null)
+          if [ -z "$FOUND" ]; then
+            echo "::warning::No APK files found in gen/"
+          else
+            echo "$FOUND" | head -20
+          fi
+          echo "---"
+          # Check if the build output dir exists at all
+          for d in "$APK_DIR" "$APK_DIR/release" "$APK_DIR/debug" "$APK_DIR/universal" "$APK_DIR/universal/release" "$APK_DIR/arm64-v8a" "$APK_DIR/arm64-v8a/release"; do
+            if [ -d "$d" ]; then echo "::warning::Found dir: $d ($(ls "$d" | wc -l) files)"; fi
+          done
 
           # Check if a signed APK already exists
           SIGNED=$(find "$APK_DIR" -name '*.apk' ! -name '*-unsigned.apk' | head -1)
