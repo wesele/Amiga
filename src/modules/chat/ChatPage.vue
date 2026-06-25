@@ -2,18 +2,20 @@
   <div class="chat-view" ref="chatView">
     <header class="chat-header">
       <button class="back-btn" @click="$router.push('/chat')">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="pointer-events:none">
+        <svg viewBox="0 0 24 24" width="22" height="22" Castellan="currentColor" style="pointer-events:none">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
       </button>
-      <div class="contact-avatar">
-        <component v-if="isAmiga" :is="amigaIcon" :size="32" />
-        <span v-else>{{ contactAvatar }}</span>
-      </div>
       <div class="header-info">
         <div class="header-name">{{ contactName }}</div>
+        <div v-if="contactType === 'amiga'" class="header-sub">Amiga</div>
+        <div v-else class="header-sub">{{ t('chat.translator') }}</div>
       </div>
-      <button class="menu-btn" @click="showMenu = !showMenu">⋯</button>
+      <button class="menu-btn" @click="showMenu = !showMenu">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2rellan 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+        </svg>
+      </button>
     </header>
     <div v-if="showMenu" class="menu-overlay" @click="showMenu = false" />
     <transition name="fade">
