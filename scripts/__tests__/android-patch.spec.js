@@ -7,6 +7,7 @@ import {
   extractFragmentBody,
   mergeManifest,
   mergeGradleDebugSigning,
+  ensureGradleKeystore,
 } from "../android-patch.cjs";
 
 // A representative copy of the manifest Tauri currently generates. We
@@ -356,5 +357,131 @@ describe("mergeGradleDebugSigning", () => {
     // Idempotent under CRLF too.
     const twice = mergeGradleDebugSigning(patched);
     expect(twice).toBe(patched);
+  });
+});
+
+// Tauri 2.11.2+ generates a simplified build.gradle.kts without the
+// keystore infrastructure (import FileInputStream, keystoreProperties
+// block, signingConfigs block, signingConfig assignment). This fixture
+// captures that shape so we can test the ensureGradleKeystore bridge.
+const GENERATED_GRADLE_V3 = `import java.util.Properties
+
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("rust")
+}
+
+val tauriProperties = Properties().apply {
+    val propFile = file("tauri.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+
+android {
+    compileSdk = 36
+    namespace = "com.idioma.app"
+    defaultConfig {
+        manifestPlaceholders["usesCleartextTraffic"] = "false"
+        applicationId = "com.idioma.app"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
+        versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    buildTypes {
+        getByName("debug") {
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+            isDebuggable = true
+            isJniDebuggable = true
+            isMinifyEnabled = false
+            packaging {                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
+                jniLibs.keepDebugSymbols.add("*/armeabi-v7a/*.so")
+                jniLibs.keepDebugSymbols.add("*/x86/*.so")
+                jniLibs.keepDebugSymbols.add("*/x86_64/*.so")
+            }
+        }
+        getByName("release") {
+            isMinifyEnabled = true
+            proguardFiles(
+                *fileTree(".") { include("**/*.pro") }
+                    .plus(getDefaultProguardFile("proguard-android-optimize.txt"))
+                    .toList().toTypedArray()
+            )
+        }
+    }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+    buildFeatures {
+        buildConfig = true
+    }
+}
+
+rust {
+    rootDirRel = "../../../"
+}
+
+dependencies {
+    implementation("androidx.webkit:webkit:1.14.0")
+}
+
+apply(from = "tauri.build.gradle.kts")
+`;
+
+describe("ensureGradleKeystore", () => {
+  it("adds import java.io.FileInputStream when missing", () => {
+    const result = ensureGradleKeystore(GENERATED_GRADLE_V3);
+    expect(result).toContain("import java.io.FileInputStream");
+  });
+
+  it("adds the keystoreProperties block when missing", () => {
+    const result = ensureGradleKeystore(GENERATED_GRADLE_V3);
+    expect(result).toContain("val keystoreProperties = Properties()");
+    expect(result).toContain('val keystorePropertiesFile = file("keystore.properties")');
+    expect(result).toContain("FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }");
+  });
+
+  it("adds the signingConfigs block when missing", () => {
+    const result = ensureGradleKeystore(GENERATED_GRADLE_V3);
+    expect(result).toContain("signingConfigs {");
+    expect(result).toContain('create("release") {');
+    expect(result).toContain('storeFile = keystoreProperties["storeFile"]');
+  });
+
+  it("adds signingConfig assignment to release buildType when missing", () => {
+    const result = ensureGradleKeystore(GENERATED_GRADLE_V3);
+    expect(result).toContain('signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")');
+  });
+
+  it("is idempotent — running twice yields the same result", () => {
+    const once = ensureGradleKeystore(GENERATED_GRADLE_V3);
+    const twice = ensureGradleKeystore(once);
+    expect(twice).toBe(once);
+  });
+
+  it("does not duplicate on the old template (already has keystore infra)", () => {
+    const result = ensureGradleKeystore(GENERATED_GRADLE);
+    expect(result).toBe(GENERATED_GRADLE);
+  });
+});
+
+describe("mergeGradleDebugSigning (v3 template without keystore infra)", () => {
+  it("patching a v3 template succeeds (keystore infra injected first)", () => {
+    const patched = mergeGradleDebugSigning(GENERATED_GRADLE_V3);
+    expect(patched).toContain(PATCH_GRADLE_BEGIN);
+    expect(patched).toContain(PATCH_GRADLE_END);
+    expect(patched).toContain('signingConfig = signingConfigs.getByName("release")');
+    expect(patched).toContain('keystoreProperties.getProperty("storeFile") != null');
+    // The keystore infra was injected
+    expect(patched).toContain("val keystoreProperties");
+    expect(patched).toContain("signingConfigs {");
+  });
+
+  it("patching v3 is idempotent", () => {
+    const once = mergeGradleDebugSigning(GENERATED_GRADLE_V3);
+    const twice = mergeGradleDebugSigning(once);
+    expect(twice).toBe(once);
   });
 });

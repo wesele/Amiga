@@ -166,6 +166,78 @@ function mergeManifest(generated, fragmentBody) {
 }
 
 /**
+ * Ensure the generated `app/build.gradle.kts` has the keystore
+ * infrastructure that `mergeGradleDebugSigning` depends on:
+ * `import java.io.FileInputStream`, the `keystoreProperties` variable,
+ * a `signingConfigs` block, and a `signingConfig` assignment in the
+ * release buildType.
+ *
+ * Tauri 2.11.2+ generates a simplified build.gradle.kts without these
+ * blocks (signing is handled externally by the CLI). This function
+ * injects them when missing so the debug-signing patch can reference
+ * `keystoreProperties` and `signingConfigs`.
+ *
+ * Idempotent: does nothing if the infrastructure already exists.
+ * Returns the (possibly modified) gradle file content.
+ */
+function ensureGradleKeystore(generated) {
+  let result = generated;
+
+  // 1. Ensure `import java.io.FileInputStream`
+  if (!result.includes("import java.io.FileInputStream")) {
+    result = result.replace(
+      "import java.util.Properties",
+      "import java.util.Properties\nimport java.io.FileInputStream",
+    );
+  }
+
+  // 2. Ensure keystoreProperties block after tauriProperties
+  if (!result.includes("val keystoreProperties")) {
+    // Match the entire tauriProperties block — from `val tauriProperties`
+    // through its closing top-level `}`, so we insert after it.
+    const re = /val tauriProperties\b[\s\S]*?\n\}(?=\r?\n(?:$|\r?\n))/;
+    const m = result.match(re);
+    if (m) {
+      const insertAt = m.index + m[0].length;
+      result =
+        result.slice(0, insertAt) +
+        "\n\n" +
+        "val keystoreProperties = Properties()\n" +
+        "val keystorePropertiesFile = file(\"keystore.properties\")\n" +
+        "if (keystorePropertiesFile.exists()) {\n" +
+        "    FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }\n" +
+        "}\n" +
+        result.slice(insertAt);
+    }
+  }
+
+  // 3. Ensure signingConfigs inside android { ... } before buildTypes
+  if (!result.includes("signingConfigs")) {
+    result = result.replace(
+      /(\n\s{4}buildTypes\s*\{)/,
+      "\n    signingConfigs {\n" +
+      '        create("release") {\n' +
+      '            storeFile = keystoreProperties["storeFile"]?.toString()?.let { file(it) }\n' +
+      '            storePassword = keystoreProperties["storePassword"]?.toString() ?: ""\n' +
+      '            keyAlias = keystoreProperties["keyAlias"]?.toString() ?: ""\n' +
+      '            keyPassword = keystoreProperties["keyPassword"]?.toString() ?: ""\n' +
+      "        }\n" +
+      "    }\n$1",
+    );
+  }
+
+  // 4. Ensure signingConfig assignment inside the release buildType
+  if (!result.includes("signingConfig = signingConfigs")) {
+    result = result.replace(
+      /(getByName\("release"\)\s*\{)(\r?\n)/,
+      "$1$2            signingConfig = signingConfigs.findByName(\"release\") ?: signingConfigs.getByName(\"debug\")$2",
+    );
+  }
+
+  return result;
+}
+
+/**
  * Inject a `signingConfig = signingConfigs.getByName("release")` assignment
  * guarded by a keystore-properties check into the `debug` buildType block
  * of a Tauri-generated `app/build.gradle.kts`.
@@ -188,6 +260,10 @@ function mergeManifest(generated, fragmentBody) {
  * Idempotent: a prior patch block (between PATCH_GRADLE_BEGIN and
  * PATCH_GRADLE_END) is stripped first.
  *
+ * Before patching, [ensureGradleKeystore] is called to guarantee that
+ * the keystore infrastructure (`keystoreProperties`, `signingConfigs`)
+ * exists in the file — Tauri 2.11.2+ omits these from its template.
+ *
  * Returns the patched file content, or the input unchanged if already
  * patched (i.e. the strip left the file identical and no insertion was
  * needed).
@@ -197,6 +273,10 @@ function mergeManifest(generated, fragmentBody) {
  * patch's anchor must be updated.
  */
 function mergeGradleDebugSigning(generated) {
+  // Ensure the generated gradle has the keystore plumbing that the
+  // debug-signing patch depends on (Tauri 2.11.2+ drops it from the
+  // default template).
+  generated = ensureGradleKeystore(generated);
   // Detect the file's line ending so the inserted block matches the
   // surrounding style (no mixed CR/LF when re-running on Windows
   // machines where `tauri android init` writes CRLF).
@@ -251,6 +331,7 @@ module.exports = {
   extractFragmentBody,
   mergeManifest,
   mergeGradleDebugSigning,
+  ensureGradleKeystore,
   dedent,
   trimBlankLines,
 };
