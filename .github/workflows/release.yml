@@ -128,6 +128,8 @@ jobs:
           keyPassword=${AMIGA_KEY_PASSWORD}
           EOF
       - name: Build APK (aarch64)
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
         run: npx tauri android build --target aarch64 --apk 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
       - name: Upload build log (always)
         if: always()
