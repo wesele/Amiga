@@ -53,13 +53,53 @@ set PATH=C:\msys64\mingw64\bin;%PATH%
 :: adb, otherwise `tauri android dev` will hang waiting for one.
 echo [Amiga] Checking for connected devices...
 "%ANDROID_HOME%\platform-tools\adb.exe" devices 2>nul | findstr "device$" >nul
-if %errorlevel% neq 0 (
-  echo [ERROR] No adb device or emulator connected.
-  echo [Amiga] Start an emulator first (AVD Manager, API 24+, x86_64)
+if %errorlevel% equ 0 goto :device_ready
+
+:: No device connected -- try to launch the first available AVD.
+echo [Amiga] No device connected. Looking for available AVDs...
+set EMULATOR_CMD=%ANDROID_HOME%\emulator\emulator.exe
+if not exist "%EMULATOR_CMD%" (
+  echo [ERROR] No device connected and emulator.exe not found.
+  echo [Amiga] Create an AVD via Android Studio AVD Manager (API 24+, x86_64)
   echo [Amiga] then re-run this script.
   pause
   exit /b 1
 )
+
+:: Grab the first AVD name (skip blank lines).
+set FIRST_AVD=
+for /f "usebackq delims=" %%a in (`"%EMULATOR_CMD%" -list-avds 2^>nul`) do (
+  if not defined FIRST_AVD set FIRST_AVD=%%a
+)
+if not defined FIRST_AVD (
+  echo [ERROR] No AVD found. Create one via Android Studio AVD Manager (API 24+, x86_64).
+  pause
+  exit /b 1
+)
+
+:: Launch emulator in the background (no -no-window flag; user needs to
+:: see the emulator) with -no-audio to reduce noise.
+echo [Amiga] Launching AVD: %FIRST_AVD%
+start "" /b "%EMULATOR_CMD%" -avd %FIRST_AVD% -no-audio >nul 2>&1
+
+:: Wait for the device to appear in `adb devices` (boot may still be
+:: in progress, but `tauri android dev` can handle that).
+echo [Amiga] Waiting for emulator to register with adb...
+set _WAIT=0
+:_wait_loop
+"%ANDROID_HOME%\platform-tools\adb.exe" devices 2>nul | findstr "device$" >nul
+if %errorlevel% equ 0 goto :device_ready
+set /a _WAIT+=1
+if %_WAIT% geq 60 (
+  echo [ERROR] Timed out waiting for emulator (60 s).
+  echo [Amiga] Check if the emulator window appeared, or try launching it manually.
+  pause
+  exit /b 1
+)
+timeout /t 1 >nul
+goto :_wait_loop
+
+:device_ready
 
 :: Pick the ABI that matches what's connected: emulator usually
 :: reports x86_64; a physical Pixel reports arm64-v8a. The .bat below
