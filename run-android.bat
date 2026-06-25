@@ -57,25 +57,26 @@ if %errorlevel% equ 0 goto :device_ready
 
 :: No device connected -- try to launch the first available AVD.
 echo [Amiga] No device connected. Looking for available AVDs...
-set EMULATOR_CMD=%ANDROID_HOME%\emulator\emulator.exe
-if not exist "%EMULATOR_CMD%" (
-  echo [ERROR] No device connected and emulator.exe not found.
-  echo [Amiga] Create an AVD via Android Studio AVD Manager (API 24+, x86_64)
-  echo [Amiga] then re-run this script.
-  pause
-  exit /b 1
-)
+set "EMULATOR_CMD=%ANDROID_HOME%\emulator\emulator.exe"
+if exist "%EMULATOR_CMD%" goto :emulator_found
+echo [ERROR] No device connected and emulator.exe not found at:
+echo         %EMULATOR_CMD%
+echo [Amiga] Create an AVD via Android Studio AVD Manager (API 24+, x86_64)
+echo [Amiga] then re-run this script.
+pause
+exit /b 1
+:emulator_found
 
 :: Grab the first AVD name (skip blank lines).
-set FIRST_AVD=
+set "FIRST_AVD="
 for /f "usebackq delims=" %%a in (`"%EMULATOR_CMD%" -list-avds 2^>nul`) do (
-  if not defined FIRST_AVD set FIRST_AVD=%%a
+  if not defined FIRST_AVD set "FIRST_AVD=%%a"
 )
-if not defined FIRST_AVD (
-  echo [ERROR] No AVD found. Create one via Android Studio AVD Manager (API 24+, x86_64).
-  pause
-  exit /b 1
-)
+if defined FIRST_AVD goto :avd_found
+echo [ERROR] No AVD found. Create one via Android Studio AVD Manager (API 24+, x86_64).
+pause
+exit /b 1
+:avd_found
 
 :: Launch emulator in the background (no -no-window flag; user needs to
 :: see the emulator) with -no-audio to reduce noise.
