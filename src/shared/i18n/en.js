@@ -112,7 +112,7 @@ export default {
     sample: "Sample",
     share: "Share",
     sharing: "Sharing…",
-    shareTitle: "Share to Gemini or another app to keep discussing",
+    shareTitle: "Share to another app to keep discussing",
     sharePrompt: "I'm learning {target} and just read this article — I'd like to discuss it with you.\n\nPlease help me:\n1. Summarize the key points\n2. Explain important vocabulary and cultural context\n3. Suggest a few follow-up questions\n\n",
     shareSource: "Source: ",
     shareCopied: "Copied to clipboard — paste it in Gemini or any AI to keep discussing",

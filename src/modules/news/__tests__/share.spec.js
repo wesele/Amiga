@@ -38,6 +38,7 @@ function makeOnShare({
   navigatorRef,         // the navigator-like object to read .share / .clipboard from
   copyImpl,             // (text) => bool | Promise<bool>
   buildShare = buildShareText,
+  amigaShareRef = null, // mock of window.__amigaShare (Android native bridge)
 } = {}) {
   return async function onShare() {
     const state = { sharing: false, shareStatus: "", statusTimer: null };
@@ -55,6 +56,12 @@ function makeOnShare({
           prompt: t("news.sharePrompt", { target: "Spanish" }),
           sourceLabel: t("news.shareSource"),
         });
+
+        // On Android, use the native share sheet via Kotlin bridge.
+        if (amigaShareRef && typeof amigaShareRef.shareText === "function") {
+          await amigaShareRef.shareText(text);
+          return; // user completed EXP_MODIFIED (or dismissed without error)
+        }
 
         if (typeof navigatorRef.share === "function") {
           try {
@@ -138,6 +145,40 @@ describe("NewsReader onShare", () => {
       });
     }
   }
+
+  it("uses __amigaShare native bridge on Android and skips web share / clipboard", async () => {
+    const nativeShare = vi.fn().mockResolvedValue();
+    const amiga = { shareText: nativeShare };
+    const share = vi.fn().mockResolvedValue();
+    setNavigator({ share });
+    const copy = vi.fn().mockResolvedValue(true);
+    const factory = makeOnShare({ article: ARTICLE, t: T, navigatorRef: global.navigator, copyImpl: copy, amigaShareRef: amiga });
+    const s = await factory();
+    await s.run();
+
+    expect(nativeShare).toHaveBeenCalledTimes(1);
+    const text = nativeShare.mock.calls[0][0];
+    expect(text).toContain("El cambio climático");
+    expect(text).toContain("El planeta se calienta.");
+    // Should NOT fall back to navigator.share or clipboard.
+    expect(share).not.toHaveBeenCalled();
+    expect(copy).not.toHaveBeenCalled();
+    expect(s.shareStatus).toBe("");
+  });
+
+  it("falls back to navigator.share when __amigaShare is absent", async () => {
+    const share = vi.fn().mockResolvedValue();
+    setNavigator({ share });
+    const copy = vi.fn().mockResolvedValue(true);
+    // amigaShareRef defaults to null.
+    const factory = makeOnShare({ article: ARTICLE, t: T, navigatorRef: global.navigator, copyImpl: copy });
+    const s = await factory();
+    await s.run();
+
+    expect(share).toHaveBeenCalledTimes(1);
+    expect(copy).not.toHaveBeenCalled();
+    expect(s.shareStatus).toBe("");
+  });
 
   it("calls navigator.share with title, text, and url when available", async () => {
     const share = vi.fn().mockResolvedValue();

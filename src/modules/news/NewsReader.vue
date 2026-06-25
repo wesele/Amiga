@@ -147,7 +147,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, getLearningGoals } from "@/shared/api.js";
+import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, getLearningGoals, shareText } from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -608,10 +608,14 @@ async function onShare() {
       sourceLabel: t("news.shareSource"),
     });
 
-    // Prefer the Web Share API: on Android the OS shows a share sheet
-    // that includes Gemini, the system clipboard, messaging apps, etc.
-    // On desktop Chromium the API may be absent — fall back to copying
-    // the text so the user can paste it into any AI manually.
+    // On Android, use the native OS share sheet via Kotlin bridge so
+    // the user can pick any installed app (WeChat, ChatGPT, etc.).
+    if (window.__amigaShare && typeof window.__amigaShare.shareText === "function") {
+      await shareText(text);
+      return;
+    }
+
+    // Fallback for non-Android platforms: try Web Share API, then clipboard.
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       try {
         await navigator.share({
@@ -619,10 +623,9 @@ async function onShare() {
           text,
           url: source || undefined,
         });
-        return; // user completed (or dismissed without error) the share sheet
+        return;
       } catch (e) {
-        // AbortError = user dismissed the sheet; treat as a no-op,
-        // not a failure. Anything else falls through to clipboard.
+        // AbortError = user dismissed the sheet; treat as a no-op.
         if (e && e.name === "AbortError") return;
       }
     }

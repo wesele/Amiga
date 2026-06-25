@@ -93,6 +93,8 @@ pub fn run() {
             commands::chat::get_chat_messages_cmd,
             commands::chat::update_chat_session_title_cmd,
             commands::chat::get_amiga_profile_cmd,
+            // Share commands
+            commands::share::share_text_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

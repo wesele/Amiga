@@ -110,3 +110,6 @@ export const updateChatSessionTitle = (sessionId, title) =>
 export const getAmigaProfile = (targetLang) =>
   _invoke("get_amiga_profile_cmd", { targetLang });
 
+export const shareText = (text) =>
+  _invoke("share_text_cmd", { text });
+

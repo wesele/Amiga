@@ -115,7 +115,7 @@ export default {
     sample: "示例",
     share: "分享",
     sharing: "分享中…",
-    shareTitle: "分享到 Gemini 等应用继续讨论",
+    shareTitle: "分享到其他应用继续讨论",
     sharePrompt: "我正在学习{target}，刚读到一篇新闻，想和你进一步讨论。\n\n请帮我：\n1. 总结核心观点\n2. 解释关键生词与文化背景\n3. 抛出几个延伸问题\n\n",
     shareSource: "来源：",
     shareCopied: "已复制到剪贴板，可粘贴到 Gemini 等应用继续讨论",

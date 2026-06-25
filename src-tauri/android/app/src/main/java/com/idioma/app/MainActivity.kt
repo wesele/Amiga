@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.content.Intent
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
@@ -98,6 +99,10 @@ class MainActivity : TauriActivity() {
         // then the dotted-name form (which is what newer SDKs accept
         // for inner classes) as a fallback.
         installSelectionCallback(webView, cb)
+
+        // 4) Share bridge: expose __amigaShare.shareText() so the
+        //    frontend can trigger the native Android share sheet.
+        installShareBridge(webView)
     }
 
     override fun onDestroy() {
@@ -298,6 +303,26 @@ class MainActivity : TauriActivity() {
         // WebView creates. We log so it's clear in logcat that the
         // modern API path is what's being used.
         Log.w(TAG, "WebView has no setCustomSelectionActionModeCallback — using activity-level onActionModeStarted hook instead")
+    }
+
+    /**
+     * Install a JS bridge that exposes `window.__amigaShare.shareText(text)`.
+     * When the frontend calls it, we create an ACTION_SEND intent so the
+     * user can pick any app (WeChat, ChatGPT, etc.) to receive the text.
+     */
+    private fun installShareBridge(webView: WebView) {
+        webView.addJavascriptInterface(object {
+            @JavascriptInterface
+            fun shareText(text: String) {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, text)
+                }
+                val chooser = Intent.createChooser(intent, null)
+                // Start the chooser from the activity context.
+                this@MainActivity.startActivity(chooser)
+            }
+        }, "__amigaShare")
     }
 
     companion object {
