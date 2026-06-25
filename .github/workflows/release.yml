@@ -127,23 +127,8 @@ jobs:
           keyAlias=${AMIGA_KEY_ALIAS}
           keyPassword=${AMIGA_KEY_PASSWORD}
           EOF
-      - name: Build APK
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
-        shell: bash
-        run: |
-          set -o pipefail
-          echo "=== Running tauri android build (aarch64) ==="
-          npx tauri android build --target aarch64 --apk > build.log 2>&1; EXIT_CODE=$?
-          echo "Exit code: $EXIT_CODE"
-          if [ $EXIT_CODE -ne 0 ]; then
-            tail -30 build.log 2>/dev/null
-            echo "::error::tauri android build failed"
-            exit $EXIT_CODE
-          fi
-          echo "=== APK output files ==="
-          find src-tauri/gen/android -name '*.apk' -o -name '*.aab' 2>/dev/null | head -30 || echo "(none)"
-          find src-tauri/gen/android/app/build/outputs -type f 2>/dev/null | head -30 || echo "(no build outputs)"
+      - name: Build APK (aarch64)
+        run: npx tauri android build --target aarch64 --apk
       - name: Upload build log (always)
         if: always()
         uses: actions/upload-artifact@v4
