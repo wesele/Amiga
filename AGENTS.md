@@ -53,6 +53,12 @@
 5. 模拟器上点 / 滑 / 截屏 → 见 [docs/android-adb-debugging.md](./docs/android-adb-debugging.md)。
 6. 真机调试（arm64 物理设备）：见 `run-android.bat` 顶部注释里的 `TAURI_DEV_HOST` 与 `--target aarch64` 指引。
 
+### 4.6 Android 安全区（safe-area）陷阱
+
+⚠️ **关键教训：Android `WindowInsetsCompat` 返回设备像素，CSS `px` 是逻辑像素。** `__amigaSetInsets` 桥接函数收到的是设备像素值（如 top=145），必须除以 `window.devicePixelRatio` 再赋给 CSS 变量。忘记这一步会导致 safe-area 变成实际值的 ~2.75 倍（440dpi 设备），出现大片空白。
+
+验证方式：`adb logcat -s Amiga/Main:*` 查看 `safe-area:` 行确认原始值，在 `__amigaSetInsets` 内加 `console.log` 确认 DPR 转换后的值。
+
 ### 5. 提交
 - 任务收尾时自动 commit 到**本地 git**（用户不要求也要做）；push / 发版仍需用户明确要求
 - 提交格式与命名约定 → 详见 [docs/conventions.md](./docs/conventions.md)
