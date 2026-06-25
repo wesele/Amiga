@@ -1,7 +1,7 @@
 use tauri::AppHandle;
 
 #[tauri::command]
-pub fn share_text_cmd(_app: AppHandle, text: String) -> Result<(), String> {
+pub fn share_text_cmd(app: AppHandle, text: String) -> Result<(), String> {
     if text.trim().is_empty() {
         return Err("Share text is empty".to_string());
     }
