@@ -342,7 +342,7 @@ describe("mergeGradleDebugSigning", () => {
   it("handles CRLF line endings (Windows, default for tauri android init)", () => {
     // CRLF version of the gradle file — same byte content, every \n
     // replaced by \r\n. tauri android init on Windows produces this.
-    constCrLf = GENERATED_GRADLE.replace(/\n/g, "\r\n");
+    const CRLF = GENERATED_GRADLE.replace(/\n/g, "\r\n");
     const patched = mergeGradleDebugSigning(CRLF);
     expect(patched).not.toBe(CRLF);
     // All inserted block lines must use CRLF (no stray LF).
