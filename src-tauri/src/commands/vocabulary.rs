@@ -90,6 +90,16 @@ pub async fn lookup_word_ids_cmd(
 }
 
 #[tauri::command]
+pub async fn ensure_words_seen_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+    words: Vec<String>,
+    language: String,
+) -> Result<(), String> {
+    vocab_mod::ensure_words_seen(&db, &user_id, &words, &language)
+}
+
+#[tauri::command]
 pub async fn add_discovered_word_cmd(
     db: State<'_, DatabasePool>,
     user_id: String,

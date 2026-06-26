@@ -359,7 +359,7 @@ mod tests {
         drop(conn);
 
         let stats = get_user_vocab_stats_by_level(&pool, &uid, "es").unwrap();
-        assert_eq!(stats.len(), 2, "Should have 2 levels");
+        assert_eq!(stats.len(), 3, "Should have 3 levels (A1, A2, D)");
 
         let a1 = stats.iter().find(|s| s.level == "A1").unwrap();
         assert_eq!(a1.total, 2);
@@ -597,6 +597,58 @@ mod tests {
         let w1 = add_discovered_word(&pool, &uid, "Mariposa", "es", None).unwrap();
         let w2 = add_discovered_word(&pool, &uid, "mariposa", "es", None).unwrap();
         assert_eq!(w1, w2, "Same word with different case should return same ID");
+    }
+
+    #[test]
+    fn test_ensure_words_seen_marks_existing_and_adds_new() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        insert_test_word(&conn, "hola", "A1", "es");
+        insert_test_word(&conn, "gato", "A2", "es");
+        drop(conn);
+
+        ensure_words_seen(&pool, &uid, &["hola".into(), "gato".into()], "es").unwrap();
+
+        let conn = pool.conn().unwrap();
+        let seen_count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM user_vocab WHERE user_id = ?1 AND mastery >= 1",
+                params![uid],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(seen_count, 2);
+    }
+
+    #[test]
+    fn test_ensure_words_seen_adds_discovered_for_missing_words() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        insert_test_word(&conn, "hola", "A1", "es");
+        drop(conn);
+
+        ensure_words_seen(&pool, &uid, &["hola".into(), "desconocido".into()], "es").unwrap();
+
+        let conn = pool.conn().unwrap();
+        let d_count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM vocab_bank WHERE cefr_level = 'D' AND language = 'es' AND LOWER(word) = LOWER('desconocido')",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(d_count, 1);
+
+        let seen_count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM user_vocab WHERE user_id = ?1 AND word_id IN (SELECT id FROM vocab_bank WHERE cefr_level = 'D')",
+                params![uid],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(seen_count, 1, "Discovered word should also be marked seen");
     }
 }
 
@@ -912,7 +964,7 @@ pub fn get_user_vocab_stats_by_level(
         )
         .map_err(|e| format!("Query error: {}", e))?;
 
-    let stats: Vec<LevelStats> = stmt
+    let mut stats: Vec<LevelStats> = stmt
         .query_map(params![user_id, language], |row| {
             Ok(LevelStats {
                 level: row.get(0)?,
@@ -925,6 +977,18 @@ pub fn get_user_vocab_stats_by_level(
         .map_err(|e| format!("Failed to query level stats: {}", e))?
         .filter_map(|r| r.ok())
         .collect();
+
+    // Always show the D (Discovered) level card, even when it has zero words,
+    // so the user knows the collection exists.
+    if !stats.iter().any(|s| s.level == "D") {
+        stats.push(LevelStats {
+            level: "D".to_string(),
+            total: 0,
+            unseen: 0,
+            seen: 0,
+            mastered: 0,
+        });
+    }
 
     Ok(stats)
 }
@@ -1064,6 +1128,79 @@ pub fn add_discovered_word(
     );
 
     Ok(word_id)
+}
+
+/// Ensure every word in `words` is tracked for the user:
+/// - If the word already exists in `vocab_bank` (any level), mark it as
+///   seen (mastery=1) via `INSERT OR IGNORE` (never downgrades).
+/// - If the word does NOT exist in `vocab_bank`, insert it into the "D"
+///   (Discovered) level, then mark it seen.
+///
+/// This is the batch equivalent of `mark_words_seen` + `add_discovered_word`,
+/// called automatically after an article is rewritten so that *all* words
+/// — including those outside the pre-imported CEFR-graded vocabulary — are
+/// captured in one pass, without requiring the user to manually tap each
+/// unknown word.
+pub fn ensure_words_seen(
+    db: &DatabasePool,
+    user_id: &str,
+    words: &[String],
+    language: &str,
+) -> Result<(), String> {
+    if words.is_empty() {
+        return Ok(());
+    }
+
+    let conn = db.conn()?;
+
+    for word in words {
+        let existing_id: Option<i32> = conn
+            .query_row(
+                "SELECT id FROM vocab_bank
+                 WHERE LOWER(word) = LOWER(?1) AND language = ?2
+                 LIMIT 1",
+                params![word, language],
+                |row| row.get(0),
+            )
+            .ok();
+
+        let word_id = if let Some(id) = existing_id {
+            id
+        } else {
+            conn.execute(
+                "INSERT OR IGNORE INTO vocab_bank
+                    (word, lemma, cefr_level, language, frequency)
+                 VALUES (?1, ?1, 'D', ?2, 0)",
+                params![word, language],
+            )
+            .map_err(|e| format!("Failed to insert discovered word '{}': {}", word, e))?;
+
+            conn.query_row(
+                "SELECT id FROM vocab_bank
+                 WHERE LOWER(word) = LOWER(?1) AND language = ?2 AND cefr_level = 'D'
+                 LIMIT 1",
+                params![word, language],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to get id for discovered word '{}': {}", word, e))?
+        };
+
+        conn.execute(
+            "INSERT OR IGNORE INTO user_vocab (user_id, word_id, mastery, source, updated_at)
+             VALUES (?1, ?2, 1, 'news_reading', datetime('now'))",
+            params![user_id, word_id],
+        )
+        .map_err(|e| format!("Failed to mark word '{}' seen: {}", word, e))?;
+    }
+
+    log::debug!(
+        "ensure_words_seen: processed {} words for user {} ({})",
+        words.len(),
+        user_id,
+        language
+    );
+
+    Ok(())
 }
 
 /// Reset all user_vocab records for a given level back to unseen

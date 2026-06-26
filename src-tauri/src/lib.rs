@@ -60,6 +60,7 @@ pub fn run() {
             commands::vocabulary::mark_words_seen_cmd,
             commands::vocabulary::lookup_word_ids_cmd,
             commands::vocabulary::add_discovered_word_cmd,
+            commands::vocabulary::ensure_words_seen_cmd,
             commands::vocabulary::reset_user_vocab_by_level_cmd,
             // LLM commands
             commands::llm::rewrite_article_cmd,

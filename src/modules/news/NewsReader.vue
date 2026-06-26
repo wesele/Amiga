@@ -147,7 +147,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, addDiscoveredWord, getLearningGoals } from "@/shared/api.js";
+import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, ensureWordsSeen, addDiscoveredWord, getLearningGoals } from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -209,6 +209,8 @@ onMounted(async () => {
     article.value = art;
     if (!art.rewritten_body) {
       await doRewrite();
+    } else {
+      processArticleWords();
     }
   } catch (e) {
     console.error("Failed to load article:", e);
@@ -252,20 +254,19 @@ onBeforeUnmount(async () => {
       console.error("Failed to save reading log:", e);
     }
 
-    // Mark article words as "seen" in vocab_bank
-    try {
-      const body = article.value?.rewritten_body || article.value?.original_body || "";
-      const title = article.value?.original_title || "";
-      const allText = `${title} ${body}`;
-      const wordTokens = extractWordTexts(allText);
-      if (wordTokens.length > 0) {
-        const ids = await lookupWordIds(wordTokens, targetLang);
-        if (ids.length > 0) {
-          await markWordsSeen(userId, ids);
+    // Mark article words as "seen" — if not already processed after rewrite.
+    if (!wordsProcessed) {
+      try {
+        const body = article.value?.rewritten_body || article.value?.original_body || "";
+        const title = article.value?.original_title || "";
+        const allText = `${title} ${body}`;
+        const wordTokens = extractWordTexts(allText);
+        if (wordTokens.length > 0) {
+          await ensureWordsSeen(userId, wordTokens, targetLang);
         }
+      } catch (e) {
+        console.error("Failed to mark words as seen:", e);
       }
-    } catch (e) {
-      console.error("Failed to mark words as seen:", e);
     }
   }
 });
@@ -277,12 +278,35 @@ function extractWordTexts(text) {
   return [...new Set(matches.map(w => w.toLowerCase()))];
 }
 
+// After an article is generated (or loaded already-rewritten), ensure every
+// word in the article is tracked for the user. Words already in the CEFR-
+// graded vocabulary (A1–C2) are marked as "seen" (mastery=1); words NOT in
+// the bank are automatically added to the "D" (Discovered) level and also
+// marked seen. This runs automatically — the user does not need to tap
+// each unknown word.
+let wordsProcessed = false;
+async function processArticleWords() {
+  if (wordsProcessed || !userId || !article.value) return;
+  const body = article.value?.rewritten_body || article.value?.original_body || "";
+  const title = article.value?.original_title || "";
+  const allText = `${title} ${body}`;
+  const wordTokens = extractWordTexts(allText);
+  if (wordTokens.length === 0) return;
+  try {
+    await ensureWordsSeen(userId, wordTokens, targetLang);
+    wordsProcessed = true;
+  } catch (e) {
+    console.error("Failed to process article words:", e);
+  }
+}
+
 async function doRewrite() {
   rewriting.value = true;
   rewriteError.value = "";
   try {
     const result = await rewriteArticle(Number(props.id), currentLevel, userId, targetLang);
     article.value = result;
+    processArticleWords();
   } catch (e) {
     console.error("Failed to rewrite article:", e);
     rewriteError.value = typeof e === "string" ? e : (e?.message || t("news.rewriteFail"));
