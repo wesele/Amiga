@@ -70,6 +70,29 @@ mod tests {
     }
 
     #[test]
+    fn test_get_articles_ignores_non_current_rows() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO news_articles (original_title, original_body, source, region, hot_rank, is_current)
+             VALUES ('Hidden News', 'Body', 'https://example.com/hidden', 'world', 1, 0)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO news_articles (original_title, original_body, source, region, hot_rank, is_current)
+             VALUES ('Visible News', 'Body', 'https://example.com/visible', 'world', 2, 1)",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let articles = get_articles(&pool, "world").unwrap();
+        assert_eq!(articles.len(), 1);
+        assert_eq!(articles[0].original_title, "Visible News");
+    }
+
+    #[test]
     fn test_save_and_get_reading_log() {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
@@ -275,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sync_refresh_preserves_read_articles_and_upserts_by_source() {
+    fn test_sync_refresh_hides_old_batch_and_upserts_current_rows() {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
         conn.execute(
@@ -332,7 +355,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sync_refresh_deletes_only_unread_stale_articles() {
+    fn test_sync_refresh_marks_unread_stale_articles_not_current() {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
         conn.execute(
@@ -360,22 +383,51 @@ mod tests {
         assert_eq!(synced.len(), 1);
 
         let conn = pool.conn().unwrap();
-        let stale_count: i32 = conn
+        let stale_state: i32 = conn
             .query_row(
-                "SELECT COUNT(*) FROM news_articles WHERE id = ?1",
+                "SELECT is_current FROM news_articles WHERE id = ?1",
                 params![stale_id],
                 |row| row.get(0),
             )
             .unwrap();
-        let latest_count: i32 = conn
+        let latest_state: i32 = conn
             .query_row(
-                "SELECT COUNT(*) FROM news_articles WHERE source = 'https://example.com/latest'",
+                "SELECT is_current FROM news_articles WHERE source = 'https://example.com/latest'",
                 [],
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(stale_count, 0);
-        assert_eq!(latest_count, 1);
+        assert_eq!(stale_state, 0);
+        assert_eq!(latest_state, 1);
+    }
+
+    #[test]
+    fn test_sync_refresh_clears_visible_batch_when_feed_returns_empty() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO news_articles (original_title, original_body, source, region, hot_rank)
+             VALUES ('Existing', 'Body', 'https://example.com/current', 'ES', 1)",
+            [],
+        )
+        .unwrap();
+        let existing_id = conn.last_insert_rowid() as i32;
+        drop(conn);
+
+        let synced = sync_articles(&pool, "ES", Vec::new()).unwrap();
+        assert!(synced.is_empty());
+
+        let conn = pool.conn().unwrap();
+        let state: i32 = conn
+            .query_row(
+                "SELECT is_current FROM news_articles WHERE id = ?1",
+                params![existing_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(state, 0);
+        drop(conn);
+        assert!(get_articles(&pool, "ES").unwrap().is_empty());
     }
 }
 
@@ -445,43 +497,46 @@ fn sync_articles_with_conn(
     region: &str,
     raw_entries: &[(String, String, Option<String>, String, i32)],
 ) -> Result<Vec<Article>, String> {
-    if raw_entries.is_empty() {
-        log::warn!(
-            "No RSS entries fetched for region {}, keeping existing cache untouched",
-            region
-        );
-        return Ok(Vec::new());
-    }
-
     let tx = conn
         .unchecked_transaction()
         .map_err(|e| format!("Failed to start news sync transaction: {}", e))?;
 
     tx.execute(
-        "DELETE FROM news_articles
-         WHERE region = ?1
-           AND id NOT IN (SELECT article_id FROM news_reading_log)",
+        "UPDATE news_articles
+         SET is_current = 0
+         WHERE region = ?1",
         params![region],
     )
-    .map_err(|e| format!("Failed to clear unread articles: {}", e))?;
+    .map_err(|e| format!("Failed to hide current articles: {}", e))?;
 
     log::info!(
-        "Cleared unread articles for region {}, syncing {} entries",
+        "Cleared visible articles for region {}, syncing {} entries",
         region,
         raw_entries.len()
     );
 
+    if raw_entries.is_empty() {
+        tx.commit()
+            .map_err(|e| format!("Failed to commit empty news refresh: {}", e))?;
+        log::warn!(
+            "No RSS entries fetched for region {}, visible list cleared",
+            region
+        );
+        return Ok(Vec::new());
+    }
+
     let mut articles = Vec::new();
     for (title, summary, image_url, feed_source, rank) in raw_entries {
         tx.execute(
-            "INSERT INTO news_articles (original_title, original_body, source, image_url, region, hot_rank)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            "INSERT INTO news_articles (original_title, original_body, source, image_url, region, hot_rank, is_current)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)
              ON CONFLICT(source) DO UPDATE SET
                  original_title = excluded.original_title,
                  original_body = excluded.original_body,
                  image_url = excluded.image_url,
                  region = excluded.region,
                  hot_rank = excluded.hot_rank,
+                 is_current = 1,
                  fetched_at = datetime('now')",
             params![title, summary, feed_source, image_url, region, rank],
         )
@@ -627,7 +682,8 @@ pub fn get_articles(db: &DatabasePool, region: &str) -> Result<Vec<Article>, Str
             "SELECT id, original_title, original_body, rewritten_body, rewrite_level,
                 source, image_url, region, hot_rank, new_words, fetched_at
          FROM news_articles
-         WHERE region = ?1 OR region IS NULL
+         WHERE (region = ?1 OR region IS NULL)
+           AND COALESCE(is_current, 1) = 1
          ORDER BY hot_rank ASC, fetched_at DESC
          LIMIT 10",
         )

@@ -147,9 +147,11 @@ function showStatus(msg) {
 }
 
 async function onRefresh() {
+  articles.value = [];
   loading.value = true;
   try {
     const result = await fetchNews(regionForLang(targetLang.value), targetLang.value);
+    articles.value = result;
     if (result.length > 0) {
       showStatus(t("news.refreshed", { n: result.length }));
     } else {
@@ -158,8 +160,8 @@ async function onRefresh() {
   } catch (e) {
     console.error("Failed to fetch news:", e);
     showStatus(t("news.refreshFail"));
+    articles.value = [];
   } finally {
-    await loadArticles();
     loading.value = false;
   }
 }

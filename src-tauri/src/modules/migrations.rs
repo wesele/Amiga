@@ -46,6 +46,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add unique index on news_articles(source) to prevent duplicates on refresh",
             MIGRATION_V12,
         ),
+        (
+            13,
+            "Track current news batch visibility so refresh replaces the visible list without deleting reading history",
+            MIGRATION_V13,
+        ),
     ]
 }
 
@@ -284,4 +289,14 @@ DELETE FROM news_articles WHERE id NOT IN (
 
 -- Prevent future duplicates on refresh
 CREATE UNIQUE INDEX IF NOT EXISTS idx_news_source_unique ON news_articles(source);
+"#;
+
+const MIGRATION_V13: &str = r#"
+-- Refresh should replace the visible list immediately, but deleting old rows
+-- breaks the FK from news_reading_log.article_id -> news_articles.id. Keep old
+-- rows for history and hide them from the list via an is_current flag.
+ALTER TABLE news_articles ADD COLUMN is_current INTEGER NOT NULL DEFAULT 1;
+
+CREATE INDEX IF NOT EXISTS idx_news_region_current
+  ON news_articles(region, is_current, hot_rank, fetched_at);
 "#;

@@ -48,6 +48,14 @@ function makeArticles() {
   ];
 }
 
+function deferred() {
+  let resolve;
+  const promise = new Promise((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 async function mountList(articles = makeArticles()) {
   const api = await import("@/shared/api.js");
   api.getArticles.mockResolvedValue(articles);
@@ -147,5 +155,35 @@ describe("NewsList click handling", () => {
     await flushPromises();
     expect(router.currentRoute.value.name).toBe("reader");
     expect(router.currentRoute.value.params.id).toBe("1");
+  });
+
+  it("refresh clears the current list immediately and then renders the fetched batch", async () => {
+    const nextBatch = [
+      {
+        id: 9,
+        hot_rank: 1,
+        original_title: "Fresh headline",
+        source: "https://example.com/fresh",
+        rewritten_body: null,
+      },
+    ];
+    const wait = deferred();
+    const { wrapper, api } = await mountList();
+    api.fetchNews.mockReturnValueOnce(wait.promise);
+
+    expect(wrapper.findAll(".article-card")).toHaveLength(2);
+    await wrapper.find(".refresh-btn").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.findAll(".article-card")).toHaveLength(0);
+    expect(wrapper.find(".skeleton-list").exists()).toBe(true);
+
+    wait.resolve(nextBatch);
+    await flushPromises();
+    await flushPromises();
+
+    const cards = wrapper.findAll(".article-card");
+    expect(cards).toHaveLength(1);
+    expect(cards[0].text()).toContain("Fresh headline");
   });
 });
