@@ -509,7 +509,8 @@ mod tests {
         let uid = create_test_user(&conn);
         drop(conn);
 
-        let wid = add_discovered_word(&pool, &uid, "mariposa", "es", Some("la mariposa vuela")).unwrap();
+        let wid =
+            add_discovered_word(&pool, &uid, "mariposa", "es", Some("la mariposa vuela")).unwrap();
         assert!(wid > 0);
 
         let conn = pool.conn().unwrap();
@@ -541,7 +542,10 @@ mod tests {
         drop(conn);
 
         let wid = add_discovered_word(&pool, &uid, "casa", "es", None).unwrap();
-        assert_eq!(wid, existing_wid, "Should return existing word ID, not create a new D entry");
+        assert_eq!(
+            wid, existing_wid,
+            "Should return existing word ID, not create a new D entry"
+        );
     }
 
     #[test]
@@ -596,7 +600,10 @@ mod tests {
 
         let w1 = add_discovered_word(&pool, &uid, "Mariposa", "es", None).unwrap();
         let w2 = add_discovered_word(&pool, &uid, "mariposa", "es", None).unwrap();
-        assert_eq!(w1, w2, "Same word with different case should return same ID");
+        assert_eq!(
+            w1, w2,
+            "Same word with different case should return same ID"
+        );
     }
 
     #[test]
@@ -1117,7 +1124,12 @@ pub fn add_discovered_word(
          VALUES (?1, ?2, 1, 'news_reading', datetime('now'))",
         params![user_id, word_id],
     )
-    .map_err(|e| format!("Failed to set mastery for discovered word '{}': {}", word, e))?;
+    .map_err(|e| {
+        format!(
+            "Failed to set mastery for discovered word '{}': {}",
+            word, e
+        )
+    })?;
 
     log::debug!(
         "Discovered word: user={} word={} language={} id={}",

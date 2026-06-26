@@ -1,6 +1,6 @@
 use crate::modules::database::DatabasePool;
 use log;
-use rusqlite::params;
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
@@ -273,6 +273,110 @@ mod tests {
         // other user has no reads
         assert_eq!(get_read_article_count(&pool, "other-user").unwrap(), 0);
     }
+
+    #[test]
+    fn test_sync_refresh_preserves_read_articles_and_upserts_by_source() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES ('user-1', 'Reader')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO news_articles (original_title, original_body, source, region, hot_rank)
+             VALUES ('Old title', 'Old body', 'https://example.com/a', 'ES', 1)",
+            [],
+        )
+        .unwrap();
+        let article_id = conn.last_insert_rowid() as i32;
+        conn.execute(
+            "INSERT INTO news_reading_log (user_id, article_id, reading_time_sec, completed)
+             VALUES ('user-1', ?1, 60, 1)",
+            params![article_id],
+        )
+        .unwrap();
+        drop(conn);
+
+        let synced = sync_articles(
+            &pool,
+            "ES",
+            vec![(
+                "Fresh title".to_string(),
+                "Fresh body".to_string(),
+                None,
+                "https://example.com/a".to_string(),
+                1,
+            )],
+        )
+        .unwrap();
+
+        assert_eq!(synced.len(), 1);
+        assert_eq!(synced[0].id, Some(article_id));
+        assert_eq!(synced[0].original_title, "Fresh title");
+
+        let conn = pool.conn().unwrap();
+        let stored: (i32, String, String, i32) = conn
+            .query_row(
+                "SELECT id, original_title, region, hot_rank
+                 FROM news_articles
+                 WHERE source = 'https://example.com/a'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(stored.0, article_id);
+        assert_eq!(stored.1, "Fresh title");
+        assert_eq!(stored.2, "ES");
+        assert_eq!(stored.3, 1);
+    }
+
+    #[test]
+    fn test_sync_refresh_deletes_only_unread_stale_articles() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO news_articles (original_title, original_body, source, region, hot_rank)
+             VALUES ('Stale', 'Old body', 'https://example.com/stale', 'ES', 9)",
+            [],
+        )
+        .unwrap();
+        let stale_id = conn.last_insert_rowid() as i32;
+        drop(conn);
+
+        let synced = sync_articles(
+            &pool,
+            "ES",
+            vec![(
+                "Latest".to_string(),
+                "Latest body".to_string(),
+                None,
+                "https://example.com/latest".to_string(),
+                1,
+            )],
+        )
+        .unwrap();
+
+        assert_eq!(synced.len(), 1);
+
+        let conn = pool.conn().unwrap();
+        let stale_count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM news_articles WHERE id = ?1",
+                params![stale_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let latest_count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM news_articles WHERE source = 'https://example.com/latest'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stale_count, 0);
+        assert_eq!(latest_count, 1);
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -325,6 +429,94 @@ fn get_rss_feeds(region: &str, target_lang: &str) -> Vec<&'static str> {
             "https://feeds.npr.org/1001/rss.xml",
         ],
     }
+}
+
+fn sync_articles(
+    db: &DatabasePool,
+    region: &str,
+    raw_entries: Vec<(String, String, Option<String>, String, i32)>,
+) -> Result<Vec<Article>, String> {
+    let guard = db.conn()?;
+    sync_articles_with_conn(&guard, region, &raw_entries)
+}
+
+fn sync_articles_with_conn(
+    conn: &Connection,
+    region: &str,
+    raw_entries: &[(String, String, Option<String>, String, i32)],
+) -> Result<Vec<Article>, String> {
+    if raw_entries.is_empty() {
+        log::warn!(
+            "No RSS entries fetched for region {}, keeping existing cache untouched",
+            region
+        );
+        return Ok(Vec::new());
+    }
+
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| format!("Failed to start news sync transaction: {}", e))?;
+
+    tx.execute(
+        "DELETE FROM news_articles
+         WHERE region = ?1
+           AND id NOT IN (SELECT article_id FROM news_reading_log)",
+        params![region],
+    )
+    .map_err(|e| format!("Failed to clear unread articles: {}", e))?;
+
+    log::info!(
+        "Cleared unread articles for region {}, syncing {} entries",
+        region,
+        raw_entries.len()
+    );
+
+    let mut articles = Vec::new();
+    for (title, summary, image_url, feed_source, rank) in raw_entries {
+        tx.execute(
+            "INSERT INTO news_articles (original_title, original_body, source, image_url, region, hot_rank)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(source) DO UPDATE SET
+                 original_title = excluded.original_title,
+                 original_body = excluded.original_body,
+                 image_url = excluded.image_url,
+                 region = excluded.region,
+                 hot_rank = excluded.hot_rank,
+                 fetched_at = datetime('now')",
+            params![title, summary, feed_source, image_url, region, rank],
+        )
+        .map_err(|e| format!("Failed to upsert article '{}': {}", title, e))?;
+
+        let article = tx
+            .query_row(
+                "SELECT id, original_title, original_body, rewritten_body, rewrite_level,
+                        source, image_url, region, hot_rank, new_words, fetched_at
+                 FROM news_articles
+                 WHERE source = ?1",
+                params![feed_source],
+                |row| {
+                    Ok(Article {
+                        id: Some(row.get(0)?),
+                        original_title: row.get(1)?,
+                        original_body: row.get(2)?,
+                        rewritten_body: row.get(3)?,
+                        rewrite_level: row.get(4)?,
+                        source: row.get(5)?,
+                        image_url: row.get(6)?,
+                        region: row.get(7)?,
+                        hot_rank: row.get(8)?,
+                        new_words: row.get(9)?,
+                        fetched_at: row.get(10)?,
+                    })
+                },
+            )
+            .map_err(|e| format!("Failed to reload synced article '{}': {}", title, e))?;
+        articles.push(article);
+    }
+
+    tx.commit()
+        .map_err(|e| format!("Failed to commit news sync transaction: {}", e))?;
+    Ok(articles)
 }
 
 /// Fetch news from RSS feeds
@@ -415,62 +607,16 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
         }
     }
 
-    // Acquire DB connection
-    let guard = match db.conn() {
-        Ok(g) => g,
+    match sync_articles(db, region, raw_entries) {
+        Ok(articles) => {
+            log::info!("Fetched {} articles for region {}", articles.len(), region);
+            articles
+        }
         Err(e) => {
-            log::error!("DB pool error in fetch_news: {}", e);
-            return Vec::new();
-        }
-    };
-
-    // Delete all articles for this region, then re-insert fresh
-    if let Err(e) = guard.execute(
-        "DELETE FROM news_articles WHERE region = ?1",
-        params![region],
-    ) {
-        log::error!("Failed to clear articles: {}", e);
-        return Vec::new();
-    }
-    log::info!(
-        "Cleared articles for region {}, inserting {} new",
-        region,
-        raw_entries.len()
-    );
-
-    // Insert new articles
-    let mut articles = Vec::new();
-    for (title, summary, image_url, feed_source, r) in &raw_entries {
-        match guard.execute(
-            "INSERT INTO news_articles (original_title, original_body, source, image_url, region, hot_rank)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![title, summary, feed_source, image_url, region, r],
-        ) {
-            Ok(_) => {
-                let id = guard.last_insert_rowid() as i32;
-                articles.push(Article {
-                    id: Some(id),
-                    original_title: title.clone(),
-                    original_body: Some(summary.clone()),
-                    rewritten_body: None,
-                    rewrite_level: None,
-                    source: Some(feed_source.clone()),
-                    image_url: image_url.clone(),
-                    region: Some(region.to_string()),
-                    hot_rank: Some(*r),
-                    new_words: None,
-                    fetched_at: Some(chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()),
-                });
-            }
-            Err(e) => {
-                log::error!("Failed to insert article '{}': {}", title, e);
-            }
+            log::error!("Failed to sync articles for region {}: {}", region, e);
+            Vec::new()
         }
     }
-    drop(guard);
-
-    log::info!("Fetched {} articles for region {}", articles.len(), region);
-    articles
 }
 
 /// Get cached articles
