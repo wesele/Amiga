@@ -41,6 +41,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add age_range to users (wizard collects 4 buckets instead of exact birth_year)",
             MIGRATION_V11,
         ),
+        (
+            12,
+            "Add unique index on news_articles(source) to prevent duplicates on refresh",
+            MIGRATION_V12,
+        ),
     ]
 }
 
@@ -267,5 +272,16 @@ const MIGRATION_V11: &str = r#"
 -- Wizard now collects a 4-bucket age range (under_18 / 18_36 / 37_54 / over_54)
 -- instead of an exact birth_year. Keep the legacy column for now; we just stop
 -- reading it from the new wizard.
-ALTER TABLE users ADD COLUMN age_range TEXT;
+ALTER TABLE users ADD COLUMN age_range;
+"#;
+
+const MIGRATION_V12: &str = r#"
+-- Clean up duplicates (keep the row with the smallest id per source URL).
+-- Rows with NULL source are untouched.
+DELETE FROM news_articles WHERE id NOT IN (
+    SELECT MIN(id) FROM news_articles GROUP BY source
+) AND source IS NOT NULL;
+
+-- Prevent future duplicates on refresh
+CREATE UNIQUE INDEX IF NOT EXISTS idx_news_source_unique ON news_articles(source);
 "#;

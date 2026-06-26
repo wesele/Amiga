@@ -77,7 +77,7 @@ mod tests {
         let count: i32 = conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(count, 11, "Should have 11 migrations applied");
+        assert_eq!(count, 12, "Should have 12 migrations applied");
     }
 
     #[test]

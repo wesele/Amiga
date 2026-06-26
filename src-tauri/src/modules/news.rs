@@ -438,15 +438,15 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
         raw_entries.len()
     );
 
-    // Insert new articles
+    // Insert new articles (skip duplicates by source URL)
     let mut articles = Vec::new();
     for (title, summary, image_url, feed_source, r) in &raw_entries {
         match guard.execute(
-            "INSERT INTO news_articles (original_title, original_body, source, image_url, region, hot_rank)
+            "INSERT OR IGNORE INTO news_articles (original_title, original_body, source, image_url, region, hot_rank)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![title, summary, feed_source, image_url, region, r],
         ) {
-            Ok(_) => {
+            Ok(count) if count > 0 => {
                 let id = guard.last_insert_rowid() as i32;
                 articles.push(Article {
                     id: Some(id),
@@ -461,6 +461,9 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
                     new_words: None,
                     fetched_at: Some(chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()),
                 });
+            }
+            Ok(_) => {
+                log::debug!("Skipped duplicate article '{}' (source already exists)", title);
             }
             Err(e) => {
                 log::error!("Failed to insert article '{}': {}", title, e);
