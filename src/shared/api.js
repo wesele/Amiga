@@ -48,6 +48,8 @@ export const markWordsSeen = (userId, wordIds) =>
   _invoke("mark_words_seen_cmd", { userId, wordIds });
 export const lookupWordIds = (words, language) =>
   _invoke("lookup_word_ids_cmd", { words, language });
+export const addDiscoveredWord = (userId, word, language, context) =>
+  _invoke("add_discovered_word_cmd", { userId, word, language, context });
 export const resetUserVocabByLevel = (userId, language, cefrLevel) =>
   _invoke("reset_user_vocab_by_level_cmd", { userId, language, cefrLevel });
 

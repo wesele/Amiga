@@ -501,6 +501,103 @@ mod tests {
         assert_eq!(stats.total_learning, 1);
         assert!(stats.total >= 3, "Should count at least 3 Spanish words");
     }
+
+    #[test]
+    fn test_add_discovered_word_creates_d_level_entry() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        drop(conn);
+
+        let wid = add_discovered_word(&pool, &uid, "mariposa", "es", Some("la mariposa vuela")).unwrap();
+        assert!(wid > 0);
+
+        let conn = pool.conn().unwrap();
+        let level: String = conn
+            .query_row(
+                "SELECT cefr_level FROM vocab_bank WHERE id = ?1",
+                params![wid],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(level, "D");
+
+        let mastery: i32 = conn
+            .query_row(
+                "SELECT mastery FROM user_vocab WHERE user_id = ?1 AND word_id = ?2",
+                params![uid, wid],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(mastery, 1);
+    }
+
+    #[test]
+    fn test_add_discovered_word_returns_existing_if_present() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        let existing_wid = insert_test_word(&conn, "casa", "A1", "es");
+        drop(conn);
+
+        let wid = add_discovered_word(&pool, &uid, "casa", "es", None).unwrap();
+        assert_eq!(wid, existing_wid, "Should return existing word ID, not create a new D entry");
+    }
+
+    #[test]
+    fn test_add_discovered_word_does_not_overwrite_existing_mastery() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        let wid = insert_test_word(&conn, "hola", "A1", "es");
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 2, 'test')",
+            params![uid, wid],
+        )
+        .unwrap();
+        drop(conn);
+
+        add_discovered_word(&pool, &uid, "hola", "es", None).unwrap();
+
+        let conn = pool.conn().unwrap();
+        let mastery: i32 = conn
+            .query_row(
+                "SELECT mastery FROM user_vocab WHERE user_id = ?1 AND word_id = ?2",
+                params![uid, wid],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(mastery, 2, "Existing mastery=2 should not be downgraded");
+    }
+
+    #[test]
+    fn test_add_discovered_word_shows_in_d_level_stats() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        drop(conn);
+
+        add_discovered_word(&pool, &uid, "mariposa", "es", None).unwrap();
+        add_discovered_word(&pool, &uid, "libelula", "es", None).unwrap();
+
+        let stats = get_user_vocab_stats_by_level(&pool, &uid, "es").unwrap();
+        let d_stats = stats.iter().find(|s| s.level == "D");
+        assert!(d_stats.is_some(), "D level should appear in stats");
+        assert_eq!(d_stats.unwrap().total, 2);
+        assert_eq!(d_stats.unwrap().seen, 2);
+    }
+
+    #[test]
+    fn test_add_discovered_word_case_insensitive_duplicate() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        drop(conn);
+
+        let w1 = add_discovered_word(&pool, &uid, "Mariposa", "es", None).unwrap();
+        let w2 = add_discovered_word(&pool, &uid, "mariposa", "es", None).unwrap();
+        assert_eq!(w1, w2, "Same word with different case should return same ID");
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -902,6 +999,71 @@ pub fn lookup_word_ids(
         .collect();
 
     Ok(ids)
+}
+
+/// Add a word that is not in the pre-imported graded vocabulary to the
+/// "D" (Discovered) level of `vocab_bank`, then mark it as seen
+/// (mastery=1, source='news_reading') in `user_vocab`.  If the word
+/// already exists in `vocab_bank` (at *any* level, not just D), this
+/// is a no-op — it simply returns the existing `word_id`.
+///
+/// Returns the `vocab_bank.id` of the (existing or new) row.
+pub fn add_discovered_word(
+    db: &DatabasePool,
+    user_id: &str,
+    word: &str,
+    language: &str,
+    context: Option<&str>,
+) -> Result<i32, String> {
+    let conn = db.conn()?;
+
+    // Check if the word already exists in vocab_bank (any level).
+    let existing_id: Option<i32> = conn
+        .query_row(
+            "SELECT id FROM vocab_bank WHERE LOWER(word) = LOWER(?1) AND language = ?2 LIMIT 1",
+            params![word, language],
+            |row| row.get(0),
+        )
+        .ok();
+
+    let word_id = if let Some(id) = existing_id {
+        id
+    } else {
+        conn.execute(
+            "INSERT OR IGNORE INTO vocab_bank (word, lemma, cefr_level, language, frequency, example)
+             VALUES (?1, ?1, 'D', ?2, 0, ?3)",
+            params![word, language, context.unwrap_or("")],
+        )
+        .map_err(|e| format!("Failed to insert discovered word '{}': {}", word, e))?;
+
+        // If INSERT OR IGNORE was a no-op due to a concurrent insert under a
+        // different case form, fall back to querying the id.
+        conn.query_row(
+            "SELECT id FROM vocab_bank WHERE LOWER(word) = LOWER(?1) AND language = ?2 AND cefr_level = 'D' LIMIT 1",
+            params![word, language],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Failed to get id for discovered word '{}': {}", word, e))?
+    };
+
+    // Mark as seen (mastery=1) with INSERT OR IGNORE so we never
+    // downgrade an existing mastery level.
+    conn.execute(
+        "INSERT OR IGNORE INTO user_vocab (user_id, word_id, mastery, source, updated_at)
+         VALUES (?1, ?2, 1, 'news_reading', datetime('now'))",
+        params![user_id, word_id],
+    )
+    .map_err(|e| format!("Failed to set mastery for discovered word '{}': {}", word, e))?;
+
+    log::debug!(
+        "Discovered word: user={} word={} language={} id={}",
+        user_id,
+        word,
+        language,
+        word_id
+    );
+
+    Ok(word_id)
 }
 
 /// Reset all user_vocab records for a given level back to unseen

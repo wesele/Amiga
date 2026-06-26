@@ -147,7 +147,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, getLearningGoals } from "@/shared/api.js";
+import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, addDiscoveredWord, getLearningGoals } from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -165,6 +165,8 @@ const rewriting = ref(false);
 const rewriteError = ref("");
 const selectedWord = ref(null);
 const knownWordIds = ref(new Set());
+const wordsKnownSet = ref(new Set());
+const wordsUnknownSet = ref(new Set());
 const startTime = ref(Date.now());
 let targetLang = "es";
 let userId = "";
@@ -241,8 +243,8 @@ onBeforeUnmount(async () => {
         user_id: userId,
         article_id: Number(props.id),
         words_looked_up: JSON.stringify(Array.from(knownWordIds.value)),
-        words_known: JSON.stringify([]),
-        words_unknown: JSON.stringify([]),
+        words_known: JSON.stringify(Array.from(wordsKnownSet.value)),
+        words_unknown: JSON.stringify(Array.from(wordsUnknownSet.value)),
         reading_time_sec: elapsed,
         completed: true,
       });
@@ -404,10 +406,14 @@ function onWordTap(token) {
 async function onWordKnown() {
   if (selectedWord.value) {
     knownWordIds.value.add(selectedWord.value.text);
+    wordsKnownSet.value.add(selectedWord.value.text);
     try {
       const ids = await lookupWordIds([selectedWord.value.text], targetLang);
       if (ids.length > 0) {
         await updateWordMastery(userId, ids[0], 2, "news_reading");
+      } else {
+        const newId = await addDiscoveredWord(userId, selectedWord.value.text, targetLang, selectedWord.value.context);
+        await updateWordMastery(userId, newId, 2, "news_reading");
       }
     } catch (_) {}
   }
@@ -417,10 +423,13 @@ async function onWordKnown() {
 async function onWordUnknown() {
   if (selectedWord.value) {
     knownWordIds.value.add(selectedWord.value.text);
+    wordsUnknownSet.value.add(selectedWord.value.text);
     try {
       const ids = await lookupWordIds([selectedWord.value.text], targetLang);
       if (ids.length > 0) {
         await updateWordMastery(userId, ids[0], 1, "news_reading");
+      } else {
+        await addDiscoveredWord(userId, selectedWord.value.text, targetLang, selectedWord.value.context);
       }
     } catch (_) {}
   }

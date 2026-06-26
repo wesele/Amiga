@@ -90,6 +90,17 @@ pub async fn lookup_word_ids_cmd(
 }
 
 #[tauri::command]
+pub async fn add_discovered_word_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+    word: String,
+    language: String,
+    context: Option<String>,
+) -> Result<i32, String> {
+    vocab_mod::add_discovered_word(&db, &user_id, &word, &language, context.as_deref())
+}
+
+#[tauri::command]
 pub async fn reset_user_vocab_by_level_cmd(
     db: State<'_, DatabasePool>,
     user_id: String,
