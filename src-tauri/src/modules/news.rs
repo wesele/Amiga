@@ -424,29 +424,29 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
         }
     };
 
-    // Delete old unread articles for this region only (preserve read articles + reading history)
+    // Delete all articles for this region, then re-insert fresh
     if let Err(e) = guard.execute(
-        "DELETE FROM news_articles WHERE region = ?1 AND id NOT IN (SELECT DISTINCT article_id FROM news_reading_log)",
+        "DELETE FROM news_articles WHERE region = ?1",
         params![region],
     ) {
-        log::error!("Failed to clear old articles: {}", e);
+        log::error!("Failed to clear articles: {}", e);
         return Vec::new();
     }
     log::info!(
-        "Cleared old unread articles for region {}, inserting {} new",
+        "Cleared articles for region {}, inserting {} new",
         region,
         raw_entries.len()
     );
 
-    // Insert new articles (skip duplicates by source URL)
+    // Insert new articles
     let mut articles = Vec::new();
     for (title, summary, image_url, feed_source, r) in &raw_entries {
         match guard.execute(
-            "INSERT OR IGNORE INTO news_articles (original_title, original_body, source, image_url, region, hot_rank)
+            "INSERT INTO news_articles (original_title, original_body, source, image_url, region, hot_rank)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![title, summary, feed_source, image_url, region, r],
         ) {
-            Ok(count) if count > 0 => {
+            Ok(_) => {
                 let id = guard.last_insert_rowid() as i32;
                 articles.push(Article {
                     id: Some(id),
@@ -461,9 +461,6 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
                     new_words: None,
                     fetched_at: Some(chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()),
                 });
-            }
-            Ok(_) => {
-                log::debug!("Skipped duplicate article '{}' (source already exists)", title);
             }
             Err(e) => {
                 log::error!("Failed to insert article '{}': {}", title, e);
