@@ -13,9 +13,10 @@ cd /d "%~dp0"
 ::     `scripts/android-patch.cjs` (also injects the debug-signing
 ::     snippet so dev APKs reuse the release keystore).
 ::  4) Starts `tauri android dev` with:
-::        --target x86_64         (emulator only; physical arm64
-::                                 device? See comment block below)
 ::        --exit-on-panic        (Rust panic doesn't hang the watcher)
+::
+::     By default, Tauri chooses the connected Android device. Set
+::     AMIGA_ANDROID_DEVICE=<device-or-avd-name> if you need to force one.
 ::
 ::  Loop semantics (very important for AI-driven dev)
 ::  -------------------------------------------------
@@ -32,10 +33,10 @@ cd /d "%~dp0"
 ::
 ::  Physical ARM device
 ::  --------------------
-::  This .bat targets the x86_64 emulator. To dev on a physical
-::  arm64 device (aarch64), set the env vars below and replace
-::  `--target x86_64` with `--target aarch64`, plus expose the dev
-::  server on the LAN. See the commented block further down.
+::  For a physical arm64 device, set the env vars below, set
+::  AMIGA_ANDROID_DEVICE if Tauri does not pick it automatically,
+::  and expose the dev server on the LAN. See the commented block
+::  further down.
 :: ============================================================
 
 set JAVA_HOME=C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot
@@ -47,24 +48,27 @@ set PATH=C:\msys64\mingw64\bin;%PATH%
 ::   set TAURI_DEV_HOST=192.168.31.9
 ::   set VITE_PORT=1430
 ::   set VITE_HMR_PORT=1431
-:: And change the --target below to aarch64.
+::   set AMIGA_ANDROID_DEVICE=<adb-device-name>
+
+set "DEVICE_ARG="
+if defined AMIGA_ANDROID_DEVICE set "DEVICE_ARG=%AMIGA_ANDROID_DEVICE%"
 
 :: Sanity-check: at least one device / emulator must be visible to
-:: adb, otherwise `tauri android dev` will hang waiting for one.
+:: adb. If none is found, check whether local AVDs exist, then let Tauri
+:: handle device selection. Set AMIGA_ANDROID_DEVICE to skip Tauri's
+:: device picker when you know exactly which device or AVD to use.
 echo [Amiga] Checking for connected devices...
 "%ANDROID_HOME%\platform-tools\adb.exe" devices 2>nul | findstr "device$" >nul
-if %errorlevel% equ 0 goto :device_ready
+if %errorlevel% equ 0 goto :device_probe_done
 
-:: No device connected -- try to launch the first available AVD.
+:: No device connected -- check whether at least one local AVD exists.
 echo [Amiga] No device connected. Looking for available AVDs...
 set "EMULATOR_CMD=%ANDROID_HOME%\emulator\emulator.exe"
 if exist "%EMULATOR_CMD%" goto :emulator_found
-echo [ERROR] No device connected and emulator.exe not found at:
+echo [WARN] No device connected and emulator.exe not found at:
 echo         %EMULATOR_CMD%
-echo [Amiga] Create an AVD via Android Studio AVD Manager (API 24+, x86_64)
-echo [Amiga] then re-run this script.
-pause
-exit /b 1
+echo [Amiga] Continuing anyway; Tauri may wait for a device.
+goto :device_probe_done
 :emulator_found
 
 :: Grab the first AVD name (skip blank lines).
@@ -73,55 +77,36 @@ for /f "usebackq delims=" %%a in (`"%EMULATOR_CMD%" -list-avds 2^>nul`) do (
   if not defined FIRST_AVD set "FIRST_AVD=%%a"
 )
 if defined FIRST_AVD goto :avd_found
-echo [ERROR] No AVD found. Create one via Android Studio AVD Manager (API 24+, x86_64).
-pause
-exit /b 1
+for %%a in ("%USERPROFILE%\.android\avd\*.ini") do (
+  if not defined FIRST_AVD set "FIRST_AVD=%%~na"
+)
+if defined FIRST_AVD goto :avd_found
+echo [WARN] No AVD found. Continuing anyway; Tauri may wait for a device.
+echo [Amiga] To enable auto-launch, create an AVD via Android Studio AVD Manager.
+goto :device_probe_done
 :avd_found
 
-:: Launch emulator in the background (no -no-window flag; user needs to
-:: see the emulator) with -no-audio to reduce noise.
-echo [Amiga] Launching AVD: %FIRST_AVD%
-start "" /b "%EMULATOR_CMD%" -avd %FIRST_AVD% -no-audio >nul 2>&1
+echo [Amiga] Found AVD: %FIRST_AVD%
+if not defined DEVICE_ARG echo [Amiga] Tauri will prompt for a device. Set AMIGA_ANDROID_DEVICE=%FIRST_AVD% to skip the prompt.
+goto :device_probe_done
 
-:: Wait for the device to appear in `adb devices` (boot may still be
-:: in progress, but `tauri android dev` can handle that).
-echo [Amiga] Waiting for emulator to register with adb...
-set _WAIT=0
-:_wait_loop
-"%ANDROID_HOME%\platform-tools\adb.exe" devices 2>nul | findstr "device$" >nul
-if %errorlevel% equ 0 goto :device_ready
-set /a _WAIT+=1
-if %_WAIT% geq 60 (
-  echo [ERROR] Timed out waiting for emulator (60 s).
-  echo [Amiga] Check if the emulator window appeared, or try launching it manually.
-  pause
-  exit /b 1
-)
-timeout /t 1 >nul
-goto :_wait_loop
-
-:device_ready
-
-:: Pick the ABI that matches what's connected: emulator usually
-:: reports x86_64; a physical Pixel reports arm64-v8a. The .bat below
-:: defaults to x86_64 (emulator) -- change TARGET_ABI to build for
-:: a physical device.
-set TARGET_ABI=x86_64
+:device_probe_done
 
 :: Kill anything still running on the Vite port so the new dev
 :: server can bind cleanly.
 echo [Amiga] Checking port 1420...
-netstat -aon | findstr :1420 >nul 2>&1
-if %errorlevel% equ 0 (
-  for /f "tokens=5" %%a in ('netstat -aon ^| findstr :1420') do (
-    taskkill /f /pid %%a 2>nul
-  )
+set "KILLED_PORT_1420="
+for /f "tokens=5" %%a in ('netstat -aon -p tcp ^| findstr /r /c:":1420 .*LISTENING"') do (
+  taskkill /f /pid %%a 2>nul
+  set "KILLED_PORT_1420=1"
+)
+if defined KILLED_PORT_1420 (
   timeout /t 2 >nul
 )
 
 :: Ensure Android project tree exists (one-time)
 if not exist "src-tauri\gen\android" (
-  echo [Amiga] Initializing Android project (first run)...
+  echo [Amiga] Initializing Android project ^(first run^)...
   call npm run tauri android init
   if %errorlevel% neq 0 (
     echo [ERROR] tauri android init failed!
@@ -133,11 +118,11 @@ if not exist "src-tauri\gen\android" (
 :: Sync custom Kotlin sources + inject debug-signing patch.
 :: NB: idempotent -- safe to run every dev start. Without this, a
 :: fresh `tauri android init` would clobber MainActivity.kt.
-echo [Amiga] Applying Android patch (Kotlin sources + debug signing)...
+echo [Amiga] Applying Android patch ^(Kotlin sources + debug signing^)...
 node scripts\android-patch.cjs
 if %errorlevel% neq 0 (
   echo [ERROR] Android patch failed!
-  echo [Amiga] If gen/ just (re)generated, try `node scripts/android-patch.cjs --force`.
+  echo [Amiga] If gen/ just ^(re^)generated, try `node scripts/android-patch.cjs --force`.
   pause
   exit /b 1
 )
@@ -154,21 +139,25 @@ if %errorlevel% neq 0 (
 ::
 :: "adb uninstall com.idioma.app" >nul 2>&1
 
-echo [Amiga] Starting Android dev server on %TARGET_ABI%...
-echo [Amiga] Frontend:    http://localhost:1420 (HMR to emulator WebView)
+if defined DEVICE_ARG (
+  echo [Amiga] Starting Android dev server on %DEVICE_ARG%...
+) else (
+  echo [Amiga] Starting Android dev server with Tauri device auto-detection...
+)
+echo [Amiga] Frontend:    http://localhost:1420 ^(HMR to emulator WebView^)
 echo [Amiga] Rust/Kotlin: incremental cargo build + adb install -r on every edit
 echo.
 
-npx tauri android dev --target %TARGET_ABI% --exit-on-panic
+npx tauri android dev %DEVICE_ARG% --exit-on-panic
 set RC=%errorlevel%
 
 echo.
 if %RC% neq 0 (
   echo [Amiga] tauri android dev exited with code %RC%.
   echo [Amiga] Common causes:
-  echo   - Rust panic (see log above). Fix the source and re-run.
+  echo   - Rust panic ^(see log above^). Fix the source and re-run.
   echo   - INSTALL_FAILED_UPDATE_INCOMPATIBLE -- re-run this script
-  echo     (it pre-uninstalls; resigned-by-us APKs won't trigger this).
+  echo     ^(it pre-uninstalls; resigned-by-us APKs won't trigger this^).
   echo   - Emulator died -- restart it and re-run.
 )
 pause
