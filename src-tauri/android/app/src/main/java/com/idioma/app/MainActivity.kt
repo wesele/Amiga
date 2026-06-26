@@ -317,10 +317,14 @@ class MainActivity : TauriActivity() {
                 val intent = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
                     putExtra(Intent.EXTRA_TEXT, text)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                val chooser = Intent.createChooser(intent, null)
-                // Start the chooser from the activity context.
-                this@MainActivity.startActivity(chooser)
+                val chooser = Intent.createChooser(intent, null).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                this@MainActivity.runOnUiThread {
+                    this@MainActivity.startActivity(chooser)
+                }
             }
         }, "__amigaShare")
     }

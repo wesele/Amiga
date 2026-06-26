@@ -3,7 +3,7 @@ import profileRoutes from "./routes.js";
 export default {
   name: "profile",
   displayName: "个人中心",
-  version: "0.3.7",
+  version: "0.3.31",
   routes: profileRoutes,
   init(kernel) {},
 };

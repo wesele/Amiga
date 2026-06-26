@@ -100,46 +100,9 @@ async function run() {
         process.exit(0);
       }
 
-      // To ensure bump-version.cjs works, we must pass the version that's ACTUALLY in the files.
-      // Since we might have bumped GitHub base higher than local, 
-      // we should first sync all files to curVer if they aren't already.
-      
-      // 1a. Sync all files to curVer (the determined base)
-      // This prevents the "nothing to replace" issue when GitHub base > Local base
-      const filesToSync = [
-        'package.json', 
-        'src-tauri/Cargo.toml', 
-        'src-tauri/tauri.conf.json', 
-        'src-tauri/Cargo.lock'
-      ];
-      if (fs.existsSync('src-tauri/gen/android/tauri.properties')) {
-        filesToSync.push('src-tauri/gen/android/tauri.properties');
-      }
-      const modules = ['wizard', 'vocab', 'shell', 'prompts', 'profile', 'news', 'chat', 'hello'];
-      modules.forEach(m => {
-        const p = `src/modules/${m}/index.js`;
-        if (fs.existsSync(p)) filesToSync.push(p);
-      });
-
-      // We don't have a simple "force set version" script, but we can use a temporary dummy version
-      // or just rely on the fact that most files are already at localVer.
-      // The safest way is to bump from localVer -> newVer if localVer is the actual content.
-      
-      // Correct logic: the files currently contain localVer. We want them to contain newVer.
-      // If we just use (localVer, newVer), it will work regardless of what GitHub says.
-      execSync(`node scripts/bump-version.cjs "${localVer}" "${newVer}" package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json`, { stdio: 'inherit' });
-      execSync(`node scripts/bump-version.cjs "${localVer}" "${newVer}" src-tauri/Cargo.lock`, { stdio: 'inherit' });
-      
-      if (fs.existsSync('src-tauri/gen/android/tauri.properties')) {
-        execSync(`node scripts/bump-version.cjs "${localVer}" "${newVer}" src-tauri/gen/android/tauri.properties`, { stdio: 'inherit' });
-      }
-
-      for (const m of modules) {
-        const p = `src/modules/${m}/index.js`;
-        if (fs.existsSync(p)) {
-          execSync(`node scripts/bump-version.cjs "${localVer}" "${newVer}" "${p}"`, { stdio: 'inherit' });
-        }
-      }
+      // Set all repo version entry points directly so the release version
+      // matches even when some files drifted from the previous app version.
+      execSync(`node scripts/bump-version.cjs --set-version "${newVer}"`, { stdio: 'inherit' });
       
       global.releaseVersion = newVer;
       global.releaseTag = `v${newVer}`;

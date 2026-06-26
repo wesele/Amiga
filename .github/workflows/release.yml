@@ -23,6 +23,14 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - name: Sync versions from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          AMIGA_VERSION: ${{ github.ref_name }}
+        run: |
+          version="${AMIGA_VERSION#v}"
+          node scripts/bump-version.cjs --set-version "$version"
+          echo "Synced repository versions to: $version"
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
@@ -132,6 +140,15 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - name: Sync versions from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          AMIGA_VERSION: ${{ github.ref_name }}
+        run: |
+          $version = $env:AMIGA_VERSION -replace '^v', ''
+          node scripts/bump-version.cjs --set-version $version
+          Write-Host "Synced repository versions to: $version"
       - uses: dtolnay/rust-toolchain@stable
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2

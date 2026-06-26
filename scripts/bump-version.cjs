@@ -1,32 +1,28 @@
-const fs = require('fs');
+const fs = require("fs");
+const path = require("path");
 
-const oldVer = process.argv[2];
-const newVer = process.argv[3];
-const files = process.argv.slice(4);
+const args = process.argv.slice(2);
+const setMode = args[0] === "--set-version";
+const versionArgIndex = setMode ? 1 : 0;
+const oldVer = setMode ? null : args[0];
+const newVer = args[versionArgIndex];
+const files = args.slice(versionArgIndex + 1);
 
-if (!oldVer || !newVer || files.length === 0) {
-  process.exit(1);
+if (!newVer || !isSemver(newVer)) {
+  printUsageAndExit();
 }
 
-for (const f of files) {
+const targetFiles = files.length > 0 ? files : getDefaultFiles();
+if (targetFiles.length === 0) {
+  printUsageAndExit();
+}
+
+for (const f of targetFiles) {
   try {
-    let c = fs.readFileSync(f, 'utf8');
-    let updated;
-    if (f.endsWith('Cargo.lock')) {
-      updated = c.replace(
-        new RegExp(`(name = "idioma"\\s*\\nversion = ")${escapeRegex(oldVer)}(")`),
-        `$1${newVer}$2`
-      );
-    } else {
-      updated = c
-        .replace(`"version": "${oldVer}"`, `"version": "${newVer}"`)
-        .replace(`"version":"${oldVer}"`, `"version":"${newVer}"`)
-        .replace(`version = "${oldVer}"`, `version = "${newVer}"`)
-        .replace(`version: "${oldVer}"`, `version: "${newVer}"`)
-        .replace(`appVersion=${oldVer}`, `appVersion=${newVer}`);
-    }
+    const c = fs.readFileSync(f, "utf8");
+    const updated = updateFile(f, c, oldVer, newVer, setMode);
     if (updated !== c) {
-      fs.writeFileSync(f, updated, 'utf8');
+      fs.writeFileSync(f, updated, "utf8");
       console.log(`  Updated: ${f}`);
     } else {
       console.log(`  No change: ${f}`);
@@ -36,6 +32,96 @@ for (const f of files) {
   }
 }
 
-function escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function updateFile(filePath, content, oldVersion, newVersion, directSet) {
+  const normalized = filePath.replace(/\\/g, "/");
+  const base = path.basename(filePath);
+
+  if (base === "package.json" || base === "tauri.conf.json" || base === "tauri.android.conf.json") {
+    return updateJsonVersion(content, newVersion);
+  }
+
+  if (base === "Cargo.toml") {
+    return content.replace(
+      /(\[package\][\s\S]*?^version = ")([^"]+)(")/m,
+      `$1${newVersion}$3`,
+    );
+  }
+
+  if (base === "Cargo.lock") {
+    return content.replace(
+      /(name = "idioma"\s*\nversion = ")([^"]+)(")/,
+      `$1${newVersion}$3`,
+    );
+  }
+
+  if (normalized.includes("/src/modules/") && base === "index.js") {
+    return content.replace(/(version:\s*")([^"]+)(")/, `$1${newVersion}$3`);
+  }
+
+  if (base === "tauri.properties") {
+    return content.replace(/(appVersion=)([^\r\n]+)/, `$1${newVersion}`);
+  }
+
+  if (directSet) {
+    return content
+      .replace(/("version"\s*:\s*")([^"]+)(")/, `$1${newVersion}$3`)
+      .replace(/(version = ")([^"]+)(")/, `$1${newVersion}$3`)
+      .replace(/(version:\s*")([^"]+)(")/, `$1${newVersion}$3`)
+      .replace(/(appVersion=)([^\r\n]+)/, `$1${newVersion}`);
+  }
+
+  return content
+    .replace(`"version": "${oldVersion}"`, `"version": "${newVersion}"`)
+    .replace(`"version":"${oldVersion}"`, `"version":"${newVersion}"`)
+    .replace(`version = "${oldVersion}"`, `version = "${newVersion}"`)
+    .replace(`version: "${oldVersion}"`, `version: "${newVersion}"`)
+    .replace(`appVersion=${oldVersion}`, `appVersion=${newVersion}`);
+}
+
+function updateJsonVersion(content, newVersion) {
+  const parsed = JSON.parse(content);
+  if (!Object.prototype.hasOwnProperty.call(parsed, "version")) {
+    return content;
+  }
+  parsed.version = newVersion;
+  return `${JSON.stringify(parsed, null, 2)}\n`;
+}
+
+function getDefaultFiles() {
+  const defaults = [
+    "package.json",
+    "src-tauri/Cargo.toml",
+    "src-tauri/tauri.conf.json",
+    "src-tauri/tauri.android.conf.json",
+    "src-tauri/Cargo.lock",
+  ].filter((file) => fs.existsSync(file));
+
+  const tauriProperties = "src-tauri/gen/android/tauri.properties";
+  if (fs.existsSync(tauriProperties)) {
+    defaults.push(tauriProperties);
+  }
+
+  const modulesRoot = path.join(process.cwd(), "src", "modules");
+  if (fs.existsSync(modulesRoot)) {
+    for (const entry of fs.readdirSync(modulesRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const indexPath = path.join("src", "modules", entry.name, "index.js");
+      if (fs.existsSync(indexPath)) {
+        defaults.push(indexPath);
+      }
+    }
+  }
+
+  return defaults;
+}
+
+function isSemver(version) {
+  return /^\d+\.\d+\.\d+$/.test(version);
+}
+
+function printUsageAndExit() {
+  console.error("Usage:");
+  console.error("  node scripts/bump-version.cjs <old-version> <new-version> [files...]");
+  console.error("  node scripts/bump-version.cjs --set-version <new-version> [files...]");
+  process.exit(1);
 }
