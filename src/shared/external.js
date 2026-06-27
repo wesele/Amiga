@@ -1,6 +1,7 @@
 import { open } from "@tauri-apps/plugin-shell";
 
 const EXTERNAL_URL_RE = /^https?:\/\//i;
+const ANDROID_RE = /Android/i;
 
 /**
  * 规范化外部链接 URL。
@@ -25,6 +26,10 @@ export function normalizeExternalUrl(url) {
  */
 export function isSafeExternalUrl(url) {
   return typeof url === "string" && EXTERNAL_URL_RE.test(url.trim());
+}
+
+function isAndroidPlatform() {
+  return typeof navigator !== "undefined" && ANDROID_RE.test(navigator.userAgent || "");
 }
 
 /**
@@ -61,6 +66,10 @@ export async function openExternalUrl(url) {
   try {
     await open(target);
   } catch (e) {
+    if (isAndroidPlatform()) {
+      console.warn("openExternalUrl: Android fallback suppressed to avoid in-app WebView", target, e);
+      return;
+    }
     try {
       window.open(target, "_blank", "noopener,noreferrer");
     } catch (inner) {

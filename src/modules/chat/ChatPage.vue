@@ -121,10 +121,14 @@ const isAmiga = computed(() => contactType.value === "amiga");
 let cachedViewportHeight = 0;
 let syncRaf = null;
 let unsubscribe = null;
-const vv = window.visualViewport;
+
+function getVisualViewport() {
+  return typeof window === "undefined" ? null : window.visualViewport || null;
+}
 
 function startSync() {
   stopSync();
+  const vv = getVisualViewport();
   if (!vv || !chatView.value) return;
   function tick() {
     if (!chatView.value) return;
@@ -136,21 +140,27 @@ function startSync() {
   tick();
 }
 
-function stopSync() {
+function stopSync({ reset = false } = {}) {
   if (syncRaf) {
     cancelAnimationFrame(syncRaf);
     syncRaf = null;
   }
+  if (reset && chatView.value) {
+    chatView.value.style.top = "";
+    chatView.value.style.height = "";
+  }
 }
 
 function onViewportResize() {
+  const vv = getVisualViewport();
   if (!vv) return;
   const diff = cachedViewportHeight - vv.height;
   if (diff > 80) {
     startSync();
     scrollToBottom();
   } else {
-    stopSync();
+    cachedViewportHeight = vv.height;
+    stopSync({ reset: true });
   }
 }
 
@@ -213,7 +223,8 @@ async function deleteCurrentSession() {
 }
 
 onUnmounted(() => {
-  stopSync();
+  const vv = getVisualViewport();
+  stopSync({ reset: true });
   if (unsubscribe) unsubscribe();
   if (vv) {
     vv.removeEventListener("resize", onViewportResize);
@@ -221,9 +232,9 @@ onUnmounted(() => {
 });
 
 onMounted(async () => {
+  const vv = getVisualViewport();
   if (vv) {
     cachedViewportHeight = vv.height;
-    startSync();
     vv.addEventListener("resize", onViewportResize);
   }
   sessionId.value = route.params.sessionId;

@@ -286,6 +286,7 @@ export default {
     current: "Current",
     latest: "Latest",
     releaseNotes: "Release notes",
+    install: "Install update",
     download: "Download",
     viewAll: "View all releases →",
   },

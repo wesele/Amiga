@@ -25,6 +25,10 @@ import { setLocale } from "@/shared/i18n";
 // src/main.js. If you change one, change the other.
 function installAmigaGoBack(router) {
   window.__amigaGoBack = () => {
+    const inPageResult = window.__amigaGoBackInPage?.();
+    if (inPageResult === "navigated" || inPageResult === "at-root") {
+      return inPageResult;
+    }
     const route = router.currentRoute.value;
     const parent = route?.meta?.parent;
     if (parent) {
@@ -81,6 +85,7 @@ describe("__amigaGoBack bridge", () => {
   beforeEach(() => {
     setLocale("zh", { persist: false });
     delete window.__amigaGoBack;
+    delete window.__amigaGoBackInPage;
   });
 
   it("main.js installs window.__amigaGoBack after creating the router (regression: native side must see a real function)", () => {
@@ -155,6 +160,22 @@ describe("__amigaGoBack bridge", () => {
     const result = window.__amigaGoBack();
     expect(result).toBe("at-root");
     expect(pushSpy).not.toHaveBeenCalled();
+    expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
+  it("lets an in-page handler consume the back press before route-level parents", async () => {
+    const router = makeRouter([
+      { path: "/vocab", name: "vocab", component: { template: "<div />" } },
+    ]);
+    installAmigaGoBack(router);
+    await router.push("/vocab");
+
+    const replaceSpy = vi.spyOn(router, "replace");
+    const inPage = vi.fn(() => "navigated");
+    window.__amigaGoBackInPage = inPage;
+
+    expect(window.__amigaGoBack()).toBe("navigated");
+    expect(inPage).toHaveBeenCalledTimes(1);
     expect(replaceSpy).not.toHaveBeenCalled();
   });
 

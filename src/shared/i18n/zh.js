@@ -289,6 +289,7 @@ export default {
     current: "当前版本",
     latest: "最新版本",
     releaseNotes: "更新内容",
+    install: "立即升级",
     download: "下载",
     viewAll: "查看所有版本 →",
   },

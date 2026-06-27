@@ -1,21 +1,28 @@
 package com.idioma.app
 
 import android.annotation.SuppressLint
+import android.app.DownloadManager
 import android.content.ActivityNotFoundException
+import android.content.BroadcastReceiver
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import android.util.Log
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import java.io.File
 import org.json.JSONObject
 
 /**
@@ -54,6 +61,8 @@ import org.json.JSONObject
 class MainActivity : TauriActivity() {
     private var mainWebView: WebView? = null
     private var translateCallback: TranslateWindowCallback? = null
+    private var apkDownloadReceiver: BroadcastReceiver? = null
+    private val pendingApkDownloads = mutableMapOf<Long, File>()
 
     // Disable the WryActivity's stock back navigation (which calls
     // mWebView.goBack()). We install our own hierarchical back handler
@@ -109,11 +118,18 @@ class MainActivity : TauriActivity() {
         // 5) External link bridge: open http(s) links in the user's
         //    system browser instead of creating another in-app WebView.
         installExternalLinkBridge(webView)
+
+        // 6) Update bridge: download a new APK and hand it to the
+        //    package installer so Android users can upgrade in-place.
+        installUpdaterBridge(webView)
     }
 
     override fun onDestroy() {
         mainWebView = null
         translateCallback = null
+        apkDownloadReceiver?.let { unregisterReceiver(it) }
+        apkDownloadReceiver = null
+        pendingApkDownloads.clear()
         super.onDestroy()
     }
 
@@ -363,6 +379,124 @@ class MainActivity : TauriActivity() {
                 }
             }
         }, "__amigaExternal")
+    }
+
+    private fun installUpdaterBridge(webView: WebView) {
+        ensureApkDownloadReceiver()
+        webView.addJavascriptInterface(object {
+            @JavascriptInterface
+            fun installApk(url: String, suggestedName: String) {
+                val lowerUrl = url.lowercase()
+                if (!lowerUrl.startsWith("http://") && !lowerUrl.startsWith("https://")) {
+                    Log.w(TAG, "update install refused non-http(s) url: $url")
+                    return
+                }
+                this@MainActivity.runOnUiThread {
+                    enqueueApkDownload(url, suggestedName)
+                }
+            }
+        }, "__amigaUpdater")
+    }
+
+    private fun ensureApkDownloadReceiver() {
+        if (apkDownloadReceiver != null) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: android.content.Context?, intent: Intent?) {
+                if (intent?.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE) return
+                val downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+                if (downloadId == -1L) return
+                val file = pendingApkDownloads.remove(downloadId) ?: return
+                val manager = getSystemService(DOWNLOAD_SERVICE) as? DownloadManager ?: return
+                val query = DownloadManager.Query().setFilterById(downloadId)
+                manager.query(query)?.use { cursor ->
+                    if (!cursor.moveToFirst()) return
+                    val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                    if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                        Log.d(TAG, "update install download finished: ${file.absolutePath}")
+                        launchDownloadedApk(file)
+                        return
+                    }
+                    val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+                    Log.w(TAG, "update install download failed: id=$downloadId status=$status reason=$reason")
+                }
+            }
+        }
+        val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(receiver, filter)
+        }
+        apkDownloadReceiver = receiver
+    }
+
+    private fun enqueueApkDownload(url: String, suggestedName: String) {
+        val manager = getSystemService(DOWNLOAD_SERVICE) as? DownloadManager ?: run {
+            Log.w(TAG, "update install unavailable: DownloadManager missing")
+            return
+        }
+        val fileName = sanitizeApkFileName(url, suggestedName)
+        val destDir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
+        val outFile = File(destDir, fileName)
+        if (outFile.exists()) outFile.delete()
+        val request = DownloadManager.Request(Uri.parse(url)).apply {
+            setTitle(fileName)
+            setDescription("Amiga update")
+            setMimeType("application/vnd.android.package-archive")
+            setAllowedOverMetered(true)
+            setAllowedOverRoaming(true)
+            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            setDestinationInExternalFilesDir(
+                this@MainActivity,
+                Environment.DIRECTORY_DOWNLOADS,
+                fileName,
+            )
+        }
+        val downloadId = manager.enqueue(request)
+        pendingApkDownloads[downloadId] = outFile
+        Log.d(TAG, "update install download queued: id=$downloadId url=$url file=$fileName")
+    }
+
+    private fun sanitizeApkFileName(url: String, suggestedName: String): String {
+        val base = suggestedName
+            .ifBlank {
+                Uri.parse(url).lastPathSegment ?: "amiga-update.apk"
+            }
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+        return if (base.lowercase().endsWith(".apk")) base else "$base.apk"
+    }
+
+    private fun launchDownloadedApk(file: File) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !packageManager.canRequestPackageInstalls()
+        ) {
+            val settingsIntent = Intent(
+                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:$packageName"),
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(settingsIntent)
+            Log.w(TAG, "update install requires unknown-app-sources permission")
+            return
+        }
+
+        val uri = FileProvider.getUriForFile(
+            this,
+            "$packageName.fileprovider",
+            file,
+        )
+        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            startActivity(installIntent)
+            Log.d(TAG, "update install launched package installer: ${file.absolutePath}")
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "update install failed to launch package installer", e)
+        }
     }
 
     companion object {

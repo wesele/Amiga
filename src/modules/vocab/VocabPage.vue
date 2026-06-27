@@ -131,6 +131,11 @@ const userId = ref("");
 const selectedWord = ref(null);
 const showResetDialog = ref(false);
 let unsubscribe = null;
+const handleAndroidBackInPage = () => {
+  if (!drilledLevel.value) return null;
+  exitLevel();
+  return "navigated";
+};
 
 const statusTabs = computed(() => [
   { label: t("vocab.tabs.all"), value: "all" },
@@ -180,6 +185,17 @@ function exitLevel() {
   drilledLevel.value = "";
   words.value = [];
   selectedWord.value = null;
+}
+
+function syncAndroidBackHook() {
+  if (typeof window === "undefined") return;
+  if (drilledLevel.value) {
+    window.__amigaGoBackInPage = handleAndroidBackInPage;
+    return;
+  }
+  if (window.__amigaGoBackInPage === handleAndroidBackInPage) {
+    delete window.__amigaGoBackInPage;
+  }
 }
 
 async function loadWords(level) {
@@ -255,10 +271,14 @@ onMounted(async () => {
     words.value = [];
     await loadStats();
   });
+  syncAndroidBackHook();
 });
 
 onBeforeUnmount(() => {
   if (unsubscribe) unsubscribe();
+  if (typeof window !== "undefined" && window.__amigaGoBackInPage === handleAndroidBackInPage) {
+    delete window.__amigaGoBackInPage;
+  }
 });
 
 // React to the user changing the learning language elsewhere (Profile page).
@@ -266,6 +286,10 @@ watch(userLang, async () => {
   drilledLevel.value = "";
   words.value = [];
   await loadStats();
+});
+
+watch(drilledLevel, () => {
+  syncAndroidBackHook();
 });
 </script>
 
