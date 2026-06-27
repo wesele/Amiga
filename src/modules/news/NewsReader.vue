@@ -526,9 +526,10 @@ function onSelectionChange() {
 }
 
 function positionTranslateButton(sel) {
-  // Place the floating button just above the selection's top-right
-  // corner. If the selection is near the top of the viewport we
-  // place it below instead.
+  // Place the floating button just below the selection.
+  // On Android the system selection toolbar appears above the
+  // selection; positioning our button below avoids overlap.
+  // If the bottom would run off-screen, flip above instead.
   const range = sel.getRangeAt(0);
   const rect = range.getBoundingClientRect();
   if (rect.width === 0 && rect.height === 0) {
@@ -536,17 +537,17 @@ function positionTranslateButton(sel) {
     return;
   }
   const articleBody = document.querySelector(".article-body");
-  // Don't show the button for selections that aren't inside the
-  // article body (e.g. selections in the header or footer).
   if (articleBody && !articleBody.contains(range.commonAncestorContainer)) {
     showTranslateButton.value = false;
     return;
   }
   const buttonWidth = 88;
+  const buttonHeight = 32;
   const margin = 8;
-  // Prefer above the selection; flip below if there's no room.
-  let y = rect.top - 40;
-  if (y < 60) y = rect.bottom + 8;
+  let y = rect.bottom + margin;
+  if (y + buttonHeight > window.innerHeight - margin) {
+    y = rect.top - buttonHeight - margin;
+  }
   translateButtonX.value = Math.max(margin, Math.min(window.innerWidth - buttonWidth - margin, rect.right - buttonWidth));
   translateButtonY.value = y;
   showTranslateButton.value = true;
@@ -560,6 +561,17 @@ function onTranslateButtonClick() {
   if (!translateSelection(text)) return;
   sel.removeAllRanges();
   showTranslateButton.value = false;
+  // Android: dismiss the system text-selection toolbar so it does not
+  // sit above our translation popup. The bridge is registered by
+  // MainActivity.installDismissSelectionBridge; on non-Android
+  // platforms (or older WebViews without the bridge) this is a no-op.
+  if (window.__amigaFinishSelectionMode) {
+    try {
+      window.__amigaFinishSelectionMode();
+    } catch (_) {
+      // ignore — bridge is best-effort
+    }
+  }
 }
 
 // Windows: when the user releases the mouse, check if there was a valid
