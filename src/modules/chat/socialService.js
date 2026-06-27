@@ -1,7 +1,6 @@
-import { getCurrentUser, getSetting, saveSetting } from "@/shared/api.js";
+import { getCurrentUser } from "@/shared/api.js";
 
-const API_SETTING_KEY = "social_api_base_url";
-const WS_SETTING_KEY = "social_ws_base_url";
+const SOCIAL_API_BASE_URL = "https://amiga-chat-social.wh1018.workers.dev";
 
 function trimSlash(value) {
   return (value || "").trim().replace(/\/+$/, "");
@@ -17,25 +16,10 @@ function toWebSocketBase(value) {
 }
 
 export async function getSocialConfig() {
-  const [apiBaseUrl, wsBaseUrl] = await Promise.all([
-    getSetting(API_SETTING_KEY).catch(() => ""),
-    getSetting(WS_SETTING_KEY).catch(() => ""),
-  ]);
-
   return {
-    apiBaseUrl: trimSlash(apiBaseUrl || import.meta.env.VITE_SOCIAL_API_BASE_URL || ""),
-    wsBaseUrl: toWebSocketBase(wsBaseUrl || import.meta.env.VITE_SOCIAL_WS_BASE_URL || ""),
+    apiBaseUrl: trimSlash(SOCIAL_API_BASE_URL),
+    wsBaseUrl: toWebSocketBase(SOCIAL_API_BASE_URL),
   };
-}
-
-export async function saveSocialConfig({ apiBaseUrl, wsBaseUrl }) {
-  const trimmedApi = trimSlash(apiBaseUrl);
-  const trimmedWs = toWebSocketBase(wsBaseUrl);
-  await Promise.all([
-    saveSetting(API_SETTING_KEY, trimmedApi),
-    saveSetting(WS_SETTING_KEY, trimmedWs),
-  ]);
-  return { apiBaseUrl: trimmedApi, wsBaseUrl: trimmedWs };
 }
 
 export async function getSocialUserId() {

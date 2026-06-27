@@ -9,23 +9,6 @@
     </header>
 
     <section class="hub-card">
-      <div class="card-title">{{ t("chat.connectionTitle") }}</div>
-      <label class="field">
-        <span>{{ t("chat.apiBaseUrl") }}</span>
-        <input v-model="draft.apiBaseUrl" :placeholder="t('chat.apiBasePlaceholder')" />
-      </label>
-      <label class="field">
-        <span>{{ t("chat.wsBaseUrl") }}</span>
-        <input v-model="draft.wsBaseUrl" :placeholder="t('chat.wsBasePlaceholder')" />
-      </label>
-      <div class="actions">
-        <button class="primary-btn" @click="saveConfigAction">{{ t("app.save") }}</button>
-        <button class="ghost-btn" @click="refreshAll">{{ t("app.retry") }}</button>
-      </div>
-      <div v-if="statusText" class="status-text">{{ statusText }}</div>
-    </section>
-
-    <section class="hub-card">
       <div class="row-between">
         <div>
           <div class="card-title">{{ t("chat.publicGroup") }}</div>
@@ -54,6 +37,7 @@
           {{ t("chat.sendRequest") }}
         </button>
       </div>
+      <div v-if="statusText" class="status-text">{{ statusText }}</div>
     </section>
 
     <section class="hub-card">
@@ -89,8 +73,8 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useI18n } from "@/shared/i18n";
 import { getCurrentUser } from "@/shared/api.js";
+import { useI18n } from "@/shared/i18n";
 import {
   acceptFriendRequest,
   getPendingFriendRequests,
@@ -99,7 +83,6 @@ import {
   getSocialStats,
   getSocialUserId,
   registerSocialUser,
-  saveSocialConfig,
   sendFriendRequest,
 } from "./socialService.js";
 
@@ -107,18 +90,12 @@ const router = useRouter();
 const { t } = useI18n();
 
 const userId = ref("");
-const draft = reactive({
-  apiBaseUrl: "",
-  wsBaseUrl: "",
-});
-const stats = reactive({
-  userCount: 0,
-});
+const stats = reactive({ userCount: 0 });
 const pendingRequests = ref([]);
 const friends = ref([]);
 const statusText = ref("");
-const ready = computed(() => Boolean(draft.apiBaseUrl && draft.wsBaseUrl && userId.value));
 const friendIdInput = ref("");
+const ready = computed(() => Boolean(userId.value));
 
 function goBack() {
   router.replace({ name: "chat" });
@@ -135,13 +112,6 @@ function formatTime(value) {
 }
 
 async function loadSummary(config) {
-  if (!config.apiBaseUrl || !config.wsBaseUrl || !userId.value) {
-    stats.userCount = 0;
-    pendingRequests.value = [];
-    friends.value = [];
-    return;
-  }
-
   const user = await getCurrentUser().catch(() => ({}));
   await registerSocialUser(config, {
     id: userId.value,
@@ -163,21 +133,9 @@ async function refreshAll() {
   statusText.value = "";
   try {
     const config = await getSocialConfig();
-    draft.apiBaseUrl = config.apiBaseUrl;
-    draft.wsBaseUrl = config.wsBaseUrl;
     await loadSummary(config);
   } catch {
     statusText.value = t("chat.socialLoadFailed");
-  }
-}
-
-async function saveConfigAction() {
-  try {
-    const config = await saveSocialConfig(draft);
-    statusText.value = t("chat.configSaved");
-    await loadSummary(config);
-  } catch {
-    statusText.value = t("chat.configSaveFailed");
   }
 }
 
@@ -185,10 +143,11 @@ async function submitFriendRequest() {
   const target = friendIdInput.value.trim();
   if (!target) return;
   try {
-    await sendFriendRequest(draft, userId.value, target);
+    const config = await getSocialConfig();
+    await sendFriendRequest(config, userId.value, target);
     friendIdInput.value = "";
     statusText.value = t("chat.requestSent");
-    await loadSummary(draft);
+    await loadSummary(config);
   } catch {
     statusText.value = t("chat.requestFailed");
   }
@@ -196,9 +155,10 @@ async function submitFriendRequest() {
 
 async function acceptRequest(fromUserId) {
   try {
-    await acceptFriendRequest(draft, userId.value, fromUserId);
+    const config = await getSocialConfig();
+    await acceptFriendRequest(config, userId.value, fromUserId);
     statusText.value = t("chat.requestAccepted");
-    await loadSummary(draft);
+    await loadSummary(config);
   } catch {
     statusText.value = t("chat.acceptFailed");
   }
@@ -250,8 +210,7 @@ onMounted(async () => {
 }
 
 .back-btn,
-.primary-btn,
-.ghost-btn {
+.primary-btn {
   border: none;
   border-radius: 14px;
   font-size: 14px;
@@ -291,19 +250,6 @@ onMounted(async () => {
   line-height: 1.5;
 }
 
-.field {
-  display: block;
-  margin-top: 12px;
-}
-
-.field span {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 12px;
-  color: var(--text-lighter);
-}
-
-.field input,
 .inline-form input {
   width: 100%;
   box-sizing: border-box;
@@ -315,7 +261,6 @@ onMounted(async () => {
   font-size: 14px;
 }
 
-.actions,
 .inline-form,
 .row-between,
 .friend-row,
@@ -324,7 +269,6 @@ onMounted(async () => {
   gap: 10px;
 }
 
-.actions,
 .inline-form,
 .stats-row {
   margin-top: 12px;
@@ -351,12 +295,6 @@ onMounted(async () => {
 .primary-btn:disabled {
   opacity: 0.55;
   cursor: default;
-}
-
-.ghost-btn {
-  background: var(--bg);
-  color: var(--text);
-  padding: 10px 14px;
 }
 
 .stats-row {

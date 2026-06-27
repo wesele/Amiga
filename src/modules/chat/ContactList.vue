@@ -1,56 +1,44 @@
 <template>
   <div class="contact-list">
     <header class="list-header">
-      <h2>{{ t('chat.title') }}</h2>
+      <h2>{{ t("chat.title") }}</h2>
+      <button class="manage-btn" @click="openSocialHub">+</button>
     </header>
     <div class="contact-list-scroll">
-      <section class="section-block">
-        <div class="section-title">{{ t("chat.socialSection") }}</div>
-        <div class="social-entry" @click="openSocialHub">
-          <div class="social-entry-icon">#</div>
-          <div class="contact-info">
-            <div class="contact-name">{{ t("chat.socialHub") }}</div>
-            <div class="contact-desc">{{ socialSummary }}</div>
-          </div>
-          <div class="social-count">{{ socialPendingCount }}</div>
-        </div>
-      </section>
-
-      <section class="section-block">
-        <div class="section-title">{{ t("chat.aiSection") }}</div>
       <div
-        v-for="c in contactsWithSessions"
-        :key="c.id"
+        v-for="contact in combinedContacts"
+        :key="contact.id"
         class="contact-item"
-        @click="openChat(c)"
+        :class="{ 'contact-item-public': contact.contactType === 'social-public' }"
+        @click="openContact(contact)"
       >
         <div class="contact-avatar">
-          <component v-if="c.component" :is="c.component" :size="40" />
-          <span v-else>{{ c.avatar }}</span>
+          <component v-if="contact.component" :is="contact.component" :size="40" />
+          <span v-else>{{ contact.avatar }}</span>
         </div>
         <div class="contact-info">
-          <div class="contact-name">{{ c.name }}</div>
-          <div class="contact-desc">{{ c.desc }}</div>
+          <div class="contact-name">{{ contact.name }}</div>
+          <div class="contact-desc">{{ contact.desc }}</div>
         </div>
-        <div class="contact-time">{{ c.lastTime }}</div>
+        <div class="contact-time">{{ contact.lastTime }}</div>
       </div>
-      </section>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, markRaw } from "vue";
+import { computed, markRaw, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { getCurrentUser, getChatSessions, createChatSession } from "@/shared/api.js";
+import { createChatSession, getChatSessions, getCurrentUser } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
-import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
-import { eventBus } from "@/shared/eventBus.js";
 import { displayLang } from "@/shared/constants.js";
+import { eventBus } from "@/shared/eventBus.js";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
+import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import {
   getPendingFriendRequests,
   getSocialConfig,
+  getSocialFriendships,
   getSocialStats,
   getSocialUserId,
 } from "./socialService.js";
@@ -59,13 +47,43 @@ const router = useRouter();
 const { t, locale } = useI18n();
 const targetLangStore = useTargetLangStore();
 const sessions = ref([]);
+const friends = ref([]);
 const socialPendingCount = ref(0);
 const socialUserCount = ref(0);
 let unsubscribe = null;
 
-const CONTACTS = computed(() => {
+function formatTime(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr.endsWith("Z") ? dateStr : `${dateStr}Z`);
+  const now = new Date();
+  const diff = (now - d) / 1000;
+  if (diff < 60) return t("time.justNow");
+  if (diff < 3600) return t("time.minutesAgo", { n: Math.floor(diff / 60) });
+  if (diff < 86400) return t("time.hoursAgo", { n: Math.floor(diff / 3600) });
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+const socialSummary = computed(() => {
+  if (!socialUserCount.value && !socialPendingCount.value) {
+    return t("chat.socialSummaryEmpty");
+  }
+  return t("chat.socialSummary", {
+    users: socialUserCount.value,
+    pending: socialPendingCount.value,
+  });
+});
+
+const aiContacts = computed(() => {
   const targetLabel = displayLang(targetLangStore.code, locale.value);
   return [
+    {
+      id: "public-group",
+      name: t("chat.publicGroup"),
+      avatar: "#",
+      contactType: "social-public",
+      desc: socialSummary.value,
+      lastTime: socialPendingCount.value > 0 ? `${socialPendingCount.value}` : "",
+    },
     {
       id: "amiga",
       name: t("chat.amiga"),
@@ -83,62 +101,58 @@ const CONTACTS = computed(() => {
   ];
 });
 
-function formatTime(dateStr) {
-  if (!dateStr) return "";
-  const d = new Date(dateStr + "Z");
-  const now = new Date();
-  const diff = (now - d) / 1000;
-  if (diff < 60) return t("time.justNow");
-  if (diff < 3600) return t("time.minutesAgo", { n: Math.floor(diff / 60) });
-  if (diff < 86400) return t("time.hoursAgo", { n: Math.floor(diff / 3600) });
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-const contactsWithSessions = computed(() => {
-  return CONTACTS.value.map((c) => {
-    const session = sessions.value.find((s) => s.contact_type === c.contactType);
-    return {
-      ...c,
-      lastTime: session ? formatTime(session.updated_at) : "",
-      desc: session && session.last_message ? session.last_message : c.desc,
-    };
-  });
-});
-const socialSummary = computed(() => {
-  if (!socialUserCount.value && !socialPendingCount.value) {
-    return t("chat.socialSummaryEmpty");
+const contactsWithSessions = computed(() => aiContacts.value.map((contact) => {
+  if (contact.contactType === "social-public") {
+    return contact;
   }
-  return t("chat.socialSummary", {
-    users: socialUserCount.value,
-    pending: socialPendingCount.value,
-  });
-});
+  const session = sessions.value.find((item) => item.contact_type === contact.contactType);
+  return {
+    ...contact,
+    lastTime: session ? formatTime(session.updated_at) : "",
+    desc: session?.last_message || contact.desc,
+  };
+}));
+
+const friendContacts = computed(() => friends.value.map((friend) => ({
+  id: `friend-${friend.friendUserId}`,
+  name: friend.friendUserId,
+  avatar: "👤",
+  contactType: "social-direct",
+  peerId: friend.friendUserId,
+  desc: t("chat.friendSince", { date: new Date(friend.updatedAt).toLocaleDateString() }),
+  lastTime: formatTime(friend.updatedAt),
+})));
+
+const combinedContacts = computed(() => [
+  ...contactsWithSessions.value,
+  ...friendContacts.value,
+]);
 
 async function refreshSessions() {
   const lang = targetLangStore.code || (await targetLangStore.load());
   try {
     sessions.value = await getChatSessions(lang);
-  } catch { /* empty */ }
+  } catch {
+    sessions.value = [];
+  }
 }
 
 async function refreshSocialSummary() {
   try {
     const config = await getSocialConfig();
-    if (!config.apiBaseUrl || !config.wsBaseUrl) {
-      socialPendingCount.value = 0;
-      socialUserCount.value = 0;
-      return;
-    }
     const userId = await getSocialUserId();
-    const [stats, pending] = await Promise.all([
+    const [stats, pending, friendships] = await Promise.all([
       getSocialStats(config),
       getPendingFriendRequests(config, userId),
+      getSocialFriendships(config, userId),
     ]);
     socialUserCount.value = stats?.userCount || 0;
     socialPendingCount.value = pending?.items?.length || 0;
+    friends.value = friendships?.items || [];
   } catch {
     socialPendingCount.value = 0;
     socialUserCount.value = 0;
+    friends.value = [];
   }
 }
 
@@ -146,8 +160,8 @@ function openSocialHub() {
   router.push({ name: "social-hub" });
 }
 
-async function openChat(contact) {
-  let session = sessions.value.find((s) => s.contact_type === contact.contactType);
+async function openAiChat(contact) {
+  let session = sessions.value.find((item) => item.contact_type === contact.contactType);
   if (!session) {
     try {
       const user = await getCurrentUser();
@@ -162,8 +176,24 @@ async function openChat(contact) {
   router.push(`/chat/${session.id}`);
 }
 
+function openContact(contact) {
+  if (contact.contactType === "social-public") {
+    router.push({ name: "social-chat", params: { mode: "public" } });
+    return;
+  }
+  if (contact.contactType === "social-direct") {
+    router.push({
+      name: "social-chat",
+      params: { mode: "direct", peerId: contact.peerId },
+      query: { name: contact.name },
+    });
+    return;
+  }
+  openAiChat(contact);
+}
+
 onUnmounted(() => {
-  if (unsubscribe) unsubscribe();
+  unsubscribe?.();
 });
 
 onMounted(async () => {
@@ -182,69 +212,38 @@ onMounted(async () => {
   flex-direction: column;
   background: var(--bg);
 }
+
 .list-header {
   padding: 16px 20px 8px;
   background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
+
 .list-header h2 {
   margin: 0;
   font-size: 22px;
   font-weight: 700;
 }
+
+.manage-btn {
+  border: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--green-bg);
+  color: var(--green);
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 700;
+}
+
 .contact-list-scroll {
   flex: 1;
   overflow-y: auto;
 }
-.section-block + .section-block {
-  margin-top: 14px;
-}
-.section-title {
-  padding: 14px 20px 8px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-lighter);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.social-entry {
-  margin: 0 16px;
-  padding: 14px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #0f6b44 0%, #3f9b67 100%);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  box-shadow: 0 12px 24px rgba(15, 107, 68, 0.18);
-}
-.social-entry-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.16);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: 700;
-}
-.social-entry .contact-name,
-.social-entry .contact-desc,
-.social-count {
-  color: #fff;
-}
-.social-count {
-  min-width: 28px;
-  height: 28px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-}
+
 .contact-item {
   display: flex;
   align-items: center;
@@ -254,9 +253,27 @@ onMounted(async () => {
   cursor: pointer;
   transition: background var(--transition);
 }
+
 .contact-item:hover {
   background: var(--bg);
 }
+
+.contact-item-public {
+  background: linear-gradient(135deg, #0f6b44 0%, #3f9b67 100%);
+  box-shadow: 0 12px 24px rgba(15, 107, 68, 0.18);
+}
+
+.contact-item-public:hover {
+  background: linear-gradient(135deg, #0f6b44 0%, #3f9b67 100%);
+}
+
+.contact-item-public .contact-name,
+.contact-item-public .contact-desc,
+.contact-item-public .contact-time,
+.contact-item-public .contact-avatar {
+  color: #fff;
+}
+
 .contact-avatar {
   font-size: 40px;
   line-height: 1;
@@ -267,15 +284,18 @@ onMounted(async () => {
   justify-content: center;
   flex-shrink: 0;
 }
+
 .contact-info {
   flex: 1;
   min-width: 0;
 }
+
 .contact-name {
   font-size: 15px;
   font-weight: 600;
   color: var(--text);
 }
+
 .contact-desc {
   font-size: 12px;
   color: var(--text-lighter);
@@ -284,6 +304,7 @@ onMounted(async () => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .contact-time {
   font-size: 11px;
   color: var(--text-lighter);

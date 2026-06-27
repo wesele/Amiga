@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mount, flushPromises } from "@vue/test-utils";
+import { createMemoryHistory, createRouter } from "vue-router";
+import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { createRouter, createMemoryHistory } from "vue-router";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
 
@@ -34,15 +34,9 @@ describe("SocialHub", () => {
   });
 
   it("loads summary data and accepted friends", async () => {
-    mockInvoke.mockImplementation((cmd, args) => {
+    mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_current_user") {
         return Promise.resolve({ id: "uuid-1", nickname: "Alice", avatar: "🙂", native_language: "en" });
-      }
-      if (cmd === "get_setting_cmd" && args.key === "social_api_base_url") {
-        return Promise.resolve("https://chat.example.com");
-      }
-      if (cmd === "get_setting_cmd" && args.key === "social_ws_base_url") {
-        return Promise.resolve("wss://chat.example.com");
       }
       return Promise.resolve("");
     });

@@ -4,7 +4,6 @@ import {
   createSocialSocket,
   getSocialConfig,
   getSocialUserId,
-  saveSocialConfig,
 } from "@/modules/chat/socialService.js";
 
 describe("socialService", () => {
@@ -15,38 +14,10 @@ describe("socialService", () => {
     api.__setInvoke(mockInvoke);
   });
 
-  it("loads saved social config and normalizes the websocket url", async () => {
-    mockInvoke.mockImplementation((cmd, args) => {
-      if (cmd === "get_setting_cmd" && args.key === "social_api_base_url") {
-        return Promise.resolve("https://chat.example.com/");
-      }
-      if (cmd === "get_setting_cmd" && args.key === "social_ws_base_url") {
-        return Promise.resolve("https://socket.example.com/");
-      }
-      return Promise.resolve("");
-    });
-
+  it("returns the built-in production endpoints", async () => {
     await expect(getSocialConfig()).resolves.toEqual({
-      apiBaseUrl: "https://chat.example.com",
-      wsBaseUrl: "wss://socket.example.com",
-    });
-  });
-
-  it("saves trimmed config values", async () => {
-    mockInvoke.mockResolvedValue("");
-
-    await saveSocialConfig({
-      apiBaseUrl: "https://chat.example.com/",
-      wsBaseUrl: "http://socket.example.com/",
-    });
-
-    expect(mockInvoke).toHaveBeenCalledWith("save_setting_cmd", {
-      key: "social_api_base_url",
-      value: "https://chat.example.com",
-    });
-    expect(mockInvoke).toHaveBeenCalledWith("save_setting_cmd", {
-      key: "social_ws_base_url",
-      value: "ws://socket.example.com",
+      apiBaseUrl: "https://amiga-chat-social.wh1018.workers.dev",
+      wsBaseUrl: "wss://amiga-chat-social.wh1018.workers.dev",
     });
   });
 

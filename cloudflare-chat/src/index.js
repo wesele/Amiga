@@ -1,19 +1,15 @@
-import {
-  broadcastPublicMessage,
-  createConnectionState,
-  deliverDirectMessage,
-  notifyUser,
-  registerSocket,
-  removeSocket,
-} from "./core.js";
-
-const connectionState = createConnectionState();
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
 
 function json(data, init = {}) {
   return new Response(JSON.stringify(data), {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...CORS_HEADERS,
       ...(init.headers || {}),
     },
   });
@@ -29,6 +25,10 @@ async function readJson(request) {
 
 function badRequest(error, status = 400) {
   return json({ error }, { status });
+}
+
+function getRelayStub(env, key) {
+  return env.CHAT_RELAY.get(env.CHAT_RELAY.idFromName(key));
 }
 
 function makeRepository(env) {
@@ -144,52 +144,131 @@ function makeRepository(env) {
   };
 }
 
-function attachSocketLifecycle(serverSocket, userId, entry) {
-  serverSocket.addEventListener("close", () => {
-    removeSocket(connectionState, userId, entry);
-  });
+export class ChatRelay {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+    this.sessions = new Map();
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    const upgrade = request.headers.get("Upgrade");
+    if (upgrade && upgrade.toLowerCase() === "websocket") {
+      return this.handleSocket(url);
+    }
+
+    if (request.method === "POST" && url.pathname === "/deliver-direct") {
+      const body = await readJson(request);
+      const delivered = this.broadcast({
+        type: "message",
+        mode: "direct",
+        senderId: body.senderId,
+        text: body.text,
+        createdAt: body.createdAt,
+      });
+      if (!delivered) {
+        const repository = makeRepository(this.env);
+        await repository.storeOfflineMessage({
+          senderId: body.senderId,
+          receiverId: body.receiverId,
+          content: body.text,
+          createdAt: body.createdAt,
+        });
+      }
+      return json({ delivered, storedOffline: !delivered });
+    }
+
+    if (request.method === "POST" && url.pathname === "/notify") {
+      const payload = await readJson(request);
+      const delivered = this.broadcast(payload);
+      return json({ delivered });
+    }
+
+    return badRequest("not-found", 404);
+  }
+
+  handleSocket(url) {
+    const mode = url.searchParams.get("mode");
+    const userId = url.searchParams.get("userId");
+    const peerId = url.searchParams.get("peerId") || "";
+    if (!mode || !userId) {
+      return badRequest("missing-user-or-mode");
+    }
+
+    const pair = new WebSocketPair();
+    const client = pair[0];
+    const server = pair[1];
+    server.accept();
+
+    const entry = { userId, mode, peerId };
+    this.sessions.set(server, entry);
+    server.addEventListener("close", () => {
+      this.sessions.delete(server);
+    });
+    server.addEventListener("message", (event) => {
+      this.onSocketMessage(entry, event.data).catch((error) => {
+        server.send(JSON.stringify({ type: "error", error: String(error?.message || error) }));
+      });
+    });
+
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  broadcast(payload, predicate = null) {
+    let delivered = 0;
+    for (const [socket, meta] of this.sessions.entries()) {
+      if (predicate && !predicate(meta)) continue;
+      socket.send(JSON.stringify(payload));
+      delivered += 1;
+    }
+    return delivered;
+  }
+
+  async onSocketMessage(entry, rawData) {
+    const payload = JSON.parse(rawData);
+    const createdAt = payload.createdAt || new Date().toISOString();
+
+    if (entry.mode === "public" && payload.mode === "public") {
+      this.broadcast(
+        {
+          type: "message",
+          mode: "public",
+          senderId: entry.userId,
+          text: payload.text,
+          createdAt,
+        },
+        (meta) => meta.userId !== entry.userId,
+      );
+      return;
+    }
+
+    if (entry.mode === "direct" && payload.mode === "direct" && payload.peerId) {
+      const relay = getRelayStub(this.env, `user:${payload.peerId}`);
+      await relay.fetch("https://relay/deliver-direct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          senderId: entry.userId,
+          receiverId: payload.peerId,
+          text: payload.text,
+          createdAt,
+        }),
+      });
+    }
+  }
 }
 
 async function handleWebSocket(request, env) {
   const url = new URL(request.url);
-  const userId = url.searchParams.get("userId");
   const mode = url.searchParams.get("mode");
-  if (!userId || !mode) {
+  const userId = url.searchParams.get("userId");
+  if (!mode || !userId) {
     return badRequest("missing-user-or-mode");
   }
 
-  const pair = new WebSocketPair();
-  const clientSocket = pair[0];
-  const serverSocket = pair[1];
-  serverSocket.accept();
-
-  const repository = makeRepository(env);
-  const entry = registerSocket(connectionState, userId, serverSocket, {
-    mode,
-    peerId: url.searchParams.get("peerId") || "",
-  });
-  attachSocketLifecycle(serverSocket, userId, entry);
-
-  serverSocket.addEventListener("message", async (event) => {
-    try {
-      const payload = JSON.parse(event.data);
-      const createdAt = payload.createdAt || new Date().toISOString();
-      if (payload.mode === "public") {
-        broadcastPublicMessage(connectionState, userId, payload.text, createdAt);
-      } else if (payload.mode === "direct" && payload.peerId) {
-        await deliverDirectMessage(connectionState, repository, {
-          senderId: userId,
-          receiverId: payload.peerId,
-          text: payload.text,
-          createdAt,
-        });
-      }
-    } catch (error) {
-      serverSocket.send(JSON.stringify({ type: "error", error: String(error?.message || error) }));
-    }
-  });
-
-  return new Response(null, { status: 101, webSocket: clientSocket });
+  const key = mode === "public" ? "public-room" : `user:${userId}`;
+  return getRelayStub(env, key).fetch(request);
 }
 
 async function handleApi(request, env) {
@@ -226,10 +305,14 @@ async function handleApi(request, env) {
     const body = await readJson(request);
     if (!body.fromUserId || !body.toUserId) return badRequest("missing-friend-request-fields");
     await repository.sendFriendRequest(body);
-    notifyUser(connectionState, body.toUserId, {
-      type: "friend_request",
-      fromUserId: body.fromUserId,
-      createdAt: new Date().toISOString(),
+    await getRelayStub(env, `user:${body.toUserId}`).fetch("https://relay/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "friend_request",
+        fromUserId: body.fromUserId,
+        createdAt: new Date().toISOString(),
+      }),
     });
     return json({ ok: true });
   }
@@ -242,10 +325,14 @@ async function handleApi(request, env) {
     } catch (error) {
       return badRequest(String(error?.message || error), 404);
     }
-    notifyUser(connectionState, body.fromUserId, {
-      type: "friend_accept",
-      byUserId: body.userId,
-      createdAt: new Date().toISOString(),
+    await getRelayStub(env, `user:${body.fromUserId}`).fetch("https://relay/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "friend_accept",
+        byUserId: body.userId,
+        createdAt: new Date().toISOString(),
+      }),
     });
     return json({ ok: true });
   }
@@ -262,6 +349,10 @@ async function handleApi(request, env) {
 
 export default {
   async fetch(request, env) {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
     const upgrade = request.headers.get("Upgrade");
     if (upgrade && upgrade.toLowerCase() === "websocket") {
       return handleWebSocket(request, env);
