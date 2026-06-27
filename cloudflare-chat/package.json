@@ -1,0 +1,8 @@
+{
+  "name": "amiga-cloudflare-chat",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

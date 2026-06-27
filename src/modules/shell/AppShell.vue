@@ -72,7 +72,7 @@ function switchTab(tab) {
 }
 
 const showNav = computed(() => {
-  const noNavRoutes = ["wizard", "reader", "chat-session"];
+  const noNavRoutes = ["wizard", "reader", "chat-session", "social-chat"];
   return !noNavRoutes.includes(route.name);
 });
 </script>

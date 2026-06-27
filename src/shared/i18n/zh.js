@@ -142,6 +142,8 @@ export default {
   },
 
   chat: {
+    aiSection: "AI 聊天",
+    socialSection: "社交内测",
     title: "聊天",
     amiga: "Amiga",
     amigaDesc: "你的 {{target}} AI 语言学习伙伴",

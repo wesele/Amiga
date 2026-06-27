@@ -1,6 +1,8 @@
 import ContactList from "./ContactList.vue";
 import ChatPage from "./ChatPage.vue";
 import MarkdownPreview from "./MarkdownPreview.vue";
+import SocialHub from "./SocialHub.vue";
+import SocialChatPage from "./SocialChatPage.vue";
 
 // See src/modules/news/routes.js for the meta.parent convention.
 //
@@ -12,6 +14,18 @@ export default [
     path: "/chat",
     name: "chat",
     component: ContactList,
+  },
+  {
+    path: "/chat/social",
+    name: "social-hub",
+    component: SocialHub,
+    meta: { parent: "chat" },
+  },
+  {
+    path: "/chat/social/:mode/:peerId?",
+    name: "social-chat",
+    component: SocialChatPage,
+    meta: { parent: "chat" },
   },
   {
     path: "/chat/preview",

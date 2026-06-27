@@ -47,6 +47,12 @@ export function t(key, params) {
   const dict = DICTS[_locale.value] || DICTS[DEFAULT_LOCALE];
   let v = lookup(dict, key);
   if (v == null) v = lookup(DICTS[DEFAULT_LOCALE], key);
+  if (v == null) {
+    for (const fallback of Object.values(DICTS)) {
+      v = lookup(fallback, key);
+      if (v != null) break;
+    }
+  }
   if (v == null) return key;
   if (typeof v !== "string") return key;
   return interpolate(v, params);

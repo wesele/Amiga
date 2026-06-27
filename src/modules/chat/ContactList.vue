@@ -4,6 +4,20 @@
       <h2>{{ t('chat.title') }}</h2>
     </header>
     <div class="contact-list-scroll">
+      <section class="section-block">
+        <div class="section-title">{{ t("chat.socialSection") }}</div>
+        <div class="social-entry" @click="openSocialHub">
+          <div class="social-entry-icon">#</div>
+          <div class="contact-info">
+            <div class="contact-name">{{ t("chat.socialHub") }}</div>
+            <div class="contact-desc">{{ socialSummary }}</div>
+          </div>
+          <div class="social-count">{{ socialPendingCount }}</div>
+        </div>
+      </section>
+
+      <section class="section-block">
+        <div class="section-title">{{ t("chat.aiSection") }}</div>
       <div
         v-for="c in contactsWithSessions"
         :key="c.id"
@@ -20,6 +34,7 @@
         </div>
         <div class="contact-time">{{ c.lastTime }}</div>
       </div>
+      </section>
     </div>
   </div>
 </template>
@@ -33,11 +48,19 @@ import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js"
 import { eventBus } from "@/shared/eventBus.js";
 import { displayLang } from "@/shared/constants.js";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
+import {
+  getPendingFriendRequests,
+  getSocialConfig,
+  getSocialStats,
+  getSocialUserId,
+} from "./socialService.js";
 
 const router = useRouter();
 const { t, locale } = useI18n();
 const targetLangStore = useTargetLangStore();
 const sessions = ref([]);
+const socialPendingCount = ref(0);
+const socialUserCount = ref(0);
 let unsubscribe = null;
 
 const CONTACTS = computed(() => {
@@ -81,12 +104,46 @@ const contactsWithSessions = computed(() => {
     };
   });
 });
+const socialSummary = computed(() => {
+  if (!socialUserCount.value && !socialPendingCount.value) {
+    return t("chat.socialSummaryEmpty");
+  }
+  return t("chat.socialSummary", {
+    users: socialUserCount.value,
+    pending: socialPendingCount.value,
+  });
+});
 
 async function refreshSessions() {
   const lang = targetLangStore.code || (await targetLangStore.load());
   try {
     sessions.value = await getChatSessions(lang);
   } catch { /* empty */ }
+}
+
+async function refreshSocialSummary() {
+  try {
+    const config = await getSocialConfig();
+    if (!config.apiBaseUrl || !config.wsBaseUrl) {
+      socialPendingCount.value = 0;
+      socialUserCount.value = 0;
+      return;
+    }
+    const userId = await getSocialUserId();
+    const [stats, pending] = await Promise.all([
+      getSocialStats(config),
+      getPendingFriendRequests(config, userId),
+    ]);
+    socialUserCount.value = stats?.userCount || 0;
+    socialPendingCount.value = pending?.items?.length || 0;
+  } catch {
+    socialPendingCount.value = 0;
+    socialUserCount.value = 0;
+  }
+}
+
+function openSocialHub() {
+  router.push({ name: "social-hub" });
 }
 
 async function openChat(contact) {
@@ -111,6 +168,7 @@ onUnmounted(() => {
 
 onMounted(async () => {
   await refreshSessions();
+  await refreshSocialSummary();
   unsubscribe = eventBus.on(TARGET_LANG_CHANGED, () => {
     refreshSessions();
   });
@@ -136,6 +194,56 @@ onMounted(async () => {
 .contact-list-scroll {
   flex: 1;
   overflow-y: auto;
+}
+.section-block + .section-block {
+  margin-top: 14px;
+}
+.section-title {
+  padding: 14px 20px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-lighter);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.social-entry {
+  margin: 0 16px;
+  padding: 14px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #0f6b44 0%, #3f9b67 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(15, 107, 68, 0.18);
+}
+.social-entry-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+}
+.social-entry .contact-name,
+.social-entry .contact-desc,
+.social-count {
+  color: #fff;
+}
+.social-count {
+  min-width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
 }
 .contact-item {
   display: flex;
