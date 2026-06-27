@@ -42,6 +42,8 @@ const path = require("path");
 const ROOT = path.resolve(__dirname, "..");
 const SRC_JAVA = path.join(ROOT, "src-tauri", "android", "app", "src", "main", "java");
 const DST_JAVA = path.join(ROOT, "src-tauri", "gen", "android", "app", "src", "main", "java");
+const SRC_RES = path.join(ROOT, "src-tauri", "android", "app", "src", "main", "res");
+const DST_RES = path.join(ROOT, "src-tauri", "gen", "android", "app", "src", "main", "res");
 const SRC_MANIFEST = path.join(ROOT, "src-tauri", "android", "app", "src", "main", "AndroidManifest.xml");
 const DST_MANIFEST = path.join(ROOT, "src-tauri", "gen", "android", "app", "src", "main", "AndroidManifest.xml");
 const DST_GRADLE = path.join(ROOT, "src-tauri", "gen", "android", "app", "build.gradle.kts");
@@ -118,6 +120,48 @@ function dedent(text) {
  */
 function trimBlankLines(text) {
   return text.replace(/^(?:\s*\n)+|(?:\n\s*)+$/g, "");
+}
+
+/**
+ * Patch the <application> tag in the generated AndroidManifest to add
+ * Android Auto Backup attributes.
+ *
+ * Adds:
+ *   android:allowBackup="true"
+ *   android:fullBackupContent="@xml/backup_rules"
+ *   android:dataExtractionRules="@xml/data_extraction_rules"
+ *
+ * Idempotent: skips if android:allowBackup is already present.
+ *
+ * Returns the patched manifest string, or the input unchanged if already
+ * patched.
+ */
+function mergeBackupAttributes(manifest) {
+  if (manifest.includes('android:allowBackup="true"')) return manifest;
+
+  const anchor = 'android:usesCleartextTraffic=';
+  if (!manifest.includes(anchor)) {
+    // Tauri template changed shape — fall back to injecting after the
+    // last attribute before the closing > of <application.
+    const appTagRe = /(<application\b[\s\S]*?)(\s*>)/;
+    const m = manifest.match(appTagRe);
+    if (!m) return manifest;
+    const attrs =
+      '\n        android:allowBackup="true"' +
+      '\n        android:fullBackupContent="@xml/backup_rules"' +
+      '\n        android:dataExtractionRules="@xml/data_extraction_rules"';
+    return manifest.replace(appTagRe, '$1' + attrs + '$2');
+  }
+
+  const attrs =
+    '\n        android:allowBackup="true"' +
+    '\n        android:fullBackupContent="@xml/backup_rules"' +
+    '\n        android:dataExtractionRules="@xml/data_extraction_rules">';
+
+  return manifest.replace(
+    /(android:usesCleartextTraffic="[^"]*")\s*>/,
+    '$1' + attrs,
+  );
 }
 
 /**
@@ -330,6 +374,7 @@ module.exports = {
   PATCH_GRADLE_END,
   extractFragmentBody,
   mergeManifest,
+  mergeBackupAttributes,
   mergeGradleDebugSigning,
   ensureGradleKeystore,
   dedent,
@@ -337,6 +382,11 @@ module.exports = {
 };
 
 // ===== CLI entry =====
+
+// Tracked resource files to copy (relative to SRC_RES). The build system
+// uses the gen/ tree as the actual compilation source, so our custom res/
+// files must land there.
+const KNOWN_RES = ["xml/backup_rules.xml", "xml/data_extraction_rules.xml"];
 
 if (require.main === module) {
   if (!fs.existsSync(SRC_JAVA)) {
@@ -347,6 +397,12 @@ if (require.main === module) {
 
   if (!fs.existsSync(DST_JAVA)) {
     console.error(`[android-patch] Java destination not found: ${DST_JAVA}`);
+    console.error("[android-patch] Run `npm run tauri android init` first to generate the Android project, then re-run this script.");
+    process.exit(1);
+  }
+
+  if (!fs.existsSync(DST_RES)) {
+    console.error(`[android-patch] Resource destination not found: ${DST_RES}`);
     console.error("[android-patch] Run `npm run tauri android init` first to generate the Android project, then re-run this script.");
     process.exit(1);
   }
@@ -386,6 +442,36 @@ if (require.main === module) {
 
   walk(SRC_JAVA);
 
+  // Copy custom resource files (backup_rules.xml etc.) from tracked res/
+  // to generated res/, so Android's build system picks them up when
+  // compiling the APK.
+  let resCopied = 0;
+  let resSkipped = 0;
+  for (const rel of KNOWN_RES) {
+    const srcPath = path.join(SRC_RES, rel);
+    const dstPath = path.join(DST_RES, rel);
+    if (!fs.existsSync(srcPath)) {
+      // The file may not exist yet if the tracked res/ hasn't been
+      // created cleanly on a fresh checkout; skip silently.
+      continue;
+    }
+    const exists = fs.existsSync(dstPath);
+    if (exists && !FORCE) {
+      const srcStat = fs.statSync(srcPath);
+      const dstStat = fs.statSync(dstPath);
+      if (dstStat.mtimeMs >= srcStat.mtimeMs) {
+        resSkipped++;
+        continue;
+      }
+    }
+    fs.mkdirSync(path.dirname(dstPath), { recursive: true });
+    fs.copyFileSync(srcPath, dstPath);
+    const now = new Date();
+    fs.utimesSync(dstPath, now, now);
+    console.log(`[android-patch] ${exists ? "updated" : "added"}   res/${rel}`);
+    resCopied++;
+  }
+
   // AndroidManifest.xml: merge the tracked fragment (if any) into the
   // generated manifest.
   let manifestPatched = false;
@@ -407,6 +493,16 @@ if (require.main === module) {
       fs.writeFileSync(DST_MANIFEST, next);
       manifestPatched = true;
     }
+    // Apply backup attributes on the (possibly merged) manifest.
+    const afterFrag = manifestPatched ? fs.readFileSync(DST_MANIFEST, "utf8") : next;
+    const withBackup = mergeBackupAttributes(afterFrag);
+    if (withBackup !== afterFrag) {
+      fs.writeFileSync(DST_MANIFEST, withBackup);
+      if (!manifestPatched) {
+        manifestPatched = true;
+        console.log("[android-patch] backup attributes patched");
+      }
+    }
   }
 
   // build.gradle.kts: inject the debug-signingConfig snippet so dev
@@ -427,6 +523,6 @@ if (require.main === module) {
   }
 
   console.log(
-    `[android-patch] done. copied=${copied} skipped=${skipped} force=${FORCE} manifestPatched=${manifestPatched} gradlePatched=${gradlePatched}`,
+    `[android-patch] done. copied=${copied} skipped=${skipped} resCopied=${resCopied} resSkipped=${resSkipped} force=${FORCE} manifestPatched=${manifestPatched} gradlePatched=${gradlePatched}`,
   );
 }

@@ -39,6 +39,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // Greeting (legacy)
             commands::greeting::greet,
+            // Database commands
+            commands::database::is_schema_compatible_cmd,
+            commands::database::reset_database_cmd,
             // User commands
             commands::user::create_user,
             commands::user::get_current_user,

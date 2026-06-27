@@ -261,6 +261,14 @@ export default {
     defaultCancel: "Cancel",
   },
 
+  schemaIncompatible: {
+    title: "Data incompatible",
+    message: "This app found learning data from a newer version. To keep using Amiga on this version, you need to clear the old data and start again.",
+    confirm: "Clear and restart",
+    cancel: "Later",
+    resetting: "Clearing...",
+  },
+
   preview: {
     title: "Markdown render preview",
     subtitle: "How AI chat messages render with Markdown",

@@ -17,6 +17,10 @@ export function __resetInvoke() {
   _invoke = tauriInvoke;
 }
 
+// --- Database ---
+export const isSchemaCompatible = () => _invoke("is_schema_compatible_cmd");
+export const resetDatabase = () => _invoke("reset_database_cmd");
+
 // ─── User ───
 export const getCurrentUser = () => _invoke("get_current_user");
 export const createUser = (request) => _invoke("create_user", { request });

@@ -3,6 +3,7 @@ use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::migrations;
 
@@ -175,6 +176,7 @@ mod tests {
 
 pub struct DatabasePool {
     pool: Pool<SqliteConnectionManager>,
+    compatible: AtomicBool,
 }
 
 impl DatabasePool {
@@ -196,7 +198,7 @@ impl DatabasePool {
 
         log::info!("Database opened at: {:?}", db_path);
 
-        let db = Self { pool };
+        let db = Self { pool, compatible: AtomicBool::new(true) };
         db.run_migrations()?;
         Ok(db)
     }
@@ -210,10 +212,94 @@ impl DatabasePool {
             .build(manager)
             .expect("Failed to create in-memory database pool");
 
-        let db = Self { pool };
+        let db = Self { pool, compatible: AtomicBool::new(true) };
         db.run_migrations()
             .expect("In-memory migrations should not fail");
         db
+    }
+
+    /// Returns `true` if the current database schema is compatible with
+    /// this app version (all applied migration versions are known).
+    pub fn is_schema_compatible(&self) -> bool {
+        self.compatible.load(Ordering::SeqCst)
+    }
+
+    /// Internal check: reads all applied schema versions and compares
+    /// them against the latest known migration version. If any applied
+    /// version exceeds the latest known, the schema is incompatible
+    /// (e.g. the database was written by a newer app version and
+    /// downgraded).
+    fn check_schema_compatible_internal(&self) -> Result<(), String> {
+        let conn = self.conn()?;
+
+        let max_applied: i32 = conn
+            .query_row(
+                "SELECT COALESCE(MAX(version), 0) FROM schema_version",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        let all_migrations = migrations::all_migrations();
+        let latest_known = all_migrations
+            .last()
+            .map(|(v, _, _)| *v)
+            .unwrap_or(0);
+
+        if max_applied > latest_known {
+            log::warn!(
+                "Schema incompatible: database has v{} but app only knows up to v{}",
+                max_applied,
+                latest_known,
+            );
+            self.compatible.store(false, Ordering::SeqCst);
+        }
+        Ok(())
+    }
+
+    /// Deletes all user data and re-runs migrations from scratch.
+    /// Drops every table (except `schema_version`), clears the version
+    /// tracking, then replays all migrations.
+    pub fn reset_database(&self) -> Result<(), String> {
+        let conn = self.conn()?;
+
+        // Disable foreign keys temporarily so DROP TABLE won't fail on
+        // reference constraints.
+        conn.execute_batch("PRAGMA foreign_keys = OFF;")
+            .map_err(|e| format!("Failed to disable foreign keys: {}", e))?;
+
+        let tables: Vec<String> = {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name != 'schema_version'",
+                )
+                .map_err(|e| format!("Failed to list tables: {}", e))?;
+            let rows = stmt
+                .query_map([], |row| row.get(0))
+                .map_err(|e| format!("Failed to query tables: {}", e))?
+                .filter_map(|r| r.ok())
+                .collect::<Vec<String>>();
+            rows
+        };
+
+        for table in &tables {
+            conn.execute_batch(&format!("DROP TABLE IF EXISTS \"{}\"", table))
+                .map_err(|e| format!("Failed to drop table {}: {}", table, e))?;
+        }
+
+        conn.execute_batch("PRAGMA foreign_keys = ON;")
+            .map_err(|e| format!("Failed to re-enable foreign keys: {}", e))?;
+
+        // Clear migration history
+        conn.execute("DELETE FROM schema_version", [])
+            .map_err(|e| format!("Failed to clear schema_version: {}", e))?;
+
+        // Re-run all migrations
+        self.run_migrations()?;
+        self.compatible.store(true, Ordering::SeqCst);
+        log::info!("Database has been reset to factory state");
+
+        Ok(())
     }
 
     pub fn conn(&self) -> Result<r2d2::PooledConnection<SqliteConnectionManager>, String> {
@@ -296,6 +382,11 @@ impl DatabasePool {
             .unwrap_or(0);
 
         log::info!("Database schema up to date. Version: {}", final_version);
+
+        // After normal migration, check whether the database came from
+        // a newer app version (incompatible schema).
+        self.check_schema_compatible_internal()?;
+
         Ok(())
     }
 }

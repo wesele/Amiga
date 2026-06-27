@@ -1,4 +1,5 @@
 pub mod chat;
+pub mod database;
 pub mod greeting;
 pub mod llm;
 pub mod news;

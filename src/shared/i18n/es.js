@@ -261,6 +261,14 @@ export default {
     defaultCancel: "Cancelar",
   },
 
+  schemaIncompatible: {
+    title: "Datos incompatibles",
+    message: "La app encontr\u00f3 datos de aprendizaje creados por una versi\u00f3n m\u00e1s nueva. Para seguir usando Amiga en esta versi\u00f3n, debes borrar esos datos y empezar de nuevo.",
+    confirm: "Borrar y reiniciar",
+    cancel: "M\u00e1s tarde",
+    resetting: "Borrando...",
+  },
+
   preview: {
     title: "Vista previa de Markdown",
     subtitle: "Cómo se renderizan los mensajes del chat IA con Markdown",

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Backup rules for Android API 23–30 (Android 6.0–11).
+
+  Back up the entire app's internal storage so user data (SQLite database,
+  settings, vocabulary mastery) survives uninstall / reinstall.
+
+  See also data_extraction_rules.xml for API 31+.
+-->
+<full-backup-content>
+    <include domain="file" path="." />
+</full-backup-content>

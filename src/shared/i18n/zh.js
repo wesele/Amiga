@@ -264,6 +264,14 @@ export default {
     defaultCancel: "取消",
   },
 
+  schemaIncompatible: {
+    title: "鏁版嵁涓嶅吋瀹",
+    message: "妫€娴嬪埌杩欎釜璁惧涓婄殑瀛︿範鏁版嵁鏉ヨ嚜鏇存柊鐗堟湰銆傚鏋滆缁х画鍦ㄥ綋鍓嶇増鏈彲鐢紝闇€瑕佹竻闄ゆ棫鏁版嵁骞堕噸鏂板紑濮嬨€",
+    confirm: "娓呴櫎骞堕噸鍚",
+    cancel: "绋嶅悗鍐嶈",
+    resetting: "娓呴櫎涓€",
+  },
+
   preview: {
     title: "Markdown 渲染预览",
     subtitle: "AI 聊天消息的 Markdown 显示效果",

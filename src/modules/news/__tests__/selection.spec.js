@@ -17,9 +17,7 @@ function createOnWordTap(state) {
 //   translateSelection(text)     — core: triggers translation for given text
 //   onSelectionChange()          — drag phase: only marks isSelecting
 //   onPointerUp()                — Windows: processes selection after release
-//   onTranslateButtonClick()     — FAB tap: triggers translation, dismisses
-//                                 system toolbar (Android) via JS bridge
-//   handleNativeTranslate(text)  — kept around for legacy call-sites only
+//   handleNativeTranslate(text)  — Android: called from native "翻译" menu item
 function createSelectionHandlers(state, mockTranslateText) {
   function translateSelection(text) {
     if (!text || text.length === 0) return false;
@@ -68,28 +66,6 @@ function createSelectionHandlers(state, mockTranslateText) {
     }, 50);
   }
 
-  // Mirror of onTranslateButtonClick in NewsReader.vue.
-  function onTranslateButtonClick() {
-    const sel = window.getSelection();
-    if (!sel) return;
-    const text = sel.toString().trim();
-    if (!text) return;
-    if (!translateSelection(text)) return;
-    sel.removeAllRanges();
-    state.showTranslateButton = false;
-    // Mirror of the platform bridge call: on Android this finishes
-    // the system text-selection ActionMode so it does not overlap
-    // the in-page translation popup.
-    if (window.__amigaFinishSelectionMode) {
-      try {
-        window.__amigaFinishSelectionMode();
-        state.dismissedSelectionMode = (state.dismissedSelectionMode ?? 0) + 1;
-      } catch (_) {
-        // ignore — bridge is best-effort
-      }
-    }
-  }
-
   function handleNativeTranslate(text) {
     state.isSelecting = false;
     if (!translateSelection(text)) return;
@@ -97,7 +73,7 @@ function createSelectionHandlers(state, mockTranslateText) {
     if (sel) sel.removeAllRanges();
   }
 
-  return { onSelectionChange, onPointerUp, onTranslateButtonClick, handleNativeTranslate, translateSelection };
+  return { onSelectionChange, onPointerUp, handleNativeTranslate, translateSelection };
 }
 
 describe("NewsReader selection logic", () => {
@@ -434,103 +410,6 @@ describe("NewsReader selection logic", () => {
       expect(mockTranslateText).not.toHaveBeenCalled();
     });
   });
-
-  describe("onTranslateButtonClick (Android FAB tap)", () => {
-    beforeEach(() => {
-      // Reset any leftover bridge from a sibling describe block.
-      delete window.__amigaFinishSelectionMode;
-    });
-
-    afterEach(() => {
-      delete window.__amigaFinishSelectionMode;
-    });
-
-    it("translates, hides the FAB and dismisses the system toolbar when the bridge is present", async () => {
-      const removeAllRanges = vi.fn();
-      mockSelection("hola mundo bonito", { removeAllRanges });
-      const finishBridge = vi.fn();
-      window.__amigaFinishSelectionMode = finishBridge;
-      const mockTranslateText = vi.fn().mockResolvedValue("hello pretty world");
-      const state = makeState();
-      state.showTranslateButton = true;
-      const { onTranslateButtonClick } = createSelectionHandlers(
-        state, mockTranslateText,
-      );
-
-      onTranslateButtonClick();
-
-      expect(state.selectionText).toBe("hola mundo bonito");
-      expect(state.selectionLoading).toBe(true);
-      expect(state.showTranslateButton).toBe(false);
-      expect(removeAllRanges).toHaveBeenCalled();
-      expect(finishBridge).toHaveBeenCalledTimes(1);
-      expect(state.dismissedSelectionMode).toBe(1);
-
-      await Promise.resolve();
-      await Promise.resolve();
-      expect(state.selectionResult).toBe("hello pretty world");
-      expect(state.selectionLoading).toBe(false);
-    });
-
-    it("still translates and hides the FAB when the bridge is missing (non-Android)", async () => {
-      const removeAllRanges = vi.fn();
-      mockSelection("hola mundo", { removeAllRanges });
-      const mockTranslateText = vi.fn().mockResolvedValue("hello world");
-      const state = makeState();
-      state.showTranslateButton = true;
-      const { onTranslateButtonClick } = createSelectionHandlers(
-        state, mockTranslateText,
-      );
-
-      onTranslateButtonClick();
-
-      expect(state.selectionText).toBe("hola mundo");
-      expect(state.showTranslateButton).toBe(false);
-      expect(removeAllRanges).toHaveBeenCalled();
-      expect(state.dismissedSelectionMode).toBeUndefined();
-
-      await Promise.resolve();
-      await Promise.resolve();
-      expect(state.selectionResult).toBe("hello world");
-    });
-
-    it("does not translate and does not dismiss the toolbar for single-word text", () => {
-      mockSelection("hola", { removeAllRanges: vi.fn() });
-      const finishBridge = vi.fn();
-      window.__amigaFinishSelectionMode = finishBridge;
-      const mockTranslateText = vi.fn();
-      const state = makeState();
-      state.showTranslateButton = true;
-      const { onTranslateButtonClick } = createSelectionHandlers(
-        state, mockTranslateText,
-      );
-
-      onTranslateButtonClick();
-
-      expect(state.selectionText).toBe("");
-      expect(state.showTranslateButton).toBe(true);
-      expect(mockTranslateText).not.toHaveBeenCalled();
-      expect(finishBridge).not.toHaveBeenCalled();
-    });
-
-    it("tolerates the bridge throwing", () => {
-      const removeAllRanges = vi.fn();
-      mockSelection("hola mundo", { removeAllRanges });
-      window.__amigaFinishSelectionMode = vi.fn(() => {
-        throw new Error("native went away");
-      });
-      const mockTranslateText = vi.fn().mockResolvedValue("hello world");
-      const state = makeState();
-      state.showTranslateButton = true;
-      const { onTranslateButtonClick } = createSelectionHandlers(
-        state, mockTranslateText,
-      );
-
-      expect(() => onTranslateButtonClick()).not.toThrow();
-      expect(state.selectionText).toBe("hola mundo");
-      expect(state.showTranslateButton).toBe(false);
-    });
-  });
 });
 
 /**
@@ -539,13 +418,11 @@ describe("NewsReader selection logic", () => {
  * unavailable). Mirrors the production logic in
  * src/modules/news/NewsReader.vue: on `selectionchange`, if the
  * new selection is multi-word AND inside the article body,
- * show a "翻译" button positioned below the selection rect
- * (to avoid overlap with the system toolbar that appears above);
- * if the bottom would run off-screen, flip above instead.
- * On collapse or single-word, hide it.
+ * show a "翻译" button positioned above (or below, near the top)
+ * the selection rect; on collapse or single-word, hide it.
  */
 describe("translate floating button positioning (Android fallback)", () => {
-  it("appears below the selection when there is room", () => {
+  it("appears above the selection when the rect is not at the top", () => {
     const sel = {
       isCollapsed: false,
       rangeCount: 1,
@@ -558,27 +435,26 @@ describe("translate floating button positioning (Android fallback)", () => {
     const articleBody = { contains: () => true };
     const computed = computeTranslateButtonPlacement(sel, articleBody, 1080);
     expect(computed.visible).toBe(true);
-    // y = rect.bottom + 8 = 428
-    expect(computed.y).toBe(428);
+    // y = rect.top - 40 = 360
+    expect(computed.y).toBe(360);
     // x = rect.right - 88 = 212, clamped inside [8, 1080-88-8] = [8, 984]
     expect(computed.x).toBe(212);
   });
 
-  it("flips above the selection when the bottom would run off-screen", () => {
+  it("flips below the selection when the rect is too close to the top", () => {
     const sel = {
       isCollapsed: false,
       rangeCount: 1,
       toString: () => "hola mundo",
       getRangeAt: () => ({
-        getBoundingClientRect: () => ({ top: 700, bottom: 720, left: 100, right: 300, width: 200, height: 20 }),
+        getBoundingClientRect: () => ({ top: 30, bottom: 50, left: 100, right: 300, width: 200, height: 20 }),
         commonAncestorContainer: { nodeType: 1 },
       }),
     };
     const articleBody = { contains: () => true };
-    const computed = computeTranslateButtonPlacement(sel, articleBody, 800, 760);
-    // y = 720 + 8 = 728, 728 + 32 = 760 > 760-8=752, so flip above
-    // y = rect.top - 32 - 8 = 660
-    expect(computed.y).toBe(660);
+    const computed = computeTranslateButtonPlacement(sel, articleBody, 1080);
+    // y = rect.bottom + 8 = 58 (flipped below)
+    expect(computed.y).toBe(58);
   });
 
   it("hides the button for empty / collapsed selections", () => {
@@ -633,7 +509,7 @@ describe("translate floating button positioning (Android fallback)", () => {
 });
 
 // Mirror of the placement logic in NewsReader.vue. Keep in lock-step.
-function computeTranslateButtonPlacement(sel, articleBody, viewportWidth, viewportHeight = 800) {
+function computeTranslateButtonPlacement(sel, articleBody, viewportWidth) {
   if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
     return { visible: false, x: 0, y: 0 };
   }
@@ -650,12 +526,9 @@ function computeTranslateButtonPlacement(sel, articleBody, viewportWidth, viewpo
     return { visible: false, x: 0, y: 0 };
   }
   const buttonWidth = 88;
-  const buttonHeight = 32;
   const margin = 8;
-  let y = rect.bottom + margin;
-  if (y + buttonHeight > viewportHeight - margin) {
-    y = rect.top - buttonHeight - margin;
-  }
+  let y = rect.top - 40;
+  if (y < 60) y = rect.bottom + 8;
   const x = Math.max(margin, Math.min(viewportWidth - buttonWidth - margin, rect.right - buttonWidth));
   return { visible: true, x, y };
 }

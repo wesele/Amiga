@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Data-extraction rules for Android 12+ (API 31+).
+
+  Back up the entire app's internal storage so user data (SQLite database,
+  settings, vocabulary mastery) survives uninstall / reinstall.
+
+  Both <cloud-backup> (Google Drive auto backup) and <device-transfer>
+  (device-to-device transfer) are needed. See:
+  https://developer.android.com/about/versions/12/backup-restore#data_extraction_rules
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="." />
+    </device-transfer>
+</data-extraction-rules>

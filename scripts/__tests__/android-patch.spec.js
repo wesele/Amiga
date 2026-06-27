@@ -6,6 +6,7 @@ import {
   PATCH_GRADLE_END,
   extractFragmentBody,
   mergeManifest,
+  mergeBackupAttributes,
   mergeGradleDebugSigning,
   ensureGradleKeystore,
 } from "../android-patch.cjs";
@@ -175,6 +176,46 @@ describe("mergeManifest", () => {
 
   it("throws when the generated manifest has no </manifest> tag", () => {
     expect(() => mergeManifest("<manifest/>", "<x/>")).toThrow(/<\/manifest>/);
+  });
+});
+
+describe("mergeBackupAttributes", () => {
+  it("adds android:allowBackup and related attributes to the <application> tag", () => {
+    const patched = mergeBackupAttributes(GENERATED);
+    expect(patched).not.toBe(GENERATED);
+    expect(patched).toContain('android:allowBackup="true"');
+    expect(patched).toContain('android:fullBackupContent="@xml/backup_rules"');
+    expect(patched).toContain('android:dataExtractionRules="@xml/data_extraction_rules"');
+    // The attributes should appear inside the <application> tag, not after it
+    const appTagMatch = patched.match(/<application[\s\S]*?>/);
+    expect(appTagMatch).not.toBeNull();
+    expect(appTagMatch[0]).toContain('android:allowBackup="true"');
+    expect(appTagMatch[0]).toContain('android:fullBackupContent="@xml/backup_rules"');
+    expect(appTagMatch[0]).toContain('android:dataExtractionRules="@xml/data_extraction_rules"');
+  });
+
+  it("is idempotent — running twice yields the same result", () => {
+    const once = mergeBackupAttributes(GENERATED);
+    const twice = mergeBackupAttributes(once);
+    expect(twice).toBe(once);
+  });
+
+  it("returns input unchanged when already patched", () => {
+    const patched = mergeBackupAttributes(GENERATED);
+    const repatched = mergeBackupAttributes(patched);
+    expect(repatched).toBe(patched);
+  });
+
+  it("handles a manifest without the usesCleartextTraffic anchor (fallback path)", () => {
+    const minimal = GENERATED.replace(
+      'android:usesCleartextTraffic="${usesCleartextTraffic}"',
+      "",
+    );
+    const patched = mergeBackupAttributes(minimal);
+    // The fallback should still inject all three attributes
+    expect(patched).toContain('android:allowBackup="true"');
+    expect(patched).toContain('android:fullBackupContent="@xml/backup_rules"');
+    expect(patched).toContain('android:dataExtractionRules="@xml/data_extraction_rules"');
   });
 });
 
