@@ -366,19 +366,50 @@ class MainActivity : TauriActivity() {
                     Log.w(TAG, "external open refused non-http(s) url: $url")
                     return
                 }
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                    addCategory(Intent.CATEGORY_BROWSABLE)
-                }
                 this@MainActivity.runOnUiThread {
-                    try {
-                        this@MainActivity.startActivity(intent)
-                        Log.d(TAG, "external open launched: $url")
-                    } catch (e: ActivityNotFoundException) {
-                        Log.w(TAG, "external open failed: $url", e)
-                    }
+                    openExternalUrlInBrowser(url)
                 }
             }
         }, "__amigaExternal")
+    }
+
+    private fun openExternalUrlInBrowser(url: String) {
+        val uri = Uri.parse(url)
+        val baseIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+        }
+        val pm = packageManager
+
+        try {
+            val resolved = pm.resolveActivity(baseIntent, 0)
+            val defaultPkg = resolved?.activityInfo?.packageName
+            if (!defaultPkg.isNullOrBlank() && defaultPkg != packageName) {
+                val explicitIntent = Intent(baseIntent).apply {
+                    `package` = defaultPkg
+                }
+                startActivity(explicitIntent)
+                Log.d(TAG, "external open launched via default browser package=$defaultPkg url=$url")
+                return
+            }
+        } catch (e: Throwable) {
+            Log.w(TAG, "external open failed resolving default browser: $url", e)
+        }
+
+        try {
+            startActivity(baseIntent)
+            Log.d(TAG, "external open launched via generic VIEW intent: $url")
+            return
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "external open generic VIEW failed: $url", e)
+        }
+
+        try {
+            val chooser = Intent.createChooser(baseIntent, null)
+            startActivity(chooser)
+            Log.d(TAG, "external open launched via chooser fallback: $url")
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "external open chooser failed: $url", e)
+        }
     }
 
     private fun installUpdaterBridge(webView: WebView) {
