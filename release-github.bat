@@ -39,8 +39,9 @@ if !errorlevel! equ 0 (
     )
 )
 
-:: Delete local tag if it already exists (e.g. stale from previous run)
+:: Delete local+remote tag if it already exists (e.g. stale from previous run)
 git tag -d "v%newVer%" 2>nul
+git push origin :refs/tags/"v%newVer%" 2>nul
 
 :: Tag and push
 git tag "v%newVer%"
