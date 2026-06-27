@@ -114,6 +114,7 @@
                   <span class="unit-badge">词汇: {{ unit.vocabCount || 0 }}</span>
                   <span class="unit-badge">小节: {{ unit.sections?.length || 0 }}</span>
                 </div>
+                <button class="btn btn-sm btn-secondary" @click.stop="generateQuestionsForUnit(uIdx)">🤖 生成题目</button>
                 <button class="btn btn-sm btn-danger" @click="removeUnit(uIdx)">🗑️</button>
               </div>
               <div class="unit-goals">
@@ -140,6 +141,7 @@
                       <span class="word-count">{{ sec.coveredWords?.length || 0 }} 词</span>
                       <span class="expand-icon">{{ expandedSections.has(`${uIdx}-${sIdx}`) ? '▲' : '▼' }}</span>
                        <button v-if="hasSectionQuestions(unit, sec)" class="btn btn-sm btn-ghost" @click.stop="previewUnit(uIdx, sIdx)" title="预览题目">👁️</button>
+                      <button class="btn btn-sm btn-ghost" @click.stop="generateQuestionsForSectionOnly(uIdx, sIdx)" title="生成题目">🤖</button>
                       <button class="btn btn-sm btn-ghost" @click.stop="removeSection(uIdx, sIdx)">✕</button>
                     </div>
                   </div>
@@ -984,6 +986,106 @@ async function generateQuestions() {
     if (totalGenerated > 0) {
       alert(`AI 生成完成！共为 ${totalSections} 个小节生成 ${totalGenerated} 道题目`)
     } else {
+      alert('未生成任何题目，请检查 API 配置和日志详情')
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      asyncOp.addLog('题目生成已被取消', 'warning')
+    } else {
+      asyncOp.addLog(`生成失败: ${e.message}`, 'error')
+      console.error(e)
+    }
+  } finally {
+    asyncOp.stop()
+  }
+}
+
+// ---- 为单个关卡生成题目 ----
+async function generateQuestionsForUnit(uIdx) {
+  const unit = framework.value[uIdx]
+  const targetLang = selectedPair.value?.to
+  const sourceLang = selectedPair.value?.from
+  const level = selectedLevel.value
+  if (!targetLang || !sourceLang || !level) {
+    alert('请先选择语言和级别')
+    return
+  }
+  if (!unit.sections?.length) {
+    alert('该关卡没有小节')
+    return
+  }
+
+  asyncOp.addLog(`开始为 ${unit.titleTarget || unit.titleNative} 生成题目`, 'info')
+  const controller = asyncOp.start(`正在生成 [${unit.id}] 的题目...`)
+
+  let totalGenerated = 0
+  try {
+    for (const sec of unit.sections) {
+      if (!sec.titleTarget && !sec.titleNative) continue
+      asyncOp.addLog(`生成 [${unit.id}-${sec.id}] ${sec.titleTarget || sec.titleNative} 的题目...`, 'info')
+
+      const questions = await generateQuestionsForSection(unit, sec, sourceLang, targetLang, level, controller.signal)
+      if (questions?.length) {
+        const sectionId = `${unit.id}-${sec.id}`
+        const existing = storage.getQuestions().filter(q => q.sectionId === sectionId)
+        if (existing.length) storage.deleteQuestions(existing.map(q => q.id))
+        const questionsWithSection = questions.map((q, i) => ({
+          ...q,
+          sectionId,
+          id: q.id || `${targetLang.toLowerCase()}-${level.toLowerCase()}-${sectionId.toLowerCase()}-${String(i + 1).padStart(3, '0')}`
+        }))
+        storage.saveQuestions(questionsWithSection)
+        totalGenerated += questionsWithSection.length
+        asyncOp.addLog(`  ✓ 已生成 ${questionsWithSection.length} 道题目`, 'success')
+      }
+    }
+    asyncOp.addLog(`完成！共生成 ${totalGenerated} 道题目`, 'success')
+    if (totalGenerated === 0) {
+      alert('未生成任何题目，请检查 API 配置和日志详情')
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      asyncOp.addLog('题目生成已被取消', 'warning')
+    } else {
+      asyncOp.addLog(`生成失败: ${e.message}`, 'error')
+      console.error(e)
+    }
+  } finally {
+    asyncOp.stop()
+  }
+}
+
+// ---- 为单个小节生成题目 ----
+async function generateQuestionsForSectionOnly(uIdx, sIdx) {
+  const unit = framework.value[uIdx]
+  const sec = unit.sections[sIdx]
+  const targetLang = selectedPair.value?.to
+  const sourceLang = selectedPair.value?.from
+  const level = selectedLevel.value
+  if (!targetLang || !sourceLang || !level) {
+    alert('请先选择语言和级别')
+    return
+  }
+
+  asyncOp.addLog(`开始为 ${sec.titleTarget || sec.titleNative} 生成题目`, 'info')
+  const controller = asyncOp.start(`正在生成 [${unit.id}-${sec.id}] 的题目...`)
+
+  try {
+    const questions = await generateQuestionsForSection(unit, sec, sourceLang, targetLang, level, controller.signal)
+    if (questions?.length) {
+      const sectionId = `${unit.id}-${sec.id}`
+      const existing = storage.getQuestions().filter(q => q.sectionId === sectionId)
+      if (existing.length) storage.deleteQuestions(existing.map(q => q.id))
+      const questionsWithSection = questions.map((q, i) => ({
+        ...q,
+        sectionId,
+        id: q.id || `${targetLang.toLowerCase()}-${level.toLowerCase()}-${sectionId.toLowerCase()}-${String(i + 1).padStart(3, '0')}`
+      }))
+      storage.saveQuestions(questionsWithSection)
+      asyncOp.addLog(`完成！生成了 ${questionsWithSection.length} 道题目`, 'success')
+      alert(`已生成 ${questionsWithSection.length} 道题目`)
+    } else {
+      asyncOp.addLog('未生成任何题目', 'warning')
       alert('未生成任何题目，请检查 API 配置和日志详情')
     }
   } catch (e) {
