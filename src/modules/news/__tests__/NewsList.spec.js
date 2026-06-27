@@ -103,6 +103,16 @@ describe("NewsList article-card / source-link structure", () => {
     expect(linkBlock[0]).toMatch(/@click\.stop\.prevent="openSourceUrl/);
   });
 
+  it("renders the reader header source as a real external link", () => {
+    const vue = read("src/modules/news/NewsReader.vue");
+    const linkBlock = vue.match(/<a[\s\S]*?class="header-source"[\s\S]*?>/);
+    expect(linkBlock, "reader header source link not found").toBeTruthy();
+    expect(linkBlock[0]).toMatch(/:href="article\.source"/);
+    expect(linkBlock[0]).toMatch(/target="_blank"/);
+    expect(linkBlock[0]).toMatch(/rel="noopener noreferrer"/);
+    expect(linkBlock[0]).toMatch(/@click\.stop\.prevent="openSourceUrl/);
+  });
+
   it("renders article cards in the list with both a clickable body and a source link", async () => {
     const { wrapper } = await mountList();
     const cards = wrapper.findAll(".article-card");

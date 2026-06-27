@@ -1,6 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import MarkdownText from "@/shared/components/MarkdownText.vue";
+import { openExternalUrl } from "@/shared/external.js";
+
+vi.mock("@/shared/external.js", () => ({
+  openExternalUrl: vi.fn(),
+}));
 
 describe("MarkdownText", () => {
   it("renders plain text as a paragraph", () => {
@@ -63,5 +68,13 @@ describe("MarkdownText", () => {
     const root = wrapper.find(".md-content");
     expect(root.exists()).toBe(true);
     expect(root.classes()).toContain("msg-text");
+  });
+
+  it("opens rendered links through the external URL helper", async () => {
+    const wrapper = mount(MarkdownText, {
+      props: { content: "[site](https://example.com/path)" },
+    });
+    await wrapper.find("a").trigger("click");
+    expect(openExternalUrl).toHaveBeenCalledWith("https://example.com/path");
   });
 });

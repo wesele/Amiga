@@ -1,12 +1,14 @@
 package com.idioma.app
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.content.Intent
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
@@ -103,6 +105,10 @@ class MainActivity : TauriActivity() {
         // 4) Share bridge: expose __amigaShare.shareText() so the
         //    frontend can trigger the native Android share sheet.
         installShareBridge(webView)
+
+        // 5) External link bridge: open http(s) links in the user's
+        //    system browser instead of creating another in-app WebView.
+        installExternalLinkBridge(webView)
     }
 
     override fun onDestroy() {
@@ -327,6 +333,36 @@ class MainActivity : TauriActivity() {
                 }
             }
         }, "__amigaShare")
+    }
+
+    /**
+     * Install a JS bridge that exposes `window.__amigaExternal.openUrl(url)`.
+     * The frontend uses this before the Tauri shell fallback on Android so
+     * failed shell opens never degrade into `window.open()`, which Chromium
+     * WebView handles as an in-app window.
+     */
+    private fun installExternalLinkBridge(webView: WebView) {
+        webView.addJavascriptInterface(object {
+            @JavascriptInterface
+            fun openUrl(url: String) {
+                val lowerUrl = url.lowercase()
+                if (!lowerUrl.startsWith("http://") && !lowerUrl.startsWith("https://")) {
+                    Log.w(TAG, "external open refused non-http(s) url: $url")
+                    return
+                }
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                    addCategory(Intent.CATEGORY_BROWSABLE)
+                }
+                this@MainActivity.runOnUiThread {
+                    try {
+                        this@MainActivity.startActivity(intent)
+                        Log.d(TAG, "external open launched: $url")
+                    } catch (e: ActivityNotFoundException) {
+                        Log.w(TAG, "external open failed: $url", e)
+                    }
+                }
+            }
+        }, "__amigaExternal")
     }
 
     companion object {

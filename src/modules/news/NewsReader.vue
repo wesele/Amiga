@@ -10,7 +10,15 @@
       <div class="header-info">
         <div class="header-title">{{ article?.original_title }}</div>
         <div class="header-title-translation" v-if="bilingualMode && titleTranslation">{{ titleTranslation }}</div>
-        <div class="header-source" v-if="article?.source">{{ formatSource(article.source) }}</div>
+        <a
+          v-if="article?.source"
+          class="header-source"
+          :href="article.source"
+          target="_blank"
+          rel="noopener noreferrer"
+          :title="article.source"
+          @click.stop.prevent="openSourceUrl(article.source)"
+        >{{ formatSource(article.source) }}</a>
       </div>
     </header>
 
@@ -152,7 +160,7 @@ import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
-import { buildShareText } from "./utils.js";
+import { buildShareText, openSourceUrl } from "./utils.js";
 import { displayLang } from "@/shared/constants.js";
 
 const { t } = useI18n();
@@ -764,9 +772,18 @@ function formatSource(source) {
 }
 
 .header-source {
+  display: inline-block;
   font-size: 11px;
   color: var(--text-lighter);
   margin-top: 2px;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.header-source:hover {
+  color: var(--green);
 }
 
 .loading-center {

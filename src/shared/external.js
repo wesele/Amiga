@@ -48,6 +48,16 @@ export async function openExternalUrl(url) {
   }
   const target = normalizeExternalUrl(raw);
   if (!target) return;
+
+  if (window.__amigaExternal && typeof window.__amigaExternal.openUrl === "function") {
+    try {
+      window.__amigaExternal.openUrl(target);
+      return;
+    } catch (e) {
+      console.warn("openExternalUrl: native Android open failed", target, e);
+    }
+  }
+
   try {
     await open(target);
   } catch (e) {

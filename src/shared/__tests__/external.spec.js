@@ -80,6 +80,7 @@ describe("isSafeExternalUrl", () => {
 describe("openExternalUrl", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete window.__amigaExternal;
   });
 
   it("calls tauri open with a normalized https URL", async () => {
@@ -94,6 +95,28 @@ describe("openExternalUrl", () => {
     expect(open).toHaveBeenCalledWith("http://example.com");
     await openExternalUrl("https://example.com");
     expect(open).toHaveBeenCalledWith("https://example.com");
+  });
+
+  it("uses the Android native external bridge before tauri open", async () => {
+    const openUrl = vi.fn();
+    window.__amigaExternal = { openUrl };
+    await openExternalUrl("example.com/foo");
+    expect(openUrl).toHaveBeenCalledWith("https://example.com/foo");
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("falls back to tauri open when the Android native bridge throws", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.__amigaExternal = {
+      openUrl: vi.fn(() => {
+        throw new Error("bridge failed");
+      }),
+    };
+    open.mockResolvedValue();
+    await openExternalUrl("https://example.com");
+    expect(open).toHaveBeenCalledWith("https://example.com");
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("does nothing for empty / null URL", async () => {

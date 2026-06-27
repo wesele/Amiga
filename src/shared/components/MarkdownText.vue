@@ -1,16 +1,25 @@
 <template>
-  <div class="md-content" v-html="html" />
+  <div class="md-content" v-html="html" @click="onClick" />
 </template>
 
 <script setup>
 import { computed } from "vue";
 import { renderMarkdown } from "@/shared/markdown.js";
+import { openExternalUrl } from "@/shared/external.js";
 
 const props = defineProps({
   content: { type: String, default: "" },
 });
 
 const html = computed(() => renderMarkdown(props.content));
+
+function onClick(event) {
+  const link = event.target?.closest?.("a[href]");
+  if (!link) return;
+  event.preventDefault();
+  event.stopPropagation();
+  openExternalUrl(link.getAttribute("href"));
+}
 </script>
 
 <style>
