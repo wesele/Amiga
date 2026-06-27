@@ -314,6 +314,10 @@ impl DatabasePool {
                 .join("idioma.db");
         }
 
+        if let Ok(dir) = std::env::var("IDIOMA_DATA_DIR") {
+            return PathBuf::from(dir).join("idioma.db");
+        }
+
         dirs::data_local_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join("idioma")
