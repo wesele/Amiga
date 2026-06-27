@@ -115,15 +115,13 @@ describe("ChatPage", () => {
 
     expect(sessionsArgs).toMatchObject({ targetLang: "en" });
     expect(wrapper.find(".header-name").text()).toBe("Amiga");
-    // The amiga avatar is the brand icon imported via Vite's asset
-    // pipeline (src/assets/amiga-icon.png). In dev/test mode Vite
-    // resolves the import URL to "/src/assets/amiga-icon.png"; in
-    // production it becomes a hashed filename like
-    // "/assets/amiga-icon-BuLrMQ54.png".
+    // The amiga avatar is the brand icon served from public/amiga-icon.png.
+    // Keep this exact URL pinned so Chat cannot drift back to a stale
+    // src/assets copy.
     const avatar = wrapper.find(".contact-avatar");
     const img = avatar.find("img");
     expect(img.exists()).toBe(true);
-    expect(img.attributes("src")).toContain("amiga-icon");
+    expect(img.attributes("src")).toBe("/amiga-icon.png");
   });
 
   it("getChatSessions is invoked with the active targetLang (regression: was called with no arg)", async () => {
