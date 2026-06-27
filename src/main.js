@@ -63,7 +63,7 @@ async function bootstrap() {
       const route = router.currentRoute.value;
       const parent = route?.meta?.parent;
       if (parent) {
-        router.push({ name: parent });
+        router.replace({ name: parent });
         return "navigated";
       }
       return "at-root";

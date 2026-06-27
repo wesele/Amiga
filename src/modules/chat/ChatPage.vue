@@ -1,7 +1,7 @@
 <template>
   <div class="chat-view" ref="chatView">
     <header class="chat-header">
-      <button class="back-btn" @click="$router.push('/chat')">
+      <button class="back-btn" @click="goBack">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="pointer-events:none">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
@@ -93,6 +93,15 @@ const route = useRoute();
 const router = useRouter();
 const targetLangStore = useTargetLangStore();
 const amigaIcon = markRaw(AmigaIcon);
+
+function goBack() {
+  const parent = route?.meta?.parent;
+  if (parent) {
+    router.replace({ name: parent });
+  } else {
+    router.back();
+  }
+}
 
 const messages = ref([]);
 const inputText = ref("");
@@ -199,7 +208,7 @@ async function deleteCurrentSession() {
   showMenu.value = false;
   try {
     await deleteChatSession(sessionId.value);
-    router.push("/chat");
+    router.replace({ name: "chat" });
   } catch { /* ignore */ }
 }
 

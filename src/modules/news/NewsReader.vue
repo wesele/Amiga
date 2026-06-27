@@ -705,7 +705,12 @@ async function onShare() {
 }
 
 function goBack() {
-  router.push("/news");
+  const parent = router.currentRoute.value?.meta?.parent;
+  if (parent) {
+    router.replace({ name: parent });
+  } else {
+    router.replace("/news");
+  }
 }
 
 function formatSource(source) {

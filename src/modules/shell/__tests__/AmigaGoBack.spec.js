@@ -28,7 +28,7 @@ function installAmigaGoBack(router) {
     const route = router.currentRoute.value;
     const parent = route?.meta?.parent;
     if (parent) {
-      router.push({ name: parent });
+      router.replace({ name: parent });
       return "navigated";
     }
     return "at-root";
@@ -96,7 +96,7 @@ describe("__amigaGoBack bridge", () => {
     expect(installIdx, "__amigaGoBack assignment not found").toBeGreaterThan(createIdx);
   });
 
-  it("returns 'navigated' and pushes the parent route when meta.parent is set", async () => {
+  it("returns 'navigated' and replaces with the parent route when meta.parent is set", async () => {
     const router = makeRouter([
       { path: "/news", name: "news", component: { template: "<div />" } },
       {
@@ -110,12 +110,16 @@ describe("__amigaGoBack bridge", () => {
     await router.push("/news/123");
     expect(router.currentRoute.value.name).toBe("reader");
 
-    // Spy so we can await the push promise the function kicks off.
+    // The contract: back uses router.replace (not push) so the
+    // history stack stays aligned with the route hierarchy and the
+    // browser's URL history doesn't accumulate "previous tab" entries.
+    const replaceSpy = vi.spyOn(router, "replace");
     const pushSpy = vi.spyOn(router, "push");
     const result = window.__amigaGoBack();
     expect(result).toBe("navigated");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "news" });
-    await pushSpy.mock.results[0].value;
+    expect(replaceSpy).toHaveBeenCalledWith({ name: "news" });
+    expect(pushSpy).not.toHaveBeenCalled();
+    await replaceSpy.mock.results[0].value;
     expect(router.currentRoute.value.name).toBe("news");
   });
 
@@ -127,9 +131,11 @@ describe("__amigaGoBack bridge", () => {
     await router.push("/news");
 
     const pushSpy = vi.spyOn(router, "push");
+    const replaceSpy = vi.spyOn(router, "replace");
     const result = window.__amigaGoBack();
     expect(result).toBe("at-root");
     expect(pushSpy).not.toHaveBeenCalled();
+    expect(replaceSpy).not.toHaveBeenCalled();
   });
 
   it("returns 'at-root' on a route with explicit meta.parent = null", async () => {
@@ -145,9 +151,11 @@ describe("__amigaGoBack bridge", () => {
     await router.push("/explicit-root");
 
     const pushSpy = vi.spyOn(router, "push");
+    const replaceSpy = vi.spyOn(router, "replace");
     const result = window.__amigaGoBack();
     expect(result).toBe("at-root");
     expect(pushSpy).not.toHaveBeenCalled();
+    expect(replaceSpy).not.toHaveBeenCalled();
   });
 
   it("walks multi-level chains: /profile/llm-config → /profile/settings → /profile → exit", async () => {
@@ -171,18 +179,18 @@ describe("__amigaGoBack bridge", () => {
     expect(router.currentRoute.value.name).toBe("llm-config");
 
     {
-      const pushSpy = vi.spyOn(router, "push");
+      const replaceSpy = vi.spyOn(router, "replace");
       expect(window.__amigaGoBack()).toBe("navigated");
-      await pushSpy.mock.results[0].value;
+      await replaceSpy.mock.results[0].value;
       expect(router.currentRoute.value.name).toBe("settings");
-      pushSpy.mockRestore();
+      replaceSpy.mockRestore();
     }
     {
-      const pushSpy = vi.spyOn(router, "push");
+      const replaceSpy = vi.spyOn(router, "replace");
       expect(window.__amigaGoBack()).toBe("navigated");
-      await pushSpy.mock.results[0].value;
+      await replaceSpy.mock.results[0].value;
       expect(router.currentRoute.value.name).toBe("profile");
-      pushSpy.mockRestore();
+      replaceSpy.mockRestore();
     }
     expect(window.__amigaGoBack()).toBe("at-root");
   });
@@ -201,11 +209,11 @@ describe("__amigaGoBack bridge", () => {
     await router.push("/chat/abc");
     expect(router.currentRoute.value.name).toBe("chat-session");
 
-    const pushSpy = vi.spyOn(router, "push");
+    const replaceSpy = vi.spyOn(router, "replace");
     expect(window.__amigaGoBack()).toBe("navigated");
-    await pushSpy.mock.results[0].value;
+    await replaceSpy.mock.results[0].value;
     expect(router.currentRoute.value.name).toBe("chat");
-    pushSpy.mockRestore();
+    replaceSpy.mockRestore();
 
     expect(window.__amigaGoBack()).toBe("at-root");
   });

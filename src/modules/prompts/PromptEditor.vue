@@ -102,7 +102,12 @@ const promptKey = route.params.key;
 const isNew = promptKey === "new";
 
 function goBack() {
-  router.back();
+  const parent = route?.meta?.parent;
+  if (parent) {
+    router.replace({ name: parent });
+  } else {
+    router.back();
+  }
 }
 
 async function loadPrompt() {
@@ -134,7 +139,7 @@ async function savePrompt() {
   try {
     await apiSavePrompt(f.key, f.name, f.category, f.system_prompt, f.user_prompt_template);
     success.value = t("prompts.saveSuccess");
-    setTimeout(() => router.push("/prompts"), 800);
+    setTimeout(() => router.replace({ name: "prompts" }), 800);
   } catch (e) {
     error.value = t("prompts.saveFail") + ": " + (typeof e === "string" ? e : e.message);
   } finally {

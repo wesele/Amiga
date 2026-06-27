@@ -73,7 +73,12 @@ const grouped = computed(() => {
 });
 
 function goBack() {
-  router.back();
+  const parent = router.currentRoute.value?.meta?.parent;
+  if (parent) {
+    router.replace({ name: parent });
+  } else {
+    router.back();
+  }
 }
 
 function openEditor(key) {

@@ -25,6 +25,9 @@ function makeRouter() {
     routes: [
       { path: "/", component: { template: "<div>home</div>" } },
       { path: "/news", name: "news", component: { template: "<div>news</div>" } },
+      { path: "/vocab", name: "vocab", component: { template: "<div>vocab</div>" } },
+      { path: "/chat", name: "chat", component: { template: "<div>chat</div>" } },
+      { path: "/profile", name: "profile", component: { template: "<div>profile</div>" } },
     ],
   });
 }
@@ -138,5 +141,116 @@ describe("AppShell render", () => {
       const has = wrapper.find(".bottom-nav").exists();
       expect({ path, has }).toEqual({ path, has: !isHidden });
     }
+  });
+});
+
+describe("AppShell bottom-nav tab switching (L1 isolation)", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  it("clicking a bottom-nav tab uses router.replace (not router.push) so tab switches don't grow the history stack", async () => {
+    const router = makeRouter();
+    const wrapper = mount(AppShell, {
+      global: {
+        plugins: [router],
+        stubs: { RouterView: { template: "<div />" } },
+      },
+    });
+    await flushPromises();
+    await router.push("/news");
+    await flushPromises();
+
+    const replaceSpy = vi.spyOn(router, "replace");
+    const pushSpy = vi.spyOn(router, "push");
+
+    // The L1 tabs are listed in the order [news, vocab, chat, profile];
+    // tab index 3 is "profile".
+    const tabs = wrapper.findAll(".bottom-nav .nav-item");
+    expect(tabs.length).toBe(4);
+    await tabs[3].trigger("click");
+    await flushPromises();
+
+    expect(replaceSpy).toHaveBeenCalledWith({ name: "profile" });
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(router.currentRoute.value.name).toBe("profile");
+  });
+
+  it("clicking a sub-page's parent tab from a deep route also uses replace (regression: don't push another tab entry)", async () => {
+    const router = makeRouter();
+    router.addRoute({
+      path: "/profile/settings",
+      name: "settings",
+      component: { template: "<div />" },
+      meta: { parent: "profile" },
+    });
+    const wrapper = mount(AppShell, {
+      global: {
+        plugins: [router],
+        stubs: { RouterView: { template: "<div />" } },
+      },
+    });
+    await flushPromises();
+    await router.push("/profile/settings");
+    await flushPromises();
+
+    const replaceSpy = vi.spyOn(router, "replace");
+    const pushSpy = vi.spyOn(router, "push");
+
+    // Click "vocab" tab (index 1). Should replace, not push.
+    const tabs = wrapper.findAll(".bottom-nav .nav-item");
+    await tabs[1].trigger("click");
+    await flushPromises();
+
+    expect(replaceSpy).toHaveBeenCalledWith({ name: "vocab" });
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(router.currentRoute.value.name).toBe("vocab");
+  });
+
+  it("clicking the already-active tab is a no-op (no router.replace / push)", async () => {
+    const router = makeRouter();
+    const wrapper = mount(AppShell, {
+      global: {
+        plugins: [router],
+        stubs: { RouterView: { template: "<div />" } },
+      },
+    });
+    await flushPromises();
+    await router.push("/news");
+    await flushPromises();
+
+    const replaceSpy = vi.spyOn(router, "replace");
+    const pushSpy = vi.spyOn(router, "push");
+
+    const tabs = wrapper.findAll(".bottom-nav .nav-item");
+    // /news is index 0; click it again while it's the current route.
+    await tabs[0].trigger("click");
+    await flushPromises();
+
+    expect(replaceSpy).not.toHaveBeenCalled();
+    expect(pushSpy).not.toHaveBeenCalled();
+  });
+
+  it("highlights the active L1 tab even when a sub-page is open (e.g. /profile/settings keeps 'profile' active)", async () => {
+    const router = makeRouter();
+    router.addRoute({
+      path: "/profile/settings",
+      name: "settings",
+      component: { template: "<div />" },
+      meta: { parent: "profile" },
+    });
+    const wrapper = mount(AppShell, {
+      global: {
+        plugins: [router],
+        stubs: { RouterView: { template: "<div />" } },
+      },
+    });
+    await flushPromises();
+    await router.push("/profile/settings");
+    await flushPromises();
+
+    const tabs = wrapper.findAll(".bottom-nav .nav-item");
+    // Tab order: news(0), vocab(1), chat(2), profile(3)
+    expect(tabs[3].classes()).toContain("active");
   });
 });
