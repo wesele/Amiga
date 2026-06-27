@@ -3,7 +3,7 @@ import wizardRoutes from "./routes.js";
 export default {
   name: "wizard",
   displayName: "新用户向导",
-  version: "0.3.31",
+  version: "0.3.32",
   routes: wizardRoutes,
   init(kernel) {},
 };
