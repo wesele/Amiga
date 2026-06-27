@@ -88,6 +88,7 @@ export function useUnitFramework() {
    * Step 2: 循环为每个单元生成小节（小节主题、覆盖的单词列表）
    */
   async function generateFrameworkWithAI(fromLang, toLang, level, vocabulary, options = {}) {
+    const pairId = options.pairId || toLang
     _signal = options.signal || null
     const vocabList = vocabulary
       ? vocabulary.split(',').map(v => v.trim()).filter(Boolean)
@@ -174,7 +175,7 @@ export function useUnitFramework() {
     asyncOp.addLog(`全部完成！共 ${units.length} 个关卡`, 'success')
     asyncOp.setMessage('保存框架数据...')
 
-    setFramework(toLang, level, units)
+    setFramework(pairId, level, units)
     return units
   }
 
@@ -205,7 +206,6 @@ export async function init() {
     if (res.ok) {
       const data = await res.json()
       if (data && typeof data === 'object' && !Array.isArray(data)) {
-        // 检查是否包含语言key（非空对象）
         if (Object.keys(data).length > 0) {
           framework.value = data
         }
@@ -214,25 +214,60 @@ export async function init() {
   } catch { /* 首次启动 */ }
 }
 
+export async function migrateKeys(languagePairs) {
+  const map = buildLangToPairIdMap(languagePairs)
+  const old = framework.value
+  const migrated = {}
+  let changed = false
+  for (const [key, val] of Object.entries(old)) {
+    if (map[key]) {
+      migrated[map[key]] = val
+      if (map[key] !== key) changed = true
+    } else {
+      migrated[key] = val
+    }
+  }
+  if (changed) {
+    framework.value = migrated
+    saveToServer()
+  }
+}
+
+function buildLangToPairIdMap(languagePairs) {
+  const map = {}
+  for (const pair of languagePairs) {
+    if (pair.to) {
+      map[pair.to] = pair.id
+    }
+  }
+  return map
+}
+
 // ---- Prompt 构建 ----
 
 function buildStep1Prompt(fromLang, toLang, level, vocabList) {
   const vocabText = vocabList.length > 0 ? vocabList.join(', ') : '（未指定）'
   return `你是一位专业的语言课程设计师，负责设计从 ${fromLang} 学习 ${toLang} 的 CEFR ${level} 级别课程。
 
-词汇库：${vocabText}
+【重要约束 - 语言绝对要求】
+- 目标语言是 ${toLang}，所有 titleTarget、goalTarget、grammarPoints、scenarios 中涉及目标语言的内容，必须全部使用 ${toLang}，严禁使用其他语言（如西班牙语、法语等）。
+- titleNative、goalNative 使用 ${fromLang}。
+- grammarPoints 数组中的语法点说明用 ${fromLang}，但语法术语和例词必须用 ${toLang}。
+- scenarios 数组中的场景描述用 ${fromLang}。
+
+词汇库（全部为 ${toLang} 单词）：${vocabText}
 
 请设计 5-8 个关卡（units），确保词汇库中的所有单词都能被覆盖。
 
 每个关卡必须包含以下字段（使用 JSON 格式返回）：
 - id: 编号，如 "U01", "U02"
 - titleNative: ${fromLang} 标题（简洁概括本关卡主题）
-- titleTarget: ${toLang} 标题（准确对应 ${toLang} 的学习内容）
+- titleTarget: ${toLang} 标题（准确对应 ${toLang} 的学习内容，必须使用 ${toLang} 书写）
 - goalNative: ${fromLang} 学习目标描述
-- goalTarget: ${toLang} 学习目标描述
+- goalTarget: ${toLang} 学习目标描述（必须使用 ${toLang} 书写）
 - vocabCount: 本关卡预计涵盖的词汇数量（数字）
-- grammarPoints: 本关卡涉及的语法点列表（字符串数组）
-- scenarios: 本关卡涵盖的真实场景列表（字符串数组）
+- grammarPoints: 本关卡涉及的语法点列表（字符串数组，语法术语用 ${toLang}，说明用 ${fromLang}）
+- scenarios: 本关卡涵盖的真实场景列表（字符串数组，用 ${fromLang} 描述）
 
 设计原则：
 1. 从简单到复杂，循序渐进
@@ -252,6 +287,12 @@ function buildStep2Prompt(fromLang, toLang, level, unit, unitIndex, allVocab, re
 
   return `你是一位专业的语言课程设计师。请为 ${toLang} ${level} 级别的课程设计"${unit.titleNative}（${unit.titleTarget}）"这一关卡的详细小节。
 
+【重要约束 - 语言绝对要求】
+- 目标语言是 ${toLang}，所有 titleTarget 中的内容必须全部使用 ${toLang}，严禁使用其他语言。
+- grammarPoint 中的语法术语用 ${toLang}，说明用 ${fromLang}。
+- coveredWords 必须从 ${toLang} 词汇库中选择，不得混入其他语言的单词。
+- scenario 用 ${fromLang} 描述。
+
 关卡信息：
 - ${fromLang}标题：${unit.titleNative}
 - ${toLang}标题：${unit.titleTarget}
@@ -261,17 +302,17 @@ function buildStep2Prompt(fromLang, toLang, level, unit, unitIndex, allVocab, re
 - 语法点：${grammarText}
 - 场景：${scenarioText}
 
-全局词汇库：${allVocabText}
+全局词汇库（全部为 ${toLang} 单词）：${allVocabText}
 
 尚未被其他关卡覆盖的剩余词汇：${remainingText}
 
 请设计 3-5 个小节（sections）。每个小节必须包含：
 - id: 编号，如 "S01", "S02"
 - titleNative: ${fromLang} 小节标题
-- titleTarget: ${toLang} 小节标题
-- coveredWords: 本小节覆盖的词汇列表（字符串数组，请从全局词汇库中选择）
-- grammarPoint: 本小节聚焦的语法点（字符串）
-- scenario: 本小节对应的场景
+- titleTarget: ${toLang} 小节标题（必须使用 ${toLang} 书写）
+- coveredWords: 本小节覆盖的词汇列表（字符串数组，请从全局词汇库中选择，仅限 ${toLang} 单词）
+- grammarPoint: 本小节聚焦的语法点（字符串，语法术语用 ${toLang}）
+- scenario: 本小节对应的场景（${fromLang} 描述）
 
 设计原则：
 1. 每个小节应有明确的教学主题和场景

@@ -8,7 +8,17 @@
  */
 import { ref } from 'vue'
 
-const state = ref({ languages: [], data: {} })
+const state = ref({ languages: [], data: {}, pairLangMap: {} })
+
+function _resolveLang(langOrPairId) {
+  if (state.value.pairLangMap[langOrPairId]) {
+    return state.value.pairLangMap[langOrPairId]
+  }
+  if (state.value.data[langOrPairId]) {
+    return langOrPairId
+  }
+  return langOrPairId
+}
 
 async function saveToServer() {
   try {
@@ -61,20 +71,29 @@ export function useVocabStorage() {
 
   // ---- 单词管理 ----
   function getWords(lang, level) {
-    return state.value.data[lang]?.[level] || ''
+    const resolved = _resolveLang(lang)
+    return state.value.data[resolved]?.[level] || ''
   }
 
   function setWords(lang, level, words) {
-    if (!state.value.data[lang]) state.value.data[lang] = {}
-    state.value.data[lang][level] = words
+    const resolved = _resolveLang(lang)
+    if (!state.value.data[resolved]) state.value.data[resolved] = {}
+    state.value.data[resolved][level] = words
     saveToServer()
+  }
+
+  function registerPairId(pairId, targetLang) {
+    if (pairId && targetLang) {
+      state.value.pairLangMap[pairId] = targetLang
+      saveToServer()
+    }
   }
 
   return {
     state,
     addLanguage, removeLanguage,
     getLevels, addLevel, removeLevel,
-    getWords, setWords,
+    getWords, setWords, registerPairId,
     saveState: saveToServer
   }
 }
@@ -86,7 +105,7 @@ export async function init() {
     if (res.ok) {
       const data = await res.json()
       if (data.languages && Array.isArray(data.languages)) {
-        state.value = data
+        state.value = { pairLangMap: {}, ...data }
       }
     }
   } catch { /* 首次启动，使用默认值 */ }

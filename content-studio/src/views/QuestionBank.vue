@@ -676,9 +676,9 @@ watch(() => currentQuestion.value?.id, (newId) => {
 // 辅助：先按目标语名查找词库，再按 pair id 查找（兼容旧版迁移数据）
 function getVocabForLevel(pair, level) {
   if (!pair) return ''
-  let words = vocabStorage.getWords(pair.to, level)
+  let words = vocabStorage.getWords(pair.id, level)
   if (!words) {
-    words = vocabStorage.getWords(pair.id, level)
+    words = vocabStorage.getWords(pair.to, level)
   }
   return words || ''
 }
@@ -715,7 +715,8 @@ function selectLevel(pair, level) {
   try {
     if (!pair || !level) return
     selectedLevel.value = level
-    const units = unitFramework.getFramework(pair.to, level)
+    vocabStorage.registerPairId(pair.id, pair.to)
+    const units = unitFramework.getFramework(pair.id, level)
     if (!Array.isArray(units)) {
       console.warn(`获取框架数据异常，预期数组，实际:`, units)
       framework.value = []
@@ -731,7 +732,9 @@ function selectLevel(pair, level) {
 }
 
 function getUnitCount(lang, level) {
-  return unitFramework.getFramework(lang, level).length
+  const pair = languagePairs.value.find(p => p.id === lang || p.to === lang)
+  const key = pair ? pair.id : lang
+  return unitFramework.getFramework(key, level).length
 }
 
 // ---- 覆盖率计算 ----
@@ -832,6 +835,7 @@ async function generateAI() {
   
   try {
     const units = await unitFramework.generateFrameworkWithAI(sourceLang, targetLang, level, vocab, {
+      pairId: selectedPair.value.id,
       signal: controller.signal
     })
     console.log('generateAI: success, units:', units?.length)
@@ -853,7 +857,7 @@ async function generateAI() {
 
 function saveCurrentFramework() {
   if (!selectedPair.value) return
-  unitFramework.setFramework(selectedPair.value.to, selectedLevel.value, framework.value)
+  unitFramework.setFramework(selectedPair.value.id, selectedLevel.value, framework.value)
   updateCoverage()
 }
 
@@ -922,7 +926,7 @@ function calculateCoverage(pair, level) {
   if (!pair) return { vocab: 0 }
   const allVocab = getVocabForLevel(pair, level)
   const vocabList = allVocab.split(',').map(v => v.trim()).filter(Boolean)
-  const units = unitFramework.getFramework(pair.to, level)
+  const units = unitFramework.getFramework(pair.id, level)
   const coveredVocab = new Set()
   units.forEach(unit => {
     unit.sections?.forEach(sec => {
@@ -1016,6 +1020,9 @@ async function generateQuestionsForSection(unit, sec, sourceLang, targetLang, le
 语法点: ${sec.grammarPoint || '通用'}
 场景: ${sec.scenario || '日常对话'}
 词汇范围: ${vocabWords || '基础词汇'}
+
+【绝对语言约束 - 违反此约束的输出将被拒绝】
+目标语言是 ${targetLang}，所有要求用"${targetLang}"书写的字段，必须且只能使用 ${targetLang}，严禁混入任何其他语言（如西班牙语、法语、德语等）。如果你输出了非 ${targetLang} 的内容，该题目将被判定为错误。
 
 可用题型（请混合使用不同题型）：
 ${selectedTypes.map(t => `- ${t.id} (${t.title}): ${t.description}`).join('\n')}
