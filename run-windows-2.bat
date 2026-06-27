@@ -23,5 +23,5 @@ if %errorlevel% equ 0 (
 )
 
 echo.
-npm run tauri dev -- --config src-tauri/tauri.conf.test.json
+npx tauri dev --config src-tauri/tauri.conf.test.json
 pause
