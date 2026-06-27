@@ -225,7 +225,8 @@ jobs:
       contents: read
       deployments: write
     env:
-      CF_PROJECT_NAME: amiga-7xz
+      CF_PROJECT_NAME: ${{ vars.CF_PROJECT_NAME || 'amiga' }}
+      CF_PAGES_BRANCH: ${{ vars.CF_PAGES_BRANCH || 'master' }}
     steps:
       - uses: actions/checkout@v4
       - name: Download APK from GitHub Release
@@ -254,12 +255,24 @@ jobs:
           sed -i "s|__AMIGA_VERSION__|${VERSION}|g" pages-dist/index.html
           echo "Updated version to: ${VERSION}"
           grep "class=\"version\"" pages-dist/index.html
+      - name: Validate Cloudflare configuration
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: |
+          for v in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CF_PROJECT_NAME CF_PAGES_BRANCH; do
+            if [ -z "${!v}" ]; then
+              echo "::error::$v is not set."
+              exit 1
+            fi
+          done
+          echo "Deploying Cloudflare Pages project '${CF_PROJECT_NAME}' on production branch '${CF_PAGES_BRANCH}'."
       - name: Deploy to Cloudflare Pages (production)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
         run: |
-          npx wrangler@latest pages deploy pages-dist \
+          npx --yes wrangler@latest pages deploy pages-dist \
             --project-name="$CF_PROJECT_NAME" \
             --commit-dirty=true \
-            --branch=master
+            --branch="$CF_PAGES_BRANCH"
