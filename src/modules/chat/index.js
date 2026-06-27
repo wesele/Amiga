@@ -3,7 +3,7 @@
 export default {
   name: "chat",
   displayName: "聊天",
-  version: "0.3.35",
+  version: "0.3.36",
   routes,
   init(kernel) {},
 };
