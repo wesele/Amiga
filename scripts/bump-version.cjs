@@ -23,17 +23,16 @@ for (const f of targetFiles) {
     const updated = updateFile(f, c, oldVer, newVer, setMode);
     if (updated !== c) {
       fs.writeFileSync(f, updated, "utf8");
-      console.log(`  Updated: ${f}`);
+      console.log("  Updated: " + f);
     } else {
-      console.log(`  No change: ${f}`);
+      console.log("  No change: " + f);
     }
   } catch (e) {
-    console.log(`  Skipped: ${f} (${e.message})`);
+    console.log("  Skipped: " + f + " (" + e.message + ")");
   }
 }
 
 function updateFile(filePath, content, oldVersion, newVersion, directSet) {
-  const normalized = filePath.replace(/\\/g, "/");
   const base = path.basename(filePath);
 
   if (base === "package.json" || base === "tauri.conf.json" || base === "tauri.android.conf.json") {
@@ -43,39 +42,33 @@ function updateFile(filePath, content, oldVersion, newVersion, directSet) {
   if (base === "Cargo.toml") {
     return content.replace(
       /(\[package\][\s\S]*?^version = ")([^"]+)(")/m,
-      `$1${newVersion}$3`,
+      "$1" + newVersion + "$3",
     );
   }
 
   if (base === "Cargo.lock") {
     return content.replace(
       /(name = "idioma"\s*\nversion = ")([^"]+)(")/,
-      `$1${newVersion}$3`,
+      "$1" + newVersion + "$3",
     );
   }
 
-  if (normalized.includes("/src/modules/") && base === "index.js") {
-    return content.replace(/(version:\s*")([^"]+)(")/, `$1${newVersion}$3`);
-  }
-
   if (base === "tauri.properties") {
-    return content.replace(/(appVersion=)([^\r\n]+)/, `$1${newVersion}`);
+    return content.replace(/(appVersion=)([^\r\n]+)/, "$1" + newVersion);
   }
 
   if (directSet) {
     return content
-      .replace(/("version"\s*:\s*")([^"]+)(")/, `$1${newVersion}$3`)
-      .replace(/(version = ")([^"]+)(")/, `$1${newVersion}$3`)
-      .replace(/(version:\s*")([^"]+)(")/, `$1${newVersion}$3`)
-      .replace(/(appVersion=)([^\r\n]+)/, `$1${newVersion}`);
+      .replace(/("version"\s*:\s*")([^"]+)(")/, "$1" + newVersion + "$3")
+      .replace(/(version = ")([^"]+)(")/, "$1" + newVersion + "$3")
+      .replace(/(appVersion=)([^\r\n]+)/, "$1" + newVersion);
   }
 
   return content
-    .replace(`"version": "${oldVersion}"`, `"version": "${newVersion}"`)
-    .replace(`"version":"${oldVersion}"`, `"version":"${newVersion}"`)
-    .replace(`version = "${oldVersion}"`, `version = "${newVersion}"`)
-    .replace(`version: "${oldVersion}"`, `version: "${newVersion}"`)
-    .replace(`appVersion=${oldVersion}`, `appVersion=${newVersion}`);
+    .replace('"version": "' + oldVersion + '"', '"version": "' + newVersion + '"')
+    .replace('"version":"' + oldVersion + '"', '"version":"' + newVersion + '"')
+    .replace('version = "' + oldVersion + '"', 'version = "' + newVersion + '"')
+    .replace('appVersion=' + oldVersion, 'appVersion=' + newVersion);
 }
 
 function updateJsonVersion(content, newVersion) {
@@ -84,32 +77,21 @@ function updateJsonVersion(content, newVersion) {
     return content;
   }
   parsed.version = newVersion;
-  return `${JSON.stringify(parsed, null, 2)}\n`;
+  return JSON.stringify(parsed, null, 2) + "\n";
 }
 
 function getDefaultFiles() {
-  const defaults = [
+  var defaults = [
     "package.json",
     "src-tauri/Cargo.toml",
     "src-tauri/tauri.conf.json",
     "src-tauri/tauri.android.conf.json",
     "src-tauri/Cargo.lock",
-  ].filter((file) => fs.existsSync(file));
+  ].filter(function(file) { return fs.existsSync(file); });
 
-  const tauriProperties = "src-tauri/gen/android/tauri.properties";
+  var tauriProperties = "src-tauri/gen/android/tauri.properties";
   if (fs.existsSync(tauriProperties)) {
     defaults.push(tauriProperties);
-  }
-
-  const modulesRoot = path.join(process.cwd(), "src", "modules");
-  if (fs.existsSync(modulesRoot)) {
-    for (const entry of fs.readdirSync(modulesRoot, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const indexPath = path.join("src", "modules", entry.name, "index.js");
-      if (fs.existsSync(indexPath)) {
-        defaults.push(indexPath);
-      }
-    }
   }
 
   return defaults;
