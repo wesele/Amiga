@@ -5,8 +5,8 @@ import { buildShareText } from "../utils.js";
  * Mirror of the share handler in NewsReader.vue:onShare. We replicate
  * it here (instead of importing the component, which needs the full
  * Vue/Tauri stack) so the share contract — Web Share API, abort
- * handling, clipboard fallback, success/failure toast — is covered
- * by unit tests.
+ * handling, native Android share, clipboard fallback, success/failure
+ * toast — is covered by unit tests.
  *
  * Keep in lock-step with src/modules/news/NewsReader.vue.
  */
@@ -37,6 +37,7 @@ function makeOnShare({
   t,
   navigatorRef,         // the navigator-like object to read .share / .clipboard from
   copyImpl,             // (text) => bool | Promise<bool>
+  nativeShareImpl,      // Tauri share_text_cmd wrapper
   buildShare = buildShareText,
   amigaShareRef = null, // mock of window.__amigaShare (Android native bridge)
 } = {}) {
@@ -57,7 +58,15 @@ function makeOnShare({
           sourceLabel: t("news.shareSource"),
         });
 
-        // On Android, use the native share sheet via Kotlin bridge.
+        // On Android, use the native share sheet via Tauri's mobile plugin.
+        if (nativeShareImpl) {
+          try {
+            await nativeShareImpl(text);
+            return;
+          } catch (_) { /* fall through to compatibility/web fallbacks */ }
+        }
+
+        // Compatibility fallback for older Android builds with the direct JS bridge.
         if (amigaShareRef && typeof amigaShareRef.shareText === "function") {
           await amigaShareRef.shareText(text);
           return; // user completed EXP_MODIFIED (or dismissed without error)
@@ -145,6 +154,56 @@ describe("NewsReader onShare", () => {
       });
     }
   }
+
+  it("uses the Tauri native share command before web share / clipboard", async () => {
+    const nativeShare = vi.fn().mockResolvedValue();
+    const amiga = { shareText: vi.fn() };
+    const share = vi.fn().mockResolvedValue();
+    setNavigator({ share });
+    const copy = vi.fn().mockResolvedValue(true);
+    const factory = makeOnShare({
+      article: ARTICLE,
+      t: T,
+      navigatorRef: global.navigator,
+      copyImpl: copy,
+      nativeShareImpl: nativeShare,
+      amigaShareRef: amiga,
+    });
+    const s = await factory();
+    await s.run();
+
+    expect(nativeShare).toHaveBeenCalledTimes(1);
+    expect(nativeShare.mock.calls[0][0]).toContain("El planeta se calienta.");
+    expect(amiga.shareText).not.toHaveBeenCalled();
+    expect(share).not.toHaveBeenCalled();
+    expect(copy).not.toHaveBeenCalled();
+    expect(s.shareStatus).toBe("");
+  });
+
+  it("falls back to __amigaShare when the Tauri native share command fails", async () => {
+    const nativeShare = vi.fn().mockRejectedValue(new Error("not android"));
+    const nativeBridgeShare = vi.fn().mockResolvedValue();
+    const amiga = { shareText: nativeBridgeShare };
+    const share = vi.fn().mockResolvedValue();
+    setNavigator({ share });
+    const copy = vi.fn().mockResolvedValue(true);
+    const factory = makeOnShare({
+      article: ARTICLE,
+      t: T,
+      navigatorRef: global.navigator,
+      copyImpl: copy,
+      nativeShareImpl: nativeShare,
+      amigaShareRef: amiga,
+    });
+    const s = await factory();
+    await s.run();
+
+    expect(nativeShare).toHaveBeenCalledTimes(1);
+    expect(nativeBridgeShare).toHaveBeenCalledTimes(1);
+    expect(share).not.toHaveBeenCalled();
+    expect(copy).not.toHaveBeenCalled();
+    expect(s.shareStatus).toBe("");
+  });
 
   it("uses __amigaShare native bridge on Android and skips web share / clipboard", async () => {
     const nativeShare = vi.fn().mockResolvedValue();

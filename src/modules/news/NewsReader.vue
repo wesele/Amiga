@@ -147,7 +147,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, ensureWordsSeen, addDiscoveredWord, getLearningGoals } from "@/shared/api.js";
+import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, ensureWordsSeen, addDiscoveredWord, getLearningGoals, shareText as nativeShareText } from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -641,15 +641,17 @@ async function onShare() {
       sourceLabel: t("news.shareSource"),
     });
 
-    // On Android, use the native OS share sheet via Kotlin bridge so
-    // the user can pick any installed app (WeChat, ChatGPT, etc.).
+    // On Android, use the native OS share sheet via Tauri's mobile
+    // plugin so the user can pick any installed app (WeChat, ChatGPT,
+    // etc.). Non-Android platforms reject and continue to fallbacks.
+    try {
+      await nativeShareText(text);
+      return;
+    } catch (_) { /* fall through to web/clipboard fallbacks */ }
+
+    // Compatibility fallback for older Android builds that exposed the
+    // direct WebView bridge before the mobile plugin existed.
     if (window.__amigaShare && typeof window.__amigaShare.shareText === "function") {
-      // Call the Kotlin bridge directly — same pattern as
-      // __amigaGoBack / __amigaSetInsets / __amigaTranslateSelection.
-      // Firing ACTION_SEND here opens the system share sheet so the
-      // user can pick WeChat / ChatGPT / etc. Routing the text via a
-      // Tauri invoke roundtrip is unnecessary and diverges from the
-      // documented contract (see __tests__/share.spec.js).
       window.__amigaShare.shareText(text);
       return;
     }
