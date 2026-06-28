@@ -411,24 +411,19 @@ class MainActivity : TauriActivity() {
             addCategory(Intent.CATEGORY_BROWSABLE)
         }
         val pm = packageManager
-        val handlers = pm.queryIntentActivities(baseIntent, PackageManager.MATCH_DEFAULT_ONLY)
+        // MATCH_ALL — not MATCH_DEFAULT_ONLY. On ColorOS/Oppo many users never
+        // set a default browser (Settings.Secure.default_browser is null), so
+        // MATCH_DEFAULT_ONLY returns an empty list and we falsely report "no app".
+        val handlers = pm.queryIntentActivities(baseIntent, PackageManager.MATCH_ALL)
             .mapNotNull { it.activityInfo?.packageName }
             .filter { it != packageName }
             .distinct()
-        if (handlers.isEmpty()) {
-            val msg = "no app can handle VIEW intent: No Activity found to handle this link"
-            Log.w(TAG, "external open no handlers: $url")
-            return OpenResult(false, msg)
-        }
 
         try {
-            val resolved = pm.resolveActivity(baseIntent, 0)
+            val resolved = pm.resolveActivity(baseIntent, PackageManager.MATCH_DEFAULT_ONLY)
             val defaultPkg = resolved?.activityInfo?.packageName
             if (!defaultPkg.isNullOrBlank() && defaultPkg != packageName && handlers.contains(defaultPkg)) {
-                val explicitIntent = Intent(baseIntent).apply {
-                    `package` = defaultPkg
-                }
-                startActivity(explicitIntent)
+                startActivity(Intent(baseIntent).apply { `package` = defaultPkg })
                 Log.d(TAG, "external open launched via default browser package=$defaultPkg url=$url")
                 return OpenResult(true)
             }
@@ -436,14 +431,35 @@ class MainActivity : TauriActivity() {
             Log.w(TAG, "external open failed resolving default browser: $url", e)
         }
 
+        val fallbackPkg = handlers.firstOrNull()
+        if (fallbackPkg != null) {
+            try {
+                startActivity(Intent(baseIntent).apply { `package` = fallbackPkg })
+                Log.d(TAG, "external open launched via handler package=$fallbackPkg url=$url")
+                return OpenResult(true)
+            } catch (e: ActivityNotFoundException) {
+                Log.w(TAG, "external open explicit handler failed package=$fallbackPkg url=$url", e)
+            }
+        }
+
+        return openExternalUrlViaChooserOrGeneric(baseIntent, url)
+    }
+
+    private fun openExternalUrlViaChooserOrGeneric(intent: Intent, url: String): OpenResult {
         return try {
-            startActivity(baseIntent)
-            Log.d(TAG, "external open launched via generic VIEW intent: $url")
+            startActivity(Intent.createChooser(intent, null))
+            Log.d(TAG, "external open launched via chooser: $url")
             OpenResult(true)
         } catch (e: ActivityNotFoundException) {
-            val msg = formatOpenError("no app can handle VIEW intent", e)
-            Log.w(TAG, "external open generic VIEW failed: $url", e)
-            OpenResult(false, msg)
+            try {
+                startActivity(intent)
+                Log.d(TAG, "external open launched via generic VIEW intent: $url")
+                OpenResult(true)
+            } catch (e2: ActivityNotFoundException) {
+                val msg = formatOpenError("no app can handle VIEW intent", e2)
+                Log.w(TAG, "external open failed: $url", e2)
+                OpenResult(false, msg)
+            }
         }
     }
 
