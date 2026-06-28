@@ -85,7 +85,10 @@ export async function openExternalUrl(url) {
     try {
       const result = window.__amigaExternal.openUrl(target);
       if (isNativeOpenSuccess(result)) return;
-      const error = result === false ? t("external.openFailedUnknown") : result;
+      const error =
+        result === false || result == null
+          ? t("external.openFailedUnknown")
+          : result;
       console.warn("openExternalUrl: native Android open failed", target, error);
       showExternalOpenError(target, error);
       return;

@@ -6,6 +6,7 @@ import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
@@ -410,12 +411,20 @@ class MainActivity : TauriActivity() {
             addCategory(Intent.CATEGORY_BROWSABLE)
         }
         val pm = packageManager
-        var lastError: String? = null
+        val handlers = pm.queryIntentActivities(baseIntent, PackageManager.MATCH_DEFAULT_ONLY)
+            .mapNotNull { it.activityInfo?.packageName }
+            .filter { it != packageName }
+            .distinct()
+        if (handlers.isEmpty()) {
+            val msg = "no app can handle VIEW intent: No Activity found to handle this link"
+            Log.w(TAG, "external open no handlers: $url")
+            return OpenResult(false, msg)
+        }
 
         try {
             val resolved = pm.resolveActivity(baseIntent, 0)
             val defaultPkg = resolved?.activityInfo?.packageName
-            if (!defaultPkg.isNullOrBlank() && defaultPkg != packageName) {
+            if (!defaultPkg.isNullOrBlank() && defaultPkg != packageName && handlers.contains(defaultPkg)) {
                 val explicitIntent = Intent(baseIntent).apply {
                     `package` = defaultPkg
                 }
@@ -424,27 +433,16 @@ class MainActivity : TauriActivity() {
                 return OpenResult(true)
             }
         } catch (e: Throwable) {
-            lastError = formatOpenError("resolve default browser failed", e)
             Log.w(TAG, "external open failed resolving default browser: $url", e)
         }
 
-        try {
+        return try {
             startActivity(baseIntent)
             Log.d(TAG, "external open launched via generic VIEW intent: $url")
-            return OpenResult(true)
-        } catch (e: ActivityNotFoundException) {
-            lastError = formatOpenError("no app can handle VIEW intent", e)
-            Log.w(TAG, "external open generic VIEW failed: $url", e)
-        }
-
-        return try {
-            val chooser = Intent.createChooser(baseIntent, null)
-            startActivity(chooser)
-            Log.d(TAG, "external open launched via chooser fallback: $url")
             OpenResult(true)
         } catch (e: ActivityNotFoundException) {
-            val msg = lastError ?: formatOpenError("chooser launch failed", e)
-            Log.w(TAG, "external open chooser failed: $url", e)
+            val msg = formatOpenError("no app can handle VIEW intent", e)
+            Log.w(TAG, "external open generic VIEW failed: $url", e)
             OpenResult(false, msg)
         }
     }
