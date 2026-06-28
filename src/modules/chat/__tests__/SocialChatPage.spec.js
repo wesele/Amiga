@@ -31,6 +31,7 @@ describe("SocialChatPage", () => {
   let capturedSocket;
 
   beforeEach(() => {
+    localStorage.clear();
     setActivePinia(createPinia());
     setLocale("en", { persist: false });
     mockInvoke = vi.fn();
@@ -243,13 +244,22 @@ describe("SocialChatPage", () => {
   });
 
   it("loads offline messages for direct mode", async () => {
-    fetchMock
-      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        items: [
-          { id: "off1", senderId: "Bob", receiverId: "Alice", content: "Offline msg", createdAt: "2026-01-01T12:00:00Z" },
-        ],
-      }), { status: 200 }));
+    fetchMock.mockImplementation((url) => {
+      const target = String(url);
+      if (target.includes("/api/users?")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          items: [{ id: "Bob", avatar: "🦊" }],
+        }), { status: 200 }));
+      }
+      if (target.includes("/api/messages/offline")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          items: [
+            { id: "off1", senderId: "Bob", receiverId: "Alice", content: "Offline msg", createdAt: "2026-01-01T12:00:00Z" },
+          ],
+        }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    });
 
     const { wrapper } = await mountPage("direct", "Bob");
 

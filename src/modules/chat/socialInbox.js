@@ -4,6 +4,8 @@ import {
   pullOfflineMessages,
   shouldDisconnectSocialSocketOnHidden,
 } from "./socialService.js";
+import { rememberSocialAvatar } from "./socialAvatars.js";
+import { appendSocialMessage, mergeSocialMessages } from "./socialMessages.js";
 import { getSocialContactKey, updateSocialPreview } from "./socialPreview.js";
 
 function isIncomingMessage(payload, userId) {
@@ -13,15 +15,30 @@ function isIncomingMessage(payload, userId) {
     && payload.senderId !== userId;
 }
 
+function normalizeIncoming(payload) {
+  if (payload?.senderAvatar) {
+    rememberSocialAvatar(payload.senderId, payload.senderAvatar);
+  }
+  return {
+    id: payload.id || `${payload.senderId}-${payload.createdAt}-${payload.text}`,
+    senderId: payload.senderId,
+    senderAvatar: payload.senderAvatar || "",
+    text: payload.text,
+    createdAt: payload.createdAt || new Date().toISOString(),
+  };
+}
+
 function handleIncomingMessage(payload, userId) {
+  const normalized = normalizeIncoming(payload);
   const contactKey = payload.mode === "direct"
     ? getSocialContactKey("social-direct", payload.senderId)
     : getSocialContactKey("social-public");
+  appendSocialMessage(contactKey, normalized);
   updateSocialPreview({
     contactKey,
-    text: payload.text,
-    createdAt: payload.createdAt,
-    senderId: payload.senderId,
+    text: normalized.text,
+    createdAt: normalized.createdAt,
+    senderId: normalized.senderId,
     currentUserId: userId,
   });
 }
@@ -69,11 +86,19 @@ export function startSocialInboxListener({ userId, friends = [] }) {
       const offline = await pullOfflineMessages(config, userId);
       for (const item of offline?.items || []) {
         if (!item?.content || !item?.senderId || item.senderId === userId) continue;
-        updateSocialPreview({
-          contactKey: getSocialContactKey("social-direct", item.senderId),
+        const contactKey = getSocialContactKey("social-direct", item.senderId);
+        const normalized = {
+          id: item.id ? String(item.id) : `${item.senderId}-${item.createdAt}-${item.content}`,
+          senderId: item.senderId,
           text: item.content,
           createdAt: item.createdAt,
-          senderId: item.senderId,
+        };
+        mergeSocialMessages(contactKey, [normalized]);
+        updateSocialPreview({
+          contactKey,
+          text: normalized.text,
+          createdAt: normalized.createdAt,
+          senderId: normalized.senderId,
           currentUserId: userId,
         });
       }

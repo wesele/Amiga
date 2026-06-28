@@ -347,6 +347,27 @@ describe("socialService", () => {
       expect(body).toEqual({ fromUserId: "Alice", toUserId: "Bob" });
     });
 
+    it("removeFriend posts to /api/friends/remove", async () => {
+      const config = { apiBaseUrl: "https://social.example.com", wsBaseUrl: "wss://social.example.com" };
+      global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      const { removeFriend } = await import("@/modules/chat/socialService.js");
+      await removeFriend(config, "Alice", "Bob");
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://social.example.com/api/friends/remove",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+
+    it("getSocialUserAvatars fetches /api/users with ids", async () => {
+      const config = { apiBaseUrl: "https://social.example.com", wsBaseUrl: "wss://social.example.com" };
+      global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        items: [{ id: "Bob", avatar: "🦊" }],
+      }), { status: 200 }));
+      const { getSocialUserAvatars } = await import("@/modules/chat/socialService.js");
+      const result = await getSocialUserAvatars(config, ["Bob"]);
+      expect(result).toEqual({ Bob: "🦊" });
+    });
+
     it("acceptFriendRequest posts to /api/friends/accept", async () => {
       fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
 

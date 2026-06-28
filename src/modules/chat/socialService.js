@@ -142,6 +142,31 @@ export async function acceptFriendRequest(config, userId, fromUserId) {
   });
 }
 
+export async function removeFriend(config, userId, friendUserId) {
+  return requestJson(config, "/api/friends/remove", {
+    method: "POST",
+    body: JSON.stringify({ userId, friendUserId }),
+  });
+}
+
+export async function getSocialUserAvatars(config, userIds = []) {
+  const ids = [...new Set(userIds.filter(Boolean))];
+  if (ids.length === 0) return {};
+  try {
+    const payload = await requestJson(
+      config,
+      `/api/users?ids=${encodeURIComponent(ids.join(","))}`,
+    );
+    const map = {};
+    for (const item of payload?.items || []) {
+      if (item?.id && item?.avatar) map[item.id] = item.avatar;
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
+
 export async function pullOfflineMessages(config, userId) {
   return requestJson(config, `/api/messages/offline?userId=${encodeURIComponent(userId)}`);
 }

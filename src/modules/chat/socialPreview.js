@@ -64,3 +64,12 @@ export function clearSocialUnread(contactKey) {
   writeStore(store);
   eventBus.emit(SOCIAL_PREVIEW_UPDATED, { contactKey, unread: false });
 }
+
+export function clearSocialPreview(contactKey) {
+  if (!contactKey) return;
+  const store = readStore();
+  if (!store[contactKey]) return;
+  delete store[contactKey];
+  writeStore(store);
+  eventBus.emit(SOCIAL_PREVIEW_UPDATED, { contactKey, unread: false });
+}

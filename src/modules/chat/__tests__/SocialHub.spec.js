@@ -33,18 +33,16 @@ describe("SocialHub", () => {
     vi.stubGlobal("fetch", fetchMock);
   });
 
-  function setupFetchMock({ userCount = 0, pending = [], friends = [] } = {}) {
+  function setupFetchMock({ pending = [], friends = [] } = {}) {
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ userCount }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ items: pending }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ items: friends }), { status: 200 }));
   }
 
-  function setupFetchMockReload({ userCount = 0, pending = [], friends = [] } = {}) {
+  function setupFetchMockReload({ pending = [], friends = [] } = {}) {
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ userCount }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ items: pending }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ items: friends }), { status: 200 }));
   }
@@ -58,9 +56,8 @@ describe("SocialHub", () => {
     });
 
     setupFetchMock({
-      userCount: 12,
       pending: [{ fromUserId: "Bob", createdAt: "2026-01-01T00:00:00Z" }],
-      friends: [{ friendUserId: "Carol", updatedAt: "2026-01-02T00:00:00Z" }],
+      friends: [{ friendUserId: "Carol", updatedAt: "2026-01-02T00:00:00Z", friendAvatar: "🦊" }],
     });
 
     const router = makeRouter();
@@ -72,9 +69,9 @@ describe("SocialHub", () => {
     });
     await flushPromises();
 
-    expect(wrapper.text()).toContain("12");
     expect(wrapper.text()).toContain("Bob");
     expect(wrapper.text()).toContain("Carol");
+    expect(wrapper.text()).not.toContain("Enter");
   });
 
   it("navigates back to chat list on back button click", async () => {
@@ -97,30 +94,6 @@ describe("SocialHub", () => {
     const replaceSpy = vi.spyOn(router, "replace");
     await wrapper.find(".back-btn").trigger("click");
     expect(replaceSpy).toHaveBeenCalledWith({ name: "chat" });
-  });
-
-  it("navigates to public group on 'Enter' click", async () => {
-    mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", nickname: "A" });
-      return Promise.resolve("");
-    });
-
-    setupFetchMock();
-
-    const router = makeRouter();
-    await router.push("/chat/social");
-    await router.isReady();
-
-    const wrapper = mount(SocialHub, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    const pushSpy = vi.spyOn(router, "push");
-    const buttons = wrapper.findAll(".primary-btn");
-    const enterBtn = buttons.find((btn) => btn.text().includes("Enter"));
-    await enterBtn.trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "social-chat", params: { mode: "public" } });
   });
 
   it("sends a friend request", async () => {
@@ -211,7 +184,6 @@ describe("SocialHub", () => {
     });
 
     setupFetchMock({
-      userCount: 1,
       pending: [{ fromUserId: "Bob", createdAt: "2026-01-01T00:00:00Z" }],
       friends: [],
     });
@@ -219,7 +191,6 @@ describe("SocialHub", () => {
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
     setupFetchMockReload({
-      userCount: 1,
       pending: [],
       friends: [{ friendUserId: "Bob", updatedAt: "2026-01-02T00:00:00Z" }],
     });
@@ -241,7 +212,7 @@ describe("SocialHub", () => {
     expect(wrapper.text()).toContain("Friend accepted");
   });
 
-  it("opens direct chat with a friend", async () => {
+  it("removes a friend", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1", nickname: "Alice" });
       return Promise.resolve("");
@@ -250,6 +221,10 @@ describe("SocialHub", () => {
     setupFetchMock({
       friends: [{ friendUserId: "Carol", updatedAt: "2026-01-02T00:00:00Z" }],
     });
+
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    setupFetchMockReload({ friends: [] });
 
     const router = makeRouter();
     await router.push("/chat/social");
@@ -260,15 +235,11 @@ describe("SocialHub", () => {
     });
     await flushPromises();
 
-    const pushSpy = vi.spyOn(router, "push");
-    const buttons = wrapper.findAll(".primary-btn");
-    const chatBtn = buttons.find((btn) => btn.text().includes("Chat"));
-    await chatBtn.trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({
-      name: "social-chat",
-      params: { mode: "direct", peerId: "Carol" },
-      query: { name: "Carol" },
-    });
+    const removeBtn = wrapper.find(".danger-btn");
+    await removeBtn.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Friend removed");
   });
 
   it("shows empty state for no pending requests", async () => {
@@ -372,47 +343,4 @@ describe("SocialHub", () => {
     expect(wrapper.text()).toContain("MyNick");
   });
 
-  it("shows online user count in stats", async () => {
-    mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", nickname: "A" });
-      return Promise.resolve("");
-    });
-
-    setupFetchMock({ userCount: 42 });
-
-    const router = makeRouter();
-    await router.push("/chat/social");
-    await router.isReady();
-
-    const wrapper = mount(SocialHub, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    const pills = wrapper.findAll(".stat-pill strong");
-    expect(pills[0].text()).toBe("42");
-  });
-
-  it("shows pending count in stats", async () => {
-    mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", nickname: "A" });
-      return Promise.resolve("");
-    });
-
-    setupFetchMock({
-      pending: [{ fromUserId: "X" }, { fromUserId: "Y" }],
-    });
-
-    const router = makeRouter();
-    await router.push("/chat/social");
-    await router.isReady();
-
-    const wrapper = mount(SocialHub, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    const pills = wrapper.findAll(".stat-pill strong");
-    expect(pills[1].text()).toBe("2");
-  });
 });

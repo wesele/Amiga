@@ -90,18 +90,69 @@ function makeRepository(env) {
         .all();
       return rows.results || [];
     },
+    async getUserAvatar(userId) {
+      const row = await env.DB
+        .prepare("SELECT avatar FROM users WHERE id = ?1")
+        .bind(userId)
+        .first();
+      return row?.avatar || "";
+    },
+    async getUsersByIds(userIds = []) {
+      const ids = [...new Set(userIds.filter(Boolean))];
+      if (ids.length === 0) return [];
+      const placeholders = ids.map((_, index) => `?${index + 1}`).join(", ");
+      const rows = await env.DB
+        .prepare(`SELECT id, avatar FROM users WHERE id IN (${placeholders})`)
+        .bind(...ids)
+        .all();
+      return rows.results || [];
+    },
+    async areFriends(userId, friendUserId) {
+      const row = await env.DB
+        .prepare(
+          `SELECT 1 AS ok
+           FROM friendships
+           WHERE status = 'ACCEPTED'
+             AND ((requester_id = ?1 AND addressee_id = ?2)
+               OR (requester_id = ?2 AND addressee_id = ?1))
+           LIMIT 1`,
+        )
+        .bind(userId, friendUserId)
+        .first();
+      return Boolean(row?.ok);
+    },
+    async removeFriendship({ userId, friendUserId }) {
+      const result = await env.DB
+        .prepare(
+          `DELETE FROM friendships
+           WHERE status = 'ACCEPTED'
+             AND ((requester_id = ?1 AND addressee_id = ?2)
+               OR (requester_id = ?2 AND addressee_id = ?1))`,
+        )
+        .bind(userId, friendUserId)
+        .run();
+      if (!result.meta?.changes) {
+        throw new Error("friendship-not-found");
+      }
+      return { ok: true };
+    },
     async getAcceptedFriends(userId) {
       const rows = await env.DB
         .prepare(
           `SELECT
              CASE
-               WHEN requester_id = ?1 THEN addressee_id
-               ELSE requester_id
+               WHEN f.requester_id = ?1 THEN f.addressee_id
+               ELSE f.requester_id
              END AS friendUserId,
-             updated_at AS updatedAt
-           FROM friendships
-           WHERE status = 'ACCEPTED' AND (requester_id = ?1 OR addressee_id = ?1)
-           ORDER BY updated_at DESC`,
+             u.avatar AS friendAvatar,
+             f.updated_at AS updatedAt
+           FROM friendships f
+           LEFT JOIN users u ON u.id = CASE
+             WHEN f.requester_id = ?1 THEN f.addressee_id
+             ELSE f.requester_id
+           END
+           WHERE f.status = 'ACCEPTED' AND (f.requester_id = ?1 OR f.addressee_id = ?1)
+           ORDER BY f.updated_at DESC`,
         )
         .bind(userId)
         .all();
@@ -164,6 +215,7 @@ export class ChatRelay {
         type: "message",
         mode: "direct",
         senderId: body.senderId,
+        senderAvatar: body.senderAvatar || "",
         text: body.text,
         createdAt: body.createdAt,
       });
@@ -207,7 +259,7 @@ export class ChatRelay {
       this.sessions.delete(server);
     });
     server.addEventListener("message", (event) => {
-      this.onSocketMessage(entry, event.data).catch((error) => {
+      this.onSocketMessage(entry, event.data, server).catch((error) => {
         server.send(JSON.stringify({ type: "error", error: String(error?.message || error) }));
       });
     });
@@ -225,9 +277,11 @@ export class ChatRelay {
     return delivered;
   }
 
-  async onSocketMessage(entry, rawData) {
+  async onSocketMessage(entry, rawData, server) {
     const payload = JSON.parse(rawData);
     const createdAt = payload.createdAt || new Date().toISOString();
+    const repository = makeRepository(this.env);
+    const senderAvatar = await repository.getUserAvatar(entry.userId);
 
     if (entry.mode === "public" && payload.mode === "public") {
       this.broadcast(
@@ -235,6 +289,7 @@ export class ChatRelay {
           type: "message",
           mode: "public",
           senderId: entry.userId,
+          senderAvatar,
           text: payload.text,
           createdAt,
         },
@@ -244,12 +299,18 @@ export class ChatRelay {
     }
 
     if (entry.mode === "direct" && payload.mode === "direct" && payload.peerId) {
+      const friends = await repository.areFriends(entry.userId, payload.peerId);
+      if (!friends) {
+        server.send(JSON.stringify({ type: "error", error: "not-friends" }));
+        return;
+      }
       const relay = getRelayStub(this.env, `user:${payload.peerId}`);
       await relay.fetch("https://relay/deliver-direct", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           senderId: entry.userId,
+          senderAvatar,
           receiverId: payload.peerId,
           text: payload.text,
           createdAt,
@@ -314,6 +375,26 @@ async function handleApi(request, env) {
         createdAt: new Date().toISOString(),
       }),
     });
+    return json({ ok: true });
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/users") {
+    const ids = (url.searchParams.get("ids") || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const items = await repository.getUsersByIds(ids);
+    return json({ items });
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/friends/remove") {
+    const body = await readJson(request);
+    if (!body.userId || !body.friendUserId) return badRequest("missing-friend-remove-fields");
+    try {
+      await repository.removeFriendship(body);
+    } catch (error) {
+      return badRequest(String(error?.message || error), 404);
+    }
     return json({ ok: true });
   }
 

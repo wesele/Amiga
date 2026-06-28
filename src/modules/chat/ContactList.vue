@@ -2,7 +2,7 @@
   <div class="contact-list">
     <header class="list-header">
       <h2>{{ t("chat.title") }}</h2>
-      <button class="manage-btn" @click="openSocialHub">+</button>
+      <button class="manage-btn" :aria-label="t('chat.socialHub')" @click="openSocialHub">⋯</button>
     </header>
     <div class="contact-list-scroll">
       <div
@@ -17,6 +17,8 @@
       >
         <div class="contact-avatar">
           <component v-if="contact.component" :is="contact.component" :size="40" />
+          <GroupChatIcon v-else-if="contact.contactType === 'social-public'" :size="40" />
+          <AvatarEmoji v-else-if="contact.avatarEmoji" :value="contact.avatarEmoji" :size="40" />
           <span v-else>{{ contact.avatar }}</span>
         </div>
         <div class="contact-info">
@@ -37,6 +39,9 @@ import { useI18n } from "@/shared/i18n";
 import { displayLang } from "@/shared/constants.js";
 import { eventBus } from "@/shared/eventBus.js";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
+import GroupChatIcon from "@/shared/components/GroupChatIcon.vue";
+import AvatarEmoji from "@/shared/components/AvatarEmoji.vue";
+import { getCachedSocialAvatar, rememberSocialAvatars } from "./socialAvatars.js";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import {
   getSocialConfig,
@@ -92,7 +97,6 @@ const aiContacts = computed(() => {
   const publicContact = applySocialPreview({
     id: "public-group",
     name: t("chat.publicGroup"),
-    avatar: "#",
     contactType: "social-public",
     desc: t("chat.publicGroupDesc"),
     lastTime: "",
@@ -133,7 +137,7 @@ const friendContacts = computed(() => {
   return friends.value.map((friend) => applySocialPreview({
     id: `friend-${friend.friendUserId}`,
     name: friend.friendUserId,
-    avatar: "👤",
+    avatarEmoji: friend.friendAvatar || getCachedSocialAvatar(friend.friendUserId, "😊"),
     contactType: "social-direct",
     peerId: friend.friendUserId,
     desc: t("chat.friendSince", { date: new Date(friend.updatedAt).toLocaleDateString() }),
@@ -193,6 +197,12 @@ async function refreshFriends() {
     }
     const friendships = await getSocialFriendships(config, socialUserId.value);
     friends.value = friendships?.items || [];
+    const avatarMap = Object.fromEntries(
+      friends.value
+        .filter((friend) => friend.friendUserId && friend.friendAvatar)
+        .map((friend) => [friend.friendUserId, friend.friendAvatar]),
+    );
+    rememberSocialAvatars(avatarMap);
     stopInbox?.();
     stopInbox = startSocialInboxListener({
       userId: socialUserId.value,
@@ -288,9 +298,9 @@ onMounted(async () => {
   width: 34px;
   height: 34px;
   border-radius: 12px;
-  background: var(--green-bg);
-  color: var(--green);
-  font-size: 24px;
+  background: transparent;
+  color: var(--text);
+  font-size: 22px;
   line-height: 1;
   font-weight: 700;
 }

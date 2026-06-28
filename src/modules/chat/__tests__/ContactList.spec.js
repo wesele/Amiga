@@ -225,7 +225,7 @@ describe("ContactList", () => {
     await flushPromises();
 
     const publicItem = wrapper.findAll(".contact-item")[0];
-    expect(publicItem.find(".contact-desc").text()).toContain("实验性实时聊天室");
+    expect(publicItem.find(".contact-desc").text()).toContain("实时群聊");
     expect(publicItem.classes()).not.toContain("contact-item-public");
   });
 

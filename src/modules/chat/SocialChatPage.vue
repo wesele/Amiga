@@ -7,12 +7,20 @@
         </svg>
       </button>
       <div class="contact-avatar">
-        <span>{{ contactAvatar }}</span>
+        <GroupChatIcon v-if="mode === 'public'" :size="32" />
+        <AvatarEmoji v-else :value="peerAvatar" :size="32" />
       </div>
       <div class="header-info">
         <div class="header-name">{{ roomTitle }}</div>
       </div>
+      <button class="menu-btn" @click="showMenu = !showMenu">⋯</button>
     </header>
+    <div v-if="showMenu" class="menu-overlay" @click="showMenu = false" />
+    <transition name="fade">
+      <div v-if="showMenu" class="menu-panel">
+        <div class="menu-item danger" @click="deleteCurrentChat">{{ t("chat.deleteChat") }}</div>
+      </div>
+    </transition>
 
     <div ref="messageListEl" class="chat-messages">
       <div v-if="messages.length === 0" class="welcome-box">
@@ -25,7 +33,7 @@
         :class="message.senderId === userId ? 'msg-user' : 'msg-other'"
       >
         <div v-if="message.senderId !== userId" class="msg-avatar">
-          <span>{{ contactAvatar }}</span>
+          <AvatarEmoji :value="avatarForSender(message.senderId, message.senderAvatar)" :size="28" />
         </div>
         <div class="msg-bubble">
           <div v-if="mode === 'public' && message.senderId !== userId" class="msg-sender">
@@ -33,7 +41,9 @@
           </div>
           <div class="msg-text msg-text-plain">{{ message.text }}</div>
         </div>
-        <div v-if="message.senderId === userId" class="msg-avatar user-avatar">😊</div>
+        <div v-if="message.senderId === userId" class="msg-avatar user-avatar">
+          <AvatarEmoji :value="selfAvatar" :size="28" />
+        </div>
       </div>
     </div>
 
@@ -55,15 +65,30 @@ import { computed, markRaw, nextTick, onMounted, onUnmounted, ref, watch } from 
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { getCurrentUser } from "@/shared/api.js";
+import AvatarEmoji from "@/shared/components/AvatarEmoji.vue";
+import GroupChatIcon from "@/shared/components/GroupChatIcon.vue";
 import {
   createSocialSocket,
   getSocialConfig,
+  getSocialUserAvatars,
   getSocialUserId,
   pullOfflineMessages,
   registerSocialUser,
   shouldDisconnectSocialSocketOnHidden,
 } from "./socialService.js";
 import {
+  getCachedSocialAvatar,
+  rememberSocialAvatar,
+  rememberSocialAvatars,
+} from "./socialAvatars.js";
+import {
+  clearSocialMessages,
+  getSocialMessages,
+  mergeSocialMessages,
+  saveSocialMessages,
+} from "./socialMessages.js";
+import {
+  clearSocialPreview,
   clearSocialUnread,
   getSocialContactKey,
   updateSocialPreview,
@@ -74,6 +99,8 @@ const router = useRouter();
 const { t } = useI18n();
 
 const userId = ref("");
+const selfAvatar = ref("😊");
+const peerAvatar = ref("😊");
 const connectionState = ref("connecting");
 const inputText = ref("");
 const messages = ref([]);
@@ -83,6 +110,7 @@ const reconnectAttempt = ref(0);
 const reconnectTimer = ref(null);
 const sendError = ref("");
 const initialised = ref(false);
+const showMenu = ref(false);
 const mode = computed(() => route.params.mode || "public");
 const peerId = computed(() => route.params.peerId || "");
 const roomTitle = computed(() => {
@@ -91,7 +119,6 @@ const roomTitle = computed(() => {
   }
   return t("chat.publicGroup");
 });
-const contactAvatar = computed(() => (mode.value === "public" ? "#" : "👤"));
 const emptyText = computed(() => (
   mode.value === "public" ? t("chat.publicEmpty") : t("chat.directEmpty")
 ));
@@ -102,6 +129,11 @@ const previewContactKey = computed(() => (
     peerId.value,
   )
 ));
+
+function avatarForSender(senderId, senderAvatar = "") {
+  if (senderAvatar) return senderAvatar;
+  return getCachedSocialAvatar(senderId, "😊");
+}
 
 function goBack() {
   disconnectSocket();
@@ -129,6 +161,10 @@ function handleEnter() {
   sendMessage();
 }
 
+function persistMessages() {
+  saveSocialMessages(previewContactKey.value, messages.value);
+}
+
 function recordPreview(message, { markUnread = false } = {}) {
   updateSocialPreview({
     contactKey: previewContactKey.value,
@@ -140,15 +176,34 @@ function recordPreview(message, { markUnread = false } = {}) {
   });
 }
 
-function pushMessage(message, { fromSocket = false } = {}) {
+function pushMessage(message, { fromSocket = false, persist = true } = {}) {
+  if (message?.senderAvatar) {
+    rememberSocialAvatar(message.senderId, message.senderAvatar);
+  }
   const normalized = {
-    id: message.id || `${message.senderId}-${message.createdAt}-${messages.value.length}`,
+    id: message.id || `${message.senderId}-${message.createdAt}-${message.text}`,
     senderId: message.senderId,
+    senderAvatar: message.senderAvatar || avatarForSender(message.senderId),
     text: message.text,
     createdAt: message.createdAt || new Date().toISOString(),
   };
-  messages.value.push(normalized);
+  const exists = messages.value.some((item) => item.id === normalized.id);
+  if (!exists) {
+    messages.value.push(normalized);
+  }
+  if (persist) {
+    persistMessages();
+  }
   recordPreview(normalized, { markUnread: fromSocket });
+  nextTick(() => {
+    if (messageListEl.value) {
+      messageListEl.value.scrollTop = messageListEl.value.scrollHeight;
+    }
+  });
+}
+
+function loadCachedMessages() {
+  messages.value = getSocialMessages(previewContactKey.value);
   nextTick(() => {
     if (messageListEl.value) {
       messageListEl.value.scrollTop = messageListEl.value.scrollHeight;
@@ -216,6 +271,10 @@ async function connectSocket() {
       scheduleReconnect();
     },
     onMessage: (payload) => {
+      if (payload?.type === "error" && payload.error === "not-friends") {
+        sendError.value = t("chat.notFriends");
+        return;
+      }
       if (payload?.type === "message") {
         pushMessage(payload, { fromSocket: true });
       }
@@ -240,19 +299,33 @@ async function loadInitialState() {
       native_language: user?.native_language,
     });
   }
+  selfAvatar.value = user?.avatar || "😊";
+  rememberSocialAvatar(userId.value, selfAvatar.value);
 
-  if (mode.value === "direct") {
+  if (mode.value === "direct" && peerId.value) {
+    const avatars = await getSocialUserAvatars(config, [peerId.value]);
+    rememberSocialAvatars(avatars);
+    peerAvatar.value = avatars[peerId.value] || getCachedSocialAvatar(peerId.value, "😊");
+
     const offline = await pullOfflineMessages(config, userId.value).catch(() => ({ items: [] }));
+    const offlineMessages = [];
     for (const item of offline?.items || []) {
       const isCurrentPeer = item.senderId === peerId.value || item.receiverId === peerId.value;
-      if (isCurrentPeer) {
-        pushMessage({
-          id: item.id,
-          senderId: item.senderId,
-          text: item.content,
-          createdAt: item.createdAt,
-        });
-      }
+      if (!isCurrentPeer) continue;
+      offlineMessages.push({
+        id: item.id ? String(item.id) : `${item.senderId}-${item.createdAt}-${item.content}`,
+        senderId: item.senderId,
+        text: item.content,
+        createdAt: item.createdAt,
+      });
+    }
+    if (offlineMessages.length > 0) {
+      messages.value = mergeSocialMessages(previewContactKey.value, offlineMessages);
+      nextTick(() => {
+        if (messageListEl.value) {
+          messageListEl.value.scrollTop = messageListEl.value.scrollHeight;
+        }
+      });
     }
   }
 }
@@ -272,6 +345,7 @@ function sendMessage() {
     mode: mode.value,
     peerId: mode.value === "direct" ? peerId.value : undefined,
     senderId: userId.value,
+    senderAvatar: selfAvatar.value,
     text,
     createdAt: new Date().toISOString(),
   };
@@ -281,20 +355,25 @@ function sendMessage() {
   sendError.value = "";
 }
 
-async function enterConversation() {
+async function deleteCurrentChat() {
+  showMenu.value = false;
+  clearSocialMessages(previewContactKey.value);
+  clearSocialPreview(previewContactKey.value);
   messages.value = [];
+  goBack();
+}
+
+async function enterConversation() {
   sendError.value = "";
   connectionState.value = "connecting";
   disconnectSocket();
   clearSocialUnread(previewContactKey.value);
+  loadCachedMessages();
   await loadInitialState();
   await connectSocket();
 }
 
 onMounted(async () => {
-  if (typeof globalThis !== "undefined" && typeof globalThis.__amigaDebugLog === "function") {
-    globalThis.__amigaDebugLog("onMounted called, initialised=" + initialised.value);
-  }
   document.addEventListener("visibilitychange", handleVisibility);
   if (initialised.value) return;
   initialised.value = true;
@@ -357,7 +436,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
 }
 
 .header-info {
@@ -368,6 +446,56 @@ onUnmounted(() => {
   font-weight: 700;
   font-size: 16px;
   color: var(--text);
+}
+
+.menu-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.menu-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: transparent;
+}
+
+.menu-panel {
+  position: absolute;
+  top: 56px;
+  right: 12px;
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  z-index: 11;
+  overflow: hidden;
+}
+
+.menu-item {
+  padding: 12px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.menu-item.danger {
+  color: var(--red, #f44336);
+}
+
+.menu-item:hover {
+  background: var(--bg);
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity .15s ease;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
 }
 
 .chat-messages {
@@ -411,11 +539,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
-}
-
-.user-avatar {
-  font-size: 28px;
 }
 
 .msg-bubble {

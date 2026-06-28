@@ -1,96 +1,88 @@
 <template>
   <div class="social-hub">
-    <header class="hub-header">
-      <button class="back-btn" @click="goBack">{{ t("app.back") }}</button>
-      <div>
-        <h2>{{ t("chat.socialHub") }}</h2>
-        <p>{{ t("chat.socialHubDesc") }}</p>
-      </div>
+    <header class="page-header">
+      <button class="back-btn" @click="goBack">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+        </svg>
+      </button>
+      <h1 class="page-title">{{ t("chat.socialHub") }}</h1>
     </header>
 
-    <section class="hub-card">
-      <div class="row-between">
-        <div>
-          <div class="card-title">{{ t("chat.publicGroup") }}</div>
-          <div class="card-subtitle">{{ t("chat.publicGroupDesc") }}</div>
+    <section class="settings-section">
+      <h3 class="section-header">{{ t("chat.addFriendTitle") }}</h3>
+      <div class="settings-card">
+        <p class="card-subtitle">{{ t("chat.addFriendDesc", { userId }) }}</p>
+        <div class="inline-form">
+          <input v-model="friendIdInput" :placeholder="t('chat.friendIdPlaceholder')" :maxlength="64" @input="onFriendIdInput" />
+          <button class="primary-btn" :disabled="!ready || !isFriendIdValid" @click="submitFriendRequest">
+            {{ t("chat.sendRequest") }}
+          </button>
         </div>
-        <button class="primary-btn" :disabled="!ready" @click="openPublicGroup">{{ t("chat.enterRoom") }}</button>
+        <div v-if="statusText" class="status-text">{{ statusText }}</div>
       </div>
-      <div class="stats-row">
-        <div class="stat-pill">
-          <span>{{ t("chat.onlinePopulation") }}</span>
-          <strong>{{ stats.userCount }}</strong>
-        </div>
-        <div class="stat-pill">
-          <span>{{ t("chat.pendingCount") }}</span>
-          <strong>{{ pendingRequests.length }}</strong>
+    </section>
+
+    <section class="settings-section">
+      <h3 class="section-header">{{ t("chat.pendingRequestsTitle") }}</h3>
+      <div class="settings-card">
+        <div v-if="pendingRequests.length === 0" class="empty-state">{{ t("chat.pendingEmpty") }}</div>
+        <div v-for="request in pendingRequests" :key="request.fromUserId" class="friend-row">
+          <div>
+            <div class="friend-name">{{ request.fromUserId }}</div>
+            <div class="friend-meta">{{ formatTime(request.createdAt) }}</div>
+          </div>
+          <button class="primary-btn" :disabled="!ready" @click="acceptRequest(request.fromUserId)">
+            {{ t("chat.acceptRequest") }}
+          </button>
         </div>
       </div>
     </section>
 
-    <section class="hub-card">
-      <div class="card-title">{{ t("chat.addFriendTitle") }}</div>
-      <div class="card-subtitle">{{ t("chat.addFriendDesc", { userId }) }}</div>
-      <div class="inline-form">
-        <input v-model="friendIdInput" :placeholder="t('chat.friendIdPlaceholder')" :maxlength="64" @input="onFriendIdInput" />
-        <button class="primary-btn" :disabled="!ready || !isFriendIdValid" @click="submitFriendRequest">
-          {{ t("chat.sendRequest") }}
-        </button>
-      </div>
-      <div v-if="statusText" class="status-text">{{ statusText }}</div>
-    </section>
-
-    <section class="hub-card">
-      <div class="card-title">{{ t("chat.pendingRequestsTitle") }}</div>
-      <div v-if="pendingRequests.length === 0" class="empty-state">{{ t("chat.pendingEmpty") }}</div>
-      <div v-for="request in pendingRequests" :key="request.fromUserId" class="friend-row">
-        <div>
-          <div class="friend-name">{{ request.fromUserId }}</div>
-          <div class="friend-meta">{{ formatTime(request.createdAt) }}</div>
+    <section class="settings-section">
+      <h3 class="section-header">{{ t("chat.friendsTitle") }}</h3>
+      <div class="settings-card">
+        <div v-if="friends.length === 0" class="empty-state">{{ t("chat.friendsEmpty") }}</div>
+        <div v-for="friend in friends" :key="friend.friendUserId" class="friend-row">
+          <div class="friend-main">
+            <AvatarEmoji :value="friend.friendAvatar || '😊'" :size="36" />
+            <div>
+              <div class="friend-name">{{ friend.friendUserId }}</div>
+              <div class="friend-meta">{{ t("chat.friendSince", { date: formatDate(friend.updatedAt) }) }}</div>
+            </div>
+          </div>
+          <button class="danger-btn" :disabled="!ready" @click="removeFriend(friend.friendUserId)">
+            {{ t("chat.removeFriend") }}
+          </button>
         </div>
-        <button class="primary-btn" :disabled="!ready" @click="acceptRequest(request.fromUserId)">
-          {{ t("chat.acceptRequest") }}
-        </button>
-      </div>
-    </section>
-
-    <section class="hub-card">
-      <div class="card-title">{{ t("chat.friendsTitle") }}</div>
-      <div v-if="friends.length === 0" class="empty-state">{{ t("chat.friendsEmpty") }}</div>
-      <div v-for="friend in friends" :key="friend.friendUserId" class="friend-row">
-        <div>
-          <div class="friend-name">{{ friend.friendUserId }}</div>
-          <div class="friend-meta">{{ t("chat.friendSince", { date: formatDate(friend.updatedAt) }) }}</div>
-        </div>
-        <button class="primary-btn" :disabled="!ready" @click="openDirectChat(friend.friendUserId)">
-          {{ t("chat.openDirect") }}
-        </button>
       </div>
     </section>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { getCurrentUser } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
+import AvatarEmoji from "@/shared/components/AvatarEmoji.vue";
+import { rememberSocialAvatars } from "./socialAvatars.js";
 import {
   acceptFriendRequest,
   getPendingFriendRequests,
   getSocialConfig,
   getSocialFriendships,
-  getSocialStats,
   getSocialUserId,
   registerSocialUser,
+  removeFriend as removeFriendRequest,
   sendFriendRequest,
 } from "./socialService.js";
 
 const router = useRouter();
+const route = useRoute();
 const { t } = useI18n();
 
 const userId = ref("");
-const stats = reactive({ userCount: 0 });
 const pendingRequests = ref([]);
 const friends = ref([]);
 const statusText = ref("");
@@ -110,7 +102,12 @@ function onFriendIdInput() {
 }
 
 function goBack() {
-  router.replace({ name: "chat" });
+  const parent = route?.meta?.parent;
+  if (parent) {
+    router.replace({ name: parent });
+  } else {
+    router.replace({ name: "chat" });
+  }
 }
 
 function formatDate(value) {
@@ -131,14 +128,17 @@ async function loadSummary(config) {
     native_language: user?.native_language,
   });
 
-  const [socialStats, requests, friendships] = await Promise.all([
-    getSocialStats(config),
+  const [requests, friendships] = await Promise.all([
     getPendingFriendRequests(config, userId.value),
     getSocialFriendships(config, userId.value),
   ]);
-  stats.userCount = socialStats?.userCount || 0;
   pendingRequests.value = requests?.items || [];
   friends.value = friendships?.items || [];
+  rememberSocialAvatars(Object.fromEntries(
+    friends.value
+      .filter((friend) => friend.friendUserId && friend.friendAvatar)
+      .map((friend) => [friend.friendUserId, friend.friendAvatar]),
+  ));
 }
 
 async function refreshAll() {
@@ -189,16 +189,16 @@ async function acceptRequest(fromUserId) {
   }
 }
 
-function openPublicGroup() {
-  router.push({ name: "social-chat", params: { mode: "public" } });
-}
-
-function openDirectChat(friendUserId) {
-  router.push({
-    name: "social-chat",
-    params: { mode: "direct", peerId: friendUserId },
-    query: { name: friendUserId },
-  });
+async function removeFriend(friendUserId) {
+  statusText.value = "";
+  try {
+    const config = await getSocialConfig();
+    await removeFriendRequest(config, userId.value, friendUserId);
+    statusText.value = t("chat.friendRemoved");
+    await loadSummary(config);
+  } catch (error) {
+    statusText.value = error?.message ? `${t("chat.removeFriendFailed")} (${error.message})` : t("chat.removeFriendFailed");
+  }
 }
 
 onMounted(async () => {
@@ -211,59 +211,64 @@ onMounted(async () => {
 .social-hub {
   min-height: 100%;
   background: var(--bg);
-  padding: 16px;
-  box-sizing: border-box;
+  padding-bottom: 24px;
 }
 
-.hub-header {
+.page-header {
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-
-.hub-header h2 {
-  margin: 0;
-  font-size: 22px;
-}
-
-.hub-header p {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--text-lighter);
-  line-height: 1.5;
-}
-
-.back-btn,
-.primary-btn {
-  border: none;
-  border-radius: 14px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .back-btn {
-  background: var(--white);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
   color: var(--text);
-  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background var(--transition);
+  flex-shrink: 0;
 }
 
-.hub-card {
-  background: var(--white);
-  border-radius: 20px;
+.back-btn:hover {
+  background: var(--surface-variant);
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.settings-section {
+  margin: 12px 0;
+}
+
+.section-header {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-light);
+  padding: 0 20px;
+  margin-bottom: 4px;
+}
+
+.settings-card {
+  margin: 0 16px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface);
   padding: 16px;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.05);
-}
-
-.hub-card + .hub-card {
-  margin-top: 14px;
-}
-
-.card-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text);
 }
 
 .card-subtitle,
@@ -275,8 +280,14 @@ onMounted(async () => {
   line-height: 1.5;
 }
 
+.inline-form {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 .inline-form input {
-  width: 100%;
+  flex: 1;
   box-sizing: border-box;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -286,21 +297,36 @@ onMounted(async () => {
   font-size: 14px;
 }
 
-.inline-form,
-.row-between,
-.friend-row,
-.stats-row {
+.primary-btn,
+.danger-btn {
+  border: none;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px 14px;
+  flex-shrink: 0;
+}
+
+.primary-btn {
+  background: var(--green);
+  color: #fff;
+}
+
+.danger-btn {
+  background: rgba(244, 67, 54, 0.12);
+  color: var(--red, #f44336);
+}
+
+.primary-btn:disabled,
+.danger-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.friend-row {
   display: flex;
   gap: 10px;
-}
-
-.inline-form,
-.stats-row {
-  margin-top: 12px;
-}
-
-.row-between,
-.friend-row {
   align-items: center;
   justify-content: space-between;
 }
@@ -311,40 +337,11 @@ onMounted(async () => {
   border-top: 1px solid var(--border);
 }
 
-.primary-btn {
-  background: var(--green);
-  color: #fff;
-  padding: 10px 14px;
-}
-
-.primary-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.stats-row {
-  flex-wrap: wrap;
-}
-
-.stat-pill {
-  min-width: 120px;
-  flex: 1;
-  background: var(--green-bg);
-  border-radius: 16px;
-  padding: 12px 14px;
-}
-
-.stat-pill span {
-  display: block;
-  font-size: 12px;
-  color: var(--text-lighter);
-}
-
-.stat-pill strong {
-  display: block;
-  margin-top: 6px;
-  font-size: 24px;
-  color: var(--text);
+.friend-main {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
 }
 
 .friend-name {
@@ -354,7 +351,6 @@ onMounted(async () => {
 }
 
 .empty-state {
-  margin-top: 12px;
   border-radius: 16px;
   background: var(--bg);
   color: var(--text-lighter);
