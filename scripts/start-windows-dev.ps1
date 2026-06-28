@@ -1,23 +1,49 @@
 # Amiga Windows dev launcher with fast-start when sources are unchanged.
 param(
-    [switch]$ForceFull
+    [switch]$ForceFull,
+    [string]$WorkingDir = "",
+    [int]$DevPort = 1420,
+    [int]$HmrPort = 1421,
+    [string]$ExePath = "",
+    [string]$TauriConfig = "",
+    [string]$LogPrefix = "Amiga",
+    [hashtable]$ExtraEnv = @{}
 )
 
 $ErrorActionPreference = "Stop"
 $ProjectDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-Set-Location $ProjectDir
 
-$DevPort = 1420
-$HmrPort = 1421
+if ([string]::IsNullOrWhiteSpace($WorkingDir)) {
+    $WorkingDir = $ProjectDir
+} else {
+    $WorkingDir = (Resolve-Path $WorkingDir).Path
+}
+
+Set-Location $WorkingDir
+
+if ([string]::IsNullOrWhiteSpace($ExePath)) {
+    $ExePath = Join-Path $WorkingDir "src-tauri\target\debug\idioma.exe"
+} else {
+    $requestedExe = $ExePath
+    $resolvedExe = Resolve-Path $requestedExe -ErrorAction SilentlyContinue
+    if ($resolvedExe) {
+        $ExePath = $resolvedExe.Path
+    } elseif ([System.IO.Path]::IsPathRooted($requestedExe)) {
+        $ExePath = $requestedExe
+    } else {
+        $ExePath = Join-Path $WorkingDir $requestedExe
+    }
+}
+
 $DevUrl = "http://127.0.0.1:$DevPort"
-$ExePath = Join-Path $ProjectDir "src-tauri\target\debug\idioma.exe"
-$ViteCacheDir = Join-Path $ProjectDir "node_modules\.vite-cache"
+$ViteCacheDir = Join-Path $WorkingDir "node_modules\.vite-cache"
 
 $RustWatchRoots = @(
     "src-tauri\Cargo.toml",
     "src-tauri\Cargo.lock",
     "src-tauri\build.rs",
     "src-tauri\tauri.conf.json",
+    "src-tauri\tauri.conf.test.json",
     "src-tauri\capabilities",
     "src-tauri\src"
 )
@@ -28,9 +54,13 @@ $FrontendConfigFiles = @(
     "package-lock.json"
 )
 
+foreach ($key in $ExtraEnv.Keys) {
+    Set-Item -Path "env:$key" -Value $ExtraEnv[$key]
+}
+
 function Write-AmigaLine {
     param([string]$Message)
-    Write-Host "[Amiga] $Message"
+    Write-Host "[$LogPrefix] $Message"
 }
 
 function Test-PortListening {
@@ -92,7 +122,7 @@ function Get-LatestWriteTimeUtc {
 
     $latest = [datetime]::MinValue
     foreach ($relativePath in $Paths) {
-        $fullPath = Join-Path $ProjectDir $relativePath
+        $fullPath = Join-Path $WorkingDir $relativePath
         if (-not (Test-Path $fullPath)) {
             continue
         }
@@ -129,7 +159,7 @@ function Test-ViteConfigFresh {
 
     $cacheTime = (Get-Item $ViteCacheDir).LastWriteTimeUtc
     foreach ($relativePath in $FrontendConfigFiles) {
-        $fullPath = Join-Path $ProjectDir $relativePath
+        $fullPath = Join-Path $WorkingDir $relativePath
         if ((Test-Path $fullPath) -and (Get-Item $fullPath).LastWriteTimeUtc -gt $cacheTime) {
             return $false
         }
@@ -139,10 +169,17 @@ function Test-ViteConfigFresh {
 }
 
 function Stop-AmigaProcess {
-    Get-Process -Name "idioma" -ErrorAction SilentlyContinue | ForEach-Object {
-        Write-AmigaLine "Stopping stale Amiga process (PID $($_.Id))..."
-        Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+    $exePathNormalized = (Resolve-Path $ExePath -ErrorAction SilentlyContinue).Path
+    if (-not $exePathNormalized) {
+        return
     }
+
+    Get-CimInstance Win32_Process -Filter "Name='idioma.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.ExecutablePath -eq $exePathNormalized } |
+        ForEach-Object {
+            Write-AmigaLine "Stopping stale Amiga process (PID $($_.ProcessId))..."
+            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+        }
 }
 
 function Invoke-TauriDev {
@@ -150,14 +187,19 @@ function Invoke-TauriDev {
         [string[]]$ExtraArgs
     )
 
-    $args = @("tauri", "dev") + $ExtraArgs
+    $args = @("tauri", "dev")
+    if ($TauriConfig) {
+        $args += @("--config", $TauriConfig)
+    }
+    $args += $ExtraArgs
+
     Write-AmigaLine ("Running: npx " + ($args -join " "))
     & npx @args
     return $LASTEXITCODE
 }
 
 Write-AmigaLine "Starting Windows dev session on port $DevPort..."
-Write-AmigaLine "Project directory: $ProjectDir"
+Write-AmigaLine "Working directory: $WorkingDir"
 
 if ($ForceFull -or $env:AMIGA_FULL_DEV -eq "1") {
     Write-AmigaLine "Full restart requested."
