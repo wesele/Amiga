@@ -64,7 +64,7 @@ async function openModule(mod) {
 }
 
 .page-header {
-  padding: 16px 20px 8px;
+  padding: 20px 28px 16px;
   background: var(--white);
 }
 
@@ -77,8 +77,8 @@ async function openModule(mod) {
 .module-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  padding: 20px;
+  gap: 20px;
+  padding: 32px 28px;
 }
 
 .module-tile {
@@ -86,11 +86,13 @@ async function openModule(mod) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 28px 16px;
+  gap: 12px;
+  aspect-ratio: 1;
+  width: 100%;
+  padding: 16px;
   background: var(--white);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-family: inherit;
   transition: background var(--transition), box-shadow var(--transition);
