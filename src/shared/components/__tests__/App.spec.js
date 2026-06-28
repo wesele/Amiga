@@ -74,7 +74,7 @@ describe("App schema compatibility dialog", () => {
 
     eventBus.emit(ALERT_SHOW, {
       title: "无法打开链接",
-      message: "系统未能打开此链接。\n\nhttps://example.com",
+      message: "no app can handle VIEW intent: ActivityNotFoundException\n\nhttps://example.com",
     });
     await flushPromises();
 

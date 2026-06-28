@@ -111,7 +111,7 @@ describe("openExternalUrl", () => {
   });
 
   it("uses the Android native external bridge before tauri open", async () => {
-    const openUrl = vi.fn(() => true);
+    const openUrl = vi.fn(() => "ok");
     window.__amigaExternal = { openUrl };
     await openExternalUrl("example.com/foo");
     expect(openUrl).toHaveBeenCalledWith("https://example.com/foo");
@@ -119,14 +119,21 @@ describe("openExternalUrl", () => {
     expect(showAlert).not.toHaveBeenCalled();
   });
 
-  it("shows an alert when the Android native bridge returns false", async () => {
+  it("shows an alert with the native error when the Android bridge fails", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    window.__amigaExternal = { openUrl: vi.fn(() => false) };
+    window.__amigaExternal = {
+      openUrl: vi.fn(() => "no app can handle VIEW intent: ActivityNotFoundException"),
+    };
     await openExternalUrl("https://example.com");
     expect(open).not.toHaveBeenCalled();
     expect(showAlert).toHaveBeenCalledWith(
       expect.objectContaining({
         title: expect.any(String),
+        message: expect.stringContaining("no app can handle VIEW intent"),
+      }),
+    );
+    expect(showAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
         message: expect.stringContaining("https://example.com"),
       }),
     );
@@ -195,6 +202,11 @@ describe("openExternalUrl", () => {
     expect(warn).toHaveBeenCalled();
     expect(showAlert).toHaveBeenCalledWith(
       expect.objectContaining({
+        message: expect.stringContaining("denied"),
+      }),
+    );
+    expect(showAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
         message: expect.stringContaining("https://fallback.test/x"),
       }),
     );
@@ -224,6 +236,11 @@ describe("openExternalUrl", () => {
 
     await openExternalUrl("https://blocked.test/");
 
+    expect(showAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining("denied"),
+      }),
+    );
     expect(showAlert).toHaveBeenCalledWith(
       expect.objectContaining({
         message: expect.stringContaining("https://blocked.test/"),

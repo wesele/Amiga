@@ -34,10 +34,27 @@ function isAndroidPlatform() {
   return typeof navigator !== "undefined" && ANDROID_RE.test(navigator.userAgent || "");
 }
 
-function showExternalOpenError(url) {
+function formatOpenError(error) {
+  if (error == null || error === "") return t("external.openFailedUnknown");
+  if (typeof error === "string") return error;
+  if (error instanceof Error) {
+    const msg = error.message?.trim();
+    return msg || error.name || t("external.openFailedUnknown");
+  }
+  return String(error);
+}
+
+function isNativeOpenSuccess(result) {
+  return result === true || result === "ok";
+}
+
+function showExternalOpenError(url, error) {
   showAlert({
     title: t("external.openFailedTitle"),
-    message: t("external.openFailedMessage", { url }),
+    message: t("external.openFailedMessage", {
+      error: formatOpenError(error),
+      url,
+    }),
     confirmText: t("app.ok"),
   });
 }
@@ -66,13 +83,14 @@ export async function openExternalUrl(url) {
 
   if (window.__amigaExternal && typeof window.__amigaExternal.openUrl === "function") {
     try {
-      const ok = window.__amigaExternal.openUrl(target);
-      if (ok === true) return;
-      console.warn("openExternalUrl: native Android open returned false", target);
-      showExternalOpenError(target);
+      const result = window.__amigaExternal.openUrl(target);
+      if (isNativeOpenSuccess(result)) return;
+      const error = result === false ? t("external.openFailedUnknown") : result;
+      console.warn("openExternalUrl: native Android open failed", target, error);
+      showExternalOpenError(target, error);
       return;
     } catch (e) {
-      console.warn("openExternalUrl: native Android open failed", target, e);
+      console.warn("openExternalUrl: native Android open threw", target, e);
     }
   }
 
@@ -81,18 +99,18 @@ export async function openExternalUrl(url) {
   } catch (e) {
     if (isAndroidPlatform()) {
       console.warn("openExternalUrl: Android fallback suppressed to avoid in-app WebView", target, e);
-      showExternalOpenError(target);
+      showExternalOpenError(target, e);
       return;
     }
     try {
       const win = window.open(target, "_blank", "noopener,noreferrer");
       if (!win) {
         console.warn("openExternalUrl: window.open returned null", target, e);
-        showExternalOpenError(target);
+        showExternalOpenError(target, e || t("external.windowOpenBlocked"));
       }
     } catch (inner) {
       console.warn("openExternalUrl: failed to open", target, inner || e);
-      showExternalOpenError(target);
+      showExternalOpenError(target, inner || e);
     }
   }
 }

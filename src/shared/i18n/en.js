@@ -336,7 +336,9 @@ export default {
 
   external: {
     openFailedTitle: "Could not open link",
-    openFailedMessage: "The system could not open this link. Check that a browser is installed.\n\n{url}",
+    openFailedMessage: "{error}\n\n{url}",
+    openFailedUnknown: "Unknown error: could not open link",
+    windowOpenBlocked: "window.open was blocked or returned null",
   },
 
   update: {

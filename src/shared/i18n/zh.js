@@ -339,7 +339,9 @@ export default {
 
   external: {
     openFailedTitle: "无法打开链接",
-    openFailedMessage: "系统未能打开此链接，请检查是否已安装浏览器。\n\n{url}",
+    openFailedMessage: "{error}\n\n{url}",
+    openFailedUnknown: "未知错误：未能打开链接",
+    windowOpenBlocked: "window.open 被拦截或返回空窗口",
   },
 
   update: {

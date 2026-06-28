@@ -362,42 +362,55 @@ class MainActivity : TauriActivity() {
     private fun installExternalLinkBridge(webView: WebView) {
         webView.addJavascriptInterface(object {
             @JavascriptInterface
-            fun openUrl(url: String): Boolean {
+            fun openUrl(url: String): String {
                 val lowerUrl = url.lowercase()
                 if (!lowerUrl.startsWith("http://") && !lowerUrl.startsWith("https://")) {
+                    val msg = "refused: URL must use http or https scheme"
                     Log.w(TAG, "external open refused non-http(s) url: $url")
-                    return false
+                    return msg
                 }
                 val latch = CountDownLatch(1)
-                var success = false
+                var result = OpenResult(false, "failed to open link")
                 this@MainActivity.runOnUiThread {
                     try {
-                        success = openExternalUrlInBrowser(url)
+                        result = openExternalUrlInBrowser(url)
                     } finally {
                         latch.countDown()
                     }
                 }
                 return try {
                     if (!latch.await(3, TimeUnit.SECONDS)) {
+                        val msg = "timed out waiting for browser launch (3s)"
                         Log.w(TAG, "external open timed out waiting for UI thread: $url")
-                        false
+                        msg
+                    } else if (result.ok) {
+                        "ok"
                     } else {
-                        success
+                        result.error ?: "failed to open link"
                     }
                 } catch (e: InterruptedException) {
+                    val msg = "interrupted while opening link: ${e.message ?: e.javaClass.simpleName}"
                     Log.w(TAG, "external open interrupted: $url", e)
-                    false
+                    msg
                 }
             }
         }, "__amigaExternal")
     }
 
-    private fun openExternalUrlInBrowser(url: String): Boolean {
+    private data class OpenResult(val ok: Boolean, val error: String? = null)
+
+    private fun formatOpenError(prefix: String, error: Throwable): String {
+        val detail = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
+        return "$prefix: $detail"
+    }
+
+    private fun openExternalUrlInBrowser(url: String): OpenResult {
         val uri = Uri.parse(url)
         val baseIntent = Intent(Intent.ACTION_VIEW, uri).apply {
             addCategory(Intent.CATEGORY_BROWSABLE)
         }
         val pm = packageManager
+        var lastError: String? = null
 
         try {
             val resolved = pm.resolveActivity(baseIntent, 0)
@@ -408,17 +421,19 @@ class MainActivity : TauriActivity() {
                 }
                 startActivity(explicitIntent)
                 Log.d(TAG, "external open launched via default browser package=$defaultPkg url=$url")
-                return true
+                return OpenResult(true)
             }
         } catch (e: Throwable) {
+            lastError = formatOpenError("resolve default browser failed", e)
             Log.w(TAG, "external open failed resolving default browser: $url", e)
         }
 
         try {
             startActivity(baseIntent)
             Log.d(TAG, "external open launched via generic VIEW intent: $url")
-            return true
+            return OpenResult(true)
         } catch (e: ActivityNotFoundException) {
+            lastError = formatOpenError("no app can handle VIEW intent", e)
             Log.w(TAG, "external open generic VIEW failed: $url", e)
         }
 
@@ -426,10 +441,11 @@ class MainActivity : TauriActivity() {
             val chooser = Intent.createChooser(baseIntent, null)
             startActivity(chooser)
             Log.d(TAG, "external open launched via chooser fallback: $url")
-            true
+            OpenResult(true)
         } catch (e: ActivityNotFoundException) {
+            val msg = lastError ?: formatOpenError("chooser launch failed", e)
             Log.w(TAG, "external open chooser failed: $url", e)
-            false
+            OpenResult(false, msg)
         }
     }
 
