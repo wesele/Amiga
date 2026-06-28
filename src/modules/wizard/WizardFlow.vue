@@ -106,7 +106,10 @@ async function onNext(data) {
     const ok = await saveToBackend();
     if (!ok) return;
     emitted.value = true;
-    router.push("/news");
+    // Replace (not push) so /wizard is not left on the browser history
+    // stack. Otherwise a system back press can land on the wizard again
+    // even after onboarding is complete (issue #11).
+    router.replace({ name: "news" });
     return;
   }
   prevStep.value = current.value;

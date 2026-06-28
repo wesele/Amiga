@@ -133,13 +133,16 @@ async function bootstrap() {
   // Load shell first (provides the layout)
   await kernel.loadModule("shell");
 
-  // Route guard: force wizard if not completed
+  // Route guard: force wizard if not completed; block re-entry once done
   router.beforeEach(async (to) => {
-    // Allow wizard route and reader route to pass through
-    if (to.name === "wizard") return true;
-
     try {
       const completed = await isWizardCompleted();
+      if (to.name === "wizard") {
+        // Belt-and-braces: even if /wizard is still in URL history,
+        // completed users should never see the onboarding flow again.
+        if (completed) return { name: "news" };
+        return true;
+      }
       if (!completed) {
         return { name: "wizard" };
       }
