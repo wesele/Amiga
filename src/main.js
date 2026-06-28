@@ -60,6 +60,10 @@ async function bootstrap() {
     // `{ name: parent }` because `router.push("news")` would be
     // interpreted as a relative path "news" (no leading /) and fail.
     window.__amigaGoBack = () => {
+      const inPageResult = window.__amigaGoBackInPage?.();
+      if (inPageResult === "navigated" || inPageResult === "at-root") {
+        return inPageResult;
+      }
       const route = router.currentRoute.value;
       const parent = route?.meta?.parent;
       if (parent) {

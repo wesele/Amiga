@@ -38,15 +38,22 @@ function lookup(dict, key) {
 
 function interpolate(str, params) {
   if (!params) return str;
-  return str.replace(/\{(\w+)\}/g, (m, name) =>
-    params[name] != null ? String(params[name]) : m,
-  );
+  return str.replace(/\{\{\s*(\w+)\s*\}\}|\{(\w+)\}/g, (m, doubleName, singleName) => {
+    const name = doubleName || singleName;
+    return params[name] != null ? String(params[name]) : m;
+  });
 }
 
 export function t(key, params) {
   const dict = DICTS[_locale.value] || DICTS[DEFAULT_LOCALE];
   let v = lookup(dict, key);
   if (v == null) v = lookup(DICTS[DEFAULT_LOCALE], key);
+  if (v == null) {
+    for (const fallback of Object.values(DICTS)) {
+      v = lookup(fallback, key);
+      if (v != null) break;
+    }
+  }
   if (v == null) return key;
   if (typeof v !== "string") return key;
   return interpolate(v, params);

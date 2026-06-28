@@ -35,6 +35,12 @@ describe("i18n", () => {
       expect(t("news.refreshed", { n: 12 })).toBe("Fetched 12 latest articles");
     });
 
+    it("interpolates {{name}} placeholders used by chat copy", () => {
+      setLocale("zh", { persist: false });
+      expect(t("chat.socialSummary", { users: 5, pending: 1 })).toBe("5 位用户，1 个待处理");
+      expect(t("chat.amigaDesc", { target: "西班牙语" })).toBe("你的 西班牙语 AI 语言学习伙伴");
+    });
+
     it("returns the dotted key string when missing in all locales", () => {
       setLocale("zh", { persist: false });
       expect(t("foo.bar.baz")).toBe("foo.bar.baz");

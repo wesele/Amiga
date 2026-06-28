@@ -7,7 +7,7 @@
 1. **UI 改动必须截图确认。** 修改任何 `.vue`、`.css`、布局、视觉状态或交互呈现后，必须用 Windows (`run-windows.bat`) 或 Android (`run-android.bat` + `adb exec-out screencap -p`) 截图并亲眼检查。截图流程见 [docs/testing.md](./docs/testing.md) 的“截屏测试”和 [docs/android-adb-debugging.md](./docs/android-adb-debugging.md)。如果当前模型不能直接读图，必须用 `image-describe_describe_image` 查看截图，不能用日志、DOM 文本或用户描述替代。
 2. **Rust/Tauri 改动必须编译。** 修改 `src-tauri/` 下任何 `.rs`、`Cargo.toml`、`tauri*.conf.json`、`capabilities/*.json` 后，必须 `cd src-tauri && cargo build` 再继续验证。不要用裸 `npm run dev` 验证 Rust invoke，它走前端 stub。
 3. **Android 原生只改 tracked 副本。** Kotlin/Android 原生源码只改 `src-tauri/android/...`，不要手动改 `src-tauri/gen/...`。JS-Kotlin 契约 `__amigaGoBack` / `__amigaSetInsets` / `__amigaTranslateSelection` 不可随意改动。
-4. **收尾自动本地 commit。** 任务完成后自动提交到本地 git和提交到github。发tag需要用户明示。
+4. **收尾自动本地 commit。** 任务完成后自动提交到本地 git。
 5. 如果是让去提取一个github issue解决，就是自动拉取第一个issue，完成开发流程，成功后关闭该issue。
 
 ## 节省上下文规则
@@ -17,7 +17,7 @@
 - 只读取和本次修改相关的源码、测试、文档；大文件先按函数、路由、关键字切片读取。
 - 需求明确且影响范围小，直接实现；多方案、高风险、跨模块契约、数据迁移、破坏性操作才先确认方案。
 - subagent 只用于上下文边界清晰、可并行且收益明显的任务。少于 3 个相关文件的小改默认主 agent 完成。
-- 向用户汇报时给结论、改了什么、如何验证；不要粘贴长日志、完整 diff 或大段源码，除非用户要求。
+- 向用户汇报时给结论、改了什么、如何验证；不要粘贴长日志、完整 diff 或大段源码，除非用户要求。 
 
 ## 任务路由
 

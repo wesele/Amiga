@@ -114,6 +114,7 @@
                   <span class="unit-badge">词汇: {{ unit.vocabCount || 0 }}</span>
                   <span class="unit-badge">小节: {{ unit.sections?.length || 0 }}</span>
                 </div>
+                <button class="btn btn-sm btn-secondary" @click.stop="generateQuestionsForUnit(uIdx)">🤖 生成题目</button>
                 <button class="btn btn-sm btn-danger" @click="removeUnit(uIdx)">🗑️</button>
               </div>
               <div class="unit-goals">
@@ -140,6 +141,7 @@
                       <span class="word-count">{{ sec.coveredWords?.length || 0 }} 词</span>
                       <span class="expand-icon">{{ expandedSections.has(`${uIdx}-${sIdx}`) ? '▲' : '▼' }}</span>
                        <button v-if="hasSectionQuestions(unit, sec)" class="btn btn-sm btn-ghost" @click.stop="previewUnit(uIdx, sIdx)" title="预览题目">👁️</button>
+                      <button class="btn btn-sm btn-ghost" @click.stop="generateQuestionsForSectionOnly(uIdx, sIdx)" title="生成题目">🤖</button>
                       <button class="btn btn-sm btn-ghost" @click.stop="removeSection(uIdx, sIdx)">✕</button>
                     </div>
                   </div>
@@ -676,9 +678,9 @@ watch(() => currentQuestion.value?.id, (newId) => {
 // 辅助：先按目标语名查找词库，再按 pair id 查找（兼容旧版迁移数据）
 function getVocabForLevel(pair, level) {
   if (!pair) return ''
-  let words = vocabStorage.getWords(pair.to, level)
+  let words = vocabStorage.getWords(pair.id, level)
   if (!words) {
-    words = vocabStorage.getWords(pair.id, level)
+    words = vocabStorage.getWords(pair.to, level)
   }
   return words || ''
 }
@@ -715,7 +717,8 @@ function selectLevel(pair, level) {
   try {
     if (!pair || !level) return
     selectedLevel.value = level
-    const units = unitFramework.getFramework(pair.to, level)
+    vocabStorage.registerPairId(pair.id, pair.to)
+    const units = unitFramework.getFramework(pair.id, level)
     if (!Array.isArray(units)) {
       console.warn(`获取框架数据异常，预期数组，实际:`, units)
       framework.value = []
@@ -731,7 +734,9 @@ function selectLevel(pair, level) {
 }
 
 function getUnitCount(lang, level) {
-  return unitFramework.getFramework(lang, level).length
+  const pair = languagePairs.value.find(p => p.id === lang || p.to === lang)
+  const key = pair ? pair.id : lang
+  return unitFramework.getFramework(key, level).length
 }
 
 // ---- 覆盖率计算 ----
@@ -832,6 +837,7 @@ async function generateAI() {
   
   try {
     const units = await unitFramework.generateFrameworkWithAI(sourceLang, targetLang, level, vocab, {
+      pairId: selectedPair.value.id,
       signal: controller.signal
     })
     console.log('generateAI: success, units:', units?.length)
@@ -853,7 +859,7 @@ async function generateAI() {
 
 function saveCurrentFramework() {
   if (!selectedPair.value) return
-  unitFramework.setFramework(selectedPair.value.to, selectedLevel.value, framework.value)
+  unitFramework.setFramework(selectedPair.value.id, selectedLevel.value, framework.value)
   updateCoverage()
 }
 
@@ -922,7 +928,7 @@ function calculateCoverage(pair, level) {
   if (!pair) return { vocab: 0 }
   const allVocab = getVocabForLevel(pair, level)
   const vocabList = allVocab.split(',').map(v => v.trim()).filter(Boolean)
-  const units = unitFramework.getFramework(pair.to, level)
+  const units = unitFramework.getFramework(pair.id, level)
   const coveredVocab = new Set()
   units.forEach(unit => {
     unit.sections?.forEach(sec => {
@@ -994,6 +1000,106 @@ async function generateQuestions() {
   }
 }
 
+// ---- 为单个关卡生成题目 ----
+async function generateQuestionsForUnit(uIdx) {
+  const unit = framework.value[uIdx]
+  const targetLang = selectedPair.value?.to
+  const sourceLang = selectedPair.value?.from
+  const level = selectedLevel.value
+  if (!targetLang || !sourceLang || !level) {
+    alert('请先选择语言和级别')
+    return
+  }
+  if (!unit.sections?.length) {
+    alert('该关卡没有小节')
+    return
+  }
+
+  asyncOp.addLog(`开始为 ${unit.titleTarget || unit.titleNative} 生成题目`, 'info')
+  const controller = asyncOp.start(`正在生成 [${unit.id}] 的题目...`)
+
+  let totalGenerated = 0
+  try {
+    for (const sec of unit.sections) {
+      if (!sec.titleTarget && !sec.titleNative) continue
+      asyncOp.addLog(`生成 [${unit.id}-${sec.id}] ${sec.titleTarget || sec.titleNative} 的题目...`, 'info')
+
+      const questions = await generateQuestionsForSection(unit, sec, sourceLang, targetLang, level, controller.signal)
+      if (questions?.length) {
+        const sectionId = `${unit.id}-${sec.id}`
+        const existing = storage.getQuestions().filter(q => q.sectionId === sectionId)
+        if (existing.length) storage.deleteQuestions(existing.map(q => q.id))
+        const questionsWithSection = questions.map((q, i) => ({
+          ...q,
+          sectionId,
+          id: q.id || `${targetLang.toLowerCase()}-${level.toLowerCase()}-${sectionId.toLowerCase()}-${String(i + 1).padStart(3, '0')}`
+        }))
+        storage.saveQuestions(questionsWithSection)
+        totalGenerated += questionsWithSection.length
+        asyncOp.addLog(`  ✓ 已生成 ${questionsWithSection.length} 道题目`, 'success')
+      }
+    }
+    asyncOp.addLog(`完成！共生成 ${totalGenerated} 道题目`, 'success')
+    if (totalGenerated === 0) {
+      alert('未生成任何题目，请检查 API 配置和日志详情')
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      asyncOp.addLog('题目生成已被取消', 'warning')
+    } else {
+      asyncOp.addLog(`生成失败: ${e.message}`, 'error')
+      console.error(e)
+    }
+  } finally {
+    asyncOp.stop()
+  }
+}
+
+// ---- 为单个小节生成题目 ----
+async function generateQuestionsForSectionOnly(uIdx, sIdx) {
+  const unit = framework.value[uIdx]
+  const sec = unit.sections[sIdx]
+  const targetLang = selectedPair.value?.to
+  const sourceLang = selectedPair.value?.from
+  const level = selectedLevel.value
+  if (!targetLang || !sourceLang || !level) {
+    alert('请先选择语言和级别')
+    return
+  }
+
+  asyncOp.addLog(`开始为 ${sec.titleTarget || sec.titleNative} 生成题目`, 'info')
+  const controller = asyncOp.start(`正在生成 [${unit.id}-${sec.id}] 的题目...`)
+
+  try {
+    const questions = await generateQuestionsForSection(unit, sec, sourceLang, targetLang, level, controller.signal)
+    if (questions?.length) {
+      const sectionId = `${unit.id}-${sec.id}`
+      const existing = storage.getQuestions().filter(q => q.sectionId === sectionId)
+      if (existing.length) storage.deleteQuestions(existing.map(q => q.id))
+      const questionsWithSection = questions.map((q, i) => ({
+        ...q,
+        sectionId,
+        id: q.id || `${targetLang.toLowerCase()}-${level.toLowerCase()}-${sectionId.toLowerCase()}-${String(i + 1).padStart(3, '0')}`
+      }))
+      storage.saveQuestions(questionsWithSection)
+      asyncOp.addLog(`完成！生成了 ${questionsWithSection.length} 道题目`, 'success')
+      alert(`已生成 ${questionsWithSection.length} 道题目`)
+    } else {
+      asyncOp.addLog('未生成任何题目', 'warning')
+      alert('未生成任何题目，请检查 API 配置和日志详情')
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      asyncOp.addLog('题目生成已被取消', 'warning')
+    } else {
+      asyncOp.addLog(`生成失败: ${e.message}`, 'error')
+      console.error(e)
+    }
+  } finally {
+    asyncOp.stop()
+  }
+}
+
 async function generateQuestionsForSection(unit, sec, sourceLang, targetLang, level, signal) {
   const typeIds = CEFR_TYPE_MAP[level] || CEFR_TYPE_MAP['A1']
   const suitableTypes = typeStorage.types.value.filter(t => typeIds.includes(t.id))
@@ -1016,6 +1122,9 @@ async function generateQuestionsForSection(unit, sec, sourceLang, targetLang, le
 语法点: ${sec.grammarPoint || '通用'}
 场景: ${sec.scenario || '日常对话'}
 词汇范围: ${vocabWords || '基础词汇'}
+
+【绝对语言约束 - 违反此约束的输出将被拒绝】
+目标语言是 ${targetLang}，所有要求用"${targetLang}"书写的字段，必须且只能使用 ${targetLang}，严禁混入任何其他语言（如西班牙语、法语、德语等）。如果你输出了非 ${targetLang} 的内容，该题目将被判定为错误。
 
 可用题型（请混合使用不同题型）：
 ${selectedTypes.map(t => `- ${t.id} (${t.title}): ${t.description}`).join('\n')}

@@ -84,6 +84,12 @@
               <h4>{{ t('update.releaseNotes') }}</h4>
               <pre>{{ updateInfo.release_notes }}</pre>
             </div>
+            <button
+              v-if="primaryUpdateAsset"
+              class="btn-update-primary"
+              :disabled="installingUpdate"
+              @click="handleInstallUpdate"
+            >{{ canAutoInstall ? t('update.install') : t('update.download') }}</button>
             <div class="download-section" v-if="updateInfo.download_urls.length > 0">
               <h4>{{ t('update.download') }}</h4>
               <a v-for="asset in updateInfo.download_urls" :key="asset.name" class="download-link" :href="asset.url" target="_blank" @click.prevent="openUrl(asset.url)">
@@ -123,6 +129,7 @@ import {
   checkUpdate,
 } from "@/shared/api.js";
 import { openExternalUrl } from "@/shared/external.js";
+import { canAutoInstallUpdate, pickPreferredUpdateAsset, startAppUpdate } from "@/shared/update.js";
 import SettingsItem from "./components/SettingsItem.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
@@ -174,6 +181,9 @@ async function onSwitchLang(code) {
 const showUpdateDialog = ref(false);
 const updateInfo = ref({ current_version: "", latest_version: "", has_update: false, release_notes: "", release_url: "", download_urls: [] });
 const updateDialog = ref({ type: "", title: "", errorMsg: "" });
+const installingUpdate = ref(false);
+const primaryUpdateAsset = computed(() => pickPreferredUpdateAsset(updateInfo.value));
+const canAutoInstall = computed(() => canAutoInstallUpdate(updateInfo.value));
 
 let checking = false;
 async function handleCheckUpdate() {
@@ -197,6 +207,16 @@ async function handleCheckUpdate() {
 
 async function openUrl(url) {
   await openExternalUrl(url);
+}
+
+async function handleInstallUpdate() {
+  if (!primaryUpdateAsset.value || installingUpdate.value) return;
+  installingUpdate.value = true;
+  try {
+    await startAppUpdate(updateInfo.value);
+  } finally {
+    installingUpdate.value = false;
+  }
 }
 </script>
 
@@ -478,6 +498,26 @@ async function openUrl(url) {
 }
 .download-section {
   margin-bottom: 12px;
+}
+.btn-update-primary {
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  background: var(--green);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  cursor: pointer;
+  transition: background var(--transition), opacity var(--transition);
+}
+.btn-update-primary:hover:not(:disabled) {
+  background: var(--green-hover);
+}
+.btn-update-primary:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }
 .download-section h4 {
   font-size: 12px;

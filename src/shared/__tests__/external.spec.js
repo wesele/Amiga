@@ -78,9 +78,17 @@ describe("isSafeExternalUrl", () => {
 });
 
 describe("openExternalUrl", () => {
+  function setUserAgent(ua) {
+    Object.defineProperty(window.navigator, "userAgent", {
+      configurable: true,
+      value: ua,
+    });
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
     delete window.__amigaExternal;
+    setUserAgent("Mozilla/5.0");
   });
 
   it("calls tauri open with a normalized https URL", async () => {
@@ -149,6 +157,22 @@ describe("openExternalUrl", () => {
     await openExternalUrl("https://fallback.test/x");
     expect(captured).toBe("https://fallback.test/x");
     expect(capturedFeatures).toContain("noopener");
+    window.open = orig;
+  });
+
+  it("does not fall back to window.open on Android when tauri open rejects", async () => {
+    setUserAgent("Mozilla/5.0 (Linux; Android 14)");
+    open.mockRejectedValue(new Error("denied"));
+    const orig = window.open;
+    const fallback = vi.fn();
+    window.open = fallback;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await openExternalUrl("https://fallback.test/x");
+
+    expect(fallback).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
     window.open = orig;
   });
 

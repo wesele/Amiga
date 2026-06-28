@@ -1,22 +1,44 @@
 @echo off
-cd /d "%~dp0"
+set "PROJECT_DIR=%~dp0"
+if "%PROJECT_DIR:~-1%"=="\" set "PROJECT_DIR=%PROJECT_DIR:~0,-1%"
+cd /d "%PROJECT_DIR%"
 
 echo [Amiga] Starting Windows dev session on port 1420...
+echo [Amiga] Project directory: %PROJECT_DIR%
 
-:: Check if port 1420 is already in use -- only kill if something is actually listening
-netstat -aon | findstr :1420 >nul 2>&1
-if %errorlevel% equ 0 (
-  echo [Amiga] Port 1420 in use. Cleaning up previous session...
-  taskkill /f /im idioma.exe >nul 2>&1
-  taskkill /f /im Amiga.exe >nul 2>&1
-  for /f "tokens=5" %%a in ('netstat -aon ^| findstr :1420') do (
-    taskkill /f /pid %%a 2>nul
-  )
-  timeout /t 2 >nul
-) else (
-  echo [Amiga] Port 1420 is free.
-)
+call :ensure_port_free 1420
+call :ensure_port_free 1421
 
 echo.
 npm run tauri dev
 pause
+goto :eof
+
+:ensure_port_free
+set "PORT=%~1"
+set "NEEDS_WAIT="
+
+netstat -aon | findstr ":%PORT% " | findstr LISTENING >nul 2>&1
+if %errorlevel% equ 0 (
+  echo [Amiga] Port %PORT% in use. Cleaning up previous session...
+  for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":%PORT% " ^| findstr LISTENING') do (
+    taskkill /f /pid %%a 2>nul
+    if errorlevel 1 (
+      echo [Amiga] Warning: failed to kill PID %%a for port %PORT%.
+    ) else (
+      set "NEEDS_WAIT=1"
+    )
+  )
+) else (
+  echo [Amiga] Port %PORT% is free.
+)
+
+if defined NEEDS_WAIT (
+  for /l %%i in (1,1,10) do (
+    timeout /t 1 >nul
+    netstat -aon | findstr ":%PORT% " | findstr LISTENING >nul 2>&1
+    if errorlevel 1 goto :eof
+  )
+  echo [Amiga] Warning: port %PORT% still appears busy after cleanup.
+)
+goto :eof

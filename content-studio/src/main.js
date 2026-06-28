@@ -6,11 +6,12 @@ import './assets/main.css'
 
 // 全局数据初始化（从服务端加载所有数据）
 import { init as initSystemConfig } from './composables/useSystemConfig.js'
-import { init as initVocab } from './composables/useVocabStorage.js'
+import { init as initVocab, useVocabStorage } from './composables/useVocabStorage.js'
 import { init as initStorage } from './composables/useStorage.js'
-import { init as initFramework } from './composables/useUnitFramework.js'
+import { init as initFramework, migrateKeys as migrateFrameworkKeys } from './composables/useUnitFramework.js'
 import { init as initPrompts } from './composables/usePromptStorage.js'
 import { init as initTypes } from './composables/useQuestionTypeStorage.js'
+import { useSystemConfig } from './composables/useSystemConfig.js'
 
 async function bootstrap() {
   await Promise.all([
@@ -21,6 +22,14 @@ async function bootstrap() {
     initPrompts(),
     initTypes()
   ])
+
+  const { config } = useSystemConfig()
+  const { registerPairId } = useVocabStorage()
+  for (const pair of (config.value.languagePairs || [])) {
+    registerPairId(pair.id, pair.to)
+  }
+
+  await migrateFrameworkKeys(config.value.languagePairs || [])
 
   const app = createApp(App)
   app.use(createPinia())

@@ -35,12 +35,29 @@ async function mountPage(sessionId, mockInvoke) {
 
 describe("ChatPage", () => {
   let mockInvoke;
+  let viewport;
+  let resizeHandler;
 
   beforeEach(() => {
     setActivePinia(createPinia());
     mockInvoke = vi.fn();
     api.__setInvoke(mockInvoke);
     setLocale("zh", { persist: false });
+    resizeHandler = null;
+    viewport = {
+      height: 700,
+      offsetTop: 0,
+      addEventListener: vi.fn((event, handler) => {
+        if (event === "resize") resizeHandler = handler;
+      }),
+      removeEventListener: vi.fn(),
+    };
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      value: viewport,
+    });
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
   });
 
   it("shows the translator name and 🌐 avatar when the session is a translator one", async () => {
@@ -154,5 +171,31 @@ describe("ChatPage", () => {
       expect(c).toBeDefined();
       expect(c.targetLang).toBe("es");
     }
+  });
+
+  it("resets the fixed chat viewport styles after the keyboard closes", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
+      if (cmd === "get_chat_messages_cmd") return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+
+    const wrapper = await mountPage("sess-1", mockInvoke);
+    await flushPromises();
+
+    const chatView = wrapper.find(".chat-view").element;
+    expect(chatView.style.height).toBe("");
+
+    viewport.height = 500;
+    resizeHandler();
+    expect(chatView.style.height).toBe("500px");
+
+    viewport.height = 700;
+    resizeHandler();
+    expect(chatView.style.height).toBe("");
+    expect(chatView.style.top).toBe("");
   });
 });

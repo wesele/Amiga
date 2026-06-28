@@ -1,0 +1,20 @@
+name = "amiga-chat-social"
+main = "src/index.js"
+compatibility_date = "2026-06-27"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "amiga-chat-social-db"
+database_id = "ddeee83d-fa48-453d-ab21-79ede1f57285"
+
+[triggers]
+crons = ["0 3 * * *"]
+
+[durable_objects]
+bindings = [
+  { name = "CHAT_RELAY", class_name = "ChatRelay" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatRelay"]
