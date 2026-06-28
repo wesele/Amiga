@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
@@ -7,6 +9,7 @@ import { setLocale } from "@/shared/i18n";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
+const ROOT = resolve(__dirname, "../../../..");
 const SocialChatPage = (await import("@/modules/chat/SocialChatPage.vue")).default;
 
 function makeRouter(mode = "public", peerId) {
@@ -374,5 +377,21 @@ describe("SocialChatPage", () => {
     expect(capturedSocket).not.toBeNull();
     expect(capturedSocket.url).toContain("mode=public");
     expect(capturedSocket.url).not.toContain("peerId");
+  });
+
+  it("reserves bottom safe-area below the input bar", async () => {
+    const { wrapper } = await mountPage("public");
+
+    const safeStrip = wrapper.find(".chat-safe-bottom");
+    expect(safeStrip.exists()).toBe(true);
+    expect(safeStrip.attributes("aria-hidden")).toBe("true");
+
+    const source = readFileSync(resolve(ROOT, "src/modules/chat/SocialChatPage.vue"), "utf8");
+    const safeBlock = source.match(/\.chat-safe-bottom\s*\{[^}]+\}/);
+    expect(safeBlock).toBeTruthy();
+    expect(safeBlock[0]).toMatch(/height\s*:\s*var\(--safe-bottom/);
+    const errorBlock = source.match(/\.chat-send-error\s*\{[^}]+\}/);
+    expect(errorBlock).toBeTruthy();
+    expect(errorBlock[0]).not.toMatch(/var\(--safe-bottom/);
   });
 });

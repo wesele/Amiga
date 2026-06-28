@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { createRouter, createMemoryHistory } from "vue-router";
@@ -7,6 +9,7 @@ import { setLocale } from "@/shared/i18n";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
+const ROOT = resolve(__dirname, "../../../..");
 const ChatPage = (await import("@/modules/chat/ChatPage.vue")).default;
 
 function makeRouter(sessionId) {
@@ -171,6 +174,29 @@ describe("ChatPage", () => {
       expect(c).toBeDefined();
       expect(c.targetLang).toBe("es");
     }
+  });
+
+  it("reserves bottom safe-area for the input bar when the shell nav is hidden", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
+      if (cmd === "get_chat_messages_cmd") return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+
+    const wrapper = await mountPage("sess-1", mockInvoke);
+    await flushPromises();
+
+    const safeStrip = wrapper.find(".chat-safe-bottom");
+    expect(safeStrip.exists()).toBe(true);
+    expect(safeStrip.attributes("aria-hidden")).toBe("true");
+
+    const source = readFileSync(resolve(ROOT, "src/modules/chat/ChatPage.vue"), "utf8");
+    const safeBlock = source.match(/\.chat-safe-bottom\s*\{[^}]+\}/);
+    expect(safeBlock).toBeTruthy();
+    expect(safeBlock[0]).toMatch(/height\s*:\s*var\(--safe-bottom/);
   });
 
   it("resets the fixed chat viewport styles after the keyboard closes", async () => {

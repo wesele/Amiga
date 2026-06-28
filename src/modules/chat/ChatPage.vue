@@ -69,6 +69,7 @@
       />
         <div class="send-btn" :class="{ disabled: loading || !inputText.trim() }" @click="sendMessage">{{ t('chat.send') }}</div>
     </div>
+    <div class="chat-safe-bottom" aria-hidden="true" />
   </div>
 </template>
 
@@ -497,5 +498,13 @@ onMounted(async () => {
 }
 .send-btn:not(.disabled):hover {
   background: var(--green-hover);
+}
+
+/* System nav bar / home indicator — chat hides the shell bottom-nav,
+ * so this fixed full-screen view must reserve safe-bottom itself. */
+.chat-safe-bottom {
+  flex-shrink: 0;
+  height: var(--safe-bottom, env(safe-area-inset-bottom, 0px));
+  background: var(--white);
 }
 </style>

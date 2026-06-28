@@ -57,6 +57,7 @@
       <div class="send-btn" :class="{ disabled: !canSend }" @click="sendMessage">{{ t("chat.send") }}</div>
     </div>
     <div v-if="sendError" class="chat-send-error">{{ sendError }}</div>
+    <div class="chat-safe-bottom" aria-hidden="true" />
   </div>
 </template>
 
@@ -619,10 +620,16 @@ onUnmounted(() => {
 }
 
 .chat-send-error {
-  padding: 8px 14px calc(8px + var(--safe-bottom));
+  padding: 8px 14px;
   font-size: 12px;
   color: #b53939;
   background: rgba(255, 220, 220, 0.85);
   border-top: 1px solid rgba(181, 57, 57, 0.2);
+}
+
+.chat-safe-bottom {
+  flex-shrink: 0;
+  height: var(--safe-bottom, env(safe-area-inset-bottom, 0px));
+  background: var(--white);
 }
 </style>
