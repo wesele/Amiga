@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { open } from "@tauri-apps/plugin-shell";
+import { showAlert } from "@/shared/alert.js";
 import {
   normalizeExternalUrl,
   isSafeExternalUrl,
@@ -8,6 +9,10 @@ import {
 
 vi.mock("@tauri-apps/plugin-shell", () => ({
   open: vi.fn(),
+}));
+
+vi.mock("@/shared/alert.js", () => ({
+  showAlert: vi.fn(),
 }));
 
 describe("normalizeExternalUrl", () => {
@@ -106,11 +111,26 @@ describe("openExternalUrl", () => {
   });
 
   it("uses the Android native external bridge before tauri open", async () => {
-    const openUrl = vi.fn();
+    const openUrl = vi.fn(() => true);
     window.__amigaExternal = { openUrl };
     await openExternalUrl("example.com/foo");
     expect(openUrl).toHaveBeenCalledWith("https://example.com/foo");
     expect(open).not.toHaveBeenCalled();
+    expect(showAlert).not.toHaveBeenCalled();
+  });
+
+  it("shows an alert when the Android native bridge returns false", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.__amigaExternal = { openUrl: vi.fn(() => false) };
+    await openExternalUrl("https://example.com");
+    expect(open).not.toHaveBeenCalled();
+    expect(showAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.any(String),
+        message: expect.stringContaining("https://example.com"),
+      }),
+    );
+    warn.mockRestore();
   });
 
   it("falls back to tauri open when the Android native bridge throws", async () => {
@@ -152,11 +172,12 @@ describe("openExternalUrl", () => {
     window.open = (u, t, f) => {
       captured = u;
       capturedFeatures = f || "";
-      return null;
+      return {};
     };
     await openExternalUrl("https://fallback.test/x");
     expect(captured).toBe("https://fallback.test/x");
     expect(capturedFeatures).toContain("noopener");
+    expect(showAlert).not.toHaveBeenCalled();
     window.open = orig;
   });
 
@@ -172,6 +193,11 @@ describe("openExternalUrl", () => {
 
     expect(fallback).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalled();
+    expect(showAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining("https://fallback.test/x"),
+      }),
+    );
     warn.mockRestore();
     window.open = orig;
   });
@@ -185,6 +211,24 @@ describe("openExternalUrl", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     await expect(openExternalUrl("https://x.test")).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalled();
+    expect(showAlert).toHaveBeenCalled();
+    warn.mockRestore();
+    window.open = orig;
+  });
+
+  it("shows an alert when window.open returns null on desktop", async () => {
+    open.mockRejectedValue(new Error("denied"));
+    const orig = window.open;
+    window.open = () => null;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await openExternalUrl("https://blocked.test/");
+
+    expect(showAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining("https://blocked.test/"),
+      }),
+    );
     warn.mockRestore();
     window.open = orig;
   });

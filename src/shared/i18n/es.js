@@ -334,6 +334,11 @@ export default {
     fail: "Traducción no disponible",
   },
 
+  external: {
+    openFailedTitle: "No se pudo abrir el enlace",
+    openFailedMessage: "El sistema no pudo abrir este enlace. Comprueba que tienes un navegador instalado.\n\n{url}",
+  },
+
   update: {
     available: "Nueva versión disponible",
     current: "Actual",

@@ -10,17 +10,40 @@
     @confirm="handleSchemaReset"
     @cancel="dismissSchemaDialog"
   />
+  <ConfirmDialog
+    :show="globalAlert.show"
+    :title="globalAlert.title"
+    :message="globalAlert.message"
+    :confirmText="globalAlert.confirmText || t('app.ok')"
+    alert-only
+    @confirm="dismissGlobalAlert"
+    @cancel="dismissGlobalAlert"
+  />
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import { inTauri, isSchemaCompatible, resetDatabase } from "@/shared/api.js";
+import { ALERT_SHOW } from "@/shared/alert.js";
+import { eventBus } from "@/shared/eventBus.js";
 import { useI18n } from "@/shared/i18n";
 
 const { t } = useI18n();
 const showSchemaDialog = ref(false);
 const resettingSchema = ref(false);
+const globalAlert = ref({
+  show: false,
+  title: "",
+  message: "",
+  confirmText: "",
+});
+
+function dismissGlobalAlert() {
+  globalAlert.value = { show: false, title: "", message: "", confirmText: "" };
+}
+
+let unsubscribeAlert = null;
 
 async function checkSchemaCompatibility() {
   if (!inTauri()) return;
@@ -51,5 +74,12 @@ async function handleSchemaReset() {
 
 onMounted(() => {
   checkSchemaCompatibility();
+  unsubscribeAlert = eventBus.on(ALERT_SHOW, ({ title = "", message = "", confirmText = "" } = {}) => {
+    globalAlert.value = { show: true, title, message, confirmText };
+  });
+});
+
+onUnmounted(() => {
+  unsubscribeAlert?.();
 });
 </script>

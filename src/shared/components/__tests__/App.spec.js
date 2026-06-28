@@ -2,6 +2,8 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "@/App.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
+import { ALERT_SHOW } from "@/shared/alert.js";
+import { eventBus } from "@/shared/eventBus.js";
 import i18nPlugin from "@/shared/i18n";
 
 const apiMocks = vi.hoisted(() => ({
@@ -64,6 +66,23 @@ describe("App schema compatibility dialog", () => {
 
     expect(apiMocks.isSchemaCompatible).not.toHaveBeenCalled();
     expect(wrapper.findComponent(ConfirmDialog).props("show")).toBe(false);
+  });
+
+  it("shows the global alert dialog when alert:show is emitted", async () => {
+    const wrapper = mountApp();
+    await flushPromises();
+
+    eventBus.emit(ALERT_SHOW, {
+      title: "无法打开链接",
+      message: "系统未能打开此链接。\n\nhttps://example.com",
+    });
+    await flushPromises();
+
+    const dialogs = wrapper.findAllComponents(ConfirmDialog);
+    expect(dialogs).toHaveLength(2);
+    expect(dialogs[1].props("show")).toBe(true);
+    expect(dialogs[1].props("title")).toBe("无法打开链接");
+    expect(dialogs[1].props("alertOnly")).toBe(true);
   });
 
   it("resets the database and reloads after confirmation", async () => {

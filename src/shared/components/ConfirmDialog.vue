@@ -4,8 +4,8 @@
       <div class="confirm-card" :class="{ danger }">
         <h3 class="confirm-title">{{ titleText }}</h3>
         <p class="confirm-message">{{ message }}</p>
-        <div class="confirm-actions">
-          <button class="confirm-btn cancel" @click="$emit('cancel')">{{ cancelBtn }}</button>
+        <div class="confirm-actions" :class="{ 'alert-only': alertOnly }">
+          <button v-if="!alertOnly" class="confirm-btn cancel" @click="$emit('cancel')">{{ cancelBtn }}</button>
           <button class="confirm-btn confirm" :class="{ danger }" @click="$emit('confirm')">{{ confirmBtn }}</button>
         </div>
       </div>
@@ -24,6 +24,7 @@ const props = defineProps({
   confirmText: { type: String, default: "" },
   cancelText: { type: String, default: "" },
   danger: Boolean,
+  alertOnly: Boolean,
 });
 defineEmits(["confirm", "cancel"]);
 
@@ -64,12 +65,17 @@ const cancelBtn = computed(() => props.cancelText || t("confirm.defaultCancel"))
   color: var(--text-lighter);
   line-height: 1.5;
   margin: 0 0 20px;
+  white-space: pre-line;
 }
 
 .confirm-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.confirm-actions.alert-only {
+  justify-content: center;
 }
 
 .confirm-btn {

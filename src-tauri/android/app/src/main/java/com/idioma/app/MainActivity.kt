@@ -23,6 +23,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import org.json.JSONObject
 
 /**
@@ -360,20 +362,37 @@ class MainActivity : TauriActivity() {
     private fun installExternalLinkBridge(webView: WebView) {
         webView.addJavascriptInterface(object {
             @JavascriptInterface
-            fun openUrl(url: String) {
+            fun openUrl(url: String): Boolean {
                 val lowerUrl = url.lowercase()
                 if (!lowerUrl.startsWith("http://") && !lowerUrl.startsWith("https://")) {
                     Log.w(TAG, "external open refused non-http(s) url: $url")
-                    return
+                    return false
                 }
+                val latch = CountDownLatch(1)
+                var success = false
                 this@MainActivity.runOnUiThread {
-                    openExternalUrlInBrowser(url)
+                    try {
+                        success = openExternalUrlInBrowser(url)
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+                return try {
+                    if (!latch.await(3, TimeUnit.SECONDS)) {
+                        Log.w(TAG, "external open timed out waiting for UI thread: $url")
+                        false
+                    } else {
+                        success
+                    }
+                } catch (e: InterruptedException) {
+                    Log.w(TAG, "external open interrupted: $url", e)
+                    false
                 }
             }
         }, "__amigaExternal")
     }
 
-    private fun openExternalUrlInBrowser(url: String) {
+    private fun openExternalUrlInBrowser(url: String): Boolean {
         val uri = Uri.parse(url)
         val baseIntent = Intent(Intent.ACTION_VIEW, uri).apply {
             addCategory(Intent.CATEGORY_BROWSABLE)
@@ -389,7 +408,7 @@ class MainActivity : TauriActivity() {
                 }
                 startActivity(explicitIntent)
                 Log.d(TAG, "external open launched via default browser package=$defaultPkg url=$url")
-                return
+                return true
             }
         } catch (e: Throwable) {
             Log.w(TAG, "external open failed resolving default browser: $url", e)
@@ -398,17 +417,19 @@ class MainActivity : TauriActivity() {
         try {
             startActivity(baseIntent)
             Log.d(TAG, "external open launched via generic VIEW intent: $url")
-            return
+            return true
         } catch (e: ActivityNotFoundException) {
             Log.w(TAG, "external open generic VIEW failed: $url", e)
         }
 
-        try {
+        return try {
             val chooser = Intent.createChooser(baseIntent, null)
             startActivity(chooser)
             Log.d(TAG, "external open launched via chooser fallback: $url")
+            true
         } catch (e: ActivityNotFoundException) {
             Log.w(TAG, "external open chooser failed: $url", e)
+            false
         }
     }
 
