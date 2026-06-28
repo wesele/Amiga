@@ -1,11 +1,11 @@
 use tauri::{plugin::TauriPlugin, AppHandle, Runtime};
 
 #[cfg(target_os = "android")]
+use serde::Serialize;
+#[cfg(target_os = "android")]
 use tauri::plugin::PluginHandle;
 #[cfg(target_os = "android")]
 use tauri::Manager;
-#[cfg(target_os = "android")]
-use serde::Serialize;
 
 #[cfg(target_os = "android")]
 const PLUGIN_IDENTIFIER: &str = "com.idioma.app";

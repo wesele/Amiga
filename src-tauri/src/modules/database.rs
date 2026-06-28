@@ -198,7 +198,10 @@ impl DatabasePool {
 
         log::info!("Database opened at: {:?}", db_path);
 
-        let db = Self { pool, compatible: AtomicBool::new(true) };
+        let db = Self {
+            pool,
+            compatible: AtomicBool::new(true),
+        };
         db.run_migrations()?;
         Ok(db)
     }
@@ -212,7 +215,10 @@ impl DatabasePool {
             .build(manager)
             .expect("Failed to create in-memory database pool");
 
-        let db = Self { pool, compatible: AtomicBool::new(true) };
+        let db = Self {
+            pool,
+            compatible: AtomicBool::new(true),
+        };
         db.run_migrations()
             .expect("In-memory migrations should not fail");
         db
@@ -241,10 +247,7 @@ impl DatabasePool {
             .unwrap_or(0);
 
         let all_migrations = migrations::all_migrations();
-        let latest_known = all_migrations
-            .last()
-            .map(|(v, _, _)| *v)
-            .unwrap_or(0);
+        let latest_known = all_migrations.last().map(|(v, _, _)| *v).unwrap_or(0);
 
         if max_applied > latest_known {
             log::warn!(

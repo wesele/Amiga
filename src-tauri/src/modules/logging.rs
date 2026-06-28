@@ -112,10 +112,19 @@ pub fn init_logging() {
         .join("logs");
 
     #[cfg(not(target_os = "android"))]
-    let log_dir = dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("idioma")
-        .join("logs");
+    let log_dir = if let Ok(dir) = std::env::var("IDIOMA_LOG_DIR") {
+        // Allow completely isolated second instance (run-windows-2.bat)
+        // to write logs to a separate directory.
+        PathBuf::from(dir)
+    } else {
+        dirs::data_local_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("idioma")
+            .join("logs")
+    };
+
+    // Clone for the debug log because FileLogger::new takes ownership.
+    let log_dir_for_debug = log_dir.clone();
 
     let logger = FileLogger::new(log_dir);
     logger.cleanup_old_logs();
@@ -124,8 +133,5 @@ pub fn init_logging() {
     log::set_max_level(LevelFilter::Debug);
 
     log::info!("=== Idioma application started ===");
-    log::debug!(
-        "Log directory: {:?}",
-        dirs::data_local_dir().map(|p| p.join("idioma/logs"))
-    );
+    log::debug!("Log directory: {:?}", log_dir_for_debug);
 }

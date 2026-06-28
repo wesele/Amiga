@@ -29,3 +29,8 @@ src-tauri/gen/android/app/keystore.properties
 
 # Screenshot test artifacts
 screenshots/
+
+# Isolated second Windows dev instance (complete copy, 100% independent process + data)
+# See run-windows-2.bat and AGENTS.md
+windows-2/
+windows-2/**

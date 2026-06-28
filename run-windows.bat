@@ -1,4 +1,22 @@
 @echo off
+setlocal EnableDelayedExpansion
+
+:: ============================================================
+::  Amiga - Windows dev instance #1 (PRIMARY / MAIN)
+::
+::  This is the normal, everyday development entry point.
+::  It runs against the real source tree in the current folder.
+::
+::  Data / logs / build artifacts go to the normal locations:
+::    - DB:   %LOCALAPPDATA%\idioma\idioma.db
+::    - Logs: %LOCALAPPDATA%\idioma\logs
+::    - Rust: src-tauri\target (or CARGO_TARGET_DIR if you set it)
+::
+::  For a SECOND, FULLY ISOLATED instance (separate DB, logs,
+::  build cache, process, etc.) use run-windows-2.bat instead.
+::  See AGENTS.md table and the comments inside run-windows-2.bat.
+:: ============================================================
+
 set "PROJECT_DIR=%~dp0"
 if "%PROJECT_DIR:~-1%"=="\" set "PROJECT_DIR=%PROJECT_DIR:~0,-1%"
 cd /d "%PROJECT_DIR%"

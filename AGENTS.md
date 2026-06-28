@@ -79,7 +79,8 @@
 | `npm run test:rust` | Rust 测试 |
 | `npm run test:all` | 前后端全量测试 |
 | `npm run build` | 前端生产构建 |
-| `run-windows.bat` | Windows Tauri dev |
+| `run-windows.bat` | Windows Tauri dev（主实例，写 %LOCALAPPDATA%\idioma） |
+| `run-windows-2.bat` | Windows Tauri dev（第二完全独立实例，自动镜像到 windows-2/，数据/日志/构建产物完全隔离，详见 bat 内注释） |
 | `run-android.bat` | Android dev 循环 |
 | `build-android.bat` | Android release APK |
 
