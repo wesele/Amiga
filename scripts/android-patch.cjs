@@ -124,45 +124,46 @@ function trimBlankLines(text) {
 
 /**
  * Patch the <application> tag in the generated AndroidManifest to add
- * Android Auto Backup attributes.
+ * data-persistence attributes for uninstall / reinstall.
  *
- * Adds:
+ * Adds any missing attributes:
  *   android:allowBackup="true"
  *   android:fullBackupContent="@xml/backup_rules"
  *   android:dataExtractionRules="@xml/data_extraction_rules"
+ *   android:hasFragileUserData="true"
  *
- * Idempotent: skips if android:allowBackup is already present.
+ * `hasFragileUserData` (API 29+) prompts to keep app data on uninstall.
+ *
+ * Idempotent: only injects attributes that are not already present.
  *
  * Returns the patched manifest string, or the input unchanged if already
  * patched.
  */
 function mergeBackupAttributes(manifest) {
-  if (manifest.includes('android:allowBackup="true"')) return manifest;
+  const desired = [
+    'android:allowBackup="true"',
+    'android:fullBackupContent="@xml/backup_rules"',
+    'android:dataExtractionRules="@xml/data_extraction_rules"',
+    'android:hasFragileUserData="true"',
+  ];
+  const missing = desired.filter((attr) => !manifest.includes(attr));
+  if (missing.length === 0) return manifest;
 
-  const anchor = 'android:usesCleartextTraffic=';
-  if (!manifest.includes(anchor)) {
-    // Tauri template changed shape — fall back to injecting after the
-    // last attribute before the closing > of <application.
-    const appTagRe = /(<application\b[\s\S]*?)(\s*>)/;
-    const m = manifest.match(appTagRe);
-    if (!m) return manifest;
-    const attrs =
-      '\n        android:allowBackup="true"' +
-      '\n        android:fullBackupContent="@xml/backup_rules"' +
-      '\n        android:dataExtractionRules="@xml/data_extraction_rules"';
-    return manifest.replace(appTagRe, '$1' + attrs + '$2');
+  const attrs = missing.map((a) => `\n        ${a}`).join("");
+
+  const cleartextTail = manifest.match(
+    /(android:usesCleartextTraffic="[^"]*")\s*>/,
+  );
+  if (cleartextTail) {
+    return manifest.replace(cleartextTail[0], cleartextTail[1] + attrs + ">");
   }
 
-  const attrs =
-    '\n        android:allowBackup="true"' +
-    '\n        android:fullBackupContent="@xml/backup_rules"' +
-    '\n        android:dataExtractionRules="@xml/data_extraction_rules">';
-
-  return manifest.replace(
-    /(android:usesCleartextTraffic="[^"]*")\s*>/,
-    '$1' + attrs,
-  );
+  const appTagRe = /(<application\b[\s\S]*?)(\s*>)/;
+  const m = manifest.match(appTagRe);
+  if (!m) return manifest;
+  return manifest.replace(appTagRe, "$1" + attrs + "$2");
 }
+
 
 /**
  * Merge `fragmentBody` (a chunk of XML that should sit at the top level

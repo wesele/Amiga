@@ -186,12 +186,14 @@ describe("mergeBackupAttributes", () => {
     expect(patched).toContain('android:allowBackup="true"');
     expect(patched).toContain('android:fullBackupContent="@xml/backup_rules"');
     expect(patched).toContain('android:dataExtractionRules="@xml/data_extraction_rules"');
+    expect(patched).toContain('android:hasFragileUserData="true"');
     // The attributes should appear inside the <application> tag, not after it
     const appTagMatch = patched.match(/<application[\s\S]*?>/);
     expect(appTagMatch).not.toBeNull();
     expect(appTagMatch[0]).toContain('android:allowBackup="true"');
     expect(appTagMatch[0]).toContain('android:fullBackupContent="@xml/backup_rules"');
     expect(appTagMatch[0]).toContain('android:dataExtractionRules="@xml/data_extraction_rules"');
+    expect(appTagMatch[0]).toContain('android:hasFragileUserData="true"');
   });
 
   it("is idempotent — running twice yields the same result", () => {
@@ -212,10 +214,23 @@ describe("mergeBackupAttributes", () => {
       "",
     );
     const patched = mergeBackupAttributes(minimal);
-    // The fallback should still inject all three attributes
     expect(patched).toContain('android:allowBackup="true"');
     expect(patched).toContain('android:fullBackupContent="@xml/backup_rules"');
     expect(patched).toContain('android:dataExtractionRules="@xml/data_extraction_rules"');
+    expect(patched).toContain('android:hasFragileUserData="true"');
+  });
+
+  it("adds hasFragileUserData when backup attrs already exist", () => {
+    const partial = GENERATED.replace(
+      'android:usesCleartextTraffic="${usesCleartextTraffic}">',
+      'android:usesCleartextTraffic="${usesCleartextTraffic}"' +
+        '\n        android:allowBackup="true"' +
+        '\n        android:fullBackupContent="@xml/backup_rules"' +
+        '\n        android:dataExtractionRules="@xml/data_extraction_rules">',
+    );
+    const patched = mergeBackupAttributes(partial);
+    expect(patched).toContain('android:hasFragileUserData="true"');
+    expect(patched.match(/android:allowBackup="true"/g)).toHaveLength(1);
   });
 });
 

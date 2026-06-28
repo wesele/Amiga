@@ -3,7 +3,11 @@
   Data-extraction rules for Android 12+ (API 31+).
 
   Back up the entire app's internal storage so user data (SQLite database,
-  settings, vocabulary mastery) survives uninstall / reinstall.
+  settings, vocabulary mastery) can be restored via cloud backup or
+  device transfer.
+
+  Local retention across uninstall on the same phone uses
+  android:hasFragileUserData (see scripts/android-patch.cjs).
 
   Both <cloud-backup> (Google Drive auto backup) and <device-transfer>
   (device-to-device transfer) are needed. See:
