@@ -21,20 +21,42 @@ function makeRouter() {
   });
 }
 
-function setupMocks({ sessions = [], friends = [], pending = [], userCount = 5 } = {}) {
+function setupMocks({ sessions = [], friends = [] } = {}) {
   const mockInvoke = vi.fn().mockImplementation((cmd) => {
     if (cmd === "get_chat_sessions_cmd") return Promise.resolve(sessions);
     if (cmd === "get_current_user") return Promise.resolve({ id: "u1", nickname: "Alice" });
     return Promise.resolve(null);
   });
 
-  const fetchMock = vi.fn()
-    .mockResolvedValueOnce(new Response(JSON.stringify({ userCount }), { status: 200 }))
-    .mockResolvedValueOnce(new Response(JSON.stringify({ items: pending }), { status: 200 }))
-    .mockResolvedValueOnce(new Response(JSON.stringify({ items: friends }), { status: 200 }));
+  const fetchMock = vi.fn().mockImplementation((url) => {
+    const target = String(url);
+    if (target.includes("/api/friends?")) {
+      return Promise.resolve(new Response(JSON.stringify({ items: friends }), { status: 200 }));
+    }
+    if (target.includes("/api/messages/offline")) {
+      return Promise.resolve(new Response(JSON.stringify({ items: [] }), { status: 200 }));
+    }
+    return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
+  });
+
+  class FakeWebSocket {
+    static OPEN = 1;
+    constructor() {
+      this.readyState = 1;
+      this.send = vi.fn();
+      this.close = vi.fn();
+      this._listeners = {};
+    }
+    addEventListener(event, cb) {
+      if (!this._listeners[event]) this._listeners[event] = [];
+      this._listeners[event].push(cb);
+    }
+    removeEventListener() {}
+  }
 
   api.__setInvoke(mockInvoke);
   vi.stubGlobal("fetch", fetchMock);
+  vi.stubGlobal("WebSocket", FakeWebSocket);
 
   return { mockInvoke, fetchMock };
 }
@@ -193,11 +215,8 @@ describe("ContactList", () => {
     });
   });
 
-  it("renders pending request count on the public group card", async () => {
-    setupMocks({
-      pending: [{ fromUserId: "X" }, { fromUserId: "Y" }],
-      userCount: 42,
-    });
+  it("shows public group description like other contacts", async () => {
+    setupMocks();
 
     const router = makeRouter();
     const wrapper = mount(ContactList, {
@@ -206,20 +225,8 @@ describe("ContactList", () => {
     await flushPromises();
 
     const publicItem = wrapper.findAll(".contact-item")[0];
-    expect(publicItem.find(".contact-time").text()).toBe("2");
-  });
-
-  it("shows social summary with online users count", async () => {
-    setupMocks({ userCount: 8 });
-
-    const router = makeRouter();
-    const wrapper = mount(ContactList, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    const publicItem = wrapper.findAll(".contact-item")[0];
-    expect(publicItem.find(".contact-desc").text()).toContain("8");
+    expect(publicItem.find(".contact-desc").text()).toContain("实验性实时聊天室");
+    expect(publicItem.classes()).not.toContain("contact-item-public");
   });
 
   it("navigates to social hub on + button click", async () => {

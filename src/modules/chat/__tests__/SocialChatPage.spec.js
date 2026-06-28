@@ -13,8 +13,14 @@ function makeRouter(mode = "public", peerId) {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
+      { path: "/chat", name: "chat", component: { template: "<div/>" } },
       { path: "/chat/social", name: "social-hub", component: { template: "<div/>" } },
-      { path: "/chat/social/:mode/:peerId?", name: "social-chat", component: SocialChatPage },
+      {
+        path: "/chat/social/:mode/:peerId?",
+        name: "social-chat",
+        component: SocialChatPage,
+        meta: { parent: "chat" },
+      },
     ],
   });
 }
@@ -82,7 +88,7 @@ describe("SocialChatPage", () => {
 
   it("renders public group room title", async () => {
     const { wrapper } = await mountPage("public");
-    expect(wrapper.find(".chat-title").text()).toBe("Public group");
+    expect(wrapper.find(".header-name").text()).toBe("Public group");
   });
 
   it("renders direct room title from query name", async () => {
@@ -94,30 +100,23 @@ describe("SocialChatPage", () => {
     await flushPromises();
     await flushPromises();
 
-    expect(wrapper.find(".chat-title").text()).toBe("Bob");
+    expect(wrapper.find(".header-name").text()).toBe("Bob");
   });
 
-  it("shows connecting state initially", async () => {
+  it("disables send while the socket is still connecting", async () => {
     const { wrapper } = await mountPage("public");
-    expect(wrapper.find(".chat-subtitle").text()).toContain("Connecting");
+    expect(wrapper.find(".send-btn").classes()).toContain("disabled");
   });
 
-  it("shows connected state after WebSocket open", async () => {
+  it("enables send after WebSocket open", async () => {
     const { wrapper } = await mountPage("public");
 
     capturedSocket._emit("open");
     await flushPromises();
 
-    expect(wrapper.find(".chat-subtitle").text()).toContain("Connected");
-  });
-
-  it("shows disconnected state after WebSocket error", async () => {
-    const { wrapper } = await mountPage("public");
-
-    capturedSocket._emit("error", new Event("error"));
-    await flushPromises();
-
-    expect(wrapper.find(".chat-subtitle").text()).toContain("Disconnected");
+    const input = wrapper.find(".chat-input");
+    await input.setValue("Hello");
+    expect(wrapper.find(".send-btn").classes()).not.toContain("disabled");
   });
 
   it("displays incoming messages", async () => {
@@ -132,9 +131,10 @@ describe("SocialChatPage", () => {
     }) });
     await flushPromises();
 
-    const bubbles = wrapper.findAll(".message-bubble");
+    const bubbles = wrapper.findAll(".msg-bubble");
     expect(bubbles).toHaveLength(1);
-    expect(bubbles[0].text()).toBe("Hello everyone!");
+    expect(bubbles[0].find(".msg-text").text()).toBe("Hello everyone!");
+    expect(bubbles[0].find(".msg-sender").text()).toBe("Bob");
   });
 
   it("displays history messages on connect", async () => {
@@ -149,7 +149,7 @@ describe("SocialChatPage", () => {
     }) });
     await flushPromises();
 
-    const bubbles = wrapper.findAll(".message-bubble");
+    const bubbles = wrapper.findAll(".msg-bubble");
     expect(bubbles).toHaveLength(2);
   });
 
@@ -194,7 +194,7 @@ describe("SocialChatPage", () => {
     await flushPromises();
 
     const sendBtn = wrapper.find(".send-btn");
-    expect(sendBtn.element.disabled).toBe(true);
+    expect(sendBtn.classes()).toContain("disabled");
   });
 
   it("classifies messages as mine vs theirs", async () => {
@@ -209,8 +209,8 @@ describe("SocialChatPage", () => {
     }) });
     await flushPromises();
 
-    const rows = wrapper.findAll(".message-row");
-    expect(rows[0].classes()).toContain("theirs");
+    const rows = wrapper.findAll(".msg-row");
+    expect(rows[0].classes()).toContain("msg-other");
   });
 
   it("classifies own sent messages as mine", async () => {
@@ -224,7 +224,7 @@ describe("SocialChatPage", () => {
     await input.trigger("keydown.enter");
     await flushPromises();
 
-    const rows = wrapper.findAll(".message-row.mine");
+    const rows = wrapper.findAll(".msg-row.msg-user");
     expect(rows.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -253,18 +253,18 @@ describe("SocialChatPage", () => {
 
     const { wrapper } = await mountPage("direct", "Bob");
 
-    const bubbles = wrapper.findAll(".message-bubble");
+    const bubbles = wrapper.findAll(".msg-bubble");
     expect(bubbles.some((b) => b.text().includes("Offline msg"))).toBe(true);
   });
 
-  it("navigates back to social hub on back click", async () => {
+  it("navigates back to chat list on back click", async () => {
     const { wrapper, router } = await mountPage("public");
 
     const replaceSpy = vi.spyOn(router, "replace");
     const backBtn = wrapper.find(".back-btn");
     await backBtn.trigger("click");
 
-    expect(replaceSpy).toHaveBeenCalledWith({ name: "social-hub" });
+    expect(replaceSpy).toHaveBeenCalledWith({ name: "chat" });
   });
 
   it("closes WebSocket on back", async () => {
@@ -276,19 +276,9 @@ describe("SocialChatPage", () => {
     expect(capturedSocket.close).toHaveBeenCalledWith(1000, "client-background");
   });
 
-  it("shows banner text for public mode", async () => {
+  it("shows welcome state when no messages", async () => {
     const { wrapper } = await mountPage("public");
-    expect(wrapper.find(".chat-banner").text()).toBeTruthy();
-  });
-
-  it("shows banner text for direct mode", async () => {
-    const { wrapper } = await mountPage("direct", "Bob");
-    expect(wrapper.find(".chat-banner").text()).toBeTruthy();
-  });
-
-  it("shows empty state when no messages", async () => {
-    const { wrapper } = await mountPage("public");
-    expect(wrapper.find(".empty-state").exists()).toBe(true);
+    expect(wrapper.find(".welcome-box").exists()).toBe(true);
   });
 
   it("disconnects socket on unmount", async () => {
@@ -322,13 +312,13 @@ describe("SocialChatPage", () => {
       createdAt: "2026-01-01T12:00:00Z",
     }) });
     await flushPromises();
-    expect(wrapper.findAll(".message-bubble").length).toBe(1);
+    expect(wrapper.findAll(".msg-bubble").length).toBe(1);
 
     await router.push("/chat/social/direct/Carol");
     await flushPromises();
     await flushPromises();
 
-    expect(wrapper.findAll(".message-bubble").length).toBe(0);
+    expect(wrapper.findAll(".msg-bubble").length).toBe(0);
   });
 
   it("schedules a reconnect after the websocket closes", async () => {
@@ -340,7 +330,6 @@ describe("SocialChatPage", () => {
       await flushPromises();
       initialSocket._emit("close", new Event("close"));
       await flushPromises();
-      expect(wrapper.find(".chat-subtitle").text()).toContain("Disconnected");
       vi.advanceTimersByTime(2000);
       for (let i = 0; i < 5; i += 1) {
         await flushPromises();

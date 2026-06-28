@@ -9,7 +9,10 @@
         v-for="contact in combinedContacts"
         :key="contact.id"
         class="contact-item"
-        :class="{ 'contact-item-public': contact.contactType === 'social-public' }"
+        :class="{
+          'contact-item-unread': contact.unread,
+          'contact-item-flash': flashingIds.has(contact.id),
+        }"
         @click="openContact(contact)"
       >
         <div class="contact-avatar">
@@ -36,21 +39,29 @@ import { eventBus } from "@/shared/eventBus.js";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import {
-  getPendingFriendRequests,
   getSocialConfig,
   getSocialFriendships,
-  getSocialStats,
   getSocialUserId,
 } from "./socialService.js";
+import { startSocialInboxListener } from "./socialInbox.js";
+import {
+  getSocialContactKey,
+  getSocialPreview,
+  SOCIAL_PREVIEW_UPDATED,
+} from "./socialPreview.js";
 
 const router = useRouter();
 const { t, locale } = useI18n();
 const targetLangStore = useTargetLangStore();
 const sessions = ref([]);
 const friends = ref([]);
-const socialPendingCount = ref(0);
-const socialUserCount = ref(0);
-let unsubscribe = null;
+const previewVersion = ref(0);
+const flashingIds = ref(new Set());
+const socialUserId = ref("");
+let unsubscribeLang = null;
+let unsubscribePreview = null;
+let stopInbox = null;
+let flashTimers = new Map();
 
 function formatTime(dateStr) {
   if (!dateStr) return "";
@@ -63,27 +74,31 @@ function formatTime(dateStr) {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-const socialSummary = computed(() => {
-  if (!socialUserCount.value && !socialPendingCount.value) {
-    return t("chat.socialSummaryEmpty");
-  }
-  return t("chat.socialSummary", {
-    users: socialUserCount.value,
-    pending: socialPendingCount.value,
-  });
-});
+function applySocialPreview(contact) {
+  const contactKey = getSocialContactKey(contact.contactType, contact.peerId);
+  const preview = getSocialPreview(contactKey);
+  if (!preview) return contact;
+  return {
+    ...contact,
+    desc: preview.text || contact.desc,
+    lastTime: preview.createdAt ? formatTime(preview.createdAt) : contact.lastTime,
+    unread: Boolean(preview.unread),
+  };
+}
 
 const aiContacts = computed(() => {
+  previewVersion.value;
   const targetLabel = displayLang(targetLangStore.code, locale.value);
+  const publicContact = applySocialPreview({
+    id: "public-group",
+    name: t("chat.publicGroup"),
+    avatar: "#",
+    contactType: "social-public",
+    desc: t("chat.publicGroupDesc"),
+    lastTime: "",
+  });
   return [
-    {
-      id: "public-group",
-      name: t("chat.publicGroup"),
-      avatar: "#",
-      contactType: "social-public",
-      desc: socialSummary.value,
-      lastTime: socialPendingCount.value > 0 ? `${socialPendingCount.value}` : "",
-    },
+    publicContact,
     {
       id: "amiga",
       name: t("chat.amiga"),
@@ -113,20 +128,53 @@ const contactsWithSessions = computed(() => aiContacts.value.map((contact) => {
   };
 }));
 
-const friendContacts = computed(() => friends.value.map((friend) => ({
-  id: `friend-${friend.friendUserId}`,
-  name: friend.friendUserId,
-  avatar: "👤",
-  contactType: "social-direct",
-  peerId: friend.friendUserId,
-  desc: t("chat.friendSince", { date: new Date(friend.updatedAt).toLocaleDateString() }),
-  lastTime: formatTime(friend.updatedAt),
-})));
+const friendContacts = computed(() => {
+  previewVersion.value;
+  return friends.value.map((friend) => applySocialPreview({
+    id: `friend-${friend.friendUserId}`,
+    name: friend.friendUserId,
+    avatar: "👤",
+    contactType: "social-direct",
+    peerId: friend.friendUserId,
+    desc: t("chat.friendSince", { date: new Date(friend.updatedAt).toLocaleDateString() }),
+    lastTime: formatTime(friend.updatedAt),
+  }));
+});
 
 const combinedContacts = computed(() => [
   ...contactsWithSessions.value,
   ...friendContacts.value,
 ]);
+
+function flashContact(contactId) {
+  const next = new Set(flashingIds.value);
+  next.add(contactId);
+  flashingIds.value = next;
+  const existing = flashTimers.get(contactId);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => {
+    const updated = new Set(flashingIds.value);
+    updated.delete(contactId);
+    flashingIds.value = updated;
+    flashTimers.delete(contactId);
+  }, 700);
+  flashTimers.set(contactId, timer);
+}
+
+function resolveContactId(contactKey) {
+  if (contactKey === "public") return "public-group";
+  if (contactKey?.startsWith("direct:")) {
+    return `friend-${contactKey.slice("direct:".length)}`;
+  }
+  return "";
+}
+
+function handlePreviewUpdated(payload) {
+  previewVersion.value += 1;
+  if (!payload?.unread) return;
+  const contactId = resolveContactId(payload.contactKey);
+  if (contactId) flashContact(contactId);
+}
 
 async function refreshSessions() {
   const lang = targetLangStore.code || (await targetLangStore.load());
@@ -137,22 +185,23 @@ async function refreshSessions() {
   }
 }
 
-async function refreshSocialSummary() {
+async function refreshFriends() {
   try {
     const config = await getSocialConfig();
-    const userId = await getSocialUserId();
-    const [stats, pending, friendships] = await Promise.all([
-      getSocialStats(config),
-      getPendingFriendRequests(config, userId),
-      getSocialFriendships(config, userId),
-    ]);
-    socialUserCount.value = stats?.userCount || 0;
-    socialPendingCount.value = pending?.items?.length || 0;
+    if (!socialUserId.value) {
+      socialUserId.value = await getSocialUserId();
+    }
+    const friendships = await getSocialFriendships(config, socialUserId.value);
     friends.value = friendships?.items || [];
+    stopInbox?.();
+    stopInbox = startSocialInboxListener({
+      userId: socialUserId.value,
+      friends: friends.value,
+    });
   } catch {
-    socialPendingCount.value = 0;
-    socialUserCount.value = 0;
     friends.value = [];
+    stopInbox?.();
+    stopInbox = null;
   }
 }
 
@@ -193,15 +242,22 @@ function openContact(contact) {
 }
 
 onUnmounted(() => {
-  unsubscribe?.();
+  unsubscribeLang?.();
+  unsubscribePreview?.();
+  stopInbox?.();
+  for (const timer of flashTimers.values()) {
+    clearTimeout(timer);
+  }
+  flashTimers.clear();
 });
 
 onMounted(async () => {
   await refreshSessions();
-  await refreshSocialSummary();
-  unsubscribe = eventBus.on(TARGET_LANG_CHANGED, () => {
+  await refreshFriends();
+  unsubscribeLang = eventBus.on(TARGET_LANG_CHANGED, () => {
     refreshSessions();
   });
+  unsubscribePreview = eventBus.on(SOCIAL_PREVIEW_UPDATED, handlePreviewUpdated);
 });
 </script>
 
@@ -258,20 +314,22 @@ onMounted(async () => {
   background: var(--bg);
 }
 
-.contact-item-public {
-  background: linear-gradient(135deg, #0f6b44 0%, #3f9b67 100%);
-  box-shadow: 0 12px 24px rgba(15, 107, 68, 0.18);
+.contact-item-unread .contact-name {
+  color: var(--green);
 }
 
-.contact-item-public:hover {
-  background: linear-gradient(135deg, #0f6b44 0%, #3f9b67 100%);
+.contact-item-unread .contact-desc {
+  color: var(--text);
+  font-weight: 500;
 }
 
-.contact-item-public .contact-name,
-.contact-item-public .contact-desc,
-.contact-item-public .contact-time,
-.contact-item-public .contact-avatar {
-  color: #fff;
+.contact-item-flash {
+  animation: contact-flash 0.7s ease;
+}
+
+@keyframes contact-flash {
+  0%, 100% { background: var(--white); }
+  35% { background: var(--green-bg); }
 }
 
 .contact-avatar {

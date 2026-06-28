@@ -1,36 +1,39 @@
 <template>
-  <div class="social-chat-view">
+  <div class="chat-view" ref="chatView">
     <header class="chat-header">
       <button class="back-btn" @click="goBack">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="pointer-events:none">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
       </button>
-      <div class="chat-title-wrap">
-        <div class="chat-title">{{ roomTitle }}</div>
-        <div class="chat-subtitle">{{ connectionLabel }}</div>
+      <div class="contact-avatar">
+        <span>{{ contactAvatar }}</span>
+      </div>
+      <div class="header-info">
+        <div class="header-name">{{ roomTitle }}</div>
       </div>
     </header>
 
-    <div class="chat-banner">
-      <span>{{ bannerText }}</span>
-    </div>
-
     <div ref="messageListEl" class="chat-messages">
-      <div v-if="messages.length === 0" class="empty-state">
+      <div v-if="messages.length === 0" class="welcome-box">
         {{ emptyText }}
       </div>
       <div
         v-for="(message, index) in messages"
         :key="message.id || index"
-        class="message-row"
-        :class="message.senderId === userId ? 'mine' : 'theirs'"
+        class="msg-row"
+        :class="message.senderId === userId ? 'msg-user' : 'msg-other'"
       >
-        <div class="message-meta">
-          <strong>{{ message.senderId === userId ? t("chat.youLabel") : message.senderId }}</strong>
-          <span>{{ formatTime(message.createdAt) }}</span>
+        <div v-if="message.senderId !== userId" class="msg-avatar">
+          <span>{{ contactAvatar }}</span>
         </div>
-        <div class="message-bubble">{{ message.text }}</div>
+        <div class="msg-bubble">
+          <div v-if="mode === 'public' && message.senderId !== userId" class="msg-sender">
+            {{ message.senderId }}
+          </div>
+          <div class="msg-text msg-text-plain">{{ message.text }}</div>
+        </div>
+        <div v-if="message.senderId === userId" class="msg-avatar user-avatar">😊</div>
       </div>
     </div>
 
@@ -41,7 +44,7 @@
         :placeholder="t('chat.input')"
         @keydown.enter.prevent="handleEnter"
       />
-      <button class="send-btn" :disabled="!canSend" @click="sendMessage">{{ t("chat.send") }}</button>
+      <div class="send-btn" :class="{ disabled: !canSend }" @click="sendMessage">{{ t("chat.send") }}</div>
     </div>
     <div v-if="sendError" class="chat-send-error">{{ sendError }}</div>
   </div>
@@ -60,6 +63,11 @@ import {
   registerSocialUser,
   shouldDisconnectSocialSocketOnHidden,
 } from "./socialService.js";
+import {
+  clearSocialUnread,
+  getSocialContactKey,
+  updateSocialPreview,
+} from "./socialPreview.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -83,18 +91,27 @@ const roomTitle = computed(() => {
   }
   return t("chat.publicGroup");
 });
-const connectionLabel = computed(() => {
-  if (connectionState.value === "connected") return t("chat.connected");
-  if (connectionState.value === "error" || connectionState.value === "closed") return t("chat.connectionLost");
-  return t("chat.connecting");
-});
-const bannerText = computed(() => (
-  mode.value === "public" ? t("chat.publicBanner") : t("chat.directBanner")
-));
+const contactAvatar = computed(() => (mode.value === "public" ? "#" : "👤"));
 const emptyText = computed(() => (
   mode.value === "public" ? t("chat.publicEmpty") : t("chat.directEmpty")
 ));
 const canSend = computed(() => Boolean(inputText.value.trim() && connectionState.value === "connected"));
+const previewContactKey = computed(() => (
+  getSocialContactKey(
+    mode.value === "public" ? "social-public" : "social-direct",
+    peerId.value,
+  )
+));
+
+function goBack() {
+  disconnectSocket();
+  const parent = route?.meta?.parent;
+  if (parent) {
+    router.replace({ name: parent });
+  } else {
+    router.back();
+  }
+}
 
 function handleEnter() {
   if (!canSend.value) {
@@ -112,23 +129,26 @@ function handleEnter() {
   sendMessage();
 }
 
-function goBack() {
-  disconnectSocket();
-  router.replace({ name: "social-hub" });
+function recordPreview(message, { markUnread = false } = {}) {
+  updateSocialPreview({
+    contactKey: previewContactKey.value,
+    text: message.text,
+    createdAt: message.createdAt,
+    senderId: message.senderId,
+    currentUserId: userId.value,
+    markUnread,
+  });
 }
 
-function formatTime(value) {
-  if (!value) return "";
-  return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function pushMessage(message) {
-  messages.value.push({
+function pushMessage(message, { fromSocket = false } = {}) {
+  const normalized = {
     id: message.id || `${message.senderId}-${message.createdAt}-${messages.value.length}`,
     senderId: message.senderId,
     text: message.text,
     createdAt: message.createdAt || new Date().toISOString(),
-  });
+  };
+  messages.value.push(normalized);
+  recordPreview(normalized, { markUnread: fromSocket });
   nextTick(() => {
     if (messageListEl.value) {
       messageListEl.value.scrollTop = messageListEl.value.scrollHeight;
@@ -197,7 +217,7 @@ async function connectSocket() {
     },
     onMessage: (payload) => {
       if (payload?.type === "message") {
-        pushMessage(payload);
+        pushMessage(payload, { fromSocket: true });
       }
       if (payload?.type === "history") {
         for (const item of payload.items || []) {
@@ -266,6 +286,7 @@ async function enterConversation() {
   sendError.value = "";
   connectionState.value = "connecting";
   disconnectSocket();
+  clearSocialUnread(previewContactKey.value);
   await loadInitialState();
   await connectSocket();
 }
@@ -296,153 +317,186 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.social-chat-view {
+.chat-view {
   position: fixed;
   inset: 0;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #eef7f2 0%, #f8faf8 45%, #ffffff 100%);
+  overflow: hidden;
+  background: var(--bg);
+  box-sizing: border-box;
+  overscroll-behavior: none;
 }
 
 .chat-header {
+  flex-shrink: 0;
   display: flex;
-  gap: 10px;
   align-items: center;
-  padding: calc(8px + var(--safe-top)) 14px 10px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(22, 45, 33, 0.08);
+  gap: 8px;
+  padding: calc(8px + var(--safe-top)) 12px 8px;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
 }
 
 .back-btn {
+  background: none;
   border: none;
-  background: #fff;
   color: var(--text);
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  border-radius: 6px;
+}
+
+.back-btn:hover {
+  background: var(--bg);
+}
+
+.contact-avatar {
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 32px;
 }
 
-.chat-title-wrap {
-  min-width: 0;
+.header-info {
+  flex: 1;
 }
 
-.chat-title {
-  font-size: 16px;
+.header-name {
   font-weight: 700;
+  font-size: 16px;
   color: var(--text);
-}
-
-.chat-subtitle {
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--text-lighter);
-}
-
-.chat-banner {
-  margin: 12px 14px 0;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: rgba(81, 173, 124, 0.12);
-  color: var(--text);
-  font-size: 12px;
-  line-height: 1.5;
 }
 
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 14px 12px;
-}
-
-.empty-state {
-  margin-top: 24px;
-  text-align: center;
-  color: var(--text-lighter);
-  font-size: 13px;
-}
-
-.message-row {
-  margin-bottom: 12px;
-}
-
-.message-meta {
-  margin-bottom: 4px;
-  font-size: 11px;
-  color: var(--text-lighter);
+  padding: 12px 16px;
   display: flex;
-  gap: 8px;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.message-bubble {
-  display: inline-block;
-  max-width: 86%;
-  padding: 11px 14px;
-  border-radius: 18px;
+.welcome-box {
+  background: var(--green-bg);
+  border-radius: var(--radius);
+  padding: 20px;
   font-size: 14px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+  line-height: 1.7;
+  color: var(--text);
+  text-align: center;
+  margin: auto 0;
 }
 
-.mine {
-  text-align: right;
+.msg-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 85%;
 }
 
-.mine .message-meta {
-  justify-content: flex-end;
+.msg-user {
+  align-self: flex-end;
 }
 
-.mine .message-bubble {
+.msg-other {
+  align-self: flex-start;
+}
+
+.msg-avatar {
+  line-height: 1;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+
+.user-avatar {
+  font-size: 28px;
+}
+
+.msg-bubble {
+  background: var(--white);
+  border-radius: 16px 16px 16px 4px;
+  padding: 10px 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+
+.msg-user .msg-bubble {
   background: var(--green);
   color: #fff;
-  border-bottom-right-radius: 6px;
+  border-radius: 16px 16px 4px 16px;
 }
 
-.theirs .message-bubble {
-  background: #fff;
-  color: var(--text);
-  border-bottom-left-radius: 6px;
+.msg-sender {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  opacity: 0.8;
+}
+
+.msg-text {
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.msg-text-plain {
+  white-space: pre-wrap;
 }
 
 .chat-input-bar {
+  flex-shrink: 0;
   display: flex;
+  align-items: center;
   gap: 8px;
-  padding: 10px 12px calc(10px + var(--safe-bottom));
-  background: rgba(255, 255, 255, 0.96);
-  border-top: 1px solid rgba(22, 45, 33, 0.08);
+  padding: 10px 12px 10px;
+  background: var(--white);
+  border-top: 1px solid var(--border);
 }
 
 .chat-input {
   flex: 1;
   border: none;
-  border-radius: 20px;
-  padding: 12px 14px;
   background: var(--bg);
+  border-radius: 20px;
+  padding: 10px 16px;
   font-size: 14px;
   outline: none;
+  color: var(--text);
+}
+
+.chat-input::placeholder {
+  color: var(--text-lighter);
 }
 
 .send-btn {
+  flex-shrink: 0;
   border: none;
-  border-radius: 18px;
+  border-radius: 20px;
   background: var(--green);
   color: #fff;
-  min-width: 76px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background var(--transition);
 }
 
-.send-btn:disabled {
-  opacity: 0.5;
+.send-btn.disabled {
+  background: var(--border);
+  pointer-events: none;
+}
+
+.send-btn:not(.disabled):hover {
+  background: var(--green-hover);
 }
 
 .chat-send-error {
-  padding: 8px 14px 12px;
+  padding: 8px 14px calc(8px + var(--safe-bottom));
   font-size: 12px;
   color: #b53939;
   background: rgba(255, 220, 220, 0.85);
