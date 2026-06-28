@@ -65,6 +65,9 @@ function routeFileForName(name) {
     case "reader":
     case "news":
       return "src/modules/news/routes.js";
+    case "learn":
+    case "learn-translator":
+      return "src/modules/learn/routes.js";
     case "chat-session":
     case "chat-preview":
     case "chat":
@@ -246,7 +249,9 @@ describe("__amigaGoBack bridge", () => {
     // declare its parent — that would make the back button land on
     // the wrong screen and re-introduce the "previous page" loop.
     const detailRoutes = [
+      { name: "news", parent: "learn" },
       { name: "reader", parent: "news" },
+      { name: "learn-translator", parent: "learn" },
       { name: "chat-session", parent: "chat" },
       { name: "chat-preview", parent: "chat" },
       { name: "settings", parent: "profile" },

@@ -11,6 +11,7 @@ export default [
     path: "/news",
     name: "news",
     component: NewsList,
+    meta: { parent: "learn" },
   },
   {
     path: "/news/:id",

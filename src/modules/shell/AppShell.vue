@@ -26,7 +26,7 @@ const router = useRouter();
 
 const tabs = [
   {
-    name: "news",
+    name: "learn",
     label: "nav.learn",
     icon: '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h5V7h-5v10zm-2 0V7H5v10h5z"/></svg>',
   },
@@ -72,7 +72,7 @@ function switchTab(tab) {
 }
 
 const showNav = computed(() => {
-  const noNavRoutes = ["wizard", "reader", "chat-session", "social-chat"];
+  const noNavRoutes = ["wizard", "reader", "chat-session", "social-chat", "learn-translator"];
   return !noNavRoutes.includes(route.name);
 });
 </script>

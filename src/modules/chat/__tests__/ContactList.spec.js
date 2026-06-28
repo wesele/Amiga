@@ -121,7 +121,10 @@ describe("ContactList", () => {
     await translatorItem.trigger("click");
 
     expect(createdArgs).toMatchObject({ userId: "u1", contactType: "translator" });
-    expect(pushSpy).toHaveBeenCalledWith("/chat/translator-session-id");
+    expect(pushSpy).toHaveBeenCalledWith({
+      name: "chat-session",
+      params: { sessionId: "translator-session-id" },
+    });
   });
 
   it("clicking Amiga creates an amiga session when none exists", async () => {
@@ -149,7 +152,10 @@ describe("ContactList", () => {
     await amigaItem.trigger("click");
 
     expect(createdArgs).toMatchObject({ userId: "u1", contactType: "amiga" });
-    expect(pushSpy).toHaveBeenCalledWith("/chat/amiga-session-id");
+    expect(pushSpy).toHaveBeenCalledWith({
+      name: "chat-session",
+      params: { sessionId: "amiga-session-id" },
+    });
   });
 
   it("opens existing session instead of creating a new one", async () => {
@@ -174,7 +180,10 @@ describe("ContactList", () => {
       .find((item) => item.find(".contact-name").text() === "Amiga");
     await amigaItem.trigger("click");
 
-    expect(pushSpy).toHaveBeenCalledWith("/chat/existing-sess");
+    expect(pushSpy).toHaveBeenCalledWith({
+      name: "chat-session",
+      params: { sessionId: "existing-sess" },
+    });
   });
 
   it("renders friends in the contact list", async () => {

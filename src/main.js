@@ -140,7 +140,7 @@ async function bootstrap() {
       if (to.name === "wizard") {
         // Belt-and-braces: even if /wizard is still in URL history,
         // completed users should never see the onboarding flow again.
-        if (completed) return { name: "news" };
+        if (completed) return { name: "learn" };
         return true;
       }
       if (!completed) {
@@ -154,6 +154,7 @@ async function bootstrap() {
 
   // Load feature modules
   await kernel.loadModule("wizard");
+  await kernel.loadModule("learn", { parent: "shell" });
   await kernel.loadModule("news", { parent: "shell" });
   await kernel.loadModule("vocab", { parent: "shell" });
   await kernel.loadModule("profile", { parent: "shell" });

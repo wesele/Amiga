@@ -18,7 +18,7 @@ function installWizardGuard(router) {
     try {
       const completed = await api.isWizardCompleted();
       if (to.name === "wizard") {
-        if (completed) return { name: "news" };
+        if (completed) return { name: "learn" };
         return true;
       }
       if (!completed) {
@@ -36,7 +36,7 @@ function makeRouter() {
     history: createMemoryHistory(),
     routes: [
       { path: "/wizard", name: "wizard", component: { template: "<div/>" } },
-      { path: "/news", name: "news", component: { template: "<div/>" } },
+      { path: "/learn", name: "learn", component: { template: "<div/>" } },
     ],
   });
 }
@@ -52,7 +52,7 @@ describe("wizard route guard", () => {
   it("main.js redirects completed users away from /wizard (issue #11)", () => {
     const main = readMainJs();
     expect(main).toMatch(/if\s*\(\s*to\.name\s*===\s*["']wizard["']\s*\)/);
-    expect(main).toMatch(/if\s*\(\s*completed\s*\)\s*return\s*\{\s*name:\s*["']news["']\s*\}/);
+    expect(main).toMatch(/if\s*\(\s*completed\s*\)\s*return\s*\{\s*name:\s*["']learn["']\s*\}/);
   });
 
   it("sends incomplete users to the wizard", async () => {
@@ -62,7 +62,7 @@ describe("wizard route guard", () => {
     });
     const router = makeRouter();
     installWizardGuard(router);
-    await router.push("/news");
+    await router.push("/learn");
     expect(router.currentRoute.value.name).toBe("wizard");
   });
 
@@ -74,6 +74,6 @@ describe("wizard route guard", () => {
     const router = makeRouter();
     installWizardGuard(router);
     await router.push("/wizard");
-    expect(router.currentRoute.value.name).toBe("news");
+    expect(router.currentRoute.value.name).toBe("learn");
   });
 });
