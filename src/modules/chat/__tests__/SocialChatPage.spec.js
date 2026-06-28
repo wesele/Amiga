@@ -298,6 +298,69 @@ describe("SocialChatPage", () => {
     expect(capturedSocket.close).toHaveBeenCalled();
   });
 
+  it("closes the old socket and reconnects when route peerId changes", async () => {
+    const { wrapper, router } = await mountPage("direct", "Bob");
+    const firstSocket = capturedSocket;
+    expect(firstSocket.url).toContain("peerId=Bob");
+
+    await router.push("/chat/social/direct/Carol");
+    await flushPromises();
+    await flushPromises();
+
+    expect(firstSocket.close).toHaveBeenCalled();
+    expect(capturedSocket).not.toBe(firstSocket);
+    expect(capturedSocket.url).toContain("peerId=Carol");
+  });
+
+  it("clears messages when navigating between direct chats", async () => {
+    const { wrapper, router } = await mountPage("direct", "Bob");
+    capturedSocket._emit("message", { data: JSON.stringify({
+      type: "message",
+      id: "m1",
+      senderId: "Bob",
+      text: "hi from Bob",
+      createdAt: "2026-01-01T12:00:00Z",
+    }) });
+    await flushPromises();
+    expect(wrapper.findAll(".message-bubble").length).toBe(1);
+
+    await router.push("/chat/social/direct/Carol");
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.findAll(".message-bubble").length).toBe(0);
+  });
+
+  it("schedules a reconnect after the websocket closes", async () => {
+    vi.useFakeTimers();
+    try {
+      const { wrapper } = await mountPage("public");
+      const initialSocket = capturedSocket;
+      initialSocket._emit("open");
+      await flushPromises();
+      initialSocket._emit("close", new Event("close"));
+      await flushPromises();
+      expect(wrapper.find(".chat-subtitle").text()).toContain("Disconnected");
+      vi.advanceTimersByTime(2000);
+      for (let i = 0; i < 5; i += 1) {
+        await flushPromises();
+      }
+      expect(capturedSocket).not.toBe(initialSocket);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("warns the user when pressing Enter before the socket is open", async () => {
+    const { wrapper } = await mountPage("public");
+    const input = wrapper.find(".chat-input");
+    await input.setValue("hi");
+    await input.trigger("keydown.enter");
+    await flushPromises();
+    expect(wrapper.find(".chat-send-error").exists()).toBe(true);
+    expect(wrapper.find(".chat-send-error").text().length).toBeGreaterThan(0);
+  });
+
   it("constructs WebSocket URL with peerId for direct mode", async () => {
     const { wrapper } = await mountPage("direct", "Bob");
 

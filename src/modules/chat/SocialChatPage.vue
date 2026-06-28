@@ -39,15 +39,16 @@
         v-model="inputText"
         class="chat-input"
         :placeholder="t('chat.input')"
-        @keydown.enter.prevent="sendMessage"
+        @keydown.enter.prevent="handleEnter"
       />
       <button class="send-btn" :disabled="!canSend" @click="sendMessage">{{ t("chat.send") }}</button>
     </div>
+    <div v-if="sendError" class="chat-send-error">{{ sendError }}</div>
   </div>
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
+import { computed, markRaw, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { getCurrentUser } from "@/shared/api.js";
@@ -70,6 +71,10 @@ const inputText = ref("");
 const messages = ref([]);
 const messageListEl = ref(null);
 const socketRef = ref(null);
+const reconnectAttempt = ref(0);
+const reconnectTimer = ref(null);
+const sendError = ref("");
+const initialised = ref(false);
 const mode = computed(() => route.params.mode || "public");
 const peerId = computed(() => route.params.peerId || "");
 const roomTitle = computed(() => {
@@ -80,7 +85,7 @@ const roomTitle = computed(() => {
 });
 const connectionLabel = computed(() => {
   if (connectionState.value === "connected") return t("chat.connected");
-  if (connectionState.value === "error") return t("chat.connectionLost");
+  if (connectionState.value === "error" || connectionState.value === "closed") return t("chat.connectionLost");
   return t("chat.connecting");
 });
 const bannerText = computed(() => (
@@ -90,6 +95,22 @@ const emptyText = computed(() => (
   mode.value === "public" ? t("chat.publicEmpty") : t("chat.directEmpty")
 ));
 const canSend = computed(() => Boolean(inputText.value.trim() && connectionState.value === "connected"));
+
+function handleEnter() {
+  if (!canSend.value) {
+    if (!inputText.value.trim()) return;
+    if (connectionState.value === "connecting") {
+      sendError.value = t("chat.sendWhileConnecting");
+    } else if (connectionState.value === "error" || connectionState.value === "closed") {
+      sendError.value = t("chat.sendWhileDisconnected");
+    } else {
+      sendError.value = t("chat.sendFailed");
+    }
+    return;
+  }
+  sendError.value = "";
+  sendMessage();
+}
 
 function goBack() {
   disconnectSocket();
@@ -116,6 +137,11 @@ function pushMessage(message) {
 }
 
 function disconnectSocket() {
+  if (reconnectTimer.value) {
+    clearTimeout(reconnectTimer.value);
+    reconnectTimer.value = null;
+  }
+  reconnectAttempt.value = 0;
   const socket = socketRef.value;
   socketRef.value = null;
   if (socket && socket.readyState < 2) {
@@ -123,26 +149,51 @@ function disconnectSocket() {
   }
 }
 
+function scheduleReconnect() {
+  if (reconnectTimer.value) return;
+  if (typeof document !== "undefined" && document.visibilityState === "hidden" && shouldDisconnectSocialSocketOnHidden()) {
+    return;
+  }
+  const attempt = reconnectAttempt.value + 1;
+  reconnectAttempt.value = attempt;
+  const delay = Math.min(1000 * Math.pow(2, attempt - 1), 15000);
+  reconnectTimer.value = setTimeout(() => {
+    reconnectTimer.value = null;
+    if (socketRef.value || connectionState.value === "connected") return;
+    connectSocket().catch(() => {});
+  }, delay);
+}
+
 function handleVisibility() {
   if (document.visibilityState === "hidden" && shouldDisconnectSocialSocketOnHidden()) {
     disconnectSocket();
+  } else if (document.visibilityState === "visible" && (connectionState.value === "error" || connectionState.value === "closed")) {
+    reconnectAttempt.value = 0;
+    connectSocket().catch(() => {});
   }
 }
 
 async function connectSocket() {
   const config = await getSocialConfig();
+  if (socketRef.value) return;
   const socket = createSocialSocket(config, {
     userId: userId.value,
     mode: mode.value,
     peerId: mode.value === "direct" ? peerId.value : "",
     onOpen: () => {
+      reconnectAttempt.value = 0;
       connectionState.value = "connected";
+      sendError.value = "";
     },
     onClose: () => {
+      if (socketRef.value === socket) socketRef.value = null;
       connectionState.value = "closed";
+      scheduleReconnect();
     },
     onError: () => {
+      if (socketRef.value === socket) socketRef.value = null;
       connectionState.value = "error";
+      scheduleReconnect();
     },
     onMessage: (payload) => {
       if (payload?.type === "message") {
@@ -155,18 +206,20 @@ async function connectSocket() {
       }
     },
   });
-  socketRef.value = socket;
+  socketRef.value = markRaw(socket);
 }
 
 async function loadInitialState() {
   const config = await getSocialConfig();
   const user = await getCurrentUser().catch(() => ({}));
-  userId.value = await getSocialUserId();
-  await registerSocialUser(config, {
-    id: userId.value,
-    avatar: user?.avatar,
-    native_language: user?.native_language,
-  });
+  if (!userId.value) {
+    userId.value = await getSocialUserId();
+    await registerSocialUser(config, {
+      id: userId.value,
+      avatar: user?.avatar,
+      native_language: user?.native_language,
+    });
+  }
 
   if (mode.value === "direct") {
     const offline = await pullOfflineMessages(config, userId.value).catch(() => ({ items: [] }));
@@ -187,7 +240,12 @@ async function loadInitialState() {
 function sendMessage() {
   const text = inputText.value.trim();
   const socket = socketRef.value;
-  if (!text || !socket || socket.readyState !== WebSocket.OPEN) return;
+  if (!text || !socket || socket.readyState !== WebSocket.OPEN) {
+    if (text) {
+      sendError.value = t("chat.sendWhileDisconnected");
+    }
+    return;
+  }
 
   const payload = {
     type: "message",
@@ -200,13 +258,36 @@ function sendMessage() {
   socket.send(JSON.stringify(payload));
   pushMessage(payload);
   inputText.value = "";
+  sendError.value = "";
+}
+
+async function enterConversation() {
+  messages.value = [];
+  sendError.value = "";
+  connectionState.value = "connecting";
+  disconnectSocket();
+  await loadInitialState();
+  await connectSocket();
 }
 
 onMounted(async () => {
+  if (typeof globalThis !== "undefined" && typeof globalThis.__amigaDebugLog === "function") {
+    globalThis.__amigaDebugLog("onMounted called, initialised=" + initialised.value);
+  }
   document.addEventListener("visibilitychange", handleVisibility);
-  await loadInitialState();
-  await connectSocket();
+  if (initialised.value) return;
+  initialised.value = true;
+  await enterConversation();
 });
+
+watch(
+  () => [route.params.mode, route.params.peerId],
+  (next, prev) => {
+    if (!prev || !next) return;
+    if (next[0] === prev[0] && next[1] === prev[1]) return;
+    enterConversation();
+  }
+);
 
 onUnmounted(() => {
   document.removeEventListener("visibilitychange", handleVisibility);
@@ -358,5 +439,13 @@ onUnmounted(() => {
 
 .send-btn:disabled {
   opacity: 0.5;
+}
+
+.chat-send-error {
+  padding: 8px 14px 12px;
+  font-size: 12px;
+  color: #b53939;
+  background: rgba(255, 220, 220, 0.85);
+  border-top: 1px solid rgba(181, 57, 57, 0.2);
 }
 </style>

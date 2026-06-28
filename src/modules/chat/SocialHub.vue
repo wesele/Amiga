@@ -32,8 +32,8 @@
       <div class="card-title">{{ t("chat.addFriendTitle") }}</div>
       <div class="card-subtitle">{{ t("chat.addFriendDesc", { userId }) }}</div>
       <div class="inline-form">
-        <input v-model="friendIdInput" :placeholder="t('chat.friendIdPlaceholder')" />
-        <button class="primary-btn" :disabled="!ready || !friendIdInput.trim()" @click="submitFriendRequest">
+        <input v-model="friendIdInput" :placeholder="t('chat.friendIdPlaceholder')" :maxlength="64" @input="onFriendIdInput" />
+        <button class="primary-btn" :disabled="!ready || !isFriendIdValid" @click="submitFriendRequest">
           {{ t("chat.sendRequest") }}
         </button>
       </div>
@@ -96,6 +96,18 @@ const friends = ref([]);
 const statusText = ref("");
 const friendIdInput = ref("");
 const ready = computed(() => Boolean(userId.value));
+const isFriendIdValid = computed(() => !validateFriendId(friendIdInput.value.trim()));
+
+function onFriendIdInput() {
+  const validation = validateFriendId(friendIdInput.value.trim());
+  if (validation) {
+    statusText.value = validation;
+  } else if (statusText.value === t("chat.requestInvalidEmpty") ||
+             statusText.value === t("chat.requestInvalidSelf") ||
+             statusText.value === t("chat.requestInvalidTooLong")) {
+    statusText.value = "";
+  }
+}
 
 function goBack() {
   router.replace({ name: "chat" });
@@ -139,28 +151,41 @@ async function refreshAll() {
   }
 }
 
+function validateFriendId(target) {
+  if (!target) return t("chat.requestInvalidEmpty");
+  if (target.length > 64) return t("chat.requestInvalidTooLong");
+  if (target === userId.value) return t("chat.requestInvalidSelf");
+  return "";
+}
+
 async function submitFriendRequest() {
   const target = friendIdInput.value.trim();
-  if (!target) return;
+  const validation = validateFriendId(target);
+  if (validation) {
+    statusText.value = validation;
+    return;
+  }
+  statusText.value = "";
   try {
     const config = await getSocialConfig();
     await sendFriendRequest(config, userId.value, target);
     friendIdInput.value = "";
     statusText.value = t("chat.requestSent");
     await loadSummary(config);
-  } catch {
-    statusText.value = t("chat.requestFailed");
+  } catch (error) {
+    statusText.value = error?.message ? `${t("chat.requestFailed")} (${error.message})` : t("chat.requestFailed");
   }
 }
 
 async function acceptRequest(fromUserId) {
+  statusText.value = "";
   try {
     const config = await getSocialConfig();
     await acceptFriendRequest(config, userId.value, fromUserId);
     statusText.value = t("chat.requestAccepted");
     await loadSummary(config);
-  } catch {
-    statusText.value = t("chat.acceptFailed");
+  } catch (error) {
+    statusText.value = error?.message ? `${t("chat.acceptFailed")} (${error.message})` : t("chat.acceptFailed");
   }
 }
 

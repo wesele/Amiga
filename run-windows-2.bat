@@ -17,7 +17,7 @@ call :ensure_port_free 1422
 call :ensure_port_free 1423
 
 echo.
-call npm exec tauri dev -- --config "%PROJECT_DIR%\src-tauri\tauri.conf.test.json"
+call npx tauri dev --config "%PROJECT_DIR%\src-tauri\tauri.conf.test.json"
 pause
 goto :eof
 

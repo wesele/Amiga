@@ -153,6 +153,57 @@ describe("SocialHub", () => {
     expect(wrapper.text()).toContain("Friend request sent");
   });
 
+  it("rejects friend requests to self", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", nickname: "Alice" });
+      return Promise.resolve("");
+    });
+
+    setupFetchMock();
+
+    const router = makeRouter();
+    await router.push("/chat/social");
+    await router.isReady();
+
+    const wrapper = mount(SocialHub, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const input = wrapper.find("input");
+    await input.setValue("Alice");
+    await flushPromises();
+    const buttons = wrapper.findAll(".primary-btn");
+    const requestBtn = buttons.find((btn) => btn.text().includes("Request"));
+    expect(requestBtn.element.disabled).toBe(true);
+    expect(wrapper.text()).toContain("yourself");
+  });
+
+  it("rejects empty friend requests", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", nickname: "Alice" });
+      return Promise.resolve("");
+    });
+
+    setupFetchMock();
+
+    const router = makeRouter();
+    await router.push("/chat/social");
+    await router.isReady();
+
+    const wrapper = mount(SocialHub, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const input = wrapper.find("input");
+    await input.setValue("   ");
+    await flushPromises();
+    const buttons = wrapper.findAll(".primary-btn");
+    const requestBtn = buttons.find((btn) => btn.text().includes("Request"));
+    expect(requestBtn.element.disabled).toBe(true);
+  });
+
   it("accepts a friend request", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1", nickname: "Alice" });

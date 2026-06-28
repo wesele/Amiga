@@ -66,9 +66,38 @@ describe("socialService", () => {
       await expect(getSocialUserId()).resolves.toBe("uuid-3");
     });
 
-    it("falls back to 'learner' on failure", async () => {
+    it("falls back to a unique anonymous id when getCurrentUser fails", async () => {
+      const store = new Map();
+      vi.stubGlobal("localStorage", {
+        getItem: (k) => store.get(k) ?? null,
+        setItem: (k, v) => store.set(k, String(v)),
+        removeItem: (k) => store.delete(k),
+      });
       mockInvoke.mockRejectedValue(new Error("no user"));
-      await expect(getSocialUserId()).resolves.toBe("learner");
+      const id1 = await getSocialUserId();
+      const id2 = await getSocialUserId();
+      expect(id1).not.toBe("learner");
+      expect(id1).toMatch(/^anon-/);
+      expect(id1).toBe(id2);
+    });
+
+    it("generates distinct anonymous ids for distinct storage scopes", async () => {
+      const storeA = new Map();
+      const storeB = new Map();
+      mockInvoke.mockRejectedValue(new Error("no user"));
+      vi.stubGlobal("localStorage", {
+        getItem: (k) => storeA.get(k) ?? null,
+        setItem: (k, v) => storeA.set(k, String(v)),
+        removeItem: (k) => storeA.delete(k),
+      });
+      const idA = await getSocialUserId();
+      vi.stubGlobal("localStorage", {
+        getItem: (k) => storeB.get(k) ?? null,
+        setItem: (k, v) => storeB.set(k, String(v)),
+        removeItem: (k) => storeB.delete(k),
+      });
+      const idB = await getSocialUserId();
+      expect(idA).not.toBe(idB);
     });
   });
 

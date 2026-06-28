@@ -22,13 +22,51 @@ export async function getSocialConfig() {
   };
 }
 
+const ANONYMOUS_ID_KEY = "idioma.social.anonymousId";
+
+function readStoredAnonymousId() {
+  try {
+    if (typeof localStorage === "undefined") return "";
+    return localStorage.getItem(ANONYMOUS_ID_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function writeStoredAnonymousId(value) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(ANONYMOUS_ID_KEY, value);
+  } catch {
+    /* ignore quota / privacy mode */
+  }
+}
+
+export function generateAnonymousId() {
+  const cryptoObj = typeof globalThis !== "undefined" ? globalThis.crypto : null;
+  if (cryptoObj && typeof cryptoObj.randomUUID === "function") {
+    return `anon-${cryptoObj.randomUUID()}`;
+  }
+  return `anon-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function getOrCreateAnonymousId() {
+  const existing = readStoredAnonymousId();
+  if (existing) return existing;
+  const next = generateAnonymousId();
+  writeStoredAnonymousId(next);
+  return next;
+}
+
 export async function getSocialUserId() {
   try {
     const user = await getCurrentUser();
     const nickname = (user?.nickname || "").trim();
-    return nickname || user?.id || "learner";
+    if (nickname) return nickname;
+    if (user?.id) return user.id;
+    return getOrCreateAnonymousId();
   } catch {
-    return "learner";
+    return getOrCreateAnonymousId();
   }
 }
 
