@@ -116,8 +116,8 @@ if not exist "%SHADOW_DIR%\node_modules" (
   echo [Amiga-Test] node_modules missing in shadow copy. Running npm install...
   pushd "%SHADOW_DIR%"
   call npm install
-  if %ERRORLEVEL% neq 0 (
-    echo [Amiga-Test] npm install failed.
+  if not exist "%SHADOW_DIR%\node_modules" (
+    echo [Amiga-Test] npm install failed: node_modules still missing.
     popd
     pause
     exit /b 1
