@@ -338,6 +338,7 @@ export default {
     openFailedTitle: "Could not open link",
     openFailedMessage: "{error}\n\n{url}",
     openFailedUnknown: "Unknown error: could not open link",
+    openFailedBridgeMissing: "Could not reach the system browser (app outdated or not initialized). Please update to the latest version and try again",
     windowOpenBlocked: "window.open was blocked or returned null",
   },
 

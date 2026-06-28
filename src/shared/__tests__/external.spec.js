@@ -111,6 +111,7 @@ describe("openExternalUrl", () => {
   });
 
   it("uses the Android native external bridge before tauri open", async () => {
+    setUserAgent("Mozilla/5.0 (Linux; Android 14)");
     const openUrl = vi.fn(() => "ok");
     window.__amigaExternal = { openUrl };
     await openExternalUrl("example.com/foo");
@@ -120,6 +121,7 @@ describe("openExternalUrl", () => {
   });
 
   it("shows an alert with the native error when the Android bridge fails", async () => {
+    setUserAgent("Mozilla/5.0 (Linux; Android 14)");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     window.__amigaExternal = {
       openUrl: vi.fn(() => "no app can handle VIEW intent: ActivityNotFoundException"),
@@ -140,18 +142,34 @@ describe("openExternalUrl", () => {
     warn.mockRestore();
   });
 
-  it("falls back to tauri open when the Android native bridge throws", async () => {
+  it("does not fall back to tauri open when the Android native bridge throws", async () => {
+    setUserAgent("Mozilla/5.0 (Linux; Android 14)");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     window.__amigaExternal = {
       openUrl: vi.fn(() => {
         throw new Error("bridge failed");
       }),
     };
-    open.mockResolvedValue();
     await openExternalUrl("https://example.com");
-    expect(open).toHaveBeenCalledWith("https://example.com");
+    expect(open).not.toHaveBeenCalled();
+    expect(showAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining("bridge failed"),
+      }),
+    );
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+
+  it("shows a bridge-missing message on Android when __amigaExternal is absent", async () => {
+    setUserAgent("Mozilla/5.0 (Linux; Android 14)");
+    await openExternalUrl("https://example.com");
+    expect(open).not.toHaveBeenCalled();
+    expect(showAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringMatching(/最新版本|latest version/i),
+      }),
+    );
   });
 
   it("does nothing for empty / null URL", async () => {
@@ -188,29 +206,21 @@ describe("openExternalUrl", () => {
     window.open = orig;
   });
 
-  it("does not fall back to window.open on Android when tauri open rejects", async () => {
+  it("never calls tauri open on Android even when the bridge is missing", async () => {
     setUserAgent("Mozilla/5.0 (Linux; Android 14)");
-    open.mockRejectedValue(new Error("denied"));
     const orig = window.open;
     const fallback = vi.fn();
     window.open = fallback;
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     await openExternalUrl("https://fallback.test/x");
 
+    expect(open).not.toHaveBeenCalled();
     expect(fallback).not.toHaveBeenCalled();
-    expect(warn).toHaveBeenCalled();
-    expect(showAlert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: expect.stringContaining("denied"),
-      }),
-    );
     expect(showAlert).toHaveBeenCalledWith(
       expect.objectContaining({
         message: expect.stringContaining("https://fallback.test/x"),
       }),
     );
-    warn.mockRestore();
     window.open = orig;
   });
 

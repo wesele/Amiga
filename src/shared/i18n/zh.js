@@ -341,6 +341,7 @@ export default {
     openFailedTitle: "无法打开链接",
     openFailedMessage: "{error}\n\n{url}",
     openFailedUnknown: "未知错误：未能打开链接",
+    openFailedBridgeMissing: "无法调用系统浏览器（应用版本过旧或未正确初始化），请更新到最新版本后重试",
     windowOpenBlocked: "window.open 被拦截或返回空窗口",
   },
 

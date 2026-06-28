@@ -48,6 +48,29 @@ function isNativeOpenSuccess(result) {
   return result === true || result === "ok";
 }
 
+function hasAndroidExternalBridge() {
+  return Boolean(
+    window.__amigaExternal && typeof window.__amigaExternal.openUrl === "function",
+  );
+}
+
+function tryAndroidExternalOpen(target) {
+  if (!hasAndroidExternalBridge()) {
+    return { ok: false, error: t("external.openFailedBridgeMissing") };
+  }
+  try {
+    const result = window.__amigaExternal.openUrl(target);
+    if (isNativeOpenSuccess(result)) return { ok: true };
+    const error =
+      result === false || result == null
+        ? t("external.openFailedUnknown")
+        : result;
+    return { ok: false, error };
+  } catch (e) {
+    return { ok: false, error: formatOpenError(e) };
+  }
+}
+
 function showExternalOpenError(url, error) {
   showAlert({
     title: t("external.openFailedTitle"),
@@ -66,8 +89,8 @@ function showExternalOpenError(url, error) {
  * 1. 空 / null / undefined → 不做任何事
  * 2. 含非 http(s) scheme（javascript: / file: / data: 等）→ 拒绝并 warn
  * 3. 裸主机名（无 scheme）→ 补 https://
- * 4. 优先调 tauri-plugin-shell 的 open()，Tauri 桌面 / Android 走系统默认浏览器
- * 5. open() 失败或不在 Tauri 环境时回退 window.open(_blank, noopener)
+ * 4. Android 只走 __amigaExternal.openUrl（系统浏览器 Intent），绝不调 shell open
+ * 5. 桌面优先 tauri-plugin-shell 的 open()；失败时回退 window.open(_blank, noopener)
  *
  * 注意：此函数**不**在 app 内 WebView 中加载链接。
  */
@@ -81,30 +104,18 @@ export async function openExternalUrl(url) {
   const target = normalizeExternalUrl(raw);
   if (!target) return;
 
-  if (window.__amigaExternal && typeof window.__amigaExternal.openUrl === "function") {
-    try {
-      const result = window.__amigaExternal.openUrl(target);
-      if (isNativeOpenSuccess(result)) return;
-      const error =
-        result === false || result == null
-          ? t("external.openFailedUnknown")
-          : result;
+  if (isAndroidPlatform()) {
+    const { ok, error } = tryAndroidExternalOpen(target);
+    if (!ok) {
       console.warn("openExternalUrl: native Android open failed", target, error);
       showExternalOpenError(target, error);
-      return;
-    } catch (e) {
-      console.warn("openExternalUrl: native Android open threw", target, e);
     }
+    return;
   }
 
   try {
     await open(target);
   } catch (e) {
-    if (isAndroidPlatform()) {
-      console.warn("openExternalUrl: Android fallback suppressed to avoid in-app WebView", target, e);
-      showExternalOpenError(target, e);
-      return;
-    }
     try {
       const win = window.open(target, "_blank", "noopener,noreferrer");
       if (!win) {
