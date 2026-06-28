@@ -1,15 +1,20 @@
 <template>
   <div class="news-list">
     <header class="list-header">
-      <h1 class="page-title">{{ t('news.title') }}</h1>
-      <div class="header-top">
-        <span class="today-label">{{ formattedDate }}</span>
+      <div class="header-row">
+        <button class="back-btn" :aria-label="t('common.back')" @click="goBack">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+          </svg>
+        </button>
+        <h1 class="page-title">{{ t('news.title') }}</h1>
         <button class="refresh-btn" :disabled="loading" :title="t('news.refresh')" @click="onRefresh">
           <svg :class="{ spinning: loading }" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M17.65 6.35A7.96 7.96 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
           </svg>
         </button>
       </div>
+      <span class="today-label">{{ formattedDate }}</span>
     </header>
 
     <!-- Loading skeleton -->
@@ -79,6 +84,15 @@ import { eventBus } from "@/shared/eventBus.js";
 
 const { t, locale } = useI18n();
 const router = useRouter();
+
+function goBack() {
+  const parent = router.currentRoute.value?.meta?.parent;
+  if (parent) {
+    router.replace({ name: parent });
+  } else {
+    router.back();
+  }
+}
 const targetLangStore = useTargetLangStore();
 const articles = ref([]);
 const loading = ref(false);
@@ -195,15 +209,34 @@ function formatSource(source) {
 }
 
 .list-header {
-  padding: 20px 20px 12px;
+  padding: 8px 12px 12px;
   background: var(--surface);
 }
 
-.header-top {
+.header-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 4px;
   margin-bottom: 4px;
+}
+
+.back-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background var(--transition);
+  flex-shrink: 0;
+}
+
+.back-btn:hover {
+  background: var(--surface-variant);
 }
 
 .today-label {
@@ -246,8 +279,11 @@ function formatSource(source) {
 }
 
 .page-title {
-  font-size: 24px;
-  font-weight: 800;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
 }
 
 /* Skeleton */
