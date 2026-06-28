@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import * as api from "@/shared/api.js";
 
 describe("Chat API", () => {
@@ -33,13 +33,23 @@ describe("Chat API", () => {
     });
   });
 
-  it("createChatSession calls invoke with contactType and targetLang", () => {
+  it("createChatSession calls invoke with all params", () => {
     api.createChatSession("user-1", "New Chat", "amiga", "es");
     expect(mockInvoke).toHaveBeenCalledWith("create_chat_session_cmd", {
       userId: "user-1",
       title: "New Chat",
       contactType: "amiga",
       targetLang: "es",
+    });
+  });
+
+  it("createChatSession passes translator contactType", () => {
+    api.createChatSession("user-1", "Translation", "translator", "en");
+    expect(mockInvoke).toHaveBeenCalledWith("create_chat_session_cmd", {
+      userId: "user-1",
+      title: "Translation",
+      contactType: "translator",
+      targetLang: "en",
     });
   });
 
@@ -55,7 +65,15 @@ describe("Chat API", () => {
     });
   });
 
-  it("getChatMessages calls invoke", () => {
+  it("getChatMessages calls invoke with default limit", () => {
+    api.getChatMessages("sess-1");
+    expect(mockInvoke).toHaveBeenCalledWith("get_chat_messages_cmd", {
+      sessionId: "sess-1",
+      limit: 50,
+    });
+  });
+
+  it("getChatMessages calls invoke with custom limit", () => {
     api.getChatMessages("sess-1", 30);
     expect(mockInvoke).toHaveBeenCalledWith("get_chat_messages_cmd", {
       sessionId: "sess-1",
@@ -74,5 +92,15 @@ describe("Chat API", () => {
   it("getAmigaProfile calls invoke with targetLang", () => {
     api.getAmigaProfile("en");
     expect(mockInvoke).toHaveBeenCalledWith("get_amiga_profile_cmd", { targetLang: "en" });
+  });
+
+  it("getAmigaProfile passes Spanish language code", () => {
+    api.getAmigaProfile("es");
+    expect(mockInvoke).toHaveBeenCalledWith("get_amiga_profile_cmd", { targetLang: "es" });
+  });
+
+  it("shareText calls invoke", () => {
+    api.shareText("some text to share");
+    expect(mockInvoke).toHaveBeenCalledWith("share_text_cmd", { text: "some text to share" });
   });
 });
