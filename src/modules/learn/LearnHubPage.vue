@@ -87,9 +87,9 @@ async function openModule(mod) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  width: 108px;
-  height: 108px;
+  gap: 10px;
+  width: 130px;
+  height: 130px;
   padding: 0;
   background: var(--white);
   border: 1px solid var(--border);
@@ -111,12 +111,12 @@ async function openModule(mod) {
 }
 
 .module-icon {
-  font-size: 30px;
+  font-size: 36px;
   line-height: 1;
 }
 
 .module-label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
   text-align: center;
