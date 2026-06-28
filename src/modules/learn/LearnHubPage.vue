@@ -64,7 +64,7 @@ async function openModule(mod) {
 }
 
 .page-header {
-  padding: 20px 28px 16px;
+  padding: 20px 32px 16px;
   background: var(--white);
 }
 
@@ -75,10 +75,11 @@ async function openModule(mod) {
 }
 
 .module-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  padding: 32px 28px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 40px;
+  padding: 56px 48px 64px;
 }
 
 .module-tile {
@@ -86,10 +87,10 @@ async function openModule(mod) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  aspect-ratio: 1;
-  width: 100%;
-  padding: 16px;
+  gap: 8px;
+  width: 108px;
+  height: 108px;
+  padding: 0;
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -97,6 +98,7 @@ async function openModule(mod) {
   font-family: inherit;
   transition: background var(--transition), box-shadow var(--transition);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  flex-shrink: 0;
 }
 
 .module-tile:hover:not(:disabled) {
@@ -109,14 +111,15 @@ async function openModule(mod) {
 }
 
 .module-icon {
-  font-size: 40px;
+  font-size: 30px;
   line-height: 1;
 }
 
 .module-label {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text);
   text-align: center;
+  line-height: 1.2;
 }
 </style>
