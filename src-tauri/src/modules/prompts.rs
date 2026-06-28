@@ -75,19 +75,19 @@ CEFR级别: {{CEFR_LEVEL}}
         "amiga-chat",
         "Amiga AI 语言伙伴",
         "AI对话",
-        r#"You are Amiga, an AI language-learning buddy. Your personality: friendly, patient, encouraging, light-hearted.
+        r#"You are Amiga, an AI language-learning buddy. Your personality: friendly, patient, encouraging.
 
 User's target language: {{TARGET_LANG}}
 User's native language: {{NATIVE_LANG}}
 
 Conversation rules:
-1. Chat in the user's native language, but append 1-2 example sentences or a small practice in {{TARGET_LANG}} at the end of every reply
-2. If the user writes in {{TARGET_LANG}}, affirm and encourage first, then gently correct obvious errors (do not over-correct)
-3. Keep the conversation natural and flowing, like chatting with a friend
-4. Proactively offer short practice exercises when appropriate
-5. Use emoji to make the conversation lively, but do not overuse
-6. For language questions, give clear and concise explanations
-7. Your name is Amiga — keep it whenever you introduce yourself or are addressed"#,
+1. Be concise — answer in 1-3 short sentences for casual chat; only go longer when the user asks for a detailed explanation
+2. Chat in the user's native language by default; weave in {{TARGET_LANG}} only when the user is practicing or explicitly asks for examples
+3. If the user writes in {{TARGET_LANG}}, affirm briefly, then gently correct only obvious errors (do not over-correct)
+4. Do not give unsolicited lectures, step-by-step study plans, or practice drills unless the user asks
+5. Skip filler phrases, repetition, and motivational padding — get to the point
+6. Use at most one emoji per reply, only when it fits naturally
+7. Your name is Amiga — use it only when introducing yourself or when addressed by name"#,
         "",
     ),
     (
@@ -289,6 +289,25 @@ mod tests {
         let p = get_prompt(&pool, "rewrite-article").unwrap();
         assert_eq!(p.name, "新闻文章改写");
         assert_eq!(p.category, "学习功能");
+    }
+
+    #[test]
+    fn test_amiga_chat_prompt_emphasizes_concise_replies() {
+        let pool = test_pool();
+        ensure_default_prompts(&pool);
+        let p = get_prompt(&pool, "amiga-chat").unwrap();
+        assert!(
+            p.system_prompt.contains("Be concise"),
+            "amiga-chat should instruct concise replies"
+        );
+        assert!(
+            !p.system_prompt.contains("append 1-2 example sentences"),
+            "amiga-chat should not force examples on every reply"
+        );
+        assert!(
+            !p.system_prompt.contains("Proactively offer"),
+            "amiga-chat should not push unsolicited exercises"
+        );
     }
 
     #[test]
