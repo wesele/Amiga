@@ -32,6 +32,10 @@ export async function getSocialUserId() {
   }
 }
 
+export function shouldDisconnectSocialSocketOnHidden(userAgent = navigator.userAgent) {
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent || "");
+}
+
 async function requestJson(config, path, init = {}) {
   const base = trimSlash(config?.apiBaseUrl);
   if (!base) {

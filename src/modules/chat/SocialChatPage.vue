@@ -57,6 +57,7 @@ import {
   getSocialUserId,
   pullOfflineMessages,
   registerSocialUser,
+  shouldDisconnectSocialSocketOnHidden,
 } from "./socialService.js";
 
 const route = useRoute();
@@ -123,7 +124,7 @@ function disconnectSocket() {
 }
 
 function handleVisibility() {
-  if (document.visibilityState === "hidden") {
+  if (document.visibilityState === "hidden" && shouldDisconnectSocialSocketOnHidden()) {
     disconnectSocket();
   }
 }

@@ -52,7 +52,7 @@ describe("ContactList", () => {
     await flushPromises();
 
     const names = wrapper.findAll(".contact-name").map((item) => item.text());
-    expect(names[0]).toBe("Public group");
+    expect(names[0]).toBe("公共群聊");
     expect(names).toContain("Amiga");
     expect(names).toContain("AI 翻译");
   });

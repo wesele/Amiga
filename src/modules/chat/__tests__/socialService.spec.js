@@ -4,6 +4,7 @@ import {
   createSocialSocket,
   getSocialConfig,
   getSocialUserId,
+  shouldDisconnectSocialSocketOnHidden,
 } from "@/modules/chat/socialService.js";
 
 describe("socialService", () => {
@@ -48,5 +49,10 @@ describe("socialService", () => {
     );
 
     expect(sentUrls[0]).toBe("wss://chat.example.com/ws?userId=Alice&mode=direct&peerId=Bob");
+  });
+
+  it("only treats mobile webviews as background-disconnect targets", () => {
+    expect(shouldDisconnectSocialSocketOnHidden("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")).toBe(false);
+    expect(shouldDisconnectSocialSocketOnHidden("Mozilla/5.0 (Linux; Android 15; Pixel) Mobile")).toBe(true);
   });
 });

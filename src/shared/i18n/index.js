@@ -38,9 +38,10 @@ function lookup(dict, key) {
 
 function interpolate(str, params) {
   if (!params) return str;
-  return str.replace(/\{(\w+)\}/g, (m, name) =>
-    params[name] != null ? String(params[name]) : m,
-  );
+  return str.replace(/\{\{\s*(\w+)\s*\}\}|\{(\w+)\}/g, (m, doubleName, singleName) => {
+    const name = doubleName || singleName;
+    return params[name] != null ? String(params[name]) : m;
+  });
 }
 
 export function t(key, params) {
