@@ -327,6 +327,14 @@ export default {
     resetting: "Clearing...",
   },
 
+  dataLoadFail: {
+    title: "Failed to load old data",
+    message: "After reinstall/upgrade the app could not load retained old data (corrupt file, incompatible schema or permission problem).\n\nDelete the old data and start fresh, or exit the app?",
+    confirm: "Delete old data and continue",
+    exit: "Exit app",
+    deleting: "Deleting...",
+  },
+
   preview: {
     title: "Markdown render preview",
     subtitle: "How AI chat messages render with Markdown",

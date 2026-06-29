@@ -590,20 +590,40 @@ class MainActivity : TauriActivity() {
      * Create the public Documents/Amiga directory so user data survives
      * uninstall. Matches the path Rust uses on Android
      * (/storage/emulated/0/Documents/Amiga/idioma.db).
+     *
+     * On modern Android (10+), direct public storage access is restricted
+     * (scoped storage). We:
+     *  - requestLegacyExternalStorage (via patch) for 10/11 era devices
+     *  - declare MANAGE_EXTERNAL_STORAGE and launch the all-files settings
+     *    for API 30+ so the app can read/write the retained DB copy.
+     *  - Always attempt to create the dir; Rust will probe writability.
      */
     private fun ensurePersistentDataDir() {
-        val dir = File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-            "Amiga",
-        )
+        val documents = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+        val dir = File(documents, "Amiga")
         if (!dir.exists() && !dir.mkdirs()) {
             Log.w(TAG, "Failed to create persistent data dir: ${dir.absolutePath}")
         }
 
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-            val perm = Manifest.permission.WRITE_EXTERNAL_STORAGE
-            if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(perm), REQUEST_STORAGE)
+        // Legacy permission request (harmless on high SDK; helps with legacy flag)
+        val writePerm = Manifest.permission.WRITE_EXTERNAL_STORAGE
+        if (ContextCompat.checkSelfPermission(this, writePerm) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(writePerm), REQUEST_STORAGE)
+        }
+
+        // For API 30+ (Android 11+), direct Documents access for arbitrary files
+        // often needs the special "all files" grant. Launch settings if missing.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                    // Note: this will take user out of app; after grant they can relaunch.
+                    // On return the next launch will see the grant and be able to use public path.
+                    startActivity(intent)
+                    Log.i(TAG, "Requested MANAGE_ALL_FILES_ACCESS_PERMISSION for public Documents retention")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not launch all-files settings: ${e.message}")
+                }
             }
         }
     }

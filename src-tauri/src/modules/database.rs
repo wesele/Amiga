@@ -4,6 +4,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 
 use super::migrations;
 
@@ -292,10 +293,7 @@ mod tests {
 
         assert!(dst.exists());
         assert_eq!(std::fs::read(&dst).unwrap(), b"sqlite");
-        assert_eq!(
-            std::fs::read(dst.with_extension("db-wal")).unwrap(),
-            b"wal"
-        );
+        assert_eq!(std::fs::read(dst.with_extension("db-wal")).unwrap(), b"wal");
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -366,27 +364,78 @@ mod tests {
 pub struct DatabasePool {
     pool: Pool<SqliteConnectionManager>,
     compatible: AtomicBool,
+    /// If set, the real DB file could not be opened (corrupt/old data, permission, etc).
+    /// App uses an in-memory stand-in so UI can still show recovery dialog.
+    load_error: Mutex<Option<String>>,
+    /// The on-disk path we tried (or are using). Used to delete bad data file for recovery.
+    file_path: PathBuf,
 }
 
 impl DatabasePool {
-    pub fn new() -> Result<Self, String> {
+    /// Open (or create) the real persistent database.
+    ///
+    /// On Android prefers external Documents/Amiga (survives uninstall).
+    /// Falls back to internal path when external is not writable.
+    ///
+    /// IMPORTANT: this NEVER panics and always returns a usable pool.
+    /// If the real file cannot be opened (corrupt retained data after reinstall,
+    /// permission issues etc.) we return a "broken" in-memory stand-in so the
+    /// frontend can render a recovery dialog instead of white-screening.
+    pub fn new() -> Self {
         let db_path = Self::db_path();
         match Self::open_at(&db_path) {
-            Ok(db) => Ok(db),
+            Ok(db) => {
+                // On Android, if we ended up with internal but retained external parent writable,
+                // publish a copy for uninstall survival.
+                #[cfg(target_os = "android")]
+                {
+                    let ext = PathBuf::from(ANDROID_EXTERNAL_DB);
+                    let int = PathBuf::from(ANDROID_INTERNAL_DB);
+                    if db.file_path == int {
+                        let _ = Self::publish_to_external_if_possible(&int, &ext);
+                    }
+                }
+                db
+            }
             Err(e) => {
                 #[cfg(target_os = "android")]
                 {
+                    let external = PathBuf::from(ANDROID_EXTERNAL_DB);
                     let internal = PathBuf::from(ANDROID_INTERNAL_DB);
                     if db_path != internal {
                         log::warn!(
-                            "Failed to open database at {:?} ({}), retrying internal path",
+                            "Failed to open database at {:?} ({}), will try to recover from retained external if possible",
                             db_path,
                             e
                         );
-                        return Self::open_at(&internal);
+                        // 1. Try direct open of internal (may exist)
+                        if let Ok(db) = Self::open_at(&internal) {
+                            return db;
+                        }
+                        // 2. If external retained copy exists, try to byte-copy it into internal (works
+                        //    even if we can't open SQLite RW directly on public path due to scoped rules).
+                        if external.exists() {
+                            if let Ok(()) = copy_sqlite_bundle(&external, &internal) {
+                                log::info!(
+                                    "Recovered retained external DB by byte copy into internal"
+                                );
+                                if let Ok(db) = Self::open_at(&internal) {
+                                    // After recovery, try to keep a fresh published copy (best effort)
+                                    let _ =
+                                        Self::publish_to_external_if_possible(&internal, &external);
+                                    return db;
+                                }
+                            }
+                        }
+                        log::error!("Could not recover external data; falling back (will show recovery dialog)");
+                        return Self::new_broken(
+                            internal,
+                            format!("external open failed: {}; recovery failed", e),
+                        );
                     }
                 }
-                Err(e)
+                log::error!("Database open failed (no usable fallback): {}", e);
+                Self::new_broken(db_path, e)
             }
         }
     }
@@ -412,6 +461,8 @@ impl DatabasePool {
         let db = Self {
             pool,
             compatible: AtomicBool::new(true),
+            load_error: Mutex::new(None),
+            file_path: db_path.to_path_buf(),
         };
         db.run_migrations()?;
         Ok(db)
@@ -429,16 +480,113 @@ impl DatabasePool {
         let db = Self {
             pool,
             compatible: AtomicBool::new(true),
+            load_error: Mutex::new(None),
+            file_path: PathBuf::from(":memory:"),
         };
         db.run_migrations()
             .expect("In-memory migrations should not fail");
         db
     }
 
+    /// Stand-in pool when the real DB file could not be opened at all.
+    /// Used so that Tauri can start, frontend renders, and user gets a
+    /// dialog to delete the bad old data or exit instead of white screen.
+    pub fn new_broken(attempted_path: PathBuf, error: String) -> Self {
+        let manager = SqliteConnectionManager::memory()
+            .with_init(|c| c.execute_batch("PRAGMA foreign_keys=ON;"));
+        let pool = Pool::builder()
+            .max_size(1)
+            .build(manager)
+            .expect("in-memory broken stand-in must succeed");
+
+        Self {
+            pool,
+            compatible: AtomicBool::new(false),
+            load_error: Mutex::new(Some(error)),
+            file_path: attempted_path,
+        }
+    }
+
     /// Returns `true` if the current database schema is compatible with
     /// this app version (all applied migration versions are known).
     pub fn is_schema_compatible(&self) -> bool {
         self.compatible.load(Ordering::SeqCst)
+    }
+
+    /// Error message if the persistent database file failed to open.
+    /// Frontend uses this to decide whether to show hard recovery dialog.
+    pub fn load_error(&self) -> Option<String> {
+        self.load_error.lock().ok().and_then(|g| g.clone())
+    }
+
+    /// The file path (on disk) that this pool represents / attempted.
+    /// For broken instances this is the bad file we may want to delete.
+    #[allow(dead_code)]
+    pub fn db_file_path(&self) -> PathBuf {
+        self.file_path.clone()
+    }
+
+    /// Delete the on-disk DB file + WAL/SHM sidecars at the recorded path.
+    /// No-op for :memory:. Safe even from broken state. Used by recovery flow.
+    pub fn delete_database_file(&self) -> Result<(), String> {
+        let p = &self.file_path;
+        if p.to_string_lossy() == ":memory:" {
+            return Ok(());
+        }
+        // Best effort remove; absence is not an error for recovery.
+        if let Err(e) = std::fs::remove_file(p) {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                log::warn!("Could not remove main db file {:?}: {}", p, e);
+            }
+        }
+        let base = p.to_string_lossy().to_string();
+        for suf in ["-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{}{}", base, suf));
+        }
+        // Also nuke any retained external copy so user gets truly clean start
+        #[cfg(target_os = "android")]
+        {
+            let ext = PathBuf::from(ANDROID_EXTERNAL_DB);
+            if ext.exists() {
+                let _ = std::fs::remove_file(&ext);
+                let ext_base = ext.to_string_lossy().to_string();
+                for suf in ["-wal", "-shm"] {
+                    let _ = std::fs::remove_file(format!("{}{}", ext_base, suf));
+                }
+                log::info!("Also removed external retained copy during recovery delete");
+            }
+        }
+        log::info!("Deleted bad database file bundle for recovery at {:?}", p);
+        Ok(())
+    }
+
+    /// If we are using internal but external parent is writable, publish a
+    /// copy of current DB to the public location so it survives future
+    /// uninstall + reinstall.
+    #[cfg(any(test, target_os = "android"))]
+    fn publish_to_external_if_possible(internal: &Path, external: &Path) -> Result<(), String> {
+        if !internal.exists() {
+            return Ok(());
+        }
+        if let Some(parent) = external.parent() {
+            if is_directory_writable(parent) {
+                match copy_sqlite_bundle(internal, external) {
+                    Ok(()) => {
+                        log::info!("Published retained DB copy to external: {:?}", external);
+                        Ok(())
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to publish retained copy to external: {}", e);
+                        Err(e)
+                    }
+                }
+            } else {
+                log::warn!("External dir not writable; cannot publish retained copy (data will be internal-only until permissions allow)");
+                Ok(())
+            }
+        } else {
+            Ok(())
+        }
     }
 
     /// Internal check: reads all applied schema versions and compares
@@ -508,9 +656,15 @@ impl DatabasePool {
         conn.execute("DELETE FROM schema_version", [])
             .map_err(|e| format!("Failed to clear schema_version: {}", e))?;
 
+        // Return conn to pool before run_migrations (it will checkout its own).
+        drop(conn);
+
         // Re-run all migrations
         self.run_migrations()?;
         self.compatible.store(true, Ordering::SeqCst);
+        if let Ok(mut g) = self.load_error.lock() {
+            *g = None;
+        }
         log::info!("Database has been reset to factory state");
 
         Ok(())
@@ -601,6 +755,10 @@ impl DatabasePool {
             .unwrap_or(0);
 
         log::info!("Database schema up to date. Version: {}", final_version);
+
+        // Return the connection to the pool before check (which does its own conn()).
+        // Critical for max_size=1 pools used in tests.
+        drop(conn);
 
         // After normal migration, check whether the database came from
         // a newer app version (incompatible schema).

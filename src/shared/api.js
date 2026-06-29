@@ -20,6 +20,10 @@ export function __resetInvoke() {
 // --- Database ---
 export const isSchemaCompatible = () => _invoke("is_schema_compatible_cmd");
 export const resetDatabase = () => _invoke("reset_database_cmd");
+export const getDatabaseStatus = () => _invoke("get_database_status_cmd");
+export const deleteDatabaseFile = () => _invoke("delete_database_file_cmd");
+export const deleteDatabaseAndRestart = () => _invoke("delete_database_and_restart_cmd");
+export const exitApp = () => _invoke("exit_app_cmd");
 
 // ─── User ───
 export const getCurrentUser = () => _invoke("get_current_user");

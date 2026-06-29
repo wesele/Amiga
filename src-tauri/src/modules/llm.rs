@@ -123,6 +123,7 @@ pub fn lang_name(code: &str) -> &'static str {
 
 /// Map a language code to its localized name (Chinese UI). Used for
 /// Chinese-locale prompts.
+#[allow(dead_code)]
 pub fn lang_name_zh(code: &str) -> &'static str {
     match code {
         "zh" => "中文",
