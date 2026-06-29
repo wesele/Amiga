@@ -226,30 +226,11 @@ export function useImageGen() {
     }
 
     reportProgress(true)
-    if (tryExtractSvg(pickSvgSource(result))) {
-      options.onProgress?.(
-        `流式接收完成 (content ${contentLen} / reasoning ${reasoningLen} 字符)`,
-        'success'
-      )
-      return result
-    }
-
-    options.onProgress?.('流式结果无效，尝试非流式请求...', 'warning')
-    const t0 = Date.now()
-    const heartbeat = setInterval(() => {
-      const secs = Math.round((Date.now() - t0) / 1000)
-      options.onProgress?.(`等待非流式响应... (${secs}s)`)
-    }, 2000)
-
-    try {
-      result = await llm.callLLM(userPrompt, llmOpts)
-      const c = result?.content?.length || 0
-      const r = result?.reasoning?.length || 0
-      options.onProgress?.(`非流式响应完成 (content ${c} / reasoning ${r} 字符)`, 'success')
-      return result
-    } finally {
-      clearInterval(heartbeat)
-    }
+    options.onProgress?.(
+      `流式接收完成 (content ${contentLen} / reasoning ${reasoningLen} 字符)`,
+      'success'
+    )
+    return result
   }
 
   async function generateSvg(desc, prompt = '', options = {}) {
@@ -262,7 +243,7 @@ export function useImageGen() {
     const llmOpts = {
       systemPrompt: SVG_SYSTEM_PROMPT,
       temperature: 0.2,
-      maxTokens: 4096,
+      omitMaxTokens: true,
       signal: options.signal
     }
 

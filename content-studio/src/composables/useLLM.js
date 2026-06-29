@@ -31,8 +31,10 @@ export function useLLM() {
         { role: 'system', content: options.systemPrompt || SYSTEM_PROMPT_JSON },
         { role: 'user', content: prompt }
       ],
-      temperature: options.temperature ?? 0.7,
-      max_tokens: options.maxTokens ?? 4096
+      temperature: options.temperature ?? 0.7
+    }
+    if (!options.omitMaxTokens) {
+      body.max_tokens = options.maxTokens ?? 4096
     }
     if (options.jsonMode) {
       body.response_format = { type: 'json_object' }
