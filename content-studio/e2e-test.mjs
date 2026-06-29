@@ -267,8 +267,7 @@ async function produceType(type, count = 3) {
         { role: 'system', content: '你是一个严格的 JSON 数据生成器。你的全部输出必须是一个合法的 JSON 数组。不允许输出任何非 JSON 内容，包括：解释、分析、思考过程、markdown 代码块标记（如 ```json）、问候语、总结。数组中的每个元素都必须符合给定的 JSON Schema。你必须只输出 JSON，且 JSON 必须可被 JSON.parse() 正确解析。' },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.1,
-      max_tokens: 16384
+      temperature: 0.1
     }
 
     const response = await fetch(`${BASE}/api/llm`, {

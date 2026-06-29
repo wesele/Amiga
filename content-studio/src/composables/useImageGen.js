@@ -243,7 +243,6 @@ export function useImageGen() {
     const llmOpts = {
       systemPrompt: SVG_SYSTEM_PROMPT,
       temperature: 0.2,
-      omitMaxTokens: true,
       signal: options.signal
     }
 

@@ -35,8 +35,7 @@ async function testNonStreaming() {
       { role: 'system', content: '你是一个 JSON 数据生成器。只输出 JSON，不输出任何其他内容。' },
       { role: 'user', content: '生成 1 道西班牙语 A1 图片识词题。返回一个 JSON 数组，每个元素包含: type, typeName, language, cefr, unit, unitTheme, difficulty, tags, imageDesc, options(4项), answerIdx。直接输出 JSON，不要 markdown 代码块。' }
     ],
-    temperature: 0.1,
-    max_tokens: 1000
+    temperature: 0.1
   }
 
   console.log('\n请求 URL:', url)
@@ -199,8 +198,7 @@ tags 字段必须填写与本题相关的具体主题词和语法点，不要使
       { role: 'system', content: '你是一个严格的 JSON 数据生成器。你的全部输出必须是一个合法的 JSON 数组。不允许输出任何非 JSON 内容，包括：解释、分析、思考过程、markdown 代码块标记（如 ```json）、问候语、总结。数组中的每个元素都必须符合给定的 JSON Schema。你必须只输出 JSON，且 JSON 必须可被 JSON.parse() 正确解析。' },
       { role: 'user', content: prompt }
     ],
-    temperature: 0.1,
-    max_tokens: 2000
+    temperature: 0.1
   }
 
   console.log('请求模型:', config.model)

@@ -33,9 +33,6 @@ export function useLLM() {
       ],
       temperature: options.temperature ?? 0.7
     }
-    if (!options.omitMaxTokens) {
-      body.max_tokens = options.maxTokens ?? 4096
-    }
     if (options.jsonMode) {
       body.response_format = { type: 'json_object' }
     }
@@ -259,8 +256,7 @@ export function useLLM() {
     const jsonOptions = {
       ...llmOptions,
       systemPrompt: SYSTEM_PROMPT_JSON,
-      temperature: 0.1,
-      maxTokens: 16384
+      temperature: 0.1
     }
 
     let result
@@ -410,7 +406,6 @@ export function useLLM() {
       await callLLMStream('请只回复"连接成功"四个字。', {
         model: config.model || 'gpt-4o-mini',
         systemPrompt: '',
-        maxTokens: 50,
         onContent: (token) => { receivedText += token },
       })
 
@@ -420,8 +415,7 @@ export function useLLM() {
       // 流式失败，降级到非流式
       try {
         const result = await callLLM('请只回复"连接成功"四个字。', {
-          systemPrompt: '',
-          maxTokens: 50
+          systemPrompt: ''
         })
         const text = extractText(result).substring(0, 100)
         return { success: true, message: `✅ 连接成功（非流式）！模型回复: ${text}` }

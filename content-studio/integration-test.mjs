@@ -215,7 +215,6 @@ import('./src/data/question-types.js').then(async ({ buildPrompt, QUESTION_TYPES
       { role: 'user', content: '生成 1 道西班牙语 A1 图片识词题。返回 JSON 数组，包含 type, typeName, language, cefr, unit, unitTheme, difficulty, tags, imageDesc, options, answerIdx。直接输出 JSON。' }
     ],
     temperature: 0.1,
-    max_tokens: 1000,
     stream: false
   }
 

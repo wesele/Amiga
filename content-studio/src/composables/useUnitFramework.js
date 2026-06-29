@@ -17,7 +17,6 @@ async function streamPrompt(llm, prompt, options = {}) {
   await llm.callLLMStream(prompt, {
     signal: options.signal,
     temperature: 0.7,
-    maxTokens: 16384,
     onContent: (token, full) => {
       accumulated = full
       tokens++

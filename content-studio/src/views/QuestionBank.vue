@@ -1284,7 +1284,6 @@ ${selectedTypes.map(t => `- ${t.id} (${t.title}): ${t.description}`).join('\n')}
     const result = await llm.callLLMForJSON(prompt, { 
       signal, 
       temperature: 0.3, 
-      maxTokens: 8192,
       onStreamProgress: (content, reasoning) => {
         const currentLength = (content || '').length + (reasoning || '').length
         if (currentLength > tokensReceived) {
