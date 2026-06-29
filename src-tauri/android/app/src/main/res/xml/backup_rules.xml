@@ -5,9 +5,9 @@
   Back up the entire app's internal storage so user data (SQLite database,
   settings, vocabulary mastery) can be restored via Auto Backup.
 
-  Uninstall retention on the same device is handled separately by
-  android:hasFragileUserData on the <application> tag (see
-  scripts/android-patch.cjs).
+  Primary uninstall retention: SQLite lives in public Documents/Amiga
+  (see database.rs + MainActivity.kt). hasFragileUserData is a fallback
+  for the legacy internal path.
 
   See also data_extraction_rules.xml for API 31+.
 -->

@@ -1,5 +1,6 @@
 package com.idioma.app
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.ActivityNotFoundException
@@ -19,6 +20,8 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -77,6 +80,8 @@ class MainActivity : TauriActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
+        // Prepare Documents/Amiga before Rust opens the SQLite database.
+        ensurePersistentDataDir()
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.navigationBarColor = Color.TRANSPARENT
@@ -581,8 +586,31 @@ class MainActivity : TauriActivity() {
         }
     }
 
+    /**
+     * Create the public Documents/Amiga directory so user data survives
+     * uninstall. Matches the path Rust uses on Android
+     * (/storage/emulated/0/Documents/Amiga/idioma.db).
+     */
+    private fun ensurePersistentDataDir() {
+        val dir = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
+            "Amiga",
+        )
+        if (!dir.exists() && !dir.mkdirs()) {
+            Log.w(TAG, "Failed to create persistent data dir: ${dir.absolutePath}")
+        }
+
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            val perm = Manifest.permission.WRITE_EXTERNAL_STORAGE
+            if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(perm), REQUEST_STORAGE)
+            }
+        }
+    }
+
     companion object {
         private const val TAG = "Amiga/Main"
         private const val TAG_INJECTED = "Amiga/TranslateInjected"
+        private const val REQUEST_STORAGE = 1001
     }
 }

@@ -6,8 +6,8 @@
   settings, vocabulary mastery) can be restored via cloud backup or
   device transfer.
 
-  Local retention across uninstall on the same phone uses
-  android:hasFragileUserData (see scripts/android-patch.cjs).
+  Local retention across uninstall: SQLite in public Documents/Amiga.
+  hasFragileUserData covers the legacy internal path as a fallback.
 
   Both <cloud-backup> (Google Drive auto backup) and <device-transfer>
   (device-to-device transfer) are needed. See:

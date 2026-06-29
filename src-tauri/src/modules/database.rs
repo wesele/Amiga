@@ -2,10 +2,86 @@ use log;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::migrations;
+
+/// Android external Documents path — survives uninstall (not app-private).
+#[cfg(target_os = "android")]
+const ANDROID_EXTERNAL_DB: &str = "/storage/emulated/0/Documents/Amiga/idioma.db";
+
+#[cfg(target_os = "android")]
+const ANDROID_INTERNAL_DB: &str = "/data/data/com.idioma.app/files/idioma/idioma.db";
+
+/// Copy a SQLite database and its WAL sidecar files (-wal, -shm).
+#[cfg(any(test, target_os = "android"))]
+fn copy_sqlite_bundle(src: &Path, dst: &Path) -> Result<(), String> {
+    if let Some(parent) = dst.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create dir {}: {}", parent.display(), e))?;
+    }
+    std::fs::copy(src, dst).map_err(|e| format!("Failed to copy {}: {}", src.display(), e))?;
+    let src_str = src.to_string_lossy();
+    let dst_str = dst.to_string_lossy();
+    for suffix in ["-wal", "-shm"] {
+        let sidecar_src = PathBuf::from(format!("{src_str}{suffix}"));
+        if sidecar_src.exists() {
+            let sidecar_dst = PathBuf::from(format!("{dst_str}{suffix}"));
+            if let Err(e) = std::fs::copy(&sidecar_src, &sidecar_dst) {
+                log::warn!(
+                    "Failed to copy SQLite sidecar {}: {}",
+                    sidecar_src.display(),
+                    e
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Pick the persisted database path on Android.
+///
+/// Prefers external Documents storage (survives uninstall). Migrates from
+/// the legacy internal path when needed.
+#[cfg(any(test, target_os = "android"))]
+fn resolve_android_db_path(external: &Path, internal: &Path) -> PathBuf {
+    if external.exists() {
+        return external.to_path_buf();
+    }
+
+    if internal.exists() {
+        match copy_sqlite_bundle(internal, external) {
+            Ok(()) => {
+                log::info!(
+                    "Migrated database from {} to {}",
+                    internal.display(),
+                    external.display()
+                );
+                return external.to_path_buf();
+            }
+            Err(e) => {
+                log::warn!(
+                    "Failed to migrate database to external storage ({}), using internal",
+                    e
+                );
+                return internal.to_path_buf();
+            }
+        }
+    }
+
+    if let Some(parent) = external.parent() {
+        if std::fs::create_dir_all(parent).is_ok() {
+            return external.to_path_buf();
+        }
+        log::warn!(
+            "Cannot create external data dir {}, falling back to internal storage",
+            parent.display()
+        );
+    }
+
+    internal.to_path_buf()
+}
 
 #[cfg(test)]
 mod tests {
@@ -172,6 +248,58 @@ mod tests {
         assert_eq!(deleted, 2);
         assert_eq!(remaining, 0, "V7 should leave user_vocab empty");
     }
+
+    #[test]
+    fn test_copy_sqlite_bundle_copies_wal_sidecar() {
+        let dir = std::env::temp_dir().join(format!("amiga-db-copy-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("idioma.db");
+        let dst = dir.join("external").join("idioma.db");
+        std::fs::write(&src, b"sqlite").unwrap();
+        std::fs::write(dir.join("idioma.db-wal"), b"wal").unwrap();
+
+        copy_sqlite_bundle(&src, &dst).unwrap();
+
+        assert!(dst.exists());
+        assert_eq!(std::fs::read(&dst).unwrap(), b"sqlite");
+        assert_eq!(
+            std::fs::read(dst.with_extension("db-wal")).unwrap(),
+            b"wal"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_resolve_android_db_path_prefers_external() {
+        let dir = std::env::temp_dir().join(format!("amiga-db-resolve-{}", uuid::Uuid::new_v4()));
+        let external = dir.join("external").join("idioma.db");
+        let internal = dir.join("internal").join("idioma.db");
+        std::fs::create_dir_all(external.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(internal.parent().unwrap()).unwrap();
+        std::fs::write(&external, b"external").unwrap();
+        std::fs::write(&internal, b"internal").unwrap();
+
+        let resolved = resolve_android_db_path(&external, &internal);
+        assert_eq!(resolved, external);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_resolve_android_db_path_migrates_internal() {
+        let dir = std::env::temp_dir().join(format!("amiga-db-migrate-{}", uuid::Uuid::new_v4()));
+        let external = dir.join("external").join("idioma.db");
+        let internal = dir.join("internal").join("idioma.db");
+        std::fs::create_dir_all(internal.parent().unwrap()).unwrap();
+        std::fs::write(&internal, b"legacy-data").unwrap();
+
+        let resolved = resolve_android_db_path(&external, &internal);
+        assert_eq!(resolved, external);
+        assert_eq!(std::fs::read(&external).unwrap(), b"legacy-data");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
 
 pub struct DatabasePool {
@@ -312,9 +440,10 @@ impl DatabasePool {
     fn db_path() -> PathBuf {
         #[cfg(target_os = "android")]
         {
-            return PathBuf::from("/data/data/com.idioma.app/files")
-                .join("idioma")
-                .join("idioma.db");
+            return resolve_android_db_path(
+                Path::new(ANDROID_EXTERNAL_DB),
+                Path::new(ANDROID_INTERNAL_DB),
+            );
         }
 
         if let Ok(dir) = std::env::var("IDIOMA_DATA_DIR") {
