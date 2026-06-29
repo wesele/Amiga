@@ -40,6 +40,27 @@ fn copy_sqlite_bundle(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// True when the directory exists (or can be created) and accepts writes.
+///
+/// Kotlin may create Documents/Amiga before Rust runs, but on Android 10+
+/// scoped storage can still block direct file writes from native code even
+/// when the folder is present — probe with a real write instead of only
+/// checking `create_dir_all`.
+#[cfg(any(test, target_os = "android"))]
+fn is_directory_writable(dir: &Path) -> bool {
+    if std::fs::create_dir_all(dir).is_err() {
+        return false;
+    }
+    let probe = dir.join(".amiga_write_probe");
+    match std::fs::write(&probe, b"") {
+        Ok(()) => {
+            let _ = std::fs::remove_file(&probe);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
 /// Pick the persisted database path on Android.
 ///
 /// Prefers external Documents storage (survives uninstall). Migrates from
@@ -51,31 +72,40 @@ fn resolve_android_db_path(external: &Path, internal: &Path) -> PathBuf {
     }
 
     if internal.exists() {
-        match copy_sqlite_bundle(internal, external) {
-            Ok(()) => {
-                log::info!(
-                    "Migrated database from {} to {}",
-                    internal.display(),
-                    external.display()
-                );
-                return external.to_path_buf();
-            }
-            Err(e) => {
+        if let Some(parent) = external.parent() {
+            if is_directory_writable(parent) {
+                match copy_sqlite_bundle(internal, external) {
+                    Ok(()) => {
+                        log::info!(
+                            "Migrated database from {} to {}",
+                            internal.display(),
+                            external.display()
+                        );
+                        return external.to_path_buf();
+                    }
+                    Err(e) => {
+                        log::warn!(
+                            "Failed to migrate database to external storage ({}), using internal",
+                            e
+                        );
+                    }
+                }
+            } else {
                 log::warn!(
-                    "Failed to migrate database to external storage ({}), using internal",
-                    e
+                    "External data dir {} is not writable, keeping internal database",
+                    parent.display()
                 );
-                return internal.to_path_buf();
             }
         }
+        return internal.to_path_buf();
     }
 
     if let Some(parent) = external.parent() {
-        if std::fs::create_dir_all(parent).is_ok() {
+        if is_directory_writable(parent) {
             return external.to_path_buf();
         }
         log::warn!(
-            "Cannot create external data dir {}, falling back to internal storage",
+            "External data dir {} is not writable, falling back to internal storage",
             parent.display()
         );
     }
@@ -300,6 +330,37 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn test_resolve_android_db_path_falls_back_when_external_not_writable() {
+        let dir = std::env::temp_dir().join(format!("amiga-db-readonly-{}", uuid::Uuid::new_v4()));
+        let external = dir.join("external").join("idioma.db");
+        let internal = dir.join("internal").join("idioma.db");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::create_dir_all(external.parent().unwrap()).unwrap();
+            let mut perms = std::fs::metadata(external.parent().unwrap())
+                .unwrap()
+                .permissions();
+            perms.set_mode(0o555);
+            std::fs::set_permissions(external.parent().unwrap(), perms).unwrap();
+        }
+
+        let resolved = resolve_android_db_path(&external, &internal);
+        assert_eq!(resolved, internal);
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(external.parent().unwrap())
+                .unwrap()
+                .permissions();
+            perms.set_mode(0o755);
+            let _ = std::fs::set_permissions(external.parent().unwrap(), perms);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
 
 pub struct DatabasePool {
@@ -310,11 +371,33 @@ pub struct DatabasePool {
 impl DatabasePool {
     pub fn new() -> Result<Self, String> {
         let db_path = Self::db_path();
+        match Self::open_at(&db_path) {
+            Ok(db) => Ok(db),
+            Err(e) => {
+                #[cfg(target_os = "android")]
+                {
+                    let internal = PathBuf::from(ANDROID_INTERNAL_DB);
+                    if db_path != internal {
+                        log::warn!(
+                            "Failed to open database at {:?} ({}), retrying internal path",
+                            db_path,
+                            e
+                        );
+                        return Self::open_at(&internal);
+                    }
+                }
+                Err(e)
+            }
+        }
+    }
+
+    fn open_at(db_path: &Path) -> Result<Self, String> {
         if let Some(parent) = db_path.parent() {
-            std::fs::create_dir_all(parent).expect("Failed to create database directory");
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create database directory: {}", e))?;
         }
 
-        let manager = SqliteConnectionManager::file(&db_path).with_init(|c| {
+        let manager = SqliteConnectionManager::file(db_path).with_init(|c| {
             c.execute_batch(
                 "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;",
             )

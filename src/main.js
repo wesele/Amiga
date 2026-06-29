@@ -168,4 +168,11 @@ async function bootstrap() {
   await router.replace(router.currentRoute.value.fullPath);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error("Bootstrap failed:", err);
+  const root = document.getElementById("app");
+  if (root) {
+    root.innerHTML =
+      '<p style="padding:24px;font-family:sans-serif;color:#333">应用启动失败，请重启或重新安装。</p>';
+  }
+});
