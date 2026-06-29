@@ -494,7 +494,10 @@ impl DatabasePool {
         let tables: Vec<String> = {
             let mut stmt = conn
                 .prepare(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name != 'schema_version'",
+                    "SELECT name FROM sqlite_master
+                     WHERE type='table'
+                       AND name != 'schema_version'
+                       AND name NOT LIKE 'sqlite_%'",
                 )
                 .map_err(|e| format!("Failed to list tables: {}", e))?;
             let rows = stmt

@@ -919,4 +919,102 @@ mod tests {
         seed_user(&pool);
         assert!(!is_cloud_sync_enabled(&pool).unwrap());
     }
+
+    /// Live E2E: push local data to Cloudflare, wipe local DB, pull restore.
+    /// Run: cargo test e2e_restore_after_local_reset -- --ignored --test-threads=1 --include-ignored
+    #[tokio::test]
+    #[ignore = "requires network and deployed Cloudflare sync API"]
+    async fn e2e_restore_after_local_reset() {
+        use std::path::PathBuf;
+
+        let (data_dir, cleanup_after) = match std::env::var("IDIOMA_DATA_DIR") {
+            Ok(path) if !path.is_empty() => (PathBuf::from(path), false),
+            _ => {
+                let dir = std::env::temp_dir().join(format!(
+                    "idioma-sync-e2e-{}",
+                    uuid::Uuid::new_v4()
+                ));
+                std::fs::create_dir_all(&dir).expect("temp data dir");
+                std::env::set_var("IDIOMA_DATA_DIR", &dir);
+                (dir, true)
+            }
+        };
+
+        let pool = DatabasePool::new().expect("file db");
+        let nickname = format!("E2E_{}", &uuid::Uuid::new_v4().to_string()[..8]);
+
+        let user = create_user_from_wizard(
+            &pool,
+            CreateUserRequest {
+                nickname: nickname.clone(),
+                avatar: "🛰️".to_string(),
+                native_language: "zh".to_string(),
+                country: "CN".to_string(),
+                gender: None,
+                birth_year: None,
+                age_range: None,
+            },
+        )
+        .expect("seed user");
+
+        save_setting(&pool, "ui_language", "en").expect("seed setting");
+        crate::modules::user::save_learning_goal(
+            &pool,
+            crate::modules::user::LearningGoal {
+                id: None,
+                user_id: user.id.clone(),
+                target_language: "fr".to_string(),
+                cefr_level: "A2".to_string(),
+                daily_minutes: 20,
+                objective: "travel".to_string(),
+            },
+        )
+        .expect("seed goal");
+
+        let ping = test_cloud_sync().await.expect("ping");
+        assert!(ping.success, "sync ping failed: {}", ping.message);
+
+        set_cloud_sync_enabled(&pool, true, true)
+            .await
+            .expect("initial push enable");
+
+        pool.reset_database().expect("simulate local data loss");
+
+        create_user_from_wizard(
+            &pool,
+            CreateUserRequest {
+                nickname: nickname.clone(),
+                avatar: "😊".to_string(),
+                native_language: "zh".to_string(),
+                country: "CN".to_string(),
+                gender: None,
+                birth_year: None,
+                age_range: None,
+            },
+        )
+        .expect("recreate user after wipe");
+
+        set_cloud_sync_enabled(&pool, true, true)
+            .await
+            .expect("restore from cloud");
+
+        let restored = get_or_create_user(&pool).expect("restored user");
+        assert_eq!(restored.nickname, nickname);
+        assert_eq!(restored.avatar, "🛰️");
+
+        let goals = crate::modules::user::get_learning_goals(&pool, &restored.id)
+            .expect("goals");
+        assert_eq!(goals.len(), 1);
+        assert_eq!(goals[0].target_language, "fr");
+        assert_eq!(goals[0].cefr_level, "A2");
+
+        assert_eq!(
+            get_setting(&pool, "ui_language").expect("setting").as_deref(),
+            Some("en")
+        );
+
+        if cleanup_after {
+            let _ = std::fs::remove_dir_all(&data_dir);
+        }
+    }
 }
