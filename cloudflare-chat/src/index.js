@@ -202,7 +202,16 @@ function makeRepository(env) {
         .first();
       return row || null;
     },
-    async pushSyncSnapshot({ userId, payload, updatedAt, deviceId }) {
+    async pushSyncSnapshot({ userId, payload, updatedAt, deviceId, baseUpdatedAt }) {
+      const existing = await this.pullSyncSnapshot(userId);
+      if (existing) {
+        if (baseUpdatedAt && existing.updatedAt !== baseUpdatedAt) {
+          return { conflict: true };
+        }
+        if (Date.parse(existing.updatedAt) > Date.parse(updatedAt)) {
+          return { conflict: true };
+        }
+      }
       await env.DB
         .prepare(
           `INSERT INTO user_sync_snapshots (user_id, payload, updated_at, device_id)
@@ -466,7 +475,10 @@ async function handleApi(request, env) {
     if (!body.userId || body.payload == null || !body.updatedAt || !body.deviceId) {
       return badRequest("missing-sync-fields");
     }
-    await repository.pushSyncSnapshot(body);
+    const result = await repository.pushSyncSnapshot(body);
+    if (result?.conflict) {
+      return json({ error: "conflict" }, { status: 409 });
+    }
     return json({ ok: true });
   }
 

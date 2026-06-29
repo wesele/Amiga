@@ -6,6 +6,19 @@ use log;
 use rusqlite::{params, Transaction};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::OnceLock;
+use tokio::sync::Mutex as AsyncMutex;
+
+const SYNC_DEBOUNCE_MS: u64 = 3000;
+const SYNC_MAX_ATTEMPTS: u32 = 2;
+
+static SYNC_DEBOUNCE_GEN: AtomicU64 = AtomicU64::new(0);
+
+fn sync_mutex() -> &'static AsyncMutex<()> {
+    static MUTEX: OnceLock<AsyncMutex<()>> = OnceLock::new();
+    MUTEX.get_or_init(|| AsyncMutex::new(()))
+}
 
 pub const SYNC_API_BASE_URL: &str = "https://amiga-chat-social.wh1018.workers.dev";
 
@@ -175,6 +188,14 @@ struct RemoteSnapshot {
 
 fn is_sensitive_setting(key: &str) -> bool {
     SENSITIVE_SETTING_KEYS.contains(&key) || LOCAL_ONLY_SETTING_KEYS.contains(&key)
+}
+
+pub fn is_syncable_setting(key: &str) -> bool {
+    !is_sensitive_setting(key)
+}
+
+fn is_sync_conflict_error(message: &str) -> bool {
+    message.contains("409") || message.contains("conflict")
 }
 
 fn now_iso() -> String {
@@ -535,7 +556,8 @@ fn import_sync_payload_tx(tx: &Transaction<'_>, payload: &SyncPayload) -> Result
         tx.execute(
             "INSERT INTO news_reading_log (user_id, article_id, words_looked_up, words_known,
              words_unknown, reading_time_sec, completed, read_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT(user_id, article_id, read_at) DO NOTHING",
             params![
                 local_user_id,
                 article_id,
@@ -547,7 +569,7 @@ fn import_sync_payload_tx(tx: &Transaction<'_>, payload: &SyncPayload) -> Result
                 row.read_at,
             ],
         )
-        .ok();
+        .map_err(|e| format!("Failed to import news reading log: {}", e))?;
     }
 
     for row in &payload.streak_records {
@@ -694,6 +716,7 @@ async fn push_remote_snapshot(
     payload_json: &str,
     updated_at: &str,
     device_id: &str,
+    base_updated_at: Option<&str>,
 ) -> Result<(), String> {
     let url = format!("{}/api/sync/push", SYNC_API_BASE_URL);
     let client = reqwest::Client::builder()
@@ -706,6 +729,7 @@ async fn push_remote_snapshot(
         "payload": payload_json,
         "updatedAt": updated_at,
         "deviceId": device_id,
+        "baseUpdatedAt": base_updated_at,
     });
 
     let resp = client
@@ -715,6 +739,9 @@ async fn push_remote_snapshot(
         .await
         .map_err(|e| format!("Sync push failed: {}", e))?;
 
+    if resp.status() == reqwest::StatusCode::CONFLICT {
+        return Err("Sync push conflict: remote changed".to_string());
+    }
     if !resp.status().is_success() {
         return Err(format!("Sync push HTTP {}", resp.status()));
     }
@@ -737,11 +764,25 @@ fn parse_iso_ms(value: &str) -> i64 {
         .unwrap_or(0)
 }
 
-pub async fn run_cloud_sync(db: &DatabasePool) -> Result<RunCloudSyncResult, String> {
-    if !is_cloud_sync_enabled(db)? {
-        return Err("Cloud sync is disabled".to_string());
+pub fn schedule_cloud_sync(db: &DatabasePool) {
+    if !is_cloud_sync_enabled(db).unwrap_or(false) {
+        return;
     }
 
+    let db = db.clone();
+    let generation = SYNC_DEBOUNCE_GEN.fetch_add(1, Ordering::SeqCst) + 1;
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(SYNC_DEBOUNCE_MS)).await;
+        if SYNC_DEBOUNCE_GEN.load(Ordering::SeqCst) != generation {
+            return;
+        }
+        if let Err(e) = run_cloud_sync(&db).await {
+            log::warn!("Background cloud sync failed: {}", e);
+        }
+    });
+}
+
+async fn run_cloud_sync_attempt(db: &DatabasePool) -> Result<RunCloudSyncResult, String> {
     let user = get_or_create_user(db)?;
     let nickname = user.nickname.trim().to_string();
     if nickname.is_empty() {
@@ -770,7 +811,14 @@ pub async fn run_cloud_sync(db: &DatabasePool) -> Result<RunCloudSyncResult, Str
             let payload_json = serde_json::to_string(&payload)
                 .map_err(|e| format!("Failed to serialize sync payload: {}", e))?;
             let stamp = now_iso();
-            push_remote_snapshot(&nickname, &payload_json, &stamp, &device_id).await?;
+            push_remote_snapshot(
+                &nickname,
+                &payload_json,
+                &stamp,
+                &device_id,
+                Some(&remote.updated_at),
+            )
+            .await?;
             save_setting(db, SETTING_LAST_PUSHED, &stamp)?;
             direction = "push".to_string();
             updated_at = stamp;
@@ -780,7 +828,7 @@ pub async fn run_cloud_sync(db: &DatabasePool) -> Result<RunCloudSyncResult, Str
         let payload_json = serde_json::to_string(&payload)
             .map_err(|e| format!("Failed to serialize sync payload: {}", e))?;
         let stamp = now_iso();
-        push_remote_snapshot(&nickname, &payload_json, &stamp, &device_id).await?;
+        push_remote_snapshot(&nickname, &payload_json, &stamp, &device_id, None).await?;
         save_setting(db, SETTING_LAST_PUSHED, &stamp)?;
         direction = "push".to_string();
         updated_at = stamp;
@@ -793,6 +841,31 @@ pub async fn run_cloud_sync(db: &DatabasePool) -> Result<RunCloudSyncResult, Str
         direction,
         updated_at,
     })
+}
+
+pub async fn run_cloud_sync(db: &DatabasePool) -> Result<RunCloudSyncResult, String> {
+    if !is_cloud_sync_enabled(db)? {
+        return Err("Cloud sync is disabled".to_string());
+    }
+
+    let _guard = sync_mutex().lock().await;
+
+    for attempt in 0..SYNC_MAX_ATTEMPTS {
+        match run_cloud_sync_attempt(db).await {
+            Ok(result) => return Ok(result),
+            Err(err) if is_sync_conflict_error(&err) && attempt + 1 < SYNC_MAX_ATTEMPTS => {
+                log::info!("Cloud sync push conflict, retrying (attempt {})", attempt + 2);
+            }
+            Err(err) => {
+                let _ = save_setting(db, SETTING_LAST_ERROR, &err);
+                return Err(err);
+            }
+        }
+    }
+
+    let err = "Cloud sync failed after conflict retries".to_string();
+    let _ = save_setting(db, SETTING_LAST_ERROR, &err);
+    Err(err)
 }
 
 pub async fn set_cloud_sync_enabled(
@@ -841,14 +914,19 @@ pub async fn set_cloud_sync_enabled(
     }
 
     save_setting(db, SETTING_ENABLED, "true")?;
-    run_cloud_sync(db).await?;
-
-    Ok(SetCloudSyncEnabledResult {
-        enabled: true,
-        remote_conflict,
-        remote_device_id,
-        remote_updated_at,
-    })
+    match run_cloud_sync(db).await {
+        Ok(_) => Ok(SetCloudSyncEnabledResult {
+            enabled: true,
+            remote_conflict,
+            remote_device_id,
+            remote_updated_at,
+        }),
+        Err(err) => {
+            save_setting(db, SETTING_ENABLED, "false")?;
+            save_setting(db, SETTING_LAST_ERROR, &err)?;
+            Err(err)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -918,6 +996,52 @@ mod tests {
         let pool = test_pool();
         seed_user(&pool);
         assert!(!is_cloud_sync_enabled(&pool).unwrap());
+    }
+
+    #[test]
+    fn is_syncable_setting_filters_sensitive_and_local_keys() {
+        assert!(is_syncable_setting("ui_language"));
+        assert!(!is_syncable_setting("primary_api_key"));
+        assert!(!is_syncable_setting("cloud_sync_enabled"));
+    }
+
+    #[test]
+    fn import_skips_duplicate_reading_log_rows() {
+        let pool = test_pool();
+        let user_id = seed_user(&pool);
+        {
+            let conn = pool.conn().unwrap();
+            conn.execute(
+                "INSERT INTO news_articles (original_title, source, region, hot_rank, fetched_at)
+                 VALUES ('Test', 'test-source', 'world', 1, datetime('now'))",
+                [],
+            )
+            .unwrap();
+        }
+
+        let mut payload = export_sync_payload(&pool).unwrap();
+        payload.news_reading_log = vec![SyncReadingLogRow {
+            article_source: Some("test-source".to_string()),
+            words_looked_up: None,
+            words_known: None,
+            words_unknown: None,
+            reading_time_sec: 42,
+            completed: true,
+            read_at: "2026-06-29T12:00:00Z".to_string(),
+        }];
+
+        import_sync_payload(&pool, &payload).unwrap();
+        import_sync_payload(&pool, &payload).unwrap();
+
+        let conn = pool.conn().unwrap();
+        let count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM news_reading_log WHERE user_id = ?1",
+                params![user_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
     }
 
     /// Live E2E: push local data to Cloudflare, wipe local DB, pull restore.

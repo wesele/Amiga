@@ -36,7 +36,6 @@ pub fn run() {
         if let Ok(true) = modules::sync::is_cloud_sync_enabled(&db_for_startup_sync) {
             if let Err(e) = modules::sync::run_cloud_sync(&db_for_startup_sync).await {
                 log::warn!("Startup cloud sync failed: {}", e);
-                let _ = modules::llm::save_setting(&db_for_startup_sync, "cloud_sync_last_error", &e);
             }
         }
     });

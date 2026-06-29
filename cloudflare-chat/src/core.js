@@ -168,7 +168,16 @@ export function createMemoryRepository() {
     async pullSyncSnapshot(userId) {
       return syncSnapshots.get(userId) || null;
     },
-    async pushSyncSnapshot({ userId, payload, updatedAt, deviceId }) {
+    async pushSyncSnapshot({ userId, payload, updatedAt, deviceId, baseUpdatedAt }) {
+      const existing = syncSnapshots.get(userId);
+      if (existing) {
+        if (baseUpdatedAt && existing.updatedAt !== baseUpdatedAt) {
+          return { conflict: true };
+        }
+        if (Date.parse(existing.updatedAt) > Date.parse(updatedAt)) {
+          return { conflict: true };
+        }
+      }
       syncSnapshots.set(userId, { userId, payload, updatedAt, deviceId });
       return { ok: true };
     },

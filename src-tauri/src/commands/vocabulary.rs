@@ -1,6 +1,11 @@
 use crate::modules::database::DatabasePool;
+use crate::modules::sync;
 use crate::modules::vocabulary as vocab_mod;
 use tauri::State;
+
+fn after_syncable_write(db: &DatabasePool) {
+    sync::schedule_cloud_sync(db);
+}
 
 #[tauri::command]
 pub async fn import_vocab_bank_cmd(db: State<'_, DatabasePool>) -> Result<i32, String> {
@@ -18,7 +23,9 @@ pub async fn init_user_vocab_cmd(
     user_id: String,
     cefr_level: String,
 ) -> Result<(), String> {
-    vocab_mod::init_user_vocab(&db, &user_id, &cefr_level)
+    vocab_mod::init_user_vocab(&db, &user_id, &cefr_level)?;
+    after_syncable_write(&db);
+    Ok(())
 }
 
 #[tauri::command]
@@ -29,7 +36,9 @@ pub async fn update_word_mastery_cmd(
     mastery: i32,
     source: String,
 ) -> Result<(), String> {
-    vocab_mod::update_word_mastery(&db, &user_id, word_id, mastery, &source)
+    vocab_mod::update_word_mastery(&db, &user_id, word_id, mastery, &source)?;
+    after_syncable_write(&db);
+    Ok(())
 }
 
 #[tauri::command]
@@ -77,7 +86,9 @@ pub async fn mark_words_seen_cmd(
     user_id: String,
     word_ids: Vec<i32>,
 ) -> Result<(), String> {
-    vocab_mod::mark_words_seen(&db, &user_id, &word_ids)
+    vocab_mod::mark_words_seen(&db, &user_id, &word_ids)?;
+    after_syncable_write(&db);
+    Ok(())
 }
 
 #[tauri::command]
@@ -96,7 +107,9 @@ pub async fn ensure_words_seen_cmd(
     words: Vec<String>,
     language: String,
 ) -> Result<(), String> {
-    vocab_mod::ensure_words_seen(&db, &user_id, &words, &language)
+    vocab_mod::ensure_words_seen(&db, &user_id, &words, &language)?;
+    after_syncable_write(&db);
+    Ok(())
 }
 
 #[tauri::command]
@@ -107,7 +120,10 @@ pub async fn add_discovered_word_cmd(
     language: String,
     context: Option<String>,
 ) -> Result<i32, String> {
-    vocab_mod::add_discovered_word(&db, &user_id, &word, &language, context.as_deref())
+    let word_id =
+        vocab_mod::add_discovered_word(&db, &user_id, &word, &language, context.as_deref())?;
+    after_syncable_write(&db);
+    Ok(word_id)
 }
 
 #[tauri::command]
@@ -117,5 +133,7 @@ pub async fn reset_user_vocab_by_level_cmd(
     language: String,
     cefr_level: String,
 ) -> Result<(), String> {
-    vocab_mod::reset_user_vocab_by_level(&db, &user_id, &language, &cefr_level)
+    vocab_mod::reset_user_vocab_by_level(&db, &user_id, &language, &cefr_level)?;
+    after_syncable_write(&db);
+    Ok(())
 }

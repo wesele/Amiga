@@ -106,3 +106,25 @@ test("sync snapshots round-trip by nickname", async () => {
   assert.equal(snapshot.deviceId, "device-a");
   assert.equal(snapshot.payload, "{\"version\":1}");
 });
+
+test("sync push rejects stale baseUpdatedAt", async () => {
+  const repository = createMemoryRepository();
+  await repository.pushSyncSnapshot({
+    userId: "Alice",
+    payload: "{\"version\":1}",
+    updatedAt: "2026-06-29T11:00:00.000Z",
+    deviceId: "device-a",
+  });
+
+  const conflict = await repository.pushSyncSnapshot({
+    userId: "Alice",
+    payload: "{\"version\":2}",
+    updatedAt: "2026-06-29T12:00:00.000Z",
+    deviceId: "device-b",
+    baseUpdatedAt: "2026-06-29T10:00:00.000Z",
+  });
+
+  assert.equal(conflict.conflict, true);
+  const snapshot = await repository.pullSyncSnapshot("Alice");
+  assert.equal(snapshot.payload, "{\"version\":1}");
+});

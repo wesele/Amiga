@@ -51,6 +51,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Track current news batch visibility so refresh replaces the visible list without deleting reading history",
             MIGRATION_V13,
         ),
+        (
+            14,
+            "Deduplicate news_reading_log rows on cloud sync import",
+            MIGRATION_V14,
+        ),
     ]
 }
 
@@ -299,4 +304,9 @@ ALTER TABLE news_articles ADD COLUMN is_current INTEGER NOT NULL DEFAULT 1;
 
 CREATE INDEX IF NOT EXISTS idx_news_region_current
   ON news_articles(region, is_current, hot_rank, fetched_at);
+"#;
+
+const MIGRATION_V14: &str = r#"
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reading_log_user_article_read_at
+  ON news_reading_log(user_id, article_id, read_at);
 "#;

@@ -1,5 +1,6 @@
 use crate::modules::database::DatabasePool;
 use crate::modules::news as news_mod;
+use crate::modules::sync;
 use tauri::State;
 
 #[tauri::command]
@@ -32,7 +33,9 @@ pub async fn save_reading_log_cmd(
     db: State<'_, DatabasePool>,
     log_entry: news_mod::ReadingLog,
 ) -> Result<(), String> {
-    news_mod::save_reading_log(&db, &log_entry)
+    news_mod::save_reading_log(&db, &log_entry)?;
+    sync::schedule_cloud_sync(&db);
+    Ok(())
 }
 
 #[tauri::command]

@@ -1,5 +1,6 @@
 use crate::modules::database::DatabasePool;
 use crate::modules::llm as llm_mod;
+use crate::modules::sync;
 use tauri::State;
 
 // We need to store the LlmClient as Tauri state too
@@ -116,7 +117,11 @@ pub async fn save_setting_cmd(
     key: String,
     value: String,
 ) -> Result<(), String> {
-    llm_mod::save_setting(&db, &key, &value)
+    llm_mod::save_setting(&db, &key, &value)?;
+    if sync::is_syncable_setting(&key) {
+        sync::schedule_cloud_sync(&db);
+    }
+    Ok(())
 }
 
 #[tauri::command]
