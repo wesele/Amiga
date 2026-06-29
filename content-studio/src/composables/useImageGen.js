@@ -181,27 +181,75 @@ export function useImageGen() {
   }
 
   async function callLlm(userPrompt, llmOpts, options) {
-    options.onProgress?.('正在调用 LLM 生成 SVG...')
-    let result = await llm.callLLM(userPrompt, llmOpts)
-    if (tryExtractSvg(pickSvgSource(result))) return result
+    options.onProgress?.('正在流式调用 LLM 生成 SVG...')
 
-    options.onProgress?.('非流式无有效 SVG，尝试流式接收...', 'warning')
-    let tokens = 0
-    result = await llm.callLLMStream(userPrompt, {
-      ...llmOpts,
-      onContent: (_token, full) => {
-        tokens++
-        if (tokens % 8 === 0 || tokens <= 3) {
-          options.onProgress?.(`正在接收 SVG... (${full.length} 字符)`)
-        }
-      },
-      onReasoning: (_token, full) => {
-        if (full.length % 500 < 50) {
-          options.onProgress?.(`模型思考中... (${full.length} 字符)`)
-        }
+    let contentLen = 0
+    let reasoningLen = 0
+    let lastReportAt = 0
+
+    const reportProgress = (force = false) => {
+      const now = Date.now()
+      if (!force && now - lastReportAt < 600) return
+      lastReportAt = now
+      if (contentLen > 0) {
+        options.onProgress?.(`正在接收 SVG 内容... (${contentLen} 字符)`)
+      } else if (reasoningLen > 0) {
+        options.onProgress?.(`模型思考中... (${reasoningLen} 字符)`)
       }
-    })
-    return result
+    }
+
+    const streamT0 = Date.now()
+    const streamHeartbeat = setInterval(() => {
+      const secs = Math.round((Date.now() - streamT0) / 1000)
+      if (contentLen === 0 && reasoningLen === 0) {
+        options.onProgress?.(`等待模型响应... (${secs}s)`)
+      } else {
+        reportProgress(true)
+      }
+    }, 1500)
+
+    let result
+    try {
+      result = await llm.callLLMStream(userPrompt, {
+        ...llmOpts,
+        onContent: (_token, full) => {
+          contentLen = full.length
+          reportProgress()
+        },
+        onReasoning: (_token, full) => {
+          reasoningLen = full.length
+          reportProgress()
+        }
+      })
+    } finally {
+      clearInterval(streamHeartbeat)
+    }
+
+    reportProgress(true)
+    if (tryExtractSvg(pickSvgSource(result))) {
+      options.onProgress?.(
+        `流式接收完成 (content ${contentLen} / reasoning ${reasoningLen} 字符)`,
+        'success'
+      )
+      return result
+    }
+
+    options.onProgress?.('流式结果无效，尝试非流式请求...', 'warning')
+    const t0 = Date.now()
+    const heartbeat = setInterval(() => {
+      const secs = Math.round((Date.now() - t0) / 1000)
+      options.onProgress?.(`等待非流式响应... (${secs}s)`)
+    }, 2000)
+
+    try {
+      result = await llm.callLLM(userPrompt, llmOpts)
+      const c = result?.content?.length || 0
+      const r = result?.reasoning?.length || 0
+      options.onProgress?.(`非流式响应完成 (content ${c} / reasoning ${r} 字符)`, 'success')
+      return result
+    } finally {
+      clearInterval(heartbeat)
+    }
   }
 
   async function generateSvg(desc, prompt = '', options = {}) {
