@@ -39,9 +39,14 @@ export function extractSvg(text) {
     .replace(/```\s*/g, '')
     .trim()
 
-  const match = cleaned.match(/<svg[\s\S]*?<\/svg>/i)
-  if (!match) throw new Error('无法从 LLM 响应中提取 SVG')
-  return match[0]
+  // 推理模型常在 reasoning 末尾输出 SVG；取最后一个完整块
+  const matches = [...cleaned.matchAll(/<svg[\s\S]*?<\/svg>/gi)]
+  if (matches.length > 0) return matches[matches.length - 1][0]
+
+  const greedy = cleaned.match(/<svg[\s\S]*<\/svg>/i)
+  if (greedy) return greedy[0]
+
+  throw new Error('无法从 LLM 响应中提取 SVG（模型可能未输出完整的 </svg>）')
 }
 
 export function sanitizeSvg(svg) {
@@ -59,11 +64,27 @@ export function sanitizeSvg(svg) {
   return s
 }
 
-export function svgToJpegDataUrl(svg, size = 400, quality = 0.92) {
+export function svgToJpegDataUrl(svg, size = 400, quality = 0.92, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
     const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
     const objectUrl = URL.createObjectURL(blob)
     const img = new Image()
+    let settled = false
+
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error('SVG 渲染超时'))
+    }, timeoutMs)
+
+    const finish = (fn) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      URL.revokeObjectURL(objectUrl)
+      fn()
+    }
 
     img.onload = () => {
       try {
@@ -74,17 +95,14 @@ export function svgToJpegDataUrl(svg, size = 400, quality = 0.92) {
         ctx.fillStyle = '#ffffff'
         ctx.fillRect(0, 0, size, size)
         ctx.drawImage(img, 0, 0, size, size)
-        resolve(canvas.toDataURL('image/jpeg', quality))
+        finish(() => resolve(canvas.toDataURL('image/jpeg', quality)))
       } catch (e) {
-        reject(e)
-      } finally {
-        URL.revokeObjectURL(objectUrl)
+        finish(() => reject(e))
       }
     }
 
     img.onerror = () => {
-      URL.revokeObjectURL(objectUrl)
-      reject(new Error('SVG 渲染失败，图形可能无效'))
+      finish(() => reject(new Error('SVG 渲染失败，图形可能无效')))
     }
 
     img.src = objectUrl
@@ -113,6 +131,15 @@ export function useImageGen() {
   const llm = useLLM()
   const promptStorage = usePromptStorage()
 
+  function pickSvgSource(result) {
+    const content = result?.content?.trim() || ''
+    const reasoning = result?.reasoning?.trim() || ''
+    // 推理模型最终 SVG 通常在 content；否则从 reasoning 末尾提取
+    if (content && /<svg/i.test(content)) return content
+    if (reasoning && /<svg/i.test(reasoning)) return reasoning
+    return content || reasoning
+  }
+
   async function generateSvg(desc, prompt = '', options = {}) {
     const template = promptStorage.getPrompt('image-svg-gen') || DEFAULT_SVG_PROMPT
     const userPrompt = fillTemplate(template, {
@@ -120,24 +147,55 @@ export function useImageGen() {
       prompt: prompt || desc || 'simple flat vector object'
     })
 
-    const result = await llm.callLLM(userPrompt, {
+    const llmOpts = {
       systemPrompt: SVG_SYSTEM_PROMPT,
       temperature: 0.4,
       maxTokens: 8192,
       signal: options.signal
-    })
+    }
 
-    const raw = result.content || result.reasoning || ''
+    let result = { content: '', reasoning: '' }
+    let tokens = 0
+
+    options.onProgress?.('正在调用 LLM 生成 SVG（流式）...')
+
+    try {
+      result = await llm.callLLMStream(userPrompt, {
+        ...llmOpts,
+        onContent: (_token, full) => {
+          tokens++
+          if (tokens % 8 === 0 || tokens <= 3) {
+            options.onProgress?.(`正在接收 SVG 内容... (${full.length} 字符)`)
+          }
+        },
+        onReasoning: (_token, full) => {
+          if (full.length % 500 < 50) {
+            options.onProgress?.(`模型思考中... (${full.length} 字符)`)
+          }
+        }
+      })
+    } catch (streamErr) {
+      if (streamErr.name === 'AbortError') throw streamErr
+      options.onProgress?.('流式失败，尝试非流式请求...', 'warning')
+      result = await llm.callLLM(userPrompt, llmOpts)
+    }
+
+    const raw = pickSvgSource(result)
+    if (!raw) throw new Error('LLM 未返回 SVG 内容（content 与 reasoning 均为空）')
+
     const svg = sanitizeSvg(extractSvg(raw))
     return svg
   }
 
   /**
    * 生成 SVG → JPEG → 持久化，返回 { svg, url }
+   * @param {object} options.onProgress - (msg, type?) => void
    */
   async function generateAndPersist(desc, prompt, filename, options = {}) {
     const svg = await generateSvg(desc, prompt, options)
+    options.onProgress?.('正在将 SVG 转为 JPEG...')
     const dataUrl = await svgToJpegDataUrl(svg)
+    options.onProgress?.('正在保存图片文件...')
     const url = await persistImage(filename, dataUrl)
     return { svg, url }
   }

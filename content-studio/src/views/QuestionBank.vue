@@ -248,7 +248,7 @@
                 <button
                   v-if="currentQuestion.type === 'T01' || currentQuestion.type === 'T02'"
                   class="btn btn-sm btn-secondary"
-                  :disabled="asyncOp.isLoading.value"
+                  :disabled="isAsyncBusy"
                   @click="generateImagesForCurrent"
                 >🎨 生成图片</button>
                 <button class="btn btn-sm btn-primary" @click="saveCurrentQuestion" :disabled="!isDirty">💾 保存</button>
@@ -600,6 +600,7 @@ const sysConfig = useSystemConfig()
 const vocabStorage = useVocabStorage()
 const unitFramework = useUnitFramework()
 const asyncOp = useAsyncOperation()
+const isAsyncBusy = computed(() => asyncOp.isLoading.value)
 const llm = useLLM()
 const typeStorage = useQuestionTypeStorage()
 const imageGen = useImageGen()
@@ -700,6 +701,11 @@ function getImagePrompt(opt) {
   return opt?.prompt || opt?.imagePrompt || ''
 }
 
+function imageGenProgress(msg, type = 'info') {
+  asyncOp.setMessage(msg)
+  asyncOp.addLog(msg, type)
+}
+
 async function generateImagesForCurrent() {
   const q = currentQuestion.value
   if (!q) return
@@ -711,11 +717,12 @@ async function generateImagesForCurrent() {
   try {
     if (q.type === 'T01') {
       asyncOp.addLog(`生成 T01 图片: ${q.imageDesc || q.id}`, 'info')
+      asyncOp.addLog('推理模型可能需要 30-60 秒，请耐心等待', 'info')
       const { svg, url } = await imageGen.generateAndPersist(
         q.imageDesc,
         q.imagePrompt,
         imageFilename(q.id),
-        { signal: controller.signal }
+        { signal: controller.signal, onProgress: imageGenProgress }
       )
       q.imageSvg = svg
       q.imageUrl = url
@@ -730,7 +737,7 @@ async function generateImagesForCurrent() {
           opt.desc,
           getImagePrompt(opt),
           imageFilename(q.id, `opt${i}`),
-          { signal: controller.signal }
+          { signal: controller.signal, onProgress: imageGenProgress }
         )
         opt.imageSvg = svg
         opt.imageUrl = url
