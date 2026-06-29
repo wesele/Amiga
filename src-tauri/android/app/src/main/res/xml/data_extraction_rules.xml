@@ -6,11 +6,11 @@
   settings, vocabulary mastery) can be restored via cloud backup or
   device transfer.
 
-  Local retention across uninstall: SQLite in public Documents/Amiga.
-  hasFragileUserData covers the legacy internal path as a fallback.
+  Live DB is private internal. Uninstall retention uses MediaStore backup
+  in Downloads/Amiga (survives without MANAGE_EXTERNAL_STORAGE).
+  hasFragileUserData is fallback for system backup.
 
-  Both <cloud-backup> (Google Drive auto backup) and <device-transfer>
-  (device-to-device transfer) are needed. See:
+  Both <cloud-backup> and <device-transfer> are needed. See:
   https://developer.android.com/about/versions/12/backup-restore#data_extraction_rules
 -->
 <data-extraction-rules>

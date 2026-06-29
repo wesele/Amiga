@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
+import android.content.ContentUris
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
@@ -13,6 +14,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Log
 import android.view.View
@@ -27,6 +29,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.IOException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.json.JSONObject
@@ -80,8 +85,14 @@ class MainActivity : TauriActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
-        // Prepare Documents/Amiga before Rust opens the SQLite database.
+        // Try to restore from MediaStore backup (survives uninstall) before
+        // Rust starts. This is the new retention mechanism that does not
+        // require MANAGE_EXTERNAL_STORAGE.
+        tryRestoreFromMediaStoreBackup()
+        // Prepare (legacy) dir; public path is now only for optional backup.
         ensurePersistentDataDir()
+        // Publish a fresh backup copy via MediaStore (no broad storage perm needed).
+        exportBackupToMediaStore()
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.navigationBarColor = Color.TRANSPARENT
@@ -587,43 +598,92 @@ class MainActivity : TauriActivity() {
     }
 
     /**
-     * Create the public Documents/Amiga directory so user data survives
-     * uninstall. Matches the path Rust uses on Android
-     * (/storage/emulated/0/Documents/Amiga/idioma.db).
-     *
-     * On modern Android (10+), direct public storage access is restricted
-     * (scoped storage). We:
-     *  - requestLegacyExternalStorage (via patch) for 10/11 era devices
-     *  - declare MANAGE_EXTERNAL_STORAGE and launch the all-files settings
-     *    for API 30+ so the app can read/write the retained DB copy.
-     *  - Always attempt to create the dir; Rust will probe writability.
+     * Create the legacy Documents/Amiga dir (for old backups or devices that
+     * still allow direct access). The live DB is now always in private
+     * internal storage. A user-visible backup is exported via MediaStore to
+     * Downloads/Amiga so it survives uninstall without needing
+     * MANAGE_EXTERNAL_STORAGE.
      */
     private fun ensurePersistentDataDir() {
         val documents = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
         val dir = File(documents, "Amiga")
         if (!dir.exists() && !dir.mkdirs()) {
-            Log.w(TAG, "Failed to create persistent data dir: ${dir.absolutePath}")
+            Log.w(TAG, "Failed to create legacy Documents/Amiga dir: ${dir.absolutePath}")
         }
 
-        // Legacy permission request (harmless on high SDK; helps with legacy flag)
+        // Optional legacy WRITE for very old devices
         val writePerm = Manifest.permission.WRITE_EXTERNAL_STORAGE
-        if (ContextCompat.checkSelfPermission(this, writePerm) != PackageManager.PERMISSION_GRANTED) {
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
+            ContextCompat.checkSelfPermission(this, writePerm) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(writePerm), REQUEST_STORAGE)
         }
+    }
 
-        // For API 30+ (Android 11+), direct Documents access for arbitrary files
-        // often needs the special "all files" grant. Launch settings if missing.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!Environment.isExternalStorageManager()) {
+    /**
+     * Restore DB from a MediaStore backup (in Downloads/Amiga/amiga_backup.db)
+     * if the private DB does not exist. This provides uninstall-surviving
+     * retention without relying on direct public storage permissions.
+     */
+    private fun tryRestoreFromMediaStoreBackup() {
+        val privateDbDir = File(filesDir, "idioma")
+        val privateDb = File(privateDbDir, "idioma.db")
+        if (privateDb.exists()) return
+
+        val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME)
+        val selection = "${MediaStore.Downloads.DISPLAY_NAME} = ?"
+        val selectionArgs = arrayOf("amiga_backup.db")
+        contentResolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            projection,
+            selection,
+            selectionArgs,
+            null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
+                val uri = ContentUris.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id)
                 try {
-                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                    // Note: this will take user out of app; after grant they can relaunch.
-                    // On return the next launch will see the grant and be able to use public path.
-                    startActivity(intent)
-                    Log.i(TAG, "Requested MANAGE_ALL_FILES_ACCESS_PERMISSION for public Documents retention")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Could not launch all-files settings: ${e.message}")
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        privateDbDir.mkdirs()
+                        FileOutputStream(privateDb).use { output ->
+                            input.copyTo(output)
+                        }
+                        Log.i(TAG, "Restored DB from MediaStore backup to private storage")
+                    }
+                } catch (e: IOException) {
+                    Log.w(TAG, "Failed to restore from MediaStore backup: ${e.message}")
+                    // leave corrupt backup for user to handle via dialog if needed
                 }
+            }
+        }
+    }
+
+    /**
+     * Export a copy of the private DB to MediaStore Downloads/Amiga/amiga_backup.db .
+     * This file survives uninstall and can be re-imported on reinstall.
+     * Called on startup; in a real app you might call it on significant data changes.
+     */
+    private fun exportBackupToMediaStore() {
+        val privateDb = File(filesDir, "idioma/idioma.db")
+        if (!privateDb.exists()) return
+
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, "amiga_backup.db")
+            put(MediaStore.Downloads.MIME_TYPE, "application/x-sqlite3")
+            put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/Amiga")
+        }
+
+        val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+        uri?.let {
+            try {
+                contentResolver.openOutputStream(it)?.use { output ->
+                    FileInputStream(privateDb).use { input ->
+                        input.copyTo(output)
+                    }
+                }
+                Log.i(TAG, "Exported DB backup to MediaStore Downloads/Amiga")
+            } catch (e: IOException) {
+                Log.w(TAG, "Failed to export backup to MediaStore: ${e.message}")
             }
         }
     }

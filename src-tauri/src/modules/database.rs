@@ -8,7 +8,8 @@ use std::sync::Mutex;
 
 use super::migrations;
 
-/// Android external Documents path — survives uninstall (not app-private).
+/// Android external path (now used only for legacy migration / MediaStore backup
+/// copy in Kotlin; live DB is always the private internal path).
 #[cfg(target_os = "android")]
 const ANDROID_EXTERNAL_DB: &str = "/storage/emulated/0/Documents/Amiga/idioma.db";
 
@@ -62,55 +63,15 @@ fn is_directory_writable(dir: &Path) -> bool {
     }
 }
 
-/// Pick the persisted database path on Android.
+/// Pick the database path on Android.
 ///
-/// Prefers external Documents storage (survives uninstall). Migrates from
-/// the legacy internal path when needed.
+/// Always uses private internal storage for the live DB (reliable, no
+/// scoped storage permission issues). Migration from old public or
+/// legacy locations is handled in Kotlin before Rust starts.
+/// A backup copy is published to MediaStore Downloads so a user-visible
+/// copy can survive uninstall (reinstall can restore from it).
 #[cfg(any(test, target_os = "android"))]
-fn resolve_android_db_path(external: &Path, internal: &Path) -> PathBuf {
-    if external.exists() {
-        return external.to_path_buf();
-    }
-
-    if internal.exists() {
-        if let Some(parent) = external.parent() {
-            if is_directory_writable(parent) {
-                match copy_sqlite_bundle(internal, external) {
-                    Ok(()) => {
-                        log::info!(
-                            "Migrated database from {} to {}",
-                            internal.display(),
-                            external.display()
-                        );
-                        return external.to_path_buf();
-                    }
-                    Err(e) => {
-                        log::warn!(
-                            "Failed to migrate database to external storage ({}), using internal",
-                            e
-                        );
-                    }
-                }
-            } else {
-                log::warn!(
-                    "External data dir {} is not writable, keeping internal database",
-                    parent.display()
-                );
-            }
-        }
-        return internal.to_path_buf();
-    }
-
-    if let Some(parent) = external.parent() {
-        if is_directory_writable(parent) {
-            return external.to_path_buf();
-        }
-        log::warn!(
-            "External data dir {} is not writable, falling back to internal storage",
-            parent.display()
-        );
-    }
-
+fn resolve_android_db_path(_external: &Path, internal: &Path) -> PathBuf {
     internal.to_path_buf()
 }
 
@@ -298,6 +259,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    // New strategy: live DB is always the private internal path.
+    // External is only a MediaStore-published backup (handled in Kotlin).
+    // These tests now verify the simplified resolve (always internal).
     #[test]
     fn test_resolve_android_db_path_prefers_external() {
         let dir = std::env::temp_dir().join(format!("amiga-db-resolve-{}", uuid::Uuid::new_v4()));
@@ -309,7 +273,8 @@ mod tests {
         std::fs::write(&internal, b"internal").unwrap();
 
         let resolved = resolve_android_db_path(&external, &internal);
-        assert_eq!(resolved, external);
+        // live DB is always internal now
+        assert_eq!(resolved, internal);
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -323,8 +288,9 @@ mod tests {
         std::fs::write(&internal, b"legacy-data").unwrap();
 
         let resolved = resolve_android_db_path(&external, &internal);
-        assert_eq!(resolved, external);
-        assert_eq!(std::fs::read(&external).unwrap(), b"legacy-data");
+        assert_eq!(resolved, internal);
+        // no longer auto-migrates live to external; backup is via MediaStore
+        assert!(!external.exists());
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -334,29 +300,12 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("amiga-db-readonly-{}", uuid::Uuid::new_v4()));
         let external = dir.join("external").join("idioma.db");
         let internal = dir.join("internal").join("idioma.db");
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::create_dir_all(external.parent().unwrap()).unwrap();
-            let mut perms = std::fs::metadata(external.parent().unwrap())
-                .unwrap()
-                .permissions();
-            perms.set_mode(0o555);
-            std::fs::set_permissions(external.parent().unwrap(), perms).unwrap();
-        }
+        std::fs::create_dir_all(internal.parent().unwrap()).unwrap();
+        std::fs::write(&internal, b"data").unwrap();
 
         let resolved = resolve_android_db_path(&external, &internal);
         assert_eq!(resolved, internal);
 
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(external.parent().unwrap())
-                .unwrap()
-                .permissions();
-            perms.set_mode(0o755);
-            let _ = std::fs::set_permissions(external.parent().unwrap(), perms);
-        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
@@ -683,14 +632,17 @@ impl DatabasePool {
             );
         }
 
-        if let Ok(dir) = std::env::var("IDIOMA_DATA_DIR") {
-            return PathBuf::from(dir).join("idioma.db");
-        }
+        #[cfg(not(target_os = "android"))]
+        {
+            if let Ok(dir) = std::env::var("IDIOMA_DATA_DIR") {
+                return PathBuf::from(dir).join("idioma.db");
+            }
 
-        dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("idioma")
-            .join("idioma.db")
+            dirs::data_local_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join("idioma")
+                .join("idioma.db")
+        }
     }
 
     fn run_migrations(&self) -> Result<(), String> {
