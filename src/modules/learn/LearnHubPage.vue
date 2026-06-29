@@ -75,11 +75,11 @@ async function openModule(mod) {
 }
 
 .module-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 40px;
-  padding: 56px 48px 64px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8vw;
+  padding: 12vw 10vw 14vw;
+  box-sizing: border-box;
 }
 
 .module-tile {
@@ -87,9 +87,9 @@ async function openModule(mod) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  width: 130px;
-  height: 130px;
+  gap: 0.6em;
+  width: 100%;
+  aspect-ratio: 1;
   padding: 0;
   background: var(--white);
   border: 1px solid var(--border);
@@ -98,7 +98,6 @@ async function openModule(mod) {
   font-family: inherit;
   transition: background var(--transition), box-shadow var(--transition);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  flex-shrink: 0;
 }
 
 .module-tile:hover:not(:disabled) {
@@ -111,12 +110,12 @@ async function openModule(mod) {
 }
 
 .module-icon {
-  font-size: 36px;
+  font-size: 8vw;
   line-height: 1;
 }
 
 .module-label {
-  font-size: 14px;
+  font-size: clamp(12px, 3.2vw, 14px);
   font-weight: 600;
   color: var(--text);
   text-align: center;

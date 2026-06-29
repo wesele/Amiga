@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
+
+const ROOT = resolve(__dirname, "../../../..");
+function readVue(rel) {
+  return readFileSync(resolve(ROOT, rel), "utf8");
+}
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
@@ -38,6 +45,14 @@ describe("LearnHubPage", () => {
       return Promise.resolve(null);
     });
     api.__setInvoke(mockInvoke);
+  });
+
+  it("uses a 2-column square tile grid sized relative to viewport width", () => {
+    const source = readVue("src/modules/learn/LearnHubPage.vue");
+    expect(source).toMatch(/grid-template-columns:\s*repeat\(2/);
+    expect(source).toMatch(/aspect-ratio:\s*1/);
+    expect(source).not.toMatch(/width:\s*130px/);
+    expect(source).toMatch(/font-size:\s*8vw/);
   });
 
   it("renders two module tiles in a grid", async () => {
