@@ -583,7 +583,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useStorage } from '../composables/useStorage.js'
 import { useSystemConfig } from '../composables/useSystemConfig.js'
 import { useVocabStorage } from '../composables/useVocabStorage.js'
@@ -706,6 +706,26 @@ function imageGenProgress(msg, type = 'info') {
   asyncOp.addLog(msg, type)
 }
 
+function clearQuestionImages(q) {
+  if (!q) return
+  if (q.type === 'T01') {
+    q.imageUrl = ''
+    q.imageSvg = ''
+  } else if (q.type === 'T02' && Array.isArray(q.imageOptions)) {
+    q.imageOptions.forEach(opt => {
+      opt.imageUrl = ''
+      opt.imageSvg = ''
+    })
+  }
+}
+
+async function applyGeneratedImage(target, svg, url) {
+  target.imageSvg = svg
+  target.imageUrl = ''
+  await nextTick()
+  target.imageUrl = url
+}
+
 async function generateImagesForCurrent() {
   const q = currentQuestion.value
   if (!q) return
@@ -715,17 +735,18 @@ async function generateImagesForCurrent() {
   )
 
   try {
+    clearQuestionImages(q)
+    await nextTick()
+
     if (q.type === 'T01') {
       asyncOp.addLog(`生成 T01 图片: ${q.imageDesc || q.id}`, 'info')
-      asyncOp.addLog('推理模型可能需要 30-60 秒，请耐心等待', 'info')
       const { svg, url } = await imageGen.generateAndPersist(
         q.imageDesc,
         q.imagePrompt,
         imageFilename(q.id),
         { signal: controller.signal, onProgress: imageGenProgress }
       )
-      q.imageSvg = svg
-      q.imageUrl = url
+      await applyGeneratedImage(q, svg, url)
       asyncOp.addLog('T01 图片生成完成', 'success')
     } else if (q.type === 'T02') {
       const opts = q.imageOptions || []
@@ -739,8 +760,7 @@ async function generateImagesForCurrent() {
           imageFilename(q.id, `opt${i}`),
           { signal: controller.signal, onProgress: imageGenProgress }
         )
-        opt.imageSvg = svg
-        opt.imageUrl = url
+        await applyGeneratedImage(opt, svg, url)
       }
       asyncOp.addLog(`T02 全部 ${opts.length} 张图片生成完成`, 'success')
     } else {
@@ -748,7 +768,7 @@ async function generateImagesForCurrent() {
     }
 
     storage.persistQuestions()
-    markDirty()
+    isDirty.value = false
   } catch (e) {
     if (e.name === 'AbortError') {
       asyncOp.addLog('图片生成已取消', 'warning')

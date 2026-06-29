@@ -35,21 +35,25 @@ Output ONLY the JSON array, no markdown, no explanation.`
   'image-svg-gen': {
     title: 'SVG 图片生成',
     category: '素材生产',
-    content: `Create an SVG illustration for a language-learning exercise.
+    content: `Here is a valid SVG example (flat vector educational style):
 
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+<rect width="400" height="400" fill="#FFFFFF"/>
+<circle cx="200" cy="200" r="70" fill="#4A90D9" stroke="#333333" stroke-width="4"/>
+<ellipse cx="200" cy="120" rx="30" ry="14" fill="#4CAF50" stroke="#333333" stroke-width="3"/>
+</svg>
+
+Create a NEW complete SVG in the same style for this language-learning image:
 Description: \${desc}
-Visual reference: \${prompt}
+Visual details: \${prompt}
 
-Requirements:
-- viewBox="0 0 400 400" width="400" height="400"
-- xmlns="http://www.w3.org/2000/svg"
-- White background rectangle covering the full canvas
-- Single clear subject, visually distinct, suitable for A1-A2 learners
+Rules:
+- Reply with ONLY one <svg>...</svg> element, no markdown, no explanation
+- Keep xmlns, viewBox="0 0 400 400", white background <rect>
+- Flat vector, thick strokes (3-4px), bright colors, centered subject
+- Use real path/rect/circle data — NEVER output placeholder "..."
 - No text, letters, numbers, or watermarks in the image
-- Use simple geometric shapes and paths only
-- Maximum ~30 SVG elements for clarity
-
-Output ONLY the <svg>...</svg> code.`
+- Maximum 25 elements`
   },
   'image-refine': {
     title: '图片提示词优化',
@@ -130,7 +134,7 @@ export async function init() {
     if (res.ok) {
       const data = await res.json()
       if (data && Object.keys(data).length > 0) {
-        prompts.value = data
+        prompts.value = { ...DEFAULT_PROMPTS, ...data }
         return
       }
     }

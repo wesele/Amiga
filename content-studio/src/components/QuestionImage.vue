@@ -1,7 +1,7 @@
 <template>
   <div class="q-image-wrap" :class="size">
-    <img v-if="imageUrl" :src="imageUrl" :alt="fallback" class="q-image-img" />
-    <div v-else-if="imageSvg" class="q-image-svg" v-html="imageSvg" />
+    <img v-if="displayUrl" :key="displayUrl" :src="displayUrl" :alt="fallback" class="q-image-img" />
+    <div v-else-if="imageSvg" :key="imageSvg.slice(0, 64)" class="q-image-svg" v-html="imageSvg" />
     <div v-else class="q-image-placeholder" :class="{ small: size === 'small' }">
       🖼️ {{ fallback || '暂无图片' }}
     </div>
@@ -9,12 +9,16 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   imageUrl: { type: String, default: '' },
   imageSvg: { type: String, default: '' },
   fallback: { type: String, default: '' },
   size: { type: String, default: 'normal' }
 })
+
+const displayUrl = computed(() => props.imageUrl || '')
 </script>
 
 <style scoped>

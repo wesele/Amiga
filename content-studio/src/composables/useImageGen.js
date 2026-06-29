@@ -4,32 +4,46 @@
 import { useLLM } from './useLLM.js'
 import { usePromptStorage } from './usePromptStorage.js'
 
-const SVG_SYSTEM_PROMPT = `You are an expert SVG illustrator for language-learning apps.
-Output ONLY a complete, valid SVG element starting with <svg and ending with </svg>.
-No markdown fences, no explanation, no text labels inside the image.
-Style: modern flat vector illustration, consistent thick line art (3-4px strokes),
-vibrant educational colors, white background (#FFFFFF), centered subject, no drop shadows.`
+const EXAMPLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+<rect width="400" height="400" fill="#FFFFFF"/>
+<circle cx="200" cy="200" r="70" fill="#4A90D9" stroke="#333333" stroke-width="4"/>
+<ellipse cx="200" cy="120" rx="30" ry="14" fill="#4CAF50" stroke="#333333" stroke-width="3"/>
+</svg>`
 
-const DEFAULT_SVG_PROMPT = `Create an SVG illustration for a language-learning exercise.
+const SVG_SYSTEM_PROMPT = `You are an SVG illustrator. You must output one complete, renderable SVG element.
+Never use placeholder text like "..." inside tags. Use real coordinates and colors.`
 
+const DEFAULT_SVG_PROMPT = `Here is a valid SVG example (flat vector educational style):
+
+${EXAMPLE_SVG}
+
+Create a NEW complete SVG in the same style for this language-learning image:
 Description: \${desc}
-Visual reference: \${prompt}
+Visual details: \${prompt}
 
-Requirements:
-- viewBox="0 0 400 400" width="400" height="400"
-- xmlns="http://www.w3.org/2000/svg"
-- White background rectangle covering the full canvas
-- Single clear subject, visually distinct, suitable for A1-A2 learners
+Rules:
+- Reply with ONLY one <svg>...</svg> element, no markdown, no explanation
+- Keep xmlns, viewBox="0 0 400 400", white background <rect>
+- Flat vector, thick strokes (3-4px), bright colors, centered subject
+- Use real path/rect/circle data — NEVER output placeholder "..." 
 - No text, letters, numbers, or watermarks in the image
-- Use simple geometric shapes and paths only
-- Maximum ~30 SVG elements for clarity
+- Maximum 25 elements`
 
-Output ONLY the <svg>...</svg> code.`
+const RETRY_SUFFIX = `
+
+IMPORTANT: Your previous response was invalid or incomplete.
+Output a COMPLETE new <svg> with real shape coordinates (copy the example structure above).`
 
 const DANGEROUS_SVG_RE = new RegExp(
   '<script[\\s>]|</' + 'script>|on\\w+\\s*=|javascript:|data:text/html|foreignObject|<iframe|<embed|<object',
   'i'
 )
+
+export function isPlausibleSvg(svg) {
+  if (!svg || svg.length < 80) return false
+  if (/<svg>\s*\.\.\.\s*<\/svg>/i.test(svg)) return false
+  return /<(path|rect|circle|ellipse|line|polyline|polygon|g)\b/i.test(svg)
+}
 
 export function extractSvg(text) {
   if (!text) throw new Error('LLM 响应为空')
@@ -39,14 +53,26 @@ export function extractSvg(text) {
     .replace(/```\s*/g, '')
     .trim()
 
-  // 推理模型常在 reasoning 末尾输出 SVG；取最后一个完整块
-  const matches = [...cleaned.matchAll(/<svg[\s\S]*?<\/svg>/gi)]
-  if (matches.length > 0) return matches[matches.length - 1][0]
+  const candidates = [...cleaned.matchAll(/<svg[\s\S]*?<\/svg>/gi)]
+    .map(m => m[0])
+    .filter(isPlausibleSvg)
+
+  if (candidates.length > 0) {
+    return candidates.reduce((best, cur) => (cur.length > best.length ? cur : best))
+  }
 
   const greedy = cleaned.match(/<svg[\s\S]*<\/svg>/i)
-  if (greedy) return greedy[0]
+  if (greedy && isPlausibleSvg(greedy[0])) return greedy[0]
 
-  throw new Error('无法从 LLM 响应中提取 SVG（模型可能未输出完整的 </svg>）')
+  throw new Error('无法提取有效 SVG（模型可能只输出了占位符或说明文字）')
+}
+
+export function tryExtractSvg(text) {
+  try {
+    return extractSvg(text)
+  } catch {
+    return null
+  }
 }
 
 export function sanitizeSvg(svg) {
@@ -60,8 +86,17 @@ export function sanitizeSvg(svg) {
   if (!/viewBox=/i.test(s)) {
     s = s.replace(/<svg/i, '<svg viewBox="0 0 400 400"')
   }
+  if (!/<rect[^>]*fill=["']#(?:fff|ffffff|FFF|FFFFFF)/i.test(s)) {
+    s = s.replace(/<svg([^>]*)>/i, '<svg$1><rect width="400" height="400" fill="#FFFFFF"/>')
+  }
 
   return s
+}
+
+export function bustCache(url) {
+  if (!url) return ''
+  const path = url.split('?')[0]
+  return `${path}?v=${Date.now()}`
 }
 
 export function svgToJpegDataUrl(svg, size = 400, quality = 0.92, timeoutMs = 15000) {
@@ -120,7 +155,7 @@ export async function persistImage(filename, dataUrl) {
     throw new Error(err.error || `图片保存失败 (${res.status})`)
   }
   const data = await res.json()
-  return data.url
+  return bustCache(data.url)
 }
 
 function fillTemplate(template, vars) {
@@ -134,63 +169,76 @@ export function useImageGen() {
   function pickSvgSource(result) {
     const content = result?.content?.trim() || ''
     const reasoning = result?.reasoning?.trim() || ''
-    // 推理模型最终 SVG 通常在 content；否则从 reasoning 末尾提取
-    if (content && /<svg/i.test(content)) return content
-    if (reasoning && /<svg/i.test(reasoning)) return reasoning
+    if (content && tryExtractSvg(content)) return content
+    if (reasoning && tryExtractSvg(reasoning)) return reasoning
     return content || reasoning
   }
 
+  function parseSvgFromResult(result) {
+    const raw = pickSvgSource(result)
+    if (!raw) throw new Error('LLM 未返回内容')
+    return sanitizeSvg(extractSvg(raw))
+  }
+
+  async function callLlm(userPrompt, llmOpts, options) {
+    options.onProgress?.('正在调用 LLM 生成 SVG...')
+    let result = await llm.callLLM(userPrompt, llmOpts)
+    if (tryExtractSvg(pickSvgSource(result))) return result
+
+    options.onProgress?.('非流式无有效 SVG，尝试流式接收...', 'warning')
+    let tokens = 0
+    result = await llm.callLLMStream(userPrompt, {
+      ...llmOpts,
+      onContent: (_token, full) => {
+        tokens++
+        if (tokens % 8 === 0 || tokens <= 3) {
+          options.onProgress?.(`正在接收 SVG... (${full.length} 字符)`)
+        }
+      },
+      onReasoning: (_token, full) => {
+        if (full.length % 500 < 50) {
+          options.onProgress?.(`模型思考中... (${full.length} 字符)`)
+        }
+      }
+    })
+    return result
+  }
+
   async function generateSvg(desc, prompt = '', options = {}) {
-    const template = promptStorage.getPrompt('image-svg-gen') || DEFAULT_SVG_PROMPT
-    const userPrompt = fillTemplate(template, {
+    const baseTemplate = promptStorage.getPrompt('image-svg-gen') || DEFAULT_SVG_PROMPT
+    const vars = {
       desc: desc || 'educational illustration',
       prompt: prompt || desc || 'simple flat vector object'
-    })
+    }
 
     const llmOpts = {
       systemPrompt: SVG_SYSTEM_PROMPT,
-      temperature: 0.4,
-      maxTokens: 8192,
+      temperature: 0.2,
+      maxTokens: 4096,
       signal: options.signal
     }
 
-    let result = { content: '', reasoning: '' }
-    let tokens = 0
+    let lastError = null
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const template = attempt === 1 ? baseTemplate : baseTemplate + RETRY_SUFFIX
+      const userPrompt = fillTemplate(template, vars)
 
-    options.onProgress?.('正在调用 LLM 生成 SVG（流式）...')
-
-    try {
-      result = await llm.callLLMStream(userPrompt, {
-        ...llmOpts,
-        onContent: (_token, full) => {
-          tokens++
-          if (tokens % 8 === 0 || tokens <= 3) {
-            options.onProgress?.(`正在接收 SVG 内容... (${full.length} 字符)`)
-          }
-        },
-        onReasoning: (_token, full) => {
-          if (full.length % 500 < 50) {
-            options.onProgress?.(`模型思考中... (${full.length} 字符)`)
-          }
+      try {
+        const result = await callLlm(userPrompt, llmOpts, options)
+        const svg = parseSvgFromResult(result)
+        if (isPlausibleSvg(svg)) return svg
+        throw new Error('SVG 校验未通过（内容过短或缺少图形元素）')
+      } catch (e) {
+        lastError = e
+        if (e.name === 'AbortError') throw e
+        if (attempt < 2) {
+          options.onProgress?.(`第 ${attempt} 次生成失败: ${e.message}，正在重试...`, 'warning')
         }
-      })
-    } catch (streamErr) {
-      if (streamErr.name === 'AbortError') throw streamErr
-      options.onProgress?.('流式失败，尝试非流式请求...', 'warning')
-      result = await llm.callLLM(userPrompt, llmOpts)
+      }
     }
-
-    const raw = pickSvgSource(result)
-    if (!raw) throw new Error('LLM 未返回 SVG 内容（content 与 reasoning 均为空）')
-
-    const svg = sanitizeSvg(extractSvg(raw))
-    return svg
+    throw lastError || new Error('SVG 生成失败')
   }
 
-  /**
-   * 生成 SVG → JPEG → 持久化，返回 { svg, url }
-   * @param {object} options.onProgress - (msg, type?) => void
-   */
   async function generateAndPersist(desc, prompt, filename, options = {}) {
     const svg = await generateSvg(desc, prompt, options)
     options.onProgress?.('正在将 SVG 转为 JPEG...')
@@ -205,6 +253,8 @@ export function useImageGen() {
     generateAndPersist,
     extractSvg,
     sanitizeSvg,
+    isPlausibleSvg,
+    bustCache,
     svgToJpegDataUrl,
     persistImage
   }
