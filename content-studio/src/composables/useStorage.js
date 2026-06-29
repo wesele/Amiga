@@ -121,6 +121,10 @@ export function useStorage() {
     saveData('questions', _questions)
   }
 
+  function persistQuestions() {
+    saveData('questions', _questions)
+  }
+
   // ---- 生产日志 ----
   function getProductionLog() {
     return _productionLog
@@ -212,7 +216,7 @@ export function useStorage() {
   return {
     getApiConfig, fetchApiConfig, saveApiConfig,
     getTasks, saveTask, deleteTask,
-    getQuestions, saveQuestions, deleteQuestions, clearAllQuestions,
+    getQuestions, saveQuestions, deleteQuestions, clearAllQuestions, persistQuestions,
     getProductionLog, addLogEntry,
     exportQuestionsJSON, getStats, getVocabCoverage
   }

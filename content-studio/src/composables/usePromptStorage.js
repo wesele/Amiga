@@ -32,6 +32,25 @@ Output Format: A JSON array of units. Each unit must have:
 
 Output ONLY the JSON array, no markdown, no explanation.`
   },
+  'image-svg-gen': {
+    title: 'SVG 图片生成',
+    category: '素材生产',
+    content: `Create an SVG illustration for a language-learning exercise.
+
+Description: \${desc}
+Visual reference: \${prompt}
+
+Requirements:
+- viewBox="0 0 400 400" width="400" height="400"
+- xmlns="http://www.w3.org/2000/svg"
+- White background rectangle covering the full canvas
+- Single clear subject, visually distinct, suitable for A1-A2 learners
+- No text, letters, numbers, or watermarks in the image
+- Use simple geometric shapes and paths only
+- Maximum ~30 SVG elements for clarity
+
+Output ONLY the <svg>...</svg> code.`
+  },
   'image-refine': {
     title: '图片提示词优化',
     category: '素材生产',

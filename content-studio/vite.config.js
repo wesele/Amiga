@@ -7,8 +7,10 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const CONFIG_FILE = resolve(__dirname, 'studio.config.json')
 const DATA_DIR = resolve(__dirname, 'data')
+const IMAGES_DIR = resolve(DATA_DIR, 'images')
 
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
+if (!existsSync(IMAGES_DIR)) mkdirSync(IMAGES_DIR, { recursive: true })
 
 function readConfig() {
   const defaults = { baseUrl: '', apiKey: '', model: 'gpt-4o-mini', reviewModel: 'gpt-4o' }
@@ -97,6 +99,65 @@ function configApiPlugin() {
           })
           return
         }
+        next()
+      })
+
+      // ---- /api/images：图片持久化（JPEG/PNG base64 → 文件） ----
+      server.middlewares.use('/api/images', (req, res, next) => {
+        const urlPath = req.url.split('?')[0]
+
+        // GET /api/images/:filename
+        if (req.method === 'GET' && urlPath.length > 1) {
+          const filename = urlPath.replace(/^\//, '')
+          if (!filename || filename.includes('..') || filename.includes('/')) return next()
+
+          const filePath = join(IMAGES_DIR, filename)
+          if (!existsSync(filePath)) {
+            res.statusCode = 404
+            res.end(JSON.stringify({ error: '图片不存在' }))
+            return
+          }
+          const ext = filename.split('.').pop()?.toLowerCase()
+          const mime = ext === 'png' ? 'image/png' : 'image/jpeg'
+          res.setHeader('Content-Type', mime)
+          res.setHeader('Cache-Control', 'no-cache')
+          res.end(readFileSync(filePath))
+          return
+        }
+
+        // POST /api/images — { filename, dataUrl }
+        if (req.method === 'POST' && (urlPath === '' || urlPath === '/')) {
+          const chunks = []
+          req.on('data', chunk => { chunks.push(chunk) })
+          req.on('end', () => {
+            try {
+              const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'))
+              const filename = body.filename
+              const dataUrl = body.dataUrl
+
+              if (!filename || !dataUrl) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: '缺少 filename 或 dataUrl' }))
+                return
+              }
+              if (!/^[\w.-]+\.(jpe?g|png)$/i.test(filename)) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'filename 格式无效' }))
+                return
+              }
+
+              const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '')
+              writeFileSync(join(IMAGES_DIR, filename), Buffer.from(base64, 'base64'))
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ success: true, url: `/api/images/${filename}` }))
+            } catch (e) {
+              res.statusCode = 500
+              res.end(JSON.stringify({ error: e.message }))
+            }
+          })
+          return
+        }
+
         next()
       })
 

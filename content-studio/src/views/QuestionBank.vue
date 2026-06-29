@@ -245,6 +245,12 @@
                 <span class="editor-id">{{ currentQuestion.id }}</span>
               </div>
               <div class="editor-actions">
+                <button
+                  v-if="currentQuestion.type === 'T01' || currentQuestion.type === 'T02'"
+                  class="btn btn-sm btn-secondary"
+                  :disabled="asyncOp.isLoading.value"
+                  @click="generateImagesForCurrent"
+                >🎨 生成图片</button>
                 <button class="btn btn-sm btn-primary" @click="saveCurrentQuestion" :disabled="!isDirty">💾 保存</button>
                 <button class="btn btn-sm btn-danger" @click="deleteCurrentQuestion">🗑️</button>
               </div>
@@ -270,6 +276,15 @@
                 <!-- T01 -->
                 <template v-if="currentQuestion.type === 'T01'">
                   <div class="editor-field"><label>图片描述</label><input v-model="currentQuestion.imageDesc" @input="markDirty" /></div>
+                  <div class="editor-field"><label>绘图提示词</label><input v-model="currentQuestion.imagePrompt" @input="markDirty" placeholder="英文视觉描述（可选）" /></div>
+                  <div class="editor-field">
+                    <label>题目图片</label>
+                    <QuestionImage
+                      :image-url="currentQuestion.imageUrl"
+                      :image-svg="currentQuestion.imageSvg"
+                      :fallback="currentQuestion.imageDesc"
+                    />
+                  </div>
                   <div class="editor-field"><label>选项 (每行一个)</label><textarea v-model="editor.optionsStr" @input="onOptionsChange" rows="4"></textarea></div>
                   <div class="editor-field"><label>正确答案索引</label><input type="number" min="0" v-model.number="currentQuestion.answerIdx" @input="markDirty" /></div>
                 </template>
@@ -278,8 +293,15 @@
                 <template v-else-if="currentQuestion.type === 'T02'">
                   <div class="editor-field"><label>听力文本</label><input v-model="currentQuestion.audioText" @input="markDirty" /></div>
                   <div class="editor-field" v-for="(opt, i) in currentQuestion.imageOptions" :key="i">
-                    <label>图片选项 {{ i + 1 }} 描述</label>
-                    <div class="inline-edit"><input v-model="opt.desc" @input="markDirty" placeholder="图片描述" /><input v-model="opt.imagePrompt" @input="markDirty" placeholder="图片生成提示" style="font-size:11px;color:#666" /></div>
+                    <label>图片选项 {{ i + 1 }}</label>
+                    <div class="inline-edit"><input v-model="opt.desc" @input="markDirty" placeholder="图片描述" /><input v-model="opt.prompt" @input="markDirty" placeholder="绘图提示词" style="font-size:11px;color:#666" /></div>
+                    <QuestionImage
+                      class="mt-2"
+                      size="small"
+                      :image-url="opt.imageUrl"
+                      :image-svg="opt.imageSvg"
+                      :fallback="opt.desc"
+                    />
                   </div>
                   <div class="editor-field"><label>正确答案索引</label><input type="number" min="0" v-model.number="currentQuestion.answerIdx" @input="markDirty" /></div>
                 </template>
@@ -394,7 +416,11 @@
                   <div class="q-content">
                     <!-- T01: 图片识词 -->
                     <div v-if="currentQuestion?.type === 'T01'" class="q-render-t01">
-                      <div class="q-image-placeholder">🖼️ {{ currentQuestion.imageDesc }}</div>
+                      <QuestionImage
+                        :image-url="currentQuestion.imageUrl"
+                        :image-svg="currentQuestion.imageSvg"
+                        :fallback="currentQuestion.imageDesc"
+                      />
                       <div class="q-options">
                         <div v-for="(opt, i) in currentQuestion.options" :key="i" 
                              class="q-opt-btn" :class="{ 'is-correct': preview.showAnswer && i === currentQuestion.answerIdx }">
@@ -455,7 +481,12 @@
                       <div class="q-image-options">
                         <div v-for="(opt, i) in currentQuestion.imageOptions" :key="i"
                              class="q-image-opt" :class="{ 'is-correct': preview.showAnswer && i === currentQuestion.answerIdx }">
-                          <div class="q-image-placeholder small">🖼️ {{ opt.desc }}</div>
+                          <QuestionImage
+                            size="small"
+                            :image-url="opt.imageUrl"
+                            :image-svg="opt.imageSvg"
+                            :fallback="opt.desc"
+                          />
                         </div>
                       </div>
                     </div>
@@ -560,7 +591,9 @@ import { useUnitFramework } from '../composables/useUnitFramework.js'
 import { useAsyncOperation } from '../composables/useAsyncOperation.js'
 import { useLLM } from '../composables/useLLM.js'
 import { useQuestionTypeStorage } from '../composables/useQuestionTypeStorage.js'
+import { useImageGen } from '../composables/useImageGen.js'
 import { CEFR_TYPE_MAP, QUESTION_SCHEMAS } from '../data/question-types.js'
+import QuestionImage from '../components/QuestionImage.vue'
 
 const storage = useStorage()
 const sysConfig = useSystemConfig()
@@ -569,6 +602,7 @@ const unitFramework = useUnitFramework()
 const asyncOp = useAsyncOperation()
 const llm = useLLM()
 const typeStorage = useQuestionTypeStorage()
+const imageGen = useImageGen()
 
 const selectedPairId = ref('')
 const selectedLevel = ref('')
@@ -629,6 +663,11 @@ const editor = ref({
 
 function syncEditorFromQuestion(q) {
   if (!q) return
+  if (q.type === 'T02' && Array.isArray(q.imageOptions)) {
+    q.imageOptions.forEach(opt => {
+      if (!opt.prompt && opt.imagePrompt) opt.prompt = opt.imagePrompt
+    })
+  }
   editor.value.tagsStr = (q.tags || []).join(', ')
   editor.value.optionsStr = (q.options || []).join('\n')
   editor.value.wordsStr = (q.words || []).join('\n')
@@ -648,8 +687,71 @@ function onAcceptedChange() { currentQuestion.value.acceptedAnswers = editor.val
 function onDimensionsChange() { currentQuestion.value.scoringDimensions = editor.value.dimensionsStr.split('\n').map(s => s.trim()).filter(Boolean); markDirty() }
 
 function saveCurrentQuestion() {
-  storage.saveQuestions([]) // persist the already-mutated _questions array
+  storage.persistQuestions()
   isDirty.value = false
+}
+
+function imageFilename(questionId, slot = '') {
+  const base = questionId.replace(/[^a-zA-Z0-9_-]/g, '_')
+  return slot ? `${base}-${slot}.jpg` : `${base}.jpg`
+}
+
+function getImagePrompt(opt) {
+  return opt?.prompt || opt?.imagePrompt || ''
+}
+
+async function generateImagesForCurrent() {
+  const q = currentQuestion.value
+  if (!q) return
+
+  const controller = asyncOp.start(
+    q.type === 'T02' ? '正在为各选项生成图片...' : '正在生成题目图片...'
+  )
+
+  try {
+    if (q.type === 'T01') {
+      asyncOp.addLog(`生成 T01 图片: ${q.imageDesc || q.id}`, 'info')
+      const { svg, url } = await imageGen.generateAndPersist(
+        q.imageDesc,
+        q.imagePrompt,
+        imageFilename(q.id),
+        { signal: controller.signal }
+      )
+      q.imageSvg = svg
+      q.imageUrl = url
+      asyncOp.addLog('T01 图片生成完成', 'success')
+    } else if (q.type === 'T02') {
+      const opts = q.imageOptions || []
+      for (let i = 0; i < opts.length; i++) {
+        const opt = opts[i]
+        asyncOp.addLog(`生成选项 ${i + 1}/${opts.length}: ${opt.desc || ''}`, 'info')
+        asyncOp.setMessage(`正在生成选项 ${i + 1}/${opts.length}...`)
+        const { svg, url } = await imageGen.generateAndPersist(
+          opt.desc,
+          getImagePrompt(opt),
+          imageFilename(q.id, `opt${i}`),
+          { signal: controller.signal }
+        )
+        opt.imageSvg = svg
+        opt.imageUrl = url
+      }
+      asyncOp.addLog(`T02 全部 ${opts.length} 张图片生成完成`, 'success')
+    } else {
+      return
+    }
+
+    storage.persistQuestions()
+    markDirty()
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      asyncOp.addLog('图片生成已取消', 'warning')
+    } else {
+      asyncOp.addLog(`图片生成失败: ${e.message}`, 'error')
+      errorMessage.value = `图片生成失败: ${e.message}`
+    }
+  } finally {
+    asyncOp.stop()
+  }
 }
 
 function deleteCurrentQuestion() {
@@ -1260,7 +1362,8 @@ function displayFields(q) {
 
 function fieldLabel(key) {
   const map = {
-    imageDesc: '图片描述', imagePrompt: '绘图提示词', options: '选项', answerIdx: '答案索引',
+    imageDesc: '图片描述', imagePrompt: '绘图提示词', imageSvg: 'SVG 源码', imageUrl: '图片地址',
+    options: '选项', answerIdx: '答案索引',
     audioText: '听力文本', imageOptions: '图片选项', pairs: '配对', sentence: '句子',
     blank: '填空答案', words: '单词列表', targetSentence: '目标句', sourceText: '源文本',
     sourceLang: '源语言', question: '问题', hint: '提示', answer: '正确答案',

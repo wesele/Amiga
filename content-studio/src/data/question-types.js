@@ -135,12 +135,17 @@ export const QUESTION_SCHEMAS = {
     }
   },
   T01: {
-    required: ['imageDesc', 'imagePrompt', 'options', 'answerIdx'],
-    types: { imageDesc: 'string', imagePrompt: 'string', options: 'array', answerIdx: 'number' }
+    required: ['imageDesc', 'options', 'answerIdx'],
+    types: {
+      imageDesc: 'string', imagePrompt: 'string', imageSvg: 'string', imageUrl: 'string',
+      options: 'array', answerIdx: 'number'
+    }
   },
   T02: {
     required: ['audioText', 'imageOptions', 'answerIdx'],
-    types: { audioText: 'string', imageOptions: 'array', answerIdx: 'number' }
+    types: {
+      audioText: 'string', imageOptions: 'array', imageUrl: 'string', answerIdx: 'number'
+    }
   },
   T03: {
     required: ['pairs'],
