@@ -158,6 +158,7 @@ describe("SettingsPage", () => {
           device_id: "dev-1",
           last_synced_at: null,
           last_error: null,
+          restore_available: false,
         });
       }
       if (cmd === "set_cloud_sync_enabled_cmd") {
@@ -190,6 +191,7 @@ describe("SettingsPage", () => {
           device_id: "dev-1",
           last_synced_at: null,
           last_error: null,
+          restore_available: false,
         });
       }
       if (cmd === "set_cloud_sync_enabled_cmd") {

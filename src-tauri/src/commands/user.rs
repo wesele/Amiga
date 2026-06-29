@@ -13,6 +13,7 @@ pub async fn create_user(
     request: user_mod::CreateUserRequest,
 ) -> Result<user_mod::User, String> {
     let user = user_mod::create_user_from_wizard(&db, request)?;
+    sync::mark_restore_after_wizard(&db)?;
     after_syncable_write(&db);
     Ok(user)
 }
@@ -57,7 +58,8 @@ pub async fn is_wizard_completed_cmd(db: State<'_, DatabasePool>) -> Result<bool
 
 #[tauri::command]
 pub async fn reset_wizard_cmd(db: State<'_, DatabasePool>) -> Result<(), String> {
-    user_mod::reset_wizard(&db)
+    user_mod::reset_wizard(&db)?;
+    sync::mark_restore_after_reset(&db)
 }
 
 #[tauri::command]

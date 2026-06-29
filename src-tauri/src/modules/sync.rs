@@ -27,6 +27,8 @@ const SETTING_DEVICE_ID: &str = "cloud_sync_device_id";
 const SETTING_LAST_SYNCED: &str = "cloud_sync_last_synced_at";
 const SETTING_LAST_PUSHED: &str = "cloud_sync_last_pushed_at";
 const SETTING_LAST_ERROR: &str = "cloud_sync_last_error";
+/// "" | "wizard" (fresh/re-run wizard) | "reset" (settings restart → wizard)
+const SETTING_RESTORE_MODE: &str = "cloud_sync_restore_mode";
 
 const SENSITIVE_SETTING_KEYS: &[&str] = &[
     "primary_api_key",
@@ -45,6 +47,7 @@ const LOCAL_ONLY_SETTING_KEYS: &[&str] = &[
     SETTING_LAST_SYNCED,
     SETTING_LAST_PUSHED,
     SETTING_LAST_ERROR,
+    SETTING_RESTORE_MODE,
 ];
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -54,6 +57,8 @@ pub struct CloudSyncStatus {
     pub last_error: Option<String>,
     pub device_id: String,
     pub nickname: String,
+    /// True when a one-time cloud restore is allowed (post-wizard / post-reset).
+    pub restore_available: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -220,6 +225,61 @@ pub fn is_cloud_sync_enabled(db: &DatabasePool) -> Result<bool, String> {
     ))
 }
 
+fn restore_mode(db: &DatabasePool) -> Result<Option<String>, String> {
+    Ok(get_setting(db, SETTING_RESTORE_MODE)?
+        .filter(|value| !value.is_empty()))
+}
+
+fn has_learning_activity(db: &DatabasePool, user_id: &str) -> Result<bool, String> {
+    let conn = db.conn()?;
+    let vocab_count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM user_vocab WHERE user_id = ?1",
+            params![user_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    let chat_count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM chat_sessions WHERE user_id = ?1",
+            params![user_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    let read_count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM news_reading_log WHERE user_id = ?1",
+            params![user_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(vocab_count > 0 || chat_count > 0 || read_count > 0)
+}
+
+pub fn should_allow_restore_pull(db: &DatabasePool) -> Result<bool, String> {
+    let user = get_or_create_user(db)?;
+    match restore_mode(db)?.as_deref() {
+        Some("reset") => Ok(true),
+        Some("wizard") => Ok(!has_learning_activity(db, &user.id)?),
+        _ => Ok(false),
+    }
+}
+
+pub fn mark_restore_after_wizard(db: &DatabasePool) -> Result<(), String> {
+    if restore_mode(db)?.as_deref() == Some("reset") {
+        return Ok(());
+    }
+    save_setting(db, SETTING_RESTORE_MODE, "wizard")
+}
+
+pub fn mark_restore_after_reset(db: &DatabasePool) -> Result<(), String> {
+    save_setting(db, SETTING_RESTORE_MODE, "reset")
+}
+
+fn clear_restore_mode(db: &DatabasePool) -> Result<(), String> {
+    save_setting(db, SETTING_RESTORE_MODE, "")
+}
+
 pub fn get_cloud_sync_status(db: &DatabasePool) -> Result<CloudSyncStatus, String> {
     let user = get_or_create_user(db)?;
     Ok(CloudSyncStatus {
@@ -228,6 +288,7 @@ pub fn get_cloud_sync_status(db: &DatabasePool) -> Result<CloudSyncStatus, Strin
         last_error: get_setting(db, SETTING_LAST_ERROR)?,
         device_id: get_device_id(db)?,
         nickname: user.nickname,
+        restore_available: should_allow_restore_pull(db)?,
     })
 }
 
@@ -758,12 +819,6 @@ fn urlencoding_encode(value: &str) -> String {
         .collect()
 }
 
-fn parse_iso_ms(value: &str) -> i64 {
-    chrono::DateTime::parse_from_rfc3339(value)
-        .map(|dt| dt.timestamp_millis())
-        .unwrap_or(0)
-}
-
 pub fn schedule_cloud_sync(db: &DatabasePool) {
     if !is_cloud_sync_enabled(db).unwrap_or(false) {
         return;
@@ -782,6 +837,65 @@ pub fn schedule_cloud_sync(db: &DatabasePool) {
     });
 }
 
+async fn pull_remote_into_local(
+    db: &DatabasePool,
+    remote: RemoteSnapshot,
+) -> Result<RunCloudSyncResult, String> {
+    let payload: SyncPayload = serde_json::from_str(&remote.payload)
+        .map_err(|e| format!("Invalid remote sync payload: {}", e))?;
+    import_sync_payload(db, &payload)?;
+    save_setting(db, SETTING_LAST_PUSHED, &remote.updated_at)?;
+    save_setting(db, SETTING_LAST_SYNCED, &remote.updated_at)?;
+    save_setting(db, SETTING_LAST_ERROR, "")?;
+    clear_restore_mode(db)?;
+    log::info!("Cloud sync completed via pull (restore)");
+    Ok(RunCloudSyncResult {
+        direction: "pull".to_string(),
+        updated_at: remote.updated_at,
+    })
+}
+
+async fn push_local_snapshot(
+    db: &DatabasePool,
+    nickname: &str,
+    device_id: &str,
+) -> Result<RunCloudSyncResult, String> {
+    let remote = pull_remote_snapshot(nickname).await?;
+    let payload = export_sync_payload(db)?;
+    let payload_json = serde_json::to_string(&payload)
+        .map_err(|e| format!("Failed to serialize sync payload: {}", e))?;
+    let stamp = now_iso();
+    let base = remote.as_ref().map(|row| row.updated_at.as_str());
+
+    if let Err(err) = push_remote_snapshot(nickname, &payload_json, &stamp, device_id, base).await {
+        if is_sync_conflict_error(&err) {
+            let remote = pull_remote_snapshot(nickname)
+                .await?
+                .ok_or_else(|| "Sync push conflict but remote disappeared".to_string())?;
+            push_remote_snapshot(
+                nickname,
+                &payload_json,
+                &stamp,
+                device_id,
+                Some(&remote.updated_at),
+            )
+            .await?;
+        } else {
+            return Err(err);
+        }
+    }
+
+    save_setting(db, SETTING_LAST_PUSHED, &stamp)?;
+    save_setting(db, SETTING_LAST_SYNCED, &stamp)?;
+    save_setting(db, SETTING_LAST_ERROR, "")?;
+    clear_restore_mode(db)?;
+    log::info!("Cloud sync completed via push");
+    Ok(RunCloudSyncResult {
+        direction: "push".to_string(),
+        updated_at: stamp,
+    })
+}
+
 async fn run_cloud_sync_attempt(db: &DatabasePool) -> Result<RunCloudSyncResult, String> {
     let user = get_or_create_user(db)?;
     let nickname = user.nickname.trim().to_string();
@@ -790,57 +904,14 @@ async fn run_cloud_sync_attempt(db: &DatabasePool) -> Result<RunCloudSyncResult,
     }
 
     let device_id = get_device_id(db)?;
-    let local_last_pushed = get_setting(db, SETTING_LAST_PUSHED)?.unwrap_or_default();
-    let remote = pull_remote_snapshot(&nickname).await?;
 
-    let direction;
-    let updated_at;
-
-    if let Some(remote) = remote {
-        let remote_ts = parse_iso_ms(&remote.updated_at);
-        let local_ts = parse_iso_ms(&local_last_pushed);
-        if remote_ts > local_ts {
-            let payload: SyncPayload = serde_json::from_str(&remote.payload)
-                .map_err(|e| format!("Invalid remote sync payload: {}", e))?;
-            import_sync_payload(db, &payload)?;
-            save_setting(db, SETTING_LAST_PUSHED, &remote.updated_at)?;
-            direction = "pull".to_string();
-            updated_at = remote.updated_at;
-        } else {
-            let payload = export_sync_payload(db)?;
-            let payload_json = serde_json::to_string(&payload)
-                .map_err(|e| format!("Failed to serialize sync payload: {}", e))?;
-            let stamp = now_iso();
-            push_remote_snapshot(
-                &nickname,
-                &payload_json,
-                &stamp,
-                &device_id,
-                Some(&remote.updated_at),
-            )
-            .await?;
-            save_setting(db, SETTING_LAST_PUSHED, &stamp)?;
-            direction = "push".to_string();
-            updated_at = stamp;
+    if should_allow_restore_pull(db)? {
+        if let Some(remote) = pull_remote_snapshot(&nickname).await? {
+            return pull_remote_into_local(db, remote).await;
         }
-    } else {
-        let payload = export_sync_payload(db)?;
-        let payload_json = serde_json::to_string(&payload)
-            .map_err(|e| format!("Failed to serialize sync payload: {}", e))?;
-        let stamp = now_iso();
-        push_remote_snapshot(&nickname, &payload_json, &stamp, &device_id, None).await?;
-        save_setting(db, SETTING_LAST_PUSHED, &stamp)?;
-        direction = "push".to_string();
-        updated_at = stamp;
     }
 
-    save_setting(db, SETTING_LAST_SYNCED, &updated_at)?;
-    save_setting(db, SETTING_LAST_ERROR, "")?;
-    log::info!("Cloud sync completed via {}", direction);
-    Ok(RunCloudSyncResult {
-        direction,
-        updated_at,
-    })
+    push_local_snapshot(db, &nickname, &device_id).await
 }
 
 pub async fn run_cloud_sync(db: &DatabasePool) -> Result<RunCloudSyncResult, String> {
@@ -856,6 +927,7 @@ pub async fn run_cloud_sync(db: &DatabasePool) -> Result<RunCloudSyncResult, Str
             Err(err) if is_sync_conflict_error(&err) && attempt + 1 < SYNC_MAX_ATTEMPTS => {
                 log::info!("Cloud sync push conflict, retrying (attempt {})", attempt + 2);
             }
+            Err(err) if err.contains("disabled") => return Err(err),
             Err(err) => {
                 let _ = save_setting(db, SETTING_LAST_ERROR, &err);
                 return Err(err);
@@ -894,6 +966,7 @@ pub async fn set_cloud_sync_enabled(
     }
 
     let device_id = get_device_id(db)?;
+    let allow_restore = should_allow_restore_pull(db)?;
     let remote = pull_remote_snapshot(&nickname).await?;
     let mut remote_conflict = false;
     let mut remote_device_id = None;
@@ -902,7 +975,7 @@ pub async fn set_cloud_sync_enabled(
     if let Some(remote) = remote {
         remote_device_id = Some(remote.device_id.clone());
         remote_updated_at = Some(remote.updated_at.clone());
-        if remote.device_id != device_id && !force_enable {
+        if allow_restore && remote.device_id != device_id && !force_enable {
             remote_conflict = true;
             return Ok(SetCloudSyncEnabledResult {
                 enabled: false,
@@ -1003,6 +1076,55 @@ mod tests {
         assert!(is_syncable_setting("ui_language"));
         assert!(!is_syncable_setting("primary_api_key"));
         assert!(!is_syncable_setting("cloud_sync_enabled"));
+        assert!(!is_syncable_setting("cloud_sync_restore_mode"));
+    }
+
+    #[test]
+    fn restore_pull_allowed_after_wizard_before_learning_activity() {
+        let pool = test_pool();
+        seed_user(&pool);
+        mark_restore_after_wizard(&pool).unwrap();
+        assert!(should_allow_restore_pull(&pool).unwrap());
+    }
+
+    fn insert_test_chat_session(pool: &DatabasePool, user_id: &str) {
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO chat_sessions (id, user_id, title, target_language, created_at, updated_at)
+             VALUES ('sess-test', ?1, 'Test', 'es', datetime('now'), datetime('now'))",
+            params![user_id],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn restore_pull_blocked_after_learning_activity() {
+        let pool = test_pool();
+        let user_id = seed_user(&pool);
+        mark_restore_after_wizard(&pool).unwrap();
+        insert_test_chat_session(&pool, &user_id);
+        assert!(!should_allow_restore_pull(&pool).unwrap());
+    }
+
+    #[test]
+    fn restore_pull_allowed_after_reset_even_with_activity() {
+        let pool = test_pool();
+        let user_id = seed_user(&pool);
+        mark_restore_after_reset(&pool).unwrap();
+        insert_test_chat_session(&pool, &user_id);
+        assert!(should_allow_restore_pull(&pool).unwrap());
+    }
+
+    #[test]
+    fn wizard_after_reset_keeps_reset_restore_mode() {
+        let pool = test_pool();
+        seed_user(&pool);
+        mark_restore_after_reset(&pool).unwrap();
+        mark_restore_after_wizard(&pool).unwrap();
+        assert_eq!(
+            restore_mode(&pool).unwrap().as_deref(),
+            Some("reset")
+        );
     }
 
     #[test]
