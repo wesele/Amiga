@@ -121,3 +121,10 @@ export const getAmigaProfile = (targetLang) =>
 export const shareText = (text) =>
   _invoke("share_text_cmd", { text });
 
+// ─── Cloud sync ───
+export const testCloudSync = () => _invoke("test_cloud_sync_cmd");
+export const getCloudSyncStatus = () => _invoke("get_cloud_sync_status_cmd");
+export const setCloudSyncEnabled = (enabled, forceEnable = false) =>
+  _invoke("set_cloud_sync_enabled_cmd", { enabled, forceEnable });
+export const runCloudSync = () => _invoke("run_cloud_sync_cmd");
+

@@ -32,3 +32,10 @@ CREATE TABLE IF NOT EXISTS offline_messages (
 
 CREATE INDEX IF NOT EXISTS idx_offline_messages_receiver_created
   ON offline_messages(receiver_id, created_at ASC);
+
+CREATE TABLE IF NOT EXISTS user_sync_snapshots (
+  user_id TEXT PRIMARY KEY,
+  payload TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  device_id TEXT NOT NULL DEFAULT ''
+);

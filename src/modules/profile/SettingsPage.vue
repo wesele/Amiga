@@ -39,6 +39,24 @@
     <section class="settings-section">
       <h3 class="section-header">{{ t('settings.data') }}</h3>
       <div class="settings-card">
+        <SettingsItem
+          :title="t('settings.cloudSync')"
+          :subtitle="cloudSyncSubtitle"
+          :showDivider="true"
+        >
+          <template #trailing>
+            <label class="sync-switch" :class="{ disabled: cloudSyncBusy }">
+              <input
+                type="checkbox"
+                class="sync-switch-input"
+                :checked="cloudSyncEnabled"
+                :disabled="cloudSyncBusy"
+                @change="onCloudSyncToggle"
+              />
+              <span class="sync-switch-track" />
+            </label>
+          </template>
+        </SettingsItem>
         <SettingsItem :title="t('settings.restart')" :subtitle="t('settings.restartSub')" danger @click="showResetDialog = true" :showDivider="false" />
       </div>
     </section>
@@ -88,6 +106,20 @@
       </div>
     </Teleport>
 
+    <!-- Cloud sync conflict dialog -->
+    <Teleport to="body">
+      <div v-if="showCloudSyncConflictDialog" class="modal-overlay" @click.self="cancelCloudSyncConflict">
+        <div class="modal-content dialog-sm">
+          <h3 class="dialog-title">{{ t('settings.cloudSyncConflictTitle') }}</h3>
+          <p class="dialog-desc">{{ t('settings.cloudSyncConflictDesc', { nickname: cloudSyncNickname }) }}</p>
+          <div class="dialog-actions">
+            <button class="dialog-btn" @click="cancelCloudSyncConflict">{{ t('common.cancel') }}</button>
+            <button class="dialog-btn primary" :disabled="cloudSyncBusy" @click="confirmCloudSyncConflict">{{ t('settings.cloudSyncConflictConfirm') }}</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Reset Confirm Dialog -->
     <Teleport to="body">
       <div v-if="showResetDialog" class="modal-overlay" @click.self="showResetDialog = false">
@@ -107,7 +139,13 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
-import { resetWizard as resetWizardApi, getSetting, saveSetting } from "@/shared/api.js";
+import {
+  resetWizard as resetWizardApi,
+  getSetting,
+  saveSetting,
+  getCloudSyncStatus,
+  setCloudSyncEnabled,
+} from "@/shared/api.js";
 import SettingsItem from "./components/SettingsItem.vue";
 import { useI18n } from "@/shared/i18n";
 
@@ -128,6 +166,12 @@ const newsLimit = ref(5);
 const showLangDialog = ref(false);
 const showNewsDialog = ref(false);
 const showResetDialog = ref(false);
+const showCloudSyncConflictDialog = ref(false);
+const cloudSyncEnabled = ref(false);
+const cloudSyncBusy = ref(false);
+const cloudSyncNickname = ref("");
+const cloudSyncLastSyncedAt = ref("");
+const cloudSyncLastError = ref("");
 
 const langOptions = computed(() => [
   { code: "zh", flag: "🇨🇳", label: t("lang.zh") },
@@ -140,12 +184,94 @@ const currentLangLabel = computed(() => {
   return found ? `${found.flag} ${found.label}` : locale.value;
 });
 
+const cloudSyncSubtitle = computed(() => {
+  if (cloudSyncBusy.value) {
+    return t("settings.cloudSyncTesting");
+  }
+  if (cloudSyncLastError.value) {
+    return `${t("settings.cloudSyncError")}: ${cloudSyncLastError.value}`;
+  }
+  const base = t("settings.cloudSyncSub");
+  if (!cloudSyncEnabled.value) {
+    return base;
+  }
+  const status = cloudSyncLastSyncedAt.value
+    ? t("settings.cloudSyncLastSynced", { time: formatSyncTime(cloudSyncLastSyncedAt.value) })
+    : t("settings.cloudSyncNeverSynced");
+  return `${base} · ${status}`;
+});
+
+function formatSyncTime(iso) {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleString();
+}
+
+async function loadCloudSyncStatus() {
+  try {
+    const status = await getCloudSyncStatus();
+    cloudSyncEnabled.value = Boolean(status?.enabled);
+    cloudSyncNickname.value = status?.nickname || "";
+    cloudSyncLastSyncedAt.value = status?.last_synced_at || "";
+    cloudSyncLastError.value = status?.last_error || "";
+  } catch (e) {
+    console.error("Failed to load cloud sync status:", e);
+  }
+}
+
+async function applyCloudSyncEnabled(enabled, forceEnable = false) {
+  cloudSyncBusy.value = true;
+  cloudSyncLastError.value = "";
+  try {
+    const result = await setCloudSyncEnabled(enabled, forceEnable);
+    if (!enabled) {
+      cloudSyncEnabled.value = false;
+      return;
+    }
+    if (result?.remote_conflict) {
+      showCloudSyncConflictDialog.value = true;
+      cloudSyncEnabled.value = false;
+      return;
+    }
+    cloudSyncEnabled.value = Boolean(result?.enabled);
+    await loadCloudSyncStatus();
+  } catch (e) {
+    cloudSyncEnabled.value = false;
+    cloudSyncLastError.value = e?.message || String(e);
+    console.error("Cloud sync toggle failed:", e);
+  } finally {
+    cloudSyncBusy.value = false;
+  }
+}
+
+async function onCloudSyncToggle(event) {
+  const next = Boolean(event?.target?.checked);
+  if (!next) {
+    await applyCloudSyncEnabled(false);
+    return;
+  }
+  event.target.checked = false;
+  await applyCloudSyncEnabled(true);
+}
+
+function cancelCloudSyncConflict() {
+  showCloudSyncConflictDialog.value = false;
+  cloudSyncEnabled.value = false;
+}
+
+async function confirmCloudSyncConflict() {
+  showCloudSyncConflictDialog.value = false;
+  await applyCloudSyncEnabled(true, true);
+}
+
 onMounted(() => {
   // Initialise the picker from the active i18n locale.
   uiLang.value = locale.value || "zh";
   getSetting("news_fetch_limit").then((val) => {
     if (val) newsLimit.value = parseInt(val, 10) || 5;
   }).catch((e) => console.error("Failed to load news fetch limit:", e));
+  loadCloudSyncStatus();
 });
 
 function saveLang() {
@@ -373,5 +499,49 @@ function confirmReset() {
 }
 .dialog-btn.danger:hover {
   background: var(--red-bg);
+}
+
+/* Cloud sync switch */
+.sync-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.sync-switch.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.sync-switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.sync-switch-track {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--outline-variant);
+  position: relative;
+  transition: background var(--transition);
+}
+.sync-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform var(--transition);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.sync-switch-input:checked + .sync-switch-track {
+  background: var(--blue);
+}
+.sync-switch-input:checked + .sync-switch-track::after {
+  transform: translateX(20px);
 }
 </style>

@@ -192,6 +192,30 @@ function makeRepository(env) {
         .run();
       return result.meta?.changes || 0;
     },
+    async pullSyncSnapshot(userId) {
+      const row = await env.DB
+        .prepare(
+          `SELECT user_id AS userId, payload, updated_at AS updatedAt, device_id AS deviceId
+           FROM user_sync_snapshots WHERE user_id = ?1`,
+        )
+        .bind(userId)
+        .first();
+      return row || null;
+    },
+    async pushSyncSnapshot({ userId, payload, updatedAt, deviceId }) {
+      await env.DB
+        .prepare(
+          `INSERT INTO user_sync_snapshots (user_id, payload, updated_at, device_id)
+           VALUES (?1, ?2, ?3, ?4)
+           ON CONFLICT(user_id) DO UPDATE SET
+             payload = excluded.payload,
+             updated_at = excluded.updated_at,
+             device_id = excluded.device_id`,
+        )
+        .bind(userId, payload, updatedAt, deviceId)
+        .run();
+      return { ok: true };
+    },
   };
 }
 
@@ -423,6 +447,27 @@ async function handleApi(request, env) {
     if (!userId) return badRequest("missing-user-id");
     const items = await repository.pullOfflineMessages(userId);
     return json({ items });
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/sync/ping") {
+    return json({ ok: true });
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/sync/pull") {
+    const userId = url.searchParams.get("userId");
+    if (!userId) return badRequest("missing-user-id");
+    const snapshot = await repository.pullSyncSnapshot(userId);
+    if (!snapshot) return json({ error: "not-found" }, { status: 404 });
+    return json(snapshot);
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/sync/push") {
+    const body = await readJson(request);
+    if (!body.userId || body.payload == null || !body.updatedAt || !body.deviceId) {
+      return badRequest("missing-sync-fields");
+    }
+    await repository.pushSyncSnapshot(body);
+    return json({ ok: true });
   }
 
   return badRequest("not-found", 404);

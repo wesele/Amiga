@@ -147,4 +147,66 @@ describe("SettingsPage", () => {
     expect(persistedKey).toBe("news_fetch_limit");
     expect(persistedVal).toBe("6");
   });
+
+  it("cloud sync defaults to off and enabling calls setCloudSyncEnabled", async () => {
+    let setEnabledArgs = null;
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "get_cloud_sync_status_cmd") {
+        return Promise.resolve({
+          enabled: false,
+          nickname: "Alice",
+          device_id: "dev-1",
+          last_synced_at: null,
+          last_error: null,
+        });
+      }
+      if (cmd === "set_cloud_sync_enabled_cmd") {
+        setEnabledArgs = args;
+        return Promise.resolve({ enabled: true, remote_conflict: false });
+      }
+      if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      return Promise.resolve(null);
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const toggle = wrapper.find(".sync-switch-input");
+    expect(toggle.exists()).toBe(true);
+    expect(toggle.element.checked).toBe(false);
+
+    await toggle.setValue(true);
+    await flushPromises();
+
+    expect(setEnabledArgs).toMatchObject({ enabled: true, forceEnable: false });
+  });
+
+  it("cloud sync enable failure keeps the switch off", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_cloud_sync_status_cmd") {
+        return Promise.resolve({
+          enabled: false,
+          nickname: "Alice",
+          device_id: "dev-1",
+          last_synced_at: null,
+          last_error: null,
+        });
+      }
+      if (cmd === "set_cloud_sync_enabled_cmd") {
+        return Promise.reject(new Error("network down"));
+      }
+      if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      return Promise.resolve(null);
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const toggle = wrapper.find(".sync-switch-input");
+    await toggle.setValue(true);
+    await flushPromises();
+
+    expect(wrapper.find(".sync-switch-input").element.checked).toBe(false);
+    expect(wrapper.text()).toContain("同步失败");
+  });
 });

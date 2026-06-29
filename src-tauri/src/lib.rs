@@ -31,6 +31,16 @@ pub fn run() {
         client: LlmClient::new(),
     };
 
+    let db_for_startup_sync = db_pool.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Ok(true) = modules::sync::is_cloud_sync_enabled(&db_for_startup_sync) {
+            if let Err(e) = modules::sync::run_cloud_sync(&db_for_startup_sync).await {
+                log::warn!("Startup cloud sync failed: {}", e);
+                let _ = modules::llm::save_setting(&db_for_startup_sync, "cloud_sync_last_error", &e);
+            }
+        }
+    });
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(commands::share::init())
@@ -101,6 +111,11 @@ pub fn run() {
             commands::chat::get_amiga_profile_cmd,
             // Share commands
             commands::share::share_text_cmd,
+            // Cloud sync commands
+            commands::sync::test_cloud_sync_cmd,
+            commands::sync::get_cloud_sync_status_cmd,
+            commands::sync::set_cloud_sync_enabled_cmd,
+            commands::sync::run_cloud_sync_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

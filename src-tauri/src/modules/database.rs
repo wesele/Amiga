@@ -368,6 +368,15 @@ pub struct DatabasePool {
     compatible: AtomicBool,
 }
 
+impl Clone for DatabasePool {
+    fn clone(&self) -> Self {
+        Self {
+            pool: self.pool.clone(),
+            compatible: AtomicBool::new(self.compatible.load(Ordering::Relaxed)),
+        }
+    }
+}
+
 impl DatabasePool {
     pub fn new() -> Result<Self, String> {
         let db_path = Self::db_path();
@@ -601,6 +610,10 @@ impl DatabasePool {
             .unwrap_or(0);
 
         log::info!("Database schema up to date. Version: {}", final_version);
+
+        // Release the migration connection before the compatibility check
+        // acquires another from the pool (max_size=1 in tests).
+        drop(conn);
 
         // After normal migration, check whether the database came from
         // a newer app version (incompatible schema).

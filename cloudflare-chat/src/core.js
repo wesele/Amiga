@@ -79,6 +79,7 @@ export function createMemoryRepository() {
   const users = new Map();
   const friendships = [];
   const offlineMessages = [];
+  const syncSnapshots = new Map();
   let nextFriendshipId = 1;
   let nextOfflineId = 1;
 
@@ -163,6 +164,13 @@ export function createMemoryRepository() {
         }
       }
       return removed;
+    },
+    async pullSyncSnapshot(userId) {
+      return syncSnapshots.get(userId) || null;
+    },
+    async pushSyncSnapshot({ userId, payload, updatedAt, deviceId }) {
+      syncSnapshots.set(userId, { userId, payload, updatedAt, deviceId });
+      return { ok: true };
     },
   };
 }

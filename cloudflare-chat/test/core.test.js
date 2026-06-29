@@ -91,3 +91,18 @@ test("offline cleanup removes messages older than 3 days", async () => {
   assert.equal(items.length, 1);
   assert.equal(items[0].content, "new");
 });
+
+test("sync snapshots round-trip by nickname", async () => {
+  const repository = createMemoryRepository();
+  await repository.pushSyncSnapshot({
+    userId: "Alice",
+    payload: "{\"version\":1}",
+    updatedAt: "2026-06-29T10:00:00.000Z",
+    deviceId: "device-a",
+  });
+
+  const snapshot = await repository.pullSyncSnapshot("Alice");
+  assert.equal(snapshot.userId, "Alice");
+  assert.equal(snapshot.deviceId, "device-a");
+  assert.equal(snapshot.payload, "{\"version\":1}");
+});

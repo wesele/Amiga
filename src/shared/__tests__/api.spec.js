@@ -201,6 +201,31 @@ describe("API module", () => {
     });
   });
 
+  describe("Cloud sync API", () => {
+    it("testCloudSync calls invoke", () => {
+      api.testCloudSync();
+      expect(mockInvoke).toHaveBeenCalledWith("test_cloud_sync_cmd");
+    });
+
+    it("getCloudSyncStatus calls invoke", () => {
+      api.getCloudSyncStatus();
+      expect(mockInvoke).toHaveBeenCalledWith("get_cloud_sync_status_cmd");
+    });
+
+    it("setCloudSyncEnabled calls invoke with enabled and forceEnable", () => {
+      api.setCloudSyncEnabled(true, true);
+      expect(mockInvoke).toHaveBeenCalledWith("set_cloud_sync_enabled_cmd", {
+        enabled: true,
+        forceEnable: true,
+      });
+    });
+
+    it("runCloudSync calls invoke", () => {
+      api.runCloudSync();
+      expect(mockInvoke).toHaveBeenCalledWith("run_cloud_sync_cmd");
+    });
+  });
+
   describe("Prompts API", () => {
     it("getAllPrompts calls invoke", () => {
       api.getAllPrompts();

@@ -6,5 +6,6 @@ pub mod logging;
 pub mod migrations;
 pub mod news;
 pub mod prompts;
+pub mod sync;
 pub mod user;
 pub mod vocabulary;

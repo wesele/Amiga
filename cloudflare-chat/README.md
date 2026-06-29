@@ -17,6 +17,9 @@ This subproject contains the social chat backend for Amiga:
 - `POST /api/friends/remove`
 - `GET /api/users?ids=...`
 - `GET /api/messages/offline?userId=...`
+- `GET /api/sync/ping`
+- `GET /api/sync/pull?userId=...`
+- `POST /api/sync/push`
 - `GET /ws?userId=...&mode=public|direct&peerId=...`
 
 ## Local setup
