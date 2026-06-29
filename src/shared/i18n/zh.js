@@ -30,6 +30,11 @@ export default {
     profile: "我的",
   },
 
+  learn: {
+    title: "学习",
+    news: "新闻",
+  },
+
   common: {
     learner: "学习者",
     ok: "确定",

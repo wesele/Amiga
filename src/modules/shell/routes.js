@@ -8,7 +8,7 @@ export default [
     children: [
       {
         path: "",
-        redirect: { name: "news" },
+        redirect: { name: "learn" },
       },
       // News module routes will be registered dynamically
       // Profile module routes will be registered dynamically

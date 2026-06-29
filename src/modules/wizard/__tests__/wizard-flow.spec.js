@@ -19,7 +19,7 @@ function makeRouter() {
     routes: [
       { path: "/", component: { template: "<div/>" } },
       { path: "/wizard", component: WizardFlow },
-      { path: "/news", name: "news", component: { template: "<div/>" } },
+      { path: "/learn", name: "learn", component: { template: "<div/>" } },
     ],
   });
 }
@@ -125,7 +125,7 @@ describe("WizardFlow", () => {
     expect(wrapper.findComponent(StepAvatar).exists()).toBe(true);
   });
 
-  it("picking an avatar on Step 4 saves the user and replaces history with /news", async () => {
+  it("picking an avatar on Step 4 saves the user and replaces history with /learn", async () => {
     const router = makeRouter();
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "create_user") return Promise.resolve({ id: "user-1" });
@@ -159,10 +159,10 @@ describe("WizardFlow", () => {
     });
     expect(mockInvoke).toHaveBeenCalledWith("save_learning_goal_cmd", expect.any(Object));
     expect(mockInvoke).toHaveBeenCalledWith("init_user_vocab_cmd", expect.any(Object));
-    expect(replaceSpy).toHaveBeenCalledWith({ name: "news" });
-    expect(pushSpy).not.toHaveBeenCalledWith("/news");
-    expect(pushSpy).not.toHaveBeenCalledWith({ name: "news" });
-    expect(router.currentRoute.value.path).toBe("/news");
+    expect(replaceSpy).toHaveBeenCalledWith({ name: "learn" });
+    expect(pushSpy).not.toHaveBeenCalledWith("/learn");
+    expect(pushSpy).not.toHaveBeenCalledWith({ name: "learn" });
+    expect(router.currentRoute.value.path).toBe("/learn");
   });
 
   it("does not leave /wizard on the history stack after completion", async () => {
@@ -186,7 +186,7 @@ describe("WizardFlow", () => {
     await flushPromises();
     await wrapper.findAll(".avatar-circle")[0].trigger("click");
     await flushPromises();
-    expect(router.currentRoute.value.path).toBe("/news");
+    expect(router.currentRoute.value.path).toBe("/learn");
     await router.back();
     expect(router.currentRoute.value.path).not.toBe("/wizard");
   });

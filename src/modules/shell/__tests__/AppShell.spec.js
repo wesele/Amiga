@@ -24,7 +24,8 @@ function makeRouter() {
     history: createMemoryHistory(),
     routes: [
       { path: "/", component: { template: "<div>home</div>" } },
-      { path: "/news", name: "news", component: { template: "<div>news</div>" } },
+      { path: "/learn", name: "learn", component: { template: "<div>learn</div>" } },
+      { path: "/news", name: "news", component: { template: "<div>news</div>" }, meta: { parent: "learn" } },
       { path: "/vocab", name: "vocab", component: { template: "<div>vocab</div>" } },
       { path: "/chat", name: "chat", component: { template: "<div>chat</div>" } },
       { path: "/profile", name: "profile", component: { template: "<div>profile</div>" } },
@@ -125,6 +126,12 @@ describe("AppShell render", () => {
     router.addRoute({ path: "/wizard", name: "wizard", component: { template: "<div />" } });
     router.addRoute({ path: "/news/:id", name: "reader", component: { template: "<div />" } });
     router.addRoute({ path: "/chat/:id", name: "chat-session", component: { template: "<div />" } });
+    router.addRoute({
+      path: "/learn/translator/:sessionId",
+      name: "learn-translator",
+      component: { template: "<div />" },
+      meta: { parent: "learn" },
+    });
 
     const wrapper = mount(AppShell, {
       global: {
@@ -134,10 +141,10 @@ describe("AppShell render", () => {
     });
     await flushPromises();
 
-    for (const path of ["/news", "/wizard", "/news/123", "/chat/abc"]) {
+    for (const path of ["/learn", "/news", "/wizard", "/news/123", "/chat/abc", "/learn/translator/abc"]) {
       await router.push(path);
       await flushPromises();
-      const isHidden = path !== "/news";
+      const isHidden = path === "/wizard" || path === "/news/123" || path === "/chat/abc" || path === "/learn/translator/abc";
       const has = wrapper.find(".bottom-nav").exists();
       expect({ path, has }).toEqual({ path, has: !isHidden });
     }
@@ -158,13 +165,13 @@ describe("AppShell bottom-nav tab switching (L1 isolation)", () => {
       },
     });
     await flushPromises();
-    await router.push("/news");
+    await router.push("/learn");
     await flushPromises();
 
     const replaceSpy = vi.spyOn(router, "replace");
     const pushSpy = vi.spyOn(router, "push");
 
-    // The L1 tabs are listed in the order [news, vocab, chat, profile];
+    // The L1 tabs are listed in the order [learn, vocab, chat, profile];
     // tab index 3 is "profile".
     const tabs = wrapper.findAll(".bottom-nav .nav-item");
     expect(tabs.length).toBe(4);
@@ -216,14 +223,14 @@ describe("AppShell bottom-nav tab switching (L1 isolation)", () => {
       },
     });
     await flushPromises();
-    await router.push("/news");
+    await router.push("/learn");
     await flushPromises();
 
     const replaceSpy = vi.spyOn(router, "replace");
     const pushSpy = vi.spyOn(router, "push");
 
     const tabs = wrapper.findAll(".bottom-nav .nav-item");
-    // /news is index 0; click it again while it's the current route.
+    // /learn is index 0; click it again while it's the current route.
     await tabs[0].trigger("click");
     await flushPromises();
 
@@ -250,7 +257,7 @@ describe("AppShell bottom-nav tab switching (L1 isolation)", () => {
     await flushPromises();
 
     const tabs = wrapper.findAll(".bottom-nav .nav-item");
-    // Tab order: news(0), vocab(1), chat(2), profile(3)
+    // Tab order: learn(0), vocab(1), chat(2), profile(3)
     expect(tabs[3].classes()).toContain("active");
   });
 });

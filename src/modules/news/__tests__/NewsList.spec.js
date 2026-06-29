@@ -23,7 +23,13 @@ function makeRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: "/news", component: { template: "<div>news</div>" } },
+      { path: "/learn", name: "learn", component: { template: "<div>learn</div>" } },
+      {
+        path: "/news",
+        name: "news",
+        component: { template: "<div>news</div>" },
+        meta: { parent: "learn" },
+      },
       { path: "/news/:id", name: "reader", component: { template: "<div>reader</div>" } },
     ],
   });
@@ -123,6 +129,29 @@ describe("NewsList article-card / source-link structure", () => {
     const firstHref = sources[0].attributes("href");
     expect(firstHref).toBe("https://www.bbc.com/news/article-1");
     expect(sources[0].attributes("target")).toBe("_blank");
+  });
+});
+
+describe("NewsList back navigation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders a back button in the header", () => {
+    const vue = read("src/modules/news/NewsList.vue");
+    expect(vue).toMatch(/class="back-btn"/);
+    expect(vue).toMatch(/@click="goBack"/);
+  });
+
+  it("back button replaces history with the parent learn route", async () => {
+    const { wrapper, router } = await mountList();
+    const replaceSpy = vi.spyOn(router, "replace");
+
+    await wrapper.find(".back-btn").trigger("click");
+    await flushPromises();
+
+    expect(replaceSpy).toHaveBeenCalledWith({ name: "learn" });
+    expect(router.currentRoute.value.name).toBe("learn");
   });
 });
 

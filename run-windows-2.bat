@@ -36,6 +36,11 @@ setlocal EnableDelayedExpansion
 ::  the source tree and the shadow copy. If any source file is
 ::  newer, we re-mirror. This is fast and good enough.
 ::
+::  Fast start (no code changes, shadow copy up to date):
+::    - Reuses a running Vite server on :1422 when possible
+::    - Skips Rust rebuild when target-test\debug\idioma.exe is fresh
+::    Use --full to force a clean restart of ports + Vite + Rust.
+::
 ::  IMPORTANT:
 ::  - windows-2/ is permanently ignored by git (see .gitignore).
 ::  - Never edit files directly inside windows-2/ for long-lived
@@ -126,61 +131,27 @@ if not exist "%SHADOW_DIR%\node_modules" (
   echo [Amiga-Test] npm install done.
 )
 
-:: --- Step 3: enter shadow directory and set isolation env ----
-cd /d "%SHADOW_DIR%"
+:: --- Step 3: launch isolated dev session with fast-start ----
+set "FORCE_ARG="
+if /i "%~1"=="--full" set "FORCE_ARG=-ForceFull"
+if /i "%~1"=="/full" set "FORCE_ARG=-ForceFull"
 
-set VITE_PORT=1422
-set VITE_HMR_PORT=1423
-set IDIOMA_DATA_DIR=%LOCALAPPDATA%\idioma-test
-set IDIOMA_LOG_DIR=%LOCALAPPDATA%\idioma-test\logs
-set CARGO_TARGET_DIR=%SHADOW_DIR%\src-tauri\target-test
+set "PS_EXE=powershell"
+where pwsh >nul 2>&1
+if %errorlevel% equ 0 set "PS_EXE=pwsh"
 
 echo.
 echo [Amiga-Test] Starting FULLY ISOLATED Windows dev session on port 1422...
-echo [Amiga-Test] Working directory : %CD%
-echo [Amiga-Test] Data directory    : %IDIOMA_DATA_DIR%
-echo [Amiga-Test] Log directory     : %IDIOMA_LOG_DIR%
-echo [Amiga-Test] Cargo target dir  : %CARGO_TARGET_DIR%
+echo [Amiga-Test] Working directory : %SHADOW_DIR%
+echo [Amiga-Test] Data directory    : %LOCALAPPDATA%\idioma-test
+echo [Amiga-Test] Log directory     : %LOCALAPPDATA%\idioma-test\logs
+echo [Amiga-Test] Cargo target dir  : %SHADOW_DIR%\src-tauri\target-test
 echo [Amiga-Test] App identifier    : com.idioma.app.test (Amiga-Test)
 echo.
 
-call :ensure_port_free 1422
-call :ensure_port_free 1423
-
-echo.
-call npx tauri dev --config "%SHADOW_DIR%\src-tauri\tauri.conf.test.json"
+"%PS_EXE%" -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%\scripts\start-windows-2-dev.ps1" %FORCE_ARG%
 set RC=%ERRORLEVEL%
 echo.
 echo [Amiga-Test] tauri dev exited with code %RC%
 pause
-goto :eof
-
-:: --- Helpers -------------------------------------------------
-:ensure_port_free
-set "PORT=%~1"
-set "NEEDS_WAIT="
-
-netstat -aon | findstr ":%PORT% " | findstr LISTENING >nul 2>&1
-if %errorlevel% equ 0 (
-  echo [Amiga-Test] Port %PORT% in use. Cleaning up previous session...
-  for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":%PORT% " ^| findstr LISTENING') do (
-    taskkill /f /pid %%a 2>nul
-    if errorlevel 1 (
-      echo [Amiga-Test] Warning: failed to kill PID %%a for port %PORT%.
-    ) else (
-      set "NEEDS_WAIT=1"
-    )
-  )
-) else (
-  echo [Amiga-Test] Port %PORT% is free.
-)
-
-if defined NEEDS_WAIT (
-  for /l %%i in (1,1,10) do (
-    timeout /t 1 >nul
-    netstat -aon | findstr ":%PORT% " | findstr LISTENING >nul 2>&1
-    if errorlevel 1 goto :eof
-  )
-  echo [Amiga-Test] Warning: port %PORT% still appears busy after cleanup.
-)
 goto :eof

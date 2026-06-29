@@ -19,6 +19,8 @@ Thumbs.db
 
 # Logs
 *.log
+vite-err.txt
+vite-log.txt
 
 # Content Studio config (contains API keys)
 content-studio/studio.config.json

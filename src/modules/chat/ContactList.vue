@@ -34,7 +34,8 @@
 <script setup>
 import { computed, markRaw, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { createChatSession, getChatSessions, getCurrentUser } from "@/shared/api.js";
+import { getChatSessions } from "@/shared/api.js";
+import { openAiContact } from "./openAiContact.js";
 import { useI18n } from "@/shared/i18n";
 import { displayLang } from "@/shared/constants.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -220,19 +221,8 @@ function openSocialHub() {
 }
 
 async function openAiChat(contact) {
-  let session = sessions.value.find((item) => item.contact_type === contact.contactType);
-  if (!session) {
-    try {
-      const user = await getCurrentUser();
-      const uid = user?.id || "default";
-      const lang = targetLangStore.code || (await targetLangStore.load());
-      const sid = await createChatSession(uid, contact.name, contact.contactType, lang);
-      session = { id: sid, contact_type: contact.contactType };
-    } catch {
-      return;
-    }
-  }
-  router.push(`/chat/${session.id}`);
+  const lang = targetLangStore.code || (await targetLangStore.load());
+  await openAiContact(router, contact, { targetLang: lang });
 }
 
 function openContact(contact) {

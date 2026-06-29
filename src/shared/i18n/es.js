@@ -27,6 +27,11 @@ export default {
     profile: "Yo",
   },
 
+  learn: {
+    title: "Aprender",
+    news: "Noticias",
+  },
+
   common: {
     learner: "Aprendiz",
     ok: "Aceptar",
