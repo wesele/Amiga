@@ -110,7 +110,7 @@ async function openModule(mod) {
 }
 
 .module-icon {
-  font-size: 16vw;
+  font-size: 12vw;
   line-height: 1;
 }
 
