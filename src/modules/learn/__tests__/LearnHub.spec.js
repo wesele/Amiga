@@ -52,7 +52,8 @@ describe("LearnHubPage", () => {
     expect(source).toMatch(/grid-template-columns:\s*repeat\(2/);
     expect(source).toMatch(/aspect-ratio:\s*1/);
     expect(source).not.toMatch(/width:\s*130px/);
-    expect(source).toMatch(/font-size:\s*8vw/);
+    expect(source).toMatch(/font-size:\s*16vw/);
+    expect(source).toMatch(/font-size:\s*clamp\(14px,\s*5vw,\s*18px\)/);
   });
 
   it("renders two module tiles in a grid", async () => {

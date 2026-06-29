@@ -110,12 +110,12 @@ async function openModule(mod) {
 }
 
 .module-icon {
-  font-size: 8vw;
+  font-size: 16vw;
   line-height: 1;
 }
 
 .module-label {
-  font-size: clamp(12px, 3.2vw, 14px);
+  font-size: clamp(14px, 5vw, 18px);
   font-weight: 600;
   color: var(--text);
   text-align: center;
