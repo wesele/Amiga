@@ -153,7 +153,7 @@ const promptText = computed(() => {
   if (q.type === "T12") return q.scenario;
   if (q.type === "T09") return q.hint;
   if (q.type === "T10") return q.sourceText;
-  if (q.type === "T01") return q.imageDesc;
+  if (q.type === "T01") return t("path.chooseByImage");
   if (q.type === "T02") return t("path.listenChooseImage");
   if (q.type === "T03") return t("path.matchPairs");
   if (q.type === "T06") return t("path.buildSentence");

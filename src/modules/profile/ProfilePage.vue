@@ -49,6 +49,22 @@
           <span v-if="currentTargetLang === lang.code" class="lang-check">✓</span>
         </button>
       </div>
+
+      <h3 class="section-header level-header">{{ t('learningLang.levelSection') }}</h3>
+      <p class="section-desc">{{ t('learningLang.levelDesc') }}</p>
+      <div class="lang-pills level-pills">
+        <button
+          v-for="lvl in learningLevels"
+          :key="lvl"
+          class="lang-pill level-pill"
+          :class="{ active: currentLevel === lvl }"
+          :disabled="levelSwitching"
+          @click="onSwitchLevel(lvl)"
+        >
+          <span class="lang-name">{{ t(`wizard.levels.${lvl}`) }}</span>
+          <span v-if="currentLevel === lvl" class="lang-check">✓</span>
+        </button>
+      </div>
     </section>
 
     <!-- General Settings -->
@@ -127,13 +143,14 @@ import {
   getUserVocabStats,
   getReadArticleCount,
   checkUpdate,
+  updateLearningGoalCefr,
 } from "@/shared/api.js";
 import { openExternalUrl } from "@/shared/external.js";
 import { canAutoInstallUpdate, pickPreferredUpdateAsset, startAppUpdate } from "@/shared/update.js";
 import SettingsItem from "./components/SettingsItem.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
-import { AVAILABLE_LANGUAGES } from "@/shared/constants.js";
+import { AVAILABLE_LANGUAGES, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
 
 const { t } = useI18n();
 const targetLangStore = useTargetLangStore();
@@ -143,8 +160,10 @@ const vocabStats = ref(null);
 const readArticleCount = ref(0);
 const currentTargetLang = computed(() => targetLangStore.code || "");
 const currentLevel = ref("A1");
+const levelSwitching = ref(false);
 const switching = computed(() => targetLangStore.updating);
 const availableLanguages = AVAILABLE_LANGUAGES;
+const learningLevels = LEARNING_CEFR_LEVELS;
 
 onMounted(async () => {
   try {
@@ -161,6 +180,23 @@ onMounted(async () => {
     console.error("Failed to load profile:", e);
   }
 });
+
+async function onSwitchLevel(level) {
+  if (levelSwitching.value || level === currentLevel.value) return;
+  const lang = currentTargetLang.value;
+  const u = user.value;
+  if (!lang || !u) return;
+  levelSwitching.value = true;
+  try {
+    await updateLearningGoalCefr(lang, level);
+    currentLevel.value = level;
+    goals.value = await getLearningGoals(u.id);
+  } catch (e) {
+    console.error("Failed to update learning level:", e);
+  } finally {
+    levelSwitching.value = false;
+  }
+}
 
 async function onSwitchLang(code) {
   if (switching.value || code === currentTargetLang.value) return;
@@ -254,6 +290,10 @@ async function handleInstallUpdate() {
   color: var(--text-lighter);
   padding: 0 20px 8px;
   margin: 0;
+}
+
+.level-header {
+  margin-top: 16px;
 }
 
 .lang-pills {

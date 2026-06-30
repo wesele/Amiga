@@ -41,6 +41,14 @@ describe("API module", () => {
       expect(mockInvoke).toHaveBeenCalledWith("get_learning_goals_cmd", { userId: "user-1" });
     });
 
+    it("updateLearningGoalCefr calls invoke with targetLanguage and cefrLevel", () => {
+      api.updateLearningGoalCefr("es", "A2");
+      expect(mockInvoke).toHaveBeenCalledWith("update_learning_goal_cefr_cmd", {
+        targetLanguage: "es",
+        cefrLevel: "A2",
+      });
+    });
+
     it("isWizardCompleted calls invoke with no args", () => {
       api.isWizardCompleted();
       expect(mockInvoke).toHaveBeenCalledWith("is_wizard_completed_cmd");

@@ -101,12 +101,38 @@ describe("ProfilePage", () => {
     });
     const wrapper = mountPage();
     await flushPromises();
-    const pills = wrapper.findAll(".lang-pill");
+    const pills = wrapper.findAll(".lang-pill").filter((p) => !p.classes().includes("level-pill"));
     expect(pills.length).toBe(3);
     // The Spanish pill should be marked active (the wizard default).
     const active = pills.find((p) => p.classes().includes("active"));
     expect(active).toBeTruthy();
     expect(active.text()).toContain("西班牙语");
+  });
+
+  it("renders level pills and updates cefr via update_learning_goal_cefr_cmd", async () => {
+    let updatedLevel = "";
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([
+        { id: 1, target_language: "es", cefr_level: "A1" },
+      ]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 0, total_learning: 0, total: 0 });
+      if (cmd === "get_read_article_count_cmd") return Promise.resolve(0);
+      if (cmd === "update_learning_goal_cefr_cmd") {
+        updatedLevel = args?.cefrLevel;
+        return Promise.resolve(null);
+      }
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+    const levelPills = wrapper.findAll(".level-pill");
+    expect(levelPills.length).toBe(2);
+    const a2 = levelPills.find((p) => p.text().includes("A2"));
+    await a2.trigger("click");
+    await flushPromises();
+    expect(updatedLevel).toBe("A2");
   });
 
   it("clicking another language calls set_target_language_cmd and updates the active pill", async () => {
@@ -125,7 +151,7 @@ describe("ProfilePage", () => {
     });
     const wrapper = mountPage();
     await flushPromises();
-    const pills = wrapper.findAll(".lang-pill");
+    const pills = wrapper.findAll(".lang-pill").filter((p) => !p.classes().includes("level-pill"));
     // Find the English pill (2nd one).
     const enPill = pills.find((p) => p.text().includes("英语"));
     expect(enPill).toBeTruthy();

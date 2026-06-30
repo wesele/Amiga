@@ -43,6 +43,7 @@ export default {
     comingSoon: "题目筹备中",
     playAudio: "播放",
     listenChoose: "听句子，选择正确答案",
+    chooseByImage: "看图，选择正确的词语",
     listenChooseImage: "听发音，选择对应图片",
     matchPairs: "将左右两列配对",
     buildSentence: "点击单词组成句子",
@@ -267,6 +268,8 @@ export default {
   learningLang: {
     section: "学习语言",
     desc: "选择要学习的目标语言",
+    levelSection: "当前级别",
+    levelDesc: "影响晋级之路课程与阅读难度",
     es: "西班牙语",
     en: "英语",
     zh: "中文",

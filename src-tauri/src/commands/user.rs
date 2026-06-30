@@ -76,3 +76,15 @@ pub async fn set_target_language_cmd(
 pub async fn get_target_language_cmd(db: State<'_, DatabasePool>) -> Result<String, String> {
     user_mod::get_target_language(&db)
 }
+
+#[tauri::command]
+pub async fn update_learning_goal_cefr_cmd(
+    db: State<'_, DatabasePool>,
+    target_language: String,
+    cefr_level: String,
+) -> Result<(), String> {
+    let user = user_mod::get_or_create_user(&db)?;
+    user_mod::update_learning_goal_cefr(&db, &user.id, &target_language, &cefr_level)?;
+    after_syncable_write(&db);
+    Ok(())
+}

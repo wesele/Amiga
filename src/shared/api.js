@@ -36,6 +36,8 @@ export const resetWizard = () => _invoke("reset_wizard_cmd");
 export const setTargetLanguage = (language) =>
   _invoke("set_target_language_cmd", { language });
 export const getTargetLanguage = () => _invoke("get_target_language_cmd");
+export const updateLearningGoalCefr = (targetLanguage, cefrLevel) =>
+  _invoke("update_learning_goal_cefr_cmd", { targetLanguage, cefrLevel });
 
 // ─── Vocabulary ───
 export const importVocabBank = () => _invoke("import_vocab_bank_cmd");

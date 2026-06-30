@@ -40,6 +40,7 @@ export default {
     comingSoon: "Próximamente",
     playAudio: "Reproducir",
     listenChoose: "Escucha y elige la respuesta correcta",
+    chooseByImage: "Mira la imagen y elige la palabra correcta",
     listenChooseImage: "Escucha y elige la imagen correcta",
     matchPairs: "Empareja las columnas",
     buildSentence: "Toca palabras para formar la frase",
@@ -264,6 +265,8 @@ export default {
   learningLang: {
     section: "Idioma de aprendizaje",
     desc: "Elige el idioma que quieres aprender",
+    levelSection: "Nivel actual",
+    levelDesc: "Afecta el camino de progreso y la dificultad de lectura",
     es: "Español",
     en: "Inglés",
     zh: "Chino",

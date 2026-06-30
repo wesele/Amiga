@@ -47,7 +47,7 @@
 <script setup>
 import { reactive, computed } from "vue";
 import { useI18n } from "@/shared/i18n";
-import { AVAILABLE_LANGUAGES } from "@/shared/constants.js";
+import { AVAILABLE_LANGUAGES, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
 
 const emit = defineEmits(["next"]);
 const { t } = useI18n();
@@ -61,15 +61,13 @@ const targetLanguages = computed(() =>
 );
 
 // Only show levels that have content in vocab_bank (per migration V8 comment).
-const SUPPORTED_LEVELS = ["A1", "A2"];
-
 const levels = computed(() =>
-  SUPPORTED_LEVELS.map((v) => ({ value: v, label: t(`wizard.levels.${v}`) })),
+  LEARNING_CEFR_LEVELS.map((v) => ({ value: v, label: t(`wizard.levels.${v}`) })),
 );
 
 const form = reactive({
   targetLanguage: AVAILABLE_LANGUAGES[0].code,
-  cefrLevel: SUPPORTED_LEVELS[0],
+  cefrLevel: LEARNING_CEFR_LEVELS[0],
 });
 
 const canNext = computed(() => !!form.targetLanguage && !!form.cefrLevel);
