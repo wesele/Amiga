@@ -56,6 +56,12 @@ export default {
     retry: "Reintentar",
     continuePath: "Continuar",
     backToPath: "Volver al camino",
+    unlimitedRetry: "Reintentos ilimitados",
+    unsupportedTitle: "Aún no disponible",
+    unsupportedDesc: "El camino de progreso solo está disponible para hispanohablantes de chino que aprenden español. Cambia el idioma objetivo a español en ajustes.",
+    levelCompleteTitle: "¡Nivel {level} completado!",
+    levelCompleteDesc: "El siguiente nivel se está preparando. ¡Pronto!",
+    levelUp: "¡Ascendido a {level}!",
   },
 
   common: {

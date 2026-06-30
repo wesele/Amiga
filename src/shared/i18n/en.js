@@ -56,6 +56,12 @@ export default {
     retry: "Try again",
     continuePath: "Continue",
     backToPath: "Back to path",
+    unlimitedRetry: "Unlimited retries",
+    unsupportedTitle: "Not available yet",
+    unsupportedDesc: "Progress Path currently supports Chinese speakers learning Spanish. Switch your target language to Spanish in settings.",
+    levelCompleteTitle: "Level {level} complete!",
+    levelCompleteDesc: "The next level is being prepared. Stay tuned!",
+    levelUp: "Promoted to {level}!",
   },
 
   common: {

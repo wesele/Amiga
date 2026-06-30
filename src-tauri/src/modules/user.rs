@@ -536,6 +536,38 @@ pub fn save_learning_goal(db: &DatabasePool, goal: LearningGoal) -> Result<Learn
     })
 }
 
+pub fn update_learning_goal_cefr(
+    db: &DatabasePool,
+    user_id: &str,
+    target_language: &str,
+    cefr_level: &str,
+) -> Result<(), String> {
+    let conn = db.conn()?;
+    let updated = conn
+        .execute(
+            "UPDATE learning_goals SET cefr_level = ?1
+             WHERE user_id = ?2 AND target_language = ?3 AND id = (
+               SELECT id FROM learning_goals
+               WHERE user_id = ?2 AND target_language = ?3
+               ORDER BY id DESC LIMIT 1
+             )",
+            params![cefr_level, user_id, target_language],
+        )
+        .map_err(|e| format!("Failed to update learning goal level: {}", e))?;
+    if updated == 0 {
+        let goal = LearningGoal {
+            id: None,
+            user_id: user_id.to_string(),
+            target_language: target_language.to_string(),
+            cefr_level: cefr_level.to_string(),
+            daily_minutes: 15,
+            objective: "daily_conversation".to_string(),
+        };
+        save_learning_goal(db, goal)?;
+    }
+    Ok(())
+}
+
 pub fn get_learning_goals(db: &DatabasePool, user_id: &str) -> Result<Vec<LearningGoal>, String> {
     let conn = db.conn()?;
     let mut stmt = conn

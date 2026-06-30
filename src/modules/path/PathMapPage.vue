@@ -8,9 +8,10 @@
       </button>
       <div class="header-text">
         <h1 class="page-title">{{ t("path.title") }}</h1>
-        <p v-if="curriculum" class="page-sub">
+        <p v-if="curriculum?.status === 'active'" class="page-sub">
           {{ t("path.progress", { done: curriculum.completed_sections, total: curriculum.total_sections }) }}
           · ⭐ {{ curriculum.total_stars }}
+          · {{ t("path.unlimitedRetry") }}
         </p>
       </div>
     </header>
@@ -20,6 +21,18 @@
     <div v-else-if="error" class="error-state">
       <p>{{ error }}</p>
       <button class="retry-btn" @click="load">{{ t("common.retry") }}</button>
+    </div>
+
+    <div v-else-if="curriculum?.status === 'unsupported'" class="empty-state">
+      <span class="empty-emoji">🛤️</span>
+      <h2>{{ t("path.unsupportedTitle") }}</h2>
+      <p>{{ t("path.unsupportedDesc") }}</p>
+    </div>
+
+    <div v-else-if="curriculum?.status === 'level_complete'" class="empty-state">
+      <span class="empty-emoji">🎓</span>
+      <h2>{{ t("path.levelCompleteTitle", { level: completedLevelLabel }) }}</h2>
+      <p>{{ t("path.levelCompleteDesc") }}</p>
     </div>
 
     <div v-else-if="curriculum" class="path-scroll">
@@ -67,7 +80,8 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import { CEFR_LEVELS } from "@/shared/constants.js";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { getPathCurriculum, getCurrentUser, getLearningGoals } from "@/shared/api.js";
@@ -80,6 +94,13 @@ const targetLangStore = useTargetLangStore();
 const loading = ref(true);
 const error = ref("");
 const curriculum = ref(null);
+
+const completedLevelLabel = computed(() => {
+  const current = curriculum.value?.cefr;
+  if (!current) return "";
+  const idx = CEFR_LEVELS.indexOf(current);
+  return idx > 0 ? CEFR_LEVELS[idx - 1] : current;
+});
 
 function sideClass(idx) {
   return idx % 2 === 0 ? "left" : "right";
@@ -171,10 +192,36 @@ onMounted(load);
 }
 
 .loading-state,
-.error-state {
+.error-state,
+.empty-state {
   padding: 40px 24px;
   text-align: center;
   color: var(--text-light);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 60px;
+}
+
+.empty-emoji {
+  font-size: 56px;
+  line-height: 1;
+}
+
+.empty-state h2 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--text);
+}
+
+.empty-state p {
+  margin: 0;
+  max-width: 300px;
+  line-height: 1.5;
 }
 
 .retry-btn {

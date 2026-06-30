@@ -1,14 +1,17 @@
 use crate::modules::database::DatabasePool;
+use crate::modules::user;
 use log;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
+pub const PRIMARY_PAIR_KEY: &str = "zh-es";
+const CEFR_LEVELS: &[&str] = &["A0", "A1", "A2", "B1", "B2", "C1"];
+
 const QUESTIONS_JSON: &str = include_str!("../../../content-studio/data/questions.json");
 const FRAMEWORK_JSON: &str = include_str!("../../../content-studio/data/unit-framework.json");
-const VOCAB_PAIR_MAP_JSON: &str =
-    include_str!("../../../content-studio/data/vocabulary.json");
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathSectionProgress {
@@ -48,6 +51,8 @@ pub struct PathCurriculum {
     pub total_sections: i32,
     pub completed_sections: i32,
     pub total_stars: i32,
+    /// "active" | "unsupported" | "level_complete"
+    pub status: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,6 +70,8 @@ pub struct CompleteSectionResult {
     pub best_score: i32,
     pub passed: bool,
     pub next_section_id: Option<String>,
+    pub level_upgraded: bool,
+    pub new_cefr_level: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -96,29 +103,8 @@ fn load_framework() -> Result<Value, String> {
     serde_json::from_str(FRAMEWORK_JSON).map_err(|e| format!("parse unit-framework.json: {e}"))
 }
 
-fn resolve_pair_key(native_lang: &str, target_lang: &str) -> Option<String> {
-    let direct = format!("{native_lang}-{target_lang}");
-    let framework: Value = serde_json::from_str(FRAMEWORK_JSON).ok()?;
-    if framework.get(&direct).is_some() {
-        return Some(direct);
-    }
-
-    let vocab: Value = serde_json::from_str(VOCAB_PAIR_MAP_JSON).ok()?;
-    let pair_lang_map = vocab.get("pairLangMap")?.as_object()?;
-    let target_label = match target_lang {
-        "es" => "Espanol",
-        "en" => "English",
-        "zh" => "中文",
-        _ => return None,
-    };
-    for (pair_key, label) in pair_lang_map {
-        if label.as_str() == Some(target_label) {
-            if framework.get(pair_key).is_some() {
-                return Some(pair_key.clone());
-            }
-        }
-    }
-    None
+pub fn is_path_supported(native_lang: &str, target_lang: &str) -> bool {
+    native_lang == "zh" && target_lang == "es"
 }
 
 fn framework_units(pair_key: &str, cefr: &str) -> Result<Vec<FrameworkUnit>, String> {
@@ -131,6 +117,35 @@ fn framework_units(pair_key: &str, cefr: &str) -> Result<Vec<FrameworkUnit>, Str
         .get("units")
         .ok_or_else(|| format!("no units in framework for {pair_key}/{cefr}"))?;
     serde_json::from_value(units.clone()).map_err(|e| format!("parse framework units: {e}"))
+}
+
+fn next_cefr_level(current: &str) -> Option<String> {
+    let idx = CEFR_LEVELS.iter().position(|l| *l == current)?;
+    CEFR_LEVELS.get(idx + 1).map(|l| l.to_string())
+}
+
+fn is_level_fully_completed(curriculum: &PathCurriculum) -> bool {
+    curriculum.total_sections > 0 && curriculum.completed_sections >= curriculum.total_sections
+}
+
+fn try_upgrade_cefr_level(
+    pool: &DatabasePool,
+    user_id: &str,
+    target_lang: &str,
+    current_cefr: &str,
+) -> Result<Option<String>, String> {
+    let Some(next) = next_cefr_level(current_cefr) else {
+        return Ok(None);
+    };
+    user::update_learning_goal_cefr(pool, user_id, target_lang, &next)?;
+    log::info!(
+        "path level upgraded: user={} lang={} {} -> {}",
+        user_id,
+        target_lang,
+        current_cefr,
+        next
+    );
+    Ok(Some(next))
 }
 
 fn section_full_id(pair_key: &str, unit_id: &str, section_id: &str) -> String {
@@ -273,9 +288,33 @@ pub fn get_path_curriculum(
     target_lang: &str,
     cefr: &str,
 ) -> Result<PathCurriculum, String> {
-    let pair_key = resolve_pair_key(native_lang, target_lang)
-        .ok_or_else(|| format!("unsupported language pair {native_lang}->{target_lang}"))?;
-    let units = framework_units(&pair_key, cefr)?;
+    if !is_path_supported(native_lang, target_lang) {
+        return Ok(PathCurriculum {
+            pair_key: String::new(),
+            cefr: cefr.to_string(),
+            units: vec![],
+            total_sections: 0,
+            completed_sections: 0,
+            total_stars: 0,
+            status: "unsupported".to_string(),
+        });
+    }
+
+    let pair_key = PRIMARY_PAIR_KEY.to_string();
+    let units = match framework_units(&pair_key, cefr) {
+        Ok(u) => u,
+        Err(_) => {
+            return Ok(PathCurriculum {
+                pair_key,
+                cefr: cefr.to_string(),
+                units: vec![],
+                total_sections: 0,
+                completed_sections: 0,
+                total_stars: 0,
+                status: "level_complete".to_string(),
+            });
+        }
+    };
     let counts = question_counts_for_pair(&pair_key);
     let progress = get_progress_map(pool, user_id, &pair_key)?;
     let ordered = ordered_section_ids(&pair_key, cefr)?;
@@ -343,6 +382,7 @@ pub fn get_path_curriculum(
         total_sections: ordered.len() as i32,
         completed_sections,
         total_stars,
+        status: "active".to_string(),
     })
 }
 
@@ -354,9 +394,14 @@ pub fn get_section_lesson(
     cefr: &str,
     section_id: &str,
 ) -> Result<PathLesson, String> {
-    let pair_key = resolve_pair_key(native_lang, target_lang)
-        .ok_or_else(|| format!("unsupported language pair {native_lang}->{target_lang}"))?;
+    if !is_path_supported(native_lang, target_lang) {
+        return Err("path is only available for zh-es".to_string());
+    }
+    let pair_key = PRIMARY_PAIR_KEY.to_string();
     let curriculum = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
+    if curriculum.status != "active" {
+        return Err("path curriculum is not active".to_string());
+    }
     let section = find_section(&curriculum, section_id)
         .ok_or_else(|| format!("unknown section {section_id}"))?;
 
@@ -401,9 +446,14 @@ pub fn complete_section(
     if total_count <= 0 {
         return Err("total_count must be positive".to_string());
     }
-    let pair_key = resolve_pair_key(native_lang, target_lang)
-        .ok_or_else(|| format!("unsupported language pair {native_lang}->{target_lang}"))?;
+    if !is_path_supported(native_lang, target_lang) {
+        return Err("path is only available for zh-es".to_string());
+    }
+    let pair_key = PRIMARY_PAIR_KEY.to_string();
     let curriculum = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
+    if curriculum.status != "active" {
+        return Err("path curriculum is not active".to_string());
+    }
     let section = find_section(&curriculum, section_id)
         .map(|(_, s)| s)
         .ok_or_else(|| format!("unknown section {section_id}"))?;
@@ -415,47 +465,50 @@ pub fn complete_section(
     let stars = stars_from_score(score);
     let passed = stars > 0;
 
-    let conn = pool.conn()?;
-    let existing: Option<(i32, i32, i32)> = conn
-        .query_row(
-            "SELECT stars, best_score, attempts FROM path_section_progress
-             WHERE user_id = ?1 AND pair_key = ?2 AND section_id = ?3",
-            params![user_id, pair_key, section_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    let (new_stars, new_best, _new_attempts) = {
+        let conn = pool.conn()?;
+        let existing: Option<(i32, i32, i32)> = conn
+            .query_row(
+                "SELECT stars, best_score, attempts FROM path_section_progress
+                 WHERE user_id = ?1 AND pair_key = ?2 AND section_id = ?3",
+                params![user_id, pair_key, section_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .ok();
+
+        let (prev_stars, prev_best, prev_attempts) = existing.unwrap_or((0, 0, 0));
+        let new_stars = prev_stars.max(stars);
+        let new_best = prev_best.max(score);
+        let new_attempts = prev_attempts + 1;
+        let completed_at = if passed {
+            Some(chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string())
+        } else {
+            None
+        };
+
+        conn.execute(
+            "INSERT INTO path_section_progress
+                (user_id, pair_key, section_id, stars, best_score, attempts, completed_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))
+             ON CONFLICT(user_id, pair_key, section_id) DO UPDATE SET
+                stars = ?4,
+                best_score = ?5,
+                attempts = ?6,
+                completed_at = COALESCE(path_section_progress.completed_at, excluded.completed_at),
+                updated_at = datetime('now')",
+            params![
+                user_id,
+                pair_key,
+                section_id,
+                new_stars,
+                new_best,
+                new_attempts,
+                completed_at
+            ],
         )
-        .ok();
-
-    let (prev_stars, prev_best, prev_attempts) = existing.unwrap_or((0, 0, 0));
-    let new_stars = prev_stars.max(stars);
-    let new_best = prev_best.max(score);
-    let new_attempts = prev_attempts + 1;
-    let completed_at = if passed {
-        Some(chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string())
-    } else {
-        None
+        .map_err(|e| e.to_string())?;
+        (new_stars, new_best, new_attempts)
     };
-
-    conn.execute(
-        "INSERT INTO path_section_progress
-            (user_id, pair_key, section_id, stars, best_score, attempts, completed_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))
-         ON CONFLICT(user_id, pair_key, section_id) DO UPDATE SET
-            stars = ?4,
-            best_score = ?5,
-            attempts = ?6,
-            completed_at = COALESCE(path_section_progress.completed_at, excluded.completed_at),
-            updated_at = datetime('now')",
-        params![
-            user_id,
-            pair_key,
-            section_id,
-            new_stars,
-            new_best,
-            new_attempts,
-            completed_at
-        ],
-    )
-    .map_err(|e| e.to_string())?;
 
     let ordered = ordered_section_ids(&pair_key, cefr)?;
     let next_section_id = if passed {
@@ -467,13 +520,28 @@ pub fn complete_section(
         None
     };
 
+    let mut level_upgraded = false;
+    let mut new_cefr_level = None;
+    if passed {
+        let refreshed = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
+        if is_level_fully_completed(&refreshed) {
+            if let Some(upgraded) =
+                try_upgrade_cefr_level(pool, user_id, target_lang, cefr)?
+            {
+                level_upgraded = true;
+                new_cefr_level = Some(upgraded);
+            }
+        }
+    }
+
     log::info!(
-        "path section {} complete: {}/{} score={} stars={}",
+        "path section {} complete: {}/{} score={} stars={} level_up={}",
         section_id,
         correct_count,
         total_count,
         score,
-        new_stars
+        new_stars,
+        level_upgraded
     );
 
     Ok(CompleteSectionResult {
@@ -481,6 +549,8 @@ pub fn complete_section(
         best_score: new_best,
         passed,
         next_section_id,
+        level_upgraded,
+        new_cefr_level,
     })
 }
 
@@ -504,16 +574,9 @@ mod tests {
     }
 
     #[test]
-    fn resolve_pair_key_zh_es() {
-        assert_eq!(resolve_pair_key("zh", "es"), Some("zh-es".to_string()));
-    }
-
-    #[test]
-    fn resolve_pair_key_zh_en() {
-        assert_eq!(
-            resolve_pair_key("zh", "en"),
-            Some("pair_1782569237717".to_string())
-        );
+    fn is_path_supported_zh_es_only() {
+        assert!(is_path_supported("zh", "es"));
+        assert!(!is_path_supported("zh", "en"));
     }
 
     #[test]
@@ -530,10 +593,28 @@ mod tests {
         let user = test_user(&pool);
         let curriculum = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
         assert_eq!(curriculum.pair_key, "zh-es");
+        assert_eq!(curriculum.status, "active");
         assert_eq!(curriculum.units.len(), 6);
         assert!(curriculum.units[0].sections[0].question_count > 0);
         assert!(!curriculum.units[0].sections[0].locked);
         assert!(curriculum.units[0].sections[1].locked);
+    }
+
+    #[test]
+    fn unsupported_pair_returns_status() {
+        let pool = test_pool();
+        let user = test_user(&pool);
+        let curriculum = get_path_curriculum(&pool, &user, "zh", "en", "A1").unwrap();
+        assert_eq!(curriculum.status, "unsupported");
+        assert!(curriculum.units.is_empty());
+    }
+
+    #[test]
+    fn a2_without_framework_returns_level_complete() {
+        let pool = test_pool();
+        let user = test_user(&pool);
+        let curriculum = get_path_curriculum(&pool, &user, "zh", "es", "A2").unwrap();
+        assert_eq!(curriculum.status, "level_complete");
     }
 
     #[test]

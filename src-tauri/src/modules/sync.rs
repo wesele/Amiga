@@ -93,6 +93,19 @@ pub struct SyncPayload {
     pub chat_messages: Vec<SyncChatMessageRow>,
     pub app_settings: Vec<SyncSettingRow>,
     pub prompts: Vec<SyncPromptRow>,
+    #[serde(default)]
+    pub path_section_progress: Vec<SyncPathProgressRow>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SyncPathProgressRow {
+    pub pair_key: String,
+    pub section_id: String,
+    pub stars: i32,
+    pub best_score: i32,
+    pub attempts: i32,
+    pub completed_at: Option<String>,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -509,8 +522,30 @@ pub fn export_sync_payload(db: &DatabasePool) -> Result<SyncPayload, String> {
         .filter_map(|r| r.ok())
         .collect();
 
+    let mut stmt = conn
+        .prepare(
+            "SELECT pair_key, section_id, stars, best_score, attempts, completed_at, updated_at
+             FROM path_section_progress WHERE user_id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+    let path_section_progress = stmt
+        .query_map(params![user_id], |row| {
+            Ok(SyncPathProgressRow {
+                pair_key: row.get(0)?,
+                section_id: row.get(1)?,
+                stars: row.get(2)?,
+                best_score: row.get(3)?,
+                attempts: row.get(4)?,
+                completed_at: row.get(5)?,
+                updated_at: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
     Ok(SyncPayload {
-        version: 1,
+        version: 2,
         users,
         learning_goals,
         user_vocab,
@@ -520,6 +555,7 @@ pub fn export_sync_payload(db: &DatabasePool) -> Result<SyncPayload, String> {
         chat_messages,
         app_settings,
         prompts,
+        path_section_progress,
     })
 }
 
@@ -648,6 +684,32 @@ fn import_sync_payload_tx(tx: &Transaction<'_>, payload: &SyncPayload) -> Result
             ],
         )
         .map_err(|e| format!("Failed to import streak record: {}", e))?;
+    }
+
+    for row in &payload.path_section_progress {
+        tx.execute(
+            "INSERT INTO path_section_progress
+                (user_id, pair_key, section_id, stars, best_score, attempts, completed_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT(user_id, pair_key, section_id) DO UPDATE SET
+               stars = MAX(path_section_progress.stars, excluded.stars),
+               best_score = MAX(path_section_progress.best_score, excluded.best_score),
+               attempts = MAX(path_section_progress.attempts, excluded.attempts),
+               completed_at = COALESCE(path_section_progress.completed_at, excluded.completed_at),
+               updated_at = excluded.updated_at
+             WHERE excluded.updated_at >= path_section_progress.updated_at",
+            params![
+                local_user_id,
+                row.pair_key,
+                row.section_id,
+                row.stars,
+                row.best_score,
+                row.attempts,
+                row.completed_at,
+                row.updated_at,
+            ],
+        )
+        .map_err(|e| format!("Failed to import path progress: {}", e))?;
     }
 
     let remote_session_ids: HashSet<String> =
@@ -1125,6 +1187,42 @@ mod tests {
             restore_mode(&pool).unwrap().as_deref(),
             Some("reset")
         );
+    }
+
+    #[test]
+    fn export_import_path_section_progress() {
+        let pool = test_pool();
+        let user_id = seed_user(&pool);
+        {
+            let conn = pool.conn().unwrap();
+            conn.execute(
+                "INSERT INTO path_section_progress
+                    (user_id, pair_key, section_id, stars, best_score, attempts, updated_at)
+                 VALUES (?1, 'zh-es', 'zh-es/U01-S01', 3, 100, 1, '2026-06-30 10:00:00')",
+                params![user_id],
+            )
+            .unwrap();
+        }
+
+        let payload = export_sync_payload(&pool).unwrap();
+        assert_eq!(payload.path_section_progress.len(), 1);
+        assert_eq!(payload.path_section_progress[0].section_id, "zh-es/U01-S01");
+
+        {
+            let conn = pool.conn().unwrap();
+            conn.execute("DELETE FROM path_section_progress", []).unwrap();
+        }
+
+        import_sync_payload(&pool, &payload).unwrap();
+        let conn = pool.conn().unwrap();
+        let stars: i32 = conn
+            .query_row(
+                "SELECT stars FROM path_section_progress WHERE user_id = ?1",
+                params![user_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stars, 3);
     }
 
     #[test]

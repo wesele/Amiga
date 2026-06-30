@@ -25,6 +25,10 @@
         <div v-if="result?.passed" class="summary-stars">
           {{ "⭐".repeat(result.stars) }}
         </div>
+        <p v-if="result?.level_upgraded" class="level-up-banner">
+          🎓 {{ t("path.levelUp", { level: result.new_cefr_level }) }}
+        </p>
+        <p v-if="!result?.passed" class="retry-hint">{{ t("path.unlimitedRetry") }}</p>
         <div class="summary-actions">
           <button class="action-btn secondary" @click="retryLesson">{{ t("path.retry") }}</button>
           <button class="action-btn primary" @click="finishLesson">
@@ -353,6 +357,21 @@ onMounted(load);
 
 .summary-stars {
   font-size: 28px;
+}
+
+.level-up-banner {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  background: var(--orange-bg);
+  color: var(--orange-hover);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+}
+
+.retry-hint {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-light);
 }
 
 .summary-actions {

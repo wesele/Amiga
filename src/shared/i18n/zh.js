@@ -59,6 +59,12 @@ export default {
     retry: "再练一次",
     continuePath: "继续晋级",
     backToPath: "返回路径",
+    unlimitedRetry: "可无限重试",
+    unsupportedTitle: "暂未开放",
+    unsupportedDesc: "晋级之路目前仅支持中文母语学习者学习西班牙语，请在学习设置中将目标语言切换为西班牙语。",
+    levelCompleteTitle: "恭喜完成 {level}！",
+    levelCompleteDesc: "下一级别课程正在筹备中，敬请期待。",
+    levelUp: "已升级到 {level}！",
   },
 
   common: {
