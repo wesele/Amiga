@@ -12,7 +12,7 @@
           {{ t("path.progress", { done: curriculum.completed_sections, total: curriculum.total_sections }) }}
           · ⭐ {{ curriculum.total_stars }}
         </p>
-        <div v-if="curriculum?.status === 'active'" class="level-pills">
+        <div class="level-pills">
           <button
             v-for="lvl in learningLevels"
             :key="lvl"
@@ -103,6 +103,7 @@ import {
   updateLearningGoalCefr,
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
+import { pickLearningGoal } from "@/shared/learningGoal.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -151,8 +152,8 @@ async function load() {
     const user = await getCurrentUser();
     const targetLang = targetLangStore.code || (await targetLangStore.load());
     const goals = await getLearningGoals(user.id);
-    const goal = goals.find((g) => g.target_language === targetLang);
-    const cefr = goal?.cefr_level || "A1";
+    const goal = pickLearningGoal(goals, targetLang);
+    const cefr = goal?.cefr_level || currentCefr.value || "A1";
     currentCefr.value = cefr;
     curriculum.value = await getPathCurriculum(user.native_language, targetLang, cefr);
   } catch (e) {
@@ -164,13 +165,15 @@ async function load() {
 
 async function onSwitchLevel(level) {
   if (levelSwitching.value || level === currentCefr.value) return;
-  const targetLang = targetLangStore.code;
+  const targetLang = targetLangStore.code || (await targetLangStore.load());
   if (!targetLang) return;
   levelSwitching.value = true;
+  error.value = "";
   try {
     await updateLearningGoalCefr(targetLang, level);
     currentCefr.value = level;
-    await load();
+    const user = await getCurrentUser();
+    curriculum.value = await getPathCurriculum(user.native_language, targetLang, level);
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {

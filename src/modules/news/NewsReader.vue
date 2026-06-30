@@ -162,6 +162,7 @@ import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js"
 import { eventBus } from "@/shared/eventBus.js";
 import { buildShareText, openSourceUrl } from "./utils.js";
 import { displayLang } from "@/shared/constants.js";
+import { pickLearningGoal } from "@/shared/learningGoal.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -210,7 +211,7 @@ onMounted(async () => {
     // so the rewrite is calibrated to what they're actually studying.
     try {
       const goals = await getLearningGoals(userId);
-      const g = goals.find((x) => x.target_language === targetLang);
+      const g = pickLearningGoal(goals, targetLang);
       if (g?.cefr_level) currentLevel = g.cefr_level;
     } catch (_) { /* fall back to A1 */ }
     const art = await getArticle(Number(props.id));

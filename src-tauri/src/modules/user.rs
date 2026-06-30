@@ -147,6 +147,32 @@ mod tests {
     }
 
     #[test]
+    fn test_update_learning_goal_cefr_downgrades_all_rows_for_language() {
+        let pool = test_pool();
+        let user = get_or_create_user(&pool).unwrap();
+        for level in &["A1", "A2"] {
+            save_learning_goal(
+                &pool,
+                LearningGoal {
+                    id: None,
+                    user_id: user.id.clone(),
+                    target_language: "es".to_string(),
+                    cefr_level: level.to_string(),
+                    daily_minutes: 15,
+                    objective: "daily_conversation".to_string(),
+                },
+            )
+            .unwrap();
+        }
+
+        update_learning_goal_cefr(&pool, &user.id, "es", "A1").unwrap();
+        let goals = get_learning_goals(&pool, &user.id).unwrap();
+        let es_goals: Vec<_> = goals.iter().filter(|g| g.target_language == "es").collect();
+        assert_eq!(es_goals.len(), 2);
+        assert!(es_goals.iter().all(|g| g.cefr_level == "A1"));
+    }
+
+    #[test]
     fn test_multiple_learning_goals() {
         let pool = test_pool();
         let user = get_or_create_user(&pool).unwrap();
@@ -546,11 +572,7 @@ pub fn update_learning_goal_cefr(
     let updated = conn
         .execute(
             "UPDATE learning_goals SET cefr_level = ?1
-             WHERE user_id = ?2 AND target_language = ?3 AND id = (
-               SELECT id FROM learning_goals
-               WHERE user_id = ?2 AND target_language = ?3
-               ORDER BY id DESC LIMIT 1
-             )",
+             WHERE user_id = ?2 AND target_language = ?3",
             params![cefr_level, user_id, target_language],
         )
         .map_err(|e| format!("Failed to update learning goal level: {}", e))?;

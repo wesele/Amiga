@@ -151,6 +151,7 @@ import SettingsItem from "./components/SettingsItem.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { AVAILABLE_LANGUAGES, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
+import { pickLearningGoal } from "@/shared/learningGoal.js";
 
 const { t } = useI18n();
 const targetLangStore = useTargetLangStore();
@@ -174,7 +175,7 @@ onMounted(async () => {
     vocabStats.value = await getUserVocabStats(user.value.id, currentTargetLang.value);
     readArticleCount.value = await getReadArticleCount(user.value.id);
     // Find the current level from the goal row matching the active target.
-    const g = goals.value.find((x) => x.target_language === currentTargetLang.value) || goals.value[0];
+    const g = pickLearningGoal(goals.value, currentTargetLang.value) || goals.value[0];
     if (g) currentLevel.value = g.cefr_level;
   } catch (e) {
     console.error("Failed to load profile:", e);
@@ -206,7 +207,7 @@ async function onSwitchLang(code) {
     try {
       const u = user.value;
       if (u) goals.value = await getLearningGoals(u.id);
-      const g = goals.value.find((x) => x.target_language === code);
+      const g = pickLearningGoal(goals.value, code);
       if (g) currentLevel.value = g.cefr_level;
     } catch (_) { /* ignore */ }
   } catch (e) {

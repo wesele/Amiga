@@ -76,6 +76,7 @@ import {
   getSectionLesson,
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
+import { pickLearningGoal } from "@/shared/learningGoal.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import { checkAnswer } from "./checkAnswer.js";
 
@@ -140,7 +141,7 @@ async function load() {
     const user = await getCurrentUser();
     const targetLang = targetLangStore.code || (await targetLangStore.load());
     const goals = await getLearningGoals(user.id);
-    const goal = goals.find((g) => g.target_language === targetLang);
+    const goal = pickLearningGoal(goals, targetLang);
     const cefr = goal?.cefr_level || "A1";
     userMeta.value = {
       nativeLang: user.native_language,

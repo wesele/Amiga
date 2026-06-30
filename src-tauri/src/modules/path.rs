@@ -197,11 +197,14 @@ fn extract_image_filename(url: &str) -> Option<String> {
     path.rsplit('/').next().map(|s| s.to_string())
 }
 
-fn question_counts_for_pair(pair_key: &str) -> HashMap<String, i32> {
+fn question_counts_for_pair(pair_key: &str, cefr: &str) -> HashMap<String, i32> {
     let mut counts = HashMap::new();
     if let Ok(questions) = load_questions() {
         for q in questions {
             if q.get("pairId").and_then(|v| v.as_str()) != Some(pair_key) {
+                continue;
+            }
+            if q.get("cefr").and_then(|v| v.as_str()) != Some(cefr) {
                 continue;
             }
             if let Some(section_id) = q.get("sectionId").and_then(|v| v.as_str()) {
@@ -315,7 +318,7 @@ pub fn get_path_curriculum(
             });
         }
     };
-    let counts = question_counts_for_pair(&pair_key);
+    let counts = question_counts_for_pair(&pair_key, cefr);
     let progress = get_progress_map(pool, user_id, &pair_key)?;
     let ordered = ordered_section_ids(&pair_key, cefr)?;
 
@@ -417,6 +420,7 @@ pub fn get_section_lesson(
         .filter(|q| {
             q.get("pairId").and_then(|v| v.as_str()) == Some(pair_key.as_str())
                 && q.get("sectionId").and_then(|v| v.as_str()) == Some(section_id)
+                && q.get("cefr").and_then(|v| v.as_str()) == Some(cefr)
         })
         .map(|mut q| {
             rewrite_image_urls(&mut q);
@@ -645,5 +649,24 @@ mod tests {
         let section_id = curriculum.units[0].sections[0].id.clone();
         let lesson = get_section_lesson(&pool, &user, "zh", "es", "A1", &section_id).unwrap();
         assert!(!lesson.questions.is_empty());
+        assert!(
+            lesson
+                .questions
+                .iter()
+                .all(|q| q.get("cefr").and_then(|v| v.as_str()) == Some("A1"))
+        );
+    }
+
+    #[test]
+    fn a1_and_a2_question_counts_differ_for_same_section() {
+        let pool = test_pool();
+        let user = test_user(&pool);
+        let a1 = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
+        let a2 = get_path_curriculum(&pool, &user, "zh", "es", "A2").unwrap();
+        let a1_count = a1.units[0].sections[0].question_count;
+        let a2_count = a2.units[0].sections[0].question_count;
+        assert!(a1_count > 0);
+        assert!(a2_count > 0);
+        assert_ne!(a1_count, a2_count);
     }
 }
