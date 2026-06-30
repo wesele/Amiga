@@ -155,6 +155,7 @@ async function bootstrap() {
   // Load feature modules
   await kernel.loadModule("wizard");
   await kernel.loadModule("learn", { parent: "shell" });
+  await kernel.loadModule("path", { parent: "shell" });
   await kernel.loadModule("news", { parent: "shell" });
   await kernel.loadModule("vocab", { parent: "shell" });
   await kernel.loadModule("profile", { parent: "shell" });

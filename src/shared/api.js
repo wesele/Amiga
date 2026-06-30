@@ -63,6 +63,21 @@ export const ensureWordsSeen = (userId, words, language) =>
 export const resetUserVocabByLevel = (userId, language, cefrLevel) =>
   _invoke("reset_user_vocab_by_level_cmd", { userId, language, cefrLevel });
 
+// ─── Progression path ───
+export const getPathCurriculum = (nativeLang, targetLang, cefr) =>
+  _invoke("get_path_curriculum_cmd", { nativeLang, targetLang, cefr });
+export const getSectionLesson = (nativeLang, targetLang, cefr, sectionId) =>
+  _invoke("get_section_lesson_cmd", { nativeLang, targetLang, cefr, sectionId });
+export const completeSection = (nativeLang, targetLang, cefr, sectionId, correctCount, totalCount) =>
+  _invoke("complete_section_cmd", {
+    nativeLang,
+    targetLang,
+    cefr,
+    sectionId,
+    correctCount,
+    totalCount,
+  });
+
 // ─── News ───
 export const fetchNews = (region, targetLang) =>
   _invoke("fetch_news_cmd", { region, targetLang });

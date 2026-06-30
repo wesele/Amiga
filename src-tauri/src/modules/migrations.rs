@@ -56,6 +56,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Deduplicate news_reading_log rows on cloud sync import",
             MIGRATION_V14,
         ),
+        (
+            15,
+            "Add path_section_progress for progression path lesson tracking",
+            MIGRATION_V15,
+        ),
     ]
 }
 
@@ -309,4 +314,21 @@ CREATE INDEX IF NOT EXISTS idx_news_region_current
 const MIGRATION_V14: &str = r#"
 CREATE UNIQUE INDEX IF NOT EXISTS idx_reading_log_user_article_read_at
   ON news_reading_log(user_id, article_id, read_at);
+"#;
+
+const MIGRATION_V15: &str = r#"
+CREATE TABLE IF NOT EXISTS path_section_progress (
+    user_id TEXT NOT NULL REFERENCES users(id),
+    pair_key TEXT NOT NULL,
+    section_id TEXT NOT NULL,
+    stars INTEGER NOT NULL DEFAULT 0,
+    best_score INTEGER NOT NULL DEFAULT 0,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    completed_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, pair_key, section_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_path_progress_user_pair
+  ON path_section_progress(user_id, pair_key);
 "#;

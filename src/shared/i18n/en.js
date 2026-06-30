@@ -29,7 +29,33 @@ export default {
 
   learn: {
     title: "Learn",
+    path: "Progress Path",
     news: "News",
+  },
+
+  path: {
+    title: "Progress Path",
+    loading: "Loading curriculum…",
+    progress: "{done}/{total} sections done",
+    comingSoon: "Coming soon",
+    playAudio: "Play",
+    listenChoose: "Listen and choose the correct answer",
+    listenChooseImage: "Listen and pick the matching image",
+    matchPairs: "Match the pairs",
+    buildSentence: "Tap words to build the sentence",
+    tapWords: "Tap words below",
+    typeAnswer: "Type your answer",
+    check: "Check",
+    next: "Continue",
+    finish: "Finish",
+    correct: "Correct!",
+    incorrect: "Not quite — try again",
+    lessonPassed: "Section complete!",
+    lessonFailed: "Keep going!",
+    score: "{correct}/{total} correct",
+    retry: "Try again",
+    continuePath: "Continue",
+    backToPath: "Back to path",
   },
 
   common: {

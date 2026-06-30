@@ -29,7 +29,33 @@ export default {
 
   learn: {
     title: "Aprender",
+    path: "Camino de progreso",
     news: "Noticias",
+  },
+
+  path: {
+    title: "Camino de progreso",
+    loading: "Cargando currículo…",
+    progress: "{done}/{total} secciones completadas",
+    comingSoon: "Próximamente",
+    playAudio: "Reproducir",
+    listenChoose: "Escucha y elige la respuesta correcta",
+    listenChooseImage: "Escucha y elige la imagen correcta",
+    matchPairs: "Empareja las columnas",
+    buildSentence: "Toca palabras para formar la frase",
+    tapWords: "Toca las palabras abajo",
+    typeAnswer: "Escribe tu respuesta",
+    check: "Comprobar",
+    next: "Continuar",
+    finish: "Terminar",
+    correct: "¡Correcto!",
+    incorrect: "Casi — inténtalo de nuevo",
+    lessonPassed: "¡Sección completada!",
+    lessonFailed: "¡Sigue así!",
+    score: "{correct}/{total} correctas",
+    retry: "Reintentar",
+    continuePath: "Continuar",
+    backToPath: "Volver al camino",
   },
 
   common: {

@@ -5,6 +5,7 @@ pub mod llm;
 pub mod logging;
 pub mod migrations;
 pub mod news;
+pub mod path;
 pub mod prompts;
 pub mod sync;
 pub mod user;

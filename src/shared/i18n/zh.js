@@ -32,7 +32,33 @@ export default {
 
   learn: {
     title: "学习",
+    path: "晋级之路",
     news: "新闻",
+  },
+
+  path: {
+    title: "晋级之路",
+    loading: "加载课程…",
+    progress: "已完成 {done}/{total} 关",
+    comingSoon: "题目筹备中",
+    playAudio: "播放",
+    listenChoose: "听句子，选择正确答案",
+    listenChooseImage: "听发音，选择对应图片",
+    matchPairs: "将左右两列配对",
+    buildSentence: "点击单词组成句子",
+    tapWords: "点击下方单词",
+    typeAnswer: "输入答案",
+    check: "检查",
+    next: "继续",
+    finish: "完成",
+    correct: "回答正确！",
+    incorrect: "不太对，再看看",
+    lessonPassed: "关卡通过！",
+    lessonFailed: "继续加油",
+    score: "答对 {correct}/{total} 题",
+    retry: "再练一次",
+    continuePath: "继续晋级",
+    backToPath: "返回路径",
   },
 
   common: {

@@ -114,6 +114,10 @@ pub fn run() {
             commands::chat::get_amiga_profile_cmd,
             // Share commands
             commands::share::share_text_cmd,
+            // Path / progression commands
+            commands::path::get_path_curriculum_cmd,
+            commands::path::get_section_lesson_cmd,
+            commands::path::complete_section_cmd,
             // Cloud sync commands
             commands::sync::test_cloud_sync_cmd,
             commands::sync::get_cloud_sync_status_cmd,

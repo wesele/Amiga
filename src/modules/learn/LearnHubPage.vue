@@ -32,6 +32,7 @@ const targetLangStore = useTargetLangStore();
 const opening = ref(null);
 
 const modules = [
+  { id: "path", labelKey: "learn.path", icon: "🛤️", route: { name: "path" } },
   { id: "news", labelKey: "learn.news", icon: "📰", route: { name: "news" } },
   { id: "translator", labelKey: "chat.translator", icon: "🌐", action: "translator" },
 ];
@@ -77,8 +78,8 @@ async function openModule(mod) {
 .module-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8vw;
-  padding: 12vw 10vw 14vw;
+  gap: 6vw;
+  padding: 10vw 8vw 14vw;
   box-sizing: border-box;
 }
 
