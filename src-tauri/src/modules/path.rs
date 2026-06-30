@@ -1,4 +1,5 @@
 use crate::modules::database::DatabasePool;
+use crate::modules::llm::{self, GrammarExplainResult, LlmClient};
 use crate::modules::user;
 use log;
 use rusqlite::params;
@@ -568,6 +569,91 @@ pub fn get_section_lesson(
     })
 }
 
+pub fn get_grammar_explanation_cache(
+    pool: &DatabasePool,
+    pair_key: &str,
+    cefr: &str,
+    unit_id: &str,
+    point_text: &str,
+) -> Result<Option<String>, String> {
+    let conn = pool.conn()?;
+    let row: Option<String> = conn
+        .query_row(
+            "SELECT explanation FROM path_grammar_explain_cache
+             WHERE pair_key = ?1 AND cefr = ?2 AND unit_id = ?3 AND point_text = ?4",
+            params![pair_key, cefr, unit_id, point_text],
+            |row| row.get(0),
+        )
+        .ok();
+    Ok(row)
+}
+
+pub fn save_grammar_explanation_cache(
+    pool: &DatabasePool,
+    pair_key: &str,
+    cefr: &str,
+    unit_id: &str,
+    point_text: &str,
+    explanation: &str,
+) -> Result<(), String> {
+    let conn = pool.conn()?;
+    conn.execute(
+        "INSERT INTO path_grammar_explain_cache
+            (pair_key, cefr, unit_id, point_text, explanation, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'))
+         ON CONFLICT(pair_key, cefr, unit_id, point_text) DO UPDATE SET
+            explanation = excluded.explanation,
+            created_at = datetime('now')",
+        params![pair_key, cefr, unit_id, point_text, explanation],
+    )
+    .map_err(|e| format!("Failed to save grammar explanation cache: {e}"))?;
+    Ok(())
+}
+
+pub async fn explain_grammar_point(
+    client: &LlmClient,
+    pool: &DatabasePool,
+    cefr: &str,
+    target_lang: &str,
+    unit_id: &str,
+    point_text: &str,
+    unit_title: &str,
+    unit_goal: &str,
+) -> Result<GrammarExplainResult, String> {
+    let pair_key = PRIMARY_PAIR_KEY;
+    if let Some(cached) = get_grammar_explanation_cache(pool, pair_key, cefr, unit_id, point_text)? {
+        return Ok(GrammarExplainResult {
+            explanation: cached,
+            from_cache: true,
+        });
+    }
+
+    let explanation = llm::explain_grammar_point(
+        client,
+        pool,
+        cefr,
+        target_lang,
+        unit_title,
+        unit_goal,
+        point_text,
+    )
+    .await?;
+
+    save_grammar_explanation_cache(
+        pool,
+        pair_key,
+        cefr,
+        unit_id,
+        point_text,
+        &explanation,
+    )?;
+
+    Ok(GrammarExplainResult {
+        explanation,
+        from_cache: false,
+    })
+}
+
 pub fn get_teaching_content(
     pool: &DatabasePool,
     user_id: &str,
@@ -953,6 +1039,28 @@ mod tests {
 
     fn import_vocab_for_tests(pool: &DatabasePool) {
         let _ = crate::modules::vocabulary::import_vocab_bank(pool);
+    }
+
+    #[test]
+    fn grammar_explanation_cache_roundtrip() {
+        let pool = test_pool();
+        assert!(get_grammar_explanation_cache(&pool, "zh-es", "A1", "U01", "test point")
+            .unwrap()
+            .is_none());
+
+        save_grammar_explanation_cache(
+            &pool,
+            "zh-es",
+            "A1",
+            "U01",
+            "test point",
+            "cached explanation",
+        )
+        .unwrap();
+
+        let cached =
+            get_grammar_explanation_cache(&pool, "zh-es", "A1", "U01", "test point").unwrap();
+        assert_eq!(cached.as_deref(), Some("cached explanation"));
     }
 
     #[test]

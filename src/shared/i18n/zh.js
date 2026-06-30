@@ -76,6 +76,8 @@ export default {
     vocabIntro: "本单元词汇",
     tapToReveal: "点击卡片查看释义",
     noGloss: "暂无释义",
+    tapGrammarToExpand: "点击语法要点，查看详细讲解",
+    explainLoading: "正在生成讲解…",
   },
 
   common: {

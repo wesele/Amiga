@@ -119,6 +119,7 @@ pub fn run() {
             commands::path::get_path_curriculum_cmd,
             commands::path::get_section_lesson_cmd,
             commands::path::get_teaching_content_cmd,
+            commands::path::explain_grammar_point_cmd,
             commands::path::complete_teaching_node_cmd,
             commands::path::complete_section_cmd,
             // Cloud sync commands

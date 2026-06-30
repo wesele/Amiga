@@ -25,10 +25,24 @@
         <template v-if="content.kind === 'grammar'">
           <section class="teach-section">
             <h3>{{ t("path.grammarPoints") }}</h3>
+            <p class="grammar-hint">{{ t("path.tapGrammarToExpand") }}</p>
             <ul class="point-list">
-              <li v-for="(point, idx) in content.grammar_points" :key="idx">
-                <span class="point-num">{{ idx + 1 }}</span>
-                <span class="point-text">{{ point }}</span>
+              <li
+                v-for="(point, idx) in content.grammar_points"
+                :key="idx"
+                class="point-item"
+                :class="{ expanded: expandedPoint === idx, loading: loadingPoint === idx }"
+              >
+                <button type="button" class="point-btn" @click="onGrammarPointClick(idx, point)">
+                  <span class="point-num">{{ idx + 1 }}</span>
+                  <span class="point-text">{{ point }}</span>
+                  <span class="point-chevron">{{ expandedPoint === idx ? "▾" : "▸" }}</span>
+                </button>
+                <div v-if="expandedPoint === idx" class="point-detail">
+                  <p v-if="loadingPoint === idx" class="detail-loading">{{ t("path.explainLoading") }}</p>
+                  <p v-else-if="pointErrors[idx]" class="detail-error">{{ pointErrors[idx] }}</p>
+                  <div v-else-if="explanations[idx]" class="detail-body">{{ explanations[idx] }}</div>
+                </div>
               </li>
             </ul>
           </section>
@@ -78,6 +92,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
   completeTeachingNode,
+  explainGrammarPoint,
   getCurrentUser,
   getLearningGoals,
   getTeachingContent,
@@ -96,11 +111,46 @@ const submitting = ref(false);
 const content = ref(null);
 const revealed = ref(new Set());
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
+const expandedPoint = ref(null);
+const loadingPoint = ref(null);
+const explanations = ref({});
+const pointErrors = ref({});
 
 const kindLabel = computed(() => {
   if (content.value?.kind === "vocab") return t("path.nodeVocab");
   return t("path.nodeGrammar");
 });
+
+async function onGrammarPointClick(idx, point) {
+  if (expandedPoint.value === idx) {
+    expandedPoint.value = null;
+    return;
+  }
+  expandedPoint.value = idx;
+  if (explanations.value[idx]) return;
+
+  loadingPoint.value = idx;
+  pointErrors.value = { ...pointErrors.value, [idx]: "" };
+  try {
+    const c = content.value;
+    const res = await explainGrammarPoint(
+      userMeta.value.cefr,
+      userMeta.value.targetLang,
+      c.unit_id,
+      point,
+      c.unit_title_native,
+      c.goal_native,
+    );
+    explanations.value = { ...explanations.value, [idx]: res.explanation };
+  } catch (e) {
+    pointErrors.value = {
+      ...pointErrors.value,
+      [idx]: e?.message || String(e),
+    };
+  } finally {
+    if (loadingPoint.value === idx) loadingPoint.value = null;
+  }
+}
 
 function toggleWord(idx) {
   const next = new Set(revealed.value);
@@ -130,6 +180,10 @@ async function load() {
       route.params.nodeId,
     );
     revealed.value = new Set();
+    expandedPoint.value = null;
+    loadingPoint.value = null;
+    explanations.value = {};
+    pointErrors.value = {};
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {
@@ -254,6 +308,12 @@ onMounted(load);
   font-weight: 700;
 }
 
+.grammar-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-light);
+}
+
 .point-list {
   list-style: none;
   margin: 0;
@@ -263,14 +323,38 @@ onMounted(load);
   gap: 10px;
 }
 
-.point-list li {
-  display: flex;
-  gap: 12px;
-  padding: 14px;
+.point-item {
   background: var(--white);
   border-radius: var(--radius-md);
   border: 2px solid var(--border);
   box-shadow: 0 3px 0 var(--border);
+  overflow: hidden;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.point-item.expanded {
+  border-color: #ce82ff;
+  box-shadow: 0 3px 0 #a855f7;
+}
+
+.point-item.loading {
+  opacity: 0.92;
+}
+
+.point-btn {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.point-btn:active {
+  background: rgba(206, 130, 255, 0.08);
 }
 
 .point-num {
@@ -288,8 +372,44 @@ onMounted(load);
 }
 
 .point-text {
+  flex: 1;
   font-size: 15px;
   line-height: 1.5;
+  font-weight: 600;
+}
+
+.point-chevron {
+  flex-shrink: 0;
+  color: var(--text-light);
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+.point-detail {
+  padding: 0 14px 14px 54px;
+}
+
+.detail-loading,
+.detail-error {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.detail-loading {
+  color: var(--text-light);
+}
+
+.detail-error {
+  color: var(--red);
+}
+
+.detail-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+  white-space: pre-wrap;
 }
 
 .scenario-chips {

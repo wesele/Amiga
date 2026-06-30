@@ -535,6 +535,64 @@ pub async fn translate_paragraphs(
     Ok(translations)
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GrammarExplainResult {
+    pub explanation: String,
+    pub from_cache: bool,
+}
+
+pub async fn explain_grammar_point(
+    client: &LlmClient,
+    db: &DatabasePool,
+    cefr_level: &str,
+    target_lang: &str,
+    unit_title: &str,
+    unit_goal: &str,
+    grammar_point: &str,
+) -> Result<String, String> {
+    let target_label = lang_name_zh(target_lang);
+    let vars = [
+        ("CEFR_LEVEL", cefr_level),
+        ("TARGET_LANG", target_label),
+        ("UNIT_TITLE", unit_title),
+        ("UNIT_GOAL", unit_goal),
+        ("GRAMMAR_POINT", grammar_point),
+    ];
+
+    let messages = build_chat_messages(db, "explain-grammar", &vars);
+    let messages = if messages.is_empty() {
+        let prompt = format!(
+            "请为 CEFR {cefr_level} 学习者用中文讲解以下{target_label}语法要点。\n\
+             单元：{unit_title}\n单元目标：{unit_goal}\n语法要点：{grammar_point}\n\n\
+             要求：分点说明，附 2~3 个{target_label}短例句（括号附中文释义），\
+             200 字以内，只输出讲解正文。"
+        );
+        build_chat_messages_fallback(
+            "你是一位耐心的语言教师，擅长用简单清晰的中文讲解语法。",
+            &prompt,
+        )
+    } else {
+        messages
+    };
+
+    let response = client.chat(db, messages).await?;
+    let explanation = response
+        .trim()
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim()
+        .to_string();
+    if explanation.is_empty() {
+        return Err("LLM returned empty grammar explanation".to_string());
+    }
+    log::info!(
+        "Grammar point explained ({} chars): {}",
+        explanation.len(),
+        &grammar_point[..grammar_point.len().min(40)]
+    );
+    Ok(explanation)
+}
+
 // --- Settings persistence ---
 // NOTE: API keys (primary_api_key / backup_api_key) are stored in plaintext
 // in the app_settings table by design. This is a single-user local app; the

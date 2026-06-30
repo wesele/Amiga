@@ -270,6 +270,20 @@ describe("API module", () => {
     });
   });
 
+  describe("Path API", () => {
+    it("explainGrammarPoint calls invoke with grammar params", () => {
+      api.explainGrammarPoint("A1", "es", "U01", "ser 和 estar", "问候", "掌握问候");
+      expect(mockInvoke).toHaveBeenCalledWith("explain_grammar_point_cmd", {
+        cefr: "A1",
+        targetLang: "es",
+        unitId: "U01",
+        pointText: "ser 和 estar",
+        unitTitle: "问候",
+        unitGoal: "掌握问候",
+      });
+    });
+  });
+
   describe("Mock integration", () => {
     it("returns mocked values from invoke", async () => {
       mockInvoke.mockResolvedValue({ id: "123", nickname: "Test" });

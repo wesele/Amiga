@@ -46,6 +46,25 @@ Return a strict JSON object:
 {"translation": "<translation in {{TARGET_LANG}}>", "ipa": "IPA pronunciation", "pos": "part of speech (noun/verb/adjective/etc.)", "example": "one simple example sentence in {{SOURCE_LANG}}"}"#,
     ),
     (
+        "explain-grammar",
+        "语法要点讲解",
+        "学习功能",
+        "你是一位耐心的语言教师，擅长用简单清晰的中文为初学者讲解语法。只输出讲解正文，不要 JSON、不要 markdown 标题符号。",
+        r#"请为 CEFR {{CEFR_LEVEL}} 学习者讲解以下语法要点。
+
+学习语言：{{TARGET_LANG}}
+单元：{{UNIT_TITLE}}
+单元目标：{{UNIT_GOAL}}
+语法要点：{{GRAMMAR_POINT}}
+
+要求：
+1. 用中文讲解，语言简单、分点说明（可用 1. 2. 3. 或短段落）
+2. 结合 {{TARGET_LANG}} 给出 2~3 个简短例句（例句用目标语言，后面括号附中文释义）
+3. 指出常见易错点或记忆技巧（如有）
+4. 控制在 200 字以内，适合手机阅读
+5. 只输出讲解正文，不要开场白"#,
+    ),
+    (
         "translate-paragraphs",
         "段落翻译",
         "学习功能",

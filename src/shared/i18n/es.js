@@ -73,6 +73,8 @@ export default {
     vocabIntro: "Vocabulario de la unidad",
     tapToReveal: "Toca una tarjeta para ver el significado",
     noGloss: "Sin definición aún",
+    tapGrammarToExpand: "Toca un punto gramatical para ver la explicación",
+    explainLoading: "Generando explicación…",
   },
 
   common: {

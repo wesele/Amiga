@@ -1,3 +1,4 @@
+use crate::commands::llm::LlmState;
 use crate::modules::database::DatabasePool;
 use crate::modules::path as path_mod;
 use crate::modules::sync;
@@ -36,6 +37,30 @@ pub async fn get_section_lesson_cmd(
         &cefr,
         &section_id,
     )
+}
+
+#[tauri::command]
+pub async fn explain_grammar_point_cmd(
+    db: State<'_, DatabasePool>,
+    llm: State<'_, LlmState>,
+    cefr: String,
+    target_lang: String,
+    unit_id: String,
+    point_text: String,
+    unit_title: String,
+    unit_goal: String,
+) -> Result<crate::modules::llm::GrammarExplainResult, String> {
+    path_mod::explain_grammar_point(
+        &llm.client,
+        &db,
+        &cefr,
+        &target_lang,
+        &unit_id,
+        &point_text,
+        &unit_title,
+        &unit_goal,
+    )
+    .await
 }
 
 #[tauri::command]

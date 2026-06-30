@@ -61,6 +61,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add path_section_progress for progression path lesson tracking",
             MIGRATION_V15,
         ),
+        (
+            16,
+            "Add path_grammar_explain_cache for LLM grammar teaching cache",
+            MIGRATION_V16,
+        ),
     ]
 }
 
@@ -331,4 +336,16 @@ CREATE TABLE IF NOT EXISTS path_section_progress (
 
 CREATE INDEX IF NOT EXISTS idx_path_progress_user_pair
   ON path_section_progress(user_id, pair_key);
+"#;
+
+const MIGRATION_V16: &str = r#"
+CREATE TABLE IF NOT EXISTS path_grammar_explain_cache (
+    pair_key TEXT NOT NULL,
+    cefr TEXT NOT NULL,
+    unit_id TEXT NOT NULL,
+    point_text TEXT NOT NULL,
+    explanation TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (pair_key, cefr, unit_id, point_text)
+);
 "#;
