@@ -72,6 +72,8 @@ export const getSectionLesson = (nativeLang, targetLang, cefr, sectionId) =>
   _invoke("get_section_lesson_cmd", { nativeLang, targetLang, cefr, sectionId });
 export const getTeachingContent = (nativeLang, targetLang, cefr, nodeId) =>
   _invoke("get_teaching_content_cmd", { nativeLang, targetLang, cefr, nodeId });
+export const getGrammarExplanationCached = (cefr, unitId, pointText) =>
+  _invoke("get_grammar_explanation_cached_cmd", { cefr, unitId, pointText });
 export const explainGrammarPoint = (cefr, targetLang, unitId, pointText, unitTitle, unitGoal) =>
   _invoke("explain_grammar_point_cmd", {
     cefr,

@@ -75,6 +75,9 @@ export default {
     noGloss: "No definition yet",
     tapGrammarToExpand: "Tap a grammar point for a detailed explanation",
     explainLoading: "Generating explanation…",
+    explainTimeout: "Explanation timed out — check your network or model settings",
+    explainEmpty: "No explanation received",
+    explainRetry: "Retry",
   },
 
   common: {

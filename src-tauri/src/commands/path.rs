@@ -40,6 +40,22 @@ pub async fn get_section_lesson_cmd(
 }
 
 #[tauri::command]
+pub fn get_grammar_explanation_cached_cmd(
+    db: State<'_, DatabasePool>,
+    cefr: String,
+    unit_id: String,
+    point_text: String,
+) -> Result<Option<String>, String> {
+    path_mod::get_grammar_explanation_cache(
+        &db,
+        path_mod::PRIMARY_PAIR_KEY,
+        &cefr,
+        &unit_id,
+        &point_text,
+    )
+}
+
+#[tauri::command]
 pub async fn explain_grammar_point_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,

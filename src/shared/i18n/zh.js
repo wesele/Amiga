@@ -78,6 +78,9 @@ export default {
     noGloss: "暂无释义",
     tapGrammarToExpand: "点击语法要点，查看详细讲解",
     explainLoading: "正在生成讲解…",
+    explainTimeout: "讲解生成超时，请检查网络或模型配置后重试",
+    explainEmpty: "未收到讲解内容",
+    explainRetry: "重试",
   },
 
   common: {

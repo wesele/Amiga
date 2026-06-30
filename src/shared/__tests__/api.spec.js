@@ -271,6 +271,15 @@ describe("API module", () => {
   });
 
   describe("Path API", () => {
+    it("getGrammarExplanationCached calls invoke with cache params", () => {
+      api.getGrammarExplanationCached("A1", "U01", "ser 和 estar");
+      expect(mockInvoke).toHaveBeenCalledWith("get_grammar_explanation_cached_cmd", {
+        cefr: "A1",
+        unitId: "U01",
+        pointText: "ser 和 estar",
+      });
+    });
+
     it("explainGrammarPoint calls invoke with grammar params", () => {
       api.explainGrammarPoint("A1", "es", "U01", "ser 和 estar", "问候", "掌握问候");
       expect(mockInvoke).toHaveBeenCalledWith("explain_grammar_point_cmd", {

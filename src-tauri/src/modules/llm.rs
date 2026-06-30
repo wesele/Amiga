@@ -146,7 +146,7 @@ pub struct LlmClient {
 impl LlmClient {
     pub fn new() -> Self {
         let http = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(120))
             .build()
             .expect("Failed to create HTTP client");
         Self { http }
@@ -158,28 +158,53 @@ impl LlmClient {
         config: &ModelConfig,
         messages: Vec<ChatMessage>,
     ) -> Result<String, String> {
+        self.call_with_options(config, messages, 4096, 90, true).await
+    }
+
+    async fn call_with_options(
+        &self,
+        config: &ModelConfig,
+        messages: Vec<ChatMessage>,
+        max_tokens: u32,
+        timeout_secs: u64,
+        include_completion_tokens: bool,
+    ) -> Result<String, String> {
         let url = format!("{}/chat/completions", config.base_url.trim_end_matches('/'));
 
-        // Standard OpenAI-compatible request body
-        let body = serde_json::json!({
+        let mut body = serde_json::json!({
             "model": config.model,
             "messages": messages,
             "temperature": 0.3,
-            "max_tokens": 4096,
-            "max_completion_tokens": 4096
+            "max_tokens": max_tokens,
         });
+        if include_completion_tokens {
+            body["max_completion_tokens"] = serde_json::json!(max_tokens);
+        }
 
-        log::debug!("LLM request to {}: model={}", url, config.model);
+        log::debug!(
+            "LLM request to {}: model={} max_tokens={} timeout={}s",
+            url,
+            config.model,
+            max_tokens,
+            timeout_secs
+        );
 
         let response = self
             .http
             .post(&url)
+            .timeout(std::time::Duration::from_secs(timeout_secs))
             .header("Authorization", format!("Bearer {}", config.api_key))
             .header("Content-Type", "application/json")
             .json(&body)
             .send()
             .await
-            .map_err(|e| format!("HTTP request failed: {}", e))?;
+            .map_err(|e| {
+                if e.is_timeout() {
+                    format!("大模型请求超时（{timeout_secs} 秒），请检查网络或稍后重试")
+                } else {
+                    format!("HTTP request failed: {e}")
+                }
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -256,6 +281,19 @@ impl LlmClient {
         let config = get_llm_config(db)?;
         let active = config.active()?;
         self.call(active, messages).await
+    }
+
+    pub async fn chat_with_limits(
+        &self,
+        db: &DatabasePool,
+        messages: Vec<ChatMessage>,
+        max_tokens: u32,
+        timeout_secs: u64,
+    ) -> Result<String, String> {
+        let config = get_llm_config(db)?;
+        let active = config.active()?;
+        self.call_with_options(active, messages, max_tokens, timeout_secs, false)
+            .await
     }
 
     pub async fn test_connection(&self, config: &ModelConfig) -> TestResult {
@@ -575,7 +613,9 @@ pub async fn explain_grammar_point(
         messages
     };
 
-    let response = client.chat(db, messages).await?;
+    let response = client
+        .chat_with_limits(db, messages, 1024, 90)
+        .await?;
     let explanation = response
         .trim()
         .trim_start_matches("```")
@@ -583,7 +623,7 @@ pub async fn explain_grammar_point(
         .trim()
         .to_string();
     if explanation.is_empty() {
-        return Err("LLM returned empty grammar explanation".to_string());
+        return Err("大模型未返回讲解内容，请重试或检查模型配置".to_string());
     }
     log::info!(
         "Grammar point explained ({} chars): {}",

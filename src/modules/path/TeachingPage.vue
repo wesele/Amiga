@@ -40,7 +40,12 @@
                 </button>
                 <div v-if="expandedPoint === idx" class="point-detail">
                   <p v-if="loadingPoint === idx" class="detail-loading">{{ t("path.explainLoading") }}</p>
-                  <p v-else-if="pointErrors[idx]" class="detail-error">{{ pointErrors[idx] }}</p>
+                  <template v-else-if="pointErrors[idx]">
+                    <p class="detail-error">{{ pointErrors[idx] }}</p>
+                    <button type="button" class="retry-link" @click="onGrammarPointClick(idx, point)">
+                      {{ t("path.explainRetry") }}
+                    </button>
+                  </template>
                   <div v-else-if="explanations[idx]" class="detail-body">{{ explanations[idx] }}</div>
                 </div>
               </li>
@@ -94,11 +99,13 @@ import {
   completeTeachingNode,
   explainGrammarPoint,
   getCurrentUser,
+  getGrammarExplanationCached,
   getLearningGoals,
   getTeachingContent,
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
+import { promiseWithTimeout } from "@/shared/promiseTimeout.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -115,6 +122,13 @@ const expandedPoint = ref(null);
 const loadingPoint = ref(null);
 const explanations = ref({});
 const pointErrors = ref({});
+let explainSeq = 0;
+
+function formatInvokeError(err) {
+  if (!err) return "";
+  if (typeof err === "string") return err;
+  return err.message || String(err);
+}
 
 const kindLabel = computed(() => {
   if (content.value?.kind === "vocab") return t("path.nodeVocab");
@@ -122,33 +136,56 @@ const kindLabel = computed(() => {
 });
 
 async function onGrammarPointClick(idx, point) {
-  if (expandedPoint.value === idx) {
+  if (expandedPoint.value === idx && !pointErrors.value[idx]) {
     expandedPoint.value = null;
     return;
   }
   expandedPoint.value = idx;
-  if (explanations.value[idx]) return;
+  if (explanations.value[idx]) {
+    pointErrors.value = { ...pointErrors.value, [idx]: "" };
+    return;
+  }
 
+  const seq = ++explainSeq;
   loadingPoint.value = idx;
   pointErrors.value = { ...pointErrors.value, [idx]: "" };
   try {
     const c = content.value;
-    const res = await explainGrammarPoint(
+    const cached = await getGrammarExplanationCached(
       userMeta.value.cefr,
-      userMeta.value.targetLang,
       c.unit_id,
       point,
-      c.unit_title_native,
-      c.goal_native,
     );
-    explanations.value = { ...explanations.value, [idx]: res.explanation };
+    if (seq !== explainSeq) return;
+    if (cached) {
+      explanations.value = { ...explanations.value, [idx]: cached };
+      return;
+    }
+
+    const res = await promiseWithTimeout(
+      explainGrammarPoint(
+        userMeta.value.cefr,
+        userMeta.value.targetLang,
+        c.unit_id,
+        point,
+        c.unit_title_native,
+        c.goal_native,
+      ),
+      95000,
+      t("path.explainTimeout"),
+    );
+    if (seq !== explainSeq) return;
+    const text = res?.explanation;
+    if (!text) throw new Error(t("path.explainEmpty"));
+    explanations.value = { ...explanations.value, [idx]: text };
   } catch (e) {
+    if (seq !== explainSeq) return;
     pointErrors.value = {
       ...pointErrors.value,
-      [idx]: e?.message || String(e),
+      [idx]: formatInvokeError(e),
     };
   } finally {
-    if (loadingPoint.value === idx) loadingPoint.value = null;
+    if (seq === explainSeq) loadingPoint.value = null;
   }
 }
 
@@ -402,6 +439,18 @@ onMounted(load);
 
 .detail-error {
   color: var(--red);
+}
+
+.retry-link {
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--blue-hover);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 .detail-body {
