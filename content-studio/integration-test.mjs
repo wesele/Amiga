@@ -52,14 +52,35 @@ import('./src/data/question-types.js').then(async ({ buildPrompt, QUESTION_TYPES
     })
 
     // 从 prompt 中提取 JSON 模板（"参考以下格式：" 后面的 JSON 对象）
-    const jsonMatch = prompt.match(/\{[\s\S]*?\n\}/)
-    if (!jsonMatch) {
+    const marker = '参考以下格式（内容替换为本任务的主题和词汇）：'
+    const markerIdx = prompt.indexOf(marker)
+    const searchFrom = markerIdx >= 0 ? markerIdx + marker.length : 0
+    const templateStart = prompt.indexOf('{\n', searchFrom)
+    if (templateStart === -1) {
       console.log(`  ❌ ${type}: 未找到 JSON 模板`)
       failed++
       continue
     }
 
-    const jsonTemplate = jsonMatch[0]
+    let depth = 0
+    let templateEnd = -1
+    for (let i = templateStart; i < prompt.length; i++) {
+      if (prompt[i] === '{') depth++
+      else if (prompt[i] === '}') {
+        depth--
+        if (depth === 0) {
+          templateEnd = i
+          break
+        }
+      }
+    }
+    if (templateEnd === -1) {
+      console.log(`  ❌ ${type}: JSON 模板括号不匹配`)
+      failed++
+      continue
+    }
+
+    const jsonTemplate = prompt.slice(templateStart, templateEnd + 1)
 
     // 检查是否包含非法 JSON 语法
     const hasInvalid = jsonTemplate.includes('/*') || jsonTemplate.includes('...')

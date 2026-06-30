@@ -249,15 +249,14 @@ export async function init() {
     console.log(`[questions] 已迁移 ${sectionChanged} 道题目的 sectionId / pairId`)
   }
 
-  let pairTargetMap = {}
+  let pairConfigMap = {}
   try {
     const systemConfig = await loadData('system-config', { languagePairs: [] })
-    pairTargetMap = Object.fromEntries(
-      (systemConfig.languagePairs || []).map(p => [p.id, p.to])
-    )
+    const { buildPairConfigMap } = await import('../utils/normalizeQuestion.js')
+    pairConfigMap = buildPairConfigMap(systemConfig.languagePairs)
   } catch { /* 使用空映射，normalizeLanguage 仍可做字段级归一 */ }
 
-  const { questions: normalized, changed: normChanged, stats } = migrateQuestionFields(_questions, pairTargetMap)
+  const { questions: normalized, changed: normChanged, stats } = migrateQuestionFields(_questions, pairConfigMap)
   if (normChanged > 0) {
     _questions = normalized
     await saveData('questions', _questions)

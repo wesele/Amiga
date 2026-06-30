@@ -42,13 +42,74 @@ function normalizeT02ImageOptions(imageOptions, questionImagePrompt) {
   })
 }
 
+function normalizeT03Pairs(q) {
+  if (Array.isArray(q.pairs) && q.pairs.length > 0) {
+    const first = q.pairs[0]
+    if (first && typeof first === 'object' && !Array.isArray(first) && ('left' in first || 'right' in first)) {
+      return q.pairs.map(p => ({
+        left: String(p.left ?? ''),
+        right: String(p.right ?? '')
+      }))
+    }
+    if (Array.isArray(first) && Array.isArray(q.left) && Array.isArray(q.right)) {
+      return q.pairs.map(([li, ri]) => ({
+        left: String(q.left[li] ?? ''),
+        right: String(q.right[ri] ?? '')
+      }))
+    }
+  }
+  if (Array.isArray(q.left) && Array.isArray(q.right) && q.left.length === q.right.length) {
+    return q.left.map((left, i) => ({
+      left: String(left),
+      right: String(q.right[i] ?? '')
+    }))
+  }
+  return q.pairs
+}
+
+function normalizeT06Fields(q) {
+  const out = { ...q }
+  if (!Array.isArray(out.words) && Array.isArray(out.scrambledWords)) {
+    out.words = out.scrambledWords.map(String)
+  }
+  if (typeof out.words === 'string') {
+    out.words = out.words.split(/\s+/).filter(Boolean)
+  }
+  if (!out.targetSentence && out.correctSentence) {
+    out.targetSentence = out.correctSentence
+  }
+  if (!out.targetSentence && out.sentence) {
+    out.targetSentence = out.sentence
+  }
+  if (!out.targetSentence && Array.isArray(out.answer)) {
+    out.targetSentence = out.answer.join(' ')
+  } else if (!out.targetSentence && typeof out.answer === 'string') {
+    out.targetSentence = out.answer
+  }
+  if (!out.targetSentence && Array.isArray(out.correctOrder) && Array.isArray(out.words)) {
+    out.targetSentence = out.correctOrder
+      .map(i => out.words[i])
+      .filter(Boolean)
+      .join(' ')
+  }
+  if (!out.targetSentence && Array.isArray(out.words)) {
+    out.targetSentence = out.words.join(' ')
+  }
+  return out
+}
+
+function inferSourceLangCode(sourceLangLabel, pairFrom) {
+  const code = normalizeLanguage(sourceLangLabel || pairFrom)
+  return ['es', 'zh', 'en'].includes(code) ? code : normalizeLanguage(pairFrom)
+}
+
 /**
  * @param {object} q
- * @param {{ pairId?, sourceLang?, targetLang?, level?, sectionId?, unit? }} ctx
+ * @param {{ pairId?, sourceLang?, targetLang?, level?, sectionId?, unit?, pairFrom? }} ctx
  */
 export function normalizeQuestion(q, ctx = {}) {
-  const out = { ...q }
-  const { pairId, sourceLang, targetLang, level, sectionId, unit } = ctx
+  let out = { ...q }
+  const { pairId, sourceLang, targetLang, level, sectionId, unit, pairFrom } = ctx
 
   if (pairId) out.pairId = pairId
   if (sectionId) out.sectionId = sectionId
@@ -57,8 +118,35 @@ export function normalizeQuestion(q, ctx = {}) {
 
   out.language = normalizeLanguage(out.language, targetLang)
 
-  if (out.type === 'T06' && !out.targetSentence && out.sentence) {
-    out.targetSentence = out.sentence
+  if (out.correctIdx != null && out.answerIdx == null) {
+    out.answerIdx = out.correctIdx
+  }
+  if (out.answerIndex != null && out.answerIdx == null) {
+    out.answerIdx = out.answerIndex
+  }
+
+  if (out.type === 'T03') {
+    out.pairs = normalizeT03Pairs(out)
+    delete out.left
+    delete out.right
+  }
+
+  if (out.type === 'T05') {
+    if (!out.blank && Array.isArray(out.options) && out.answerIdx != null) {
+      out.blank = out.options[out.answerIdx]
+    }
+  }
+
+  if (out.type === 'T06') {
+    out = normalizeT06Fields(out)
+  }
+
+  if (out.type === 'T07' || out.type === 'T10') {
+    if (!out.sourceLang) {
+      out.sourceLang = inferSourceLangCode(sourceLang, pairFrom)
+    } else {
+      out.sourceLang = normalizeLanguage(out.sourceLang, pairFrom)
+    }
   }
 
   if (out.type === 'T02' && Array.isArray(out.imageOptions)) {
@@ -70,22 +158,26 @@ export function normalizeQuestion(q, ctx = {}) {
   return out
 }
 
-export function migrateQuestionFields(questions, pairTargetMap = {}) {
+export function migrateQuestionFields(questions, pairConfigMap = {}) {
   let changed = 0
   const stats = {
     language: 0,
     targetSentence: 0,
+    blank: 0,
+    sourceLang: 0,
+    pairs: 0,
+    answerIdx: 0,
     imagePrompt: 0,
-    difficulty: 0,
-    pairId: 0,
-    sectionId: 0
+    difficulty: 0
   }
 
   const migrated = questions.map(q => {
-    const targetLang = pairTargetMap[q.pairId]
+    const pair = pairConfigMap[q.pairId] || {}
     const normalized = normalizeQuestion(q, {
       pairId: q.pairId,
-      targetLang,
+      sourceLang: pair.from,
+      targetLang: pair.to,
+      pairFrom: pair.from,
       level: q.cefr,
       sectionId: q.sectionId,
       unit: q.unit
@@ -93,16 +185,24 @@ export function migrateQuestionFields(questions, pairTargetMap = {}) {
 
     if (q.language !== normalized.language) stats.language++
     if (q.type === 'T06' && !q.targetSentence && normalized.targetSentence) stats.targetSentence++
+    if (q.type === 'T05' && !q.blank && normalized.blank) stats.blank++
+    if ((q.type === 'T07' || q.type === 'T10') && !q.sourceLang && normalized.sourceLang) stats.sourceLang++
+    if (q.type === 'T03' && JSON.stringify(q.pairs) !== JSON.stringify(normalized.pairs)) stats.pairs++
+    if (q.answerIdx == null && normalized.answerIdx != null) stats.answerIdx++
     if (q.type === 'T02' && JSON.stringify(q.imageOptions) !== JSON.stringify(normalized.imageOptions)) {
       stats.imagePrompt++
     }
     if (q.difficulty !== normalized.difficulty) stats.difficulty++
-    if (q.pairId !== normalized.pairId) stats.pairId++
-    if (q.sectionId !== normalized.sectionId) stats.sectionId++
 
     if (JSON.stringify(q) !== JSON.stringify(normalized)) changed++
     return normalized
   })
 
   return { questions: migrated, changed, stats }
+}
+
+export function buildPairConfigMap(languagePairs) {
+  return Object.fromEntries(
+    (languagePairs || []).map(p => [p.id, { from: p.from, to: p.to }])
+  )
 }

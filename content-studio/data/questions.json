@@ -3,7 +3,7 @@
     "id": "中文-a1-u02-s05-01",
     "type": "T01",
     "typeName": "图片识词",
-    "language": "zh-CN",
+    "language": "zh",
     "cefr": "A1",
     "unit": "日常生活与家庭",
     "unitTheme": "需求与可能性",
@@ -28,7 +28,7 @@
     "id": "中文-a1-u02-s05-02",
     "type": "T02",
     "typeName": "听音选图",
-    "language": "zh-CN",
+    "language": "zh",
     "cefr": "A1",
     "unit": "日常生活与家庭",
     "unitTheme": "需求与可能性",
@@ -64,7 +64,7 @@
     "id": "中文-a1-u02-s05-03",
     "type": "T08",
     "typeName": "听力选择",
-    "language": "zh-CN",
+    "language": "zh",
     "cefr": "A1",
     "unit": "日常生活与家庭",
     "unitTheme": "需求与可能性",
@@ -88,7 +88,7 @@
     "id": "中文-a1-u02-s05-04",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "zh-CN",
+    "language": "zh",
     "cefr": "A1",
     "unit": "日常生活与家庭",
     "unitTheme": "需求与可能性",
@@ -106,13 +106,14 @@
     ],
     "answerIdx": 2,
     "sectionId": "pair_1781451962486/U02-S05",
-    "pairId": "pair_1781451962486"
+    "pairId": "pair_1781451962486",
+    "sourceLang": "es"
   },
   {
     "id": "中文-a1-u02-s05-05",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "zh-CN",
+    "language": "zh",
     "cefr": "A1",
     "unit": "日常生活与家庭",
     "unitTheme": "需求与可能性",
@@ -131,13 +132,14 @@
     ],
     "answerIdx": 2,
     "sectionId": "pair_1781451962486/U02-S05",
-    "pairId": "pair_1781451962486"
+    "pairId": "pair_1781451962486",
+    "blank": "想"
   },
   {
     "id": "espanol-a1-u01-s01-01",
     "type": "T01",
     "typeName": "图片识词",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -165,7 +167,7 @@
     "id": "espanol-a1-u01-s01-02",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -184,13 +186,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U01-S01",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u01-s01-03",
     "type": "T06",
     "typeName": "句子排序",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -214,13 +217,14 @@
       3
     ],
     "sectionId": "zh-es/U01-S01",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "targetSentence": "¿Cómo estás tú?"
   },
   {
     "id": "espanol-a1-u01-s01-04",
     "type": "T08",
     "typeName": "听力选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -245,7 +249,7 @@
     "id": "espanol-a1-u01-s01-05",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -270,7 +274,7 @@
     "id": "espanol-a1-u01-s02-1",
     "type": "T05",
     "typeName": "补全句子（选词填空）",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "u01",
     "unitTheme": "Saludos y presentación personal",
@@ -291,13 +295,14 @@
     "answerIdx": 2,
     "hint": "此处需填入与阳性单数名词hombre匹配的不定冠词，注意冠词的性数配合规则",
     "sectionId": "zh-es/U01-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "un"
   },
   {
     "id": "espanol-a1-u01-s02-2",
     "type": "T07",
     "typeName": "翻译选择（中译西）",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "u01",
     "unitTheme": "Saludos y presentación personal",
@@ -317,13 +322,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U01-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u01-s02-3",
     "type": "T02",
     "typeName": "听音选图",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "u01",
     "unitTheme": "Saludos y presentación personal",
@@ -369,7 +375,7 @@
     "id": "espanol-a1-u01-s02-4",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "u01",
     "unitTheme": "Saludos y presentación personal",
@@ -394,7 +400,7 @@
     "id": "espanol-a1-u01-s02-5",
     "type": "T10",
     "typeName": "翻译输入（中译西）",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "u01",
     "unitTheme": "Saludos y presentación personal",
@@ -411,13 +417,14 @@
       "Vivo en una casa de color rojo."
     ],
     "sectionId": "zh-es/U01-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u01-s04-1",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -437,13 +444,14 @@
     ],
     "answerIdx": 1,
     "sectionId": "zh-es/U01-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "pero"
   },
   {
     "id": "espanol-a1-u01-s04-2",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -462,13 +470,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U01-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u01-s04-3",
     "type": "T06",
     "typeName": "句子排序",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -488,13 +497,22 @@
     ],
     "correctSentence": "Yo no estoy muy enfermo hoy.",
     "sectionId": "zh-es/U01-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "words": [
+      "no",
+      "enfermo",
+      "estoy",
+      "Yo",
+      "muy",
+      "hoy"
+    ],
+    "targetSentence": "Yo no estoy muy enfermo hoy."
   },
   {
     "id": "espanol-a1-u01-s04-4",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -519,7 +537,7 @@
     "id": "espanol-a1-u01-s04-5",
     "type": "T10",
     "typeName": "翻译输入",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -534,13 +552,14 @@
       "Hoy estoy muy feliz, pero ayer estaba un poco triste."
     ],
     "sectionId": "zh-es/U01-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u01-s05-1",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -560,13 +579,14 @@
     "answerIdx": 0,
     "hint": "此处为询问对方姓名的常用句型，需填入表示‘如何’的疑问词",
     "sectionId": "zh-es/U01-S05",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "Cómo"
   },
   {
     "id": "espanol-a1-u01-s05-2",
     "type": "T02",
     "typeName": "听音选图",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -599,7 +619,7 @@
     "id": "espanol-a1-u01-s05-3",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -618,13 +638,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U01-S05",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u01-s05-4",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -649,7 +670,7 @@
     "id": "espanol-a1-u01-s05-5",
     "type": "T10",
     "typeName": "翻译输入",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U01",
     "unitTheme": "Saludos y presentación personal",
@@ -666,13 +687,14 @@
       "Mi familia es de Madrid."
     ],
     "sectionId": "zh-es/U01-S05",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u02-s01-01",
     "type": "T01",
     "typeName": "图片识词",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Miembros básicos de la familia y introducción a pronombres posesivos",
@@ -698,7 +720,7 @@
     "id": "espanol-a1-u02-s01-02",
     "type": "T08",
     "typeName": "听力选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Miembros básicos de la familia y introducción a pronombres posesivos",
@@ -723,7 +745,7 @@
     "id": "espanol-a1-u02-s01-03",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Miembros básicos de la familia y introducción a pronombres posesivos",
@@ -743,13 +765,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U02-S01",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "mi"
   },
   {
     "id": "espanol-a1-u02-s01-04",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Miembros básicos de la familia y introducción a pronombres posesivos",
@@ -768,13 +791,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U02-S01",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u02-s01-05",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Miembros básicos de la familia y introducción a pronombres posesivos",
@@ -800,7 +824,7 @@
     "id": "espanol-a1-u02-s02-01",
     "type": "T02",
     "typeName": "听音选图",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Descripción de la apariencia física y concordancia de adjetivos",
@@ -829,7 +853,7 @@
     "id": "espanol-a1-u02-s02-02",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Descripción de la apariencia física y concordancia de adjetivos",
@@ -849,13 +873,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U02-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "es; tiene"
   },
   {
     "id": "espanol-a1-u02-s02-03",
     "type": "T08",
     "typeName": "听力选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Descripción de la apariencia física y concordancia de adjetivos",
@@ -880,7 +905,7 @@
     "id": "espanol-a1-u02-s02-04",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Descripción de la apariencia física y concordancia de adjetivos",
@@ -898,13 +923,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U02-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u02-s02-05",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Descripción de la apariencia física y concordancia de adjetivos",
@@ -928,7 +954,7 @@
     "id": "espanol-a1-u02-s03-1",
     "type": "T01",
     "typeName": "图片识词",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "02",
     "unitTheme": "Familia y descripción de personas",
@@ -954,7 +980,7 @@
     "id": "espanol-a1-u02-s03-2",
     "type": "T08",
     "typeName": "听力选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "02",
     "unitTheme": "Familia y descripción de personas",
@@ -979,7 +1005,7 @@
     "id": "espanol-a1-u02-s03-3",
     "type": "T06",
     "typeName": "句子排序",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "02",
     "unitTheme": "Familia y descripción de personas",
@@ -1015,13 +1041,14 @@
       0
     ],
     "sectionId": "zh-es/U02-S03",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "targetSentence": "Mi hermano es alto y mi otro hermano es bajo."
   },
   {
     "id": "espanol-a1-u02-s03-4",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "02",
     "unitTheme": "Familia y descripción de personas",
@@ -1040,13 +1067,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U02-S03",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u02-s03-5",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "02",
     "unitTheme": "Familia y descripción de personas",
@@ -1071,7 +1099,7 @@
     "id": "espanol-a1-u02-s04-01",
     "type": "T01",
     "typeName": "图片识词",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Presentación integral de la familia y descripción completa de personas",
@@ -1097,7 +1125,7 @@
     "id": "espanol-a1-u02-s04-02",
     "type": "T03",
     "typeName": "双向配对",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Presentación integral de la familia y descripción completa de personas",
@@ -1107,35 +1135,23 @@
       "pronombre posesivo",
       "vocabulario familiar"
     ],
-    "left": [
-      "nuestro padre",
-      "vuestra hermana",
-      "nuestra familia",
-      "vuestro amigo"
-    ],
-    "right": [
-      "我们的父亲",
-      "你们的姐妹",
-      "我们的家庭",
-      "你们的男性朋友"
-    ],
     "pairs": [
-      [
-        0,
-        0
-      ],
-      [
-        1,
-        1
-      ],
-      [
-        2,
-        2
-      ],
-      [
-        3,
-        3
-      ]
+      {
+        "left": "nuestro padre",
+        "right": "我们的父亲"
+      },
+      {
+        "left": "vuestra hermana",
+        "right": "你们的姐妹"
+      },
+      {
+        "left": "nuestra familia",
+        "right": "我们的家庭"
+      },
+      {
+        "left": "vuestro amigo",
+        "right": "你们的男性朋友"
+      }
     ],
     "sectionId": "zh-es/U02-S04",
     "pairId": "zh-es"
@@ -1144,7 +1160,7 @@
     "id": "espanol-a1-u02-s04-03",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Presentación integral de la familia y descripción completa de personas",
@@ -1163,13 +1179,14 @@
     "answerIdx": 0,
     "hint": "本题考查复数阳性物主代词nuestros/vuestros的用法，nuestros对应‘我们的’，vuestros对应‘你们的’，需根据句意选择合适形式",
     "sectionId": "zh-es/U02-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "Nuestros"
   },
   {
     "id": "espanol-a1-u02-s04-04",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Presentación integral de la familia y descripción completa de personas",
@@ -1188,13 +1205,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U02-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u02-s04-05",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Familia y descripción de personas",
     "unitTheme": "Presentación integral de la familia y descripción completa de personas",
@@ -1219,7 +1237,7 @@
     "id": "espanol-a1-u03-s01-01",
     "type": "T07",
     "typeName": "Selección de traducción",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "03",
     "unitTheme": "Rutina diaria y expresión del tiempo",
@@ -1238,13 +1256,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U03-S01",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u03-s01-02",
     "type": "T08",
     "typeName": "Selección auditiva",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "03",
     "unitTheme": "Rutina diaria y expresión del tiempo",
@@ -1269,7 +1288,7 @@
     "id": "espanol-a1-u03-s01-03",
     "type": "T02",
     "typeName": "Selección de imagen por audio",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "03",
     "unitTheme": "Rutina diaria y expresión del tiempo",
@@ -1300,30 +1319,10 @@
     "pairId": "zh-es"
   },
   {
-    "id": "espanol-a1-u03-s01-04",
-    "type": "T05",
-    "typeName": "Completar oración",
-    "language": "Espanol",
-    "cefr": "A1",
-    "unit": "03",
-    "unitTheme": "Rutina diaria y expresión del tiempo",
-    "difficulty": 2,
-    "tags": [
-      "vocabulario de tiempo",
-      "conjugación verbal",
-      "actividades cotidianas"
-    ],
-    "sentence": "Yo ______ (estudiar) español todos los días por la mañana",
-    "hint": "提示：主语为第一人称单数yo，一般现在时中规则动词estudiar的变位形式为estudio",
-    "answer": "estudio",
-    "sectionId": "zh-es/U03-S01",
-    "pairId": "zh-es"
-  },
-  {
     "id": "espanol-a1-u03-s01-05",
     "type": "T10",
     "typeName": "Traducción escrita",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "03",
     "unitTheme": "Rutina diaria y expresión del tiempo",
@@ -1338,13 +1337,14 @@
       "Me duermo a las once de la noche todos los días"
     ],
     "sectionId": "zh-es/U03-S01",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u03-s02-01",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Rutina diaria y expresión del tiempo",
     "unitTheme": "Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente",
@@ -1364,13 +1364,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U03-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "lavo"
   },
   {
     "id": "espanol-a1-u03-s02-02",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Rutina diaria y expresión del tiempo",
     "unitTheme": "Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente",
@@ -1389,13 +1390,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U03-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u03-s02-03",
     "type": "T08",
     "typeName": "听力选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Rutina diaria y expresión del tiempo",
     "unitTheme": "Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente",
@@ -1417,29 +1419,10 @@
     "pairId": "zh-es"
   },
   {
-    "id": "espanol-a1-u03-s02-04",
-    "type": "T09",
-    "typeName": "拼写输入",
-    "language": "Espanol",
-    "cefr": "A1",
-    "unit": "Rutina diaria y expresión del tiempo",
-    "unitTheme": "Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente",
-    "difficulty": 2,
-    "tags": [
-      "动词拼写",
-      "日常活动",
-      "-er动词变位"
-    ],
-    "hint": "请拼写西语动词“读”的第一人称单数现在时形式，该动词原形是leer，属于-er规则动词",
-    "answer": "leo",
-    "sectionId": "zh-es/U03-S02",
-    "pairId": "zh-es"
-  },
-  {
     "id": "espanol-a1-u03-s02-05",
     "type": "T10",
     "typeName": "翻译输入",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Rutina diaria y expresión del tiempo",
     "unitTheme": "Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente",
@@ -1455,13 +1438,14 @@
       "Yo escucho música por la noche."
     ],
     "sectionId": "zh-es/U03-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u03-s03-1",
     "type": "T02",
     "typeName": "听音选图",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "03",
     "unitTheme": "Rutina diaria y expresión del tiempo",
@@ -1490,7 +1474,7 @@
     "id": "espanol-a1-u03-s03-2",
     "type": "T03",
     "typeName": "双向配对",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "03",
     "unitTheme": "Rutina diaria y expresión del tiempo",
@@ -1525,7 +1509,7 @@
     "id": "espanol-a1-u03-s03-3",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "03",
     "unitTheme": "Rutina diaria y expresión del tiempo",
@@ -1545,13 +1529,14 @@
     "hint": "提示：此处需要填入表示动作发生频率的副词，描述早餐吃水果的习惯",
     "answerIdx": 0,
     "sectionId": "zh-es/U03-S03",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "siempre"
   },
   {
     "id": "espanol-a1-u03-s03-4",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "03",
     "unitTheme": "Rutina diaria y expresión del tiempo",
@@ -1570,13 +1555,14 @@
     ],
     "answerIdx": 1,
     "sectionId": "zh-es/U03-S03",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u03-s03-5",
     "type": "T08",
     "typeName": "听力选择",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "03",
     "unitTheme": "Rutina diaria y expresión del tiempo",
@@ -1602,7 +1588,7 @@
     "id": "espanol-a1-u03-s04-01",
     "type": "T01",
     "typeName": "图片识词",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Rutina diaria y expresión del tiempo",
     "unitTheme": "Pronombres personales y conjugación del verbo estar en presente",
@@ -1628,7 +1614,7 @@
     "id": "espanol-a1-u03-s04-02",
     "type": "T03",
     "typeName": "双向配对",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Rutina diaria y expresión del tiempo",
     "unitTheme": "Pronombres personales y conjugación del verbo estar en presente",
@@ -1638,26 +1624,32 @@
       "nosotros/nosotras",
       "vosotros/vosotras"
     ],
-    "left": [
-      "nosotros",
-      "nosotras",
-      "vosotros",
-      "vosotras"
-    ],
-    "right": [
-      "我们（全男性或混合群体）",
-      "我们（全女性群体）",
-      "你们（全男性或混合群体，西班牙地区使用）",
-      "你们（全女性群体，西班牙地区使用）"
-    ],
     "sectionId": "zh-es/U03-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "pairs": [
+      {
+        "left": "nosotros",
+        "right": "我们（全男性或混合群体）"
+      },
+      {
+        "left": "nosotras",
+        "right": "我们（全女性群体）"
+      },
+      {
+        "left": "vosotros",
+        "right": "你们（全男性或混合群体，西班牙地区使用）"
+      },
+      {
+        "left": "vosotras",
+        "right": "你们（全女性群体，西班牙地区使用）"
+      }
+    ]
   },
   {
     "id": "espanol-a1-u03-s04-03",
     "type": "T06",
     "typeName": "句子排序",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Rutina diaria y expresión del tiempo",
     "unitTheme": "Pronombres personales y conjugación del verbo estar en presente",
@@ -1681,13 +1673,14 @@
       0
     ],
     "sectionId": "zh-es/U03-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "targetSentence": "Nosotros estamos felices aquí."
   },
   {
     "id": "espanol-a1-u03-s04-04",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Rutina diaria y expresión del tiempo",
     "unitTheme": "Pronombres personales y conjugación del verbo estar en presente",
@@ -1706,13 +1699,14 @@
     ],
     "answerIdx": 1,
     "sectionId": "zh-es/U03-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u03-s04-05",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Rutina diaria y expresión del tiempo",
     "unitTheme": "Pronombres personales y conjugación del verbo estar en presente",
@@ -1737,7 +1731,7 @@
     "id": "espanol-a1-u03-s05-1",
     "type": "T02",
     "typeName": "听音选图",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U03",
     "unitTheme": "Rutina diaria y expresión del tiempo",
@@ -1777,7 +1771,7 @@
     "id": "espanol-a1-u03-s05-2",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U03",
     "unitTheme": "Rutina diaria y expresión del tiempo",
@@ -1798,13 +1792,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U03-S05",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u03-s05-3",
     "type": "T06",
     "typeName": "句子排序",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U03",
     "unitTheme": "Rutina diaria y expresión del tiempo",
@@ -1832,35 +1827,14 @@
       "ni"
     ],
     "sectionId": "zh-es/U03-S05",
-    "pairId": "zh-es"
-  },
-  {
-    "id": "espanol-a1-u03-s05-4",
-    "type": "T05",
-    "typeName": "补全句子",
-    "language": "Espanol",
-    "cefr": "A1",
-    "unit": "U03",
-    "unitTheme": "Rutina diaria y expresión del tiempo",
-    "difficulty": 3,
-    "tags": [
-      "tener",
-      "poder",
-      "necesitar",
-      "不规则动词变位",
-      "补全"
-    ],
-    "sentence": "___ (tener) ___ (poder) ___ (necesitar) terminar el proyecto antes de las vacaciones.",
-    "hint": "提示：此处需要填入三个动词tener、poder、necesitar的第一人称单数现在时变位，注意不规则变化规则：tener的变位为tengo，poder的变位为puedo，necesitar的变位为necesito",
-    "answer": "Tengo, puedo, necesito",
-    "sectionId": "zh-es/U03-S05",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "targetSentence": "Yo no quiero ni hacer planes ni viajar este fin de semana."
   },
   {
     "id": "espanol-a1-u03-s05-5",
     "type": "T10",
     "typeName": "翻译输入",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U03",
     "unitTheme": "Rutina diaria y expresión del tiempo",
@@ -1878,13 +1852,14 @@
       "Sólo necesito cumplir este objetivo, no necesito hacer nada más."
     ],
     "sectionId": "zh-es/U03-S05",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u04-s01-1",
     "type": "T01",
     "typeName": "图片识词",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Vocabulario básico de compras en supermercado y consultas",
@@ -1910,7 +1885,7 @@
     "id": "espanol-a1-u04-s01-2",
     "type": "T03",
     "typeName": "双向配对",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Vocabulario básico de compras en supermercado y consultas",
@@ -1919,26 +1894,32 @@
       "vocabulario básico",
       "traducción español-chino"
     ],
-    "left": [
-      "tienda",
-      "precio",
-      "comprar",
-      "querer"
-    ],
-    "right": [
-      "商店",
-      "价格",
-      "购买",
-      "想要"
-    ],
     "sectionId": "zh-es/U04-S01",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "pairs": [
+      {
+        "left": "tienda",
+        "right": "商店"
+      },
+      {
+        "left": "precio",
+        "right": "价格"
+      },
+      {
+        "left": "comprar",
+        "right": "购买"
+      },
+      {
+        "left": "querer",
+        "right": "想要"
+      }
+    ]
   },
   {
     "id": "espanol-a1-u04-s01-3",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Vocabulario básico de compras en supermercado y consultas",
@@ -1956,34 +1937,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U04-S01",
-    "pairId": "zh-es"
-  },
-  {
-    "id": "espanol-a1-u04-s01-4",
-    "type": "T05",
-    "typeName": "补全句子",
-    "language": "espanol",
-    "cefr": "A1",
-    "unit": "Compras y pedidos en restaurantes",
-    "unitTheme": "Vocabulario básico de compras en supermercado y consultas",
-    "difficulty": 2,
-    "tags": [
-      "querer conjugación",
-      "presente de indicativo"
-    ],
-    "sentence": "Yo ___ pan en el supermercado.",
-    "hint": "此处需要填入动词querer的现在时第一人称单数变位，表示‘我想要’",
-    "acceptedAnswers": [
-      "quiero"
-    ],
-    "sectionId": "zh-es/U04-S01",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u04-s01-5",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Vocabulario básico de compras en supermercado y consultas",
@@ -2008,7 +1969,7 @@
     "id": "espanol-a1-u04-s02-01",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Expresiones básicas para hacer pedidos en restaurantes",
@@ -2027,13 +1988,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U04-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "este"
   },
   {
     "id": "espanol-a1-u04-s02-02",
     "type": "T02",
     "typeName": "听音选图",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Expresiones básicas para hacer pedidos en restaurantes",
@@ -2066,7 +2028,7 @@
     "id": "espanol-a1-u04-s02-03",
     "type": "T06",
     "typeName": "句子排序",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Expresiones básicas para hacer pedidos en restaurantes",
@@ -2093,13 +2055,14 @@
       "favor?"
     ],
     "sectionId": "zh-es/U04-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "targetSentence": "¿Me trae esta cuenta, por favor?"
   },
   {
     "id": "espanol-a1-u04-s02-04",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Expresiones básicas para hacer pedidos en restaurantes",
@@ -2117,13 +2080,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U04-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u04-s02-05",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Expresiones básicas para hacer pedidos en restaurantes",
@@ -2147,7 +2111,7 @@
     "id": "espanol-a1-u04-s03-01",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Aplicación de palabras interrogativas y pronombres indefinidos",
@@ -2167,13 +2131,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U04-S03",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "Qué"
   },
   {
     "id": "espanol-a1-u04-s03-02",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Aplicación de palabras interrogativas y pronombres indefinidos",
@@ -2192,13 +2157,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U04-S03",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u04-s03-03",
     "type": "T08",
     "typeName": "听力选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Aplicación de palabras interrogativas y pronombres indefinidos",
@@ -2223,7 +2189,7 @@
     "id": "espanol-a1-u04-s03-04",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Aplicación de palabras interrogativas y pronombres indefinidos",
@@ -2248,7 +2214,7 @@
     "id": "espanol-a1-u04-s03-05",
     "type": "T09",
     "typeName": "拼写输入",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Compras y pedidos en restaurantes",
     "unitTheme": "Aplicación de palabras interrogativas y pronombres indefinidos",
@@ -2268,7 +2234,7 @@
     "id": "espanol-a1-u04-s04-1",
     "type": "T01",
     "typeName": "图片识词",
-    "language": "es-Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "04",
     "unitTheme": "Compras y pedidos en restaurantes",
@@ -2296,7 +2262,7 @@
     "id": "espanol-a1-u04-s04-2",
     "type": "T03",
     "typeName": "双向配对",
-    "language": "es-Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "04",
     "unitTheme": "Compras y pedidos en restaurantes",
@@ -2306,18 +2272,6 @@
       "para",
       "vocabulario",
       "traducción"
-    ],
-    "left": [
-      "por",
-      "para",
-      "pagar",
-      "cuenta"
-    ],
-    "right": [
-      "因为",
-      "为了",
-      "支付",
-      "账单"
     ],
     "pairing": [
       [
@@ -2338,13 +2292,31 @@
       ]
     ],
     "sectionId": "zh-es/U04-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "pairs": [
+      {
+        "left": "por",
+        "right": "因为"
+      },
+      {
+        "left": "para",
+        "right": "为了"
+      },
+      {
+        "left": "pagar",
+        "right": "支付"
+      },
+      {
+        "left": "cuenta",
+        "right": "账单"
+      }
+    ]
   },
   {
     "id": "espanol-a1-u04-s04-3",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "es-Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "04",
     "unitTheme": "Compras y pedidos en restaurantes",
@@ -2364,13 +2336,14 @@
     ],
     "answerIdx": 1,
     "sectionId": "zh-es/U04-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u04-s04-4",
     "type": "T10",
     "typeName": "翻译输入",
-    "language": "es-Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "04",
     "unitTheme": "Compras y pedidos en restaurantes",
@@ -2386,13 +2359,14 @@
       "La cuenta es para los clientes de esa mesa."
     ],
     "sectionId": "zh-es/U04-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u04-s04-5",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "es-Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "04",
     "unitTheme": "Compras y pedidos en restaurantes",
@@ -2418,7 +2392,7 @@
     "id": "espanol-a1-u04-s05-1",
     "type": "T01",
     "typeName": "图片识词",
-    "language": "español",
+    "language": "es",
     "cefr": "A1",
     "unit": "U04",
     "unitTheme": "Compras y pedidos en restaurantes",
@@ -2444,7 +2418,7 @@
     "id": "espanol-a1-u04-s05-2",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "español",
+    "language": "es",
     "cefr": "A1",
     "unit": "U04",
     "unitTheme": "Compras y pedidos en restaurantes",
@@ -2465,13 +2439,14 @@
     "answerIdx": 0,
     "hint": "提示：主语为第一人称单数yo，一般现在时中动词querer的正确变位为quiero；前置词para此处表示目的，意为“外带”",
     "sectionId": "zh-es/U04-S05",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "quiero"
   },
   {
     "id": "espanol-a1-u04-s05-3",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "español",
+    "language": "es",
     "cefr": "A1",
     "unit": "U04",
     "unitTheme": "Compras y pedidos en restaurantes",
@@ -2491,13 +2466,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U04-S05",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u04-s05-4",
     "type": "T08",
     "typeName": "听力选择",
-    "language": "español",
+    "language": "es",
     "cefr": "A1",
     "unit": "U04",
     "unitTheme": "Compras y pedidos en restaurantes",
@@ -2524,7 +2500,7 @@
     "id": "espanol-a1-u04-s05-5",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "español",
+    "language": "es",
     "cefr": "A1",
     "unit": "U04",
     "unitTheme": "Compras y pedidos en restaurantes",
@@ -2550,7 +2526,7 @@
     "id": "espanol-a1-u05-s01-1",
     "type": "T01",
     "typeName": "图片识词",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "05",
     "unitTheme": "Desplazamiento urbano y preguntas de dirección",
@@ -2576,7 +2552,7 @@
     "id": "espanol-a1-u05-s01-2",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "05",
     "unitTheme": "Desplazamiento urbano y preguntas de dirección",
@@ -2595,13 +2571,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U05-S01",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u05-s01-3",
     "type": "T02",
     "typeName": "听音选图",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "05",
     "unitTheme": "Desplazamiento urbano y preguntas de dirección",
@@ -2638,7 +2615,7 @@
     "id": "espanol-a1-u05-s01-4",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "05",
     "unitTheme": "Desplazamiento urbano y preguntas de dirección",
@@ -2658,13 +2635,14 @@
     ],
     "answerIdx": 1,
     "sectionId": "zh-es/U05-S01",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "allí"
   },
   {
     "id": "espanol-a1-u05-s01-5",
     "type": "T10",
     "typeName": "翻译输入",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "05",
     "unitTheme": "Desplazamiento urbano y preguntas de dirección",
@@ -2679,7 +2657,8 @@
       "El restaurante está en la esquina de ahí."
     ],
     "sectionId": "zh-es/U05-S01",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u05-s02-1",
@@ -2721,35 +2700,23 @@
       "indicar rutas",
       "vocabulario de desplazamiento"
     ],
-    "left": [
-      "¿Dónde está la biblioteca?",
-      "¿Cómo llegar a la plaza?",
-      "Hay un puente aquí.",
-      "Sigue por esta calle."
-    ],
-    "right": [
-      "图书馆在哪里？",
-      "怎么去广场？",
-      "这里有一座桥。",
-      "沿着这条街走。"
-    ],
     "pairs": [
-      [
-        0,
-        0
-      ],
-      [
-        1,
-        1
-      ],
-      [
-        2,
-        2
-      ],
-      [
-        3,
-        3
-      ]
+      {
+        "left": "¿Dónde está la biblioteca?",
+        "right": "图书馆在哪里？"
+      },
+      {
+        "left": "¿Cómo llegar a la plaza?",
+        "right": "怎么去广场？"
+      },
+      {
+        "left": "Hay un puente aquí.",
+        "right": "这里有一座桥。"
+      },
+      {
+        "left": "Sigue por esta calle.",
+        "right": "沿着这条街走。"
+      }
     ],
     "sectionId": "zh-es/U05-S02",
     "pairId": "zh-es"
@@ -2778,7 +2745,8 @@
     "answerIdx": 0,
     "hint": "此处需要填入表示“沿着…前进”的动词，是问路场景中指示路线的常用表达",
     "sectionId": "zh-es/U05-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "seguir"
   },
   {
     "id": "espanol-a1-u05-s02-4",
@@ -2803,7 +2771,8 @@
     ],
     "answerIdx": 1,
     "sectionId": "zh-es/U05-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u05-s02-5",
@@ -2834,7 +2803,7 @@
     "id": "espanol-a1-u05-s03-1",
     "type": "T01",
     "typeName": "图片识词",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U05",
     "unitTheme": "Desplazamiento urbano y preguntas de dirección",
@@ -2860,7 +2829,7 @@
     "id": "espanol-a1-u05-s03-2",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U05",
     "unitTheme": "Desplazamiento urbano y preguntas de dirección",
@@ -2880,13 +2849,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U05-S03",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u05-s03-3",
     "type": "T06",
     "typeName": "句子排序",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U05",
     "unitTheme": "Desplazamiento urbano y preguntas de dirección",
@@ -2919,33 +2889,14 @@
       1
     ],
     "sectionId": "zh-es/U05-S03",
-    "pairId": "zh-es"
-  },
-  {
-    "id": "espanol-a1-u05-s03-4",
-    "type": "T05",
-    "typeName": "补全句子",
-    "language": "Espanol",
-    "cefr": "A1",
-    "unit": "U05",
-    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
-    "difficulty": 3,
-    "tags": [
-      "gramatica",
-      "verbo ir",
-      "conjugacion"
-    ],
-    "sentence": "Nosotros ___ (ir) al centro comercial los sábados.",
-    "hint": "此处需要填写动词ir的现在时第一人称复数变位",
-    "answer": "vamos",
-    "sectionId": "zh-es/U05-S03",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "targetSentence": "Yo voy a la estación de metro cada mañana"
   },
   {
     "id": "espanol-a1-u05-s03-5",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "U05",
     "unitTheme": "Desplazamiento urbano y preguntas de dirección",
@@ -2970,7 +2921,7 @@
     "id": "espanol-a1-u05-s04-1",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Desplazamiento urbano y preguntas de dirección",
     "unitTheme": "Práctica integral de desplazamiento urbano",
@@ -2989,13 +2940,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U05-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u05-s04-2",
     "type": "T01",
     "typeName": "图片识词",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Desplazamiento urbano y preguntas de dirección",
     "unitTheme": "Práctica integral de desplazamiento urbano",
@@ -3020,7 +2972,7 @@
     "id": "espanol-a1-u05-s04-3",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Desplazamiento urbano y preguntas de dirección",
     "unitTheme": "Práctica integral de desplazamiento urbano",
@@ -3045,7 +2997,7 @@
     "id": "espanol-a1-u05-s04-4",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Desplazamiento urbano y preguntas de dirección",
     "unitTheme": "Práctica integral de desplazamiento urbano",
@@ -3065,13 +3017,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U05-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "Dónde / en"
   },
   {
     "id": "espanol-a1-u05-s04-5",
     "type": "T10",
     "typeName": "翻译输入",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Desplazamiento urbano y preguntas de dirección",
     "unitTheme": "Práctica integral de desplazamiento urbano",
@@ -3087,13 +3040,14 @@
       "Sigo por esta calle, paso la plaza y llego al restaurante."
     ],
     "sectionId": "zh-es/U05-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u06-s01-1",
     "type": "T01",
     "typeName": "图片识词",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Expresiones básicas en contextos laborales y académicos",
@@ -3119,7 +3073,7 @@
     "id": "espanol-a1-u06-s01-2",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Expresiones básicas en contextos laborales y académicos",
@@ -3138,13 +3092,14 @@
     ],
     "answerIdx": 1,
     "sectionId": "zh-es/U06-S01",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u06-s01-3",
     "type": "T02",
     "typeName": "听音选图",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Expresiones básicas en contextos laborales y académicos",
@@ -3181,7 +3136,7 @@
     "id": "espanol-a1-u06-s01-4",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Expresiones básicas en contextos laborales y académicos",
@@ -3202,13 +3157,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U06-S01",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "tengo"
   },
   {
     "id": "espanol-a1-u06-s01-5",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Expresiones básicas en contextos laborales y académicos",
@@ -3233,7 +3189,7 @@
     "id": "espanol-a1-u06-s02-1",
     "type": "T05",
     "typeName": "Completar oraciones",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Expresiones sobre el clima y el entorno residencial",
@@ -3253,13 +3209,14 @@
     "answerIdx": 1,
     "hint": "此处需要宾格代词指代前文的阴性单数名词casa，对应阴性单数宾格代词la",
     "sectionId": "zh-es/U06-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "la"
   },
   {
     "id": "espanol-a1-u06-s02-2",
     "type": "T02",
     "typeName": "Seleccionar imagen por audio",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Expresiones sobre el clima y el entorno residencial",
@@ -3288,7 +3245,7 @@
     "id": "espanol-a1-u06-s02-3",
     "type": "T08",
     "typeName": "Selección auditiva",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Expresiones sobre el clima y el entorno residencial",
@@ -3313,7 +3270,7 @@
     "id": "espanol-a1-u06-s02-4",
     "type": "T07",
     "typeName": "Selección de traducción",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Expresiones sobre el clima y el entorno residencial",
@@ -3331,13 +3288,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U06-S02",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u06-s02-5",
     "type": "T12",
     "typeName": "Respuesta situacional",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Expresiones sobre el clima y el entorno residencial",
@@ -3361,7 +3319,7 @@
     "id": "espanol-a1-u06-s03-1",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "工作、学习与日常场景沟通",
@@ -3380,13 +3338,14 @@
     ],
     "answerIdx": 3,
     "sectionId": "zh-es/U06-S03",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u06-s03-2",
     "type": "T03",
     "typeName": "双向配对",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "工作、学习与日常场景沟通",
@@ -3396,46 +3355,32 @@
       "词汇识别",
       "不定代词与与格代词"
     ],
-    "left": [
-      "alguien",
-      "nada",
-      "todos",
-      "le"
-    ],
-    "right": [
-      "某人",
-      "什么都没有",
-      "所有人",
-      "他/她（与格代词）"
-    ],
     "sectionId": "zh-es/U06-S03",
-    "pairId": "zh-es"
-  },
-  {
-    "id": "espanol-a1-u06-s03-3",
-    "type": "T05",
-    "typeName": "补全句子",
-    "language": "espanol",
-    "cefr": "A1",
-    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
-    "unitTheme": "工作、学习与日常场景沟通",
-    "difficulty": 2,
-    "tags": [
-      "关系代词quien",
-      "补全句子",
-      "语法应用"
-    ],
-    "sentence": "¿___ puedes ayudarme con la tarea de español?",
-    "hint": "此处需填入指人的关系代词，用于引导特殊疑问句，询问“谁”能够提供帮助",
-    "answer": "Quien",
-    "sectionId": "zh-es/U06-S03",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "pairs": [
+      {
+        "left": "alguien",
+        "right": "某人"
+      },
+      {
+        "left": "nada",
+        "right": "什么都没有"
+      },
+      {
+        "left": "todos",
+        "right": "所有人"
+      },
+      {
+        "left": "le",
+        "right": "他/她（与格代词）"
+      }
+    ]
   },
   {
     "id": "espanol-a1-u06-s03-4",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "工作、学习与日常场景沟通",
@@ -3460,7 +3405,7 @@
     "id": "espanol-a1-u06-s03-5",
     "type": "T09",
     "typeName": "拼写输入",
-    "language": "espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "工作、学习与日常场景沟通",
@@ -3480,7 +3425,7 @@
     "id": "espanol-a1-u06-s04-1",
     "type": "T02",
     "typeName": "听音选图",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Comunicación integrada en entornos de trabajo, estudio y vida cotidiana",
@@ -3507,13 +3452,14 @@
     ],
     "correctIdx": 0,
     "sectionId": "zh-es/U06-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "answerIdx": 0
   },
   {
     "id": "espanol-a1-u06-s04-2",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Comunicación integrada en entornos de trabajo, estudio y vida cotidiana",
@@ -3533,13 +3479,15 @@
     ],
     "correctIdx": 0,
     "sectionId": "zh-es/U06-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "answerIdx": 0,
+    "blank": "Te gusta"
   },
   {
     "id": "espanol-a1-u06-s04-3",
     "type": "T06",
     "typeName": "句子排序",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Comunicación integrada en entornos de trabajo, estudio y vida cotidiana",
@@ -3561,13 +3509,24 @@
     ],
     "correctSentence": "Me gusta mi habitación porque tiene mucho espacio.",
     "sectionId": "zh-es/U06-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "words": [
+      "Me",
+      "gusta",
+      "mi",
+      "habitación",
+      "porque",
+      "tiene",
+      "mucho",
+      "espacio"
+    ],
+    "targetSentence": "Me gusta mi habitación porque tiene mucho espacio."
   },
   {
     "id": "espanol-a1-u06-s04-4",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Comunicación integrada en entornos de trabajo, estudio y vida cotidiana",
@@ -3586,13 +3545,15 @@
     ],
     "correctIdx": 0,
     "sectionId": "zh-es/U06-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "answerIdx": 0,
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u06-s04-5",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
     "unitTheme": "Comunicación integrada en entornos de trabajo, estudio y vida cotidiana",
@@ -3611,13 +3572,14 @@
     ],
     "correctIdx": 0,
     "sectionId": "zh-es/U06-S04",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "answerIdx": 0
   },
   {
     "id": "espanol-a1-u01-s03-01",
     "type": "T06",
     "typeName": "句子排序",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Saludos y presentación personal",
     "unitTheme": "Posesión y expresión de existencia",
@@ -3641,13 +3603,25 @@
     ],
     "answer": "En la casa de mi familia hay muchos libros.",
     "sectionId": "zh-es/U01-S03",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "words": [
+      "hay",
+      "muchos",
+      "libros",
+      "En",
+      "la",
+      "casa",
+      "de",
+      "mi",
+      "familia"
+    ],
+    "targetSentence": "En la casa de mi familia hay muchos libros."
   },
   {
     "id": "espanol-a1-u01-s03-02",
     "type": "T05",
     "typeName": "补全句子",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Saludos y presentación personal",
     "unitTheme": "Posesión y expresión de existencia",
@@ -3667,13 +3641,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U01-S03",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "blank": "del"
   },
   {
     "id": "espanol-a1-u01-s03-03",
     "type": "T07",
     "typeName": "翻译选择",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Saludos y presentación personal",
     "unitTheme": "Posesión y expresión de existencia",
@@ -3691,13 +3666,14 @@
     ],
     "answerIdx": 0,
     "sectionId": "zh-es/U01-S03",
-    "pairId": "zh-es"
+    "pairId": "zh-es",
+    "sourceLang": "zh"
   },
   {
     "id": "espanol-a1-u01-s03-04",
     "type": "T02",
     "typeName": "听音选图",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Saludos y presentación personal",
     "unitTheme": "Posesión y expresión de existencia",
@@ -3735,7 +3711,7 @@
     "id": "espanol-a1-u01-s03-05",
     "type": "T12",
     "typeName": "情景回应",
-    "language": "Espanol",
+    "language": "es",
     "cefr": "A1",
     "unit": "Saludos y presentación personal",
     "unitTheme": "Posesión y expresión de existencia",

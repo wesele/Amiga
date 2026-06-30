@@ -693,7 +693,8 @@ function saveCurrentQuestion() {
     unit: q.unit,
     level: q.cefr || selectedLevel.value,
     sourceLang: selectedPair.value?.from,
-    targetLang: selectedPair.value?.to
+    targetLang: selectedPair.value?.to,
+    pairFrom: selectedPair.value?.from
   })
   Object.assign(q, normalized)
   storage.persistQuestions()
@@ -1118,7 +1119,8 @@ function prepareQuestionsForSave(questions, unit, sec, sourceLang, targetLang, l
       unit: unit.id,
       level,
       sourceLang,
-      targetLang
+      targetLang,
+      pairFrom: sourceLang
     })
     const { errors, warnings } = validateQuestion(normalized)
     const label = normalized.id || `题目${i + 1}`
@@ -1343,6 +1345,10 @@ ${selectedTypes.map(t => `- ${t.id} (${t.title}): ${t.description}`).join('\n')}
 要求：
 1. 每道题须包含以下公共字段：id, type, typeName, language, cefr, unit, unitTheme, difficulty, tags
 2. 每道题额外包含该题型特有字段（如 options, answerIdx, sentence 等）
+   - T05 必须含 blank（填空答案）和 options、answerIdx
+   - T07/T10 必须含 sourceLang（源语言代码: ${sourceLang === '中文' ? 'zh' : sourceLang === 'English' ? 'en' : 'es'}）
+   - T06 必须含 words（数组）和 targetSentence（完整目标句）
+   - T03 必须含 pairs 数组，每项为 {"left":"...","right":"..."}
 3. difficulty 为 1-5 的整数
 4. tags 为字符串数组
 5. id 格式: "${targetLang.toLowerCase()}-${level.toLowerCase()}-${unit.id.toLowerCase()}-${sec.id.toLowerCase()}-{序号}"
