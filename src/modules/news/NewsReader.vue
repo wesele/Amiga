@@ -775,6 +775,7 @@ function formatSource(source) {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  overflow-wrap: break-word;
 }
 
 .header-title-translation {
@@ -879,6 +880,8 @@ function formatSource(source) {
   font-size: 17px;
   line-height: 2.0;
   color: var(--text);
+  overflow-wrap: break-word;
+  word-wrap: break-word;
   -webkit-user-select: text;
   -webkit-touch-callout: default;
   user-select: text;
@@ -891,6 +894,7 @@ function formatSource(source) {
   padding: 0 1px;
   border-radius: 3px;
   transition: background 0.1s;
+  white-space: normal;
   -webkit-user-select: text;
   user-select: text;
 }
@@ -988,6 +992,7 @@ function formatSource(source) {
 /* Bilingual paragraphs */
 .bilingual .para-original {
   margin-bottom: 4px;
+  overflow-wrap: break-word;
 }
 
 .bilingual .para-translation {
@@ -997,6 +1002,7 @@ function formatSource(source) {
   margin-bottom: 20px;
   padding-left: 12px;
   border-left: 2px solid var(--border);
+  overflow-wrap: break-word;
 }
 
 /* Selection translate popup */

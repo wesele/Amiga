@@ -439,11 +439,68 @@ pub async fn rewrite_article(
         format!("AI response format error: {}", e)
     })?;
 
+    validate_rewrite_output(original_text, &result.rewritten)?;
+
     log::info!(
         "Article rewritten successfully, {} new words used",
         result.new_words_used.len()
     );
     Ok(result)
+}
+
+/// Reject truncated or obviously broken rewrites so the frontend can prompt retry.
+pub fn validate_rewrite_output(original: &str, rewritten: &str) -> Result<(), String> {
+    let original = original.trim();
+    let rewritten = rewritten.trim();
+
+    if rewritten.is_empty() {
+        return Err("改写结果为空，请重试".to_string());
+    }
+
+    if !original.is_empty() && rewritten.len() < original.len() / 2 {
+        return Err("改写结果过短，可能不完整，请重试".to_string());
+    }
+
+    if rewritten.len() < original.len()
+        && ends_with_incomplete_word(rewritten)
+        && !ends_with_sentence_punctuation(rewritten)
+    {
+        return Err("改写结果疑似在词中间截断，请重试".to_string());
+    }
+
+    if has_obvious_grammar_breaks(rewritten) {
+        return Err("改写结果存在明显语法错误，请重试".to_string());
+    }
+
+    Ok(())
+}
+
+fn ends_with_sentence_punctuation(text: &str) -> bool {
+    text.trim_end()
+        .chars()
+        .last()
+        .map(|c| matches!(c, '.' | '!' | '?' | '。' | '！' | '？' | '"' | '\'' | '»' | '”'))
+        .unwrap_or(false)
+}
+
+fn ends_with_incomplete_word(text: &str) -> bool {
+    text.trim_end()
+        .chars()
+        .last()
+        .map(|c| c.is_alphabetic())
+        .unwrap_or(false)
+}
+
+fn has_obvious_grammar_breaks(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    const BAD_PATTERNS: &[&str] = &[
+        "que no ha inmigrantes",
+        "que no ha ",
+        "que no es inmigrantes",
+        "that no has ",
+        "that no is ",
+    ];
+    BAD_PATTERNS.iter().any(|p| lower.contains(p))
 }
 
 pub async fn translate_word(
@@ -813,5 +870,43 @@ mod tests {
             err.contains("自定义"),
             "should mention custom config: {err}"
         );
+    }
+
+    #[test]
+    fn validate_rewrite_rejects_empty_output() {
+        let err = validate_rewrite_output("Some original article text.", "").unwrap_err();
+        assert!(err.contains("为空"));
+    }
+
+    #[test]
+    fn validate_rewrite_rejects_suspiciously_short_output() {
+        let original = "This is a full news article with many sentences and enough length.";
+        let short = "Too short.";
+        let err = validate_rewrite_output(original, short).unwrap_err();
+        assert!(err.contains("过短"));
+    }
+
+    #[test]
+    fn validate_rewrite_rejects_mid_word_truncation() {
+        let original = "Los inmigrantes llegaron a la ciudad ayer por la tarde.";
+        let truncated = "Los inmigrantes llegaron a la ciud";
+        let err = validate_rewrite_output(original, truncated).unwrap_err();
+        assert!(err.contains("截断"));
+    }
+
+    #[test]
+    fn validate_rewrite_rejects_obvious_grammar_breaks() {
+        let original = "El gobierno anunció nuevas medidas para los inmigrantes.";
+        let broken = "El gobierno anunció que no ha inmigrantes en la frontera.";
+        let err = validate_rewrite_output(original, broken).unwrap_err();
+        assert!(err.contains("语法错误"));
+    }
+
+    #[test]
+    fn validate_rewrite_accepts_complete_rewrite() {
+        let original = "Los inmigrantes llegaron a la ciudad ayer por la tarde.";
+        let rewritten =
+            "Los inmigrantes llegaron a la ciudad ayer por la tarde. Fue un día tranquilo.";
+        assert!(validate_rewrite_output(original, rewritten).is_ok());
     }
 }

@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { setLocale } from "@/shared/i18n";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({ open: vi.fn() }));
 vi.mock("@/shared/api.js", () => ({
@@ -196,6 +197,15 @@ describe("NewsList click handling", () => {
     expect(router.currentRoute.value.params.id).toBe("1");
   });
 
+  it("card-title uses line-clamp and overflow-wrap so headlines wrap instead of clipping", () => {
+    const vue = read("src/modules/news/NewsList.vue");
+    const titleBlock = vue.match(/\.card-title\s*\{[\s\S]*?\}/);
+    expect(titleBlock, ".card-title rule not found").toBeTruthy();
+    expect(titleBlock[0]).toMatch(/line-clamp:\s*2/);
+    expect(titleBlock[0]).toMatch(/-webkit-box-orient:\s*vertical/);
+    expect(titleBlock[0]).toMatch(/overflow-wrap:\s*anywhere/);
+  });
+
   it("refresh clears the current list immediately and then renders the fetched batch", async () => {
     const nextBatch = [
       {
@@ -224,5 +234,58 @@ describe("NewsList click handling", () => {
     const cards = wrapper.findAll(".article-card");
     expect(cards).toHaveLength(1);
     expect(cards[0].text()).toContain("Fresh headline");
+  });
+});
+
+describe("NewsList localized date", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("formats today-label with Intl.DateTimeFormat using the active locale", () => {
+    const vue = read("src/modules/news/NewsList.vue");
+    expect(vue).toMatch(/Intl\.DateTimeFormat/);
+    expect(vue).toMatch(/locale\.value/);
+  });
+
+  it("renders a locale-aware date in the header", async () => {
+    setLocale("en", { persist: false });
+    const { wrapper } = await mountList();
+    const label = wrapper.find(".today-label").text();
+    const expected = new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(new Date());
+    expect(label).toBe(expected);
+  });
+
+  it("updates the date format when locale changes to Chinese", async () => {
+    setLocale("zh", { persist: false });
+    const { wrapper } = await mountList();
+    const label = wrapper.find(".today-label").text();
+    const expected = new Intl.DateTimeFormat("zh-CN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(new Date());
+    expect(label).toBe(expected);
+  });
+});
+
+describe("NewsReader text wrapping CSS", () => {
+  it("applies overflow-wrap to article text and bilingual paragraphs", () => {
+    const vue = read("src/modules/news/NewsReader.vue");
+    const articleText = vue.match(/\.article-text\s*\{[\s\S]*?\}/);
+    expect(articleText[0]).toMatch(/overflow-wrap:\s*break-word/);
+
+    const headerTitle = vue.match(/\.header-title\s*\{[\s\S]*?\}/);
+    expect(headerTitle[0]).toMatch(/overflow-wrap:\s*break-word/);
+
+    const wordRule = vue.match(/\.word\s*\{[\s\S]*?\}/);
+    expect(wordRule[0]).toMatch(/white-space:\s*normal/);
+
+    expect(vue).toMatch(/\.bilingual \.para-original[\s\S]*overflow-wrap:\s*break-word/);
+    expect(vue).toMatch(/\.bilingual \.para-translation[\s\S]*overflow-wrap:\s*break-word/);
   });
 });

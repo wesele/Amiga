@@ -103,9 +103,15 @@ let userId = "";
 const targetLang = computed(() => targetLangStore.code || "es");
 let unsubscribe = null;
 
+const LOCALE_TAGS = { zh: "zh-CN", en: "en-US", es: "es-ES" };
+
 const formattedDate = computed(() => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const localeTag = LOCALE_TAGS[locale.value] || locale.value;
+  return new Intl.DateTimeFormat(localeTag, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(new Date());
 });
 
 onMounted(async () => {
@@ -394,8 +400,10 @@ function formatSource(source) {
   color: var(--text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 .card-meta {

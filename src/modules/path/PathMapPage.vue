@@ -87,7 +87,7 @@
             </button>
 
             <div class="node-caption">
-              <span class="caption-kind">{{ kindLabel(section) }}</span>
+              <span v-if="showKindLabel(section)" class="caption-kind">{{ kindLabel(section) }}</span>
               <span class="caption-title">{{ section.title_native }}</span>
               <span v-if="section.kind === 'practice' && section.stars > 0" class="caption-stars">
                 {{ "★".repeat(section.stars) }}
@@ -159,6 +159,10 @@ function kindLabel(section) {
   if (section.kind === "grammar") return t("path.nodeGrammar");
   if (section.kind === "vocab") return t("path.nodeVocab");
   return t("path.nodePractice");
+}
+
+function showKindLabel(section) {
+  return kindLabel(section) !== section.title_native;
 }
 
 function nodeIcon(section) {
@@ -380,7 +384,13 @@ onMounted(load);
 .guide-book {
   font-size: 36px;
   line-height: 1;
+  flex-shrink: 0;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.15));
+}
+
+.guide-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .guide-label {
@@ -405,6 +415,11 @@ onMounted(load);
   font-size: 13px;
   color: rgba(0, 0, 0, 0.5);
   font-weight: 600;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .path-lane {
@@ -439,34 +454,54 @@ onMounted(load);
   padding: 10px 0;
 }
 
+.connector {
+  position: absolute;
+  left: 50%;
+  top: -18px;
+  width: 14px;
+  height: 28px;
+  transform: translateX(-50%);
+  background: var(--green);
+  border-radius: 6px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+  z-index: 0;
+  pointer-events: none;
+}
+
 .path-step.lane-left .path-node {
   grid-column: 2;
+  grid-row: 1;
   justify-self: center;
 }
 
 .path-step.lane-left .node-caption {
   grid-column: 1;
+  grid-row: 1;
   text-align: right;
   padding-right: 14px;
 }
 
 .path-step.lane-center .path-node {
   grid-column: 2;
+  grid-row: 1;
   justify-self: center;
 }
 
 .path-step.lane-center .node-caption {
   grid-column: 3;
+  grid-row: 1;
   padding-left: 14px;
 }
 
 .path-step.lane-right .path-node {
   grid-column: 2;
+  grid-row: 1;
   justify-self: center;
 }
 
 .path-step.lane-right .node-caption {
   grid-column: 3;
+  grid-row: 1;
   padding-left: 14px;
 }
 
