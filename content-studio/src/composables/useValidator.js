@@ -117,10 +117,11 @@ export function useValidator() {
         break
       }
       case 'T06': {
-        // 句子排序：words 不为空，targetSentence 不为空
-        if (q.words && q.targetSentence) {
+        // 句子排序：words 不为空，targetSentence 不为空（sentence 为别名）
+        const targetSentence = q.targetSentence || q.sentence
+        if (q.words && targetSentence) {
           const wordsJoined = q.words.join(' ').replace(/[¿?¡!.,]/g, '').toLowerCase()
-          const target = q.targetSentence.replace(/[¿?¡!.,]/g, '').toLowerCase()
+          const target = targetSentence.replace(/[¿?¡!.,]/g, '').toLowerCase()
           // 检查单词是否大致匹配（不严格，因为标点可能不同）
           const targetWords = target.split(/\s+/)
           if (q.words.length < targetWords.length - 1) {

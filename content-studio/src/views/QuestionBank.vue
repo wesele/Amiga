@@ -79,21 +79,21 @@
 
           <!-- 覆盖率面板 -->
           <div class="coverage-panel">
-            <div class="coverage-item" @click="showDetails('vocab')">
+            <div class="coverage-item" @click="showDetails('vocab')" title="词库词汇已分配到小节的比例">
               <div class="cov-info">
                 <span class="cov-label">词汇覆盖率</span>
                 <span class="cov-val">{{ coverage.vocab }}%</span>
               </div>
               <div class="cov-bar"><div class="cov-fill" :style="{ width: coverage.vocab + '%' }"></div></div>
             </div>
-            <div class="coverage-item" @click="showDetails('topic')">
+            <div class="coverage-item" @click="showDetails('topic')" title="已分配覆盖单词的小节占比">
               <div class="cov-info">
                 <span class="cov-label">话题覆盖率</span>
                 <span class="cov-val">{{ coverage.topic }}%</span>
               </div>
               <div class="cov-bar"><div class="cov-fill" :style="{ width: coverage.topic + '%' }"></div></div>
             </div>
-            <div class="coverage-item" @click="showDetails('knowledge')">
+            <div class="coverage-item" @click="showDetails('knowledge')" title="已分配语法点的小节占比">
               <div class="cov-info">
                 <span class="cov-label">知识点覆盖率</span>
                 <span class="cov-val">{{ coverage.knowledge }}%</span>
@@ -592,8 +592,11 @@ import { useAsyncOperation } from '../composables/useAsyncOperation.js'
 import { useLLM } from '../composables/useLLM.js'
 import { useQuestionTypeStorage } from '../composables/useQuestionTypeStorage.js'
 import { useImageGen } from '../composables/useImageGen.js'
+import { useValidator } from '../composables/useValidator.js'
 import { CEFR_TYPE_MAP, QUESTION_SCHEMAS } from '../data/question-types.js'
 import QuestionImage from '../components/QuestionImage.vue'
+import { buildSectionId, questionMatchesSection } from '../utils/sectionId.js'
+import { normalizeQuestion } from '../utils/normalizeQuestion.js'
 
 const storage = useStorage()
 const sysConfig = useSystemConfig()
@@ -604,6 +607,7 @@ const isAsyncBusy = computed(() => asyncOp.isLoading.value)
 const llm = useLLM()
 const typeStorage = useQuestionTypeStorage()
 const imageGen = useImageGen()
+const { validateQuestion } = useValidator()
 
 const selectedPairId = ref('')
 const selectedLevel = ref('')
@@ -628,13 +632,6 @@ const preview = ref({
   sectionName: '',
   showAnswer: false
 })
-
-// 模拟的 CEFR 知识库 (实际应由 AI 或配置文件提供)
-const KNOWLEDGE_BASE = {
-  'A1': { topics: ['Greeting', 'Family', 'Numbers', 'Food'], grammar: ['Present Simple', 'Articles'] },
-  'A2': { topics: ['Shopping', 'Travel', 'Work', 'Health'], grammar: ['Past Simple', 'Comparative'] },
-  'B1': { topics: ['Opinion', 'Experience', 'Environment'], grammar: ['Present Perfect', 'Conditionals'] },
-}
 
 const languagePairs = computed(() => {
   const pairs = sysConfig.config.value.languagePairs
@@ -680,14 +677,25 @@ function syncEditorFromQuestion(q) {
 function markDirty() { isDirty.value = true }
 function resetEditor() { isDirty.value = false }
 
-function onTagsChange() { currentQuestion.value.tags = editor.value.tagsStr.split(',').map(s => s.trim()).filter(Boolean); markDirty() }
-function onOptionsChange() { currentQuestion.value.options = editor.value.optionsStr.split('\n').map(s => s.trim()).filter(Boolean); markDirty() }
-function onWordsChange() { currentQuestion.value.words = editor.value.wordsStr.split('\n').map(s => s.trim()).filter(Boolean); markDirty() }
-function onMistakesChange() { currentQuestion.value.commonMistakes = editor.value.mistakesStr.split('\n').map(s => s.trim()).filter(Boolean); markDirty() }
-function onAcceptedChange() { currentQuestion.value.acceptedAnswers = editor.value.acceptedStr.split('\n').map(s => s.trim()).filter(Boolean); markDirty() }
-function onDimensionsChange() { currentQuestion.value.scoringDimensions = editor.value.dimensionsStr.split('\n').map(s => s.trim()).filter(Boolean); markDirty() }
+function onTagsChange() { if (!currentQuestion.value) return; currentQuestion.value.tags = editor.value.tagsStr.split(',').map(s => s.trim()).filter(Boolean); markDirty() }
+function onOptionsChange() { if (!currentQuestion.value) return; currentQuestion.value.options = editor.value.optionsStr.split('\n').map(s => s.trim()).filter(Boolean); markDirty() }
+function onWordsChange() { if (!currentQuestion.value) return; currentQuestion.value.words = editor.value.wordsStr.split('\n').map(s => s.trim()).filter(Boolean); markDirty() }
+function onMistakesChange() { if (!currentQuestion.value) return; currentQuestion.value.commonMistakes = editor.value.mistakesStr.split('\n').map(s => s.trim()).filter(Boolean); markDirty() }
+function onAcceptedChange() { if (!currentQuestion.value) return; currentQuestion.value.acceptedAnswers = editor.value.acceptedStr.split('\n').map(s => s.trim()).filter(Boolean); markDirty() }
+function onDimensionsChange() { if (!currentQuestion.value) return; currentQuestion.value.scoringDimensions = editor.value.dimensionsStr.split('\n').map(s => s.trim()).filter(Boolean); markDirty() }
 
 function saveCurrentQuestion() {
+  const q = currentQuestion.value
+  if (!q) return
+  const normalized = normalizeQuestion(q, {
+    pairId: q.pairId || selectedPairId.value,
+    sectionId: q.sectionId,
+    unit: q.unit,
+    level: q.cefr || selectedLevel.value,
+    sourceLang: selectedPair.value?.from,
+    targetLang: selectedPair.value?.to
+  })
+  Object.assign(q, normalized)
   storage.persistQuestions()
   isDirty.value = false
 }
@@ -869,38 +877,73 @@ function getUnitCount(lang, level) {
 }
 
 // ---- 覆盖率计算 ----
+function parseSectionWords(sec) {
+  if (Array.isArray(sec.coveredWords)) return sec.coveredWords
+  if (typeof sec.coveredWords === 'string') {
+    return sec.coveredWords.split(',').map(v => v.trim()).filter(Boolean)
+  }
+  return []
+}
+
+function collectCoveredVocab(units) {
+  const coveredVocab = new Set()
+  units.forEach(unit => {
+    unit.sections?.forEach(sec => {
+      parseSectionWords(sec).forEach(v => coveredVocab.add(v))
+    })
+  })
+  return coveredVocab
+}
+
+function isVocabWordCovered(word, coveredVocab) {
+  return coveredVocab.has(word) || [...coveredVocab].some(c => c.toLowerCase() === word.toLowerCase())
+}
+
+function vocabCoveragePercent(vocabList, coveredVocab) {
+  if (!vocabList.length) return 0
+  const covered = vocabList.filter(v => isVocabWordCovered(v, coveredVocab)).length
+  return Math.min(100, Math.round((covered / vocabList.length) * 100))
+}
+
+function getSectionCoverageStats(units) {
+  let totalSections = 0
+  let sectionsWithContent = 0
+  let sectionsWithGrammar = 0
+  units.forEach(unit => {
+    unit.sections?.forEach(sec => {
+      totalSections++
+      if (parseSectionWords(sec).length > 0) sectionsWithContent++
+      if (sec.grammarPoint?.trim()) sectionsWithGrammar++
+    })
+  })
+  return { totalSections, sectionsWithContent, sectionsWithGrammar }
+}
+
+function sectionCoveragePercent(covered, total) {
+  if (!total) return 0
+  return Math.min(100, Math.round((covered / total) * 100))
+}
+
+function formatSectionLabel(unit, sec) {
+  const title = sec.titleNative || sec.titleTarget || sec.id
+  return `${unit.id}-${sec.id}: ${title}`
+}
+
 function updateCoverage() {
   try {
     if (!selectedPair.value || !selectedLevel.value) return
 
-    const targetLang = selectedPair.value.to
-  const allVocab = getVocabForLevel(selectedPair.value, selectedLevel.value)
-  const vocabList = allVocab.split(',').map(v => v.trim()).filter(Boolean)
-  
-  const coveredVocab = new Set()
-  const coveredTopics = new Set()
-  const coveredGrammar = new Set()
+    const allVocab = getVocabForLevel(selectedPair.value, selectedLevel.value)
+    const vocabList = allVocab.split(',').map(v => v.trim()).filter(Boolean)
+    const units = Array.isArray(framework.value) ? framework.value : []
+    const coveredVocab = collectCoveredVocab(units)
+    const { totalSections, sectionsWithContent, sectionsWithGrammar } = getSectionCoverageStats(units)
 
-  if (Array.isArray(framework.value)) {
-    const pair = selectedPair.value
-    framework.value.forEach(unit => {
-      unit.sections?.forEach(sec => {
-        const words = Array.isArray(sec.coveredWords) ? sec.coveredWords : typeof sec.coveredWords === 'string' ? sec.coveredWords.split(',').map(v => v.trim()).filter(Boolean) : []
-        words.forEach(v => coveredVocab.add(v))
-        if (sec.titleTarget) coveredTopics.add(sec.titleTarget)
-        if (sec.grammarPoint) coveredGrammar.add(sec.grammarPoint)
-      })
-    })
-  }
-
-    const vocabPerc = vocabList.length ? Math.min(100, Math.round((coveredVocab.size / vocabList.length) * 100)) : 0
-    
-    // 话题和知识点覆盖 (对比模拟库)
-    const kb = KNOWLEDGE_BASE[selectedLevel.value] || { topics: [], grammar: [] }
-    const topicPerc = kb.topics.length ? Math.min(100, Math.round((coveredTopics.size / kb.topics.length) * 100)) : 0
-    const knowPerc = kb.grammar.length ? Math.min(100, Math.round((coveredGrammar.size / kb.grammar.length) * 100)) : 0
-
-    coverage.value = { vocab: vocabPerc, topic: topicPerc, knowledge: knowPerc }
+    coverage.value = {
+      vocab: vocabCoveragePercent(vocabList, coveredVocab),
+      topic: sectionCoveragePercent(sectionsWithContent, totalSections),
+      knowledge: sectionCoveragePercent(sectionsWithGrammar, totalSections)
+    }
   } catch (e) {
     console.error('updateCoverage error:', e)
     errorMessage.value = `计算覆盖率时出错: ${e.message}`
@@ -909,37 +952,34 @@ function updateCoverage() {
 
 function showDetails(type) {
   coverageDetail.value.show = true
-  const targetLang = selectedPair.value?.to
-  if (!targetLang) return
+  if (!selectedPair.value) return
+
+  const units = Array.isArray(framework.value) ? framework.value : []
 
   if (type === 'vocab') {
     coverageDetail.value.title = '未覆盖词汇'
     const allVocab = getVocabForLevel(selectedPair.value, selectedLevel.value)
     const vocabList = allVocab.split(',').map(v => v.trim()).filter(Boolean)
-    const coveredVocab = new Set()
-    framework.value.forEach(unit => {
+    const coveredVocab = collectCoveredVocab(units)
+    coverageDetail.value.list = vocabList.filter(v => !isVocabWordCovered(v, coveredVocab))
+  } else if (type === 'topic') {
+    coverageDetail.value.title = '未分配词汇的小节'
+    const list = []
+    units.forEach(unit => {
       unit.sections?.forEach(sec => {
-        const words = Array.isArray(sec.coveredWords) ? sec.coveredWords : typeof sec.coveredWords === 'string' ? sec.coveredWords.split(',').map(v => v.trim()).filter(Boolean) : []
-        words.forEach(v => coveredVocab.add(v))
+        if (parseSectionWords(sec).length === 0) list.push(formatSectionLabel(unit, sec))
       })
     })
-    coverageDetail.value.list = vocabList.filter(v => !coveredVocab.has(v))
-  } else if (type === 'topic') {
-    coverageDetail.value.title = '建议覆盖话题'
-    const kb = KNOWLEDGE_BASE[selectedLevel.value] || { topics: [] }
-    const coveredTopics = new Set()
-    framework.value.forEach(unit => {
-      unit.sections?.forEach(sec => { if (sec.titleTarget) coveredTopics.add(sec.titleTarget) })
-    })
-    coverageDetail.value.list = kb.topics.filter(t => !coveredTopics.has(t))
+    coverageDetail.value.list = list
   } else {
-    coverageDetail.value.title = '建议覆盖知识点'
-    const kb = KNOWLEDGE_BASE[selectedLevel.value] || { grammar: [] }
-    const coveredGrammar = new Set()
-    framework.value.forEach(unit => {
-      unit.sections?.forEach(sec => { if (sec.grammarPoint) coveredGrammar.add(sec.grammarPoint) })
+    coverageDetail.value.title = '未分配语法点的小节'
+    const list = []
+    units.forEach(unit => {
+      unit.sections?.forEach(sec => {
+        if (!sec.grammarPoint?.trim()) list.push(formatSectionLabel(unit, sec))
+      })
     })
-    coverageDetail.value.list = kb.grammar.filter(g => !coveredGrammar.has(g))
+    coverageDetail.value.list = list
   }
 }
 
@@ -954,15 +994,14 @@ async function generateAI() {
   const level = selectedLevel.value
   console.log('generateAI: starting for', sourceLang, '→', targetLang, level)
   
-  asyncOp.addLog(`开始为 ${sourceLang} → ${targetLang} · ${level} 生成单元框架`, 'info')
-  
   const vocab = getVocabForLevel(selectedPair.value, level)
-  
+
+  const controller = asyncOp.start(`正在为 ${sourceLang} → ${targetLang} · ${level} 生成单元框架...`)
+  asyncOp.addLog(`开始为 ${sourceLang} → ${targetLang} · ${level} 生成单元框架`, 'info')
+
   if (!vocab || vocab.trim() === '') {
     asyncOp.addLog('警告：该级别词汇库为空，建议先在词库管理中配置词汇', 'warning')
   }
-  
-  const controller = asyncOp.start(`正在为 ${sourceLang} → ${targetLang} · ${level} 生成单元框架...`)
   
   try {
     const units = await unitFramework.generateFrameworkWithAI(sourceLang, targetLang, level, vocab, {
@@ -1040,10 +1079,14 @@ function toggleSectionDetail(uIdx, sIdx) {
   expandedSections.value = set
 }
 
+function getExistingSectionQuestions(unit, sec) {
+  const pairId = selectedPairId.value
+  if (!pairId) return []
+  return storage.getQuestions().filter(q => questionMatchesSection(q, pairId, unit.id, sec.id))
+}
+
 function hasSectionQuestions(unit, sec) {
-  const sectionId = `${unit.id}-${sec.id}`
-  const allQuestions = storage.getQuestions()
-  return allQuestions.some(q => q.sectionId === sectionId)
+  return getExistingSectionQuestions(unit, sec).length > 0
 }
 
 function normalizeWords(sec) {
@@ -1058,14 +1101,48 @@ function calculateCoverage(pair, level) {
   const allVocab = getVocabForLevel(pair, level)
   const vocabList = allVocab.split(',').map(v => v.trim()).filter(Boolean)
   const units = unitFramework.getFramework(pair.id, level)
-  const coveredVocab = new Set()
-  units.forEach(unit => {
-    unit.sections?.forEach(sec => {
-      const words = Array.isArray(sec.coveredWords) ? sec.coveredWords : typeof sec.coveredWords === 'string' ? sec.coveredWords.split(',').map(v => v.trim()).filter(Boolean) : []
-      words.forEach(v => coveredVocab.add(v))
+  const coveredVocab = collectCoveredVocab(units)
+  return { vocab: vocabCoveragePercent(vocabList, coveredVocab) }
+}
+
+function prepareQuestionsForSave(questions, unit, sec, sourceLang, targetLang, level) {
+  const pairId = selectedPairId.value
+  const sectionId = buildSectionId(pairId, unit.id, sec.id)
+  const total = questions.length
+  const valid = []
+
+  for (let i = 0; i < questions.length; i++) {
+    const normalized = normalizeQuestion(questions[i], {
+      pairId,
+      sectionId,
+      unit: unit.id,
+      level,
+      sourceLang,
+      targetLang
     })
-  })
-  return { vocab: vocabList.length ? Math.min(100, Math.round((coveredVocab.size / vocabList.length) * 100)) : 0 }
+    const { errors, warnings } = validateQuestion(normalized)
+    const label = normalized.id || `题目${i + 1}`
+
+    for (const w of warnings) {
+      asyncOp.addLog(`  ⚠ ${label}: ${w}`, 'warning')
+    }
+    if (errors.length > 0) {
+      for (const e of errors) {
+        asyncOp.addLog(`  ✗ ${label}: ${e}`, 'error')
+      }
+      continue
+    }
+
+    valid.push({
+      ...normalized,
+      id: normalized.id || `${targetLang.toLowerCase()}-${level.toLowerCase()}-${unit.id.toLowerCase()}-${sec.id.toLowerCase()}-${String(valid.length + 1).padStart(3, '0')}`
+    })
+  }
+
+  if (total > 0) {
+    asyncOp.addLog(`  校验通过 ${valid.length}/${total} 道`, valid.length === total ? 'success' : 'warning')
+  }
+  return valid
 }
 
 // ---- AI 生成题目 ----
@@ -1082,8 +1159,8 @@ async function generateQuestions() {
     return
   }
 
-  asyncOp.addLog(`开始为 ${sourceLang} → ${targetLang} · ${level} 生成题目`, 'info')
   const controller = asyncOp.start(`正在生成题目...`)
+  asyncOp.addLog(`开始为 ${sourceLang} → ${targetLang} · ${level} 生成题目`, 'info')
 
   let totalSections = 0
   let totalGenerated = 0
@@ -1097,17 +1174,14 @@ async function generateQuestions() {
 
         const questions = await generateQuestionsForSection(unit, sec, sourceLang, targetLang, level, controller.signal)
         if (questions && questions.length) {
-          const sectionId = `${unit.id}-${sec.id}`
-          const existing = storage.getQuestions().filter(q => q.sectionId === sectionId)
-          if (existing.length) storage.deleteQuestions(existing.map(q => q.id))
-          const questionsWithSection = questions.map((q, i) => ({
-            ...q,
-            sectionId,
-            id: q.id || `${targetLang.toLowerCase()}-${level.toLowerCase()}-${sectionId.toLowerCase()}-${String(i + 1).padStart(3, '0')}`
-          }))
-          storage.saveQuestions(questionsWithSection)
-          totalGenerated += questionsWithSection.length
-          asyncOp.addLog(`  ✓ 已生成 ${questionsWithSection.length} 道题目`, 'success')
+          const questionsWithSection = prepareQuestionsForSave(questions, unit, sec, sourceLang, targetLang, level)
+          if (questionsWithSection.length) {
+            const existing = getExistingSectionQuestions(unit, sec)
+            if (existing.length) storage.deleteQuestions(existing.map(q => q.id))
+            storage.saveQuestions(questionsWithSection)
+            totalGenerated += questionsWithSection.length
+            asyncOp.addLog(`  ✓ 已保存 ${questionsWithSection.length} 道题目`, 'success')
+          }
         }
       }
     }
@@ -1144,8 +1218,8 @@ async function generateQuestionsForUnit(uIdx) {
     return
   }
 
-  asyncOp.addLog(`开始为 ${unit.titleTarget || unit.titleNative} 生成题目`, 'info')
   const controller = asyncOp.start(`正在生成 [${unit.id}] 的题目...`)
+  asyncOp.addLog(`开始为 ${unit.titleTarget || unit.titleNative} 生成题目`, 'info')
 
   let totalGenerated = 0
   try {
@@ -1155,17 +1229,14 @@ async function generateQuestionsForUnit(uIdx) {
 
       const questions = await generateQuestionsForSection(unit, sec, sourceLang, targetLang, level, controller.signal)
       if (questions?.length) {
-        const sectionId = `${unit.id}-${sec.id}`
-        const existing = storage.getQuestions().filter(q => q.sectionId === sectionId)
-        if (existing.length) storage.deleteQuestions(existing.map(q => q.id))
-        const questionsWithSection = questions.map((q, i) => ({
-          ...q,
-          sectionId,
-          id: q.id || `${targetLang.toLowerCase()}-${level.toLowerCase()}-${sectionId.toLowerCase()}-${String(i + 1).padStart(3, '0')}`
-        }))
-        storage.saveQuestions(questionsWithSection)
-        totalGenerated += questionsWithSection.length
-        asyncOp.addLog(`  ✓ 已生成 ${questionsWithSection.length} 道题目`, 'success')
+        const questionsWithSection = prepareQuestionsForSave(questions, unit, sec, sourceLang, targetLang, level)
+        if (questionsWithSection.length) {
+          const existing = getExistingSectionQuestions(unit, sec)
+          if (existing.length) storage.deleteQuestions(existing.map(q => q.id))
+          storage.saveQuestions(questionsWithSection)
+          totalGenerated += questionsWithSection.length
+          asyncOp.addLog(`  ✓ 已保存 ${questionsWithSection.length} 道题目`, 'success')
+        }
       }
     }
     asyncOp.addLog(`完成！共生成 ${totalGenerated} 道题目`, 'success')
@@ -1196,23 +1267,23 @@ async function generateQuestionsForSectionOnly(uIdx, sIdx) {
     return
   }
 
-  asyncOp.addLog(`开始为 ${sec.titleTarget || sec.titleNative} 生成题目`, 'info')
   const controller = asyncOp.start(`正在生成 [${unit.id}-${sec.id}] 的题目...`)
+  asyncOp.addLog(`开始为 ${sec.titleTarget || sec.titleNative} 生成题目`, 'info')
 
   try {
     const questions = await generateQuestionsForSection(unit, sec, sourceLang, targetLang, level, controller.signal)
     if (questions?.length) {
-      const sectionId = `${unit.id}-${sec.id}`
-      const existing = storage.getQuestions().filter(q => q.sectionId === sectionId)
-      if (existing.length) storage.deleteQuestions(existing.map(q => q.id))
-      const questionsWithSection = questions.map((q, i) => ({
-        ...q,
-        sectionId,
-        id: q.id || `${targetLang.toLowerCase()}-${level.toLowerCase()}-${sectionId.toLowerCase()}-${String(i + 1).padStart(3, '0')}`
-      }))
-      storage.saveQuestions(questionsWithSection)
-      asyncOp.addLog(`完成！生成了 ${questionsWithSection.length} 道题目`, 'success')
-      alert(`已生成 ${questionsWithSection.length} 道题目`)
+      const questionsWithSection = prepareQuestionsForSave(questions, unit, sec, sourceLang, targetLang, level)
+      if (questionsWithSection.length) {
+        const existing = getExistingSectionQuestions(unit, sec)
+        if (existing.length) storage.deleteQuestions(existing.map(q => q.id))
+        storage.saveQuestions(questionsWithSection)
+        asyncOp.addLog(`完成！生成了 ${questionsWithSection.length} 道题目`, 'success')
+        alert(`已生成 ${questionsWithSection.length} 道题目`)
+      } else {
+        asyncOp.addLog('全部题目未通过校验，未保存', 'warning')
+        alert('生成的题目均未通过校验，请查看日志详情')
+      }
     } else {
       asyncOp.addLog('未生成任何题目', 'warning')
       alert('未生成任何题目，请检查 API 配置和日志详情')
@@ -1306,14 +1377,15 @@ ${selectedTypes.map(t => `- ${t.id} (${t.title}): ${t.description}`).join('\n')}
 // ---- 题目预览 ----
 function previewUnit(uIdx, sIdx = -1) {
   const unit = framework.value[uIdx]
+  const pairId = selectedPairId.value
   const allQuestions = storage.getQuestions()
   
   const grouped = []
   const flat = []
   
   unit.sections.forEach((sec, idx) => {
-    const sectionId = `${unit.id}-${sec.id}`
-    const secsQs = allQuestions.filter(q => q.sectionId === sectionId)
+    const sectionId = buildSectionId(pairId, unit.id, sec.id)
+    const secsQs = allQuestions.filter(q => questionMatchesSection(q, pairId, unit.id, sec.id))
     if (secsQs.length) {
       grouped.push({
         id: sectionId,
@@ -1326,8 +1398,8 @@ function previewUnit(uIdx, sIdx = -1) {
 
   let startIdx = 0
   if (sIdx !== -1) {
-    const targetSecId = `${unit.id}-${unit.sections[sIdx].id}`
-    const firstIdx = flat.findIndex(q => q.sectionId === targetSecId)
+    const targetSec = unit.sections[sIdx]
+    const firstIdx = flat.findIndex(q => questionMatchesSection(q, pairId, unit.id, targetSec.id))
     if (firstIdx !== -1) startIdx = firstIdx
   }
 
@@ -1382,7 +1454,7 @@ function nextQuestion() {
 }
 
 function displayFields(q) {
-  const skip = ['id', 'type', 'typeName', 'language', 'cefr', 'unit', 'sectionId', 'unitTheme', 'difficulty', 'tags', 'status']
+  const skip = ['id', 'type', 'typeName', 'language', 'cefr', 'unit', 'sectionId', 'pairId', 'unitTheme', 'difficulty', 'tags', 'status']
   return Object.fromEntries(Object.entries(q).filter(([k]) => !skip.includes(k)))
 }
 
@@ -1440,20 +1512,16 @@ function speak(text) {
   const lang = currentQuestion.value?.language
   if (lang === 'es') utterance.lang = 'es-ES'
   else if (lang === 'zh') utterance.lang = 'zh-CN'
-  else utterance.lang = lang || 'es-ES'
+  else if (lang === 'en') utterance.lang = 'en-US'
+  else utterance.lang = lang || 'en-US'
   utterance.rate = 0.85
   window.speechSynthesis.speak(utterance)
 }
 
 onMounted(() => {
-  // 调试：输出语言组合数据
-  console.log('语言组合数据:', JSON.parse(JSON.stringify(languagePairs.value)))
-  
-  // 自动选中第一个语言组合
   if (languagePairs.value.length > 0 && !selectedPairId.value) {
     const first = languagePairs.value[0]
     if (first && first.id) {
-      console.log('自动选中:', first.from, '→', first.to)
       selectedPairId.value = first.id
     }
   }

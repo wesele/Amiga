@@ -1,1 +1,3761 @@
-[{"id":"中文-a1-u02-s05-01","type":"T01","typeName":"图片识词","language":"zh-CN","cefr":"A1","unit":"日常生活与家庭","unitTheme":"需求与可能性","difficulty":1,"tags":["阅读","词汇"],"imageDesc":"Una persona que quiere beber agua","imagePrompt":"A person reaching for a glass of water, modern, clean, flat vector illustration, white background","options":["我要喝水","我会喝水","我能喝水","我想喝水"],"answerIdx":3,"sectionId":"U02-S05"},{"id":"中文-a1-u02-s05-02","type":"T02","typeName":"听音选图","language":"zh-CN","cefr":"A1","unit":"日常生活与家庭","unitTheme":"需求与可能性","difficulty":2,"tags":["听力","词汇"],"audioText":"我可以去公园。","imageOptions":[{"desc":"一个人在公园散步","prompt":"A person walking in a park, modern, clean, flat vector illustration, white background"},{"desc":"一个人在家里看电视","prompt":"A person watching TV at home, modern, clean, flat vector illustration, white background"},{"desc":"一个人在厨房做饭","prompt":"A person cooking in a kitchen, modern, clean, flat vector illustration, white background"},{"desc":"一个人在图书馆读书","prompt":"A person reading in a library, modern, clean, flat vector illustration, white background"}],"answerIdx":0,"sectionId":"U02-S05"},{"id":"中文-a1-u02-s05-03","type":"T08","typeName":"听力选择","language":"zh-CN","cefr":"A1","unit":"日常生活与家庭","unitTheme":"需求与可能性","difficulty":2,"tags":["听力","理解"],"audioText":"我没有钱。","question":"¿Qué está diciendo la persona?","options":["Tengo dinero.","No tengo dinero.","Quiero dinero."],"answerIdx":1,"sectionId":"U02-S05"},{"id":"中文-a1-u02-s05-04","type":"T07","typeName":"翻译选择","language":"zh-CN","cefr":"A1","unit":"日常生活与家庭","unitTheme":"需求与可能性","difficulty":1,"tags":["翻译","词汇"],"sourceText":"Quiero comer","options":["我能吃","我会吃","我想吃","我没有吃"],"answerIdx":2,"sectionId":"U02-S05"},{"id":"中文-a1-u02-s05-05","type":"T05","typeName":"补全句子","language":"zh-CN","cefr":"A1","unit":"日常生活与家庭","unitTheme":"需求与可能性","difficulty":1,"tags":["语法","词汇"],"sentence":"我 ___ 去超市。","hint":"使用表示‘想要’的词，表达个人需求。","options":["能","会","想","没有"],"answerIdx":2,"sectionId":"U02-S05"},{"id":"espanol-a1-u01-s01-01","type":"T01","typeName":"图片识词","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":1,"tags":["vocabulario","saludos","pronombres_personales"],"imageDesc":"一个面带微笑、抬手向对方打招呼的年轻男性卡通插画","imagePrompt":"Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, A young smiling man waving his hand to greet others, wearing casual t-shirt, friendly expression, simple white background","options":["Hola","Adiós","Gracias","Por favor"],"answerIdx":0,"sectionId":"U01-S01","imageUrl":"/api/images/espanol-a1-u01-s01-01.jpg?v=1782764579258","imageSvg":"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <circle cx=\"200\" cy=\"160\" r=\"55\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <path d=\"M 140 155 C 140 85 260 85 260 155 L 260 125 C 260 65 140 65 140 125 Z\" fill=\"#5D4037\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"180\" cy=\"155\" r=\"5\" fill=\"#333333\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <circle cx=\"220\" cy=\"155\" r=\"5\" fill=\"#333333\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <path d=\"M 180 180 Q 200 195 220 180\" fill=\"none\" stroke=\"#333333\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n  <rect x=\"190\" y=\"210\" width=\"20\" height=\"8\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M 150 215 L 250 215 L 255 325 L 145 325 Z\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <path d=\"M 150 220 L 125 295 L 140 300 L 160 225 Z\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M 250 220 L 285 145 L 300 135 L 315 145 L 295 165 L 270 235 Z\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n</svg>"},{"id":"espanol-a1-u01-s01-02","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":1,"tags":["gramatica","pronombre_personal_yo","verbo_ser"],"sourceText":"你好，我是安娜","options":["Hola, soy Ana.","Hola, estoy Ana.","Hola, eres Ana.","Hola, es Ana."],"answerIdx":0,"sectionId":"U01-S01"},{"id":"espanol-a1-u01-s01-03","type":"T06","typeName":"句子排序","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":2,"tags":["gramatica","orden_sintactico","verbo_estar"],"sentence":"¿Cómo estás tú?","words":["tú","¿Cómo","estás","?"],"correctOrder":[1,2,0,3],"sectionId":"U01-S01"},{"id":"espanol-a1-u01-s01-04","type":"T08","typeName":"听力选择","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":2,"tags":["comprension_auditiva","saludos","estado_personal"],"audioText":"Hola, yo estoy bien, gracias.","question":"说话者现在的状态是什么？","options":["很好","不好","一般"],"answerIdx":0,"sectionId":"U01-S01"},{"id":"espanol-a1-u01-s01-05","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":2,"tags":["expresion_oral","interaccion_social","saludos"],"scenario":"你在教室第一次见到新同学，对方主动向你打招呼说“¡Hola! ¿Cómo estás?”，你应该选择哪种合适的回应？","options":["Hola, estoy bien, gracias. ¿Y tú?","Adiós, hasta luego.","Gracias, muy amable.","Lo siento, no hablo español."],"answerIdx":0,"sectionId":"U01-S01"},{"id":"espanol-a1-u01-s02-1","type":"T05","typeName":"补全句子（选词填空）","language":"espanol","cefr":"A1","unit":"u01","unitTheme":"Saludos y presentación personal","difficulty":1,"tags":["冠词","不定冠词","性数配合","个人信息介绍"],"sentence":"Yo soy ___ hombre español.","options":["el","la","un","una"],"answerIdx":2,"hint":"此处需填入与阳性单数名词hombre匹配的不定冠词，注意冠词的性数配合规则","sectionId":"U01-S02"},{"id":"espanol-a1-u01-s02-2","type":"T07","typeName":"翻译选择（中译西）","language":"espanol","cefr":"A1","unit":"u01","unitTheme":"Saludos y presentación personal","difficulty":1,"tags":["冠词","介词de","名词性数","翻译"],"sourceText":"她是一位来自马德里的女老师。","options":["Ella es una profesora de Madrid.","Ella es una profesora en Madrid.","Ella es el profesora de Madrid.","Ella es una profesor de Madrid."],"answerIdx":0,"sectionId":"U01-S02"},{"id":"espanol-a1-u01-s02-3","type":"T02","typeName":"听音选图","language":"espanol","cefr":"A1","unit":"u01","unitTheme":"Saludos y presentación personal","difficulty":1,"tags":["听力","词汇","个人信息","冠词"],"audioText":"Yo soy una niña de México.","imageOptions":[{"desc":"一个来自墨西哥的小女孩","prompt":"A cute little Mexican girl, wearing traditional Mexican dress, flat vector illustration, modern, clean, white background","imageUrl":"/api/images/espanol-a1-u01-s02-3-opt0.jpg?v=1782764681789","imageSvg":"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <circle cx=\"200\" cy=\"160\" r=\"45\" fill=\"#F5D0A9\" stroke=\"#3E2723\" stroke-width=\"3\"/>\n  <path d=\"M155 140 Q200 100 245 140 L245 160 Q200 130 155 160 Z\" fill=\"#3E2723\" stroke=\"#3E2723\" stroke-width=\"3\"/>\n  <path d=\"M155 140 L130 220\" stroke=\"#3E2723\" stroke-width=\"12\" stroke-linecap=\"round\"/>\n  <rect x=\"122\" y=\"200\" width=\"16\" height=\"8\" fill=\"#4CAF50\" stroke=\"#3E2723\" stroke-width=\"2\" rx=\"2\"/>\n  <path d=\"M245 140 L270 220\" stroke=\"#3E2723\" stroke-width=\"12\" stroke-linecap=\"round\"/>\n  <rect x=\"262\" y=\"200\" width=\"16\" height=\"8\" fill=\"#4CAF50\" stroke=\"#3E2723\" stroke-width=\"2\" rx=\"2\"/>\n  <circle cx=\"200\" cy=\"115\" r=\"8\" fill=\"#FFEB3B\" stroke=\"#3E2723\" stroke-width=\"2\"/>\n  <circle cx=\"200\" cy=\"115\" r=\"3\" fill=\"#FF5722\"/>\n  <ellipse cx=\"185\" cy=\"155\" rx=\"6\" ry=\"8\" fill=\"#3E2723\"/>\n  <ellipse cx=\"215\" cy=\"155\" rx=\"6\" ry=\"8\" fill=\"#3E2723\"/>\n  <circle cx=\"183\" cy=\"152\" r=\"2\" fill=\"#FFFFFF\"/>\n  <circle cx=\"213\" cy=\"152\" r=\"2\" fill=\"#FFFFFF\"/>\n  <path d=\"M190 175 Q200 185 210 175\" stroke=\"#3E2723\" stroke-width=\"2\" fill=\"none\" stroke-linecap=\"round\"/>\n  <path d=\"M160 200 L120 380 Q200 390 280 380 L240 200 Z\" fill=\"#E53935\" stroke=\"#3E2723\" stroke-width=\"3\"/>\n  <ellipse cx=\"150\" cy=\"210\" rx=\"20\" ry=\"12\" fill=\"#E53935\" stroke=\"#3E2723\" stroke-width=\"3\"/>\n  <ellipse cx=\"250\" cy=\"210\" rx=\"20\" ry=\"12\" fill=\"#E53935\" stroke=\"#3E2723\" stroke-width=\"3\"/>\n  <path d=\"M150 210 L140 260\" stroke=\"#F5D0A9\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M250 210 L260 260\" stroke=\"#F5D0A9\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <circle cx=\"140\" cy=\"260\" r=\"7\" fill=\"#F5D0A9\" stroke=\"#3E2723\" stroke-width=\"2\"/>\n  <circle cx=\"260\" cy=\"260\" r=\"7\" fill=\"#F5D0A9\" stroke=\"#3E2723\" stroke-width=\"2\"/>\n  <circle cx=\"200\" cy=\"280\" r=\"8\" fill=\"#FFC107\" stroke=\"#3E2723\" stroke-width=\"2\"/>\n  <circle cx=\"170\" cy=\"320\" r=\"6\" fill=\"#FFC107\" stroke=\"#3E2723\" stroke-width=\"2\"/>\n  <circle cx=\"230\" cy=\"320\" r=\"6\" fill=\"#FFC107\" stroke=\"#3E2723\" stroke-width=\"2\"/>\n</svg>"},{"desc":"一个来自墨西哥的小男孩","prompt":"A cute little Mexican boy, wearing traditional Mexican clothes, flat vector illustration, modern, clean, white background","imageUrl":"/api/images/espanol-a1-u01-s02-3-opt1.jpg?v=1782764729060","imageSvg":"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <ellipse cx=\"200\" cy=\"115\" rx=\"70\" ry=\"16\" fill=\"#FDD835\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <ellipse cx=\"200\" cy=\"105\" rx=\"40\" ry=\"10\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"200\" cy=\"95\" r=\"7\" fill=\"#E91E63\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"200\" cy=\"160\" r=\"40\" fill=\"#FFD1B3\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M162 145 C162 128, 238 128, 238 145 L238 152 C238 135, 162 135, 162 152 Z\" fill=\"#212121\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"185\" cy=\"155\" r=\"5\" fill=\"#212121\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"215\" cy=\"155\" r=\"5\" fill=\"#212121\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M190 175 Q200 185 210 175\" fill=\"none\" stroke=\"#333333\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n  <path d=\"M160 200 L240 200 L250 320 L150 320 Z\" fill=\"#43A047\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M168 215 L232 215 L242 305 L158 305 Z\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"150\" y=\"290\" width=\"100\" height=\"18\" rx=\"3\" fill=\"#F9A825\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M160 210 L130 260 L140 270 L165 225\" fill=\"#FFD1B3\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M240 210 L270 260 L260 270 L235 225\" fill=\"#FFD1B3\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M170 320 L170 380 L190 380 L190 320\" fill=\"#1565C0\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M210 320 L210 380 L230 380 L230 320\" fill=\"#1565C0\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M165 380 L195 380 L195 392 L165 392 Z\" fill=\"#795548\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M205 380 L235 380 L235 392 L205 392 Z\" fill=\"#795548\" stroke=\"#333333\" stroke-width=\"3\"/>\n</svg>"},{"desc":"一个来自墨西哥的成年女性","prompt":"A young Mexican woman, wearing traditional Mexican dress, flat vector illustration, modern, clean, white background","imageUrl":"/api/images/espanol-a1-u01-s02-3-opt2.jpg?v=1782764771375","imageSvg":"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <ellipse cx=\"200\" cy=\"180\" rx=\"45\" ry=\"55\" fill=\"#F4C59E\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M155 160 Q150 120 200 100 Q250 120 245 160 L245 190 Q200 200 155 190 Z\" fill=\"#5D4037\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"200\" cy=\"95\" r=\"25\" fill=\"#5D4037\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <ellipse cx=\"185\" cy=\"175\" rx=\"6\" ry=\"8\" fill=\"#333333\"/>\n  <ellipse cx=\"215\" cy=\"175\" rx=\"6\" ry=\"8\" fill=\"#333333\"/>\n  <circle cx=\"187\" cy=\"172\" r=\"2\" fill=\"#FFFFFF\"/>\n  <circle cx=\"217\" cy=\"172\" r=\"2\" fill=\"#FFFFFF\"/>\n  <path d=\"M190 200 Q200 208 210 200\" fill=\"none\" stroke=\"#D81B60\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n  <path d=\"M140 220 Q120 280 130 350 L270 350 Q280 280 260 220\" fill=\"#9C27B0\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M155 220 L245 220 L240 300 L160 300 Z\" fill=\"#E91E63\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M175 220 Q200 235 225 220\" fill=\"none\" stroke=\"#FFC107\" stroke-width=\"3\"/>\n  <rect x=\"190\" y=\"245\" width=\"8\" height=\"8\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"202\" y=\"245\" width=\"8\" height=\"8\" fill=\"#2196F3\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <circle cx=\"200\" cy=\"270\" r=\"5\" fill=\"#FF9800\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <circle cx=\"200\" cy=\"75\" r=\"10\" fill=\"#FF9800\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <ellipse cx=\"200\" cy=\"60\" rx=\"6\" ry=\"10\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <ellipse cx=\"215\" cy=\"75\" rx=\"10\" ry=\"6\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <ellipse cx=\"200\" cy=\"90\" rx=\"6\" ry=\"10\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <ellipse cx=\"185\" cy=\"75\" rx=\"10\" ry=\"6\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <path d=\"M155 185 L150 210 L160 210 Z\" fill=\"#FFD700\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <path d=\"M245 185 L240 210 L250 210 Z\" fill=\"#FFD700\" stroke=\"#333333\" stroke-width=\"2\"/>\n</svg>"},{"desc":"一个来自墨西哥的成年男性","prompt":"A young Mexican man, wearing traditional Mexican clothes, flat vector illustration, modern, clean, white background","imageUrl":"/api/images/espanol-a1-u01-s02-3-opt3.jpg?v=1782764794694","imageSvg":"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <ellipse cx=\"200\" cy=\"100\" rx=\"90\" ry=\"20\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M170 120 L170 90 Q200 70 230 90 L230 120 Z\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <ellipse cx=\"200\" cy=\"150\" rx=\"35\" ry=\"40\" fill=\"#D4A373\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"185\" cy=\"145\" r=\"5\" fill=\"#333333\"/>\n  <circle cx=\"215\" cy=\"145\" r=\"5\" fill=\"#333333\"/>\n  <path d=\"M185 165 Q200 175 215 165\" stroke=\"#333333\" stroke-width=\"3\" fill=\"none\" stroke-linecap=\"round\"/>\n  <path d=\"M165 180 L235 180 L260 320 L140 320 Z\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M150 250 L170 250 L175 300 L145 300 Z\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M230 250 L250 250 L255 300 L225 300 Z\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M165 190 L130 240 L140 250 L170 210\" fill=\"#D4A373\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M235 190 L270 240 L260 250 L230 210\" fill=\"#D4A373\" stroke=\"#333333\" stroke-width=\"3\"/>\n</svg>"}],"answerIdx":0,"sectionId":"U01-S02"},{"id":"espanol-a1-u01-s02-4","type":"T12","typeName":"情景回应","language":"espanol","cefr":"A1","unit":"u01","unitTheme":"Saludos y presentación personal","difficulty":1,"tags":["情景交际","国籍表达","介词de"],"scenario":"你刚认识了一位新同事，他想知道你的国籍，你应该怎么回答？","options":["Soy de China.","Soy China.","Yo vivo en China.","Me llamo China."],"answerIdx":0,"sectionId":"U01-S02"},{"id":"espanol-a1-u01-s02-5","type":"T10","typeName":"翻译输入（中译西）","language":"espanol","cefr":"A1","unit":"u01","unitTheme":"Saludos y presentación personal","difficulty":2,"tags":["翻译","冠词","介词en","形容词性数配合"],"sourceText":"我住在一栋红色的房子里。","acceptedAnswers":["Vivo en una casa roja.","Vivo en una casa de color rojo."],"sectionId":"U01-S02"},{"id":"espanol-a1-u01-s04-1","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":2,"tags":["adverbios de negación","conjunciones","presentación personal"],"sentence":"Yo soy estudiante, ___ trabajo los fines de semana.","hint":"此处需要填入表示转折关系的连词，连接前后两个语义相关的分句","options":["y","pero","o","también"],"answerIdx":1,"sectionId":"U01-S04"},{"id":"espanol-a1-u01-s04-2","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":1,"tags":["traducción","preguntas interrogativas","vocabulario básico"],"sourceText":"你叫什么名字？","options":["¿Cómo te llamas?","¿Qué haces?","¿Cuántos años tienes?","¿De dónde eres?"],"answerIdx":0,"sectionId":"U01-S04"},{"id":"espanol-a1-u01-s04-3","type":"T06","typeName":"句子排序","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":3,"tags":["orden de oraciones","conjunciones","afirmación y negación"],"scrambledWords":["no","enfermo","estoy","Yo","muy","hoy"],"correctSentence":"Yo no estoy muy enfermo hoy.","sectionId":"U01-S04"},{"id":"espanol-a1-u01-s04-4","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":2,"tags":["respuesta situacional","conjunciones","gustos y aficiones"],"scenario":"有人询问你的爱好，你需要回答自己喜欢读书，但不喜欢运动","options":["Me gusta leer, pero no me gusta hacer deporte.","Me gusta leer y también me gusta hacer deporte.","No me gusta leer, pero me gusta hacer deporte.","Me gusta leer o me gusta hacer deporte."],"answerIdx":0,"sectionId":"U01-S04"},{"id":"espanol-a1-u01-s04-5","type":"T10","typeName":"翻译输入","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":3,"tags":["traducción escrita","conjunciones","estados de ánimo"],"sourceText":"我今天很开心，但是昨天有点难过。","acceptedAnswers":["Hoy estoy muy feliz, pero ayer estaba un poco triste."],"sectionId":"U01-S04"},{"id":"espanol-a1-u01-s05-1","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":2,"tags":["pronombres personales","ser/estar","artículos"],"sentence":"¿___ te llamas?","options":["Cómo","Qué","Quién","Cuál"],"answerIdx":0,"hint":"此处为询问对方姓名的常用句型，需填入表示‘如何’的疑问词","sectionId":"U01-S05"},{"id":"espanol-a1-u01-s05-2","type":"T02","typeName":"听音选图","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":1,"tags":["vocabulario","saludos","presentación"],"audioText":"Me llamo Ana y soy de México.","imageOptions":[{"desc":"一位名叫Ana的墨西哥女孩正在做自我介绍","prompt":"Modern, clean, flat vector illustration, white background, a young Mexican girl named Ana introducing herself with a smile"},{"desc":"一位名叫Juan的西班牙男孩正在做自我介绍","prompt":"Modern, clean, flat vector illustration, white background, a young Spanish boy named Juan introducing himself with a smile"},{"desc":"一位名叫María的阿根廷女士正在办公室工作","prompt":"Modern, clean, flat vector illustration, white background, an Argentine woman named María working in an office, professional attire"}],"answerIdx":0,"sectionId":"U01-S05"},{"id":"espanol-a1-u01-s05-3","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":2,"tags":["traducción","ser/estar","artículos"],"sourceText":"你好，我叫卡洛斯，我来自西班牙。","options":["Hola, me llamo Carlos y soy de España.","Hola, me llamo Carlos y estoy de España.","Hola, te llamas Carlos y soy de España.","Hola, me llamo Carlos y soy en España."],"answerIdx":0,"sectionId":"U01-S05"},{"id":"espanol-a1-u01-s05-4","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":3,"tags":["escenario","conversación","protocolo social"],"scenario":"你在社交场合第一次遇到一位名叫María的女士，她主动向你问好并询问你的名字，你应该选择最得体的回应：","options":["Hola, me llamo Juan, mucho gusto.","¿Cómo te llamas?","Estoy bien, gracias.","Soy de España."],"answerIdx":0,"sectionId":"U01-S05"},{"id":"espanol-a1-u01-s05-5","type":"T10","typeName":"翻译输入","language":"Espanol","cefr":"A1","unit":"U01","unitTheme":"Saludos y presentación personal","difficulty":2,"tags":["traducción","familia","ser/estar","preposición de"],"sourceText":"我的家人在马德里。","acceptedAnswers":["Mi familia está en Madrid.","Mi familia es de Madrid."],"sectionId":"U01-S05"},{"id":"espanol-a1-u02-s01-01","type":"T01","typeName":"图片识词","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Miembros básicos de la familia y introducción a pronombres posesivos","difficulty":1,"tags":["vocabulario","familia","miembros de la familia"],"imageDesc":"一位年轻男性，是某人的哥哥","imagePrompt":"Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, young smiling man in casual clothes, family member illustration","options":["hermano","padre","abuelo","primo"],"answerIdx":0,"sectionId":"U02-S01"},{"id":"espanol-a1-u02-s01-02","type":"T08","typeName":"听力选择","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Miembros básicos de la familia y introducción a pronombres posesivos","difficulty":2,"tags":["gramática","verbo ser","identidad familiar"],"audioText":"Él es mi hermano mayor.","question":"这句话描述的是哪类亲属关系？","options":["他是我的哥哥","他是我的父亲","他是我的叔叔"],"answerIdx":0,"sectionId":"U02-S01"},{"id":"espanol-a1-u02-s01-03","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Miembros básicos de la familia y introducción a pronombres posesivos","difficulty":2,"tags":["gramática","pronombres posesivos","verbo ser"],"sentence":"___ hermana se llama Ana.","hint":"此处需填第一人称单数物主代词，修饰阴性单数名词hermana，对应中文‘我的’","options":["mi","mis","tu","su"],"answerIdx":0,"sectionId":"U02-S01"},{"id":"espanol-a1-u02-s01-04","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Miembros básicos de la familia y introducción a pronombres posesivos","difficulty":2,"tags":["vocabulario","traducción","familia"],"sourceText":"我的叔叔","options":["mi tío","mi abuelo","mi primo","mi hermano"],"answerIdx":0,"sectionId":"U02-S01"},{"id":"espanol-a1-u02-s01-05","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Miembros básicos de la familia y introducción a pronombres posesivos","difficulty":3,"tags":["comunicación","presentación","familia","verbo ser"],"scenario":"你在向他人介绍自己的家庭成员，需要表达‘我的父母是工人’，正确的西班牙语句子是？","options":["Mis padres son trabajadores.","Mi padre es trabajador.","Mis padres es trabajador.","Mi padres son trabajador."],"answerIdx":0,"sectionId":"U02-S01"},{"id":"espanol-a1-u02-s02-01","type":"T02","typeName":"听音选图","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Descripción de la apariencia física y concordancia de adjetivos","difficulty":2,"tags":["concordancia de adjetivos","vocabulario de apariencia física","pronombres personales"],"audioText":"Él es alto y tiene el pelo negro.","imageOptions":[{"desc":"一位高个子男性，黑色短发，穿白色T恤，现代扁平矢量插画，纯白色背景","prompt":"Modern, clean, flat vector illustration, white background, a tall man with short black hair wearing a white T-shirt"},{"desc":"一位矮个子女性，金色长发，穿红色连衣裙，现代扁平矢量插画，纯白色背景","prompt":"Modern, clean, flat vector illustration, white background, a short woman with long blonde hair wearing a red dress"}],"answerIdx":0,"sectionId":"U02-S02"},{"id":"espanol-a1-u02-s02-02","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Descripción de la apariencia física y concordancia de adjetivos","difficulty":2,"tags":["concordancia de género y número","verbo ser/tener","vocabulario de familia"],"sentence":"Mi hermana ___ rubia y ___ los ojos azules.","hint":"形容词需与所指代名词的阴阳性、单复数保持一致：hermana为阴性单数名词，对应形容词用阴性单数形式；ojos为阳性复数名词，对应形容词用阳性复数形式","options":["es; tiene","es; tienen","son; tiene","son; tienen"],"answerIdx":0,"sectionId":"U02-S02"},{"id":"espanol-a1-u02-s02-03","type":"T08","typeName":"听力选择","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Descripción de la apariencia física y concordancia de adjetivos","difficulty":2,"tags":["comprensión auditiva","descripción de personas","vocabulario de familia y apariencia"],"audioText":"Ella es mi abuela. Es vieja, tiene el pelo blanco y lleva un vestido rosa.","question":"根据听力内容，以下哪项描述是正确的？","options":["她是我的奶奶，年老，有白色头发，穿粉色连衣裙","她是我的妈妈，年轻，有黑色头发，穿蓝色外套","她是我的姐姐，年轻，有金色头发，穿绿色裙子"],"answerIdx":0,"sectionId":"U02-S02"},{"id":"espanol-a1-u02-s02-04","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Descripción de la apariencia física y concordancia de adjetivos","difficulty":3,"tags":["traducción chino-español","concordancia de género y número","vocabulario de ropa y apariencia"],"sourceText":"我的哥哥又高又壮，穿一件黑色的夹克。","options":["Mi hermano es alto y grande, y lleva una chaqueta negra.","Mi hermano es alto y grande, y lleva un chaqueta negro.","Mi hermano son alto y grande, y lleva una chaqueta negro."],"answerIdx":0,"sectionId":"U02-S02"},{"id":"espanol-a1-u02-s02-05","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Descripción de la apariencia física y concordancia de adjetivos","difficulty":3,"tags":["producción oral/escrita","concordancia de adjetivos","descripción de familiares"],"scenario":"你在向新朋友介绍你的妹妹，需要描述她的外貌特征，以下哪句表达是正确的？","options":["Ella es mi hermana. Es joven, tiene el pelo largo y verde, y los ojos marrones.","Ella es mi hermana. Es joven, tiene el pelo largo y verdes, y los ojos marrones.","Ella es mi hermana. Es joven, tienen el pelo largo y verde, y los ojos marrones."],"answerIdx":0,"sectionId":"U02-S02"},{"id":"espanol-a1-u02-s03-1","type":"T01","typeName":"图片识词","language":"Espanol","cefr":"A1","unit":"02","unitTheme":"Familia y descripción de personas","difficulty":2,"tags":["词汇识别","性格形容词","基础词汇"],"imageDesc":"一个面带灿烂笑容、表情友善的卡通女孩，整体风格活泼，用于词汇识别的配图","imagePrompt":"Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a cheerful cartoon girl with a big bright smile, friendly expression, wearing a casual t-shirt, simple flat design, educational illustration for children's language learning","options":["triste","feliz","enfermo","lento"],"answerIdx":1,"sectionId":"U02-S03"},{"id":"espanol-a1-u02-s03-2","type":"T08","typeName":"听力选择","language":"Espanol","cefr":"A1","unit":"02","unitTheme":"Familia y descripción de personas","difficulty":2,"tags":["听力理解","también用法","家庭描述"],"audioText":"Mi madre es trabajadora y también es muy amable.","question":"录音中说话人描述的母亲具备哪些特点？","options":["A. 勤劳且友善","B. 懒惰且友善","C. 勤劳且严肃"],"answerIdx":0,"sectionId":"U02-S03"},{"id":"espanol-a1-u02-s03-3","type":"T06","typeName":"句子排序","language":"Espanol","cefr":"A1","unit":"02","unitTheme":"Familia y descripción de personas","difficulty":3,"tags":["语法应用","语序规则","otro系列代词"],"sentence":"Mi hermano es alto y mi otro hermano es bajo.","words":["bajo","otro","mi","es","alto","y","hermano","Mi","es","hermano"],"correctOrder":[7,6,2,3,4,5,1,8,9,0],"sectionId":"U02-S03"},{"id":"espanol-a1-u02-s03-4","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"02","unitTheme":"Familia y descripción de personas","difficulty":2,"tags":["翻译练习","otro系列代词","形容词性物主代词"],"sourceText":"我的另一个朋友很害羞。","options":["Mi otro amigo es tímido.","Mi otra amigo es tímido.","Mis otros amigo es tímido.","Mis otras amigo es tímido."],"answerIdx":0,"sectionId":"U02-S03"},{"id":"espanol-a1-u02-s03-5","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"02","unitTheme":"Familia y descripción de personas","difficulty":3,"tags":["情景应用","también用法","家庭介绍"],"scenario":"你遇到新同学，需要介绍自己的姐姐，说明她既友好又聪明，以下哪个表达是正确的？","options":["Mi hermana es amable y también es inteligente.","Mi hermana es amable y también son inteligente.","Mi hermana es amable y también es inteligenta.","Mi hermana es amable y también inteligente es."],"answerIdx":0,"sectionId":"U02-S03"},{"id":"espanol-a1-u02-s04-01","type":"T01","typeName":"图片识词","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Presentación integral de la familia y descripción completa de personas","difficulty":1,"tags":["vocabulario","familia","reconocimiento visual"],"imageDesc":"一位中年男性的卡通形象，穿着休闲衬衫，面带微笑，代表家庭中的父亲角色","imagePrompt":"Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a middle-aged man in casual shirt with warm smile, representing a father in a family","options":["padre","madre","hermano","abuelo"],"answerIdx":0,"sectionId":"U02-S04"},{"id":"espanol-a1-u02-s04-02","type":"T03","typeName":"双向配对","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Presentación integral de la familia y descripción completa de personas","difficulty":2,"tags":["gramática","pronombre posesivo","vocabulario familiar"],"left":["nuestro padre","vuestra hermana","nuestra familia","vuestro amigo"],"right":["我们的父亲","你们的姐妹","我们的家庭","你们的男性朋友"],"pairs":[[0,0],[1,1],[2,2],[3,3]],"sectionId":"U02-S04"},{"id":"espanol-a1-u02-s04-03","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Presentación integral de la familia y descripción completa de personas","difficulty":2,"tags":["gramática","pronombre posesivo plural","concordancia"],"sentence":"______ amigos son de España.","options":["Nuestros","Vuestros","Otros"],"answerIdx":0,"hint":"本题考查复数阳性物主代词nuestros/vuestros的用法，nuestros对应‘我们的’，vuestros对应‘你们的’，需根据句意选择合适形式","sectionId":"U02-S04"},{"id":"espanol-a1-u02-s04-04","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Presentación integral de la familia y descripción completa de personas","difficulty":2,"tags":["gramática","pronombre posesivo","concordancia de género"],"sourceText":"我们的家庭有五口人","options":["Nuestra familia tiene cinco miembros.","Nuestro familia tiene cinco miembros.","Vuestra familia tiene cinco miembros.","Sus familia tiene cinco miembros."],"answerIdx":0,"sectionId":"U02-S04"},{"id":"espanol-a1-u02-s04-05","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"Familia y descripción de personas","unitTheme":"Presentación integral de la familia y descripción completa de personas","difficulty":3,"tags":["comprensión oral","presentación familiar","pronombre personal y posesivo"],"scenario":"你正在向新朋友介绍你的家庭成员，需要说明你的父亲和母亲也是你的好朋友，请选择正确的表达","options":["Este es mi padre, esta es mi madre, ellos también son mis amigos.","Este es mi padre, esta es mi madre, ellos también son vuestros amigos.","Este es mi padre, esta es mi madre, ellas también son mis amigos.","Este es mi padre, esta es mi madre, ellos también son sus amigos."],"answerIdx":0,"sectionId":"U02-S04"},{"id":"espanol-a1-u03-s01-01","type":"T07","typeName":"Selección de traducción","language":"Espanol","cefr":"A1","unit":"03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":2,"tags":["vocabulario de tiempo","actividades cotidianas","traducción"],"sourceText":"我每天早上七点起床","options":["Me despierto a las siete de la mañana todos los días","Me levanto a las ocho de la noche todos los días","Despierto a las siete de la mañana todos los días","Me despierto a las siete de la tarde todos los días"],"answerIdx":0,"sectionId":"U03-S01"},{"id":"espanol-a1-u03-s01-02","type":"T08","typeName":"Selección auditiva","language":"Espanol","cefr":"A1","unit":"03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":2,"tags":["comprensión auditiva","vocabulario de tiempo","actividades cotidianas"],"audioText":"Yo llego a la oficina a las nueve de la mañana","question":"说话人什么时候到达办公室？","options":["早上九点","早上八点","晚上九点"],"answerIdx":0,"sectionId":"U03-S01"},{"id":"espanol-a1-u03-s01-03","type":"T02","typeName":"Selección de imagen por audio","language":"Espanol","cefr":"A1","unit":"03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":1,"tags":["comprensión auditiva","vocabulario de actividades","reconocimiento visual"],"audioText":"Ella come el almuerzo a la una de la tarde","imageDesc":"描述：一位年轻女性坐在餐桌前吃午餐，阳光从窗户照进来，氛围明亮温馨","imageOptions":[{"desc":"女性吃午餐","prompt":"Modern, clean, flat vector illustration, white background, a young woman sitting at a dining table eating lunch, sunlight coming through the window, simple and bright style"},{"desc":"女性睡觉","prompt":"Modern, clean, flat vector illustration, white background, a young woman sleeping on a bed, soft warm lighting, simple and cozy style"},{"desc":"女性工作","prompt":"Modern, clean, flat vector illustration, white background, a young woman working on a laptop at a desk, office setting, simple and bright style"}],"answerIdx":0,"sectionId":"U03-S01"},{"id":"espanol-a1-u03-s01-04","type":"T05","typeName":"Completar oración","language":"Espanol","cefr":"A1","unit":"03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":2,"tags":["vocabulario de tiempo","conjugación verbal","actividades cotidianas"],"sentence":"Yo ______ (estudiar) español todos los días por la mañana","hint":"提示：主语为第一人称单数yo，一般现在时中规则动词estudiar的变位形式为estudio","answer":"estudio","sectionId":"U03-S01"},{"id":"espanol-a1-u03-s01-05","type":"T10","typeName":"Traducción escrita","language":"Espanol","cefr":"A1","unit":"03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":2,"tags":["vocabulario de tiempo","traducción","actividades cotidianas"],"sourceText":"我每天晚上十一点睡觉","acceptedAnswers":["Me duermo a las once de la noche todos los días"],"sectionId":"U03-S01"},{"id":"espanol-a1-u03-s02-01","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"Rutina diaria y expresión del tiempo","unitTheme":"Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente","difficulty":2,"tags":["现在时规则变位","日常活动动词","-ar动词变位"],"sentence":"Yo ______ (lavar) la ropa por la mañana.","hint":"此处需填入lavar的第一人称单数现在时变位，规则-ar动词变位规则为去掉词尾-ar加上-o","options":["lavo","lava","lavas","lavan"],"answerIdx":0,"sectionId":"U03-S02"},{"id":"espanol-a1-u03-s02-02","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"Rutina diaria y expresión del tiempo","unitTheme":"Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente","difficulty":2,"tags":["日常活动表达","现在时规则变位","动词beber变位"],"sourceText":"我每天早上喝咖啡","options":["Yo bebo café por la mañana.","Yo bebes café por la mañana.","Yo bebemos café por la mañana.","Yo beben café por la mañana."],"answerIdx":0,"sectionId":"U03-S02"},{"id":"espanol-a1-u03-s02-03","type":"T08","typeName":"听力选择","language":"Espanol","cefr":"A1","unit":"Rutina diaria y expresión del tiempo","unitTheme":"Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente","difficulty":2,"tags":["听力理解","日常活动","现在时"],"audioText":"Todos los días yo corro en el parque por la mañana.","question":"根据听力内容，说话人每天早上做什么？","options":["在公园跑步","在公园散步","在公园做饭"],"answerIdx":0,"sectionId":"U03-S02"},{"id":"espanol-a1-u03-s02-04","type":"T09","typeName":"拼写输入","language":"Espanol","cefr":"A1","unit":"Rutina diaria y expresión del tiempo","unitTheme":"Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente","difficulty":2,"tags":["动词拼写","日常活动","-er动词变位"],"hint":"请拼写西语动词“读”的第一人称单数现在时形式，该动词原形是leer，属于-er规则动词","answer":"leo","sectionId":"U03-S02"},{"id":"espanol-a1-u03-s02-05","type":"T10","typeName":"翻译输入","language":"Espanol","cefr":"A1","unit":"Rutina diaria y expresión del tiempo","unitTheme":"Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente","difficulty":3,"tags":["翻译练习","日常活动","现在时","-ar动词变位"],"sourceText":"我每天晚上听音乐","acceptedAnswers":["Yo escucho música por la noche."],"sectionId":"U03-S02"},{"id":"espanol-a1-u03-s03-1","type":"T02","typeName":"听音选图","language":"espanol","cefr":"A1","unit":"03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":1,"tags":["频率副词siempre","日常作息","听力识别"],"audioText":"Yo siempre desayuno a las siete de la mañana.","imageOptions":[{"desc":"一个女孩每天早上七点坐在餐桌前吃早餐","prompt":"Modern, clean, flat vector illustration, white background, a young girl eating breakfast at 7am, cheerful style"},{"desc":"一个女孩早上从来不吃早餐，直接出门","prompt":"Modern, clean, flat vector illustration, white background, a young girl leaving home without eating breakfast, simple style"}],"answerIdx":0,"sectionId":"U03-S03"},{"id":"espanol-a1-u03-s03-2","type":"T03","typeName":"双向配对","language":"espanol","cefr":"A1","unit":"03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":1,"tags":["频率副词","词汇匹配","阅读记忆"],"pairs":[{"left":"siempre","right":"总是"},{"left":"normalmente","right":"通常"},{"left":"a veces","right":"有时"},{"left":"nunca","right":"从不"}],"sectionId":"U03-S03"},{"id":"espanol-a1-u03-s03-3","type":"T05","typeName":"补全句子","language":"espanol","cefr":"A1","unit":"03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":1,"tags":["频率副词用法","句子填空","语法理解"],"sentence":"Yo ______ como fruta en el desayuno.","options":["siempre","solo","también","nunca"],"hint":"提示：此处需要填入表示动作发生频率的副词，描述早餐吃水果的习惯","answerIdx":0,"sectionId":"U03-S03"},{"id":"espanol-a1-u03-s03-4","type":"T07","typeName":"翻译选择","language":"espanol","cefr":"A1","unit":"03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":2,"tags":["频率副词","中译西","日常作息表达"],"sourceText":"我通常每天早上七点起床","options":["Yo siempre me levanto a las siete de la mañana.","Yo normalmente me levanto a las siete de la mañana.","Yo a veces me levanto a las siete de la mañana.","Yo nunca me levanto a las siete de la mañana."],"answerIdx":1,"sectionId":"U03-S03"},{"id":"espanol-a1-u03-s03-5","type":"T08","typeName":"听力选择","language":"espanol","cefr":"A1","unit":"03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":2,"tags":["频率副词","听力理解","日常作息描述"],"audioText":"María nunca ve la televisión por la noche, siempre lee un libro antes de dormir.","question":"关于María的晚间活动，以下哪个说法是正确的？","options":["她晚上从不看电视，总是睡前读书","她晚上有时看电视，从不读书","她晚上总是看电视，从不读书","她晚上从不看电视，有时读书"],"answerIdx":0,"sectionId":"U03-S03"},{"id":"espanol-a1-u03-s04-01","type":"T01","typeName":"图片识词","language":"Espanol","cefr":"A1","unit":"Rutina diaria y expresión del tiempo","unitTheme":"Pronombres personales y conjugación del verbo estar en presente","difficulty":1,"tags":["vocabulario","estado emocional","estar"],"imageDesc":"一个面带灿烂笑容、双手举过头顶的小女孩，处于非常开心的状态","imagePrompt":"Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a little girl with big bright smile, arms raised above head, happy expression, simple flat design","options":["feliz","triste","enfermo","sano"],"answerIdx":0,"sectionId":"U03-S04"},{"id":"espanol-a1-u03-s04-02","type":"T03","typeName":"双向配对","language":"Espanol","cefr":"A1","unit":"Rutina diaria y expresión del tiempo","unitTheme":"Pronombres personales y conjugación del verbo estar en presente","difficulty":2,"tags":["pronombres personales","nosotros/nosotras","vosotros/vosotras"],"left":["nosotros","nosotras","vosotros","vosotras"],"right":["我们（全男性或混合群体）","我们（全女性群体）","你们（全男性或混合群体，西班牙地区使用）","你们（全女性群体，西班牙地区使用）"],"sectionId":"U03-S04"},{"id":"espanol-a1-u03-s04-03","type":"T06","typeName":"句子排序","language":"Espanol","cefr":"A1","unit":"Rutina diaria y expresión del tiempo","unitTheme":"Pronombres personales y conjugación del verbo estar en presente","difficulty":2,"tags":["conjugación estar","presente","pronombres personales"],"sentence":"Nosotros estamos felices aquí.","words":["aquí","Nosotros","felices","estamos"],"correctOrder":[1,3,2,0],"sectionId":"U03-S04"},{"id":"espanol-a1-u03-s04-04","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"Rutina diaria y expresión del tiempo","unitTheme":"Pronombres personales y conjugación del verbo estar en presente","difficulty":2,"tags":["ser vs estar","estado emocional","conjugación"],"sourceText":"我们很开心","options":["Nosotros somos felices.","Nosotros estamos felices.","Nosotras somos felices.","Nosotros estamos tristes."],"answerIdx":1,"sectionId":"U03-S04"},{"id":"espanol-a1-u03-s04-05","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"Rutina diaria y expresión del tiempo","unitTheme":"Pronombres personales y conjugación del verbo estar en presente","difficulty":3,"tags":["estar de ubicación","pronombres personales","adverbios de lugar"],"scenario":"你在朋友家，朋友问你“你们现在在哪里？”，你应该怎么回答？","options":["Nosotros somos aquí.","Nosotros estamos aquí.","Nosotros estamos allí.","Nosotros somos allí."],"answerIdx":1,"sectionId":"U03-S04"},{"id":"espanol-a1-u03-s05-1","type":"T02","typeName":"听音选图","language":"Espanol","cefr":"A1","unit":"U03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":2,"tags":["hacer","poder","querer","tener","不规则动词变位","听力"],"audioText":"Yo quiero viajar el fin de semana.","imageOptions":[{"desc":"一个年轻人开心地收拾行李，准备周末旅行","prompt":"Modern, clean, flat vector illustration, white background, a happy young person packing a suitcase for a weekend trip, travel items scattered around, bright warm colors"},{"desc":"一个学生坐在书桌前认真做作业","prompt":"Modern, clean, flat vector illustration, white background, a student doing homework at a wooden desk, books and notebooks stacked around, soft lighting"},{"desc":"一个人在厨房里做饭，灶上有锅","prompt":"Modern, clean, flat vector illustration, white background, a person cooking in a kitchen, pots on the stove, vegetables on the counter, warm tones"},{"desc":"一个人在健身房举哑铃锻炼","prompt":"Modern, clean, flat vector illustration, white background, a person working out in a gym, dumbbells in hand, fitness equipment in the background, energetic vibe"}],"answerIdx":0,"sectionId":"U03-S05"},{"id":"espanol-a1-u03-s05-2","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"U03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":2,"tags":["muy","tan","程度副词","翻译","querer"],"sourceText":"我周末想做一个旅行计划","options":["Quiero hacer un plan de viaje el fin de semana.","Puedo hacer un plan de viaje el fin de semana.","Tengo un plan de viaje el fin de semana.","Hago un plan de viaje el fin de semana."],"answerIdx":0,"sectionId":"U03-S05"},{"id":"espanol-a1-u03-s05-3","type":"T06","typeName":"句子排序","language":"Espanol","cefr":"A1","unit":"U03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":3,"tags":["hacer","querer","ni","否定并列","语序"],"sentence":"Yo no quiero ni hacer planes ni viajar este fin de semana.","words":["viajar","este","fin","de","semana","Yo","no","quiero","ni","hacer","planes","ni"],"sectionId":"U03-S05"},{"id":"espanol-a1-u03-s05-4","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"U03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":3,"tags":["tener","poder","necesitar","不规则动词变位","补全"],"sentence":"___ (tener) ___ (poder) ___ (necesitar) terminar el proyecto antes de las vacaciones.","hint":"提示：此处需要填入三个动词tener、poder、necesitar的第一人称单数现在时变位，注意不规则变化规则：tener的变位为tengo，poder的变位为puedo，necesitar的变位为necesito","answer":"Tengo, puedo, necesito","sectionId":"U03-S05"},{"id":"espanol-a1-u03-s05-5","type":"T10","typeName":"翻译输入","language":"Espanol","cefr":"A1","unit":"U03","unitTheme":"Rutina diaria y expresión del tiempo","difficulty":2,"tags":["solo","sólo","adverbios de grado","否定","翻译"],"sourceText":"我只需要完成这个目标，不需要做别的事。","acceptedAnswers":["Solo necesito cumplir este objetivo, no necesito hacer nada más.","Sólo necesito cumplir este objetivo, no necesito hacer nada más."],"sectionId":"U03-S05"},{"id":"espanol-a1-u04-s01-1","type":"T01","typeName":"图片识词","language":"espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Vocabulario básico de compras en supermercado y consultas","difficulty":1,"tags":["vocabulario supermercado","pan","identificación visual"],"imageDesc":"超市货架上摆放的一条面包","imagePrompt":"Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a loaf of fresh bread on a supermarket shelf, simple flat design, no extra details","options":["pan","leche","agua","dinero"],"answerIdx":0,"sectionId":"U04-S01"},{"id":"espanol-a1-u04-s01-2","type":"T03","typeName":"双向配对","language":"espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Vocabulario básico de compras en supermercado y consultas","difficulty":1,"tags":["vocabulario básico","traducción español-chino"],"left":["tienda","precio","comprar","querer"],"right":["商店","价格","购买","想要"],"sectionId":"U04-S01"},{"id":"espanol-a1-u04-s01-3","type":"T07","typeName":"翻译选择","language":"espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Vocabulario básico de compras en supermercado y consultas","difficulty":2,"tags":["querer presente","expresión de intención de compra"],"sourceText":"我想要买牛奶","options":["Quiero comprar leche.","Quiero pagar leche.","Quiero beber leche.","Quiero vender leche."],"answerIdx":0,"sectionId":"U04-S01"},{"id":"espanol-a1-u04-s01-4","type":"T05","typeName":"补全句子","language":"espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Vocabulario básico de compras en supermercado y consultas","difficulty":2,"tags":["querer conjugación","presente de indicativo"],"sentence":"Yo ___ pan en el supermercado.","hint":"此处需要填入动词querer的现在时第一人称单数变位，表示‘我想要’","acceptedAnswers":["quiero"],"sectionId":"U04-S01"},{"id":"espanol-a1-u04-s01-5","type":"T12","typeName":"情景回应","language":"espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Vocabulario básico de compras en supermercado y consultas","difficulty":2,"tags":["comprensión de situación","expresión de compra","querer"],"scenario":"你在超市选购时，店员询问你想购买什么商品，你需要用西语表达你的购买意愿","options":["Quiero comprar agua y pan.","Quiero pagar ahora.","Me gusta el supermercado.","No quiero comprar nada."],"answerIdx":0,"sectionId":"U04-S01"},{"id":"espanol-a1-u04-s02-01","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Expresiones básicas para hacer pedidos en restaurantes","difficulty":2,"tags":["指示代词","点餐","语法理解"],"sentence":"¿Me trae ___ menú, por favor?","hint":"此处指代近处的阳性单数名词「菜单」，需用阳性单数近指指示代词","options":["este","esta","estos"],"answerIdx":0,"sectionId":"U04-S02"},{"id":"espanol-a1-u04-s02-02","type":"T02","typeName":"听音选图","language":"Espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Expresiones básicas para hacer pedidos en restaurantes","difficulty":1,"tags":["听力","指示代词","餐厅词汇"],"audioText":"¿Puedo ver este plato?","imageOptions":[{"desc":"服务员手中的一份餐品（近处）","prompt":"Modern, clean, flat vector illustration, white background, a waiter holding a dish close to the customer, restaurant scene"},{"desc":"远处餐桌上的餐品","prompt":"Modern, clean, flat vector illustration, white background, a dish on a far table in a restaurant"},{"desc":"近处餐桌上的多份餐品","prompt":"Modern, clean, flat vector illustration, white background, multiple dishes on a near table in a restaurant"}],"answerIdx":0,"sectionId":"U04-S02"},{"id":"espanol-a1-u04-s02-03","type":"T06","typeName":"句子排序","language":"Espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Expresiones básicas para hacer pedidos en restaurantes","difficulty":2,"tags":["语法","语序","指示代词"],"words":["¿Me","esta","trae","cuenta,","por","favor?"],"answer":["¿Me","trae","esta","cuenta,","por","favor?"],"sectionId":"U04-S02"},{"id":"espanol-a1-u04-s02-04","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Expresiones básicas para hacer pedidos en restaurantes","difficulty":1,"tags":["翻译","点餐用语","指示代词"],"sourceText":"请给我这份咖啡","options":["Por favor, tráigame este café.","Por favor, tráigame esta café.","Por favor, tráigame estos café."],"answerIdx":0,"sectionId":"U04-S02"},{"id":"espanol-a1-u04-s02-05","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Expresiones básicas para hacer pedidos en restaurantes","difficulty":2,"tags":["情景交际","点餐","指示代词"],"scenario":"你在餐厅入座后，服务员过来询问你需要什么，你想点你面前菜单上的第一道菜，应该怎么说？","options":["Quiero pedir este primer plato.","Quiero pedir esta primer plato.","Quiero pedir estos primer plato."],"answerIdx":0,"sectionId":"U04-S02"},{"id":"espanol-a1-u04-s03-01","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Aplicación de palabras interrogativas y pronombres indefinidos","difficulty":2,"tags":["疑问词","qué","补全句子"],"sentence":"¿____ quieres pedir para el postre?","hint":"此处询问“你想要什么甜点”，需使用疑问词qué","options":["Qué","Por qué","Cuál","Quién"],"answerIdx":0,"sectionId":"U04-S03"},{"id":"espanol-a1-u04-s03-02","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Aplicación de palabras interrogativas y pronombres indefinidos","difficulty":2,"tags":["不定代词","algo","翻译选择"],"sourceText":"你想要喝点什么吗？","options":["¿Quieres algo de beber?","¿Quieres algún de beber?","¿Quieres alguien de beber?","¿Quieres nada de beber?"],"answerIdx":0,"sectionId":"U04-S03"},{"id":"espanol-a1-u04-s03-03","type":"T08","typeName":"听力选择","language":"Espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Aplicación de palabras interrogativas y pronombres indefinidos","difficulty":2,"tags":["疑问词","por qué","听力理解"],"audioText":"Perdona, ¿por qué no hay ensalada de frutas hoy?","question":"说话人询问的是什么？","options":["为什么今天没有水果沙拉","今天要点什么水果沙拉","哪种水果沙拉最好吃"],"answerIdx":0,"sectionId":"U04-S03"},{"id":"espanol-a1-u04-s03-04","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Aplicación de palabras interrogativas y pronombres indefinidos","difficulty":3,"tags":["不定代词","nada","情景回应"],"scenario":"你在餐厅点餐，服务员询问你有没有忌口，你需要表达“我什么都不能吃，我对所有食物都过敏”","options":["No puedo comer nada, soy alérgico a todos los alimentos.","No puedo comer ningún, soy alérgico a todos los alimentos.","No puedo comer nadie, soy alérgico a todos los alimentos.","No puedo comer algo, soy alérgico a todos los alimentos."],"answerIdx":0,"sectionId":"U04-S03"},{"id":"espanol-a1-u04-s03-05","type":"T09","typeName":"拼写输入","language":"Espanol","cefr":"A1","unit":"Compras y pedidos en restaurantes","unitTheme":"Aplicación de palabras interrogativas y pronombres indefinidos","difficulty":2,"tags":["疑问词","cuál","拼写"],"audioText":"请拼写西语中表示“哪一个”的疑问词，阴性单数形式为cuál","hint":"提示：该疑问词用于在特定范围内进行选择，阴性单数形式需注意重音符号","answer":"cuál","sectionId":"U04-S03"},{"id":"espanol-a1-u04-s04-1","type":"T01","typeName":"图片识词","language":"es-Espanol","cefr":"A1","unit":"04","unitTheme":"Compras y pedidos en restaurantes","difficulty":1,"tags":["por","para","vocabulario","pago","restaurante"],"imageDesc":"一个人在餐厅收银台前递信用卡给服务员结账的场景","imagePrompt":"Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated scene of a person handing a credit card to a waiter at a restaurant checkout counter, 4k resolution","options":["la cuenta","el precio","el pago","la compra"],"answerIdx":2,"sectionId":"U04-S04"},{"id":"espanol-a1-u04-s04-2","type":"T03","typeName":"双向配对","language":"es-Espanol","cefr":"A1","unit":"04","unitTheme":"Compras y pedidos en restaurantes","difficulty":2,"tags":["por","para","vocabulario","traducción"],"left":["por","para","pagar","cuenta"],"right":["因为","为了","支付","账单"],"pairing":[[0,1],[1,0],[2,2],[3,3]],"sectionId":"U04-S04"},{"id":"espanol-a1-u04-s04-3","type":"T07","typeName":"翻译选择","language":"es-Espanol","cefr":"A1","unit":"04","unitTheme":"Compras y pedidos en restaurantes","difficulty":2,"tags":["por","para","uso contextual","oraciones simples"],"sourceText":"我付账是因为我喜欢这里的食物。","options":["Pago la cuenta para me gusta la comida de aquí.","Pago la cuenta porque me gusta la comida de aquí.","Pago la cuenta por me gusta la comida de aquí.","Pago la cuenta porque me gusta el precio de aquí."],"answerIdx":1,"sectionId":"U04-S04"},{"id":"espanol-a1-u04-s04-4","type":"T10","typeName":"翻译输入","language":"es-Espanol","cefr":"A1","unit":"04","unitTheme":"Compras y pedidos en restaurantes","difficulty":3,"tags":["para","traducción","construcción de oraciones"],"sourceText":"这个账单是给那桌客人的。","acceptedAnswers":["Esta cuenta es para esa mesa de clientes.","La cuenta es para los clientes de esa mesa."],"sectionId":"U04-S04"},{"id":"espanol-a1-u04-s04-5","type":"T12","typeName":"情景回应","language":"es-Espanol","cefr":"A1","unit":"04","unitTheme":"Compras y pedidos en restaurantes","difficulty":3,"tags":["por","para","situación comunicativa","pago en restaurante"],"scenario":"你在餐厅吃完饭后想询问服务员这顿晚餐你需要付多少钱，应该选择哪个正确的表达？","options":["¿Cuánto tengo que pagar para la cena?","¿Cuánto tengo que pagar por la cena?","¿Para cuánto es la cuenta?","¿Por cuánto es la cuenta?"],"answerIdx":1,"sectionId":"U04-S04"},{"id":"espanol-a1-u04-s05-1","type":"T01","typeName":"图片识词","language":"español","cefr":"A1","unit":"U04","unitTheme":"Compras y pedidos en restaurantes","difficulty":2,"tags":["指示代词","超市购物","词汇识别"],"imageDesc":"一位男性顾客在超市水果区指着货架上的苹果，询问这个苹果的价格","imagePrompt":"Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a male customer in supermarket fruit section pointing at an apple on the shelf asking for the price of this apple, simple educational scene","options":["este","esa","estos","aquel"],"answerIdx":0,"sectionId":"U04-S05"},{"id":"espanol-a1-u04-s05-2","type":"T05","typeName":"补全句子","language":"español","cefr":"A1","unit":"U04","unitTheme":"Compras y pedidos en restaurantes","difficulty":2,"tags":["动词querer变位","前置词para","餐厅点餐","语法填空"],"sentence":"Yo ______ (querer) este plato para llevar.","options":["quiero","quiere","queremos","quieren"],"answerIdx":0,"hint":"提示：主语为第一人称单数yo，一般现在时中动词querer的正确变位为quiero；前置词para此处表示目的，意为“外带”","sectionId":"U04-S05"},{"id":"espanol-a1-u04-s05-3","type":"T07","typeName":"翻译选择","language":"español","cefr":"A1","unit":"U04","unitTheme":"Compras y pedidos en restaurantes","difficulty":2,"tags":["前置词para","指示代词","超市购物","汉译西"],"sourceText":"这个苹果是给我弟弟的","options":["Esta manzana es para mi hermano.","Esta manzana es por mi hermano.","Esta manzana es a mi hermano.","Esta manzana es con mi hermano."],"answerIdx":0,"sectionId":"U04-S05"},{"id":"espanol-a1-u04-s05-4","type":"T08","typeName":"听力选择","language":"español","cefr":"A1","unit":"U04","unitTheme":"Compras y pedidos en restaurantes","difficulty":2,"tags":["指示代词","不定代词nada","餐厅点餐","听力理解"],"audioText":"Entonces, pido este menú del día y nada más.","question":"根据听到的句子，顾客点的是什么？","options":["A. 这份每日菜单，其他都不要","B. 那份每日菜单，其他都不要","C. 这些每日菜单，其他都不要","D. 这份每日菜单，还要别的"],"answerIdx":0,"sectionId":"U04-S05"},{"id":"espanol-a1-u04-s05-5","type":"T12","typeName":"情景回应","language":"español","cefr":"A1","unit":"U04","unitTheme":"Compras y pedidos en restaurantes","difficulty":3,"tags":["指示代词","不定代词nada","餐厅点餐","情景应对"],"scenario":"你在快餐店点餐，想要这份汉堡，并且说不要别的了，应该选择哪句回应？","options":["Quiero esta hamburguesa y nada más.","Quiero esa hamburguesa y todo.","Quiero estos hamburguesas y entonces.","Quiero estas hamburguesas y volver."],"answerIdx":0,"sectionId":"U04-S05"},{"id":"espanol-a1-u05-s01-1","type":"T01","typeName":"图片识词","language":"Espanol","cefr":"A1","unit":"05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":2,"tags":["vocabulario","adverbios de lugar","comprensión lectora"],"imageDesc":"街角处有一个公交站牌，两个箭头分别指向不同距离的方向，近的箭头标注‘aquí’，远的箭头标注‘allí’","imagePrompt":"Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, street corner with a bus stop sign, two directional arrows pointing to different distances, near arrow labeled 'aquí', far arrow labeled 'allí', simple educational design","options":["aquí","allí","ahí","allá"],"answerIdx":0,"sectionId":"U05-S01"},{"id":"espanol-a1-u05-s01-2","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":2,"tags":["vocabulario","traducción","preguntas de lugar"],"sourceText":"请问，附近的银行在什么地方？","options":["¿Dónde está el banco cercano?","¿Qué hay en el banco cercano?","¿Hay un banco cerca de aquí?","¿Está el banco allí?"],"answerIdx":0,"sectionId":"U05-S01"},{"id":"espanol-a1-u05-s01-3","type":"T02","typeName":"听音选图","language":"Espanol","cefr":"A1","unit":"05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":3,"tags":["vocabulario","comprensión auditiva","lugares públicos"],"audioText":"La escuela está allí.","imageOptions":[{"desc":"一所学校建筑位于远处街道的尽头","prompt":"Modern, clean, flat vector illustration, white background, school building at the end of a far street, simple clear design"},{"desc":"学校建筑紧邻当前位置","prompt":"Modern, clean, flat vector illustration, white background, school building right next to the current location, simple clear design"},{"desc":"学校建筑在当前位置前方的广场上","prompt":"Modern, clean, flat vector illustration, white background, school building on the square in front of the current location, simple clear design"},{"desc":"学校建筑在当前位置后方的公园内","prompt":"Modern, clean, flat vector illustration, white background, school building inside the park behind the current location, simple clear design"}],"answerIdx":0,"sectionId":"U05-S01"},{"id":"espanol-a1-u05-s01-4","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":2,"tags":["gramática","adverbios de lugar","oraciones simples"],"sentence":"La tienda está ___ de la plaza.","hint":"此处需填入表示位置的副词，allí 表示较远但可见的位置，符合‘商店在广场远处’的常见表达","options":["aquí","allí","ahí","allá"],"answerIdx":1,"sectionId":"U05-S01"},{"id":"espanol-a1-u05-s01-5","type":"T10","typeName":"翻译输入","language":"Espanol","cefr":"A1","unit":"05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":3,"tags":["vocabulario","traducción","expresiones de dirección"],"sourceText":"餐厅就在那边的拐角处","acceptedAnswers":["El restaurante está en la esquina de ahí."],"sectionId":"U05-S01"},{"id":"espanol-a1-u05-s02-1","type":"T01","typeName":"图片识词","language":"es","cefr":"A1","unit":"05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":1,"tags":["vocabulario","lugares urbanos","preposiciones de lugar"],"imageDesc":"城市广场矢量插画，包含喷泉、长椅、方向指示牌，背景为浅色建筑","imagePrompt":"Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, urban city plaza with fountain, benches, direction sign, light-colored buildings in background","options":["plaza","calle","puente","camino"],"answerIdx":0,"sectionId":"U05-S02"},{"id":"espanol-a1-u05-s02-2","type":"T03","typeName":"双向配对","language":"es","cefr":"A1","unit":"05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":2,"tags":["expresiones interrogativas","indicar rutas","vocabulario de desplazamiento"],"left":["¿Dónde está la biblioteca?","¿Cómo llegar a la plaza?","Hay un puente aquí.","Sigue por esta calle."],"right":["图书馆在哪里？","怎么去广场？","这里有一座桥。","沿着这条街走。"],"pairs":[[0,0],[1,1],[2,2],[3,3]],"sectionId":"U05-S02"},{"id":"espanol-a1-u05-s02-3","type":"T05","typeName":"补全句子","language":"es","cefr":"A1","unit":"05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":3,"tags":["verbo seguir","indicar rutas","preposiciones de lugar"],"sentence":"Para llegar a la casa de tu amigo, tienes que ______ por esta calle hasta el puente.","options":["seguir","pasar","llegar","estar"],"answerIdx":0,"hint":"此处需要填入表示“沿着…前进”的动词，是问路场景中指示路线的常用表达","sectionId":"U05-S02"},{"id":"espanol-a1-u05-s02-4","type":"T07","typeName":"翻译选择","language":"es","cefr":"A1","unit":"05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":2,"tags":["expresiones interrogativas de dirección","traducción chino-español","vocabulario de lugares"],"sourceText":"请问，市中心广场怎么走？","options":["¿Dónde está el centro de la ciudad?","¿Cómo llegar a la plaza del centro?","¿Qué hay en la calle?","¿Estás en la plaza?"],"answerIdx":1,"sectionId":"U05-S02"},{"id":"espanol-a1-u05-s02-5","type":"T12","typeName":"情景回应","language":"es","cefr":"A1","unit":"05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":3,"tags":["situación de preguntar rutas","expresiones de cortesía","vocabulario de desplazamiento"],"scenario":"你在陌生的城市街区，想要前往附近的图书馆，向路人询问路线，以下哪个表达最合适？","options":["¿Dónde está la biblioteca?","¿Qué hora es?","¿Cuánto cuesta el billete?","¿Hay un restaurante aquí?"],"answerIdx":0,"sectionId":"U05-S02"},{"id":"espanol-a1-u05-s03-1","type":"T01","typeName":"图片识词","language":"Espanol","cefr":"A1","unit":"U05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":2,"tags":["vocabulario","transporte","viajar"],"imageDesc":"一个人拿着行李箱站在公交站台，准备上车的场景","imagePrompt":"Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a person holding a suitcase standing at a bus stop ready to board the bus, simple educational illustration style","options":["viajar","comprar","pagar","salir"],"answerIdx":0,"sectionId":"U05-S03"},{"id":"espanol-a1-u05-s03-2","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"U05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":2,"tags":["gramatica","verbo ir","presente indicativo","traduccion"],"sourceText":"我每天坐公交车去上班","options":["Yo voy al trabajo en autobús cada día","Yo compro el billete de autobús cada día","Yo pago el viaje en autobús cada día","Yo salgo del trabajo en autobús cada día"],"answerIdx":0,"sectionId":"U05-S03"},{"id":"espanol-a1-u05-s03-3","type":"T06","typeName":"句子排序","language":"Espanol","cefr":"A1","unit":"U05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":3,"tags":["gramatica","verbo ir","orden sintactico"],"words":["cada","mañana","Yo","estación","de","metro","a","la","voy"],"correctOrder":[2,8,6,7,3,4,5,0,1],"sectionId":"U05-S03"},{"id":"espanol-a1-u05-s03-4","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"U05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":3,"tags":["gramatica","verbo ir","conjugacion"],"sentence":"Nosotros ___ (ir) al centro comercial los sábados.","hint":"此处需要填写动词ir的现在时第一人称复数变位","answer":"vamos","sectionId":"U05-S03"},{"id":"espanol-a1-u05-s03-5","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"U05","unitTheme":"Desplazamiento urbano y preguntas de dirección","difficulty":3,"tags":["comprension","preguntas de direccion","transporte publico"],"scenario":"你在公交站，需要询问工作人员下一班去火车站的公交车什么时候来","options":["¿A qué hora sale el próximo autobús a la estación de tren?","¿Cuánto cuesta el billete de autobús?","¿Dónde está la parada de metro?","¿Puedo pagar con tarjeta?"],"answerIdx":0,"sectionId":"U05-S03"},{"id":"espanol-a1-u05-s04-1","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"Desplazamiento urbano y preguntas de dirección","unitTheme":"Práctica integral de desplazamiento urbano","difficulty":2,"tags":["问路","there be句型","地点词汇"],"sourceText":"请问这附近有银行吗？","options":["¿Hay un banco por aquí?","¿Dónde está el banco?","¿Cómo llego al banco?","¿Hay un restaurante por aquí?"],"answerIdx":0,"sectionId":"U05-S04"},{"id":"espanol-a1-u05-s04-2","type":"T01","typeName":"图片识词","language":"Espanol","cefr":"A1","unit":"Desplazamiento urbano y preguntas de dirección","unitTheme":"Práctica integral de desplazamiento urbano","difficulty":1,"tags":["词汇识别","地点名词"],"imageDesc":"城市街道旁的银行建筑，门口设有ATM机","imagePrompt":"Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a modern bank building on a sunny city street with an ATM machine at the entrance and a BANCO sign on the facade","options":["banco","restaurante","escuela","tienda"],"answerIdx":0,"sectionId":"U05-S04"},{"id":"espanol-a1-u05-s04-3","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"Desplazamiento urbano y preguntas de dirección","unitTheme":"Práctica integral de desplazamiento urbano","difficulty":2,"tags":["情景交际","问路","餐厅词汇"],"scenario":"你第一次来到一座陌生城市旅行，现在是午餐时间，你肚子饿了，想要找到附近的餐厅用餐，以下哪句表达最符合你的需求？","options":["¿Dónde está el restaurante más cercano?","¿Cuánto cuesta el menú del día?","Quiero reservar una habitación para esta noche.","¿A qué hora abre el banco mañana?"],"answerIdx":0,"sectionId":"U05-S04"},{"id":"espanol-a1-u05-s04-4","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"Desplazamiento urbano y preguntas de dirección","unitTheme":"Práctica integral de desplazamiento urbano","difficulty":2,"tags":["特殊疑问词","介词用法","基础句型"],"sentence":"—¿______ está el restaurante? —Está ______ la plaza, al lado del banco.","hint":"本题考查特殊疑问词‘在哪里’的写法（注意重音符号）和介词‘在’的用法，结合场景选择正确的词汇填空。","options":["Dónde / en","Cómo / a","Qué / en","Dónde / a"],"answerIdx":0,"sectionId":"U05-S04"},{"id":"espanol-a1-u05-s04-5","type":"T10","typeName":"翻译输入","language":"Espanol","cefr":"A1","unit":"Desplazamiento urbano y preguntas de dirección","unitTheme":"Práctica integral de desplazamiento urbano","difficulty":3,"tags":["翻译实践","动词变位","指路表达"],"sourceText":"我沿着这条街走，然后经过广场，就能到达餐厅了。","acceptedAnswers":["Sigo por esta calle, luego paso por la plaza y llego al restaurante.","Sigo por esta calle, paso la plaza y llego al restaurante."],"sectionId":"U05-S04"},{"id":"espanol-a1-u06-s01-1","type":"T01","typeName":"图片识词","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Expresiones básicas en contextos laborales y académicos","difficulty":1,"tags":["vocabulario","contexto laboral","identificación visual"],"imageDesc":"一个穿着职业装的人在办公室使用电脑工作的场景","imagePrompt":"Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a professional person in business casual attire working on a laptop at a clean office desk","options":["trabajo","estudio","empleo","empresa"],"answerIdx":0,"sectionId":"U06-S01"},{"id":"espanol-a1-u06-s01-2","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Expresiones básicas en contextos laborales y académicos","difficulty":2,"tags":["traducción","vocabulario académico","comprensión lectora"],"sourceText":"我在大学学习西班牙语","options":["Yo trabajo en la universidad.","Yo estudio español en la universidad.","Yo enseño español en la universidad.","Yo aprendo español en la universidad."],"answerIdx":1,"sectionId":"U06-S01"},{"id":"espanol-a1-u06-s01-3","type":"T02","typeName":"听音选图","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Expresiones básicas en contextos laborales y académicos","difficulty":2,"tags":["comprensión auditiva","vocabulario académico","identificación visual"],"audioText":"Yo soy estudiante de la universidad.","imageOptions":[{"desc":"一名大学生背着书包走在校园林荫道上的场景","prompt":"A young student carrying a backpack walking on a tree-lined university campus path, flat vector illustration, clean style, white background"},{"desc":"一名工人穿着工作服在工厂操作机器的场景","prompt":"A worker in work clothes operating machinery in a factory, flat vector illustration, clean style, white background"},{"desc":"一名女老师站在黑板前给学生们讲课的场景","prompt":"A female teacher standing in front of a blackboard giving a lecture to students, flat vector illustration, clean style, white background"},{"desc":"一名学生坐在图书馆的书桌前看书的场景","prompt":"A student sitting at a desk reading a book in a library, flat vector illustration, clean style, white background"}],"answerIdx":0,"sectionId":"U06-S01"},{"id":"espanol-a1-u06-s01-4","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Expresiones básicas en contextos laborales y académicos","difficulty":3,"tags":["gramática","verbos irregulares","presente de indicativo","contexto laboral"],"sentence":"Yo ___ (tener) un empleo en un banco.","hint":"提示：动词tener为不规则动词，现在时陈述式第一人称单数变位为tengo，需特殊记忆","options":["tengo","tienes","tiene","tenemos"],"answerIdx":0,"sectionId":"U06-S01"},{"id":"espanol-a1-u06-s01-5","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Expresiones básicas en contextos laborales y académicos","difficulty":3,"tags":["comprensión lectora","expresión cotidiana","contexto laboral"],"scenario":"你刚入职新公司，同事在茶水间问你平时从事什么工作，你应该选择哪个回答？","options":["Soy profesor de matemáticas.","Estudio en la universidad.","Tengo veinticinco años.","Me gusta ver películas los fines de semana."],"answerIdx":0,"sectionId":"U06-S01"},{"id":"espanol-a1-u06-s02-1","type":"T05","typeName":"Completar oraciones","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Expresiones sobre el clima y el entorno residencial","difficulty":2,"tags":["宾格代词","居住环境","语法填空"],"sentence":"Yo ___ la casa nueva. Es muy bonita.","options":["lo","la","los","las"],"answerIdx":1,"hint":"此处需要宾格代词指代前文的阴性单数名词casa，对应阴性单数宾格代词la","sectionId":"U06-S02"},{"id":"espanol-a1-u06-s02-2","type":"T02","typeName":"Seleccionar imagen por audio","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Expresiones sobre el clima y el entorno residencial","difficulty":1,"tags":["天气表达","听力理解","词汇识别"],"audioText":"Hoy hace mucho viento y llueve un poco. El clima es frío.","imageOptions":[{"desc":"晴朗的白天，太阳高照，无云","prompt":"Modern, clean, flat vector illustration, white background, sunny day, bright sun, no clouds, clear sky"},{"desc":"阴天，有风，下小雨，气温低","prompt":"Modern, clean, flat vector illustration, white background, cloudy sky, wind lines, light rain, cold weather"}],"answerIdx":1,"sectionId":"U06-S02"},{"id":"espanol-a1-u06-s02-3","type":"T08","typeName":"Selección auditiva","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Expresiones sobre el clima y el entorno residencial","difficulty":2,"tags":["居住环境","听力理解","细节捕捉"],"audioText":"Mi hermano vive en un pueblo pequeño. La calle de su casa es muy tranquila y hay un parque cerca.","question":"根据听力内容，说话者的弟弟住在哪里？","options":["大城市里，街道繁华热闹","小城镇里，街道安静，附近有公园","城市公寓里，靠近学校"],"answerIdx":1,"sectionId":"U06-S02"},{"id":"espanol-a1-u06-s02-4","type":"T07","typeName":"Selección de traducción","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Expresiones sobre el clima y el entorno residencial","difficulty":2,"tags":["居住词汇","翻译练习","语法应用"],"sourceText":"我喜欢我的房间，因为它很明亮。","options":["Me gusta mi habitación porque es muy luminosa.","Me gusta mi casa porque es muy grande.","Me encanta mi pueblo porque es muy bonito."],"answerIdx":0,"sectionId":"U06-S02"},{"id":"espanol-a1-u06-s02-5","type":"T12","typeName":"Respuesta situacional","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Expresiones sobre el clima y el entorno residencial","difficulty":2,"tags":["天气表达","情景交际","日常对话"],"scenario":"你朋友问你今天天气怎么样，你打算说今天很热，阳光很好，适合去公园散步。请选择正确的回应。","options":["Hoy hace mucho sol y calor. Voy al parque a caminar.","Hoy llueve mucho. Me quedo en casa.","Hoy hace frío. Llevo un abrigo."],"answerIdx":0,"sectionId":"U06-S02"},{"id":"espanol-a1-u06-s03-1","type":"T07","typeName":"翻译选择","language":"espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"工作、学习与日常场景沟通","difficulty":2,"tags":["与格代词le","翻译练习","A1核心语法"],"sourceText":"我把这本书借给了我的同学。","options":["A) Yo presto el libro a mi compañero de clase.","B) Le presto el libro a mi compañero de clase.","C) Le presté el libro a mi profesor.","D) Le presté el libro a mi compañero de clase."],"answerIdx":3,"sectionId":"U06-S03"},{"id":"espanol-a1-u06-s03-2","type":"T03","typeName":"双向配对","language":"espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"工作、学习与日常场景沟通","difficulty":1,"tags":["代词配对","词汇识别","不定代词与与格代词"],"left":["alguien","nada","todos","le"],"right":["某人","什么都没有","所有人","他/她（与格代词）"],"sectionId":"U06-S03"},{"id":"espanol-a1-u06-s03-3","type":"T05","typeName":"补全句子","language":"espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"工作、学习与日常场景沟通","difficulty":2,"tags":["关系代词quien","补全句子","语法应用"],"sentence":"¿___ puedes ayudarme con la tarea de español?","hint":"此处需填入指人的关系代词，用于引导特殊疑问句，询问“谁”能够提供帮助","answer":"Quien","sectionId":"U06-S03"},{"id":"espanol-a1-u06-s03-4","type":"T12","typeName":"情景回应","language":"espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"工作、学习与日常场景沟通","difficulty":3,"tags":["与格代词le","情景表达","日常交际"],"scenario":"你在办公室需要请坐在你旁边的同事帮忙，把桌上的文件传给角落里的另一位同事，你会如何用西语表达这个请求？","options":["A) ¿Le puedes pasar el documento a aquel compañero?","B) ¿Les puedes pasar el documento a aquel compañero?","C) ¿Le puedes dar el documento a todos los compañeros?","D) ¿Le puedes prestar el documento a aquel compañero?"],"answerIdx":0,"sectionId":"U06-S03"},{"id":"espanol-a1-u06-s03-5","type":"T09","typeName":"拼写输入","language":"espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"工作、学习与日常场景沟通","difficulty":1,"tags":["不定代词otro","拼写练习","词汇记忆"],"audioText":"请拼写西语中表示“另一个”的阳性单数不定代词","hint":"该词以o结尾，为阳性形式，对应的阴性形式为otra","answer":"otro","sectionId":"U06-S03"},{"id":"espanol-a1-u06-s04-1","type":"T02","typeName":"听音选图","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Comunicación integrada en entornos de trabajo, estudio y vida cotidiana","difficulty":2,"tags":["gustar","vocabulario de vivienda","comprensión auditiva"],"audioText":"Me gusta la cocina grande.","imageOptions":[{"desc":"带大窗户的宽敞厨房，有木质橱柜和餐桌","prompt":"Modern, clean, flat vector illustration, white background, spacious kitchen with large windows, wooden cabinets, dining table"},{"desc":"狭小的卧室，仅有一张单人床和一个小衣柜","prompt":"Modern, clean, flat vector illustration, white background, small bedroom with only a single bed, small wardrobe"},{"desc":"带沙发、电视柜和咖啡桌的客厅","prompt":"Modern, clean, flat vector illustration, white background, living room with sofa, TV stand, coffee table"}],"correctIdx":0,"sectionId":"U06-S04"},{"id":"espanol-a1-u06-s04-2","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Comunicación integrada en entornos de trabajo, estudio y vida cotidiana","difficulty":3,"tags":["gustar","conjugación verbal","estructuras interrogativas"],"sentence":"¿___ la comida italiana?","hint":"提示：此处考查动词gustar的疑问式变位，句子主语为单数第三人称，对应正确变位形式为gusta，需搭配对应人称代词","options":["Te gusta","Le gusta","Me gusta","Nos gusta"],"correctIdx":0,"sectionId":"U06-S04"},{"id":"espanol-a1-u06-s04-3","type":"T06","typeName":"句子排序","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Comunicación integrada en entornos de trabajo, estudio y vida cotidiana","difficulty":3,"tags":["orden de palabras","estructuras comunicativas","vocabulario de vivienda"],"scrambledWords":["Me","gusta","mi","habitación","porque","tiene","mucho","espacio"],"correctSentence":"Me gusta mi habitación porque tiene mucho espacio.","sectionId":"U06-S04"},{"id":"espanol-a1-u06-s04-4","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Comunicación integrada en entornos de trabajo, estudio y vida cotidiana","difficulty":2,"tags":["traducción","vocabulario de ocio","gustar"],"sourceText":"我喜欢在午休时间和同事去楼下咖啡馆喝咖啡。","options":["Me gusta ir a la cafetería de la planta baja con mis compañeros de trabajo durante la hora del almuerzo para tomar café.","Me gusta almorzar en la oficina con mi jefe los fines de semana para hablar de trabajo.","Me gusta salir a comer con mis amigos los viernes por la noche para probar comida nueva.","Me gusta quedarme en la oficina después del trabajo para terminar mis tareas."],"correctIdx":0,"sectionId":"U06-S04"},{"id":"espanol-a1-u06-s04-5","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"Comunicación en trabajo, estudio y situaciones cotidianas","unitTheme":"Comunicación integrada en entornos de trabajo, estudio y vida cotidiana","difficulty":4,"tags":["comunicación oral","situaciones cotidianas","gustar"],"scenario":"你和同学聊天时，对方问你喜欢住在现在的公寓吗？请用Espanol给出肯定回应并说明原因：你很喜欢因为离学校很近。","options":["Sí, me gusta mucho vivir en este apartamento porque está muy cerca de la universidad.","No, no me gusta nada este apartamento porque es muy pequeño y ruidoso.","Me es indiferente, no me importa dónde viva mientras tenga internet rápido.","No me gusta vivir en la ciudad, prefiero vivir en el campo con mi familia."],"correctIdx":0,"sectionId":"U06-S04"},{"id":"espanol-a1-u01-s03-01","type":"T06","typeName":"句子排序","language":"Espanol","cefr":"A1","unit":"Saludos y presentación personal","unitTheme":"Posesión y expresión de existencia","difficulty":2,"tags":["verbo hay","preposición de posesión","orden de oraciones","vocabulario familia/casa"],"scrambledWords":["hay","muchos","libros","En","la","casa","de","mi","familia"],"answer":"En la casa de mi familia hay muchos libros.","sectionId":"U01-S03"},{"id":"espanol-a1-u01-s03-02","type":"T05","typeName":"补全句子","language":"Espanol","cefr":"A1","unit":"Saludos y presentación personal","unitTheme":"Posesión y expresión de existencia","difficulty":2,"tags":["artículo contraído del","preposición de posesión","vocabulario familia"],"sentence":"La casa ___ mis abuelos es muy acogedora.","hint":"此处需要用de加定冠词el的缩略形式del，表示所属关系‘...的’","options":["del","de","al","para"],"answerIdx":0,"sectionId":"U01-S03"},{"id":"espanol-a1-u01-s03-03","type":"T07","typeName":"翻译选择","language":"Espanol","cefr":"A1","unit":"Saludos y presentación personal","unitTheme":"Posesión y expresión de existencia","difficulty":2,"tags":["preposición de para posesión","vocabulario objetos personales"],"sourceText":"这本是胡安的练习册。","options":["El cuaderno para Juan es nuevo.","El cuaderno de Juan es nuevo.","El cuaderno al Juan es nuevo.","Juan tiene un cuaderno nuevo."],"answerIdx":0,"sectionId":"U01-S03"},{"id":"espanol-a1-u01-s03-04","type":"T02","typeName":"听音选图","language":"Espanol","cefr":"A1","unit":"Saludos y presentación personal","unitTheme":"Posesión y expresión de existencia","difficulty":3,"tags":["verbo hay","artículo contraído al","vocabulario supermercado","comprensión auditiva"],"audioText":"Voy al supermercado con mi mamá y hay mucha fruta.","imageOptions":[{"desc":"超市货架上的水果","prompt":"Modern, clean, flat vector illustration, white background, supermarket shelf with various fresh fruits, no people"},{"desc":"办公室里的打印机","prompt":"Modern, clean, flat vector illustration, white background, office desk with a printer, no people"},{"desc":"沙发上的家猫","prompt":"Modern, clean, flat vector illustration, white background, cat sitting on a sofa, no people"},{"desc":"有车辆的城市街道","prompt":"Modern, clean, flat vector illustration, white background, busy city street with cars, no people"}],"answerIdx":0,"sectionId":"U01-S03"},{"id":"espanol-a1-u01-s03-05","type":"T12","typeName":"情景回应","language":"Espanol","cefr":"A1","unit":"Saludos y presentación personal","unitTheme":"Posesión y expresión de existencia","difficulty":3,"tags":["verbo hay","preposición de posesión","artículo contraído al","presentación personal","vocabulario trabajo/ciudad"],"scenario":"你要向新同事介绍你在墨西哥城的工作，你的办公室里有你的电脑和同事的打印机，你周末常和朋友去公园，请选择正确的表达。","options":["Trabajo en la Ciudad de México. En mi oficina hay mi computadora y la impresora de mi compañero. El fin de semana voy al parque con mi amigo.","Trabajo en la Ciudad de México. Mi oficina hay mi computadora y la impresora de mi compañero. El fin de semana voy al parque con mi amigo.","Trabajo en la Ciudad de México. En mi oficina está mi computadora y la impresora de mi compañero. El fin de semana voy a la parque con mi amigo.","Trabajo en la Ciudad de México. Hay mi oficina mi computadora y la impresora de mi compañero. El fin de semana voy al parque con mi amigo."],"answerIdx":0,"sectionId":"U01-S03"}]
+[
+  {
+    "id": "中文-a1-u02-s05-01",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "zh-CN",
+    "cefr": "A1",
+    "unit": "日常生活与家庭",
+    "unitTheme": "需求与可能性",
+    "difficulty": 1,
+    "tags": [
+      "阅读",
+      "词汇"
+    ],
+    "imageDesc": "Una persona que quiere beber agua",
+    "imagePrompt": "A person reaching for a glass of water, modern, clean, flat vector illustration, white background",
+    "options": [
+      "我要喝水",
+      "我会喝水",
+      "我能喝水",
+      "我想喝水"
+    ],
+    "answerIdx": 3,
+    "sectionId": "pair_1781451962486/U02-S05",
+    "pairId": "pair_1781451962486"
+  },
+  {
+    "id": "中文-a1-u02-s05-02",
+    "type": "T02",
+    "typeName": "听音选图",
+    "language": "zh-CN",
+    "cefr": "A1",
+    "unit": "日常生活与家庭",
+    "unitTheme": "需求与可能性",
+    "difficulty": 2,
+    "tags": [
+      "听力",
+      "词汇"
+    ],
+    "audioText": "我可以去公园。",
+    "imageOptions": [
+      {
+        "desc": "一个人在公园散步",
+        "prompt": "A person walking in a park, modern, clean, flat vector illustration, white background"
+      },
+      {
+        "desc": "一个人在家里看电视",
+        "prompt": "A person watching TV at home, modern, clean, flat vector illustration, white background"
+      },
+      {
+        "desc": "一个人在厨房做饭",
+        "prompt": "A person cooking in a kitchen, modern, clean, flat vector illustration, white background"
+      },
+      {
+        "desc": "一个人在图书馆读书",
+        "prompt": "A person reading in a library, modern, clean, flat vector illustration, white background"
+      }
+    ],
+    "answerIdx": 0,
+    "sectionId": "pair_1781451962486/U02-S05",
+    "pairId": "pair_1781451962486"
+  },
+  {
+    "id": "中文-a1-u02-s05-03",
+    "type": "T08",
+    "typeName": "听力选择",
+    "language": "zh-CN",
+    "cefr": "A1",
+    "unit": "日常生活与家庭",
+    "unitTheme": "需求与可能性",
+    "difficulty": 2,
+    "tags": [
+      "听力",
+      "理解"
+    ],
+    "audioText": "我没有钱。",
+    "question": "¿Qué está diciendo la persona?",
+    "options": [
+      "Tengo dinero.",
+      "No tengo dinero.",
+      "Quiero dinero."
+    ],
+    "answerIdx": 1,
+    "sectionId": "pair_1781451962486/U02-S05",
+    "pairId": "pair_1781451962486"
+  },
+  {
+    "id": "中文-a1-u02-s05-04",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "zh-CN",
+    "cefr": "A1",
+    "unit": "日常生活与家庭",
+    "unitTheme": "需求与可能性",
+    "difficulty": 1,
+    "tags": [
+      "翻译",
+      "词汇"
+    ],
+    "sourceText": "Quiero comer",
+    "options": [
+      "我能吃",
+      "我会吃",
+      "我想吃",
+      "我没有吃"
+    ],
+    "answerIdx": 2,
+    "sectionId": "pair_1781451962486/U02-S05",
+    "pairId": "pair_1781451962486"
+  },
+  {
+    "id": "中文-a1-u02-s05-05",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "zh-CN",
+    "cefr": "A1",
+    "unit": "日常生活与家庭",
+    "unitTheme": "需求与可能性",
+    "difficulty": 1,
+    "tags": [
+      "语法",
+      "词汇"
+    ],
+    "sentence": "我 ___ 去超市。",
+    "hint": "使用表示‘想要’的词，表达个人需求。",
+    "options": [
+      "能",
+      "会",
+      "想",
+      "没有"
+    ],
+    "answerIdx": 2,
+    "sectionId": "pair_1781451962486/U02-S05",
+    "pairId": "pair_1781451962486"
+  },
+  {
+    "id": "espanol-a1-u01-s01-01",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 1,
+    "tags": [
+      "vocabulario",
+      "saludos",
+      "pronombres_personales"
+    ],
+    "imageDesc": "一个面带微笑、抬手向对方打招呼的年轻男性卡通插画",
+    "imagePrompt": "Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, A young smiling man waving his hand to greet others, wearing casual t-shirt, friendly expression, simple white background",
+    "options": [
+      "Hola",
+      "Adiós",
+      "Gracias",
+      "Por favor"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S01",
+    "imageUrl": "/api/images/espanol-a1-u01-s01-01.jpg?v=1782764579258",
+    "imageSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <circle cx=\"200\" cy=\"160\" r=\"55\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <path d=\"M 140 155 C 140 85 260 85 260 155 L 260 125 C 260 65 140 65 140 125 Z\" fill=\"#5D4037\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"180\" cy=\"155\" r=\"5\" fill=\"#333333\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <circle cx=\"220\" cy=\"155\" r=\"5\" fill=\"#333333\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <path d=\"M 180 180 Q 200 195 220 180\" fill=\"none\" stroke=\"#333333\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n  <rect x=\"190\" y=\"210\" width=\"20\" height=\"8\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M 150 215 L 250 215 L 255 325 L 145 325 Z\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <path d=\"M 150 220 L 125 295 L 140 300 L 160 225 Z\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M 250 220 L 285 145 L 300 135 L 315 145 L 295 165 L 270 235 Z\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n</svg>",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s01-02",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 1,
+    "tags": [
+      "gramatica",
+      "pronombre_personal_yo",
+      "verbo_ser"
+    ],
+    "sourceText": "你好，我是安娜",
+    "options": [
+      "Hola, soy Ana.",
+      "Hola, estoy Ana.",
+      "Hola, eres Ana.",
+      "Hola, es Ana."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s01-03",
+    "type": "T06",
+    "typeName": "句子排序",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 2,
+    "tags": [
+      "gramatica",
+      "orden_sintactico",
+      "verbo_estar"
+    ],
+    "sentence": "¿Cómo estás tú?",
+    "words": [
+      "tú",
+      "¿Cómo",
+      "estás",
+      "?"
+    ],
+    "correctOrder": [
+      1,
+      2,
+      0,
+      3
+    ],
+    "sectionId": "zh-es/U01-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s01-04",
+    "type": "T08",
+    "typeName": "听力选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 2,
+    "tags": [
+      "comprension_auditiva",
+      "saludos",
+      "estado_personal"
+    ],
+    "audioText": "Hola, yo estoy bien, gracias.",
+    "question": "说话者现在的状态是什么？",
+    "options": [
+      "很好",
+      "不好",
+      "一般"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s01-05",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 2,
+    "tags": [
+      "expresion_oral",
+      "interaccion_social",
+      "saludos"
+    ],
+    "scenario": "你在教室第一次见到新同学，对方主动向你打招呼说“¡Hola! ¿Cómo estás?”，你应该选择哪种合适的回应？",
+    "options": [
+      "Hola, estoy bien, gracias. ¿Y tú?",
+      "Adiós, hasta luego.",
+      "Gracias, muy amable.",
+      "Lo siento, no hablo español."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s02-1",
+    "type": "T05",
+    "typeName": "补全句子（选词填空）",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "u01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 1,
+    "tags": [
+      "冠词",
+      "不定冠词",
+      "性数配合",
+      "个人信息介绍"
+    ],
+    "sentence": "Yo soy ___ hombre español.",
+    "options": [
+      "el",
+      "la",
+      "un",
+      "una"
+    ],
+    "answerIdx": 2,
+    "hint": "此处需填入与阳性单数名词hombre匹配的不定冠词，注意冠词的性数配合规则",
+    "sectionId": "zh-es/U01-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s02-2",
+    "type": "T07",
+    "typeName": "翻译选择（中译西）",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "u01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 1,
+    "tags": [
+      "冠词",
+      "介词de",
+      "名词性数",
+      "翻译"
+    ],
+    "sourceText": "她是一位来自马德里的女老师。",
+    "options": [
+      "Ella es una profesora de Madrid.",
+      "Ella es una profesora en Madrid.",
+      "Ella es el profesora de Madrid.",
+      "Ella es una profesor de Madrid."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s02-3",
+    "type": "T02",
+    "typeName": "听音选图",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "u01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 1,
+    "tags": [
+      "听力",
+      "词汇",
+      "个人信息",
+      "冠词"
+    ],
+    "audioText": "Yo soy una niña de México.",
+    "imageOptions": [
+      {
+        "desc": "一个来自墨西哥的小女孩",
+        "prompt": "A cute little Mexican girl, wearing traditional Mexican dress, flat vector illustration, modern, clean, white background",
+        "imageUrl": "/api/images/espanol-a1-u01-s02-3-opt0.jpg?v=1782764681789",
+        "imageSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <circle cx=\"200\" cy=\"160\" r=\"45\" fill=\"#F5D0A9\" stroke=\"#3E2723\" stroke-width=\"3\"/>\n  <path d=\"M155 140 Q200 100 245 140 L245 160 Q200 130 155 160 Z\" fill=\"#3E2723\" stroke=\"#3E2723\" stroke-width=\"3\"/>\n  <path d=\"M155 140 L130 220\" stroke=\"#3E2723\" stroke-width=\"12\" stroke-linecap=\"round\"/>\n  <rect x=\"122\" y=\"200\" width=\"16\" height=\"8\" fill=\"#4CAF50\" stroke=\"#3E2723\" stroke-width=\"2\" rx=\"2\"/>\n  <path d=\"M245 140 L270 220\" stroke=\"#3E2723\" stroke-width=\"12\" stroke-linecap=\"round\"/>\n  <rect x=\"262\" y=\"200\" width=\"16\" height=\"8\" fill=\"#4CAF50\" stroke=\"#3E2723\" stroke-width=\"2\" rx=\"2\"/>\n  <circle cx=\"200\" cy=\"115\" r=\"8\" fill=\"#FFEB3B\" stroke=\"#3E2723\" stroke-width=\"2\"/>\n  <circle cx=\"200\" cy=\"115\" r=\"3\" fill=\"#FF5722\"/>\n  <ellipse cx=\"185\" cy=\"155\" rx=\"6\" ry=\"8\" fill=\"#3E2723\"/>\n  <ellipse cx=\"215\" cy=\"155\" rx=\"6\" ry=\"8\" fill=\"#3E2723\"/>\n  <circle cx=\"183\" cy=\"152\" r=\"2\" fill=\"#FFFFFF\"/>\n  <circle cx=\"213\" cy=\"152\" r=\"2\" fill=\"#FFFFFF\"/>\n  <path d=\"M190 175 Q200 185 210 175\" stroke=\"#3E2723\" stroke-width=\"2\" fill=\"none\" stroke-linecap=\"round\"/>\n  <path d=\"M160 200 L120 380 Q200 390 280 380 L240 200 Z\" fill=\"#E53935\" stroke=\"#3E2723\" stroke-width=\"3\"/>\n  <ellipse cx=\"150\" cy=\"210\" rx=\"20\" ry=\"12\" fill=\"#E53935\" stroke=\"#3E2723\" stroke-width=\"3\"/>\n  <ellipse cx=\"250\" cy=\"210\" rx=\"20\" ry=\"12\" fill=\"#E53935\" stroke=\"#3E2723\" stroke-width=\"3\"/>\n  <path d=\"M150 210 L140 260\" stroke=\"#F5D0A9\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <path d=\"M250 210 L260 260\" stroke=\"#F5D0A9\" stroke-width=\"8\" stroke-linecap=\"round\"/>\n  <circle cx=\"140\" cy=\"260\" r=\"7\" fill=\"#F5D0A9\" stroke=\"#3E2723\" stroke-width=\"2\"/>\n  <circle cx=\"260\" cy=\"260\" r=\"7\" fill=\"#F5D0A9\" stroke=\"#3E2723\" stroke-width=\"2\"/>\n  <circle cx=\"200\" cy=\"280\" r=\"8\" fill=\"#FFC107\" stroke=\"#3E2723\" stroke-width=\"2\"/>\n  <circle cx=\"170\" cy=\"320\" r=\"6\" fill=\"#FFC107\" stroke=\"#3E2723\" stroke-width=\"2\"/>\n  <circle cx=\"230\" cy=\"320\" r=\"6\" fill=\"#FFC107\" stroke=\"#3E2723\" stroke-width=\"2\"/>\n</svg>"
+      },
+      {
+        "desc": "一个来自墨西哥的小男孩",
+        "prompt": "A cute little Mexican boy, wearing traditional Mexican clothes, flat vector illustration, modern, clean, white background",
+        "imageUrl": "/api/images/espanol-a1-u01-s02-3-opt1.jpg?v=1782764729060",
+        "imageSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <ellipse cx=\"200\" cy=\"115\" rx=\"70\" ry=\"16\" fill=\"#FDD835\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <ellipse cx=\"200\" cy=\"105\" rx=\"40\" ry=\"10\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"200\" cy=\"95\" r=\"7\" fill=\"#E91E63\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"200\" cy=\"160\" r=\"40\" fill=\"#FFD1B3\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M162 145 C162 128, 238 128, 238 145 L238 152 C238 135, 162 135, 162 152 Z\" fill=\"#212121\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"185\" cy=\"155\" r=\"5\" fill=\"#212121\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"215\" cy=\"155\" r=\"5\" fill=\"#212121\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M190 175 Q200 185 210 175\" fill=\"none\" stroke=\"#333333\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n  <path d=\"M160 200 L240 200 L250 320 L150 320 Z\" fill=\"#43A047\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M168 215 L232 215 L242 305 L158 305 Z\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"150\" y=\"290\" width=\"100\" height=\"18\" rx=\"3\" fill=\"#F9A825\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M160 210 L130 260 L140 270 L165 225\" fill=\"#FFD1B3\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M240 210 L270 260 L260 270 L235 225\" fill=\"#FFD1B3\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M170 320 L170 380 L190 380 L190 320\" fill=\"#1565C0\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M210 320 L210 380 L230 380 L230 320\" fill=\"#1565C0\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M165 380 L195 380 L195 392 L165 392 Z\" fill=\"#795548\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M205 380 L235 380 L235 392 L205 392 Z\" fill=\"#795548\" stroke=\"#333333\" stroke-width=\"3\"/>\n</svg>"
+      },
+      {
+        "desc": "一个来自墨西哥的成年女性",
+        "prompt": "A young Mexican woman, wearing traditional Mexican dress, flat vector illustration, modern, clean, white background",
+        "imageUrl": "/api/images/espanol-a1-u01-s02-3-opt2.jpg?v=1782764771375",
+        "imageSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <ellipse cx=\"200\" cy=\"180\" rx=\"45\" ry=\"55\" fill=\"#F4C59E\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M155 160 Q150 120 200 100 Q250 120 245 160 L245 190 Q200 200 155 190 Z\" fill=\"#5D4037\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"200\" cy=\"95\" r=\"25\" fill=\"#5D4037\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <ellipse cx=\"185\" cy=\"175\" rx=\"6\" ry=\"8\" fill=\"#333333\"/>\n  <ellipse cx=\"215\" cy=\"175\" rx=\"6\" ry=\"8\" fill=\"#333333\"/>\n  <circle cx=\"187\" cy=\"172\" r=\"2\" fill=\"#FFFFFF\"/>\n  <circle cx=\"217\" cy=\"172\" r=\"2\" fill=\"#FFFFFF\"/>\n  <path d=\"M190 200 Q200 208 210 200\" fill=\"none\" stroke=\"#D81B60\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n  <path d=\"M140 220 Q120 280 130 350 L270 350 Q280 280 260 220\" fill=\"#9C27B0\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M155 220 L245 220 L240 300 L160 300 Z\" fill=\"#E91E63\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M175 220 Q200 235 225 220\" fill=\"none\" stroke=\"#FFC107\" stroke-width=\"3\"/>\n  <rect x=\"190\" y=\"245\" width=\"8\" height=\"8\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"202\" y=\"245\" width=\"8\" height=\"8\" fill=\"#2196F3\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <circle cx=\"200\" cy=\"270\" r=\"5\" fill=\"#FF9800\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <circle cx=\"200\" cy=\"75\" r=\"10\" fill=\"#FF9800\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <ellipse cx=\"200\" cy=\"60\" rx=\"6\" ry=\"10\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <ellipse cx=\"215\" cy=\"75\" rx=\"10\" ry=\"6\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <ellipse cx=\"200\" cy=\"90\" rx=\"6\" ry=\"10\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <ellipse cx=\"185\" cy=\"75\" rx=\"10\" ry=\"6\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <path d=\"M155 185 L150 210 L160 210 Z\" fill=\"#FFD700\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <path d=\"M245 185 L240 210 L250 210 Z\" fill=\"#FFD700\" stroke=\"#333333\" stroke-width=\"2\"/>\n</svg>"
+      },
+      {
+        "desc": "一个来自墨西哥的成年男性",
+        "prompt": "A young Mexican man, wearing traditional Mexican clothes, flat vector illustration, modern, clean, white background",
+        "imageUrl": "/api/images/espanol-a1-u01-s02-3-opt3.jpg?v=1782764794694",
+        "imageSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <ellipse cx=\"200\" cy=\"100\" rx=\"90\" ry=\"20\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M170 120 L170 90 Q200 70 230 90 L230 120 Z\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <ellipse cx=\"200\" cy=\"150\" rx=\"35\" ry=\"40\" fill=\"#D4A373\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"185\" cy=\"145\" r=\"5\" fill=\"#333333\"/>\n  <circle cx=\"215\" cy=\"145\" r=\"5\" fill=\"#333333\"/>\n  <path d=\"M185 165 Q200 175 215 165\" stroke=\"#333333\" stroke-width=\"3\" fill=\"none\" stroke-linecap=\"round\"/>\n  <path d=\"M165 180 L235 180 L260 320 L140 320 Z\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M150 250 L170 250 L175 300 L145 300 Z\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M230 250 L250 250 L255 300 L225 300 Z\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M165 190 L130 240 L140 250 L170 210\" fill=\"#D4A373\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M235 190 L270 240 L260 250 L230 210\" fill=\"#D4A373\" stroke=\"#333333\" stroke-width=\"3\"/>\n</svg>"
+      }
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s02-4",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "u01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 1,
+    "tags": [
+      "情景交际",
+      "国籍表达",
+      "介词de"
+    ],
+    "scenario": "你刚认识了一位新同事，他想知道你的国籍，你应该怎么回答？",
+    "options": [
+      "Soy de China.",
+      "Soy China.",
+      "Yo vivo en China.",
+      "Me llamo China."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s02-5",
+    "type": "T10",
+    "typeName": "翻译输入（中译西）",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "u01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 2,
+    "tags": [
+      "翻译",
+      "冠词",
+      "介词en",
+      "形容词性数配合"
+    ],
+    "sourceText": "我住在一栋红色的房子里。",
+    "acceptedAnswers": [
+      "Vivo en una casa roja.",
+      "Vivo en una casa de color rojo."
+    ],
+    "sectionId": "zh-es/U01-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s04-1",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 2,
+    "tags": [
+      "adverbios de negación",
+      "conjunciones",
+      "presentación personal"
+    ],
+    "sentence": "Yo soy estudiante, ___ trabajo los fines de semana.",
+    "hint": "此处需要填入表示转折关系的连词，连接前后两个语义相关的分句",
+    "options": [
+      "y",
+      "pero",
+      "o",
+      "también"
+    ],
+    "answerIdx": 1,
+    "sectionId": "zh-es/U01-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s04-2",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 1,
+    "tags": [
+      "traducción",
+      "preguntas interrogativas",
+      "vocabulario básico"
+    ],
+    "sourceText": "你叫什么名字？",
+    "options": [
+      "¿Cómo te llamas?",
+      "¿Qué haces?",
+      "¿Cuántos años tienes?",
+      "¿De dónde eres?"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s04-3",
+    "type": "T06",
+    "typeName": "句子排序",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 3,
+    "tags": [
+      "orden de oraciones",
+      "conjunciones",
+      "afirmación y negación"
+    ],
+    "scrambledWords": [
+      "no",
+      "enfermo",
+      "estoy",
+      "Yo",
+      "muy",
+      "hoy"
+    ],
+    "correctSentence": "Yo no estoy muy enfermo hoy.",
+    "sectionId": "zh-es/U01-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s04-4",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 2,
+    "tags": [
+      "respuesta situacional",
+      "conjunciones",
+      "gustos y aficiones"
+    ],
+    "scenario": "有人询问你的爱好，你需要回答自己喜欢读书，但不喜欢运动",
+    "options": [
+      "Me gusta leer, pero no me gusta hacer deporte.",
+      "Me gusta leer y también me gusta hacer deporte.",
+      "No me gusta leer, pero me gusta hacer deporte.",
+      "Me gusta leer o me gusta hacer deporte."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s04-5",
+    "type": "T10",
+    "typeName": "翻译输入",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 3,
+    "tags": [
+      "traducción escrita",
+      "conjunciones",
+      "estados de ánimo"
+    ],
+    "sourceText": "我今天很开心，但是昨天有点难过。",
+    "acceptedAnswers": [
+      "Hoy estoy muy feliz, pero ayer estaba un poco triste."
+    ],
+    "sectionId": "zh-es/U01-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s05-1",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 2,
+    "tags": [
+      "pronombres personales",
+      "ser/estar",
+      "artículos"
+    ],
+    "sentence": "¿___ te llamas?",
+    "options": [
+      "Cómo",
+      "Qué",
+      "Quién",
+      "Cuál"
+    ],
+    "answerIdx": 0,
+    "hint": "此处为询问对方姓名的常用句型，需填入表示‘如何’的疑问词",
+    "sectionId": "zh-es/U01-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s05-2",
+    "type": "T02",
+    "typeName": "听音选图",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 1,
+    "tags": [
+      "vocabulario",
+      "saludos",
+      "presentación"
+    ],
+    "audioText": "Me llamo Ana y soy de México.",
+    "imageOptions": [
+      {
+        "desc": "一位名叫Ana的墨西哥女孩正在做自我介绍",
+        "prompt": "Modern, clean, flat vector illustration, white background, a young Mexican girl named Ana introducing herself with a smile"
+      },
+      {
+        "desc": "一位名叫Juan的西班牙男孩正在做自我介绍",
+        "prompt": "Modern, clean, flat vector illustration, white background, a young Spanish boy named Juan introducing himself with a smile"
+      },
+      {
+        "desc": "一位名叫María的阿根廷女士正在办公室工作",
+        "prompt": "Modern, clean, flat vector illustration, white background, an Argentine woman named María working in an office, professional attire"
+      }
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s05-3",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 2,
+    "tags": [
+      "traducción",
+      "ser/estar",
+      "artículos"
+    ],
+    "sourceText": "你好，我叫卡洛斯，我来自西班牙。",
+    "options": [
+      "Hola, me llamo Carlos y soy de España.",
+      "Hola, me llamo Carlos y estoy de España.",
+      "Hola, te llamas Carlos y soy de España.",
+      "Hola, me llamo Carlos y soy en España."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s05-4",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 3,
+    "tags": [
+      "escenario",
+      "conversación",
+      "protocolo social"
+    ],
+    "scenario": "你在社交场合第一次遇到一位名叫María的女士，她主动向你问好并询问你的名字，你应该选择最得体的回应：",
+    "options": [
+      "Hola, me llamo Juan, mucho gusto.",
+      "¿Cómo te llamas?",
+      "Estoy bien, gracias.",
+      "Soy de España."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s05-5",
+    "type": "T10",
+    "typeName": "翻译输入",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U01",
+    "unitTheme": "Saludos y presentación personal",
+    "difficulty": 2,
+    "tags": [
+      "traducción",
+      "familia",
+      "ser/estar",
+      "preposición de"
+    ],
+    "sourceText": "我的家人在马德里。",
+    "acceptedAnswers": [
+      "Mi familia está en Madrid.",
+      "Mi familia es de Madrid."
+    ],
+    "sectionId": "zh-es/U01-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s01-01",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Miembros básicos de la familia y introducción a pronombres posesivos",
+    "difficulty": 1,
+    "tags": [
+      "vocabulario",
+      "familia",
+      "miembros de la familia"
+    ],
+    "imageDesc": "一位年轻男性，是某人的哥哥",
+    "imagePrompt": "Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, young smiling man in casual clothes, family member illustration",
+    "options": [
+      "hermano",
+      "padre",
+      "abuelo",
+      "primo"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s01-02",
+    "type": "T08",
+    "typeName": "听力选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Miembros básicos de la familia y introducción a pronombres posesivos",
+    "difficulty": 2,
+    "tags": [
+      "gramática",
+      "verbo ser",
+      "identidad familiar"
+    ],
+    "audioText": "Él es mi hermano mayor.",
+    "question": "这句话描述的是哪类亲属关系？",
+    "options": [
+      "他是我的哥哥",
+      "他是我的父亲",
+      "他是我的叔叔"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s01-03",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Miembros básicos de la familia y introducción a pronombres posesivos",
+    "difficulty": 2,
+    "tags": [
+      "gramática",
+      "pronombres posesivos",
+      "verbo ser"
+    ],
+    "sentence": "___ hermana se llama Ana.",
+    "hint": "此处需填第一人称单数物主代词，修饰阴性单数名词hermana，对应中文‘我的’",
+    "options": [
+      "mi",
+      "mis",
+      "tu",
+      "su"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s01-04",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Miembros básicos de la familia y introducción a pronombres posesivos",
+    "difficulty": 2,
+    "tags": [
+      "vocabulario",
+      "traducción",
+      "familia"
+    ],
+    "sourceText": "我的叔叔",
+    "options": [
+      "mi tío",
+      "mi abuelo",
+      "mi primo",
+      "mi hermano"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s01-05",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Miembros básicos de la familia y introducción a pronombres posesivos",
+    "difficulty": 3,
+    "tags": [
+      "comunicación",
+      "presentación",
+      "familia",
+      "verbo ser"
+    ],
+    "scenario": "你在向他人介绍自己的家庭成员，需要表达‘我的父母是工人’，正确的西班牙语句子是？",
+    "options": [
+      "Mis padres son trabajadores.",
+      "Mi padre es trabajador.",
+      "Mis padres es trabajador.",
+      "Mi padres son trabajador."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s02-01",
+    "type": "T02",
+    "typeName": "听音选图",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Descripción de la apariencia física y concordancia de adjetivos",
+    "difficulty": 2,
+    "tags": [
+      "concordancia de adjetivos",
+      "vocabulario de apariencia física",
+      "pronombres personales"
+    ],
+    "audioText": "Él es alto y tiene el pelo negro.",
+    "imageOptions": [
+      {
+        "desc": "一位高个子男性，黑色短发，穿白色T恤，现代扁平矢量插画，纯白色背景",
+        "prompt": "Modern, clean, flat vector illustration, white background, a tall man with short black hair wearing a white T-shirt"
+      },
+      {
+        "desc": "一位矮个子女性，金色长发，穿红色连衣裙，现代扁平矢量插画，纯白色背景",
+        "prompt": "Modern, clean, flat vector illustration, white background, a short woman with long blonde hair wearing a red dress"
+      }
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s02-02",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Descripción de la apariencia física y concordancia de adjetivos",
+    "difficulty": 2,
+    "tags": [
+      "concordancia de género y número",
+      "verbo ser/tener",
+      "vocabulario de familia"
+    ],
+    "sentence": "Mi hermana ___ rubia y ___ los ojos azules.",
+    "hint": "形容词需与所指代名词的阴阳性、单复数保持一致：hermana为阴性单数名词，对应形容词用阴性单数形式；ojos为阳性复数名词，对应形容词用阳性复数形式",
+    "options": [
+      "es; tiene",
+      "es; tienen",
+      "son; tiene",
+      "son; tienen"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s02-03",
+    "type": "T08",
+    "typeName": "听力选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Descripción de la apariencia física y concordancia de adjetivos",
+    "difficulty": 2,
+    "tags": [
+      "comprensión auditiva",
+      "descripción de personas",
+      "vocabulario de familia y apariencia"
+    ],
+    "audioText": "Ella es mi abuela. Es vieja, tiene el pelo blanco y lleva un vestido rosa.",
+    "question": "根据听力内容，以下哪项描述是正确的？",
+    "options": [
+      "她是我的奶奶，年老，有白色头发，穿粉色连衣裙",
+      "她是我的妈妈，年轻，有黑色头发，穿蓝色外套",
+      "她是我的姐姐，年轻，有金色头发，穿绿色裙子"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s02-04",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Descripción de la apariencia física y concordancia de adjetivos",
+    "difficulty": 3,
+    "tags": [
+      "traducción chino-español",
+      "concordancia de género y número",
+      "vocabulario de ropa y apariencia"
+    ],
+    "sourceText": "我的哥哥又高又壮，穿一件黑色的夹克。",
+    "options": [
+      "Mi hermano es alto y grande, y lleva una chaqueta negra.",
+      "Mi hermano es alto y grande, y lleva un chaqueta negro.",
+      "Mi hermano son alto y grande, y lleva una chaqueta negro."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s02-05",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Descripción de la apariencia física y concordancia de adjetivos",
+    "difficulty": 3,
+    "tags": [
+      "producción oral/escrita",
+      "concordancia de adjetivos",
+      "descripción de familiares"
+    ],
+    "scenario": "你在向新朋友介绍你的妹妹，需要描述她的外貌特征，以下哪句表达是正确的？",
+    "options": [
+      "Ella es mi hermana. Es joven, tiene el pelo largo y verde, y los ojos marrones.",
+      "Ella es mi hermana. Es joven, tiene el pelo largo y verdes, y los ojos marrones.",
+      "Ella es mi hermana. Es joven, tienen el pelo largo y verde, y los ojos marrones."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s03-1",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "02",
+    "unitTheme": "Familia y descripción de personas",
+    "difficulty": 2,
+    "tags": [
+      "词汇识别",
+      "性格形容词",
+      "基础词汇"
+    ],
+    "imageDesc": "一个面带灿烂笑容、表情友善的卡通女孩，整体风格活泼，用于词汇识别的配图",
+    "imagePrompt": "Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a cheerful cartoon girl with a big bright smile, friendly expression, wearing a casual t-shirt, simple flat design, educational illustration for children's language learning",
+    "options": [
+      "triste",
+      "feliz",
+      "enfermo",
+      "lento"
+    ],
+    "answerIdx": 1,
+    "sectionId": "zh-es/U02-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s03-2",
+    "type": "T08",
+    "typeName": "听力选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "02",
+    "unitTheme": "Familia y descripción de personas",
+    "difficulty": 2,
+    "tags": [
+      "听力理解",
+      "también用法",
+      "家庭描述"
+    ],
+    "audioText": "Mi madre es trabajadora y también es muy amable.",
+    "question": "录音中说话人描述的母亲具备哪些特点？",
+    "options": [
+      "A. 勤劳且友善",
+      "B. 懒惰且友善",
+      "C. 勤劳且严肃"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s03-3",
+    "type": "T06",
+    "typeName": "句子排序",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "02",
+    "unitTheme": "Familia y descripción de personas",
+    "difficulty": 3,
+    "tags": [
+      "语法应用",
+      "语序规则",
+      "otro系列代词"
+    ],
+    "sentence": "Mi hermano es alto y mi otro hermano es bajo.",
+    "words": [
+      "bajo",
+      "otro",
+      "mi",
+      "es",
+      "alto",
+      "y",
+      "hermano",
+      "Mi",
+      "es",
+      "hermano"
+    ],
+    "correctOrder": [
+      7,
+      6,
+      2,
+      3,
+      4,
+      5,
+      1,
+      8,
+      9,
+      0
+    ],
+    "sectionId": "zh-es/U02-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s03-4",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "02",
+    "unitTheme": "Familia y descripción de personas",
+    "difficulty": 2,
+    "tags": [
+      "翻译练习",
+      "otro系列代词",
+      "形容词性物主代词"
+    ],
+    "sourceText": "我的另一个朋友很害羞。",
+    "options": [
+      "Mi otro amigo es tímido.",
+      "Mi otra amigo es tímido.",
+      "Mis otros amigo es tímido.",
+      "Mis otras amigo es tímido."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s03-5",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "02",
+    "unitTheme": "Familia y descripción de personas",
+    "difficulty": 3,
+    "tags": [
+      "情景应用",
+      "también用法",
+      "家庭介绍"
+    ],
+    "scenario": "你遇到新同学，需要介绍自己的姐姐，说明她既友好又聪明，以下哪个表达是正确的？",
+    "options": [
+      "Mi hermana es amable y también es inteligente.",
+      "Mi hermana es amable y también son inteligente.",
+      "Mi hermana es amable y también es inteligenta.",
+      "Mi hermana es amable y también inteligente es."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s04-01",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Presentación integral de la familia y descripción completa de personas",
+    "difficulty": 1,
+    "tags": [
+      "vocabulario",
+      "familia",
+      "reconocimiento visual"
+    ],
+    "imageDesc": "一位中年男性的卡通形象，穿着休闲衬衫，面带微笑，代表家庭中的父亲角色",
+    "imagePrompt": "Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a middle-aged man in casual shirt with warm smile, representing a father in a family",
+    "options": [
+      "padre",
+      "madre",
+      "hermano",
+      "abuelo"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s04-02",
+    "type": "T03",
+    "typeName": "双向配对",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Presentación integral de la familia y descripción completa de personas",
+    "difficulty": 2,
+    "tags": [
+      "gramática",
+      "pronombre posesivo",
+      "vocabulario familiar"
+    ],
+    "left": [
+      "nuestro padre",
+      "vuestra hermana",
+      "nuestra familia",
+      "vuestro amigo"
+    ],
+    "right": [
+      "我们的父亲",
+      "你们的姐妹",
+      "我们的家庭",
+      "你们的男性朋友"
+    ],
+    "pairs": [
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        2,
+        2
+      ],
+      [
+        3,
+        3
+      ]
+    ],
+    "sectionId": "zh-es/U02-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s04-03",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Presentación integral de la familia y descripción completa de personas",
+    "difficulty": 2,
+    "tags": [
+      "gramática",
+      "pronombre posesivo plural",
+      "concordancia"
+    ],
+    "sentence": "______ amigos son de España.",
+    "options": [
+      "Nuestros",
+      "Vuestros",
+      "Otros"
+    ],
+    "answerIdx": 0,
+    "hint": "本题考查复数阳性物主代词nuestros/vuestros的用法，nuestros对应‘我们的’，vuestros对应‘你们的’，需根据句意选择合适形式",
+    "sectionId": "zh-es/U02-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s04-04",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Presentación integral de la familia y descripción completa de personas",
+    "difficulty": 2,
+    "tags": [
+      "gramática",
+      "pronombre posesivo",
+      "concordancia de género"
+    ],
+    "sourceText": "我们的家庭有五口人",
+    "options": [
+      "Nuestra familia tiene cinco miembros.",
+      "Nuestro familia tiene cinco miembros.",
+      "Vuestra familia tiene cinco miembros.",
+      "Sus familia tiene cinco miembros."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u02-s04-05",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Familia y descripción de personas",
+    "unitTheme": "Presentación integral de la familia y descripción completa de personas",
+    "difficulty": 3,
+    "tags": [
+      "comprensión oral",
+      "presentación familiar",
+      "pronombre personal y posesivo"
+    ],
+    "scenario": "你正在向新朋友介绍你的家庭成员，需要说明你的父亲和母亲也是你的好朋友，请选择正确的表达",
+    "options": [
+      "Este es mi padre, esta es mi madre, ellos también son mis amigos.",
+      "Este es mi padre, esta es mi madre, ellos también son vuestros amigos.",
+      "Este es mi padre, esta es mi madre, ellas también son mis amigos.",
+      "Este es mi padre, esta es mi madre, ellos también son sus amigos."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U02-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s01-01",
+    "type": "T07",
+    "typeName": "Selección de traducción",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 2,
+    "tags": [
+      "vocabulario de tiempo",
+      "actividades cotidianas",
+      "traducción"
+    ],
+    "sourceText": "我每天早上七点起床",
+    "options": [
+      "Me despierto a las siete de la mañana todos los días",
+      "Me levanto a las ocho de la noche todos los días",
+      "Despierto a las siete de la mañana todos los días",
+      "Me despierto a las siete de la tarde todos los días"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U03-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s01-02",
+    "type": "T08",
+    "typeName": "Selección auditiva",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 2,
+    "tags": [
+      "comprensión auditiva",
+      "vocabulario de tiempo",
+      "actividades cotidianas"
+    ],
+    "audioText": "Yo llego a la oficina a las nueve de la mañana",
+    "question": "说话人什么时候到达办公室？",
+    "options": [
+      "早上九点",
+      "早上八点",
+      "晚上九点"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U03-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s01-03",
+    "type": "T02",
+    "typeName": "Selección de imagen por audio",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 1,
+    "tags": [
+      "comprensión auditiva",
+      "vocabulario de actividades",
+      "reconocimiento visual"
+    ],
+    "audioText": "Ella come el almuerzo a la una de la tarde",
+    "imageDesc": "描述：一位年轻女性坐在餐桌前吃午餐，阳光从窗户照进来，氛围明亮温馨",
+    "imageOptions": [
+      {
+        "desc": "女性吃午餐",
+        "prompt": "Modern, clean, flat vector illustration, white background, a young woman sitting at a dining table eating lunch, sunlight coming through the window, simple and bright style"
+      },
+      {
+        "desc": "女性睡觉",
+        "prompt": "Modern, clean, flat vector illustration, white background, a young woman sleeping on a bed, soft warm lighting, simple and cozy style"
+      },
+      {
+        "desc": "女性工作",
+        "prompt": "Modern, clean, flat vector illustration, white background, a young woman working on a laptop at a desk, office setting, simple and bright style"
+      }
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U03-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s01-04",
+    "type": "T05",
+    "typeName": "Completar oración",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 2,
+    "tags": [
+      "vocabulario de tiempo",
+      "conjugación verbal",
+      "actividades cotidianas"
+    ],
+    "sentence": "Yo ______ (estudiar) español todos los días por la mañana",
+    "hint": "提示：主语为第一人称单数yo，一般现在时中规则动词estudiar的变位形式为estudio",
+    "answer": "estudio",
+    "sectionId": "zh-es/U03-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s01-05",
+    "type": "T10",
+    "typeName": "Traducción escrita",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 2,
+    "tags": [
+      "vocabulario de tiempo",
+      "traducción",
+      "actividades cotidianas"
+    ],
+    "sourceText": "我每天晚上十一点睡觉",
+    "acceptedAnswers": [
+      "Me duermo a las once de la noche todos los días"
+    ],
+    "sectionId": "zh-es/U03-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s02-01",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Rutina diaria y expresión del tiempo",
+    "unitTheme": "Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente",
+    "difficulty": 2,
+    "tags": [
+      "现在时规则变位",
+      "日常活动动词",
+      "-ar动词变位"
+    ],
+    "sentence": "Yo ______ (lavar) la ropa por la mañana.",
+    "hint": "此处需填入lavar的第一人称单数现在时变位，规则-ar动词变位规则为去掉词尾-ar加上-o",
+    "options": [
+      "lavo",
+      "lava",
+      "lavas",
+      "lavan"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U03-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s02-02",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Rutina diaria y expresión del tiempo",
+    "unitTheme": "Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente",
+    "difficulty": 2,
+    "tags": [
+      "日常活动表达",
+      "现在时规则变位",
+      "动词beber变位"
+    ],
+    "sourceText": "我每天早上喝咖啡",
+    "options": [
+      "Yo bebo café por la mañana.",
+      "Yo bebes café por la mañana.",
+      "Yo bebemos café por la mañana.",
+      "Yo beben café por la mañana."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U03-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s02-03",
+    "type": "T08",
+    "typeName": "听力选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Rutina diaria y expresión del tiempo",
+    "unitTheme": "Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente",
+    "difficulty": 2,
+    "tags": [
+      "听力理解",
+      "日常活动",
+      "现在时"
+    ],
+    "audioText": "Todos los días yo corro en el parque por la mañana.",
+    "question": "根据听力内容，说话人每天早上做什么？",
+    "options": [
+      "在公园跑步",
+      "在公园散步",
+      "在公园做饭"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U03-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s02-04",
+    "type": "T09",
+    "typeName": "拼写输入",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Rutina diaria y expresión del tiempo",
+    "unitTheme": "Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente",
+    "difficulty": 2,
+    "tags": [
+      "动词拼写",
+      "日常活动",
+      "-er动词变位"
+    ],
+    "hint": "请拼写西语动词“读”的第一人称单数现在时形式，该动词原形是leer，属于-er规则动词",
+    "answer": "leo",
+    "sectionId": "zh-es/U03-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s02-05",
+    "type": "T10",
+    "typeName": "翻译输入",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Rutina diaria y expresión del tiempo",
+    "unitTheme": "Verbos de actividades cotidianas e introducción a la conjugación de verbos regulares en presente",
+    "difficulty": 3,
+    "tags": [
+      "翻译练习",
+      "日常活动",
+      "现在时",
+      "-ar动词变位"
+    ],
+    "sourceText": "我每天晚上听音乐",
+    "acceptedAnswers": [
+      "Yo escucho música por la noche."
+    ],
+    "sectionId": "zh-es/U03-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s03-1",
+    "type": "T02",
+    "typeName": "听音选图",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 1,
+    "tags": [
+      "频率副词siempre",
+      "日常作息",
+      "听力识别"
+    ],
+    "audioText": "Yo siempre desayuno a las siete de la mañana.",
+    "imageOptions": [
+      {
+        "desc": "一个女孩每天早上七点坐在餐桌前吃早餐",
+        "prompt": "Modern, clean, flat vector illustration, white background, a young girl eating breakfast at 7am, cheerful style"
+      },
+      {
+        "desc": "一个女孩早上从来不吃早餐，直接出门",
+        "prompt": "Modern, clean, flat vector illustration, white background, a young girl leaving home without eating breakfast, simple style"
+      }
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U03-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s03-2",
+    "type": "T03",
+    "typeName": "双向配对",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 1,
+    "tags": [
+      "频率副词",
+      "词汇匹配",
+      "阅读记忆"
+    ],
+    "pairs": [
+      {
+        "left": "siempre",
+        "right": "总是"
+      },
+      {
+        "left": "normalmente",
+        "right": "通常"
+      },
+      {
+        "left": "a veces",
+        "right": "有时"
+      },
+      {
+        "left": "nunca",
+        "right": "从不"
+      }
+    ],
+    "sectionId": "zh-es/U03-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s03-3",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 1,
+    "tags": [
+      "频率副词用法",
+      "句子填空",
+      "语法理解"
+    ],
+    "sentence": "Yo ______ como fruta en el desayuno.",
+    "options": [
+      "siempre",
+      "solo",
+      "también",
+      "nunca"
+    ],
+    "hint": "提示：此处需要填入表示动作发生频率的副词，描述早餐吃水果的习惯",
+    "answerIdx": 0,
+    "sectionId": "zh-es/U03-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s03-4",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 2,
+    "tags": [
+      "频率副词",
+      "中译西",
+      "日常作息表达"
+    ],
+    "sourceText": "我通常每天早上七点起床",
+    "options": [
+      "Yo siempre me levanto a las siete de la mañana.",
+      "Yo normalmente me levanto a las siete de la mañana.",
+      "Yo a veces me levanto a las siete de la mañana.",
+      "Yo nunca me levanto a las siete de la mañana."
+    ],
+    "answerIdx": 1,
+    "sectionId": "zh-es/U03-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s03-5",
+    "type": "T08",
+    "typeName": "听力选择",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 2,
+    "tags": [
+      "频率副词",
+      "听力理解",
+      "日常作息描述"
+    ],
+    "audioText": "María nunca ve la televisión por la noche, siempre lee un libro antes de dormir.",
+    "question": "关于María的晚间活动，以下哪个说法是正确的？",
+    "options": [
+      "她晚上从不看电视，总是睡前读书",
+      "她晚上有时看电视，从不读书",
+      "她晚上总是看电视，从不读书",
+      "她晚上从不看电视，有时读书"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U03-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s04-01",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Rutina diaria y expresión del tiempo",
+    "unitTheme": "Pronombres personales y conjugación del verbo estar en presente",
+    "difficulty": 1,
+    "tags": [
+      "vocabulario",
+      "estado emocional",
+      "estar"
+    ],
+    "imageDesc": "一个面带灿烂笑容、双手举过头顶的小女孩，处于非常开心的状态",
+    "imagePrompt": "Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a little girl with big bright smile, arms raised above head, happy expression, simple flat design",
+    "options": [
+      "feliz",
+      "triste",
+      "enfermo",
+      "sano"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U03-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s04-02",
+    "type": "T03",
+    "typeName": "双向配对",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Rutina diaria y expresión del tiempo",
+    "unitTheme": "Pronombres personales y conjugación del verbo estar en presente",
+    "difficulty": 2,
+    "tags": [
+      "pronombres personales",
+      "nosotros/nosotras",
+      "vosotros/vosotras"
+    ],
+    "left": [
+      "nosotros",
+      "nosotras",
+      "vosotros",
+      "vosotras"
+    ],
+    "right": [
+      "我们（全男性或混合群体）",
+      "我们（全女性群体）",
+      "你们（全男性或混合群体，西班牙地区使用）",
+      "你们（全女性群体，西班牙地区使用）"
+    ],
+    "sectionId": "zh-es/U03-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s04-03",
+    "type": "T06",
+    "typeName": "句子排序",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Rutina diaria y expresión del tiempo",
+    "unitTheme": "Pronombres personales y conjugación del verbo estar en presente",
+    "difficulty": 2,
+    "tags": [
+      "conjugación estar",
+      "presente",
+      "pronombres personales"
+    ],
+    "sentence": "Nosotros estamos felices aquí.",
+    "words": [
+      "aquí",
+      "Nosotros",
+      "felices",
+      "estamos"
+    ],
+    "correctOrder": [
+      1,
+      3,
+      2,
+      0
+    ],
+    "sectionId": "zh-es/U03-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s04-04",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Rutina diaria y expresión del tiempo",
+    "unitTheme": "Pronombres personales y conjugación del verbo estar en presente",
+    "difficulty": 2,
+    "tags": [
+      "ser vs estar",
+      "estado emocional",
+      "conjugación"
+    ],
+    "sourceText": "我们很开心",
+    "options": [
+      "Nosotros somos felices.",
+      "Nosotros estamos felices.",
+      "Nosotras somos felices.",
+      "Nosotros estamos tristes."
+    ],
+    "answerIdx": 1,
+    "sectionId": "zh-es/U03-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s04-05",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Rutina diaria y expresión del tiempo",
+    "unitTheme": "Pronombres personales y conjugación del verbo estar en presente",
+    "difficulty": 3,
+    "tags": [
+      "estar de ubicación",
+      "pronombres personales",
+      "adverbios de lugar"
+    ],
+    "scenario": "你在朋友家，朋友问你“你们现在在哪里？”，你应该怎么回答？",
+    "options": [
+      "Nosotros somos aquí.",
+      "Nosotros estamos aquí.",
+      "Nosotros estamos allí.",
+      "Nosotros somos allí."
+    ],
+    "answerIdx": 1,
+    "sectionId": "zh-es/U03-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s05-1",
+    "type": "T02",
+    "typeName": "听音选图",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 2,
+    "tags": [
+      "hacer",
+      "poder",
+      "querer",
+      "tener",
+      "不规则动词变位",
+      "听力"
+    ],
+    "audioText": "Yo quiero viajar el fin de semana.",
+    "imageOptions": [
+      {
+        "desc": "一个年轻人开心地收拾行李，准备周末旅行",
+        "prompt": "Modern, clean, flat vector illustration, white background, a happy young person packing a suitcase for a weekend trip, travel items scattered around, bright warm colors"
+      },
+      {
+        "desc": "一个学生坐在书桌前认真做作业",
+        "prompt": "Modern, clean, flat vector illustration, white background, a student doing homework at a wooden desk, books and notebooks stacked around, soft lighting"
+      },
+      {
+        "desc": "一个人在厨房里做饭，灶上有锅",
+        "prompt": "Modern, clean, flat vector illustration, white background, a person cooking in a kitchen, pots on the stove, vegetables on the counter, warm tones"
+      },
+      {
+        "desc": "一个人在健身房举哑铃锻炼",
+        "prompt": "Modern, clean, flat vector illustration, white background, a person working out in a gym, dumbbells in hand, fitness equipment in the background, energetic vibe"
+      }
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U03-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s05-2",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 2,
+    "tags": [
+      "muy",
+      "tan",
+      "程度副词",
+      "翻译",
+      "querer"
+    ],
+    "sourceText": "我周末想做一个旅行计划",
+    "options": [
+      "Quiero hacer un plan de viaje el fin de semana.",
+      "Puedo hacer un plan de viaje el fin de semana.",
+      "Tengo un plan de viaje el fin de semana.",
+      "Hago un plan de viaje el fin de semana."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U03-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s05-3",
+    "type": "T06",
+    "typeName": "句子排序",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 3,
+    "tags": [
+      "hacer",
+      "querer",
+      "ni",
+      "否定并列",
+      "语序"
+    ],
+    "sentence": "Yo no quiero ni hacer planes ni viajar este fin de semana.",
+    "words": [
+      "viajar",
+      "este",
+      "fin",
+      "de",
+      "semana",
+      "Yo",
+      "no",
+      "quiero",
+      "ni",
+      "hacer",
+      "planes",
+      "ni"
+    ],
+    "sectionId": "zh-es/U03-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s05-4",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 3,
+    "tags": [
+      "tener",
+      "poder",
+      "necesitar",
+      "不规则动词变位",
+      "补全"
+    ],
+    "sentence": "___ (tener) ___ (poder) ___ (necesitar) terminar el proyecto antes de las vacaciones.",
+    "hint": "提示：此处需要填入三个动词tener、poder、necesitar的第一人称单数现在时变位，注意不规则变化规则：tener的变位为tengo，poder的变位为puedo，necesitar的变位为necesito",
+    "answer": "Tengo, puedo, necesito",
+    "sectionId": "zh-es/U03-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u03-s05-5",
+    "type": "T10",
+    "typeName": "翻译输入",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U03",
+    "unitTheme": "Rutina diaria y expresión del tiempo",
+    "difficulty": 2,
+    "tags": [
+      "solo",
+      "sólo",
+      "adverbios de grado",
+      "否定",
+      "翻译"
+    ],
+    "sourceText": "我只需要完成这个目标，不需要做别的事。",
+    "acceptedAnswers": [
+      "Solo necesito cumplir este objetivo, no necesito hacer nada más.",
+      "Sólo necesito cumplir este objetivo, no necesito hacer nada más."
+    ],
+    "sectionId": "zh-es/U03-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s01-1",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Vocabulario básico de compras en supermercado y consultas",
+    "difficulty": 1,
+    "tags": [
+      "vocabulario supermercado",
+      "pan",
+      "identificación visual"
+    ],
+    "imageDesc": "超市货架上摆放的一条面包",
+    "imagePrompt": "Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a loaf of fresh bread on a supermarket shelf, simple flat design, no extra details",
+    "options": [
+      "pan",
+      "leche",
+      "agua",
+      "dinero"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s01-2",
+    "type": "T03",
+    "typeName": "双向配对",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Vocabulario básico de compras en supermercado y consultas",
+    "difficulty": 1,
+    "tags": [
+      "vocabulario básico",
+      "traducción español-chino"
+    ],
+    "left": [
+      "tienda",
+      "precio",
+      "comprar",
+      "querer"
+    ],
+    "right": [
+      "商店",
+      "价格",
+      "购买",
+      "想要"
+    ],
+    "sectionId": "zh-es/U04-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s01-3",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Vocabulario básico de compras en supermercado y consultas",
+    "difficulty": 2,
+    "tags": [
+      "querer presente",
+      "expresión de intención de compra"
+    ],
+    "sourceText": "我想要买牛奶",
+    "options": [
+      "Quiero comprar leche.",
+      "Quiero pagar leche.",
+      "Quiero beber leche.",
+      "Quiero vender leche."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s01-4",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Vocabulario básico de compras en supermercado y consultas",
+    "difficulty": 2,
+    "tags": [
+      "querer conjugación",
+      "presente de indicativo"
+    ],
+    "sentence": "Yo ___ pan en el supermercado.",
+    "hint": "此处需要填入动词querer的现在时第一人称单数变位，表示‘我想要’",
+    "acceptedAnswers": [
+      "quiero"
+    ],
+    "sectionId": "zh-es/U04-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s01-5",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Vocabulario básico de compras en supermercado y consultas",
+    "difficulty": 2,
+    "tags": [
+      "comprensión de situación",
+      "expresión de compra",
+      "querer"
+    ],
+    "scenario": "你在超市选购时，店员询问你想购买什么商品，你需要用西语表达你的购买意愿",
+    "options": [
+      "Quiero comprar agua y pan.",
+      "Quiero pagar ahora.",
+      "Me gusta el supermercado.",
+      "No quiero comprar nada."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s02-01",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Expresiones básicas para hacer pedidos en restaurantes",
+    "difficulty": 2,
+    "tags": [
+      "指示代词",
+      "点餐",
+      "语法理解"
+    ],
+    "sentence": "¿Me trae ___ menú, por favor?",
+    "hint": "此处指代近处的阳性单数名词「菜单」，需用阳性单数近指指示代词",
+    "options": [
+      "este",
+      "esta",
+      "estos"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s02-02",
+    "type": "T02",
+    "typeName": "听音选图",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Expresiones básicas para hacer pedidos en restaurantes",
+    "difficulty": 1,
+    "tags": [
+      "听力",
+      "指示代词",
+      "餐厅词汇"
+    ],
+    "audioText": "¿Puedo ver este plato?",
+    "imageOptions": [
+      {
+        "desc": "服务员手中的一份餐品（近处）",
+        "prompt": "Modern, clean, flat vector illustration, white background, a waiter holding a dish close to the customer, restaurant scene"
+      },
+      {
+        "desc": "远处餐桌上的餐品",
+        "prompt": "Modern, clean, flat vector illustration, white background, a dish on a far table in a restaurant"
+      },
+      {
+        "desc": "近处餐桌上的多份餐品",
+        "prompt": "Modern, clean, flat vector illustration, white background, multiple dishes on a near table in a restaurant"
+      }
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s02-03",
+    "type": "T06",
+    "typeName": "句子排序",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Expresiones básicas para hacer pedidos en restaurantes",
+    "difficulty": 2,
+    "tags": [
+      "语法",
+      "语序",
+      "指示代词"
+    ],
+    "words": [
+      "¿Me",
+      "esta",
+      "trae",
+      "cuenta,",
+      "por",
+      "favor?"
+    ],
+    "answer": [
+      "¿Me",
+      "trae",
+      "esta",
+      "cuenta,",
+      "por",
+      "favor?"
+    ],
+    "sectionId": "zh-es/U04-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s02-04",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Expresiones básicas para hacer pedidos en restaurantes",
+    "difficulty": 1,
+    "tags": [
+      "翻译",
+      "点餐用语",
+      "指示代词"
+    ],
+    "sourceText": "请给我这份咖啡",
+    "options": [
+      "Por favor, tráigame este café.",
+      "Por favor, tráigame esta café.",
+      "Por favor, tráigame estos café."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s02-05",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Expresiones básicas para hacer pedidos en restaurantes",
+    "difficulty": 2,
+    "tags": [
+      "情景交际",
+      "点餐",
+      "指示代词"
+    ],
+    "scenario": "你在餐厅入座后，服务员过来询问你需要什么，你想点你面前菜单上的第一道菜，应该怎么说？",
+    "options": [
+      "Quiero pedir este primer plato.",
+      "Quiero pedir esta primer plato.",
+      "Quiero pedir estos primer plato."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s03-01",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Aplicación de palabras interrogativas y pronombres indefinidos",
+    "difficulty": 2,
+    "tags": [
+      "疑问词",
+      "qué",
+      "补全句子"
+    ],
+    "sentence": "¿____ quieres pedir para el postre?",
+    "hint": "此处询问“你想要什么甜点”，需使用疑问词qué",
+    "options": [
+      "Qué",
+      "Por qué",
+      "Cuál",
+      "Quién"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s03-02",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Aplicación de palabras interrogativas y pronombres indefinidos",
+    "difficulty": 2,
+    "tags": [
+      "不定代词",
+      "algo",
+      "翻译选择"
+    ],
+    "sourceText": "你想要喝点什么吗？",
+    "options": [
+      "¿Quieres algo de beber?",
+      "¿Quieres algún de beber?",
+      "¿Quieres alguien de beber?",
+      "¿Quieres nada de beber?"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s03-03",
+    "type": "T08",
+    "typeName": "听力选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Aplicación de palabras interrogativas y pronombres indefinidos",
+    "difficulty": 2,
+    "tags": [
+      "疑问词",
+      "por qué",
+      "听力理解"
+    ],
+    "audioText": "Perdona, ¿por qué no hay ensalada de frutas hoy?",
+    "question": "说话人询问的是什么？",
+    "options": [
+      "为什么今天没有水果沙拉",
+      "今天要点什么水果沙拉",
+      "哪种水果沙拉最好吃"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s03-04",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Aplicación de palabras interrogativas y pronombres indefinidos",
+    "difficulty": 3,
+    "tags": [
+      "不定代词",
+      "nada",
+      "情景回应"
+    ],
+    "scenario": "你在餐厅点餐，服务员询问你有没有忌口，你需要表达“我什么都不能吃，我对所有食物都过敏”",
+    "options": [
+      "No puedo comer nada, soy alérgico a todos los alimentos.",
+      "No puedo comer ningún, soy alérgico a todos los alimentos.",
+      "No puedo comer nadie, soy alérgico a todos los alimentos.",
+      "No puedo comer algo, soy alérgico a todos los alimentos."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s03-05",
+    "type": "T09",
+    "typeName": "拼写输入",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Compras y pedidos en restaurantes",
+    "unitTheme": "Aplicación de palabras interrogativas y pronombres indefinidos",
+    "difficulty": 2,
+    "tags": [
+      "疑问词",
+      "cuál",
+      "拼写"
+    ],
+    "audioText": "请拼写西语中表示“哪一个”的疑问词，阴性单数形式为cuál",
+    "hint": "提示：该疑问词用于在特定范围内进行选择，阴性单数形式需注意重音符号",
+    "answer": "cuál",
+    "sectionId": "zh-es/U04-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s04-1",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "es-Espanol",
+    "cefr": "A1",
+    "unit": "04",
+    "unitTheme": "Compras y pedidos en restaurantes",
+    "difficulty": 1,
+    "tags": [
+      "por",
+      "para",
+      "vocabulario",
+      "pago",
+      "restaurante"
+    ],
+    "imageDesc": "一个人在餐厅收银台前递信用卡给服务员结账的场景",
+    "imagePrompt": "Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated scene of a person handing a credit card to a waiter at a restaurant checkout counter, 4k resolution",
+    "options": [
+      "la cuenta",
+      "el precio",
+      "el pago",
+      "la compra"
+    ],
+    "answerIdx": 2,
+    "sectionId": "zh-es/U04-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s04-2",
+    "type": "T03",
+    "typeName": "双向配对",
+    "language": "es-Espanol",
+    "cefr": "A1",
+    "unit": "04",
+    "unitTheme": "Compras y pedidos en restaurantes",
+    "difficulty": 2,
+    "tags": [
+      "por",
+      "para",
+      "vocabulario",
+      "traducción"
+    ],
+    "left": [
+      "por",
+      "para",
+      "pagar",
+      "cuenta"
+    ],
+    "right": [
+      "因为",
+      "为了",
+      "支付",
+      "账单"
+    ],
+    "pairing": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        2
+      ],
+      [
+        3,
+        3
+      ]
+    ],
+    "sectionId": "zh-es/U04-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s04-3",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "es-Espanol",
+    "cefr": "A1",
+    "unit": "04",
+    "unitTheme": "Compras y pedidos en restaurantes",
+    "difficulty": 2,
+    "tags": [
+      "por",
+      "para",
+      "uso contextual",
+      "oraciones simples"
+    ],
+    "sourceText": "我付账是因为我喜欢这里的食物。",
+    "options": [
+      "Pago la cuenta para me gusta la comida de aquí.",
+      "Pago la cuenta porque me gusta la comida de aquí.",
+      "Pago la cuenta por me gusta la comida de aquí.",
+      "Pago la cuenta porque me gusta el precio de aquí."
+    ],
+    "answerIdx": 1,
+    "sectionId": "zh-es/U04-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s04-4",
+    "type": "T10",
+    "typeName": "翻译输入",
+    "language": "es-Espanol",
+    "cefr": "A1",
+    "unit": "04",
+    "unitTheme": "Compras y pedidos en restaurantes",
+    "difficulty": 3,
+    "tags": [
+      "para",
+      "traducción",
+      "construcción de oraciones"
+    ],
+    "sourceText": "这个账单是给那桌客人的。",
+    "acceptedAnswers": [
+      "Esta cuenta es para esa mesa de clientes.",
+      "La cuenta es para los clientes de esa mesa."
+    ],
+    "sectionId": "zh-es/U04-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s04-5",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "es-Espanol",
+    "cefr": "A1",
+    "unit": "04",
+    "unitTheme": "Compras y pedidos en restaurantes",
+    "difficulty": 3,
+    "tags": [
+      "por",
+      "para",
+      "situación comunicativa",
+      "pago en restaurante"
+    ],
+    "scenario": "你在餐厅吃完饭后想询问服务员这顿晚餐你需要付多少钱，应该选择哪个正确的表达？",
+    "options": [
+      "¿Cuánto tengo que pagar para la cena?",
+      "¿Cuánto tengo que pagar por la cena?",
+      "¿Para cuánto es la cuenta?",
+      "¿Por cuánto es la cuenta?"
+    ],
+    "answerIdx": 1,
+    "sectionId": "zh-es/U04-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s05-1",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "español",
+    "cefr": "A1",
+    "unit": "U04",
+    "unitTheme": "Compras y pedidos en restaurantes",
+    "difficulty": 2,
+    "tags": [
+      "指示代词",
+      "超市购物",
+      "词汇识别"
+    ],
+    "imageDesc": "一位男性顾客在超市水果区指着货架上的苹果，询问这个苹果的价格",
+    "imagePrompt": "Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a male customer in supermarket fruit section pointing at an apple on the shelf asking for the price of this apple, simple educational scene",
+    "options": [
+      "este",
+      "esa",
+      "estos",
+      "aquel"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s05-2",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "español",
+    "cefr": "A1",
+    "unit": "U04",
+    "unitTheme": "Compras y pedidos en restaurantes",
+    "difficulty": 2,
+    "tags": [
+      "动词querer变位",
+      "前置词para",
+      "餐厅点餐",
+      "语法填空"
+    ],
+    "sentence": "Yo ______ (querer) este plato para llevar.",
+    "options": [
+      "quiero",
+      "quiere",
+      "queremos",
+      "quieren"
+    ],
+    "answerIdx": 0,
+    "hint": "提示：主语为第一人称单数yo，一般现在时中动词querer的正确变位为quiero；前置词para此处表示目的，意为“外带”",
+    "sectionId": "zh-es/U04-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s05-3",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "español",
+    "cefr": "A1",
+    "unit": "U04",
+    "unitTheme": "Compras y pedidos en restaurantes",
+    "difficulty": 2,
+    "tags": [
+      "前置词para",
+      "指示代词",
+      "超市购物",
+      "汉译西"
+    ],
+    "sourceText": "这个苹果是给我弟弟的",
+    "options": [
+      "Esta manzana es para mi hermano.",
+      "Esta manzana es por mi hermano.",
+      "Esta manzana es a mi hermano.",
+      "Esta manzana es con mi hermano."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s05-4",
+    "type": "T08",
+    "typeName": "听力选择",
+    "language": "español",
+    "cefr": "A1",
+    "unit": "U04",
+    "unitTheme": "Compras y pedidos en restaurantes",
+    "difficulty": 2,
+    "tags": [
+      "指示代词",
+      "不定代词nada",
+      "餐厅点餐",
+      "听力理解"
+    ],
+    "audioText": "Entonces, pido este menú del día y nada más.",
+    "question": "根据听到的句子，顾客点的是什么？",
+    "options": [
+      "A. 这份每日菜单，其他都不要",
+      "B. 那份每日菜单，其他都不要",
+      "C. 这些每日菜单，其他都不要",
+      "D. 这份每日菜单，还要别的"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u04-s05-5",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "español",
+    "cefr": "A1",
+    "unit": "U04",
+    "unitTheme": "Compras y pedidos en restaurantes",
+    "difficulty": 3,
+    "tags": [
+      "指示代词",
+      "不定代词nada",
+      "餐厅点餐",
+      "情景应对"
+    ],
+    "scenario": "你在快餐店点餐，想要这份汉堡，并且说不要别的了，应该选择哪句回应？",
+    "options": [
+      "Quiero esta hamburguesa y nada más.",
+      "Quiero esa hamburguesa y todo.",
+      "Quiero estos hamburguesas y entonces.",
+      "Quiero estas hamburguesas y volver."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U04-S05",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s01-1",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 2,
+    "tags": [
+      "vocabulario",
+      "adverbios de lugar",
+      "comprensión lectora"
+    ],
+    "imageDesc": "街角处有一个公交站牌，两个箭头分别指向不同距离的方向，近的箭头标注‘aquí’，远的箭头标注‘allí’",
+    "imagePrompt": "Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, street corner with a bus stop sign, two directional arrows pointing to different distances, near arrow labeled 'aquí', far arrow labeled 'allí', simple educational design",
+    "options": [
+      "aquí",
+      "allí",
+      "ahí",
+      "allá"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U05-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s01-2",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 2,
+    "tags": [
+      "vocabulario",
+      "traducción",
+      "preguntas de lugar"
+    ],
+    "sourceText": "请问，附近的银行在什么地方？",
+    "options": [
+      "¿Dónde está el banco cercano?",
+      "¿Qué hay en el banco cercano?",
+      "¿Hay un banco cerca de aquí?",
+      "¿Está el banco allí?"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U05-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s01-3",
+    "type": "T02",
+    "typeName": "听音选图",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 3,
+    "tags": [
+      "vocabulario",
+      "comprensión auditiva",
+      "lugares públicos"
+    ],
+    "audioText": "La escuela está allí.",
+    "imageOptions": [
+      {
+        "desc": "一所学校建筑位于远处街道的尽头",
+        "prompt": "Modern, clean, flat vector illustration, white background, school building at the end of a far street, simple clear design"
+      },
+      {
+        "desc": "学校建筑紧邻当前位置",
+        "prompt": "Modern, clean, flat vector illustration, white background, school building right next to the current location, simple clear design"
+      },
+      {
+        "desc": "学校建筑在当前位置前方的广场上",
+        "prompt": "Modern, clean, flat vector illustration, white background, school building on the square in front of the current location, simple clear design"
+      },
+      {
+        "desc": "学校建筑在当前位置后方的公园内",
+        "prompt": "Modern, clean, flat vector illustration, white background, school building inside the park behind the current location, simple clear design"
+      }
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U05-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s01-4",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 2,
+    "tags": [
+      "gramática",
+      "adverbios de lugar",
+      "oraciones simples"
+    ],
+    "sentence": "La tienda está ___ de la plaza.",
+    "hint": "此处需填入表示位置的副词，allí 表示较远但可见的位置，符合‘商店在广场远处’的常见表达",
+    "options": [
+      "aquí",
+      "allí",
+      "ahí",
+      "allá"
+    ],
+    "answerIdx": 1,
+    "sectionId": "zh-es/U05-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s01-5",
+    "type": "T10",
+    "typeName": "翻译输入",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 3,
+    "tags": [
+      "vocabulario",
+      "traducción",
+      "expresiones de dirección"
+    ],
+    "sourceText": "餐厅就在那边的拐角处",
+    "acceptedAnswers": [
+      "El restaurante está en la esquina de ahí."
+    ],
+    "sectionId": "zh-es/U05-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s02-1",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "es",
+    "cefr": "A1",
+    "unit": "05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 1,
+    "tags": [
+      "vocabulario",
+      "lugares urbanos",
+      "preposiciones de lugar"
+    ],
+    "imageDesc": "城市广场矢量插画，包含喷泉、长椅、方向指示牌，背景为浅色建筑",
+    "imagePrompt": "Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, urban city plaza with fountain, benches, direction sign, light-colored buildings in background",
+    "options": [
+      "plaza",
+      "calle",
+      "puente",
+      "camino"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U05-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s02-2",
+    "type": "T03",
+    "typeName": "双向配对",
+    "language": "es",
+    "cefr": "A1",
+    "unit": "05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 2,
+    "tags": [
+      "expresiones interrogativas",
+      "indicar rutas",
+      "vocabulario de desplazamiento"
+    ],
+    "left": [
+      "¿Dónde está la biblioteca?",
+      "¿Cómo llegar a la plaza?",
+      "Hay un puente aquí.",
+      "Sigue por esta calle."
+    ],
+    "right": [
+      "图书馆在哪里？",
+      "怎么去广场？",
+      "这里有一座桥。",
+      "沿着这条街走。"
+    ],
+    "pairs": [
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        2,
+        2
+      ],
+      [
+        3,
+        3
+      ]
+    ],
+    "sectionId": "zh-es/U05-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s02-3",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "es",
+    "cefr": "A1",
+    "unit": "05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 3,
+    "tags": [
+      "verbo seguir",
+      "indicar rutas",
+      "preposiciones de lugar"
+    ],
+    "sentence": "Para llegar a la casa de tu amigo, tienes que ______ por esta calle hasta el puente.",
+    "options": [
+      "seguir",
+      "pasar",
+      "llegar",
+      "estar"
+    ],
+    "answerIdx": 0,
+    "hint": "此处需要填入表示“沿着…前进”的动词，是问路场景中指示路线的常用表达",
+    "sectionId": "zh-es/U05-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s02-4",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "es",
+    "cefr": "A1",
+    "unit": "05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 2,
+    "tags": [
+      "expresiones interrogativas de dirección",
+      "traducción chino-español",
+      "vocabulario de lugares"
+    ],
+    "sourceText": "请问，市中心广场怎么走？",
+    "options": [
+      "¿Dónde está el centro de la ciudad?",
+      "¿Cómo llegar a la plaza del centro?",
+      "¿Qué hay en la calle?",
+      "¿Estás en la plaza?"
+    ],
+    "answerIdx": 1,
+    "sectionId": "zh-es/U05-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s02-5",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "es",
+    "cefr": "A1",
+    "unit": "05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 3,
+    "tags": [
+      "situación de preguntar rutas",
+      "expresiones de cortesía",
+      "vocabulario de desplazamiento"
+    ],
+    "scenario": "你在陌生的城市街区，想要前往附近的图书馆，向路人询问路线，以下哪个表达最合适？",
+    "options": [
+      "¿Dónde está la biblioteca?",
+      "¿Qué hora es?",
+      "¿Cuánto cuesta el billete?",
+      "¿Hay un restaurante aquí?"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U05-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s03-1",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 2,
+    "tags": [
+      "vocabulario",
+      "transporte",
+      "viajar"
+    ],
+    "imageDesc": "一个人拿着行李箱站在公交站台，准备上车的场景",
+    "imagePrompt": "Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a person holding a suitcase standing at a bus stop ready to board the bus, simple educational illustration style",
+    "options": [
+      "viajar",
+      "comprar",
+      "pagar",
+      "salir"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U05-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s03-2",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 2,
+    "tags": [
+      "gramatica",
+      "verbo ir",
+      "presente indicativo",
+      "traduccion"
+    ],
+    "sourceText": "我每天坐公交车去上班",
+    "options": [
+      "Yo voy al trabajo en autobús cada día",
+      "Yo compro el billete de autobús cada día",
+      "Yo pago el viaje en autobús cada día",
+      "Yo salgo del trabajo en autobús cada día"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U05-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s03-3",
+    "type": "T06",
+    "typeName": "句子排序",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 3,
+    "tags": [
+      "gramatica",
+      "verbo ir",
+      "orden sintactico"
+    ],
+    "words": [
+      "cada",
+      "mañana",
+      "Yo",
+      "estación",
+      "de",
+      "metro",
+      "a",
+      "la",
+      "voy"
+    ],
+    "correctOrder": [
+      2,
+      8,
+      6,
+      7,
+      3,
+      4,
+      5,
+      0,
+      1
+    ],
+    "sectionId": "zh-es/U05-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s03-4",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 3,
+    "tags": [
+      "gramatica",
+      "verbo ir",
+      "conjugacion"
+    ],
+    "sentence": "Nosotros ___ (ir) al centro comercial los sábados.",
+    "hint": "此处需要填写动词ir的现在时第一人称复数变位",
+    "answer": "vamos",
+    "sectionId": "zh-es/U05-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s03-5",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "U05",
+    "unitTheme": "Desplazamiento urbano y preguntas de dirección",
+    "difficulty": 3,
+    "tags": [
+      "comprension",
+      "preguntas de direccion",
+      "transporte publico"
+    ],
+    "scenario": "你在公交站，需要询问工作人员下一班去火车站的公交车什么时候来",
+    "options": [
+      "¿A qué hora sale el próximo autobús a la estación de tren?",
+      "¿Cuánto cuesta el billete de autobús?",
+      "¿Dónde está la parada de metro?",
+      "¿Puedo pagar con tarjeta?"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U05-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s04-1",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Desplazamiento urbano y preguntas de dirección",
+    "unitTheme": "Práctica integral de desplazamiento urbano",
+    "difficulty": 2,
+    "tags": [
+      "问路",
+      "there be句型",
+      "地点词汇"
+    ],
+    "sourceText": "请问这附近有银行吗？",
+    "options": [
+      "¿Hay un banco por aquí?",
+      "¿Dónde está el banco?",
+      "¿Cómo llego al banco?",
+      "¿Hay un restaurante por aquí?"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U05-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s04-2",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Desplazamiento urbano y preguntas de dirección",
+    "unitTheme": "Práctica integral de desplazamiento urbano",
+    "difficulty": 1,
+    "tags": [
+      "词汇识别",
+      "地点名词"
+    ],
+    "imageDesc": "城市街道旁的银行建筑，门口设有ATM机",
+    "imagePrompt": "Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a modern bank building on a sunny city street with an ATM machine at the entrance and a BANCO sign on the facade",
+    "options": [
+      "banco",
+      "restaurante",
+      "escuela",
+      "tienda"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U05-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s04-3",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Desplazamiento urbano y preguntas de dirección",
+    "unitTheme": "Práctica integral de desplazamiento urbano",
+    "difficulty": 2,
+    "tags": [
+      "情景交际",
+      "问路",
+      "餐厅词汇"
+    ],
+    "scenario": "你第一次来到一座陌生城市旅行，现在是午餐时间，你肚子饿了，想要找到附近的餐厅用餐，以下哪句表达最符合你的需求？",
+    "options": [
+      "¿Dónde está el restaurante más cercano?",
+      "¿Cuánto cuesta el menú del día?",
+      "Quiero reservar una habitación para esta noche.",
+      "¿A qué hora abre el banco mañana?"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U05-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s04-4",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Desplazamiento urbano y preguntas de dirección",
+    "unitTheme": "Práctica integral de desplazamiento urbano",
+    "difficulty": 2,
+    "tags": [
+      "特殊疑问词",
+      "介词用法",
+      "基础句型"
+    ],
+    "sentence": "—¿______ está el restaurante? —Está ______ la plaza, al lado del banco.",
+    "hint": "本题考查特殊疑问词‘在哪里’的写法（注意重音符号）和介词‘在’的用法，结合场景选择正确的词汇填空。",
+    "options": [
+      "Dónde / en",
+      "Cómo / a",
+      "Qué / en",
+      "Dónde / a"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U05-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u05-s04-5",
+    "type": "T10",
+    "typeName": "翻译输入",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Desplazamiento urbano y preguntas de dirección",
+    "unitTheme": "Práctica integral de desplazamiento urbano",
+    "difficulty": 3,
+    "tags": [
+      "翻译实践",
+      "动词变位",
+      "指路表达"
+    ],
+    "sourceText": "我沿着这条街走，然后经过广场，就能到达餐厅了。",
+    "acceptedAnswers": [
+      "Sigo por esta calle, luego paso por la plaza y llego al restaurante.",
+      "Sigo por esta calle, paso la plaza y llego al restaurante."
+    ],
+    "sectionId": "zh-es/U05-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s01-1",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Expresiones básicas en contextos laborales y académicos",
+    "difficulty": 1,
+    "tags": [
+      "vocabulario",
+      "contexto laboral",
+      "identificación visual"
+    ],
+    "imageDesc": "一个穿着职业装的人在办公室使用电脑工作的场景",
+    "imagePrompt": "Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution, a professional person in business casual attire working on a laptop at a clean office desk",
+    "options": [
+      "trabajo",
+      "estudio",
+      "empleo",
+      "empresa"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U06-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s01-2",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Expresiones básicas en contextos laborales y académicos",
+    "difficulty": 2,
+    "tags": [
+      "traducción",
+      "vocabulario académico",
+      "comprensión lectora"
+    ],
+    "sourceText": "我在大学学习西班牙语",
+    "options": [
+      "Yo trabajo en la universidad.",
+      "Yo estudio español en la universidad.",
+      "Yo enseño español en la universidad.",
+      "Yo aprendo español en la universidad."
+    ],
+    "answerIdx": 1,
+    "sectionId": "zh-es/U06-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s01-3",
+    "type": "T02",
+    "typeName": "听音选图",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Expresiones básicas en contextos laborales y académicos",
+    "difficulty": 2,
+    "tags": [
+      "comprensión auditiva",
+      "vocabulario académico",
+      "identificación visual"
+    ],
+    "audioText": "Yo soy estudiante de la universidad.",
+    "imageOptions": [
+      {
+        "desc": "一名大学生背着书包走在校园林荫道上的场景",
+        "prompt": "A young student carrying a backpack walking on a tree-lined university campus path, flat vector illustration, clean style, white background"
+      },
+      {
+        "desc": "一名工人穿着工作服在工厂操作机器的场景",
+        "prompt": "A worker in work clothes operating machinery in a factory, flat vector illustration, clean style, white background"
+      },
+      {
+        "desc": "一名女老师站在黑板前给学生们讲课的场景",
+        "prompt": "A female teacher standing in front of a blackboard giving a lecture to students, flat vector illustration, clean style, white background"
+      },
+      {
+        "desc": "一名学生坐在图书馆的书桌前看书的场景",
+        "prompt": "A student sitting at a desk reading a book in a library, flat vector illustration, clean style, white background"
+      }
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U06-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s01-4",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Expresiones básicas en contextos laborales y académicos",
+    "difficulty": 3,
+    "tags": [
+      "gramática",
+      "verbos irregulares",
+      "presente de indicativo",
+      "contexto laboral"
+    ],
+    "sentence": "Yo ___ (tener) un empleo en un banco.",
+    "hint": "提示：动词tener为不规则动词，现在时陈述式第一人称单数变位为tengo，需特殊记忆",
+    "options": [
+      "tengo",
+      "tienes",
+      "tiene",
+      "tenemos"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U06-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s01-5",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Expresiones básicas en contextos laborales y académicos",
+    "difficulty": 3,
+    "tags": [
+      "comprensión lectora",
+      "expresión cotidiana",
+      "contexto laboral"
+    ],
+    "scenario": "你刚入职新公司，同事在茶水间问你平时从事什么工作，你应该选择哪个回答？",
+    "options": [
+      "Soy profesor de matemáticas.",
+      "Estudio en la universidad.",
+      "Tengo veinticinco años.",
+      "Me gusta ver películas los fines de semana."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U06-S01",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s02-1",
+    "type": "T05",
+    "typeName": "Completar oraciones",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Expresiones sobre el clima y el entorno residencial",
+    "difficulty": 2,
+    "tags": [
+      "宾格代词",
+      "居住环境",
+      "语法填空"
+    ],
+    "sentence": "Yo ___ la casa nueva. Es muy bonita.",
+    "options": [
+      "lo",
+      "la",
+      "los",
+      "las"
+    ],
+    "answerIdx": 1,
+    "hint": "此处需要宾格代词指代前文的阴性单数名词casa，对应阴性单数宾格代词la",
+    "sectionId": "zh-es/U06-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s02-2",
+    "type": "T02",
+    "typeName": "Seleccionar imagen por audio",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Expresiones sobre el clima y el entorno residencial",
+    "difficulty": 1,
+    "tags": [
+      "天气表达",
+      "听力理解",
+      "词汇识别"
+    ],
+    "audioText": "Hoy hace mucho viento y llueve un poco. El clima es frío.",
+    "imageOptions": [
+      {
+        "desc": "晴朗的白天，太阳高照，无云",
+        "prompt": "Modern, clean, flat vector illustration, white background, sunny day, bright sun, no clouds, clear sky"
+      },
+      {
+        "desc": "阴天，有风，下小雨，气温低",
+        "prompt": "Modern, clean, flat vector illustration, white background, cloudy sky, wind lines, light rain, cold weather"
+      }
+    ],
+    "answerIdx": 1,
+    "sectionId": "zh-es/U06-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s02-3",
+    "type": "T08",
+    "typeName": "Selección auditiva",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Expresiones sobre el clima y el entorno residencial",
+    "difficulty": 2,
+    "tags": [
+      "居住环境",
+      "听力理解",
+      "细节捕捉"
+    ],
+    "audioText": "Mi hermano vive en un pueblo pequeño. La calle de su casa es muy tranquila y hay un parque cerca.",
+    "question": "根据听力内容，说话者的弟弟住在哪里？",
+    "options": [
+      "大城市里，街道繁华热闹",
+      "小城镇里，街道安静，附近有公园",
+      "城市公寓里，靠近学校"
+    ],
+    "answerIdx": 1,
+    "sectionId": "zh-es/U06-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s02-4",
+    "type": "T07",
+    "typeName": "Selección de traducción",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Expresiones sobre el clima y el entorno residencial",
+    "difficulty": 2,
+    "tags": [
+      "居住词汇",
+      "翻译练习",
+      "语法应用"
+    ],
+    "sourceText": "我喜欢我的房间，因为它很明亮。",
+    "options": [
+      "Me gusta mi habitación porque es muy luminosa.",
+      "Me gusta mi casa porque es muy grande.",
+      "Me encanta mi pueblo porque es muy bonito."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U06-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s02-5",
+    "type": "T12",
+    "typeName": "Respuesta situacional",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Expresiones sobre el clima y el entorno residencial",
+    "difficulty": 2,
+    "tags": [
+      "天气表达",
+      "情景交际",
+      "日常对话"
+    ],
+    "scenario": "你朋友问你今天天气怎么样，你打算说今天很热，阳光很好，适合去公园散步。请选择正确的回应。",
+    "options": [
+      "Hoy hace mucho sol y calor. Voy al parque a caminar.",
+      "Hoy llueve mucho. Me quedo en casa.",
+      "Hoy hace frío. Llevo un abrigo."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U06-S02",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s03-1",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "工作、学习与日常场景沟通",
+    "difficulty": 2,
+    "tags": [
+      "与格代词le",
+      "翻译练习",
+      "A1核心语法"
+    ],
+    "sourceText": "我把这本书借给了我的同学。",
+    "options": [
+      "A) Yo presto el libro a mi compañero de clase.",
+      "B) Le presto el libro a mi compañero de clase.",
+      "C) Le presté el libro a mi profesor.",
+      "D) Le presté el libro a mi compañero de clase."
+    ],
+    "answerIdx": 3,
+    "sectionId": "zh-es/U06-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s03-2",
+    "type": "T03",
+    "typeName": "双向配对",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "工作、学习与日常场景沟通",
+    "difficulty": 1,
+    "tags": [
+      "代词配对",
+      "词汇识别",
+      "不定代词与与格代词"
+    ],
+    "left": [
+      "alguien",
+      "nada",
+      "todos",
+      "le"
+    ],
+    "right": [
+      "某人",
+      "什么都没有",
+      "所有人",
+      "他/她（与格代词）"
+    ],
+    "sectionId": "zh-es/U06-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s03-3",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "工作、学习与日常场景沟通",
+    "difficulty": 2,
+    "tags": [
+      "关系代词quien",
+      "补全句子",
+      "语法应用"
+    ],
+    "sentence": "¿___ puedes ayudarme con la tarea de español?",
+    "hint": "此处需填入指人的关系代词，用于引导特殊疑问句，询问“谁”能够提供帮助",
+    "answer": "Quien",
+    "sectionId": "zh-es/U06-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s03-4",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "工作、学习与日常场景沟通",
+    "difficulty": 3,
+    "tags": [
+      "与格代词le",
+      "情景表达",
+      "日常交际"
+    ],
+    "scenario": "你在办公室需要请坐在你旁边的同事帮忙，把桌上的文件传给角落里的另一位同事，你会如何用西语表达这个请求？",
+    "options": [
+      "A) ¿Le puedes pasar el documento a aquel compañero?",
+      "B) ¿Les puedes pasar el documento a aquel compañero?",
+      "C) ¿Le puedes dar el documento a todos los compañeros?",
+      "D) ¿Le puedes prestar el documento a aquel compañero?"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U06-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s03-5",
+    "type": "T09",
+    "typeName": "拼写输入",
+    "language": "espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "工作、学习与日常场景沟通",
+    "difficulty": 1,
+    "tags": [
+      "不定代词otro",
+      "拼写练习",
+      "词汇记忆"
+    ],
+    "audioText": "请拼写西语中表示“另一个”的阳性单数不定代词",
+    "hint": "该词以o结尾，为阳性形式，对应的阴性形式为otra",
+    "answer": "otro",
+    "sectionId": "zh-es/U06-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s04-1",
+    "type": "T02",
+    "typeName": "听音选图",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Comunicación integrada en entornos de trabajo, estudio y vida cotidiana",
+    "difficulty": 2,
+    "tags": [
+      "gustar",
+      "vocabulario de vivienda",
+      "comprensión auditiva"
+    ],
+    "audioText": "Me gusta la cocina grande.",
+    "imageOptions": [
+      {
+        "desc": "带大窗户的宽敞厨房，有木质橱柜和餐桌",
+        "prompt": "Modern, clean, flat vector illustration, white background, spacious kitchen with large windows, wooden cabinets, dining table"
+      },
+      {
+        "desc": "狭小的卧室，仅有一张单人床和一个小衣柜",
+        "prompt": "Modern, clean, flat vector illustration, white background, small bedroom with only a single bed, small wardrobe"
+      },
+      {
+        "desc": "带沙发、电视柜和咖啡桌的客厅",
+        "prompt": "Modern, clean, flat vector illustration, white background, living room with sofa, TV stand, coffee table"
+      }
+    ],
+    "correctIdx": 0,
+    "sectionId": "zh-es/U06-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s04-2",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Comunicación integrada en entornos de trabajo, estudio y vida cotidiana",
+    "difficulty": 3,
+    "tags": [
+      "gustar",
+      "conjugación verbal",
+      "estructuras interrogativas"
+    ],
+    "sentence": "¿___ la comida italiana?",
+    "hint": "提示：此处考查动词gustar的疑问式变位，句子主语为单数第三人称，对应正确变位形式为gusta，需搭配对应人称代词",
+    "options": [
+      "Te gusta",
+      "Le gusta",
+      "Me gusta",
+      "Nos gusta"
+    ],
+    "correctIdx": 0,
+    "sectionId": "zh-es/U06-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s04-3",
+    "type": "T06",
+    "typeName": "句子排序",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Comunicación integrada en entornos de trabajo, estudio y vida cotidiana",
+    "difficulty": 3,
+    "tags": [
+      "orden de palabras",
+      "estructuras comunicativas",
+      "vocabulario de vivienda"
+    ],
+    "scrambledWords": [
+      "Me",
+      "gusta",
+      "mi",
+      "habitación",
+      "porque",
+      "tiene",
+      "mucho",
+      "espacio"
+    ],
+    "correctSentence": "Me gusta mi habitación porque tiene mucho espacio.",
+    "sectionId": "zh-es/U06-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s04-4",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Comunicación integrada en entornos de trabajo, estudio y vida cotidiana",
+    "difficulty": 2,
+    "tags": [
+      "traducción",
+      "vocabulario de ocio",
+      "gustar"
+    ],
+    "sourceText": "我喜欢在午休时间和同事去楼下咖啡馆喝咖啡。",
+    "options": [
+      "Me gusta ir a la cafetería de la planta baja con mis compañeros de trabajo durante la hora del almuerzo para tomar café.",
+      "Me gusta almorzar en la oficina con mi jefe los fines de semana para hablar de trabajo.",
+      "Me gusta salir a comer con mis amigos los viernes por la noche para probar comida nueva.",
+      "Me gusta quedarme en la oficina después del trabajo para terminar mis tareas."
+    ],
+    "correctIdx": 0,
+    "sectionId": "zh-es/U06-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u06-s04-5",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Comunicación en trabajo, estudio y situaciones cotidianas",
+    "unitTheme": "Comunicación integrada en entornos de trabajo, estudio y vida cotidiana",
+    "difficulty": 4,
+    "tags": [
+      "comunicación oral",
+      "situaciones cotidianas",
+      "gustar"
+    ],
+    "scenario": "你和同学聊天时，对方问你喜欢住在现在的公寓吗？请用Espanol给出肯定回应并说明原因：你很喜欢因为离学校很近。",
+    "options": [
+      "Sí, me gusta mucho vivir en este apartamento porque está muy cerca de la universidad.",
+      "No, no me gusta nada este apartamento porque es muy pequeño y ruidoso.",
+      "Me es indiferente, no me importa dónde viva mientras tenga internet rápido.",
+      "No me gusta vivir en la ciudad, prefiero vivir en el campo con mi familia."
+    ],
+    "correctIdx": 0,
+    "sectionId": "zh-es/U06-S04",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s03-01",
+    "type": "T06",
+    "typeName": "句子排序",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Saludos y presentación personal",
+    "unitTheme": "Posesión y expresión de existencia",
+    "difficulty": 2,
+    "tags": [
+      "verbo hay",
+      "preposición de posesión",
+      "orden de oraciones",
+      "vocabulario familia/casa"
+    ],
+    "scrambledWords": [
+      "hay",
+      "muchos",
+      "libros",
+      "En",
+      "la",
+      "casa",
+      "de",
+      "mi",
+      "familia"
+    ],
+    "answer": "En la casa de mi familia hay muchos libros.",
+    "sectionId": "zh-es/U01-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s03-02",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Saludos y presentación personal",
+    "unitTheme": "Posesión y expresión de existencia",
+    "difficulty": 2,
+    "tags": [
+      "artículo contraído del",
+      "preposición de posesión",
+      "vocabulario familia"
+    ],
+    "sentence": "La casa ___ mis abuelos es muy acogedora.",
+    "hint": "此处需要用de加定冠词el的缩略形式del，表示所属关系‘...的’",
+    "options": [
+      "del",
+      "de",
+      "al",
+      "para"
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s03-03",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Saludos y presentación personal",
+    "unitTheme": "Posesión y expresión de existencia",
+    "difficulty": 2,
+    "tags": [
+      "preposición de para posesión",
+      "vocabulario objetos personales"
+    ],
+    "sourceText": "这本是胡安的练习册。",
+    "options": [
+      "El cuaderno para Juan es nuevo.",
+      "El cuaderno de Juan es nuevo.",
+      "El cuaderno al Juan es nuevo.",
+      "Juan tiene un cuaderno nuevo."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s03-04",
+    "type": "T02",
+    "typeName": "听音选图",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Saludos y presentación personal",
+    "unitTheme": "Posesión y expresión de existencia",
+    "difficulty": 3,
+    "tags": [
+      "verbo hay",
+      "artículo contraído al",
+      "vocabulario supermercado",
+      "comprensión auditiva"
+    ],
+    "audioText": "Voy al supermercado con mi mamá y hay mucha fruta.",
+    "imageOptions": [
+      {
+        "desc": "超市货架上的水果",
+        "prompt": "Modern, clean, flat vector illustration, white background, supermarket shelf with various fresh fruits, no people"
+      },
+      {
+        "desc": "办公室里的打印机",
+        "prompt": "Modern, clean, flat vector illustration, white background, office desk with a printer, no people"
+      },
+      {
+        "desc": "沙发上的家猫",
+        "prompt": "Modern, clean, flat vector illustration, white background, cat sitting on a sofa, no people"
+      },
+      {
+        "desc": "有车辆的城市街道",
+        "prompt": "Modern, clean, flat vector illustration, white background, busy city street with cars, no people"
+      }
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S03",
+    "pairId": "zh-es"
+  },
+  {
+    "id": "espanol-a1-u01-s03-05",
+    "type": "T12",
+    "typeName": "情景回应",
+    "language": "Espanol",
+    "cefr": "A1",
+    "unit": "Saludos y presentación personal",
+    "unitTheme": "Posesión y expresión de existencia",
+    "difficulty": 3,
+    "tags": [
+      "verbo hay",
+      "preposición de posesión",
+      "artículo contraído al",
+      "presentación personal",
+      "vocabulario trabajo/ciudad"
+    ],
+    "scenario": "你要向新同事介绍你在墨西哥城的工作，你的办公室里有你的电脑和同事的打印机，你周末常和朋友去公园，请选择正确的表达。",
+    "options": [
+      "Trabajo en la Ciudad de México. En mi oficina hay mi computadora y la impresora de mi compañero. El fin de semana voy al parque con mi amigo.",
+      "Trabajo en la Ciudad de México. Mi oficina hay mi computadora y la impresora de mi compañero. El fin de semana voy al parque con mi amigo.",
+      "Trabajo en la Ciudad de México. En mi oficina está mi computadora y la impresora de mi compañero. El fin de semana voy a la parque con mi amigo.",
+      "Trabajo en la Ciudad de México. Hay mi oficina mi computadora y la impresora de mi compañero. El fin de semana voy al parque con mi amigo."
+    ],
+    "answerIdx": 0,
+    "sectionId": "zh-es/U01-S03",
+    "pairId": "zh-es"
+  }
+]

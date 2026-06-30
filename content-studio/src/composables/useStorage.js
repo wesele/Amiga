@@ -4,6 +4,9 @@
  * - API 配置仍走 studio.config.json（与其他数据分开管理）
  */
 
+import { migrateQuestionSectionIds } from '../utils/sectionId.js'
+import { migrateQuestionFields } from '../utils/normalizeQuestion.js'
+
 const DEFAULT_CONFIG = { baseUrl: '', apiKey: '', model: 'gpt-4o-mini', reviewModel: 'gpt-4o' }
 
 // 模块级内存缓存
@@ -102,6 +105,7 @@ export function useStorage() {
     if (filter.language) questions = questions.filter(q => q.language === filter.language)
     if (filter.taskId) questions = questions.filter(q => q._taskId === filter.taskId)
     if (filter.sectionId) questions = questions.filter(q => q.sectionId === filter.sectionId)
+    if (filter.pairId) questions = questions.filter(q => q.pairId === filter.pairId)
     return questions
   }
 
@@ -237,6 +241,28 @@ export async function init() {
   _tasks = await loadData('tasks', [])
   _questions = await loadData('questions', [])
   _productionLog = await loadData('production-log', [])
+
+  const { questions: sectionMigrated, changed: sectionChanged } = migrateQuestionSectionIds(_questions)
+  if (sectionChanged > 0) {
+    _questions = sectionMigrated
+    await saveData('questions', _questions)
+    console.log(`[questions] 已迁移 ${sectionChanged} 道题目的 sectionId / pairId`)
+  }
+
+  let pairTargetMap = {}
+  try {
+    const systemConfig = await loadData('system-config', { languagePairs: [] })
+    pairTargetMap = Object.fromEntries(
+      (systemConfig.languagePairs || []).map(p => [p.id, p.to])
+    )
+  } catch { /* 使用空映射，normalizeLanguage 仍可做字段级归一 */ }
+
+  const { questions: normalized, changed: normChanged, stats } = migrateQuestionFields(_questions, pairTargetMap)
+  if (normChanged > 0) {
+    _questions = normalized
+    await saveData('questions', _questions)
+    console.log(`[questions] 已归一化 ${normChanged}/${_questions.length} 道题目`, stats)
+  }
 }
 
 // 内部引用（getVocabCoverage 需要访问词库状态）
