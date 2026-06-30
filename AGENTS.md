@@ -58,6 +58,7 @@
 - 前端改动会通过 Vite HMR 推到模拟器；Rust 改动会增量 build + `adb install -r` 保留数据；Kotlin 改动需要重启 dev 循环让 `android-patch.cjs` 同步到 gen。
 - `WindowInsetsCompat` 返回设备像素，CSS `px` 是逻辑像素。`__amigaSetInsets` 收到 inset 后必须除以 `window.devicePixelRatio` 再写 CSS 变量，否则 safe-area 会放大。
 - safe-area 问题用 `adb logcat -s Amiga/Main:*` 查看原始 inset，并在 JS 侧确认 DPR 转换后的值。
+- Android真机调试不应该先删除再安装新版本，应该直接强行安装新版本的方式进行。因为一旦删除在安装就要求人工确认，无法自动化。
 
 ### Content Studio
 

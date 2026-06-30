@@ -16,6 +16,11 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+terminals/
+agent-tools/
+
+# Accidental version-bump prompt artifact
+x.x.(+1)
 
 # Logs
 *.log
