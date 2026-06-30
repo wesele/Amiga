@@ -142,7 +142,7 @@ const hasAudio = computed(() =>
 
 const showMainImage = computed(() =>
   props.question.type === "T01" &&
-  (props.question.imageUrl || props.question.imageSvg || props.question.imageDesc),
+  (props.question.imageUrl || props.question.imageSvg),
 );
 
 const promptText = computed(() => {

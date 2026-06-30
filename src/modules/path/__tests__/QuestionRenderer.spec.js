@@ -14,4 +14,13 @@ describe("QuestionRenderer", () => {
     expect(source).toContain('if (q.type === "T01") return t("path.chooseByImage")');
     expect(source).not.toMatch(/if \(q\.type === "T01"\) return q\.imageDesc/);
   });
+
+  it("does not render imageDesc as visible learner text in QuestionImage", () => {
+    const source = readFileSync(
+      resolve(ROOT, "modules/path/components/QuestionImage.vue"),
+      "utf8",
+    );
+    expect(source).not.toContain('class="image-desc"');
+    expect(source).toContain("imageAlt");
+  });
 });

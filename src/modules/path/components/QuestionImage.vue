@@ -1,8 +1,8 @@
 <template>
   <div class="question-image">
-    <img v-if="imageUrl" :src="imageUrl" :alt="alt" class="image" />
-    <div v-else-if="imageSvg" class="svg-wrap" v-html="sanitizedSvg" />
-    <p v-else-if="imageDesc" class="image-desc">{{ imageDesc }}</p>
+    <img v-if="imageUrl" :src="imageUrl" :alt="imageAlt" class="image" />
+    <div v-else-if="imageSvg" class="svg-wrap" v-html="sanitizedSvg" role="img" :aria-label="imageAlt" />
+    <div v-else class="image-missing" aria-hidden="true">🖼️</div>
   </div>
 </template>
 
@@ -15,6 +15,8 @@ const props = defineProps({
   imageDesc: { type: String, default: "" },
   alt: { type: String, default: "" },
 });
+
+const imageAlt = computed(() => props.alt || props.imageDesc || "");
 
 const sanitizedSvg = computed(() => {
   const svg = props.imageSvg || "";
@@ -51,13 +53,16 @@ const sanitizedSvg = computed(() => {
   display: block;
 }
 
-.image-desc {
-  margin: 0;
-  padding: 16px;
+.image-missing {
+  width: min(100%, 280px);
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
   background: var(--surface-variant);
   border-radius: var(--radius-md);
-  color: var(--text-light);
-  text-align: center;
-  font-size: 15px;
+  border: 1px dashed var(--border);
+  opacity: 0.6;
 }
 </style>

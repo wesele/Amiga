@@ -9,10 +9,22 @@
       <div class="header-text">
         <h1 class="page-title">{{ t("path.title") }}</h1>
         <p v-if="curriculum?.status === 'active'" class="page-sub">
-          {{ curriculum.cefr }}
-          · {{ t("path.progress", { done: curriculum.completed_sections, total: curriculum.total_sections }) }}
+          {{ t("path.progress", { done: curriculum.completed_sections, total: curriculum.total_sections }) }}
           · ⭐ {{ curriculum.total_stars }}
         </p>
+        <div v-if="curriculum?.status === 'active'" class="level-pills">
+          <button
+            v-for="lvl in learningLevels"
+            :key="lvl"
+            type="button"
+            class="level-pill"
+            :class="{ active: currentCefr === lvl }"
+            :disabled="levelSwitching"
+            @click="onSwitchLevel(lvl)"
+          >
+            {{ lvl }}
+          </button>
+        </div>
       </div>
     </header>
 
@@ -81,10 +93,15 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { CEFR_LEVELS } from "@/shared/constants.js";
+import { CEFR_LEVELS, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
-import { getPathCurriculum, getCurrentUser, getLearningGoals } from "@/shared/api.js";
+import {
+  getPathCurriculum,
+  getCurrentUser,
+  getLearningGoals,
+  updateLearningGoalCefr,
+} from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 
 const router = useRouter();
@@ -94,6 +111,9 @@ const targetLangStore = useTargetLangStore();
 const loading = ref(true);
 const error = ref("");
 const curriculum = ref(null);
+const currentCefr = ref("A1");
+const levelSwitching = ref(false);
+const learningLevels = LEARNING_CEFR_LEVELS;
 
 const completedLevelLabel = computed(() => {
   const current = curriculum.value?.cefr;
@@ -133,11 +153,28 @@ async function load() {
     const goals = await getLearningGoals(user.id);
     const goal = goals.find((g) => g.target_language === targetLang);
     const cefr = goal?.cefr_level || "A1";
+    currentCefr.value = cefr;
     curriculum.value = await getPathCurriculum(user.native_language, targetLang, cefr);
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {
     loading.value = false;
+  }
+}
+
+async function onSwitchLevel(level) {
+  if (levelSwitching.value || level === currentCefr.value) return;
+  const targetLang = targetLangStore.code;
+  if (!targetLang) return;
+  levelSwitching.value = true;
+  try {
+    await updateLearningGoalCefr(targetLang, level);
+    currentCefr.value = level;
+    await load();
+  } catch (e) {
+    error.value = e?.message || String(e);
+  } finally {
+    levelSwitching.value = false;
   }
 }
 
@@ -189,6 +226,35 @@ onMounted(load);
   margin: 4px 0 0;
   font-size: 13px;
   color: var(--text-light);
+}
+
+.level-pills {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.level-pill {
+  padding: 4px 14px;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  background: var(--white);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-light);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+}
+
+.level-pill.active {
+  border-color: var(--blue);
+  background: var(--blue-bg);
+  color: var(--blue-hover);
+}
+
+.level-pill:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .loading-state,
