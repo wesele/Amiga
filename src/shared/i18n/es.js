@@ -340,6 +340,14 @@ export default {
     resetting: "Borrando...",
   },
 
+  dataLoadFail: {
+    title: "Error al cargar datos antiguos",
+    message: "Tras reinstalar/actualizar la app no se pudieron cargar los datos antiguos conservados (archivo dañado, esquema incompatible o problema de permisos).\n\n¿Borrar los datos antiguos y empezar de nuevo, o salir de la app?",
+    confirm: "Borrar datos antiguos y continuar",
+    exit: "Salir de la app",
+    deleting: "Borrando...",
+  },
+
   preview: {
     title: "Vista previa de Markdown",
     subtitle: "Cómo se renderizan los mensajes del chat IA con Markdown",

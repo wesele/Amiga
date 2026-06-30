@@ -187,6 +187,7 @@ describe("mergeBackupAttributes", () => {
     expect(patched).toContain('android:fullBackupContent="@xml/backup_rules"');
     expect(patched).toContain('android:dataExtractionRules="@xml/data_extraction_rules"');
     expect(patched).toContain('android:hasFragileUserData="true"');
+    expect(patched).toContain('android:requestLegacyExternalStorage="true"');
     // The attributes should appear inside the <application> tag, not after it
     const appTagMatch = patched.match(/<application[\s\S]*?>/);
     expect(appTagMatch).not.toBeNull();
@@ -194,6 +195,7 @@ describe("mergeBackupAttributes", () => {
     expect(appTagMatch[0]).toContain('android:fullBackupContent="@xml/backup_rules"');
     expect(appTagMatch[0]).toContain('android:dataExtractionRules="@xml/data_extraction_rules"');
     expect(appTagMatch[0]).toContain('android:hasFragileUserData="true"');
+    expect(appTagMatch[0]).toContain('android:requestLegacyExternalStorage="true"');
   });
 
   it("is idempotent — running twice yields the same result", () => {
@@ -218,6 +220,7 @@ describe("mergeBackupAttributes", () => {
     expect(patched).toContain('android:fullBackupContent="@xml/backup_rules"');
     expect(patched).toContain('android:dataExtractionRules="@xml/data_extraction_rules"');
     expect(patched).toContain('android:hasFragileUserData="true"');
+    expect(patched).toContain('android:requestLegacyExternalStorage="true"');
   });
 
   it("adds hasFragileUserData when backup attrs already exist", () => {
@@ -230,6 +233,7 @@ describe("mergeBackupAttributes", () => {
     );
     const patched = mergeBackupAttributes(partial);
     expect(patched).toContain('android:hasFragileUserData="true"');
+    expect(patched).toContain('android:requestLegacyExternalStorage="true"');
     expect(patched.match(/android:allowBackup="true"/g)).toHaveLength(1);
   });
 });

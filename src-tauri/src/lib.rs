@@ -12,11 +12,11 @@ pub fn run() {
     logging::init_logging();
     log::info!("Starting Idioma application...");
 
-    // Initialize database and run migrations
-    let db_pool = DatabasePool::new().unwrap_or_else(|e| {
-        log::error!("Fatal: database initialization failed: {}", e);
-        panic!("Database initialization failed: {}", e);
-    });
+    // Initialize database and run migrations.
+    // Never panic here: if opening retained old data fails we create a
+    // broken stand-in pool so the frontend can show a proper dialog
+    // (delete old data + restart, or exit) instead of a white screen.
+    let db_pool = DatabasePool::new();
 
     // Import vocabulary bank if not already imported
     if let Err(e) = modules::vocabulary::import_vocab_bank(&db_pool) {
@@ -51,6 +51,10 @@ pub fn run() {
             // Database commands
             commands::database::is_schema_compatible_cmd,
             commands::database::reset_database_cmd,
+            commands::database::get_database_status_cmd,
+            commands::database::delete_database_file_cmd,
+            commands::database::delete_database_and_restart_cmd,
+            commands::database::exit_app_cmd,
             // User commands
             commands::user::create_user,
             commands::user::get_current_user,

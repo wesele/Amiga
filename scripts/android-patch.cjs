@@ -145,6 +145,7 @@ function mergeBackupAttributes(manifest) {
     'android:fullBackupContent="@xml/backup_rules"',
     'android:dataExtractionRules="@xml/data_extraction_rules"',
     'android:hasFragileUserData="true"',
+    'android:requestLegacyExternalStorage="true"',
   ];
   const missing = desired.filter((attr) => !manifest.includes(attr));
   if (missing.length === 0) return manifest;

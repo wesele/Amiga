@@ -5,9 +5,10 @@
   Back up the entire app's internal storage so user data (SQLite database,
   settings, vocabulary mastery) can be restored via Auto Backup.
 
-  Primary uninstall retention: SQLite lives in public Documents/Amiga
-  (see database.rs + MainActivity.kt). hasFragileUserData is a fallback
-  for the legacy internal path.
+  Live DB is in private internal storage. For uninstall retention we
+  export a backup copy via MediaStore to Downloads/Amiga (no MANAGE
+  permission required). hasFragileUserData provides additional system
+  backup fallback.
 
   See also data_extraction_rules.xml for API 31+.
 -->
