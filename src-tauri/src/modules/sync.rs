@@ -1186,7 +1186,7 @@ mod tests {
             }
         };
 
-        let pool = DatabasePool::new().expect("file db");
+        let pool = DatabasePool::new();
         let nickname = format!("E2E_{}", &uuid::Uuid::new_v4().to_string()[..8]);
 
         let user = create_user_from_wizard(

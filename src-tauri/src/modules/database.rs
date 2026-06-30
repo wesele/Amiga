@@ -325,6 +325,8 @@ impl Clone for DatabasePool {
         Self {
             pool: self.pool.clone(),
             compatible: AtomicBool::new(self.compatible.load(Ordering::Relaxed)),
+            load_error: Mutex::new(self.load_error()),
+            file_path: self.file_path.clone(),
         }
     }
 }
