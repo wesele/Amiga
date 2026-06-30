@@ -4,6 +4,7 @@
  * 结构: { [promptId]: { title: '...', content: '...', category: '...' } }
  */
 import { ref } from 'vue'
+import { IMAGE_PROMPTS_EXPORT } from '../prompts/image-prompts.js'
 
 const DEFAULT_PROMPTS = {
   'unit-framework': {
@@ -32,39 +33,7 @@ Output Format: A JSON array of units. Each unit must have:
 
 Output ONLY the JSON array, no markdown, no explanation.`
   },
-  'image-svg-gen': {
-    title: 'SVG 图片生成',
-    category: '素材生产',
-    content: `Here is a valid SVG example (flat vector educational style):
-
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
-<rect width="400" height="400" fill="#FFFFFF"/>
-<circle cx="200" cy="200" r="70" fill="#4A90D9" stroke="#333333" stroke-width="4"/>
-<ellipse cx="200" cy="120" rx="30" ry="14" fill="#4CAF50" stroke="#333333" stroke-width="3"/>
-</svg>
-
-Create a NEW complete SVG in the same style for this language-learning image:
-Description: \${desc}
-Visual details: \${prompt}
-
-Rules:
-- Reply with ONLY one <svg>...</svg> element, no markdown, no explanation
-- Keep xmlns, viewBox="0 0 400 400", white background <rect>
-- Flat vector, thick strokes (3-4px), bright colors, centered subject
-- Use real path/rect/circle data — NEVER output placeholder "..."
-- No text, letters, numbers, or watermarks in the image
-- Maximum 25 elements`
-  },
-  'image-refine': {
-    title: '图片提示词优化',
-    category: '素材生产',
-    content: `You are an expert AI image prompt engineer for a language learning app. 
-Refine the following image description into a high-quality, detailed English prompt for Midjourney or Stable Diffusion.
-Style: Modern, clean, high-quality flat vector illustration, consistent thick line art, vibrant educational colors, soft lighting, white background, isolated object, 4k resolution.
-Content: Describe a specific, clear, and visually distinct scene that represents the concept accurately. Avoid text in the image.
-Original: \${value}
-Output ONLY the refined English prompt string, no other text.`
-  },
+  ...IMAGE_PROMPTS_EXPORT,
   'question-gen': {
     title: '题目生成基础模板',
     category: '题目生产',
@@ -129,18 +98,30 @@ export function usePromptStorage() {
 
 // ---- 全局初始化（main.js 调用一次） ----
 export async function init() {
+  let loaded = false
   try {
     const res = await fetch('/api/data/prompts')
     if (res.ok) {
       const data = await res.json()
       if (data && Object.keys(data).length > 0) {
         prompts.value = { ...DEFAULT_PROMPTS, ...data }
-        return
+        loaded = true
       }
     }
   } catch { /* 无数据 */ }
-  // 服务端无数据时保存默认值
-  await saveToServer()
+
+  // 图片类提示词始终升级到内置最新版（SVG 模板迭代频繁）
+  let imageUpgraded = false
+  for (const [id, val] of Object.entries(IMAGE_PROMPTS_EXPORT)) {
+    if (prompts.value[id]?.content !== val.content || prompts.value[id]?.title !== val.title) {
+      prompts.value[id] = val
+      imageUpgraded = true
+    }
+  }
+
+  if (!loaded || imageUpgraded) {
+    await saveToServer()
+  }
 }
 
 export default usePromptStorage

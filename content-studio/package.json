@@ -10,7 +10,8 @@
     "test": "node utils-test.mjs",
     "test:repair": "node scripts/repair-questions.mjs",
     "test:integration": "node integration-test.mjs",
-    "test:all": "node utils-test.mjs && node integration-test.mjs"
+    "test:all": "node utils-test.mjs && node integration-test.mjs",
+    "sync-prompts": "node scripts/sync-prompts.mjs"
   },
   "dependencies": {
     "jszip": "^3.10.1",

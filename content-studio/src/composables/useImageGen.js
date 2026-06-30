@@ -3,36 +3,20 @@
  */
 import { useLLM } from './useLLM.js'
 import { usePromptStorage } from './usePromptStorage.js'
+import {
+  SVG_SYSTEM_PROMPT,
+  IMAGE_SVG_GEN_PROMPT,
+  IMAGE_REFINE_PROMPT
+} from '../prompts/image-prompts.js'
 
-const EXAMPLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
-<rect width="400" height="400" fill="#FFFFFF"/>
-<circle cx="200" cy="200" r="70" fill="#4A90D9" stroke="#333333" stroke-width="4"/>
-<ellipse cx="200" cy="120" rx="30" ry="14" fill="#4CAF50" stroke="#333333" stroke-width="3"/>
-</svg>`
-
-const SVG_SYSTEM_PROMPT = `You are an SVG illustrator. You must output one complete, renderable SVG element.
-Never use placeholder text like "..." inside tags. Use real coordinates and colors.`
-
-const DEFAULT_SVG_PROMPT = `Here is a valid SVG example (flat vector educational style):
-
-${EXAMPLE_SVG}
-
-Create a NEW complete SVG in the same style for this language-learning image:
-Description: \${desc}
-Visual details: \${prompt}
-
-Rules:
-- Reply with ONLY one <svg>...</svg> element, no markdown, no explanation
-- Keep xmlns, viewBox="0 0 400 400", white background <rect>
-- Flat vector, thick strokes (3-4px), bright colors, centered subject
-- Use real path/rect/circle data — NEVER output placeholder "..." 
-- No text, letters, numbers, or watermarks in the image
-- Maximum 25 elements`
+const DEFAULT_SVG_PROMPT = IMAGE_SVG_GEN_PROMPT
+const DEFAULT_REFINE_PROMPT = IMAGE_REFINE_PROMPT
 
 const RETRY_SUFFIX = `
 
-IMPORTANT: Your previous response was invalid or incomplete.
-Output a COMPLETE new <svg> with real shape coordinates (copy the example structure above).`
+IMPORTANT: Your previous SVG was invalid or incomplete.
+Output a COMPLETE new <svg> with real shape coordinates. Follow Example A/B structure.
+Do NOT use text elements. Use 15–35 simple shapes only.`
 
 const DANGEROUS_SVG_RE = new RegExp(
   '<script[\\s>]|</' + 'script>|on\\w+\\s*=|javascript:|data:text/html|foreignObject|<iframe|<embed|<object',
@@ -233,11 +217,37 @@ export function useImageGen() {
     return result
   }
 
+  async function buildSceneBrief(desc, prompt, options = {}) {
+    const refineTemplate = promptStorage.getPrompt('image-refine') || DEFAULT_REFINE_PROMPT
+    const filled = fillTemplate(refineTemplate, {
+      desc: desc || 'educational illustration',
+      prompt: prompt || desc || '',
+      correctConcept: options.correctConcept || 'the vocabulary concept being taught',
+      distractors: options.distractors || 'none'
+    })
+
+    options.onProgress?.('正在分解场景为 SVG 绘制要点...')
+    const result = await llm.callLLM(filled, {
+      temperature: 0.3,
+      signal: options.signal,
+      systemPrompt: 'You write concise SVG drawing briefs for educational apps. Output plain text only.'
+    })
+    const brief = result?.content?.trim()
+    if (!brief) throw new Error('场景分解未返回内容')
+    options.onProgress?.('场景要点已就绪', 'success')
+    return brief
+  }
+
   async function generateSvg(desc, prompt = '', options = {}) {
+    const sceneBrief = options.skipRefine
+      ? (prompt || desc || 'simple flat vector educational illustration')
+      : await buildSceneBrief(desc, prompt, options)
+
     const baseTemplate = promptStorage.getPrompt('image-svg-gen') || DEFAULT_SVG_PROMPT
     const vars = {
-      desc: desc || 'educational illustration',
-      prompt: prompt || desc || 'simple flat vector object'
+      sceneBrief,
+      correctConcept: options.correctConcept || 'the main learning concept',
+      distractors: options.distractors || 'none'
     }
 
     const llmOpts = {

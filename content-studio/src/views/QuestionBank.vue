@@ -713,6 +713,33 @@ function getImagePrompt(opt) {
   return opt?.prompt || opt?.imagePrompt || ''
 }
 
+function getImageGenContext(q, optIndex = null) {
+  if (q.type === 'T01') {
+    const correct = q.options?.[q.answerIdx] || ''
+    const distractors = (q.options || [])
+      .filter((_, i) => i !== q.answerIdx)
+      .map(o => String(o))
+      .join('; ')
+    return {
+      correctConcept: correct || q.imageDesc || '',
+      distractors: distractors || 'none'
+    }
+  }
+  if (q.type === 'T02' && Array.isArray(q.imageOptions)) {
+    const opt = optIndex != null ? q.imageOptions[optIndex] : null
+    const distractors = q.imageOptions
+      .filter((_, i) => i !== optIndex)
+      .map(o => o.desc)
+      .filter(Boolean)
+      .join('; ')
+    return {
+      correctConcept: opt?.desc || q.imageOptions[q.answerIdx]?.desc || q.audioText || '',
+      distractors: distractors || 'none'
+    }
+  }
+  return { correctConcept: q.imageDesc || '', distractors: 'none' }
+}
+
 function imageGenProgress(msg, type = 'info') {
   asyncOp.setMessage(msg)
   asyncOp.addLog(msg, type)
@@ -811,7 +838,7 @@ async function generateAllImages() {
             q.imageDesc,
             q.imagePrompt,
             imageFilename(q.id),
-            { signal: controller.signal, onProgress: imageGenProgress }
+            { signal: controller.signal, onProgress: imageGenProgress, ...getImageGenContext(q) }
           )
           await applyGeneratedImage(q, svg, url)
           done++
@@ -836,7 +863,7 @@ async function generateAllImages() {
               opt.desc,
               getImagePrompt(opt),
               imageFilename(q.id, `opt${i}`),
-              { signal: controller.signal, onProgress: imageGenProgress }
+              { signal: controller.signal, onProgress: imageGenProgress, ...getImageGenContext(q, i) }
             )
             await applyGeneratedImage(opt, svg, url)
             done++
@@ -885,7 +912,7 @@ async function generateImagesForCurrent() {
         q.imageDesc,
         q.imagePrompt,
         imageFilename(q.id),
-        { signal: controller.signal, onProgress: imageGenProgress }
+        { signal: controller.signal, onProgress: imageGenProgress, ...getImageGenContext(q) }
       )
       await applyGeneratedImage(q, svg, url)
       asyncOp.addLog('T01 图片生成完成', 'success')
@@ -899,7 +926,7 @@ async function generateImagesForCurrent() {
           opt.desc,
           getImagePrompt(opt),
           imageFilename(q.id, `opt${i}`),
-          { signal: controller.signal, onProgress: imageGenProgress }
+          { signal: controller.signal, onProgress: imageGenProgress, ...getImageGenContext(q, i) }
         )
         await applyGeneratedImage(opt, svg, url)
       }
@@ -1465,7 +1492,8 @@ ${selectedTypes.map(t => `- ${t.id} (${t.title}): ${t.description}`).join('\n')}
 
 【重要 - 双语要求】
 学习者是${sourceLang}母语者学习${targetLang}，因此题目必须包含双语内容：
-- T01/T02 图片题: imageDesc（图片描述）必须用${sourceLang}，选项用${targetLang}
+- T01 图片题: imageDesc 用${sourceLang}（必须描绘正确答案 options[answerIdx] 的场景）；imagePrompt 用英文写 SVG 可画要素（主体+动作+道具，禁止 4k/光影/Midjourney 术语）；选项用${targetLang}
+- T02 听音选图: 每项 imageOptions 含 desc（${sourceLang}）+ prompt（英文 SVG 要素）；四张图场景/主体/主色必须互不相同；audioText 用${targetLang}
 - T03 配对题: left 用${targetLang}，right 用${sourceLang}翻译（帮助学习者理解含义）
 - T05 补全句子: sentence 用${targetLang}，但 hint（提示）必须用${sourceLang}解释语法点
 - T07 翻译选择: sourceText 用${sourceLang}，选项用${targetLang}（将母语翻译成目标语）

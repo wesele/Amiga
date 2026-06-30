@@ -12,7 +12,7 @@ export const QUESTION_TYPES = {
     cognitive: '识别',
     tier: 1,
     extendedFields: ['imageDesc', 'imagePrompt', 'options', 'answerIdx'],
-    promptHint: 'imageDesc 为简洁的中文描述；imagePrompt 必须是高质量的英文 AI 绘图提示词（风格：Modern, clean, flat vector illustration, consistent thick line art, vibrant educational colors, white background, isolated object, 4k resolution；内容：具体场景细节描述）；干扰项须为同类词；正确答案不能靠排除法得出'
+    promptHint: 'imageDesc 用母语简洁描述画面（必须对应正确答案 options[answerIdx] 的含义，学习者看图应能选出正确选项）；imagePrompt 用英文写 SVG 可画要素（主体+动作+2-3个道具/场景线索，如 "young person waving hand, casual shirt, friendly smile, white background"，禁止写 4k/Midjourney/光影等栅格图术语）；干扰项须为同类词且语义接近；正确答案不能靠排除法得出'
   },
   T02: {
     id: 'T02',
@@ -22,7 +22,7 @@ export const QUESTION_TYPES = {
     cognitive: '识别',
     tier: 1,
     extendedFields: ['audioText', 'imageOptions', 'answerIdx'],
-    promptHint: '需标注发音文本（TTS 播放内容）；imageOptions 必须是一个对象数组，每个对象包含 {desc: "简洁中文描述", prompt: "高质量英文 AI 绘图提示词 (风格: Modern, clean, flat vector illustration, white background)"}；选项间不可有包含关系'
+    promptHint: '需标注发音文本（TTS 播放内容）；imageOptions 为 4 项数组，每项含 desc（母语简洁描述）和 prompt（英文 SVG 要素：不同场景/主体/主色，如 indoor kitchen vs outdoor park，确保四图一眼可区分）；正确项 desc 须与 audioText 语义一致；选项间不可有包含关系'
   },
   T03: {
     id: 'T03',
@@ -197,7 +197,7 @@ export function buildPrompt({ questionType, language, cefr, unit, unitTheme, voc
 
   const EXAMPLE_VALUES = {
     imageDesc: '"描述图片的中文文字"',
-    imagePrompt: '"Modern flat vector illustration of [object], consistent thick line art, vibrant educational colors, white background, isolated, 4k"',
+    imagePrompt: '"[main subject + action], [2-3 visual props], flat vector, centered, white background, no text in image"',
     options: '["选项1", "选项2", "选项3", "选项4"]',
     answerIdx: '0',
     audioText: '"发音文本"',
