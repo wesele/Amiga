@@ -25,6 +25,8 @@ pub struct PathSectionProgress {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathSectionNode {
     pub id: String,
+    /// "grammar" | "vocab" | "practice"
+    pub kind: String,
     pub title_native: String,
     pub title_target: String,
     pub question_count: i32,
@@ -32,6 +34,25 @@ pub struct PathSectionNode {
     pub best_score: i32,
     pub locked: bool,
     pub current: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TeachingWord {
+    pub word: String,
+    pub definition_zh: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PathTeaching {
+    pub node_id: String,
+    pub kind: String,
+    pub unit_id: String,
+    pub unit_title_native: String,
+    pub unit_title_target: String,
+    pub goal_native: String,
+    pub grammar_points: Vec<String>,
+    pub words: Vec<TeachingWord>,
+    pub scenarios: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,6 +102,12 @@ struct FrameworkSection {
     title_native: String,
     #[serde(rename = "titleTarget")]
     title_target: String,
+    #[serde(rename = "coveredWords", default)]
+    covered_words: Vec<String>,
+    #[serde(rename = "grammarPoint", default)]
+    grammar_point: String,
+    #[serde(default)]
+    scenario: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -92,6 +119,10 @@ struct FrameworkUnit {
     title_target: String,
     #[serde(rename = "goalNative")]
     goal_native: String,
+    #[serde(rename = "grammarPoints", default)]
+    grammar_points: Vec<String>,
+    #[serde(default)]
+    scenarios: Vec<String>,
     sections: Vec<FrameworkSection>,
 }
 
@@ -150,6 +181,56 @@ fn try_upgrade_cefr_level(
 
 fn section_full_id(pair_key: &str, unit_id: &str, section_id: &str) -> String {
     format!("{pair_key}/{unit_id}-{section_id}")
+}
+
+fn teaching_node_id(pair_key: &str, unit_id: &str, kind: &str) -> String {
+    format!("{pair_key}/{unit_id}-{kind}")
+}
+
+fn parse_node_id(node_id: &str) -> Option<(String, String, String)> {
+    let (pair_key, rest) = node_id.split_once('/')?;
+    let (unit_id, tail) = rest.split_once('-')?;
+    Some((pair_key.to_string(), unit_id.to_string(), tail.to_string()))
+}
+
+fn unit_vocab_words(unit: &FrameworkUnit) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    let mut words = Vec::new();
+    for section in &unit.sections {
+        for word in &section.covered_words {
+            let key = word.to_lowercase();
+            if seen.insert(key) {
+                words.push(word.clone());
+            }
+        }
+    }
+    words
+}
+
+fn lookup_word_glosses(
+    pool: &DatabasePool,
+    words: &[String],
+    target_lang: &str,
+) -> Result<Vec<TeachingWord>, String> {
+    let conn = pool.conn()?;
+    let mut out = Vec::new();
+    for word in words {
+        let gloss: Option<String> = conn
+            .query_row(
+                "SELECT definition_zh FROM vocab_bank
+                 WHERE language = ?1 AND LOWER(word) = LOWER(?2)
+                 LIMIT 1",
+                params![target_lang, word],
+                |row| row.get(0),
+            )
+            .ok()
+            .flatten();
+        out.push(TeachingWord {
+            word: word.clone(),
+            definition_zh: gloss,
+        });
+    }
+    Ok(out)
 }
 
 fn rewrite_image_urls(value: &mut Value) {
@@ -215,10 +296,12 @@ fn question_counts_for_pair(pair_key: &str, cefr: &str) -> HashMap<String, i32> 
     counts
 }
 
-fn ordered_section_ids(pair_key: &str, cefr: &str) -> Result<Vec<String>, String> {
+fn ordered_node_ids(pair_key: &str, cefr: &str) -> Result<Vec<String>, String> {
     let units = framework_units(pair_key, cefr)?;
     let mut ids = Vec::new();
     for unit in units {
+        ids.push(teaching_node_id(pair_key, &unit.id, "GRAMMAR"));
+        ids.push(teaching_node_id(pair_key, &unit.id, "VOCAB"));
         for section in &unit.sections {
             ids.push(section_full_id(pair_key, &unit.id, &section.id));
         }
@@ -320,15 +403,15 @@ pub fn get_path_curriculum(
     };
     let counts = question_counts_for_pair(&pair_key, cefr);
     let progress = get_progress_map(pool, user_id, &pair_key)?;
-    let ordered = ordered_section_ids(&pair_key, cefr)?;
+    let ordered = ordered_node_ids(&pair_key, cefr)?;
 
     let mut first_incomplete: Option<String> = None;
-    for sid in &ordered {
-        let p = progress.get(sid);
+    for nid in &ordered {
+        let p = progress.get(nid);
         if p.map(|x| x.stars > 0).unwrap_or(false) {
             continue;
         }
-        first_incomplete = Some(sid.clone());
+        first_incomplete = Some(nid.clone());
         break;
     }
 
@@ -336,8 +419,57 @@ pub fn get_path_curriculum(
     let mut total_stars = 0;
     let mut unit_nodes = Vec::new();
 
+    fn node_locked(idx: usize, ordered: &[String], progress: &HashMap<String, PathSectionProgress>) -> bool {
+        if idx == 0 {
+            return false;
+        }
+        let prev = &ordered[idx - 1];
+        progress.get(prev).map(|p| p.stars > 0).unwrap_or(false) == false
+    }
+
     for unit in units {
         let mut section_nodes = Vec::new();
+
+        let grammar_id = teaching_node_id(&pair_key, &unit.id, "GRAMMAR");
+        let grammar_prog = progress.get(&grammar_id);
+        let grammar_stars = grammar_prog.map(|p| p.stars).unwrap_or(0);
+        let grammar_idx = ordered.iter().position(|s| s == &grammar_id).unwrap_or(0);
+        if grammar_stars > 0 {
+            completed_sections += 1;
+            total_stars += grammar_stars;
+        }
+        section_nodes.push(PathSectionNode {
+            id: grammar_id.clone(),
+            kind: "grammar".to_string(),
+            title_native: "语言知识".to_string(),
+            title_target: "Gramática".to_string(),
+            question_count: 1,
+            stars: grammar_stars,
+            best_score: grammar_prog.map(|p| p.best_score).unwrap_or(0),
+            locked: node_locked(grammar_idx, &ordered, &progress),
+            current: first_incomplete.as_ref() == Some(&grammar_id),
+        });
+
+        let vocab_id = teaching_node_id(&pair_key, &unit.id, "VOCAB");
+        let vocab_prog = progress.get(&vocab_id);
+        let vocab_stars = vocab_prog.map(|p| p.stars).unwrap_or(0);
+        let vocab_idx = ordered.iter().position(|s| s == &vocab_id).unwrap_or(0);
+        if vocab_stars > 0 {
+            completed_sections += 1;
+            total_stars += vocab_stars;
+        }
+        section_nodes.push(PathSectionNode {
+            id: vocab_id.clone(),
+            kind: "vocab".to_string(),
+            title_native: "单词学习".to_string(),
+            title_target: "Vocabulario".to_string(),
+            question_count: unit_vocab_words(&unit).len() as i32,
+            stars: vocab_stars,
+            best_score: vocab_prog.map(|p| p.best_score).unwrap_or(0),
+            locked: node_locked(vocab_idx, &ordered, &progress),
+            current: first_incomplete.as_ref() == Some(&vocab_id),
+        });
+
         for section in &unit.sections {
             let sid = section_full_id(&pair_key, &unit.id, &section.id);
             let count = counts.get(&sid).copied().unwrap_or(0);
@@ -350,16 +482,12 @@ pub fn get_path_curriculum(
             }
 
             let idx = ordered.iter().position(|s| s == &sid).unwrap_or(0);
-            let locked = if idx == 0 {
-                false
-            } else {
-                let prev = &ordered[idx - 1];
-                progress.get(prev).map(|p| p.stars > 0).unwrap_or(false) == false
-            };
+            let locked = node_locked(idx, &ordered, &progress);
             let current = first_incomplete.as_ref() == Some(&sid);
 
             section_nodes.push(PathSectionNode {
                 id: sid,
+                kind: "practice".to_string(),
                 title_native: section.title_native.clone(),
                 title_target: section.title_target.clone(),
                 question_count: count,
@@ -408,6 +536,9 @@ pub fn get_section_lesson(
     let section = find_section(&curriculum, section_id)
         .ok_or_else(|| format!("unknown section {section_id}"))?;
 
+    if section.1.kind != "practice" {
+        return Err("not a practice section".to_string());
+    }
     if section.1.locked {
         return Err("section is locked".to_string());
     }
@@ -437,6 +568,154 @@ pub fn get_section_lesson(
     })
 }
 
+pub fn get_teaching_content(
+    pool: &DatabasePool,
+    user_id: &str,
+    native_lang: &str,
+    target_lang: &str,
+    cefr: &str,
+    node_id: &str,
+) -> Result<PathTeaching, String> {
+    if !is_path_supported(native_lang, target_lang) {
+        return Err("path is only available for zh-es".to_string());
+    }
+    let pair_key = PRIMARY_PAIR_KEY.to_string();
+    let curriculum = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
+    if curriculum.status != "active" {
+        return Err("path curriculum is not active".to_string());
+    }
+    let node = find_section(&curriculum, node_id)
+        .ok_or_else(|| format!("unknown node {node_id}"))?;
+    if node.1.kind != "grammar" && node.1.kind != "vocab" {
+        return Err("not a teaching node".to_string());
+    }
+    if node.1.locked {
+        return Err("node is locked".to_string());
+    }
+
+    let (_, unit_id, _) = parse_node_id(node_id).ok_or_else(|| format!("invalid node id {node_id}"))?;
+    let units = framework_units(&pair_key, cefr)?;
+    let unit = units
+        .iter()
+        .find(|u| u.id == unit_id)
+        .ok_or_else(|| format!("unknown unit {unit_id}"))?;
+
+    let words = if node.1.kind == "vocab" {
+        lookup_word_glosses(pool, &unit_vocab_words(unit), target_lang)?
+    } else {
+        vec![]
+    };
+
+    Ok(PathTeaching {
+        node_id: node_id.to_string(),
+        kind: node.1.kind.clone(),
+        unit_id: unit.id.clone(),
+        unit_title_native: unit.title_native.clone(),
+        unit_title_target: unit.title_target.clone(),
+        goal_native: unit.goal_native.clone(),
+        grammar_points: unit.grammar_points.clone(),
+        words,
+        scenarios: unit.scenarios.clone(),
+    })
+}
+
+pub fn complete_teaching_node(
+    pool: &DatabasePool,
+    user_id: &str,
+    native_lang: &str,
+    target_lang: &str,
+    cefr: &str,
+    node_id: &str,
+) -> Result<CompleteSectionResult, String> {
+    if !is_path_supported(native_lang, target_lang) {
+        return Err("path is only available for zh-es".to_string());
+    }
+    let pair_key = PRIMARY_PAIR_KEY.to_string();
+    let curriculum = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
+    if curriculum.status != "active" {
+        return Err("path curriculum is not active".to_string());
+    }
+    let node = find_section(&curriculum, node_id)
+        .map(|(_, s)| s)
+        .ok_or_else(|| format!("unknown node {node_id}"))?;
+    if node.kind != "grammar" && node.kind != "vocab" {
+        return Err("not a teaching node".to_string());
+    }
+    if node.locked {
+        return Err("node is locked".to_string());
+    }
+
+    let stars = 1i32;
+    let score = 100i32;
+    let passed = true;
+
+    let (new_stars, new_best, _new_attempts) = {
+        let conn = pool.conn()?;
+        let existing: Option<(i32, i32, i32)> = conn
+            .query_row(
+                "SELECT stars, best_score, attempts FROM path_section_progress
+                 WHERE user_id = ?1 AND pair_key = ?2 AND section_id = ?3",
+                params![user_id, pair_key, node_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .ok();
+
+        let (prev_stars, prev_best, prev_attempts) = existing.unwrap_or((0, 0, 0));
+        let new_stars = prev_stars.max(stars);
+        let new_best = prev_best.max(score);
+        let new_attempts = prev_attempts + 1;
+        let completed_at = Some(chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string());
+
+        conn.execute(
+            "INSERT INTO path_section_progress
+                (user_id, pair_key, section_id, stars, best_score, attempts, completed_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))
+             ON CONFLICT(user_id, pair_key, section_id) DO UPDATE SET
+                stars = ?4,
+                best_score = ?5,
+                attempts = ?6,
+                completed_at = COALESCE(path_section_progress.completed_at, excluded.completed_at),
+                updated_at = datetime('now')",
+            params![
+                user_id,
+                pair_key,
+                node_id,
+                new_stars,
+                new_best,
+                new_attempts,
+                completed_at
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+        (new_stars, new_best, new_attempts)
+    };
+
+    let ordered = ordered_node_ids(&pair_key, cefr)?;
+    let next_section_id = ordered
+        .iter()
+        .position(|s| s == node_id)
+        .and_then(|idx| ordered.get(idx + 1).cloned());
+
+    let mut level_upgraded = false;
+    let mut new_cefr_level = None;
+    let refreshed = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
+    if is_level_fully_completed(&refreshed) {
+        if let Some(upgraded) = try_upgrade_cefr_level(pool, user_id, target_lang, cefr)? {
+            level_upgraded = true;
+            new_cefr_level = Some(upgraded);
+        }
+    }
+
+    Ok(CompleteSectionResult {
+        stars: new_stars,
+        best_score: new_best,
+        passed,
+        next_section_id,
+        level_upgraded,
+        new_cefr_level,
+    })
+}
+
 pub fn complete_section(
     pool: &DatabasePool,
     user_id: &str,
@@ -461,6 +740,9 @@ pub fn complete_section(
     let section = find_section(&curriculum, section_id)
         .map(|(_, s)| s)
         .ok_or_else(|| format!("unknown section {section_id}"))?;
+    if section.kind != "practice" {
+        return Err("not a practice section".to_string());
+    }
     if section.locked {
         return Err("section is locked".to_string());
     }
@@ -514,7 +796,7 @@ pub fn complete_section(
         (new_stars, new_best, new_attempts)
     };
 
-    let ordered = ordered_section_ids(&pair_key, cefr)?;
+    let ordered = ordered_node_ids(&pair_key, cefr)?;
     let next_section_id = if passed {
         ordered
             .iter()
@@ -599,9 +881,14 @@ mod tests {
         assert_eq!(curriculum.pair_key, "zh-es");
         assert_eq!(curriculum.status, "active");
         assert_eq!(curriculum.units.len(), 6);
-        assert!(curriculum.units[0].sections[0].question_count > 0);
-        assert!(!curriculum.units[0].sections[0].locked);
-        assert!(curriculum.units[0].sections[1].locked);
+        let nodes = &curriculum.units[0].sections;
+        assert_eq!(nodes[0].kind, "grammar");
+        assert!(!nodes[0].locked);
+        assert_eq!(nodes[1].kind, "vocab");
+        assert!(nodes[1].locked);
+        assert_eq!(nodes[2].kind, "practice");
+        assert!(nodes[2].question_count > 0);
+        assert!(nodes[2].locked);
     }
 
     #[test]
@@ -624,21 +911,48 @@ mod tests {
     }
 
     #[test]
-    fn complete_section_unlocks_next() {
+    fn teaching_nodes_unlock_practice_chain() {
         let pool = test_pool();
         let user = test_user(&pool);
         let curriculum = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
-        let first = curriculum.units[0].sections[0].id.clone();
-        let second = curriculum.units[0].sections[1].id.clone();
+        let grammar = curriculum.units[0].sections[0].id.clone();
+        let vocab = curriculum.units[0].sections[1].id.clone();
+        let practice = curriculum.units[0].sections[2].id.clone();
 
-        let result = complete_section(&pool, &user, "zh", "es", "A1", &first, 5, 5).unwrap();
+        complete_teaching_node(&pool, &user, "zh", "es", "A1", &grammar).unwrap();
+        let after_grammar = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
+        assert!(!after_grammar.units[0].sections[1].locked);
+
+        complete_teaching_node(&pool, &user, "zh", "es", "A1", &vocab).unwrap();
+        let after_vocab = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
+        assert!(!after_vocab.units[0].sections[2].locked);
+
+        let result = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5).unwrap();
         assert!(result.passed);
         assert_eq!(result.stars, 3);
-        assert_eq!(result.next_section_id, Some(second.clone()));
+    }
 
-        let updated = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
-        assert_eq!(updated.units[0].sections[0].stars, 3);
-        assert!(!updated.units[0].sections[1].locked);
+    #[test]
+    fn get_teaching_content_returns_grammar_and_vocab() {
+        let pool = test_pool();
+        let user = test_user(&pool);
+        import_vocab_for_tests(&pool);
+        let curriculum = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
+        let grammar_id = curriculum.units[0].sections[0].id.clone();
+        let vocab_id = curriculum.units[0].sections[1].id.clone();
+
+        let grammar = get_teaching_content(&pool, &user, "zh", "es", "A1", &grammar_id).unwrap();
+        assert_eq!(grammar.kind, "grammar");
+        assert!(!grammar.grammar_points.is_empty());
+
+        complete_teaching_node(&pool, &user, "zh", "es", "A1", &grammar_id).unwrap();
+        let vocab = get_teaching_content(&pool, &user, "zh", "es", "A1", &vocab_id).unwrap();
+        assert_eq!(vocab.kind, "vocab");
+        assert!(!vocab.words.is_empty());
+    }
+
+    fn import_vocab_for_tests(pool: &DatabasePool) {
+        let _ = crate::modules::vocabulary::import_vocab_bank(pool);
     }
 
     #[test]
@@ -646,7 +960,11 @@ mod tests {
         let pool = test_pool();
         let user = test_user(&pool);
         let curriculum = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
-        let section_id = curriculum.units[0].sections[0].id.clone();
+        let grammar_id = curriculum.units[0].sections[0].id.clone();
+        let vocab_id = curriculum.units[0].sections[1].id.clone();
+        let section_id = curriculum.units[0].sections[2].id.clone();
+        complete_teaching_node(&pool, &user, "zh", "es", "A1", &grammar_id).unwrap();
+        complete_teaching_node(&pool, &user, "zh", "es", "A1", &vocab_id).unwrap();
         let lesson = get_section_lesson(&pool, &user, "zh", "es", "A1", &section_id).unwrap();
         assert!(!lesson.questions.is_empty());
         assert!(
@@ -663,8 +981,8 @@ mod tests {
         let user = test_user(&pool);
         let a1 = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
         let a2 = get_path_curriculum(&pool, &user, "zh", "es", "A2").unwrap();
-        let a1_count = a1.units[0].sections[0].question_count;
-        let a2_count = a2.units[0].sections[0].question_count;
+        let a1_count = a1.units[0].sections[2].question_count;
+        let a2_count = a2.units[0].sections[2].question_count;
         assert!(a1_count > 0);
         assert!(a2_count > 0);
         assert_ne!(a1_count, a2_count);

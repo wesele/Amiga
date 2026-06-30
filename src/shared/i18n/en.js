@@ -63,6 +63,16 @@ export default {
     levelCompleteTitle: "Level {level} complete!",
     levelCompleteDesc: "The next level is being prepared. Stay tuned!",
     levelUp: "Promoted to {level}!",
+    unitLabel: "Unit {id}",
+    nodeGrammar: "Language tips",
+    nodeVocab: "New words",
+    nodePractice: "Practice",
+    unitGoal: "Unit goal",
+    grammarPoints: "Grammar points",
+    scenarios: "Real-life scenarios",
+    vocabIntro: "Unit vocabulary",
+    tapToReveal: "Tap a card to reveal the meaning",
+    noGloss: "No definition yet",
   },
 
   common: {

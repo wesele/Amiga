@@ -39,6 +39,46 @@ pub async fn get_section_lesson_cmd(
 }
 
 #[tauri::command]
+pub async fn get_teaching_content_cmd(
+    db: State<'_, DatabasePool>,
+    native_lang: String,
+    target_lang: String,
+    cefr: String,
+    node_id: String,
+) -> Result<path_mod::PathTeaching, String> {
+    let user = user_mod::get_or_create_user(&db)?;
+    path_mod::get_teaching_content(
+        &db,
+        &user.id,
+        &native_lang,
+        &target_lang,
+        &cefr,
+        &node_id,
+    )
+}
+
+#[tauri::command]
+pub async fn complete_teaching_node_cmd(
+    db: State<'_, DatabasePool>,
+    native_lang: String,
+    target_lang: String,
+    cefr: String,
+    node_id: String,
+) -> Result<path_mod::CompleteSectionResult, String> {
+    let user = user_mod::get_or_create_user(&db)?;
+    let result = path_mod::complete_teaching_node(
+        &db,
+        &user.id,
+        &native_lang,
+        &target_lang,
+        &cefr,
+        &node_id,
+    )?;
+    after_syncable_write(&db);
+    Ok(result)
+}
+
+#[tauri::command]
 pub async fn complete_section_cmd(
     db: State<'_, DatabasePool>,
     native_lang: String,

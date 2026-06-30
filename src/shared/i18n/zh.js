@@ -66,6 +66,16 @@ export default {
     levelCompleteTitle: "恭喜完成 {level}！",
     levelCompleteDesc: "下一级别课程正在筹备中，敬请期待。",
     levelUp: "已升级到 {level}！",
+    unitLabel: "单元 {id}",
+    nodeGrammar: "语言知识",
+    nodeVocab: "单词学习",
+    nodePractice: "闯关练习",
+    unitGoal: "本单元目标",
+    grammarPoints: "语法要点",
+    scenarios: "应用场景",
+    vocabIntro: "本单元词汇",
+    tapToReveal: "点击卡片查看释义",
+    noGloss: "暂无释义",
   },
 
   common: {

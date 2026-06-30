@@ -70,6 +70,10 @@ export const getPathCurriculum = (nativeLang, targetLang, cefr) =>
   _invoke("get_path_curriculum_cmd", { nativeLang, targetLang, cefr });
 export const getSectionLesson = (nativeLang, targetLang, cefr, sectionId) =>
   _invoke("get_section_lesson_cmd", { nativeLang, targetLang, cefr, sectionId });
+export const getTeachingContent = (nativeLang, targetLang, cefr, nodeId) =>
+  _invoke("get_teaching_content_cmd", { nativeLang, targetLang, cefr, nodeId });
+export const completeTeachingNode = (nativeLang, targetLang, cefr, nodeId) =>
+  _invoke("complete_teaching_node_cmd", { nativeLang, targetLang, cefr, nodeId });
 export const completeSection = (nativeLang, targetLang, cefr, sectionId, correctCount, totalCount) =>
   _invoke("complete_section_cmd", {
     nativeLang,

@@ -2,7 +2,7 @@
   <div class="path-map">
     <header class="page-header">
       <button class="back-btn" :aria-label="t('common.back')" @click="goBack">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
       </button>
@@ -12,19 +12,19 @@
           {{ t("path.progress", { done: curriculum.completed_sections, total: curriculum.total_sections }) }}
           · ⭐ {{ curriculum.total_stars }}
         </p>
-        <div class="level-pills">
-          <button
-            v-for="lvl in learningLevels"
-            :key="lvl"
-            type="button"
-            class="level-pill"
-            :class="{ active: currentCefr === lvl }"
-            :disabled="levelSwitching"
-            @click="onSwitchLevel(lvl)"
-          >
-            {{ lvl }}
-          </button>
-        </div>
+      </div>
+      <div class="level-pills">
+        <button
+          v-for="lvl in learningLevels"
+          :key="lvl"
+          type="button"
+          class="level-pill"
+          :class="{ active: currentCefr === lvl }"
+          :disabled="levelSwitching"
+          @click="onSwitchLevel(lvl)"
+        >
+          {{ lvl }}
+        </button>
       </div>
     </header>
 
@@ -48,12 +48,18 @@
     </div>
 
     <div v-else-if="curriculum" class="path-scroll">
-      <div v-for="unit in curriculum.units" :key="unit.id" class="unit-block">
-        <div class="unit-banner">
-          <span class="unit-id">{{ unit.id }}</span>
-          <div>
-            <h2 class="unit-title">{{ unit.title_native }}</h2>
-            <p class="unit-sub">{{ unit.title_target }}</p>
+      <div
+        v-for="(unit, uIdx) in curriculum.units"
+        :key="unit.id"
+        class="unit-block"
+        :style="{ '--unit-hue': unitHue(uIdx) }"
+      >
+        <div class="unit-guide">
+          <div class="guide-book">📘</div>
+          <div class="guide-text">
+            <span class="guide-label">{{ t("path.unitLabel", { id: unit.id }) }}</span>
+            <h2 class="guide-title">{{ unit.title_native }}</h2>
+            <p class="guide-sub">{{ unit.title_target }}</p>
           </div>
         </div>
 
@@ -61,32 +67,36 @@
           <div
             v-for="(section, idx) in unit.sections"
             :key="section.id"
-            class="path-node-wrap"
-            :class="[sideClass(idx), { current: section.current }]"
+            class="path-step"
+            :class="[laneClass(idx), { 'is-current': section.current }]"
           >
+            <div class="connector" v-if="idx > 0" />
+
             <button
               type="button"
               class="path-node"
               :class="nodeClass(section)"
-              :disabled="section.locked || section.question_count === 0"
-              @click="startLesson(section)"
+              :disabled="isNodeDisabled(section)"
+              :aria-label="nodeLabel(section)"
+              @click="startNode(section)"
             >
-              <span v-if="section.locked" class="node-icon">🔒</span>
-              <span v-else-if="section.stars > 0" class="node-icon">⭐</span>
-              <span v-else class="node-icon">●</span>
-            </button>
-            <div class="node-label">
-              <span class="node-title">{{ section.title_native }}</span>
-              <span v-if="section.stars > 0" class="node-stars">
-                {{ "⭐".repeat(section.stars) }}
+              <span class="node-inner">
+                <span class="node-icon">{{ nodeIcon(section) }}</span>
               </span>
-              <span v-else-if="section.question_count === 0" class="node-empty">
-                {{ t("path.comingSoon") }}
+              <span v-if="section.current" class="node-pulse" />
+            </button>
+
+            <div class="node-caption">
+              <span class="caption-kind">{{ kindLabel(section) }}</span>
+              <span class="caption-title">{{ section.title_native }}</span>
+              <span v-if="section.kind === 'practice' && section.stars > 0" class="caption-stars">
+                {{ "★".repeat(section.stars) }}
               </span>
             </div>
           </div>
         </div>
       </div>
+      <div class="path-end-cap" />
     </div>
   </div>
 </template>
@@ -104,6 +114,8 @@ import {
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
+
+const UNIT_HUES = [145, 198, 262, 32, 12, 210];
 
 const router = useRouter();
 const { t } = useI18n();
@@ -123,8 +135,12 @@ const completedLevelLabel = computed(() => {
   return idx > 0 ? CEFR_LEVELS[idx - 1] : current;
 });
 
-function sideClass(idx) {
-  return idx % 2 === 0 ? "left" : "right";
+function unitHue(idx) {
+  return UNIT_HUES[idx % UNIT_HUES.length];
+}
+
+function laneClass(idx) {
+  return ["lane-left", "lane-center", "lane-right"][idx % 3];
 }
 
 function nodeClass(section) {
@@ -132,16 +148,47 @@ function nodeClass(section) {
     locked: section.locked,
     completed: section.stars > 0,
     current: section.current,
-    empty: section.question_count === 0,
+    empty: section.kind === "practice" && section.question_count === 0,
+    grammar: section.kind === "grammar",
+    vocab: section.kind === "vocab",
+    practice: section.kind === "practice",
   };
+}
+
+function kindLabel(section) {
+  if (section.kind === "grammar") return t("path.nodeGrammar");
+  if (section.kind === "vocab") return t("path.nodeVocab");
+  return t("path.nodePractice");
+}
+
+function nodeIcon(section) {
+  if (section.locked) return "🔒";
+  if (section.kind === "grammar") return section.stars > 0 ? "✓" : "📖";
+  if (section.kind === "vocab") return section.stars > 0 ? "✓" : "🃏";
+  if (section.stars > 0) return "★";
+  return "●";
+}
+
+function nodeLabel(section) {
+  return `${kindLabel(section)}: ${section.title_native}`;
+}
+
+function isNodeDisabled(section) {
+  if (section.locked) return true;
+  if (section.kind === "practice") return section.question_count === 0;
+  return false;
 }
 
 function goBack() {
   router.replace({ name: "learn" });
 }
 
-function startLesson(section) {
-  if (section.locked || section.question_count === 0) return;
+function startNode(section) {
+  if (isNodeDisabled(section)) return;
+  if (section.kind === "grammar" || section.kind === "vocab") {
+    router.push({ name: "path-teaching", params: { nodeId: section.id } });
+    return;
+  }
   router.push({ name: "path-lesson", params: { sectionId: section.id } });
 }
 
@@ -187,77 +234,83 @@ onMounted(load);
 <style scoped>
 .path-map {
   min-height: 100%;
-  background: var(--bg);
+  background: linear-gradient(180deg, #b8e6ff 0%, #d8f4e8 35%, #eef8f0 100%);
   display: flex;
   flex-direction: column;
 }
 
 .page-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 16px 12px;
-  background: var(--white);
-  border-bottom: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 4px 10px;
+  padding: 14px 16px 12px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
 .back-btn {
+  grid-row: 1 / 3;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 40px;
   height: 40px;
   border: none;
-  background: transparent;
+  background: var(--gray-light);
   color: var(--text);
   cursor: pointer;
-  border-radius: 50%;
+  border-radius: 12px;
 }
 
 .header-text {
-  flex: 1;
   min-width: 0;
 }
 
 .page-title {
   margin: 0;
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .page-sub {
-  margin: 4px 0 0;
-  font-size: 13px;
+  margin: 2px 0 0;
+  font-size: 12px;
   color: var(--text-light);
+  font-weight: 600;
 }
 
 .level-pills {
+  grid-row: 1 / 3;
   display: flex;
-  gap: 8px;
-  margin-top: 10px;
+  flex-direction: column;
+  gap: 6px;
+  align-self: center;
 }
 
 .level-pill {
-  padding: 4px 14px;
+  padding: 5px 12px;
   border: 2px solid var(--border);
   border-radius: 999px;
   background: var(--white);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 800;
   color: var(--text-light);
   cursor: pointer;
-  transition: border-color var(--transition), background var(--transition), color var(--transition);
+  min-width: 44px;
 }
 
 .level-pill.active {
-  border-color: var(--blue);
-  background: var(--blue-bg);
-  color: var(--blue-hover);
+  border-color: var(--green);
+  background: var(--green-bg);
+  color: var(--green-hover);
 }
 
 .level-pill:disabled {
   opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .loading-state,
@@ -278,19 +331,12 @@ onMounted(load);
 
 .empty-emoji {
   font-size: 56px;
-  line-height: 1;
 }
 
 .empty-state h2 {
   margin: 0;
   font-size: 20px;
   color: var(--text);
-}
-
-.empty-state p {
-  margin: 0;
-  max-width: 300px;
-  line-height: 1.5;
 }
 
 .retry-btn {
@@ -300,156 +346,254 @@ onMounted(load);
   border-radius: var(--radius-sm);
   background: var(--green);
   color: var(--white);
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 4px 0 var(--green-hover);
 }
 
 .path-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 12px 32px;
+  padding: 8px 0 40px;
 }
 
 .unit-block {
-  margin-bottom: 28px;
+  margin-bottom: 8px;
 }
 
-.unit-banner {
+.unit-guide {
   display: flex;
-  gap: 12px;
   align-items: center;
-  padding: 14px 16px;
-  margin-bottom: 20px;
-  background: var(--white);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  box-shadow: var(--elevation-1);
+  gap: 14px;
+  margin: 16px 16px 24px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--unit-hue) 80% 88%) 0%,
+    hsl(var(--unit-hue) 70% 78%) 100%
+  );
+  border: 3px solid hsl(var(--unit-hue) 55% 62%);
+  box-shadow: 0 6px 0 hsl(var(--unit-hue) 45% 52%);
 }
 
-.unit-id {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--green-bg);
-  color: var(--green-hover);
+.guide-book {
+  font-size: 36px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.15));
+}
+
+.guide-label {
+  display: block;
+  font-size: 11px;
   font-weight: 800;
-  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.45);
 }
 
-.unit-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
+.guide-title {
+  margin: 4px 0 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: rgba(0, 0, 0, 0.82);
+  line-height: 1.25;
 }
 
-.unit-sub {
-  margin: 2px 0 0;
+.guide-sub {
+  margin: 4px 0 0;
   font-size: 13px;
-  color: var(--text-light);
+  color: rgba(0, 0, 0, 0.5);
+  font-weight: 600;
 }
 
 .path-lane {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  position: relative;
+  gap: 0;
+  padding: 0 24px;
 }
 
 .path-lane::before {
   content: "";
   position: absolute;
   left: 50%;
-  top: 24px;
-  bottom: 24px;
-  width: 4px;
+  top: 32px;
+  bottom: 32px;
+  width: 14px;
   transform: translateX(-50%);
-  background: var(--border);
-  border-radius: 2px;
+  background: var(--green);
+  border-radius: 8px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.12);
   z-index: 0;
 }
 
-.path-node-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.path-step {
   position: relative;
   z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 72px 1fr;
+  align-items: center;
+  min-height: 108px;
+  padding: 10px 0;
 }
 
-.path-node-wrap.left {
-  flex-direction: row;
-  padding-right: 42%;
+.path-step.lane-left .path-node {
+  grid-column: 2;
+  justify-self: center;
 }
 
-.path-node-wrap.right {
-  flex-direction: row-reverse;
-  padding-left: 42%;
+.path-step.lane-left .node-caption {
+  grid-column: 1;
+  text-align: right;
+  padding-right: 14px;
+}
+
+.path-step.lane-center .path-node {
+  grid-column: 2;
+  justify-self: center;
+}
+
+.path-step.lane-center .node-caption {
+  grid-column: 3;
+  padding-left: 14px;
+}
+
+.path-step.lane-right .path-node {
+  grid-column: 2;
+  justify-self: center;
+}
+
+.path-step.lane-right .node-caption {
+  grid-column: 3;
+  padding-left: 14px;
 }
 
 .path-node {
-  width: 56px;
-  height: 56px;
+  position: relative;
+  width: 68px;
+  height: 68px;
+  border: none;
   border-radius: 50%;
-  border: 3px solid var(--border);
-  background: var(--white);
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+}
+
+.node-inner {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-  box-shadow: var(--elevation-2);
-  transition: transform var(--transition), border-color var(--transition);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  font-size: 22px;
+  font-weight: 800;
+  transition: transform 0.15s ease;
 }
 
-.path-node.current {
-  border-color: var(--green);
-  transform: scale(1.08);
-  box-shadow: 0 0 0 4px var(--green-bg);
+.path-node.grammar .node-inner {
+  background: linear-gradient(180deg, #e9d5ff 0%, #ce82ff 100%);
+  box-shadow: 0 6px 0 #a855f7;
+  color: #4c1d95;
 }
 
-.path-node.completed {
-  border-color: var(--orange);
-  background: var(--orange-bg);
+.path-node.vocab .node-inner {
+  background: linear-gradient(180deg, #7dd3fc 0%, #1cb0f6 100%);
+  box-shadow: 0 6px 0 #1899d6;
+  color: var(--white);
 }
 
-.path-node.locked,
-.path-node.empty {
-  opacity: 0.55;
+.path-node.practice .node-inner {
+  background: linear-gradient(180deg, #7ee028 0%, #58cc02 100%);
+  box-shadow: 0 6px 0 #46a302;
+  color: var(--white);
+}
+
+.path-node.completed .node-inner {
+  background: linear-gradient(180deg, #fde68a 0%, #fbbf24 100%);
+  box-shadow: 0 6px 0 #d97706;
+  color: #78350f;
+}
+
+.path-node.locked .node-inner {
+  background: linear-gradient(180deg, #e5e7eb 0%, #d1d5db 100%);
+  box-shadow: 0 6px 0 #9ca3af;
+  color: #6b7280;
+  opacity: 0.85;
+}
+
+.path-node.current .node-inner {
+  transform: scale(1.06);
+}
+
+.node-pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 3px solid var(--green);
+  animation: pulse-ring 1.6s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); opacity: 0.9; }
+  70% { transform: scale(1.15); opacity: 0; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+.path-node:not(:disabled):active .node-inner {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #46a302;
+}
+
+.path-node.grammar:not(:disabled):active .node-inner {
+  box-shadow: 0 2px 0 #a855f7;
+}
+
+.path-node.vocab:not(:disabled):active .node-inner {
+  box-shadow: 0 2px 0 #1899d6;
+}
+
+.path-node:disabled {
   cursor: not-allowed;
 }
 
-.path-node:not(:disabled):active {
-  transform: scale(0.96);
-}
-
-.node-icon {
-  font-size: 20px;
-  line-height: 1;
-}
-
-.node-label {
+.node-caption {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.path-node-wrap.right .node-label {
-  text-align: right;
+.caption-kind {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.4);
 }
 
-.node-title {
-  font-size: 14px;
-  font-weight: 600;
+.caption-title {
+  font-size: 13px;
+  font-weight: 700;
   line-height: 1.3;
+  color: rgba(0, 0, 0, 0.75);
 }
 
-.node-stars,
-.node-empty {
+.caption-stars {
   font-size: 12px;
-  color: var(--text-light);
+  color: #d97706;
+  letter-spacing: 1px;
+}
+
+.path-end-cap {
+  height: 48px;
+}
+
+.path-step.is-current .caption-title {
+  color: var(--green-hover);
 }
 </style>
