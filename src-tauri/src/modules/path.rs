@@ -610,11 +610,13 @@ mod tests {
     }
 
     #[test]
-    fn a2_without_framework_returns_level_complete() {
+    fn a2_curriculum_is_active() {
         let pool = test_pool();
         let user = test_user(&pool);
         let curriculum = get_path_curriculum(&pool, &user, "zh", "es", "A2").unwrap();
-        assert_eq!(curriculum.status, "level_complete");
+        assert_eq!(curriculum.status, "active");
+        assert_eq!(curriculum.units.len(), 6);
+        assert!(curriculum.total_sections >= 24);
     }
 
     #[test]

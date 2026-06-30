@@ -9,9 +9,9 @@
       <div class="header-text">
         <h1 class="page-title">{{ t("path.title") }}</h1>
         <p v-if="curriculum?.status === 'active'" class="page-sub">
-          {{ t("path.progress", { done: curriculum.completed_sections, total: curriculum.total_sections }) }}
+          {{ curriculum.cefr }}
+          · {{ t("path.progress", { done: curriculum.completed_sections, total: curriculum.total_sections }) }}
           · ⭐ {{ curriculum.total_stars }}
-          · {{ t("path.unlimitedRetry") }}
         </p>
       </div>
     </header>
