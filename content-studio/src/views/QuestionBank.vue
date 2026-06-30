@@ -72,8 +72,9 @@
               <h3>{{ selectedPair?.from }} → {{ selectedPair?.to }} · {{ selectedLevel }} 单元框架</h3>
             </div>
             <div class="header-actions">
-              <button class="btn btn-primary" @click="generateAI()">✨ AI 生成框架</button>
-              <button class="btn btn-secondary" @click="generateQuestions()">🤖 AI 生成题目</button>
+              <button class="btn btn-primary" @click="generateAI()" :disabled="isAsyncBusy">✨ AI 生成框架</button>
+              <button class="btn btn-secondary" @click="generateQuestions()" :disabled="isAsyncBusy">🤖 AI 生成题目</button>
+              <button class="btn btn-secondary" @click="generateAllImages()" :disabled="isAsyncBusy">🎨 AI 生成插图</button>
             </div>
           </div>
 
@@ -584,6 +585,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { useStorage } from '../composables/useStorage.js'
 import { useSystemConfig } from '../composables/useSystemConfig.js'
 import { useVocabStorage } from '../composables/useVocabStorage.js'
@@ -598,6 +600,7 @@ import QuestionImage from '../components/QuestionImage.vue'
 import { buildSectionId, questionMatchesSection } from '../utils/sectionId.js'
 import { normalizeQuestion } from '../utils/normalizeQuestion.js'
 
+const route = useRoute()
 const storage = useStorage()
 const sysConfig = useSystemConfig()
 const vocabStorage = useVocabStorage()
@@ -733,6 +736,135 @@ async function applyGeneratedImage(target, svg, url) {
   target.imageUrl = ''
   await nextTick()
   target.imageUrl = url
+}
+
+function hasExistingImage(target) {
+  return !!(target?.imageUrl || target?.imageSvg)
+}
+
+function getLevelImageQuestions() {
+  const pairId = selectedPairId.value
+  const level = selectedLevel.value
+  if (!pairId || !level) return []
+  return storage.getQuestions({ pairId, cefr: level })
+    .filter(q => q.type === 'T01' || q.type === 'T02')
+}
+
+function countPendingImages(questions) {
+  let pending = 0
+  let skipped = 0
+  for (const q of questions) {
+    if (q.type === 'T01') {
+      if (hasExistingImage(q)) skipped++
+      else pending++
+    } else if (q.type === 'T02' && Array.isArray(q.imageOptions)) {
+      for (const opt of q.imageOptions) {
+        if (hasExistingImage(opt)) skipped++
+        else pending++
+      }
+    }
+  }
+  return { pending, skipped }
+}
+
+async function generateAllImages() {
+  const targetLang = selectedPair.value?.to
+  const sourceLang = selectedPair.value?.from
+  const level = selectedLevel.value
+  if (!targetLang || !sourceLang || !level) {
+    alert('请先选择语言和级别')
+    return
+  }
+
+  const questions = getLevelImageQuestions()
+  if (!questions.length) {
+    alert('当前级别没有 T01/T02 题目，请先生成题目')
+    return
+  }
+
+  const { pending, skipped } = countPendingImages(questions)
+  if (pending === 0) {
+    alert(`所有插图已存在，共跳过 ${skipped} 张`)
+    return
+  }
+
+  const controller = asyncOp.start(`正在批量生成插图 (0/${pending})...`)
+  asyncOp.addLog(`开始为 ${sourceLang} → ${targetLang} · ${level} 生成插图`, 'info')
+  asyncOp.addLog(`待生成 ${pending} 张，跳过已有 ${skipped} 张`, 'info')
+
+  let done = 0
+  let errors = 0
+
+  try {
+    for (const q of questions) {
+      if (controller.signal.aborted) break
+
+      if (q.type === 'T01') {
+        if (hasExistingImage(q)) {
+          asyncOp.addLog(`跳过 T01 [${q.id}]（已有插图）`, 'info')
+          continue
+        }
+        asyncOp.setMessage(`正在生成插图 (${done + 1}/${pending}): ${q.id}`)
+        asyncOp.addLog(`生成 T01 [${q.id}]: ${q.imageDesc || ''}`, 'info')
+        try {
+          const { svg, url } = await imageGen.generateAndPersist(
+            q.imageDesc,
+            q.imagePrompt,
+            imageFilename(q.id),
+            { signal: controller.signal, onProgress: imageGenProgress }
+          )
+          await applyGeneratedImage(q, svg, url)
+          done++
+          storage.persistQuestions()
+        } catch (e) {
+          if (e.name === 'AbortError') throw e
+          errors++
+          asyncOp.addLog(`  ✗ T01 [${q.id}] 失败: ${e.message}`, 'error')
+        }
+      } else if (q.type === 'T02' && Array.isArray(q.imageOptions)) {
+        for (let i = 0; i < q.imageOptions.length; i++) {
+          if (controller.signal.aborted) break
+          const opt = q.imageOptions[i]
+          if (hasExistingImage(opt)) {
+            asyncOp.addLog(`跳过 T02 [${q.id}] 选项 ${i + 1}（已有插图）`, 'info')
+            continue
+          }
+          asyncOp.setMessage(`正在生成插图 (${done + 1}/${pending}): ${q.id} 选项${i + 1}`)
+          asyncOp.addLog(`生成 T02 [${q.id}] 选项 ${i + 1}: ${opt.desc || ''}`, 'info')
+          try {
+            const { svg, url } = await imageGen.generateAndPersist(
+              opt.desc,
+              getImagePrompt(opt),
+              imageFilename(q.id, `opt${i}`),
+              { signal: controller.signal, onProgress: imageGenProgress }
+            )
+            await applyGeneratedImage(opt, svg, url)
+            done++
+            storage.persistQuestions()
+          } catch (e) {
+            if (e.name === 'AbortError') throw e
+            errors++
+            asyncOp.addLog(`  ✗ T02 [${q.id}] 选项 ${i + 1} 失败: ${e.message}`, 'error')
+          }
+        }
+      }
+    }
+
+    const summary = `完成！新生成 ${done} 张，跳过 ${skipped} 张${errors ? `，失败 ${errors} 张` : ''}`
+    asyncOp.addLog(summary, errors ? 'warning' : 'success')
+    if (done > 0 || errors > 0) {
+      alert(summary)
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      asyncOp.addLog('插图生成已被取消', 'warning')
+    } else {
+      asyncOp.addLog(`批量生成失败: ${e.message}`, 'error')
+      errorMessage.value = `插图生成失败: ${e.message}`
+    }
+  } finally {
+    asyncOp.stop()
+  }
 }
 
 async function generateImagesForCurrent() {
@@ -1529,6 +1661,13 @@ onMounted(() => {
     const first = languagePairs.value[0]
     if (first && first.id) {
       selectedPairId.value = first.id
+    }
+  }
+  if (selectedPairId.value && route.query.level) {
+    const pair = languagePairs.value.find(p => p.id === selectedPairId.value)
+    const level = String(route.query.level)
+    if (pair?.cefrLevels?.includes(level)) {
+      selectLevel(pair, level)
     }
   }
 })
