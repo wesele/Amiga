@@ -1,23 +1,6 @@
+import { readLocalJson, writeLocalJson } from "@/shared/localJsonStore.js";
+
 const STORAGE_KEY = "idioma.social.messages";
-
-function readStore() {
-  try {
-    if (typeof localStorage === "undefined") return {};
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeStore(store) {
-  try {
-    if (typeof localStorage === "undefined") return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-  } catch {
-    /* ignore quota / privacy mode */
-  }
-}
 
 function sortMessages(items) {
   return [...items].sort((a, b) => {
@@ -41,15 +24,15 @@ function dedupeMessages(items) {
 
 export function getSocialMessages(contactKey) {
   if (!contactKey) return [];
-  const store = readStore();
+  const store = readLocalJson(STORAGE_KEY);
   return sortMessages(store[contactKey] || []);
 }
 
 export function saveSocialMessages(contactKey, messages) {
   if (!contactKey) return;
-  const store = readStore();
+  const store = readLocalJson(STORAGE_KEY);
   store[contactKey] = dedupeMessages(messages);
-  writeStore(store);
+  writeLocalJson(STORAGE_KEY, store);
 }
 
 export function appendSocialMessage(contactKey, message) {
@@ -60,9 +43,9 @@ export function appendSocialMessage(contactKey, message) {
 
 export function clearSocialMessages(contactKey) {
   if (!contactKey) return;
-  const store = readStore();
+  const store = readLocalJson(STORAGE_KEY);
   delete store[contactKey];
-  writeStore(store);
+  writeLocalJson(STORAGE_KEY, store);
 }
 
 export function mergeSocialMessages(contactKey, incoming = []) {
