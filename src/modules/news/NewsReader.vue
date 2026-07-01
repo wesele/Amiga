@@ -155,14 +155,17 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, translateWord, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, markWordsSeen, ensureWordsSeen, addDiscoveredWord, getLearningGoals, shareText as nativeShareText } from "@/shared/api.js";
+import { getArticle, rewriteArticle, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, ensureWordsSeen, addDiscoveredWord, getLearningGoals, shareText as nativeShareText } from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
-import { buildShareText, openSourceUrl } from "./utils.js";
+import { openSourceUrl } from "./utils.js";
 import { displayLang } from "@/shared/constants.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
+import { extractWordTexts, tokenizeArticleText } from "./articleText.js";
+import { shareArticle } from "./share.js";
+import { useSelectionTranslation } from "./selectionTranslation.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -195,6 +198,27 @@ const translationError = ref("");
 const sharing = ref(false);
 const shareStatus = ref("");
 let shareStatusTimer = null;
+
+const {
+  selectionText,
+  selectionResult,
+  selectionLoading,
+  selectionError,
+  showTranslateButton,
+  translateButtonX,
+  translateButtonY,
+  onSelectionChange,
+  onPointerUp,
+  handleNativeTranslate,
+  onTranslateButtonClick,
+  clearSelection,
+  cleanup: cleanupSelectionTranslation,
+} = useSelectionTranslation({
+  translateText,
+  getTargetLang: () => targetLang,
+  getNativeLang: () => getLocale(),
+  t,
+});
 
 onMounted(async () => {
   startTime.value = Date.now();
@@ -239,10 +263,7 @@ onBeforeUnmount(async () => {
   document.removeEventListener("selectionchange", onSelectionChange);
   document.removeEventListener("pointerup", onPointerUp);
   delete window.__amigaTranslateSelection;
-  if (selectionTimer) {
-    clearTimeout(selectionTimer);
-    selectionTimer = null;
-  }
+  cleanupSelectionTranslation();
   if (shareStatusTimer) {
     clearTimeout(shareStatusTimer);
     shareStatusTimer = null;
@@ -279,13 +300,6 @@ onBeforeUnmount(async () => {
     }
   }
 });
-
-function extractWordTexts(text) {
-  if (!text) return [];
-  const matches = text.match(/\b\p{L}{2,}\b/gu);
-  if (!matches) return [];
-  return [...new Set(matches.map(w => w.toLowerCase()))];
-}
 
 // After an article is generated (or loaded already-rewritten), ensure every
 // word in the article is tracked for the user. Words already in the CEFR-
@@ -338,7 +352,7 @@ async function loadBilingual() {
     // Split body into paragraphs
     const body = article.value?.rewritten_body || article.value?.original_body || "";
     paragraphs.value = body.split("\n\n").map(p => p.trim()).filter(p => p);
-    paraTokens.value = paragraphs.value.map(p => tokenize(p));
+    paraTokens.value = paragraphs.value.map(p => tokenizeArticleText(p));
     const result = await getBilingual(Number(props.id), targetLang, getLocale());
     translations.value = result;
     // Translate title
@@ -360,61 +374,8 @@ async function loadBilingual() {
 
 // Tokenize article body
 const tokens = ref([]);
-function tokenize(text) {
-  if (!text) return [];
-  const parts = text.split(/(\s+)/);
-  const result = [];
-
-  for (const part of parts) {
-    if (part.trim() === "" && part.length > 0) {
-      result.push({ text: part, isWord: false, isNewWord: false, context: "" });
-      continue;
-    }
-
-    const boldRegex = /\*\*(.+?)\*\*/g;
-    let match;
-    let lastIdx = 0;
-    const tempStr = part;
-
-    while ((match = boldRegex.exec(tempStr)) !== null) {
-      if (match.index > lastIdx) {
-        const prefix = tempStr.slice(lastIdx, match.index);
-        for (const w of prefix.split(/(?<=\P{L})(?=\p{L})|(?<=\p{L})(?=\P{L})/u)) {
-          if (w.trim()) {
-            result.push({ text: w, isWord: /^\p{L}/u.test(w), isNewWord: false, context: getContext(text, w) });
-          } else {
-            result.push({ text: w, isWord: false, isNewWord: false, context: "" });
-          }
-        }
-      }
-      result.push({ text: match[1], isWord: true, isNewWord: false, context: getContext(text, match[1]) });
-      lastIdx = match.index + match[0].length;
-    }
-
-    if (lastIdx < tempStr.length) {
-      const suffix = tempStr.slice(lastIdx);
-      for (const w of suffix.split(/(?<=\P{L})(?=\p{L})|(?<=\p{L})(?=\P{L})/u)) {
-        if (w.trim()) {
-          result.push({ text: w, isWord: /^\p{L}/u.test(w), isNewWord: false, context: getContext(text, w) });
-        } else {
-          result.push({ text: w, isWord: false, isNewWord: false, context: "" });
-        }
-      }
-    }
-  }
-  return result;
-}
-
 function parseText(text) {
-  tokens.value = tokenize(text);
-}
-
-function getContext(fullText, word) {
-  const idx = fullText.indexOf(word);
-  if (idx < 0) return word;
-  const start = Math.max(0, idx - 30);
-  const end = Math.min(fullText.length, idx + word.length + 30);
-  return fullText.slice(start, end).trim();
+  tokens.value = tokenizeArticleText(text);
 }
 
 watch(() => article.value?.rewritten_body, (val) => {
@@ -469,181 +430,10 @@ async function onWordUnknown() {
   selectedWord.value = null;
 }
 
-// Selection translate state
-const selectionText = ref("");
-const selectionResult = ref("");
-const selectionLoading = ref(false);
-const selectionError = ref("");
-let selectionTimer = null;
-let isSelecting = false;
-
-// Pure-JS translate affordance: a small floating button that
-// appears over the article body when the user has selected text.
-// Replaces the missing Android selection-toolbar "翻译" item
-// (see template comment).
-const showTranslateButton = ref(false);
-const translateButtonX = ref(0);
-const translateButtonY = ref(0);
-
-// Core translation logic shared by pointerup (Windows) and native menu (Android).
-function translateSelection(text) {
-  if (!text || text.length === 0) return false;
-  if (text.split(/\s+/).length <= 1) return false;
-
-  selectionText.value = text;
-  selectionLoading.value = true;
-  selectionResult.value = "";
-  selectionError.value = "";
-
-  translateText(text, targetLang, getLocale())
-    .then(result => {
-      selectionResult.value = result;
-      selectionLoading.value = false;
-    })
-    .catch(err => {
-      selectionError.value = typeof err === "string" ? err : t("news.translateFail");
-      selectionLoading.value = false;
-    });
-
-  return true;
-}
-
-// Track selection changes while the user is actively dragging — only record
-// that a selection is in progress, don't trigger translation yet.
-function onSelectionChange() {
-  const sel = window.getSelection();
-  if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
-    isSelecting = false;
-    showTranslateButton.value = false;
-    return;
-  }
-  const text = sel.toString().trim();
-  if (text && text.split(/\s+/).length > 1) {
-    isSelecting = true;
-    positionTranslateButton(sel);
-  } else {
-    showTranslateButton.value = false;
-  }
-}
-
-function positionTranslateButton(sel) {
-  // Place the floating button just below the selection.
-  // On Android the system selection toolbar appears above the
-  // selection; positioning our button below avoids overlap.
-  // If the bottom would run off-screen, flip above instead.
-  const range = sel.getRangeAt(0);
-  const rect = range.getBoundingClientRect();
-  if (rect.width === 0 && rect.height === 0) {
-    showTranslateButton.value = false;
-    return;
-  }
-  const articleBody = document.querySelector(".article-body");
-  if (articleBody && !articleBody.contains(range.commonAncestorContainer)) {
-    showTranslateButton.value = false;
-    return;
-  }
-  const buttonWidth = 88;
-  const buttonHeight = 32;
-  const margin = 8;
-  let y = rect.bottom + margin;
-  if (y + buttonHeight > window.innerHeight - margin) {
-    y = rect.top - buttonHeight - margin;
-  }
-  translateButtonX.value = Math.max(margin, Math.min(window.innerWidth - buttonWidth - margin, rect.right - buttonWidth));
-  translateButtonY.value = y;
-  showTranslateButton.value = true;
-}
-
-function onTranslateButtonClick() {
-  const sel = window.getSelection();
-  if (!sel) return;
-  const text = sel.toString().trim();
-  if (!text) return;
-  if (!translateSelection(text)) return;
-  sel.removeAllRanges();
-  showTranslateButton.value = false;
-  // Android: dismiss the system text-selection toolbar so it does not
-  // sit above our translation popup. The bridge is registered by
-  // MainActivity.installDismissSelectionBridge; on non-Android
-  // platforms (or older WebViews without the bridge) this is a no-op.
-  if (window.__amigaFinishSelectionMode) {
-    try {
-      window.__amigaFinishSelectionMode();
-    } catch (_) {
-      // ignore — bridge is best-effort
-    }
-  }
-}
-
-// Windows: when the user releases the mouse, check if there was a valid
-// multi-word selection and trigger translation.
-function onPointerUp() {
-  if (selectionTimer) clearTimeout(selectionTimer);
-  selectionTimer = setTimeout(() => {
-    selectionTimer = null;
-    if (!isSelecting) return;
-    isSelecting = false;
-
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-    const text = sel.toString().trim();
-    if (!translateSelection(text)) return;
-    sel.removeAllRanges();
-  }, 50);
-}
-
-// Android: called from the native "翻译" menu item (see MainActivity.kt).
-// The selected text is passed in from Kotlin via evaluateJavascript.
-function handleNativeTranslate(text) {
-  isSelecting = false; // prevent pointerup from double-firing
-  if (!translateSelection(text)) return;
-  const sel = window.getSelection();
-  if (sel) sel.removeAllRanges();
-}
-
-function clearSelection() {
-  if (selectionTimer) {
-    clearTimeout(selectionTimer);
-    selectionTimer = null;
-  }
-  selectionText.value = "";
-  selectionResult.value = "";
-  selectionError.value = "";
-  selectionLoading.value = false;
-}
-
 function showShareStatus(msg) {
   shareStatus.value = msg;
   if (shareStatusTimer) clearTimeout(shareStatusTimer);
   shareStatusTimer = setTimeout(() => { shareStatus.value = ""; }, 2500);
-}
-
-async function copyToClipboard(text) {
-  // Prefer the async Clipboard API (works in Tauri WebView on desktop
-  // and on secure-context Android WebViews). Fall back to a hidden
-  // textarea + execCommand for older WebViews where the async API
-  // is unavailable or rejects.
-  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch (_) { /* fall through to legacy path */ }
-  }
-  try {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.setAttribute("readonly", "");
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    ta.style.pointerEvents = "none";
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand && document.execCommand("copy");
-    document.body.removeChild(ta);
-    return !!ok;
-  } catch (_) {
-    return false;
-  }
 }
 
 async function onShare() {
@@ -651,55 +441,13 @@ async function onShare() {
   sharing.value = true;
   try {
     const locale = getLocale();
-    const title = article.value.original_title || "";
-    const body = article.value.rewritten_body || article.value.original_body || "";
-    const source = article.value.source || "";
-    const text = buildShareText({
-      title,
-      body,
-      source,
-      prompt: t("news.sharePrompt", { target: displayLang(targetLang, locale) }),
-      sourceLabel: t("news.shareSource"),
+    await shareArticle({
+      article: article.value,
+      targetLabel: displayLang(targetLang, locale),
+      t,
+      nativeShareText,
+      showShareStatus,
     });
-
-    // On Android, use the native OS share sheet via Tauri's mobile
-    // plugin so the user can pick any installed app (WeChat, ChatGPT,
-    // etc.). Non-Android platforms reject and continue to fallbacks.
-    try {
-      await nativeShareText(text);
-      return;
-    } catch (_) { /* fall through to web/clipboard fallbacks */ }
-
-    // Compatibility fallback for older Android builds that exposed the
-    // direct WebView bridge before the mobile plugin existed.
-    if (window.__amigaShare && typeof window.__amigaShare.shareText === "function") {
-      window.__amigaShare.shareText(text);
-      return;
-    }
-
-    // Fallback for non-Android platforms: try Web Share API, then clipboard.
-    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-      try {
-        await navigator.share({
-          title: title || t("news.shareTitle"),
-          text,
-          url: source || undefined,
-        });
-        return;
-      } catch (e) {
-        // AbortError = user dismissed the sheet; treat as a no-op.
-        if (e && e.name === "AbortError") return;
-      }
-    }
-
-    if (await copyToClipboard(text)) {
-      showShareStatus(t("news.shareCopied"));
-    } else {
-      showShareStatus(t("news.shareFail"));
-    }
-  } catch (e) {
-    console.error("Share failed:", e);
-    showShareStatus(t("news.shareFail"));
   } finally {
     sharing.value = false;
   }

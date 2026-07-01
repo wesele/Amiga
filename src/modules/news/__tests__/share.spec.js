@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildShareText } from "../utils.js";
+import { copyToClipboard, shareArticle } from "../share.js";
 
 /**
  * Mirror of the share handler in NewsReader.vue:onShare. We replicate
@@ -11,7 +12,6 @@ import { buildShareText } from "../utils.js";
  * Keep in lock-step with src/modules/news/NewsReader.vue.
  */
 
-// Mirror of copyToClipboard in NewsReader.vue.
 function makeCopyToClipboard({ writeTextImpl, execCmdImpl, execCmdOk }) {
   return async function copyToClipboard(text) {
     if (typeof navigator.clipboard?.writeText === "function") {
@@ -52,46 +52,19 @@ function makeOnShare({
         const title = article.original_title || "";
         const body = article.rewritten_body || article.original_body || "";
         const source = article.source || "";
-        const text = buildShare({
-          title, body, source,
-          prompt: t("news.sharePrompt", { target: "Spanish" }),
-          sourceLabel: t("news.shareSource"),
+        await shareArticle({
+          article: { original_title: title, rewritten_body: body, original_body: "", source },
+          targetLabel: "Spanish",
+          t,
+          nativeShareText: nativeShareImpl || (() => Promise.reject(new Error("not native"))),
+          showShareStatus: (msg) => {
+            state.shareStatus = msg;
+          },
+          navigatorRef,
+          windowRef: { __amigaShare: amigaShareRef },
+          copy: copyToClipboard,
+          buildShare,
         });
-
-        // On Android, use the native share sheet via Tauri's mobile plugin.
-        if (nativeShareImpl) {
-          try {
-            await nativeShareImpl(text);
-            return;
-          } catch (_) { /* fall through to compatibility/web fallbacks */ }
-        }
-
-        // Compatibility fallback for older Android builds with the direct JS bridge.
-        if (amigaShareRef && typeof amigaShareRef.shareText === "function") {
-          await amigaShareRef.shareText(text);
-          return; // user completed EXP_MODIFIED (or dismissed without error)
-        }
-
-        if (typeof navigatorRef.share === "function") {
-          try {
-            await navigatorRef.share({
-              title: title || t("news.shareTitle"),
-              text,
-              url: source || undefined,
-            });
-            return; // success or user dismissed without error
-          } catch (e) {
-            if (e && e.name === "AbortError") return;
-          }
-        }
-
-        if (await copyToClipboard(text)) {
-          state.shareStatus = t("news.shareCopied");
-        } else {
-          state.shareStatus = t("news.shareFail");
-        }
-      } catch (_) {
-        state.shareStatus = t("news.shareFail");
       } finally {
         state.sharing = false;
       }
@@ -391,8 +364,7 @@ describe("copyToClipboard fallback chain (mirror of NewsReader.vue)", () => {
       configurable: true,
       writable: true,
     });
-    const copy = makeCopyToClipboard({});
-    const ok = await copy("hello");
+    const ok = await copyToClipboard("hello", { navigatorRef: global.navigator, documentRef: document });
     expect(ok).toBe(true);
     expect(writeText).toHaveBeenCalledWith("hello");
     try { delete global.navigator.clipboard; } catch (_) { /* noop */ }
@@ -405,10 +377,12 @@ describe("copyToClipboard fallback chain (mirror of NewsReader.vue)", () => {
       configurable: true,
       writable: true,
     });
-    const copy = makeCopyToClipboard({ execCmdOk: true });
-    const ok = await copy("hello");
+    const originalExec = document.execCommand;
+    document.execCommand = vi.fn(() => true);
+    const ok = await copyToClipboard("hello", { navigatorRef: global.navigator, documentRef: document });
     expect(ok).toBe(true);
     expect(writeText).toHaveBeenCalled();
+    document.execCommand = originalExec;
     try { delete global.navigator.clipboard; } catch (_) { /* noop */ }
   });
 
@@ -419,9 +393,11 @@ describe("copyToClipboard fallback chain (mirror of NewsReader.vue)", () => {
       configurable: true,
       writable: true,
     });
-    const copy = makeCopyToClipboard({ execCmdOk: false });
-    const ok = await copy("hello");
+    const originalExec = document.execCommand;
+    document.execCommand = vi.fn(() => false);
+    const ok = await copyToClipboard("hello", { navigatorRef: global.navigator, documentRef: document });
     expect(ok).toBe(false);
+    document.execCommand = originalExec;
     try { delete global.navigator.clipboard; } catch (_) { /* noop */ }
   });
 });
