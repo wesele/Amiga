@@ -340,6 +340,10 @@ onMounted(load);
   font-weight: 600;
 }
 
+.teach-section + .teach-section {
+  margin-top: 24px;
+}
+
 .teach-section h3 {
   margin: 0 0 12px;
   font-size: 17px;
