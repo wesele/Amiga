@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryHistory, createRouter } from "vue-router";
 import * as api from "@/shared/api.js";
-import { openAiContact } from "@/modules/chat/openAiContact.js";
+import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 
 function makeRouter() {
   return createRouter({

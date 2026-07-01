@@ -12,7 +12,7 @@ import {
   registerSocialUser,
   sendFriendRequest,
   shouldDisconnectSocialSocketOnHidden,
-} from "@/modules/chat/socialService.js";
+} from "@/modules/chat/social/socialService.js";
 
 describe("socialService", () => {
   let mockInvoke;
@@ -350,7 +350,7 @@ describe("socialService", () => {
     it("removeFriend posts to /api/friends/remove", async () => {
       const config = { apiBaseUrl: "https://social.example.com", wsBaseUrl: "wss://social.example.com" };
       global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
-      const { removeFriend } = await import("@/modules/chat/socialService.js");
+      const { removeFriend } = await import("@/modules/chat/social/socialService.js");
       await removeFriend(config, "Alice", "Bob");
       expect(global.fetch).toHaveBeenCalledWith(
         "https://social.example.com/api/friends/remove",
@@ -363,7 +363,7 @@ describe("socialService", () => {
       global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
         items: [{ id: "Bob", avatar: "🦊" }],
       }), { status: 200 }));
-      const { getSocialUserAvatars } = await import("@/modules/chat/socialService.js");
+      const { getSocialUserAvatars } = await import("@/modules/chat/social/socialService.js");
       const result = await getSocialUserAvatars(config, ["Bob"]);
       expect(result).toEqual({ Bob: "🦊" });
     });
@@ -443,7 +443,7 @@ describe("socialService", () => {
   describe("URL conversion to WebSocket base", () => {
     it("converts https:// to wss://", async () => {
       const config = await (async () => {
-        const { getSocialConfig } = await import("@/modules/chat/socialService.js");
+        const { getSocialConfig } = await import("@/modules/chat/social/socialService.js");
         return getSocialConfig();
       })();
       expect(config.wsBaseUrl).toMatch(/^wss:/);

@@ -6,7 +6,7 @@ import {
   getSocialPreview,
   SOCIAL_PREVIEW_UPDATED,
   updateSocialPreview,
-} from "@/modules/chat/socialPreview.js";
+} from "@/modules/chat/social/socialPreview.js";
 
 describe("socialPreview", () => {
   beforeEach(() => {

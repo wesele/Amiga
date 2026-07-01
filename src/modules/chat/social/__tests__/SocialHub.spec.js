@@ -7,7 +7,7 @@ import { setLocale } from "@/shared/i18n";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
-const SocialHub = (await import("@/modules/chat/SocialHub.vue")).default;
+const SocialHub = (await import("@/modules/chat/social/SocialHub.vue")).default;
 
 function makeRouter() {
   return createRouter({

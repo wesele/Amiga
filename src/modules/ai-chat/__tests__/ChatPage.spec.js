@@ -10,7 +10,7 @@ import { setLocale } from "@/shared/i18n";
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
 const ROOT = resolve(__dirname, "../../../..");
-const ChatPage = (await import("@/modules/chat/ChatPage.vue")).default;
+const ChatPage = (await import("@/modules/ai-chat/ChatPage.vue")).default;
 
 function makeRouter(sessionId) {
   return createRouter({
@@ -193,7 +193,7 @@ describe("ChatPage", () => {
     expect(safeStrip.exists()).toBe(true);
     expect(safeStrip.attributes("aria-hidden")).toBe("true");
 
-    const source = readFileSync(resolve(ROOT, "src/modules/chat/ChatPage.vue"), "utf8");
+    const source = readFileSync(resolve(ROOT, "src/modules/ai-chat/ChatPage.vue"), "utf8");
     const safeBlock = source.match(/\.chat-safe-bottom\s*\{[^}]+\}/);
     expect(safeBlock).toBeTruthy();
     expect(safeBlock[0]).toMatch(/height\s*:\s*var\(--safe-bottom/);

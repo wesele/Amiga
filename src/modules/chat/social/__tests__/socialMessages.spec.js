@@ -4,7 +4,7 @@ import {
   clearSocialMessages,
   getSocialMessages,
   mergeSocialMessages,
-} from "@/modules/chat/socialMessages.js";
+} from "@/modules/chat/social/socialMessages.js";
 
 describe("socialMessages", () => {
   beforeEach(() => {

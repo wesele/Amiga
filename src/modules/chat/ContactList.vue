@@ -35,26 +35,26 @@
 import { computed, markRaw, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getChatSessions } from "@/shared/api.js";
-import { openAiContact } from "./openAiContact.js";
+import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 import { useI18n } from "@/shared/i18n";
 import { displayLang } from "@/shared/constants.js";
 import { eventBus } from "@/shared/eventBus.js";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
 import GroupChatIcon from "@/shared/components/GroupChatIcon.vue";
 import AvatarEmoji from "@/shared/components/AvatarEmoji.vue";
-import { getCachedSocialAvatar, rememberSocialAvatars } from "./socialAvatars.js";
+import { getCachedSocialAvatar, rememberSocialAvatars } from "./social/socialAvatars.js";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import {
   getSocialConfig,
   getSocialFriendships,
   getSocialUserId,
-} from "./socialService.js";
-import { startSocialInboxListener } from "./socialInbox.js";
+} from "./social/socialService.js";
+import { startSocialInboxListener } from "./social/socialInbox.js";
 import {
   getSocialContactKey,
   getSocialPreview,
   SOCIAL_PREVIEW_UPDATED,
-} from "./socialPreview.js";
+} from "./social/socialPreview.js";
 
 const router = useRouter();
 const { t, locale } = useI18n();

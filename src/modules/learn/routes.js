@@ -1,5 +1,5 @@
 import LearnHubPage from "./LearnHubPage.vue";
-import ChatPage from "../chat/ChatPage.vue";
+import ChatPage from "@/modules/ai-chat/ChatPage.vue";
 
 export default [
   {

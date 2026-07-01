@@ -5,6 +5,7 @@ export const APP_MODULES = [
   { name: "news", parent: "shell" },
   { name: "vocab", parent: "shell" },
   { name: "profile", parent: "shell" },
+  { name: "ai-chat" },
   { name: "chat", parent: "shell" },
   { name: "prompts", parent: "shell" },
 ];

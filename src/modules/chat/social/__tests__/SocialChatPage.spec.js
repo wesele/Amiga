@@ -9,8 +9,8 @@ import { setLocale } from "@/shared/i18n";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
-const ROOT = resolve(__dirname, "../../../..");
-const SocialChatPage = (await import("@/modules/chat/SocialChatPage.vue")).default;
+const ROOT = resolve(__dirname, "../../../../..");
+const SocialChatPage = (await import("@/modules/chat/social/SocialChatPage.vue")).default;
 
 function makeRouter(mode = "public", peerId) {
   return createRouter({
@@ -386,7 +386,7 @@ describe("SocialChatPage", () => {
     expect(safeStrip.exists()).toBe(true);
     expect(safeStrip.attributes("aria-hidden")).toBe("true");
 
-    const source = readFileSync(resolve(ROOT, "src/modules/chat/SocialChatPage.vue"), "utf8");
+    const source = readFileSync(resolve(ROOT, "src/modules/chat/social/SocialChatPage.vue"), "utf8");
     const safeBlock = source.match(/\.chat-safe-bottom\s*\{[^}]+\}/);
     expect(safeBlock).toBeTruthy();
     expect(safeBlock[0]).toMatch(/height\s*:\s*var\(--safe-bottom/);

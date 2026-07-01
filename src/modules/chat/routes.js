@@ -1,8 +1,8 @@
 import ContactList from "./ContactList.vue";
-import ChatPage from "./ChatPage.vue";
-import MarkdownPreview from "./MarkdownPreview.vue";
-import SocialHub from "./SocialHub.vue";
-import SocialChatPage from "./SocialChatPage.vue";
+import ChatPage from "@/modules/ai-chat/ChatPage.vue";
+import MarkdownPreview from "@/modules/ai-chat/MarkdownPreview.vue";
+import SocialHub from "./social/SocialHub.vue";
+import SocialChatPage from "./social/SocialChatPage.vue";
 
 // See src/modules/news/routes.js for the meta.parent convention.
 //

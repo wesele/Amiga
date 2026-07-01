@@ -24,7 +24,7 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
-import { openAiContact } from "@/modules/chat/openAiContact.js";
+import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 
 const router = useRouter();
 const { t } = useI18n();
