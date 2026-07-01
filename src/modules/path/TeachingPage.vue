@@ -127,7 +127,8 @@ let explainSeq = 0;
 function formatInvokeError(err) {
   if (!err) return "";
   if (typeof err === "string") return err;
-  return err.message || String(err);
+  if (typeof err.message === "string" && err.message) return err.message;
+  return String(err);
 }
 
 const kindLabel = computed(() => {

@@ -926,6 +926,7 @@ pub fn complete_section(
 mod tests {
     use super::*;
     use crate::modules::database::DatabasePool;
+    use crate::modules::llm::LlmClient;
 
     fn test_pool() -> DatabasePool {
         DatabasePool::new_in_memory()
@@ -1035,6 +1036,45 @@ mod tests {
 
     fn import_vocab_for_tests(pool: &DatabasePool) {
         let _ = crate::modules::vocabulary::import_vocab_bank(pool);
+    }
+
+    #[tokio::test]
+    #[ignore = "live LLM call — run with: cargo test explain_grammar_point_end_to_end -- --ignored --nocapture"]
+    async fn explain_grammar_point_end_to_end_caches_result() {
+        let pool = test_pool();
+        crate::modules::prompts::ensure_default_prompts(&pool);
+        let client = LlmClient::new();
+        let point = "ser 和 estar 的基本区别：ser 用于描述永久特征，estar 用于描述临时状态";
+
+        let first = explain_grammar_point(
+            &client,
+            &pool,
+            "A1",
+            "es",
+            "U01",
+            point,
+            "基础问候与自我介绍",
+            "掌握基础问候用语",
+        )
+        .await
+        .expect("first explain should succeed");
+        assert!(!first.explanation.is_empty());
+        assert!(!first.from_cache);
+
+        let second = explain_grammar_point(
+            &client,
+            &pool,
+            "A1",
+            "es",
+            "U01",
+            point,
+            "基础问候与自我介绍",
+            "掌握基础问候用语",
+        )
+        .await
+        .expect("cached explain should succeed");
+        assert!(second.from_cache);
+        assert_eq!(second.explanation, first.explanation);
     }
 
     #[test]

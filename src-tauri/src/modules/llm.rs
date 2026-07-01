@@ -297,6 +297,36 @@ impl LlmClient {
             .await
     }
 
+    /// Grammar explanations are short but may need extra time on mobile networks.
+    /// Try with `max_completion_tokens` first (NVIDIA builtin), then fall back
+    /// without it for older OpenAI-compatible endpoints.
+    pub async fn chat_for_grammar(
+        &self,
+        db: &DatabasePool,
+        messages: Vec<ChatMessage>,
+    ) -> Result<String, String> {
+        const MAX_TOKENS: u32 = 2048;
+        const TIMEOUT_SECS: u64 = 120;
+
+        let config = get_llm_config(db)?;
+        let active = config.active()?;
+        match self
+            .call_with_options(active, messages.clone(), MAX_TOKENS, TIMEOUT_SECS, true)
+            .await
+        {
+            Ok(response) => Ok(response),
+            Err(err) if err.contains("max_completion_tokens") || err.contains("HTTP 400") => {
+                log::warn!(
+                    "Grammar explain retrying without max_completion_tokens: {}",
+                    &err[..err.len().min(120)]
+                );
+                self.call_with_options(active, messages, MAX_TOKENS, TIMEOUT_SECS, false)
+                    .await
+            }
+            Err(err) => Err(err),
+        }
+    }
+
     pub async fn test_connection(&self, config: &ModelConfig) -> TestResult {
         let url = format!("{}/chat/completions", config.base_url.trim_end_matches('/'));
 
@@ -368,6 +398,19 @@ fn build_chat_messages(
             content: filled,
         },
     ]
+}
+
+/// Truncate to at most `max_chars` Unicode scalars (safe for Chinese log previews).
+fn truncate_chars(text: &str, max_chars: usize) -> String {
+    let mut out = String::new();
+    for (idx, ch) in text.chars().enumerate() {
+        if idx >= max_chars {
+            out.push('…');
+            break;
+        }
+        out.push(ch);
+    }
+    out
 }
 
 /// Fallback build messages for when DB prompts are not available
@@ -699,15 +742,15 @@ pub async fn explain_grammar_point(
         messages
     };
 
-    let response = client.chat(db, messages).await?;
+    let response = client.chat_for_grammar(db, messages).await?;
     let explanation = sanitize_llm_plaintext(&response);
     if explanation.is_empty() {
         return Err("大模型未返回讲解内容，请重试或检查模型配置".to_string());
     }
     log::info!(
         "Grammar point explained ({} chars): {}",
-        explanation.len(),
-        &grammar_point[..grammar_point.len().min(40)]
+        explanation.chars().count(),
+        truncate_chars(grammar_point, 40)
     );
     Ok(explanation)
 }
@@ -938,6 +981,43 @@ mod tests {
         assert_eq!(
             sanitize_llm_plaintext(raw),
             "1. Ser 用于永久特征\n2. Estar 用于临时状态"
+        );
+    }
+
+    #[test]
+    fn sanitize_llm_plaintext_preserves_plain_text() {
+        let raw = "1. Ser 表示永久特征\n2. Estar 表示临时状态";
+        assert_eq!(sanitize_llm_plaintext(raw), raw);
+    }
+
+    #[test]
+    fn truncate_chars_respects_utf8_boundaries() {
+        let text = "ser 和 estar 的基本区别：ser 用于描述永久特征，estar 用于描述临时状态";
+        let truncated = truncate_chars(text, 40);
+        assert!(truncated.is_char_boundary(truncated.len()));
+        assert!(truncated.chars().count() <= 41);
+    }
+
+    #[tokio::test]
+    #[ignore = "live LLM call — run with: cargo test explain_grammar_point_live -- --ignored --nocapture"]
+    async fn explain_grammar_point_live() {
+        let db = empty_db();
+        crate::modules::prompts::ensure_default_prompts(&db);
+        let client = LlmClient::new();
+        let result = explain_grammar_point(
+            &client,
+            &db,
+            "A1",
+            "es",
+            "基础问候与自我介绍",
+            "掌握基础问候用语",
+            "ser 和 estar 的基本区别：ser 用于描述永久特征，estar 用于描述临时状态",
+        )
+        .await
+        .expect("grammar explain should succeed against builtin model");
+        assert!(
+            result.chars().count() >= 20,
+            "expected substantive explanation, got: {result}"
         );
     }
 }
