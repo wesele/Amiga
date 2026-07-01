@@ -138,7 +138,6 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import {
-  getCurrentUser,
   getLearningGoals,
   getUserVocabStats,
   getReadArticleCount,
@@ -151,6 +150,7 @@ import SettingsItem from "./components/SettingsItem.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { AVAILABLE_LANGUAGES, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
+import { loadLearningContext } from "@/shared/learningContext.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
 
 const { t } = useI18n();
@@ -168,15 +168,15 @@ const learningLevels = LEARNING_CEFR_LEVELS;
 
 onMounted(async () => {
   try {
-    // Idempotent — main.js has already called this before mount.
-    await targetLangStore.load();
-    user.value = await getCurrentUser();
-    goals.value = await getLearningGoals(user.value.id);
+    const ctx = await loadLearningContext({
+      targetLangStore,
+      fallbackToFirstGoal: true,
+    });
+    user.value = ctx.user;
+    goals.value = ctx.goals;
     vocabStats.value = await getUserVocabStats(user.value.id, currentTargetLang.value);
     readArticleCount.value = await getReadArticleCount(user.value.id);
-    // Find the current level from the goal row matching the active target.
-    const g = pickLearningGoal(goals.value, currentTargetLang.value) || goals.value[0];
-    if (g) currentLevel.value = g.cefr_level;
+    if (ctx.currentGoal) currentLevel.value = ctx.cefr;
   } catch (e) {
     console.error("Failed to load profile:", e);
   }

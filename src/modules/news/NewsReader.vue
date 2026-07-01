@@ -155,14 +155,14 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, saveReadingLog, updateWordMastery, getCurrentUser, getBilingual, translateText, lookupWordIds, ensureWordsSeen, addDiscoveredWord, getLearningGoals, shareText as nativeShareText } from "@/shared/api.js";
+import { getArticle, rewriteArticle, saveReadingLog, updateWordMastery, getBilingual, translateText, lookupWordIds, ensureWordsSeen, addDiscoveredWord, shareText as nativeShareText } from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
 import { openSourceUrl } from "./utils.js";
 import { displayLang } from "@/shared/constants.js";
-import { pickLearningGoal } from "@/shared/learningGoal.js";
+import { loadLearningContext } from "@/shared/learningContext.js";
 import { extractWordTexts, tokenizeArticleText } from "./articleText.js";
 import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
@@ -228,16 +228,10 @@ onMounted(async () => {
   // when the user taps the "翻译" menu item (see MainActivity.kt).
   window.__amigaTranslateSelection = handleNativeTranslate;
   try {
-    const user = await getCurrentUser();
-    userId = user.id;
-    targetLang = (await targetLangStore.load()) || "es";
-    // Pick the CEFR level matching the user's current target language,
-    // so the rewrite is calibrated to what they're actually studying.
-    try {
-      const goals = await getLearningGoals(userId);
-      const g = pickLearningGoal(goals, targetLang);
-      if (g?.cefr_level) currentLevel = g.cefr_level;
-    } catch (_) { /* fall back to A1 */ }
+    const ctx = await loadLearningContext({ targetLangStore });
+    userId = ctx.user.id;
+    targetLang = ctx.targetLang;
+    currentLevel = ctx.cefr;
     const art = await getArticle(Number(props.id));
     article.value = art;
     if (!art.rewritten_body) {

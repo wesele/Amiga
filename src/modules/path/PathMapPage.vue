@@ -143,11 +143,10 @@ import { useI18n } from "@/shared/i18n";
 import {
   getPathCurriculum,
   getCurrentUser,
-  getLearningGoals,
   updateLearningGoalCefr,
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
-import { pickLearningGoal } from "@/shared/learningGoal.js";
+import { loadLearningContext } from "@/shared/learningContext.js";
 
 const UNIT_HUES = [145, 198, 262, 32, 12, 210];
 const LANE_X = { left: 22, center: 50, right: 78 };
@@ -248,11 +247,10 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const user = await getCurrentUser();
-    const targetLang = targetLangStore.code || (await targetLangStore.load());
-    const goals = await getLearningGoals(user.id);
-    const goal = pickLearningGoal(goals, targetLang);
-    const cefr = goal?.cefr_level || currentCefr.value || "A1";
+    const { user, targetLang, cefr } = await loadLearningContext({
+      targetLangStore,
+      cefrFallback: currentCefr.value || "A1",
+    });
     currentCefr.value = cefr;
     curriculum.value = await getPathCurriculum(user.native_language, targetLang, cefr);
   } catch (e) {

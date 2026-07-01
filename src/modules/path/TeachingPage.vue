@@ -107,15 +107,13 @@ import { useI18n } from "@/shared/i18n";
 import {
   completeTeachingNode,
   explainGrammarPoint,
-  getCurrentUser,
   getGrammarExplanationCached,
-  getLearningGoals,
   getTeachingContent,
   getUserVocabByLevel,
   updateWordMastery,
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
-import { pickLearningGoal } from "@/shared/learningGoal.js";
+import { loadLearningContext } from "@/shared/learningContext.js";
 import { promiseWithTimeout } from "@/shared/promiseTimeout.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 
@@ -271,12 +269,8 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const user = await getCurrentUser();
+    const { user, targetLang, cefr } = await loadLearningContext({ targetLangStore });
     userId.value = user.id;
-    const targetLang = targetLangStore.code || (await targetLangStore.load());
-    const goals = await getLearningGoals(user.id);
-    const goal = pickLearningGoal(goals, targetLang);
-    const cefr = goal?.cefr_level || "A1";
     userMeta.value = { nativeLang: user.native_language, targetLang, cefr };
     content.value = await getTeachingContent(
       user.native_language,

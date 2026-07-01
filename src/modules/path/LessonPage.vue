@@ -71,12 +71,10 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
   completeSection,
-  getCurrentUser,
-  getLearningGoals,
   getSectionLesson,
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
-import { pickLearningGoal } from "@/shared/learningGoal.js";
+import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import { checkAnswer } from "./checkAnswer.js";
 
@@ -138,11 +136,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const user = await getCurrentUser();
-    const targetLang = targetLangStore.code || (await targetLangStore.load());
-    const goals = await getLearningGoals(user.id);
-    const goal = pickLearningGoal(goals, targetLang);
-    const cefr = goal?.cefr_level || "A1";
+    const { user, targetLang, cefr } = await loadLearningContext({ targetLangStore });
     userMeta.value = {
       nativeLang: user.native_language,
       targetLang,
