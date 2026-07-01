@@ -156,6 +156,10 @@ async function run() {
     // 6. Build Android APK
     await trackStep('Android Build', async () => {
       console.log('\n[5/7] Building Android APK (aarch64)...');
+      if (!fs.existsSync('src-tauri/gen/android')) {
+        execSync('npx tauri android init --ci', { stdio: 'inherit' });
+      }
+      execSync('node scripts/android-patch.cjs', { stdio: 'inherit' });
       execSync('npx tauri android build --target aarch64 --apk', { stdio: 'inherit' });
     });
 

@@ -105,6 +105,19 @@ export async function openExternalUrl(url) {
   if (!target) return;
 
   if (isAndroidPlatform()) {
+    if (!hasAndroidExternalBridge()) {
+      // APK built without patched MainActivity (e.g. CI skipped android-patch
+      // when gen/ was newer than tracked sources). Fall back to shell open;
+      // never use window.open on Android — WebView loads it in-app.
+      try {
+        await open(target);
+        return;
+      } catch (e) {
+        console.warn("openExternalUrl: bridge missing, shell fallback failed", target, e);
+        showExternalOpenError(target, t("external.openFailedBridgeMissing"));
+        return;
+      }
+    }
     const { ok, error } = tryAndroidExternalOpen(target);
     if (!ok) {
       console.warn("openExternalUrl: native Android open failed", target, error);

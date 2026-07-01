@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import {
   PATCH_BEGIN,
   PATCH_END,
@@ -9,6 +12,7 @@ import {
   mergeBackupAttributes,
   mergeGradleDebugSigning,
   ensureGradleKeystore,
+  shouldCopyFile,
 } from "../android-patch.cjs";
 
 // A representative copy of the manifest Tauri currently generates. We
@@ -524,6 +528,37 @@ describe("ensureGradleKeystore", () => {
   it("does not duplicate on the old template (already has keystore infra)", () => {
     const result = ensureGradleKeystore(GENERATED_GRADLE);
     expect(result).toBe(GENERATED_GRADLE);
+  });
+});
+
+describe("shouldCopyFile", () => {
+  it("copies when gen is newer but content differs (CI init vs tracked source)", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "amiga-patch-"));
+    const src = path.join(dir, "MainActivity.kt");
+    const dst = path.join(dir, "gen-MainActivity.kt");
+    fs.writeFileSync(src, "tracked MainActivity with __amigaExternal");
+    fs.writeFileSync(dst, "stock stub from tauri android init");
+    const srcTime = new Date("2026-06-01");
+    const dstTime = new Date("2026-07-01");
+    fs.utimesSync(src, srcTime, srcTime);
+    fs.utimesSync(dst, dstTime, dstTime);
+    expect(shouldCopyFile(src, dst)).toBe(true);
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("skips when content is identical even if dst is newer", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "amiga-patch-"));
+    const src = path.join(dir, "same.kt");
+    const dst = path.join(dir, "gen-same.kt");
+    const body = "identical kotlin";
+    fs.writeFileSync(src, body);
+    fs.writeFileSync(dst, body);
+    const srcTime = new Date("2026-06-01");
+    const dstTime = new Date("2026-07-01");
+    fs.utimesSync(src, srcTime, srcTime);
+    fs.utimesSync(dst, dstTime, dstTime);
+    expect(shouldCopyFile(src, dst)).toBe(false);
+    fs.rmSync(dir, { recursive: true });
   });
 });
 

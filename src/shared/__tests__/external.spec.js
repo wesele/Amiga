@@ -161,10 +161,18 @@ describe("openExternalUrl", () => {
     warn.mockRestore();
   });
 
-  it("shows a bridge-missing message on Android when __amigaExternal is absent", async () => {
+  it("falls back to tauri shell open on Android when __amigaExternal is absent", async () => {
     setUserAgent("Mozilla/5.0 (Linux; Android 14)");
+    open.mockResolvedValue();
     await openExternalUrl("https://example.com");
-    expect(open).not.toHaveBeenCalled();
+    expect(open).toHaveBeenCalledWith("https://example.com");
+    expect(showAlert).not.toHaveBeenCalled();
+  });
+
+  it("shows bridge-missing message when Android bridge and shell open both fail", async () => {
+    setUserAgent("Mozilla/5.0 (Linux; Android 14)");
+    open.mockRejectedValue(new Error("shell denied"));
+    await openExternalUrl("https://example.com");
     expect(showAlert).toHaveBeenCalledWith(
       expect.objectContaining({
         message: expect.stringMatching(/最新版本|latest version/i),
@@ -206,15 +214,15 @@ describe("openExternalUrl", () => {
     window.open = orig;
   });
 
-  it("never calls tauri open on Android even when the bridge is missing", async () => {
+  it("never uses window.open on Android when the bridge is missing", async () => {
     setUserAgent("Mozilla/5.0 (Linux; Android 14)");
+    open.mockRejectedValue(new Error("shell denied"));
     const orig = window.open;
     const fallback = vi.fn();
     window.open = fallback;
 
     await openExternalUrl("https://fallback.test/x");
 
-    expect(open).not.toHaveBeenCalled();
     expect(fallback).not.toHaveBeenCalled();
     expect(showAlert).toHaveBeenCalledWith(
       expect.objectContaining({

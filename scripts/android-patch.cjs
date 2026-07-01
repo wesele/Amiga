@@ -47,6 +47,8 @@ const DST_RES = path.join(ROOT, "src-tauri", "gen", "android", "app", "src", "ma
 const SRC_MANIFEST = path.join(ROOT, "src-tauri", "android", "app", "src", "main", "AndroidManifest.xml");
 const DST_MANIFEST = path.join(ROOT, "src-tauri", "gen", "android", "app", "src", "main", "AndroidManifest.xml");
 const DST_GRADLE = path.join(ROOT, "src-tauri", "gen", "android", "app", "build.gradle.kts");
+const SRC_PROGUARD = path.join(ROOT, "src-tauri", "android", "app", "proguard-rules.pro");
+const DST_PROGUARD = path.join(ROOT, "src-tauri", "gen", "android", "app", "proguard-rules.pro");
 
 // Markers wrapping the merged fragment inside the generated manifest.
 // The string content is what scripts/__tests__/android-patch.spec.js
@@ -61,6 +63,18 @@ const PATCH_GRADLE_BEGIN = "// AMIGA-PATCH-BEGIN: debug-signing";
 const PATCH_GRADLE_END = "// AMIGA-PATCH-END: debug-signing";
 
 const FORCE = process.argv.includes("--force");
+
+/**
+ * Whether a tracked source file should replace the generated copy.
+ * Uses content equality, not mtime: `tauri android init` always writes
+ * fresh gen/ files with a newer timestamp than git-tracked sources, so
+ * an mtime-only check silently skips the patch on CI and ships stock
+ * MainActivity (no __amigaExternal / safe-area bridges).
+ */
+function shouldCopyFile(srcPath, dstPath) {
+  if (FORCE || !fs.existsSync(dstPath)) return true;
+  return fs.readFileSync(srcPath).compare(fs.readFileSync(dstPath)) !== 0;
+}
 
 function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -381,6 +395,7 @@ module.exports = {
   ensureGradleKeystore,
   dedent,
   trimBlankLines,
+  shouldCopyFile,
 };
 
 // ===== CLI entry =====
@@ -422,13 +437,9 @@ if (require.main === module) {
         walk(srcPath);
       } else if (entry.isFile()) {
         const exists = fs.existsSync(dstPath);
-        if (exists && !FORCE) {
-          const srcStat = fs.statSync(srcPath);
-          const dstStat = fs.statSync(dstPath);
-          if (dstStat.mtimeMs >= srcStat.mtimeMs) {
-            skipped++;
-            continue;
-          }
+        if (exists && !shouldCopyFile(srcPath, dstPath)) {
+          skipped++;
+          continue;
         }
         fs.mkdirSync(path.dirname(dstPath), { recursive: true });
         fs.copyFileSync(srcPath, dstPath);
@@ -458,13 +469,9 @@ if (require.main === module) {
       continue;
     }
     const exists = fs.existsSync(dstPath);
-    if (exists && !FORCE) {
-      const srcStat = fs.statSync(srcPath);
-      const dstStat = fs.statSync(dstPath);
-      if (dstStat.mtimeMs >= srcStat.mtimeMs) {
-        resSkipped++;
-        continue;
-      }
+    if (exists && !shouldCopyFile(srcPath, dstPath)) {
+      resSkipped++;
+      continue;
     }
     fs.mkdirSync(path.dirname(dstPath), { recursive: true });
     fs.copyFileSync(srcPath, dstPath);
@@ -472,6 +479,21 @@ if (require.main === module) {
     fs.utimesSync(dstPath, now, now);
     console.log(`[android-patch] ${exists ? "updated" : "added"}   res/${rel}`);
     resCopied++;
+  }
+
+  // ProGuard rules: keep @JavascriptInterface bridge methods in release
+  // minified APKs (R8 can strip anonymous bridge classes otherwise).
+  if (fs.existsSync(SRC_PROGUARD) && fs.existsSync(path.dirname(DST_PROGUARD))) {
+    const exists = fs.existsSync(DST_PROGUARD);
+    if (!exists || shouldCopyFile(SRC_PROGUARD, DST_PROGUARD)) {
+      fs.copyFileSync(SRC_PROGUARD, DST_PROGUARD);
+      const now = new Date();
+      fs.utimesSync(DST_PROGUARD, now, now);
+      console.log(`[android-patch] ${exists ? "updated" : "added"}   proguard-rules.pro`);
+      copied++;
+    } else {
+      skipped++;
+    }
   }
 
   // AndroidManifest.xml: merge the tracked fragment (if any) into the
