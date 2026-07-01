@@ -13,20 +13,40 @@
           · ⭐ {{ curriculum.total_stars }}
         </p>
       </div>
-      <div class="level-pills">
-        <button
-          v-for="lvl in learningLevels"
-          :key="lvl"
-          type="button"
-          class="level-pill"
-          :class="{ active: currentCefr === lvl }"
-          :disabled="levelSwitching"
-          @click="onSwitchLevel(lvl)"
-        >
-          {{ lvl }}
-        </button>
-      </div>
+      <button
+        type="button"
+        class="level-btn"
+        :disabled="levelSwitching"
+        :aria-label="t('path.selectLevel')"
+        @click="showLevelPicker = true"
+      >
+        <span class="level-btn-label">{{ currentCefr }}</span>
+        <span class="level-btn-chevron">▾</span>
+      </button>
     </header>
+
+    <Teleport to="body">
+      <div v-if="showLevelPicker" class="level-overlay" @click.self="showLevelPicker = false">
+        <div class="level-sheet">
+          <h3 class="level-sheet-title">{{ t("path.selectLevel") }}</h3>
+          <div class="level-sheet-options">
+            <button
+              v-for="lvl in learningLevels"
+              :key="lvl"
+              type="button"
+              class="level-sheet-option"
+              :class="{ active: currentCefr === lvl }"
+              :disabled="levelSwitching"
+              @click="pickLevel(lvl)"
+            >
+              <span class="level-sheet-name">{{ t(`wizard.levels.${lvl}`) }}</span>
+              <span class="level-sheet-code">{{ lvl }}</span>
+              <span v-if="currentCefr === lvl" class="level-sheet-check">✓</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <div v-if="loading" class="loading-state">{{ t("path.loading") }}</div>
 
@@ -126,6 +146,7 @@ const error = ref("");
 const curriculum = ref(null);
 const currentCefr = ref("A1");
 const levelSwitching = ref(false);
+const showLevelPicker = ref(false);
 const learningLevels = LEARNING_CEFR_LEVELS;
 
 const completedLevelLabel = computed(() => {
@@ -232,6 +253,11 @@ async function onSwitchLevel(level) {
   }
 }
 
+async function pickLevel(level) {
+  showLevelPicker.value = false;
+  await onSwitchLevel(level);
+}
+
 onMounted(load);
 </script>
 
@@ -287,34 +313,107 @@ onMounted(load);
   font-weight: 600;
 }
 
-.level-pills {
+.level-btn {
   grid-row: 1 / 3;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   align-self: center;
-}
-
-.level-pill {
-  padding: 5px 12px;
-  border: 2px solid var(--border);
+  padding: 8px 14px;
+  border: 2px solid var(--green);
   border-radius: 999px;
-  background: var(--white);
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--text-light);
-  cursor: pointer;
-  min-width: 44px;
-}
-
-.level-pill.active {
-  border-color: var(--green);
   background: var(--green-bg);
   color: var(--green-hover);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  min-width: 56px;
+  font-family: inherit;
 }
 
-.level-pill:disabled {
+.level-btn:disabled {
   opacity: 0.6;
+  cursor: wait;
+}
+
+.level-btn-chevron {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.level-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+  padding: 0 16px calc(16px + var(--safe-bottom));
+}
+
+.level-sheet {
+  width: 100%;
+  max-width: 400px;
+  background: var(--white);
+  border-radius: 20px 20px 16px 16px;
+  padding: 20px 16px 12px;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+}
+
+.level-sheet-title {
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.level-sheet-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.level-sheet-option {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.level-sheet-option.active {
+  border-color: var(--green);
+  background: var(--green-bg);
+}
+
+.level-sheet-option:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.level-sheet-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.level-sheet-code {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-light);
+}
+
+.level-sheet-check {
+  font-weight: 800;
+  color: var(--green-hover);
 }
 
 .loading-state,
@@ -450,8 +549,8 @@ onMounted(load);
   display: grid;
   grid-template-columns: 1fr 72px 1fr;
   align-items: center;
-  min-height: 108px;
-  padding: 10px 0;
+  min-height: 124px;
+  padding: 16px 0;
 }
 
 .connector {
@@ -478,7 +577,7 @@ onMounted(load);
   grid-column: 1;
   grid-row: 1;
   text-align: right;
-  padding-right: 14px;
+  padding-right: 22px;
 }
 
 .path-step.lane-center .path-node {
@@ -490,7 +589,7 @@ onMounted(load);
 .path-step.lane-center .node-caption {
   grid-column: 3;
   grid-row: 1;
-  padding-left: 14px;
+  padding-left: 22px;
 }
 
 .path-step.lane-right .path-node {
@@ -502,7 +601,7 @@ onMounted(load);
 .path-step.lane-right .node-caption {
   grid-column: 3;
   grid-row: 1;
-  padding-left: 14px;
+  padding-left: 22px;
 }
 
 .path-node {
@@ -599,7 +698,7 @@ onMounted(load);
 .node-caption {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 

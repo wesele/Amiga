@@ -48,15 +48,15 @@ describe("LearnHubPage", () => {
     api.__setInvoke(mockInvoke);
   });
 
-  it("uses a 3-column compact tile grid sized relative to viewport width", () => {
+  it("uses a 2-column tile grid with two icons per row", () => {
     const source = readVue("src/modules/learn/LearnHubPage.vue");
-    expect(source).toMatch(/grid-template-columns:\s*repeat\(3/);
-    expect(source).toMatch(/aspect-ratio:\s*0\.92/);
+    expect(source).toMatch(/grid-template-columns:\s*repeat\(2/);
+    expect(source).toMatch(/aspect-ratio:\s*1/);
     expect(source).not.toMatch(/width:\s*130px/);
-    expect(source).toMatch(/font-size:\s*8vw/);
-    expect(source).toMatch(/gap:\s*3vw/);
-    expect(source).toMatch(/padding:\s*4vw\s+4vw\s+6vw/);
-    expect(source).toMatch(/font-size:\s*clamp\(12px,\s*3\.6vw,\s*16px\)/);
+    expect(source).toMatch(/font-size:\s*12vw/);
+    expect(source).toMatch(/gap:\s*6vw/);
+    expect(source).toMatch(/padding:\s*10vw\s+8vw\s+14vw/);
+    expect(source).toMatch(/font-size:\s*clamp\(14px,\s*5vw,\s*18px\)/);
   });
 
   it("renders three module tiles in a grid", async () => {

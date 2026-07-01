@@ -442,7 +442,7 @@ pub fn get_path_curriculum(
         section_nodes.push(PathSectionNode {
             id: grammar_id.clone(),
             kind: "grammar".to_string(),
-            title_native: "语言知识".to_string(),
+            title_native: "单元知识".to_string(),
             title_target: "Gramática".to_string(),
             question_count: 1,
             stars: grammar_stars,

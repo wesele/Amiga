@@ -77,9 +77,9 @@ async function openModule(mod) {
 
 .module-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 3vw;
-  padding: 4vw 4vw 6vw;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6vw;
+  padding: 10vw 8vw 14vw;
   box-sizing: border-box;
 }
 
@@ -88,10 +88,10 @@ async function openModule(mod) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.45em;
+  gap: 0.6em;
   width: 100%;
-  aspect-ratio: 0.92;
-  padding: 2vw 1vw;
+  aspect-ratio: 1;
+  padding: 0;
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -111,12 +111,12 @@ async function openModule(mod) {
 }
 
 .module-icon {
-  font-size: 8vw;
+  font-size: 12vw;
   line-height: 1;
 }
 
 .module-label {
-  font-size: clamp(12px, 3.6vw, 16px);
+  font-size: clamp(14px, 5vw, 18px);
   font-weight: 600;
   color: var(--text);
   text-align: center;

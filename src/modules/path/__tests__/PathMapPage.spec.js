@@ -31,4 +31,22 @@ describe("PathMapPage unit guide layout", () => {
     expect(source).toMatch(/\.connector\s*\{[\s\S]*position:\s*absolute/);
     expect(source).toMatch(/\.path-step\.lane-left \.node-caption\s*\{[\s\S]*grid-row:\s*1/);
   });
+
+  it("shows current level in one button and opens a picker sheet", () => {
+    const source = readVue("src/modules/path/PathMapPage.vue");
+    expect(source).toMatch(/class="level-btn"/);
+    expect(source).toMatch(/showLevelPicker/);
+    expect(source).toMatch(/level-sheet-option/);
+    expect(source).not.toMatch(/class="level-pill"/);
+  });
+
+  it("keeps path nodes and captions spaced apart", () => {
+    const source = readVue("src/modules/path/PathMapPage.vue");
+    const pathStep = source.match(/\.path-step\s*\{[\s\S]*?\}/);
+    expect(pathStep, ".path-step rule not found").toBeTruthy();
+    expect(pathStep[0]).toMatch(/min-height:\s*124px/);
+    expect(pathStep[0]).toMatch(/padding:\s*16px\s+0/);
+    expect(source).toMatch(/padding-right:\s*22px/);
+    expect(source).toMatch(/padding-left:\s*22px/);
+  });
 });

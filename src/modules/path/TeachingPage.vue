@@ -171,7 +171,7 @@ async function onGrammarPointClick(idx, point) {
         c.unit_title_native,
         c.goal_native,
       ),
-      95000,
+      120000,
       t("path.explainTimeout"),
     );
     if (seq !== explainSeq) return;

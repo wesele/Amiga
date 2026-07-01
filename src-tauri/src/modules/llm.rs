@@ -370,6 +370,29 @@ fn build_chat_messages(
 }
 
 /// Fallback build messages for when DB prompts are not available
+/// Strip markdown fences and other wrappers so grammar explanations display as plain text.
+fn sanitize_llm_plaintext(raw: &str) -> String {
+    let mut text = raw.trim().to_string();
+    if text.starts_with("```") {
+        if let Some(end) = text.rfind("```") {
+            if end > 3 {
+                text = text[3..end].trim().to_string();
+                if let Some(newline) = text.find('\n') {
+                    let lang_tag = text[..newline].trim();
+                    if !lang_tag.is_empty()
+                        && lang_tag
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'))
+                    {
+                        text = text[newline + 1..].trim().to_string();
+                    }
+                }
+            }
+        }
+    }
+    text.trim().to_string()
+}
+
 fn build_chat_messages_fallback(system: &str, user: &str) -> Vec<ChatMessage> {
     vec![
         ChatMessage {
@@ -670,15 +693,8 @@ pub async fn explain_grammar_point(
         messages
     };
 
-    let response = client
-        .chat_with_limits(db, messages, 1024, 90)
-        .await?;
-    let explanation = response
-        .trim()
-        .trim_start_matches("```")
-        .trim_end_matches("```")
-        .trim()
-        .to_string();
+    let response = client.chat(db, messages).await?;
+    let explanation = sanitize_llm_plaintext(&response);
     if explanation.is_empty() {
         return Err("大模型未返回讲解内容，请重试或检查模型配置".to_string());
     }
@@ -908,5 +924,14 @@ mod tests {
         let rewritten =
             "Los inmigrantes llegaron a la ciudad ayer por la tarde. Fue un día tranquilo.";
         assert!(validate_rewrite_output(original, rewritten).is_ok());
+    }
+
+    #[test]
+    fn sanitize_llm_plaintext_strips_markdown_fence() {
+        let raw = "```markdown\n1. Ser 用于永久特征\n2. Estar 用于临时状态\n```";
+        assert_eq!(
+            sanitize_llm_plaintext(raw),
+            "1. Ser 用于永久特征\n2. Estar 用于临时状态"
+        );
     }
 }
