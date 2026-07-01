@@ -90,16 +90,6 @@
             class="path-step"
             :class="[laneClass(idx), { 'is-current': section.current }]"
           >
-            <svg
-              v-if="idx > 0"
-              class="path-connector"
-              viewBox="0 0 100 136"
-              preserveAspectRatio="none"
-              aria-hidden="true"
-            >
-              <path :d="connectorPath(idx - 1, idx)" class="connector-line" />
-            </svg>
-
             <div class="step-body">
               <button
                 type="button"
@@ -123,6 +113,16 @@
                 </span>
               </div>
             </div>
+
+            <svg
+              v-if="idx < unit.sections.length - 1"
+              class="path-connector"
+              viewBox="0 0 100 40"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path :d="connectorPath(idx, idx + 1)" class="connector-line" />
+            </svg>
           </div>
         </div>
       </div>
@@ -147,7 +147,7 @@ import { pickLearningGoal } from "@/shared/learningGoal.js";
 
 const UNIT_HUES = [145, 198, 262, 32, 12, 210];
 const LANE_X = { left: 22, center: 50, right: 78 };
-const STEP_SPAN = 136;
+const CONNECTOR_HEIGHT = 40;
 
 const router = useRouter();
 const { t } = useI18n();
@@ -180,11 +180,11 @@ function laneClass(idx) {
   return `lane-${laneKey(idx)}`;
 }
 
-function connectorPath(prevIdx, currIdx) {
-  const x1 = LANE_X[laneKey(prevIdx)];
-  const x2 = LANE_X[laneKey(currIdx)];
-  const mid = STEP_SPAN / 2;
-  return `M ${x1} 0 C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${STEP_SPAN}`;
+function connectorPath(fromIdx, toIdx) {
+  const x1 = LANE_X[laneKey(fromIdx)];
+  const x2 = LANE_X[laneKey(toIdx)];
+  const mid = CONNECTOR_HEIGHT / 2;
+  return `M ${x1} 0 C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${CONNECTOR_HEIGHT}`;
 }
 
 function nodeClass(section) {
@@ -558,20 +558,17 @@ onMounted(load);
   position: relative;
   z-index: 1;
   display: flex;
-  min-height: 136px;
-  padding: 12px 0;
+  flex-direction: column;
+  padding: 4px 0 0;
 }
 
 .path-connector {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -90px;
-  height: 136px;
+  display: block;
   width: 100%;
-  z-index: 0;
+  height: 40px;
+  margin: 2px 0 8px;
+  flex-shrink: 0;
   pointer-events: none;
-  overflow: visible;
 }
 
 .connector-line {
@@ -581,18 +578,18 @@ onMounted(load);
   stroke-linecap: round;
 }
 
-.path-step.lane-left {
-  justify-content: flex-start;
-  padding-left: 14%;
+.path-step.lane-left .step-body {
+  align-self: flex-start;
+  margin-left: 14%;
 }
 
-.path-step.lane-center {
-  justify-content: center;
+.path-step.lane-center .step-body {
+  align-self: center;
 }
 
-.path-step.lane-right {
-  justify-content: flex-end;
-  padding-right: 14%;
+.path-step.lane-right .step-body {
+  align-self: flex-end;
+  margin-right: 14%;
 }
 
 .step-body {

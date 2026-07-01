@@ -28,8 +28,9 @@ describe("PathMapPage unit guide layout", () => {
   it("avoids duplicate kind labels and draws a single curved connector between nodes", () => {
     const source = readVue("src/modules/path/PathMapPage.vue");
     expect(source).toMatch(/showKindLabel\(section\)/);
-    expect(source).toMatch(/connectorPath\(idx - 1, idx\)/);
-    expect(source).toMatch(/\.path-connector\s*\{[\s\S]*position:\s*absolute/);
+    expect(source).toMatch(/connectorPath\(idx, idx \+ 1\)/);
+    expect(source).toMatch(/idx < unit\.sections\.length - 1/);
+    expect(source).toMatch(/\.path-connector\s*\{[\s\S]*height:\s*40px/);
     expect(source).toMatch(/\.connector-line\s*\{[\s\S]*stroke:\s*var\(--green\)/);
     expect(source).not.toMatch(/connector-shadow/);
     expect(source).not.toMatch(/\.path-lane::before/);
@@ -38,9 +39,9 @@ describe("PathMapPage unit guide layout", () => {
 
   it("offsets nodes left, center, and right with captions below the node", () => {
     const source = readVue("src/modules/path/PathMapPage.vue");
-    expect(source).toMatch(/\.path-step\.lane-left\s*\{[\s\S]*justify-content:\s*flex-start/);
-    expect(source).toMatch(/\.path-step\.lane-center\s*\{[\s\S]*justify-content:\s*center/);
-    expect(source).toMatch(/\.path-step\.lane-right\s*\{[\s\S]*justify-content:\s*flex-end/);
+    expect(source).toMatch(/\.path-step\.lane-left \.step-body\s*\{[\s\S]*align-self:\s*flex-start/);
+    expect(source).toMatch(/\.path-step\.lane-center \.step-body\s*\{[\s\S]*align-self:\s*center/);
+    expect(source).toMatch(/\.path-step\.lane-right \.step-body\s*\{[\s\S]*align-self:\s*flex-end/);
     expect(source).toMatch(/\.step-body\s*\{[\s\S]*flex-direction:\s*column/);
     expect(source).toMatch(/\.node-caption\s*\{[\s\S]*text-align:\s*center/);
   });
@@ -62,11 +63,10 @@ describe("PathMapPage unit guide layout", () => {
     expect(levelBtn[0]).not.toMatch(/min-width:\s*56px/);
   });
 
-  it("keeps path steps tall enough for node plus caption stack", () => {
+  it("places connectors in the gap below captions", () => {
     const source = readVue("src/modules/path/PathMapPage.vue");
-    const pathStep = source.match(/\.path-step\s*\{[\s\S]*?\}/);
-    expect(pathStep, ".path-step rule not found").toBeTruthy();
-    expect(pathStep[0]).toMatch(/min-height:\s*136px/);
+    expect(source).toMatch(/class="step-body"[\s\S]*class="path-connector"/);
+    expect(source).toMatch(/\.path-connector\s*\{[\s\S]*margin:\s*2px 0 8px/);
     expect(source).toMatch(/\.step-body\s*\{[\s\S]*gap:\s*6px/);
   });
 });
