@@ -1,21 +1,21 @@
 <template>
   <div class="news-list">
-    <header class="list-header">
-      <div class="header-row">
-        <button class="back-btn" :aria-label="t('common.back')" @click="goBack">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-          </svg>
-        </button>
-        <h1 class="page-title">{{ t('news.title') }}</h1>
+    <PageHeader
+      :title="t('news.title')"
+      variant="news"
+      :back-label="t('common.back')"
+    >
+      <template #actions>
         <button class="refresh-btn" :disabled="loading" :title="t('news.refresh')" @click="onRefresh">
           <svg :class="{ spinning: loading }" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M17.65 6.35A7.96 7.96 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
           </svg>
         </button>
-      </div>
-      <span class="today-label">{{ formattedDate }}</span>
-    </header>
+      </template>
+      <template #below>
+        <span class="today-label">{{ formattedDate }}</span>
+      </template>
+    </PageHeader>
 
     <!-- Loading skeleton -->
     <div v-if="loading && articles.length === 0" class="skeleton-list">
@@ -77,6 +77,7 @@
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { useRouter } from "vue-router";
 import { getArticles, fetchNews, getCurrentUser } from "@/shared/api.js";
+import PageHeader from "@/shared/components/PageHeader.vue";
 import { openSourceUrl } from "./utils.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -84,15 +85,6 @@ import { eventBus } from "@/shared/eventBus.js";
 
 const { t, locale } = useI18n();
 const router = useRouter();
-
-function goBack() {
-  const parent = router.currentRoute.value?.meta?.parent;
-  if (parent) {
-    router.replace({ name: parent });
-  } else {
-    router.back();
-  }
-}
 const targetLangStore = useTargetLangStore();
 const articles = ref([]);
 const loading = ref(false);
@@ -214,37 +206,6 @@ function formatSource(source) {
   background: var(--bg);
 }
 
-.list-header {
-  padding: 8px 12px 12px;
-  background: var(--surface);
-}
-
-.header-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 4px;
-}
-
-.back-btn {
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: var(--text);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background var(--transition);
-  flex-shrink: 0;
-}
-
-.back-btn:hover {
-  background: var(--surface-variant);
-}
-
 .today-label {
   font-size: 12px;
   color: var(--text-lighter);
@@ -282,14 +243,6 @@ function formatSource(source) {
   to {
     transform: rotate(360deg);
   }
-}
-
-.page-title {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
 }
 
 /* Skeleton */

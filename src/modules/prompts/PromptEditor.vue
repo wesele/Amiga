@@ -1,14 +1,10 @@
 <template>
   <div class="editor-page">
-    <header class="page-header">
-      <button class="back-btn" @click="goBack">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-        </svg>
-      </button>
-      <h1 class="page-title">{{ isNew ? t('prompts.new') : t('prompts.edit') }}</h1>
-      <button v-if="!isNew" class="reset-one-btn" @click="showResetDialog = true">{{ t('prompts.reset') }}</button>
-    </header>
+    <PageHeader :title="isNew ? t('prompts.new') : t('prompts.edit')" variant="prompts">
+      <template v-if="!isNew" #actions>
+        <button class="reset-one-btn" @click="showResetDialog = true">{{ t('prompts.reset') }}</button>
+      </template>
+    </PageHeader>
 
     <div v-if="loading" class="loading-center">
       <div class="spinner" />
@@ -78,6 +74,7 @@ import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getPrompt, savePrompt as apiSavePrompt, resetPrompt as apiResetPrompt } from "@/shared/api.js";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
+import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";
 
 const route = useRoute();
@@ -100,15 +97,6 @@ const form = ref({
 
 const promptKey = route.params.key;
 const isNew = promptKey === "new";
-
-function goBack() {
-  const parent = route?.meta?.parent;
-  if (parent) {
-    router.replace({ name: parent });
-  } else {
-    router.back();
-  }
-}
 
 async function loadPrompt() {
   if (isNew) {
@@ -171,41 +159,6 @@ onMounted(async () => {
   flex-direction: column;
   height: 100%;
   background: var(--surface);
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 20px 12px;
-  flex-shrink: 0;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 800;
-  margin: 0;
-  color: var(--text);
-  flex: 1;
-}
-
-.back-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: var(--text);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  flex-shrink: 0;
-  transition: background var(--transition);
-}
-
-.back-btn:hover {
-  background: var(--surface-variant);
 }
 
 .reset-one-btn {

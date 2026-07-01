@@ -1,29 +1,32 @@
 <template>
   <div class="path-map">
-    <header class="page-header">
-      <button class="back-btn" :aria-label="t('common.back')" @click="goBack">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-        </svg>
-      </button>
-      <div class="header-text">
-        <h1 class="page-title">{{ t("path.title") }}</h1>
-        <p v-if="curriculum?.status === 'active'" class="page-sub">
-          {{ t("path.progress", { done: curriculum.completed_sections, total: curriculum.total_sections }) }}
-          · ⭐ {{ curriculum.total_stars }}
-        </p>
-      </div>
-      <button
-        type="button"
-        class="level-btn"
-        :disabled="levelSwitching"
-        :aria-label="t('path.selectLevel')"
-        @click="showLevelPicker = true"
-      >
-        <span class="level-btn-label">{{ currentCefr }}</span>
-        <span class="level-btn-chevron">▾</span>
-      </button>
-    </header>
+    <PageHeader
+      variant="path"
+      :back-label="t('common.back')"
+      @back="goBack"
+    >
+      <template #title>
+        <div class="header-text">
+          <h1 class="page-title">{{ t("path.title") }}</h1>
+          <p v-if="curriculum?.status === 'active'" class="page-sub">
+            {{ t("path.progress", { done: curriculum.completed_sections, total: curriculum.total_sections }) }}
+            · ⭐ {{ curriculum.total_stars }}
+          </p>
+        </div>
+      </template>
+      <template #actions>
+        <button
+          type="button"
+          class="level-btn"
+          :disabled="levelSwitching"
+          :aria-label="t('path.selectLevel')"
+          @click="showLevelPicker = true"
+        >
+          <span class="level-btn-label">{{ currentCefr }}</span>
+          <span class="level-btn-chevron">▾</span>
+        </button>
+      </template>
+    </PageHeader>
 
     <Teleport to="body">
       <div v-if="showLevelPicker" class="level-overlay" @click.self="showLevelPicker = false">
@@ -135,6 +138,7 @@
 import { computed, onMounted, ref } from "vue";
 import { CEFR_LEVELS, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
 import { useRouter } from "vue-router";
+import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";
 import {
   getPathCurriculum,
@@ -290,32 +294,6 @@ onMounted(load);
   background: linear-gradient(180deg, #b8e6ff 0%, #d8f4e8 35%, #eef8f0 100%);
   display: flex;
   flex-direction: column;
-}
-
-.page-header {
-  display: grid;
-  grid-template-columns: 40px 1fr auto;
-  grid-template-rows: auto auto;
-  gap: 4px 10px;
-  padding: 14px 16px 12px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-}
-
-.back-btn {
-  grid-row: 1 / 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: var(--gray-light);
-  color: var(--text);
-  cursor: pointer;
-  border-radius: 12px;
 }
 
 .header-text {

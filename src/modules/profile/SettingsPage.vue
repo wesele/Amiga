@@ -1,14 +1,6 @@
 <template>
   <div class="settings-page">
-    <!-- Top bar -->
-    <header class="page-header">
-      <button class="back-btn" @click="goBack">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-        </svg>
-      </button>
-      <h1 class="page-title">{{ t('settings.title') }}</h1>
-    </header>
+    <PageHeader :title="t('settings.title')" />
 
     <!-- Interface -->
     <section class="settings-section">
@@ -133,6 +125,7 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
+import PageHeader from "@/shared/components/PageHeader.vue";
 import {
   resetWizard as resetWizardApi,
   getSetting,
@@ -147,15 +140,6 @@ import { useI18n } from "@/shared/i18n";
 
 const router = useRouter();
 const { t, locale, setLocale } = useI18n();
-
-function goBack() {
-  const parent = router.currentRoute.value?.meta?.parent;
-  if (parent) {
-    router.replace({ name: parent });
-  } else {
-    router.back();
-  }
-}
 
 const uiLang = ref("zh");
 const newsLimit = ref(5);
@@ -293,41 +277,6 @@ function confirmReset() {
   min-height: 100%;
   background: var(--bg);
   padding-bottom: 24px;
-}
-
-/* Header */
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-.back-btn {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: none;
-  color: var(--text);
-  cursor: pointer;
-  border-radius: 50%;
-  transition: background var(--transition);
-  flex-shrink: 0;
-}
-.back-btn:hover {
-  background: var(--surface-variant);
-}
-.page-title {
-  font-size: 20px;
-  font-weight: 500;
-  margin: 0;
 }
 
 /* Section */

@@ -138,10 +138,10 @@ describe("NewsList back navigation", () => {
     vi.clearAllMocks();
   });
 
-  it("renders a back button in the header", () => {
+  it("renders a back button via shared PageHeader", () => {
     const vue = read("src/modules/news/NewsList.vue");
-    expect(vue).toMatch(/class="back-btn"/);
-    expect(vue).toMatch(/@click="goBack"/);
+    expect(vue).toMatch(/<PageHeader/);
+    expect(vue).toMatch(/variant="news"/);
   });
 
   it("back button replaces history with the parent learn route", async () => {

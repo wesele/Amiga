@@ -1,13 +1,6 @@
 <template>
   <div class="llm-config-page">
-    <header class="page-header">
-      <button class="back-btn" @click="goBack">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-        </svg>
-      </button>
-      <h1 class="page-title">{{ t('llm.primaryTitle') }}</h1>
-    </header>
+    <PageHeader :title="t('llm.primaryTitle')" />
 
     <div class="config-body">
       <!-- Source toggle -->
@@ -109,7 +102,7 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import PageHeader from "@/shared/components/PageHeader.vue";
 import {
   getLlmConfig,
   saveLlmConfig,
@@ -119,16 +112,6 @@ import {
 import { useI18n } from "@/shared/i18n";
 
 const { t } = useI18n();
-const router = useRouter();
-
-function goBack() {
-  const parent = router.currentRoute.value?.meta?.parent;
-  if (parent) {
-    router.replace({ name: parent });
-  } else {
-    router.back();
-  }
-}
 
 const mode = ref("builtin");
 const apiKey = ref("");
@@ -233,41 +216,6 @@ async function testConnection() {
   min-height: 100%;
   background: var(--bg);
   padding-bottom: 32px;
-}
-
-/* Header */
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-.back-btn {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: none;
-  color: var(--text);
-  cursor: pointer;
-  border-radius: 50%;
-  transition: background var(--transition);
-  flex-shrink: 0;
-}
-.back-btn:hover {
-  background: var(--surface-variant);
-}
-.page-title {
-  font-size: 20px;
-  font-weight: 500;
-  margin: 0;
 }
 
 .config-body {
