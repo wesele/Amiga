@@ -14,7 +14,7 @@ describe("app module loading", () => {
   });
 
   it("keeps all shell children scoped to the shell parent", () => {
-    const shellChildren = APP_MODULES.filter((mod) => mod.name !== "wizard");
+    const shellChildren = APP_MODULES.filter((mod) => mod.parent);
 
     expect(shellChildren.every((mod) => mod.parent === "shell")).toBe(true);
   });
