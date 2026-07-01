@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { setLocale } from "@/shared/i18n";
+import { installAndroidBridge } from "@/app/androidBridge.js";
 
 /**
  * Tests for the Android hierarchical back-navigation bridge.
@@ -15,29 +16,9 @@ import { setLocale } from "@/shared/i18n";
  *   - "navigated" → Kotlin does nothing more (we already pushed)
  *   - "at-root"   → Kotlin calls finish() on the activity
  *
- * We test the same protocol by re-implementing the function the same
- * way main.js does, in front of a mock router. The point is to pin
- * the contract — if main.js and the test disagree, the native side
- * will misbehave in production.
+ * We test the production bridge installer directly so the native side
+ * contract is pinned without duplicating the implementation in tests.
  */
-
-// Mirror of the function installed by main.js. Keep in lock-step with
-// src/main.js. If you change one, change the other.
-function installAmigaGoBack(router) {
-  window.__amigaGoBack = () => {
-    const inPageResult = window.__amigaGoBackInPage?.();
-    if (inPageResult === "navigated" || inPageResult === "at-root") {
-      return inPageResult;
-    }
-    const route = router.currentRoute.value;
-    const parent = route?.meta?.parent;
-    if (parent) {
-      router.replace({ name: parent });
-      return "navigated";
-    }
-    return "at-root";
-  };
-}
 
 function makeRouter(routes) {
   return createRouter({
@@ -91,17 +72,17 @@ describe("__amigaGoBack bridge", () => {
     delete window.__amigaGoBackInPage;
   });
 
-  it("main.js installs window.__amigaGoBack after creating the router (regression: native side must see a real function)", () => {
+  it("main.js installs the Android bridge after creating the router (regression: native side must see a real function)", () => {
     // Belt-and-braces: assert the assignment exists in main.js, and
     // that it sits *after* `const router = createRouter()`. The
     // previous bug (in a draft) was assigning the closure before the
     // router existed, which crashed on first back press.
     const main = readMainJs();
-    expect(main).toMatch(/window\.__amigaGoBack\s*=/);
+    expect(main).toMatch(/installAndroidBridge\s*\(\s*\{\s*router\s*\}\s*\)/);
     const createIdx = main.search(/const\s+router\s*=\s*createRouter\s*\(\s*\)/);
-    const installIdx = main.search(/window\.__amigaGoBack\s*=/);
+    const installIdx = main.search(/installAndroidBridge\s*\(\s*\{\s*router\s*\}\s*\)/);
     expect(createIdx, "createRouter() call not found").toBeGreaterThan(-1);
-    expect(installIdx, "__amigaGoBack assignment not found").toBeGreaterThan(createIdx);
+    expect(installIdx, "installAndroidBridge call not found").toBeGreaterThan(createIdx);
   });
 
   it("returns 'navigated' and replaces with the parent route when meta.parent is set", async () => {
@@ -114,7 +95,7 @@ describe("__amigaGoBack bridge", () => {
         meta: { parent: "news" },
       },
     ]);
-    installAmigaGoBack(router);
+    installAndroidBridge({ router });
     await router.push("/news/123");
     expect(router.currentRoute.value.name).toBe("reader");
 
@@ -135,7 +116,7 @@ describe("__amigaGoBack bridge", () => {
     const router = makeRouter([
       { path: "/news", name: "news", component: { template: "<div />" } },
     ]);
-    installAmigaGoBack(router);
+    installAndroidBridge({ router });
     await router.push("/news");
 
     const pushSpy = vi.spyOn(router, "push");
@@ -155,7 +136,7 @@ describe("__amigaGoBack bridge", () => {
         meta: { parent: null },
       },
     ]);
-    installAmigaGoBack(router);
+    installAndroidBridge({ router });
     await router.push("/explicit-root");
 
     const pushSpy = vi.spyOn(router, "push");
@@ -170,7 +151,7 @@ describe("__amigaGoBack bridge", () => {
     const router = makeRouter([
       { path: "/vocab", name: "vocab", component: { template: "<div />" } },
     ]);
-    installAmigaGoBack(router);
+    installAndroidBridge({ router });
     await router.push("/vocab");
 
     const replaceSpy = vi.spyOn(router, "replace");
@@ -198,7 +179,7 @@ describe("__amigaGoBack bridge", () => {
         meta: { parent: "settings" },
       },
     ]);
-    installAmigaGoBack(router);
+    installAndroidBridge({ router });
     await router.push("/profile/llm-config");
     expect(router.currentRoute.value.name).toBe("llm-config");
 
@@ -229,7 +210,7 @@ describe("__amigaGoBack bridge", () => {
         meta: { parent: "chat" },
       },
     ]);
-    installAmigaGoBack(router);
+    installAndroidBridge({ router });
     await router.push("/chat/abc");
     expect(router.currentRoute.value.name).toBe("chat-session");
 

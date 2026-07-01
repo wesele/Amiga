@@ -97,11 +97,13 @@ describe("AppShell bottom-nav safe-area", () => {
 
   it("main.js installs window.__amigaSetInsets that sets --safe-* CSS custom properties on <html>", () => {
     const main = read("src/main.js");
-    expect(main).toMatch(/window\.__amigaSetInsets\s*=/);
-    expect(main).toMatch(/--safe-top/);
-    expect(main).toMatch(/--safe-bottom/);
-    expect(main).toMatch(/--safe-left/);
-    expect(main).toMatch(/--safe-right/);
+    const bridge = read("src/app/androidBridge.js");
+    expect(main).toMatch(/installAndroidBridge\s*\(\s*\{\s*router\s*\}\s*\)/);
+    expect(bridge).toMatch(/__amigaSetInsets\s*=/);
+    expect(bridge).toMatch(/--safe-top/);
+    expect(bridge).toMatch(/--safe-bottom/);
+    expect(bridge).toMatch(/--safe-left/);
+    expect(bridge).toMatch(/--safe-right/);
   });
 });
 

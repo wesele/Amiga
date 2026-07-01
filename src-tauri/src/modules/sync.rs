@@ -21,6 +21,7 @@ fn sync_mutex() -> &'static AsyncMutex<()> {
 }
 
 pub const SYNC_API_BASE_URL: &str = "https://amiga-chat-social.wh1018.workers.dev";
+const ENV_SYNC_API_BASE_URL: &str = "IDIOMA_SYNC_API_BASE_URL";
 
 const SETTING_ENABLED: &str = "cloud_sync_enabled";
 const SETTING_DEVICE_ID: &str = "cloud_sync_device_id";
@@ -220,6 +221,22 @@ fn now_iso() -> String {
     Utc::now().to_rfc3339()
 }
 
+fn normalize_api_base_url(value: Option<&str>, default: &str) -> String {
+    value
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .unwrap_or(default)
+        .trim_end_matches('/')
+        .to_string()
+}
+
+fn sync_api_base_url() -> String {
+    normalize_api_base_url(
+        std::env::var(ENV_SYNC_API_BASE_URL).ok().as_deref(),
+        SYNC_API_BASE_URL,
+    )
+}
+
 pub fn get_device_id(db: &DatabasePool) -> Result<String, String> {
     if let Some(existing) = get_setting(db, SETTING_DEVICE_ID)? {
         if !existing.is_empty() {
@@ -305,7 +322,7 @@ pub fn get_cloud_sync_status(db: &DatabasePool) -> Result<CloudSyncStatus, Strin
 }
 
 pub async fn test_cloud_sync() -> Result<CloudSyncTestResult, String> {
-    let url = format!("{}/api/sync/ping", SYNC_API_BASE_URL);
+    let url = format!("{}/api/sync/ping", sync_api_base_url());
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
@@ -804,9 +821,10 @@ fn import_sync_payload_tx(tx: &Transaction<'_>, payload: &SyncPayload) -> Result
 }
 
 async fn pull_remote_snapshot(user_id: &str) -> Result<Option<RemoteSnapshot>, String> {
+    let base_url = sync_api_base_url();
     let url = format!(
         "{}/api/sync/pull?userId={}",
-        SYNC_API_BASE_URL,
+        base_url,
         urlencoding_encode(user_id)
     );
     let client = reqwest::Client::builder()
@@ -840,7 +858,7 @@ async fn push_remote_snapshot(
     device_id: &str,
     base_updated_at: Option<&str>,
 ) -> Result<(), String> {
-    let url = format!("{}/api/sync/push", SYNC_API_BASE_URL);
+    let url = format!("{}/api/sync/push", sync_api_base_url());
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
@@ -1144,6 +1162,22 @@ mod tests {
         assert!(!is_syncable_setting("primary_api_key"));
         assert!(!is_syncable_setting("cloud_sync_enabled"));
         assert!(!is_syncable_setting("cloud_sync_restore_mode"));
+    }
+
+    #[test]
+    fn normalize_api_base_url_uses_trimmed_override_without_trailing_slash() {
+        assert_eq!(
+            normalize_api_base_url(Some(" https://local.test/ "), SYNC_API_BASE_URL),
+            "https://local.test"
+        );
+        assert_eq!(
+            normalize_api_base_url(Some(""), SYNC_API_BASE_URL),
+            SYNC_API_BASE_URL
+        );
+        assert_eq!(
+            normalize_api_base_url(None, SYNC_API_BASE_URL),
+            SYNC_API_BASE_URL
+        );
     }
 
     #[test]

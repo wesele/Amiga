@@ -1,0 +1,21 @@
+import { describe, it, expect, vi } from "vitest";
+import { APP_MODULES, loadFeatureModules, loadShellModule } from "../modules.js";
+
+describe("app module loading", () => {
+  it("loads shell before feature modules", async () => {
+    const kernel = { loadModule: vi.fn().mockResolvedValue({}) };
+
+    await loadShellModule(kernel);
+    await loadFeatureModules(kernel);
+
+    expect(kernel.loadModule).toHaveBeenNthCalledWith(1, "shell");
+    expect(kernel.loadModule).toHaveBeenNthCalledWith(2, "wizard", undefined);
+    expect(kernel.loadModule).toHaveBeenNthCalledWith(3, "learn", { parent: "shell" });
+  });
+
+  it("keeps all shell children scoped to the shell parent", () => {
+    const shellChildren = APP_MODULES.filter((mod) => mod.name !== "wizard");
+
+    expect(shellChildren.every((mod) => mod.parent === "shell")).toBe(true);
+  });
+});

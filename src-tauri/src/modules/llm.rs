@@ -11,13 +11,38 @@ pub const BUILTIN_BASE_URL: &str = "https://integrate.api.nvidia.com/v1";
 pub const BUILTIN_API_KEY: &str =
     "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";
 pub const BUILTIN_MODEL: &str = "google/diffusiongemma-26b-a4b-it";
+const ENV_BUILTIN_BASE_URL: &str = "IDIOMA_BUILTIN_LLM_BASE_URL";
+const ENV_BUILTIN_API_KEY: &str = "IDIOMA_BUILTIN_LLM_API_KEY";
+const ENV_BUILTIN_MODEL: &str = "IDIOMA_BUILTIN_LLM_MODEL";
+
+fn setting_or_default(value: Option<&str>, default: &str) -> String {
+    value
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .unwrap_or(default)
+        .to_string()
+}
+
+fn builtin_config_from_values(
+    base_url: Option<&str>,
+    api_key: Option<&str>,
+    model: Option<&str>,
+) -> ModelConfig {
+    ModelConfig {
+        base_url: setting_or_default(base_url, BUILTIN_BASE_URL)
+            .trim_end_matches('/')
+            .to_string(),
+        api_key: setting_or_default(api_key, BUILTIN_API_KEY),
+        model: setting_or_default(model, BUILTIN_MODEL),
+    }
+}
 
 pub fn builtin_config() -> ModelConfig {
-    ModelConfig {
-        base_url: BUILTIN_BASE_URL.to_string(),
-        api_key: BUILTIN_API_KEY.to_string(),
-        model: BUILTIN_MODEL.to_string(),
-    }
+    builtin_config_from_values(
+        std::env::var(ENV_BUILTIN_BASE_URL).ok().as_deref(),
+        std::env::var(ENV_BUILTIN_API_KEY).ok().as_deref(),
+        std::env::var(ENV_BUILTIN_MODEL).ok().as_deref(),
+    )
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -837,6 +862,26 @@ mod tests {
     #[test]
     fn builtin_config_matches_constants() {
         let c = builtin_config();
+        assert_eq!(c.base_url, BUILTIN_BASE_URL);
+        assert_eq!(c.api_key, BUILTIN_API_KEY);
+        assert_eq!(c.model, BUILTIN_MODEL);
+    }
+
+    #[test]
+    fn builtin_config_from_values_applies_overrides_and_trims_url() {
+        let c = builtin_config_from_values(
+            Some(" https://llm.test/v1/ "),
+            Some(" test-key "),
+            Some(" test-model "),
+        );
+        assert_eq!(c.base_url, "https://llm.test/v1");
+        assert_eq!(c.api_key, "test-key");
+        assert_eq!(c.model, "test-model");
+    }
+
+    #[test]
+    fn builtin_config_from_values_falls_back_for_empty_overrides() {
+        let c = builtin_config_from_values(Some(""), Some("  "), None);
         assert_eq!(c.base_url, BUILTIN_BASE_URL);
         assert_eq!(c.api_key, BUILTIN_API_KEY);
         assert_eq!(c.model, BUILTIN_MODEL);

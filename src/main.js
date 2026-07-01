@@ -6,40 +6,17 @@ import "./style.css";
 import { kernel } from "./shared/kernel";
 import { isWizardCompleted } from "./shared/api.js";
 import { useTargetLangStore } from "./stores/targetLang.js";
-import i18nPlugin, { initLocale, i18n } from "./shared/i18n/index.js";
+import i18nPlugin, { initLocale, i18n, setLocale } from "./shared/i18n/index.js";
+import { installAndroidBridge } from "./app/androidBridge.js";
+import { loadFeatureModules, loadShellModule } from "./app/modules.js";
+import { applyQueryLocale } from "./app/queryLocale.js";
+import { installWizardGuard } from "./app/routeGuards.js";
 
 async function bootstrap() {
   // Browser-dev escape hatch: `?locale=en` (or `es` / `zh`) overrides the
   // persistent setting. Useful for headless screenshots and for previewing
   // translations without having a Tauri shell running.
-  if (typeof window !== "undefined") {
-    const params = new URLSearchParams(window.location.search);
-    const queryLocale = params.get("locale");
-    if (queryLocale) {
-      const { setLocale } = await import("./shared/i18n/index.js");
-      setLocale(queryLocale, { persist: false });
-    }
-  }
-
-  // Android hierarchical back-navigation bridge.
-  //
-  // The native MainActivity (see
-  // src-tauri/android/.../MainActivity.kt) intercepts the system back
-  // press and calls `window.__amigaGoBack()`. We then look at the
-  // current Vue Router entry's `meta.parent` and either:
-  //   - push that parent route, or
-  //   - return the string `"at-root"` so the activity finishes.
-  //
-  // The function captures `router` from the enclosing scope (or, if
-  // the bridge fires before the router is wired — which can happen
-  // during a very early back press — we treat it as "at-root").
-  //
-  // Why we don't use `history.back()`: that walks the *URL* history,
-  // not the route hierarchy. A user who navigates /news → /news/123
-  // → /chat/:id via a link would, on back, jump to /news/123
-  // (the previous URL) instead of /chat (the parent). On
-  // re-entry the same back presses can also re-trigger cross-tree
-  // navigation and loop.
+  await applyQueryLocale({ setLocale });
 
   // Hydrate the UI language from persistent storage before the first render,
   // so the wizard / shell display in the user's chosen language.
@@ -49,72 +26,7 @@ async function bootstrap() {
   const pinia = createPinia();
   const router = createRouter();
 
-  if (typeof window !== "undefined") {
-    // The native side evaluates this expression and reads the returned
-    // string back. We push the parent route and return "navigated" so
-    // Kotlin knows to leave the page alone; on a top-level route we
-    // return "at-root" so Kotlin calls finish() on the activity.
-    //
-    // meta.parent is a *route name* (e.g. "news", "settings"), not a
-    // path — names are stable across path refactors. We pass it as
-    // `{ name: parent }` because `router.push("news")` would be
-    // interpreted as a relative path "news" (no leading /) and fail.
-    window.__amigaGoBack = () => {
-      const inPageResult = window.__amigaGoBackInPage?.();
-      if (inPageResult === "navigated" || inPageResult === "at-root") {
-        return inPageResult;
-      }
-      const route = router.currentRoute.value;
-      const parent = route?.meta?.parent;
-      if (parent) {
-        router.replace({ name: parent });
-        return "navigated";
-      }
-      return "at-root";
-    };
-
-    // Android safe-area bridge.
-    //
-    // The native MainActivity calls this function with the real system
-    // bar inset values (top, bottom, left, right in pixels) whenever
-    // the window insets change (orientation, keyboard, etc.). We update
-    // CSS custom properties on <html> so the layout can use them:
-    //   #app              uses padding-top (for status bar)
-    //   .bottom-nav-safe  uses height (for system nav bar — always
-    //                     rendered, even when the interactive bottom
-    //                     nav is hidden, to avoid double-counting)
-    //
-    // On iOS these same variables come from env(safe-area-inset-*);
-    // on Android they come from this bridge — both platforms share
-    // the same CSS.
-    window.__amigaSetInsets = (top, bottom, left, right) => {
-      // The native side (WindowInsetsCompat) sends device-pixel values.
-      // Divide by devicePixelRatio to convert to CSS logical pixels.
-      const dpr = window.devicePixelRatio || 1;
-      const px = (v) => `${Math.round(v / dpr)}px`;
-      const root = document.documentElement;
-      root.style.setProperty("--safe-top", px(top));
-      root.style.setProperty("--safe-bottom", px(bottom));
-      root.style.setProperty("--safe-left", px(left));
-      root.style.setProperty("--safe-right", px(right));
-    };
-    // The native side may have already pushed the initial insets via
-    // window.__amigaPendingInsets before this code ran (the inset
-    // listener fires in onWebViewCreate, before the page JS exists).
-    // Replay them now so the layout is correct from the very first
-    // paint.
-    if (Array.isArray(window.__amigaPendingInsets)) {
-      const [t, b, l, r] = window.__amigaPendingInsets;
-      window.__amigaSetInsets(t, b, l, r);
-    }
-    // Now that __amigaSetInsets is registered, ask the native side
-    // to re-dispatch insets. This covers the case where the initial
-    // dispatch happened in a prior JS context (e.g. about:blank)
-    // whose __amigaPendingInsets did not survive page navigation.
-    if (window.__amigaInsets?.requestInsets) {
-      window.__amigaInsets.requestInsets();
-    }
-  }
+  installAndroidBridge({ router });
 
   app.use(pinia);
   app.use(router);
@@ -131,36 +43,13 @@ async function bootstrap() {
   await useTargetLangStore(pinia).load();
 
   // Load shell first (provides the layout)
-  await kernel.loadModule("shell");
+  await loadShellModule(kernel);
 
   // Route guard: force wizard if not completed; block re-entry once done
-  router.beforeEach(async (to) => {
-    try {
-      const completed = await isWizardCompleted();
-      if (to.name === "wizard") {
-        // Belt-and-braces: even if /wizard is still in URL history,
-        // completed users should never see the onboarding flow again.
-        if (completed) return { name: "learn" };
-        return true;
-      }
-      if (!completed) {
-        return { name: "wizard" };
-      }
-    } catch {
-      // If Tauri is not available (dev in browser), allow access
-    }
-    return true;
-  });
+  installWizardGuard(router, { isWizardCompleted });
 
   // Load feature modules
-  await kernel.loadModule("wizard");
-  await kernel.loadModule("learn", { parent: "shell" });
-  await kernel.loadModule("path", { parent: "shell" });
-  await kernel.loadModule("news", { parent: "shell" });
-  await kernel.loadModule("vocab", { parent: "shell" });
-  await kernel.loadModule("profile", { parent: "shell" });
-  await kernel.loadModule("chat", { parent: "shell" });
-  await kernel.loadModule("prompts", { parent: "shell" });
+  await loadFeatureModules(kernel);
 
   app.mount("#app");
 

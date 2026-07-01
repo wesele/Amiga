@@ -1,18 +1,33 @@
 # Run all tests in parallel
 # Usage: pwsh scripts/run-all-tests.ps1
 
-$frontend = npm test
-$backend  = & { cd src-tauri; cargo test }
 $exitCode = 0
 
-$job1 = Start-Job -ScriptBlock { param($d) cd $d; npm test } -ArgumentList (Get-Location).Path
-$job2 = Start-Job -ScriptBlock { param($d) cd $d; cargo test } -ArgumentList (Join-Path (Get-Location).Path "src-tauri")
+$root = (Get-Location).Path
+$jobs = @(
+  Start-Job -Name "frontend" -ScriptBlock {
+    param($d)
+    Set-Location $d
+    npm test
+    exit $LASTEXITCODE
+  } -ArgumentList $root,
+  Start-Job -Name "backend" -ScriptBlock {
+    param($d)
+    Set-Location $d
+    cargo test
+    exit $LASTEXITCODE
+  } -ArgumentList (Join-Path $root "src-tauri")
+)
 
-$j1 = $job1 | Wait-Job | Receive-Job
-$j2 = $job2 | Wait-Job | Receive-Job
+$jobs | Wait-Job | Out-Null
 
-if ($job1.State -eq 'Failed') { $exitCode = 1 }
-if ($job2.State -eq 'Failed') { $exitCode = 1 }
+foreach ($job in $jobs) {
+  Write-Host "===== $($job.Name) ====="
+  Receive-Job $job
+  if ($job.State -ne "Completed") {
+    $exitCode = 1
+  }
+}
 
-$job1, $job2 | Remove-Job
+$jobs | Remove-Job
 exit $exitCode
