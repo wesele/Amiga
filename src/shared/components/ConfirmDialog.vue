@@ -6,7 +6,12 @@
         <p class="confirm-message">{{ message }}</p>
         <div class="confirm-actions" :class="{ 'alert-only': alertOnly }">
           <button v-if="!alertOnly" class="confirm-btn cancel" @click="$emit('cancel')">{{ cancelBtn }}</button>
-          <button class="confirm-btn confirm" :class="{ danger }" @click="$emit('confirm')">{{ confirmBtn }}</button>
+          <button
+            class="confirm-btn confirm"
+            :class="{ danger }"
+            :disabled="confirmDisabled"
+            @click="$emit('confirm')"
+          >{{ confirmBtn }}</button>
         </div>
       </div>
     </div>
@@ -25,6 +30,7 @@ const props = defineProps({
   cancelText: { type: String, default: "" },
   danger: Boolean,
   alertOnly: Boolean,
+  confirmDisabled: Boolean,
 });
 defineEmits(["confirm", "cancel"]);
 
@@ -109,5 +115,14 @@ const cancelBtn = computed(() => props.cancelText || t("confirm.defaultCancel"))
 
 .confirm-btn.confirm.danger:hover {
   background: var(--red-bg);
+}
+
+.confirm-btn.confirm:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.confirm-btn.confirm:disabled:hover {
+  background: transparent;
 }
 </style>

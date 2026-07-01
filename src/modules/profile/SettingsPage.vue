@@ -62,77 +62,71 @@
     </section>
 
     <!-- Language Dialog -->
-    <Teleport to="body">
-      <div v-if="showLangDialog" class="modal-overlay" @click.self="showLangDialog = false">
-        <div class="modal-content dialog-sm">
-          <h3 class="dialog-title">{{ t('settings.pick') }}</h3>
-          <p class="dialog-desc">{{ t('settings.pickDesc') }}</p>
-          <div class="dialog-options">
-            <label
-              v-for="opt in langOptions"
-              :key="opt.code"
-              class="dialog-option"
-              :class="{ selected: uiLang === opt.code }"
-            >
-              <input type="radio" name="lang" :value="opt.code" v-model="uiLang" class="dialog-radio" />
-              <span class="dialog-option-text">{{ opt.flag }} {{ opt.label }}</span>
-              <span v-if="uiLang === opt.code" class="dialog-check">✓</span>
-            </label>
-          </div>
-          <div class="dialog-actions">
-            <button class="dialog-btn" @click="showLangDialog = false">{{ t('common.cancel') }}</button>
-            <button class="dialog-btn primary" @click="saveLang(); showLangDialog = false">{{ t('common.ok') }}</button>
-          </div>
-        </div>
+    <ModalShell
+      :show="showLangDialog"
+      :title="t('settings.pick')"
+      :description="t('settings.pickDesc')"
+      @close="showLangDialog = false"
+    >
+      <div class="dialog-options">
+        <label
+          v-for="opt in langOptions"
+          :key="opt.code"
+          class="dialog-option"
+          :class="{ selected: uiLang === opt.code }"
+        >
+          <input type="radio" name="lang" :value="opt.code" v-model="uiLang" class="dialog-radio" />
+          <span class="dialog-option-text">{{ opt.flag }} {{ opt.label }}</span>
+          <span v-if="uiLang === opt.code" class="dialog-check">✓</span>
+        </label>
       </div>
-    </Teleport>
+      <template #actions>
+        <button class="dialog-btn" @click="showLangDialog = false">{{ t('common.cancel') }}</button>
+        <button class="dialog-btn primary" @click="saveLang(); showLangDialog = false">{{ t('common.ok') }}</button>
+      </template>
+    </ModalShell>
 
     <!-- News limit Dialog -->
-    <Teleport to="body">
-      <div v-if="showNewsDialog" class="modal-overlay" @click.self="showNewsDialog = false">
-        <div class="modal-content dialog-sm">
-          <h3 class="dialog-title">{{ t('settings.newsCount') }}</h3>
-          <p class="dialog-desc">{{ t('settings.newsCountDesc') }}</p>
-          <div class="dialog-input-row">
-            <button class="stepper-btn" :disabled="newsLimit <= 1" @click="newsLimit = Math.max(1, newsLimit - 1)">−</button>
-            <span class="stepper-value">{{ newsLimit }}</span>
-            <button class="stepper-btn" :disabled="newsLimit >= 20" @click="newsLimit = Math.min(20, newsLimit + 1)">+</button>
-          </div>
-          <div class="dialog-actions">
-            <button class="dialog-btn" @click="showNewsDialog = false">{{ t('common.cancel') }}</button>
-            <button class="dialog-btn primary" @click="saveNewsLimit(); showNewsDialog = false">{{ t('common.ok') }}</button>
-          </div>
-        </div>
+    <ModalShell
+      :show="showNewsDialog"
+      :title="t('settings.newsCount')"
+      :description="t('settings.newsCountDesc')"
+      @close="showNewsDialog = false"
+    >
+      <div class="dialog-input-row">
+        <button class="stepper-btn" :disabled="newsLimit <= 1" @click="newsLimit = Math.max(1, newsLimit - 1)">−</button>
+        <span class="stepper-value">{{ newsLimit }}</span>
+        <button class="stepper-btn" :disabled="newsLimit >= 20" @click="newsLimit = Math.min(20, newsLimit + 1)">+</button>
       </div>
-    </Teleport>
+      <template #actions>
+        <button class="dialog-btn" @click="showNewsDialog = false">{{ t('common.cancel') }}</button>
+        <button class="dialog-btn primary" @click="saveNewsLimit(); showNewsDialog = false">{{ t('common.ok') }}</button>
+      </template>
+    </ModalShell>
 
     <!-- Cloud sync conflict dialog -->
-    <Teleport to="body">
-      <div v-if="showCloudSyncConflictDialog" class="modal-overlay" @click.self="cancelCloudSyncConflict">
-        <div class="modal-content dialog-sm">
-          <h3 class="dialog-title">{{ t('settings.cloudSyncConflictTitle') }}</h3>
-          <p class="dialog-desc">{{ t('settings.cloudSyncConflictDesc', { nickname: cloudSyncNickname }) }}</p>
-          <div class="dialog-actions">
-            <button class="dialog-btn" @click="cancelCloudSyncConflict">{{ t('common.cancel') }}</button>
-            <button class="dialog-btn primary" :disabled="cloudSyncBusy" @click="confirmCloudSyncConflict">{{ t('settings.cloudSyncConflictConfirm') }}</button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <ConfirmDialog
+      :show="showCloudSyncConflictDialog"
+      :title="t('settings.cloudSyncConflictTitle')"
+      :message="t('settings.cloudSyncConflictDesc', { nickname: cloudSyncNickname })"
+      :confirm-text="t('settings.cloudSyncConflictConfirm')"
+      :cancel-text="t('common.cancel')"
+      :confirm-disabled="cloudSyncBusy"
+      @cancel="cancelCloudSyncConflict"
+      @confirm="confirmCloudSyncConflict"
+    />
 
     <!-- Reset Confirm Dialog -->
-    <Teleport to="body">
-      <div v-if="showResetDialog" class="modal-overlay" @click.self="showResetDialog = false">
-        <div class="modal-content dialog-sm">
-          <h3 class="dialog-title">{{ t('settings.restart') }}</h3>
-          <p class="dialog-desc">{{ t('settings.restartDesc') }}</p>
-          <div class="dialog-actions">
-            <button class="dialog-btn" @click="showResetDialog = false">{{ t('common.cancel') }}</button>
-            <button class="dialog-btn danger" @click="confirmReset">{{ t('settings.restartConfirm') }}</button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <ConfirmDialog
+      :show="showResetDialog"
+      :title="t('settings.restart')"
+      :message="t('settings.restartDesc')"
+      :confirm-text="t('settings.restartConfirm')"
+      :cancel-text="t('common.cancel')"
+      danger
+      @cancel="showResetDialog = false"
+      @confirm="confirmReset"
+    />
   </div>
 </template>
 
@@ -147,6 +141,8 @@ import {
   setCloudSyncEnabled,
 } from "@/shared/api.js";
 import SettingsItem from "./components/SettingsItem.vue";
+import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
+import ModalShell from "@/shared/components/ModalShell.vue";
 import { useI18n } from "@/shared/i18n";
 
 const router = useRouter();
@@ -352,37 +348,7 @@ function confirmReset() {
   background: var(--surface);
 }
 
-/* Dialog */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 24px;
-}
-.modal-content.dialog-sm {
-  background: var(--surface);
-  border-radius: 20px;
-  width: 100%;
-  max-width: 320px;
-  padding: 24px 24px 16px;
-}
-.dialog-title {
-  font-size: 20px;
-  font-weight: 500;
-  margin: 0 0 4px;
-}
-.dialog-desc {
-  font-size: 14px;
-  color: var(--text-lighter);
-  margin: 8px 0 16px;
-  line-height: 1.4;
-}
-
-/* Dialog radio options */
+/* Dialog form controls */
 .dialog-options {
   margin: 12px 0 8px;
 }
@@ -466,13 +432,7 @@ function confirmReset() {
   text-align: center;
 }
 
-/* Dialog actions */
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
-}
+/* Dialog action buttons (slotted into ModalShell) */
 .dialog-btn {
   padding: 8px 20px;
   border: none;

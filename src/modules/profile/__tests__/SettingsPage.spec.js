@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { createRouter, createMemoryHistory } from "vue-router";
 import * as api from "@/shared/api.js";
 import { i18n as i18nInstance, setLocale } from "@/shared/i18n/index.js";
+import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 
 const SettingsPage = (await import("@/modules/profile/SettingsPage.vue")).default;
 
@@ -180,6 +181,48 @@ describe("SettingsPage", () => {
     await flushPromises();
 
     expect(setEnabledArgs).toMatchObject({ enabled: true, forceEnable: false });
+  });
+
+  it("remote cloud sync conflict shows ConfirmDialog and confirm calls force enable", async () => {
+    let forceEnable = null;
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "get_cloud_sync_status_cmd") {
+        return Promise.resolve({
+          enabled: false,
+          nickname: "Alice",
+          device_id: "dev-1",
+          last_synced_at: null,
+          last_error: null,
+          restore_available: false,
+        });
+      }
+      if (cmd === "set_cloud_sync_enabled_cmd") {
+        if (!args?.forceEnable) {
+          return Promise.resolve({ enabled: false, remote_conflict: true });
+        }
+        forceEnable = args?.forceEnable;
+        return Promise.resolve({ enabled: true, remote_conflict: false });
+      }
+      if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      return Promise.resolve(null);
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const toggle = wrapper.find(".sync-switch-input");
+    await toggle.setValue(true);
+    await flushPromises();
+
+    const conflictDlg = wrapper.findAllComponents(ConfirmDialog).find((d) => d.props("show") === true);
+    expect(conflictDlg).toBeTruthy();
+    expect(conflictDlg.props("title")).toBe("从云端恢复？");
+    expect(conflictDlg.text()).toContain("Alice");
+
+    await conflictDlg.vm.$emit("confirm");
+    await flushPromises();
+
+    expect(forceEnable).toBe(true);
   });
 
   it("cloud sync enable failure keeps the switch off", async () => {
