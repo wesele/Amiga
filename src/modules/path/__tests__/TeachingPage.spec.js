@@ -171,3 +171,91 @@ describe("TeachingPage grammar explain", () => {
     expect(wrapper.find(".detail-loading").exists()).toBe(false);
   });
 });
+
+const VOCAB_NODE_ID = "zh-es/U01-VOCAB";
+
+function vocabTeachingContent() {
+  return {
+    node_id: VOCAB_NODE_ID,
+    kind: "vocab",
+    unit_id: "U01",
+    unit_title_native: "基础问候与自我介绍",
+    unit_title_target: "Saludos y presentación personal",
+    goal_native: "掌握基础问候用语",
+    grammar_points: [],
+    words: [
+      { word: "hola", definition_zh: "你好" },
+      { word: "adiós", definition_zh: "再见" },
+      { word: "gracias", definition_zh: "谢谢" },
+    ],
+    scenarios: [],
+  };
+}
+
+async function mountVocabTeachingPage(mockInvoke) {
+  const router = makeRouter();
+  await router.push({ name: "path-teaching", params: { nodeId: VOCAB_NODE_ID } });
+  await router.isReady();
+  const wrapper = mount(TeachingPage, {
+    global: { plugins: [router] },
+  });
+  await flushPromises();
+  return wrapper;
+}
+
+describe("TeachingPage vocab list", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockInvoke = vi.fn();
+    api.__setInvoke(mockInvoke);
+    setLocale("zh", { persist: false });
+
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_teaching_content_cmd") {
+        return Promise.resolve(vocabTeachingContent());
+      }
+      if (cmd === "get_user_vocab_by_level_cmd") {
+        return Promise.resolve([
+          { id: 1, word: "hola", mastery: null },
+          { id: 2, word: "adiós", mastery: 1 },
+          { id: 3, word: "gracias", mastery: 2 },
+        ]);
+      }
+      if (cmd === "translate_word_cmd") {
+        return Promise.resolve({ translation: "你好", pos: "interj" });
+      }
+      return Promise.reject(new Error(`unexpected invoke: ${cmd}`));
+    });
+  });
+
+  it("renders words as colored chips in paragraph layout", async () => {
+    const wrapper = await mountVocabTeachingPage(mockInvoke);
+    expect(wrapper.find(".word-paragraph").exists()).toBe(true);
+    expect(wrapper.findAll(".word-chip")).toHaveLength(3);
+    expect(wrapper.find(".chip-unseen").text()).toBe("hola");
+    expect(wrapper.find(".chip-seen").text()).toBe("adiós");
+    expect(wrapper.find(".chip-mastered").text()).toBe("gracias");
+  });
+
+  it("opens WordPopup when a word chip is tapped", async () => {
+    const wrapper = await mountVocabTeachingPage(mockInvoke);
+    await wrapper.find(".word-chip").trigger("click");
+    await flushPromises();
+    expect(wrapper.find(".word-popup").exists()).toBe(true);
+    expect(mockInvoke).toHaveBeenCalledWith("translate_word_cmd", {
+      word: "hola",
+      context: "hola",
+      sourceLang: "es",
+      nativeLang: "zh",
+    });
+  });
+});

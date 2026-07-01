@@ -63,21 +63,16 @@
           <section class="teach-section">
             <h3>{{ t("path.vocabIntro") }}</h3>
             <p class="vocab-hint">{{ t("path.tapToReveal") }}</p>
-            <div class="word-grid">
-              <button
-                v-for="(item, idx) in content.words"
-                :key="item.word + idx"
-                type="button"
-                class="word-card"
-                :class="{ revealed: revealed.has(idx) }"
-                @click="toggleWord(idx)"
-              >
-                <span class="word-target">{{ item.word }}</span>
-                <span class="word-gloss">
-                  {{ item.definition_zh || t("path.noGloss") }}
-                </span>
-              </button>
+            <div class="word-paragraph" v-if="teachingWords.length > 0">
+              <template v-for="(w, idx) in teachingWords" :key="w.word + idx">
+                <span
+                  class="word-chip"
+                  :class="chipClass(w.mastery)"
+                  @click="onWordTap(w)"
+                >{{ w.word }}</span><template v-if="idx < teachingWords.length - 1">, </template>
+              </template>
             </div>
+            <div v-else class="empty-vocab">{{ t("path.noVocabWords") }}</div>
           </section>
         </template>
       </div>
@@ -88,6 +83,20 @@
         </button>
       </footer>
     </template>
+
+    <Transition name="popup">
+      <WordPopup
+        v-if="selectedWord"
+        :word="selectedWord.word"
+        :context="selectedWord.word"
+        :source-lang="userMeta.targetLang"
+        :native-lang="userMeta.nativeLang"
+        @close="selectedWord = null"
+        @known="onKnown"
+        @unknown="onUnknown"
+        :always-show-actions="true"
+      />
+    </Transition>
   </div>
 </template>
 
@@ -102,10 +111,13 @@ import {
   getGrammarExplanationCached,
   getLearningGoals,
   getTeachingContent,
+  getUserVocabByLevel,
+  updateWordMastery,
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
 import { promiseWithTimeout } from "@/shared/promiseTimeout.js";
+import WordPopup from "@/shared/components/WordPopup.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -116,7 +128,9 @@ const loading = ref(true);
 const error = ref("");
 const submitting = ref(false);
 const content = ref(null);
-const revealed = ref(new Set());
+const teachingWords = ref([]);
+const selectedWord = ref(null);
+const userId = ref("");
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 const expandedPoint = ref(null);
 const loadingPoint = ref(null);
@@ -190,11 +204,63 @@ async function onGrammarPointClick(idx, point) {
   }
 }
 
-function toggleWord(idx) {
-  const next = new Set(revealed.value);
-  if (next.has(idx)) next.delete(idx);
-  else next.add(idx);
-  revealed.value = next;
+function chipClass(mastery) {
+  if (mastery === undefined || mastery === null) return "chip-unseen";
+  if (mastery >= 2) return "chip-mastered";
+  if (mastery === 1) return "chip-seen";
+  return "chip-unseen";
+}
+
+function onWordTap(w) {
+  selectedWord.value = w;
+}
+
+async function loadTeachingWords(words, targetLang, cefr) {
+  if (!words?.length) {
+    teachingWords.value = [];
+    return;
+  }
+  let masteryByWord = new Map();
+  try {
+    const vocab = await getUserVocabByLevel(userId.value, targetLang, cefr);
+    masteryByWord = new Map(
+      vocab.map((v) => [v.word.toLowerCase(), { id: v.id, mastery: v.mastery }]),
+    );
+  } catch (_) {}
+  teachingWords.value = words.map((item) => {
+    const match = masteryByWord.get(item.word.toLowerCase());
+    return {
+      word: item.word,
+      id: match?.id ?? null,
+      mastery: match?.mastery ?? null,
+    };
+  });
+}
+
+async function onKnown() {
+  if (!selectedWord.value?.id) {
+    selectedWord.value = null;
+    return;
+  }
+  const w = selectedWord.value;
+  try {
+    await updateWordMastery(userId.value, w.id, 2, "path_vocab");
+    w.mastery = 2;
+  } catch (_) {}
+  selectedWord.value = null;
+}
+
+async function onUnknown() {
+  if (!selectedWord.value?.id) {
+    selectedWord.value = null;
+    return;
+  }
+  const w = selectedWord.value;
+  try {
+    await updateWordMastery(userId.value, w.id, 1, "path_vocab");
+    w.mastery = 1;
+  } catch (_) {}
+  selectedWord.value = null;
 }
 
 function exitTeaching() {
@@ -206,6 +272,7 @@ async function load() {
   error.value = "";
   try {
     const user = await getCurrentUser();
+    userId.value = user.id;
     const targetLang = targetLangStore.code || (await targetLangStore.load());
     const goals = await getLearningGoals(user.id);
     const goal = pickLearningGoal(goals, targetLang);
@@ -217,7 +284,8 @@ async function load() {
       cefr,
       route.params.nodeId,
     );
-    revealed.value = new Set();
+    selectedWord.value = null;
+    await loadTeachingWords(content.value?.words, targetLang, cefr);
     expandedPoint.value = null;
     loadingPoint.value = null;
     explanations.value = {};
@@ -487,56 +555,43 @@ onMounted(load);
   color: var(--text-light);
 }
 
-.word-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-
-.word-card {
-  min-height: 88px;
-  padding: 14px 12px;
-  border: 2px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--white);
-  box-shadow: 0 4px 0 var(--border);
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-}
-
-.word-card:active {
-  transform: translateY(2px);
-  box-shadow: 0 2px 0 var(--border);
-}
-
-.word-card.revealed {
-  border-color: var(--blue);
-  background: var(--blue-bg);
-}
-
-.word-target {
-  font-size: 18px;
-  font-weight: 800;
+.word-paragraph {
+  font-size: 17px;
+  line-height: 2.4;
   color: var(--text);
+  user-select: text;
 }
 
-.word-gloss {
-  font-size: 13px;
+.word-chip {
+  cursor: pointer;
+  padding: 2px 1px;
+  border-radius: 3px;
+  transition: background 0.1s;
+}
+
+.word-chip:hover {
+  background: var(--purple-bg);
+}
+
+.chip-unseen { color: var(--text); }
+.chip-seen { color: var(--blue); font-weight: 600; }
+.chip-mastered { color: var(--green); font-weight: 700; }
+
+.empty-vocab {
+  font-size: 14px;
   color: var(--text-light);
-  opacity: 0;
-  max-height: 0;
-  overflow: hidden;
-  transition: opacity 0.2s ease;
+  text-align: center;
+  padding: 24px 0;
 }
 
-.word-card.revealed .word-gloss {
-  opacity: 1;
-  max-height: 40px;
+.popup-enter-active,
+.popup-leave-active {
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+.popup-enter-from,
+.popup-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 .teach-footer {
