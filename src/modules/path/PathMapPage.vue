@@ -93,34 +93,35 @@
             <svg
               v-if="idx > 0"
               class="path-connector"
-              viewBox="0 0 100 124"
+              viewBox="0 0 100 136"
               preserveAspectRatio="none"
               aria-hidden="true"
             >
-              <path :d="connectorPath(idx - 1, idx)" class="connector-shadow" />
-              <path :d="connectorPath(idx - 1, idx)" class="connector-main" />
+              <path :d="connectorPath(idx - 1, idx)" class="connector-line" />
             </svg>
 
-            <button
-              type="button"
-              class="path-node"
-              :class="nodeClass(section)"
-              :disabled="isNodeDisabled(section)"
-              :aria-label="nodeLabel(section)"
-              @click="startNode(section)"
-            >
-              <span class="node-inner">
-                <span class="node-icon">{{ nodeIcon(section) }}</span>
-              </span>
-              <span v-if="section.current" class="node-pulse" />
-            </button>
+            <div class="step-body">
+              <button
+                type="button"
+                class="path-node"
+                :class="nodeClass(section)"
+                :disabled="isNodeDisabled(section)"
+                :aria-label="nodeLabel(section)"
+                @click="startNode(section)"
+              >
+                <span class="node-inner">
+                  <span class="node-icon">{{ nodeIcon(section) }}</span>
+                </span>
+                <span v-if="section.current" class="node-pulse" />
+              </button>
 
-            <div class="node-caption">
-              <span v-if="showKindLabel(section)" class="caption-kind">{{ kindLabel(section) }}</span>
-              <span class="caption-title">{{ section.title_native }}</span>
-              <span v-if="section.kind === 'practice' && section.stars > 0" class="caption-stars">
-                {{ "★".repeat(section.stars) }}
-              </span>
+              <div class="node-caption">
+                <span v-if="showKindLabel(section)" class="caption-kind">{{ kindLabel(section) }}</span>
+                <span class="caption-title">{{ section.title_native }}</span>
+                <span v-if="section.kind === 'practice' && section.stars > 0" class="caption-stars">
+                  {{ "★".repeat(section.stars) }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -146,6 +147,7 @@ import { pickLearningGoal } from "@/shared/learningGoal.js";
 
 const UNIT_HUES = [145, 198, 262, 32, 12, 210];
 const LANE_X = { left: 22, center: 50, right: 78 };
+const STEP_SPAN = 136;
 
 const router = useRouter();
 const { t } = useI18n();
@@ -181,8 +183,8 @@ function laneClass(idx) {
 function connectorPath(prevIdx, currIdx) {
   const x1 = LANE_X[laneKey(prevIdx)];
   const x2 = LANE_X[laneKey(currIdx)];
-  const mid = 62;
-  return `M ${x1} 0 C ${x1} ${mid}, ${x2} ${mid}, ${x2} 124`;
+  const mid = STEP_SPAN / 2;
+  return `M ${x1} 0 C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${STEP_SPAN}`;
 }
 
 function nodeClass(section) {
@@ -555,87 +557,52 @@ onMounted(load);
 .path-step {
   position: relative;
   z-index: 1;
-  display: grid;
-  align-items: center;
-  min-height: 124px;
-  padding: 16px 0;
+  display: flex;
+  min-height: 136px;
+  padding: 12px 0;
 }
 
 .path-connector {
   position: absolute;
   left: 0;
   right: 0;
-  top: -62px;
-  height: 124px;
+  top: -90px;
+  height: 136px;
   width: 100%;
   z-index: 0;
   pointer-events: none;
   overflow: visible;
 }
 
-.connector-shadow {
+.connector-line {
   fill: none;
-  stroke: #46a302;
-  stroke-width: 16;
-  stroke-linecap: round;
-}
-
-.connector-main {
-  fill: none;
-  stroke: #58cc02;
-  stroke-width: 11;
+  stroke: var(--green);
+  stroke-width: 7;
   stroke-linecap: round;
 }
 
 .path-step.lane-left {
-  grid-template-columns: auto 1fr;
-  justify-items: start;
-}
-
-.path-step.lane-left .path-node {
-  grid-column: 1;
-  grid-row: 1;
-  margin-left: 8%;
-}
-
-.path-step.lane-left .node-caption {
-  grid-column: 2;
-  grid-row: 1;
-  padding-left: 22px;
+  justify-content: flex-start;
+  padding-left: 14%;
 }
 
 .path-step.lane-center {
-  grid-template-columns: 1fr auto 1fr;
-  justify-items: center;
-}
-
-.path-step.lane-center .path-node {
-  grid-column: 2;
-  grid-row: 1;
-}
-
-.path-step.lane-center .node-caption {
-  grid-column: 3;
-  grid-row: 1;
-  padding-left: 22px;
+  justify-content: center;
 }
 
 .path-step.lane-right {
-  grid-template-columns: 1fr auto;
-  justify-items: end;
+  justify-content: flex-end;
+  padding-right: 14%;
 }
 
-.path-step.lane-right .path-node {
-  grid-column: 2;
-  grid-row: 1;
-  margin-right: 8%;
-}
-
-.path-step.lane-right .node-caption {
-  grid-column: 1;
-  grid-row: 1;
-  text-align: right;
-  padding-right: 22px;
+.step-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  z-index: 1;
+  width: 112px;
 }
 
 .path-node {
@@ -732,8 +699,10 @@ onMounted(load);
 .node-caption {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 0;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  text-align: center;
 }
 
 .caption-kind {

@@ -25,21 +25,24 @@ describe("PathMapPage unit guide layout", () => {
     expect(guideSub[0]).toMatch(/-webkit-box-orient:\s*vertical/);
   });
 
-  it("avoids duplicate kind labels and draws curved SVG connectors between offset nodes", () => {
+  it("avoids duplicate kind labels and draws a single curved connector between nodes", () => {
     const source = readVue("src/modules/path/PathMapPage.vue");
     expect(source).toMatch(/showKindLabel\(section\)/);
     expect(source).toMatch(/connectorPath\(idx - 1, idx\)/);
     expect(source).toMatch(/\.path-connector\s*\{[\s\S]*position:\s*absolute/);
-    expect(source).toMatch(/function connectorPath/);
+    expect(source).toMatch(/\.connector-line\s*\{[\s\S]*stroke:\s*var\(--green\)/);
+    expect(source).not.toMatch(/connector-shadow/);
     expect(source).not.toMatch(/\.path-lane::before/);
-    expect(source).toMatch(/\.path-step\.lane-left \.node-caption\s*\{[\s\S]*grid-row:\s*1/);
+    expect(source).toMatch(/class="step-body"/);
   });
 
-  it("offsets nodes left, center, and right along the winding path", () => {
+  it("offsets nodes left, center, and right with captions below the node", () => {
     const source = readVue("src/modules/path/PathMapPage.vue");
-    expect(source).toMatch(/\.path-step\.lane-left \.path-node\s*\{[\s\S]*margin-left:\s*8%/);
-    expect(source).toMatch(/\.path-step\.lane-center \.path-node\s*\{[\s\S]*grid-column:\s*2/);
-    expect(source).toMatch(/\.path-step\.lane-right \.path-node\s*\{[\s\S]*margin-right:\s*8%/);
+    expect(source).toMatch(/\.path-step\.lane-left\s*\{[\s\S]*justify-content:\s*flex-start/);
+    expect(source).toMatch(/\.path-step\.lane-center\s*\{[\s\S]*justify-content:\s*center/);
+    expect(source).toMatch(/\.path-step\.lane-right\s*\{[\s\S]*justify-content:\s*flex-end/);
+    expect(source).toMatch(/\.step-body\s*\{[\s\S]*flex-direction:\s*column/);
+    expect(source).toMatch(/\.node-caption\s*\{[\s\S]*text-align:\s*center/);
   });
 
   it("shows current level in one button and opens a picker sheet", () => {
@@ -59,13 +62,11 @@ describe("PathMapPage unit guide layout", () => {
     expect(levelBtn[0]).not.toMatch(/min-width:\s*56px/);
   });
 
-  it("keeps path nodes and captions spaced apart", () => {
+  it("keeps path steps tall enough for node plus caption stack", () => {
     const source = readVue("src/modules/path/PathMapPage.vue");
     const pathStep = source.match(/\.path-step\s*\{[\s\S]*?\}/);
     expect(pathStep, ".path-step rule not found").toBeTruthy();
-    expect(pathStep[0]).toMatch(/min-height:\s*124px/);
-    expect(pathStep[0]).toMatch(/padding:\s*16px\s+0/);
-    expect(source).toMatch(/padding-right:\s*22px/);
-    expect(source).toMatch(/padding-left:\s*22px/);
+    expect(pathStep[0]).toMatch(/min-height:\s*136px/);
+    expect(source).toMatch(/\.step-body\s*\{[\s\S]*gap:\s*6px/);
   });
 });
