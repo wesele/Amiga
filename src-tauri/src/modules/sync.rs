@@ -239,8 +239,7 @@ pub fn is_cloud_sync_enabled(db: &DatabasePool) -> Result<bool, String> {
 }
 
 fn restore_mode(db: &DatabasePool) -> Result<Option<String>, String> {
-    Ok(get_setting(db, SETTING_RESTORE_MODE)?
-        .filter(|value| !value.is_empty()))
+    Ok(get_setting(db, SETTING_RESTORE_MODE)?.filter(|value| !value.is_empty()))
 }
 
 fn has_learning_activity(db: &DatabasePool, user_id: &str) -> Result<bool, String> {
@@ -987,7 +986,10 @@ pub async fn run_cloud_sync(db: &DatabasePool) -> Result<RunCloudSyncResult, Str
         match run_cloud_sync_attempt(db).await {
             Ok(result) => return Ok(result),
             Err(err) if is_sync_conflict_error(&err) && attempt + 1 < SYNC_MAX_ATTEMPTS => {
-                log::info!("Cloud sync push conflict, retrying (attempt {})", attempt + 2);
+                log::info!(
+                    "Cloud sync push conflict, retrying (attempt {})",
+                    attempt + 2
+                );
             }
             Err(err) if err.contains("disabled") => return Err(err),
             Err(err) => {
@@ -1019,7 +1021,10 @@ pub async fn set_cloud_sync_enabled(
 
     let test = test_cloud_sync().await?;
     if !test.success {
-        return Err(format!("Cloud sync connectivity test failed: {}", test.message));
+        return Err(format!(
+            "Cloud sync connectivity test failed: {}",
+            test.message
+        ));
     }
 
     let nickname = get_or_create_user(db)?.nickname.trim().to_string();
@@ -1067,7 +1072,7 @@ pub async fn set_cloud_sync_enabled(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::modules::user::{CreateUserRequest, create_user_from_wizard};
+    use crate::modules::user::{create_user_from_wizard, CreateUserRequest};
 
     fn test_pool() -> DatabasePool {
         DatabasePool::new_in_memory()
@@ -1183,10 +1188,7 @@ mod tests {
         seed_user(&pool);
         mark_restore_after_reset(&pool).unwrap();
         mark_restore_after_wizard(&pool).unwrap();
-        assert_eq!(
-            restore_mode(&pool).unwrap().as_deref(),
-            Some("reset")
-        );
+        assert_eq!(restore_mode(&pool).unwrap().as_deref(), Some("reset"));
     }
 
     #[test]
@@ -1210,7 +1212,8 @@ mod tests {
 
         {
             let conn = pool.conn().unwrap();
-            conn.execute("DELETE FROM path_section_progress", []).unwrap();
+            conn.execute("DELETE FROM path_section_progress", [])
+                .unwrap();
         }
 
         import_sync_payload(&pool, &payload).unwrap();
@@ -1274,10 +1277,8 @@ mod tests {
         let (data_dir, cleanup_after) = match std::env::var("IDIOMA_DATA_DIR") {
             Ok(path) if !path.is_empty() => (PathBuf::from(path), false),
             _ => {
-                let dir = std::env::temp_dir().join(format!(
-                    "idioma-sync-e2e-{}",
-                    uuid::Uuid::new_v4()
-                ));
+                let dir =
+                    std::env::temp_dir().join(format!("idioma-sync-e2e-{}", uuid::Uuid::new_v4()));
                 std::fs::create_dir_all(&dir).expect("temp data dir");
                 std::env::set_var("IDIOMA_DATA_DIR", &dir);
                 (dir, true)
@@ -1346,14 +1347,15 @@ mod tests {
         assert_eq!(restored.nickname, nickname);
         assert_eq!(restored.avatar, "🛰️");
 
-        let goals = crate::modules::user::get_learning_goals(&pool, &restored.id)
-            .expect("goals");
+        let goals = crate::modules::user::get_learning_goals(&pool, &restored.id).expect("goals");
         assert_eq!(goals.len(), 1);
         assert_eq!(goals[0].target_language, "fr");
         assert_eq!(goals[0].cefr_level, "A2");
 
         assert_eq!(
-            get_setting(&pool, "ui_language").expect("setting").as_deref(),
+            get_setting(&pool, "ui_language")
+                .expect("setting")
+                .as_deref(),
             Some("en")
         );
 

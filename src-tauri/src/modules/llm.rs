@@ -158,7 +158,8 @@ impl LlmClient {
         config: &ModelConfig,
         messages: Vec<ChatMessage>,
     ) -> Result<String, String> {
-        self.call_with_options(config, messages, 4096, 90, true).await
+        self.call_with_options(config, messages, 4096, 90, true)
+            .await
     }
 
     async fn call_with_options(
@@ -502,7 +503,12 @@ fn ends_with_sentence_punctuation(text: &str) -> bool {
     text.trim_end()
         .chars()
         .last()
-        .map(|c| matches!(c, '.' | '!' | '?' | '。' | '！' | '？' | '"' | '\'' | '»' | '”'))
+        .map(|c| {
+            matches!(
+                c,
+                '.' | '!' | '?' | '。' | '！' | '？' | '"' | '\'' | '»' | '”'
+            )
+        })
         .unwrap_or(false)
 }
 

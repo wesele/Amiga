@@ -272,7 +272,7 @@ mod tests {
         let pool = test_pool();
         ensure_default_prompts(&pool);
         let prompts = get_all_prompts(&pool).unwrap();
-        assert_eq!(prompts.len(), 7, "Should have 7 default prompts");
+        assert_eq!(prompts.len(), 8, "Should have 8 default prompts");
     }
 
     #[test]
@@ -281,7 +281,7 @@ mod tests {
         ensure_default_prompts(&pool);
         ensure_default_prompts(&pool);
         let prompts = get_all_prompts(&pool).unwrap();
-        assert_eq!(prompts.len(), 7, "Second call should not add duplicates");
+        assert_eq!(prompts.len(), 8, "Second call should not add duplicates");
     }
 
     #[test]
@@ -379,6 +379,6 @@ mod tests {
         save_prompt(&pool, "extra", "额外", "x", "s", "u").unwrap();
         reset_all_prompts(&pool).unwrap();
         let prompts = get_all_prompts(&pool).unwrap();
-        assert_eq!(prompts.len(), 7, "Should restore to exactly 7 defaults");
+        assert_eq!(prompts.len(), 8, "Should restore to exactly 8 defaults");
     }
 }

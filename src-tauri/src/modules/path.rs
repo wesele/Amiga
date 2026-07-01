@@ -13,7 +13,6 @@ const CEFR_LEVELS: &[&str] = &["A0", "A1", "A2", "B1", "B2", "C1"];
 const QUESTIONS_JSON: &str = include_str!("../../../content-studio/data/questions.json");
 const FRAMEWORK_JSON: &str = include_str!("../../../content-studio/data/unit-framework.json");
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathSectionProgress {
     pub section_id: String,
@@ -420,7 +419,11 @@ pub fn get_path_curriculum(
     let mut total_stars = 0;
     let mut unit_nodes = Vec::new();
 
-    fn node_locked(idx: usize, ordered: &[String], progress: &HashMap<String, PathSectionProgress>) -> bool {
+    fn node_locked(
+        idx: usize,
+        ordered: &[String],
+        progress: &HashMap<String, PathSectionProgress>,
+    ) -> bool {
         if idx == 0 {
             return false;
         }
@@ -621,7 +624,8 @@ pub async fn explain_grammar_point(
     unit_goal: &str,
 ) -> Result<GrammarExplainResult, String> {
     let pair_key = PRIMARY_PAIR_KEY;
-    if let Some(cached) = get_grammar_explanation_cache(pool, pair_key, cefr, unit_id, point_text)? {
+    if let Some(cached) = get_grammar_explanation_cache(pool, pair_key, cefr, unit_id, point_text)?
+    {
         return Ok(GrammarExplainResult {
             explanation: cached,
             from_cache: true,
@@ -639,14 +643,7 @@ pub async fn explain_grammar_point(
     )
     .await?;
 
-    save_grammar_explanation_cache(
-        pool,
-        pair_key,
-        cefr,
-        unit_id,
-        point_text,
-        &explanation,
-    )?;
+    save_grammar_explanation_cache(pool, pair_key, cefr, unit_id, point_text, &explanation)?;
 
     Ok(GrammarExplainResult {
         explanation,
@@ -670,8 +667,8 @@ pub fn get_teaching_content(
     if curriculum.status != "active" {
         return Err("path curriculum is not active".to_string());
     }
-    let node = find_section(&curriculum, node_id)
-        .ok_or_else(|| format!("unknown node {node_id}"))?;
+    let node =
+        find_section(&curriculum, node_id).ok_or_else(|| format!("unknown node {node_id}"))?;
     if node.1.kind != "grammar" && node.1.kind != "vocab" {
         return Err("not a teaching node".to_string());
     }
@@ -679,7 +676,8 @@ pub fn get_teaching_content(
         return Err("node is locked".to_string());
     }
 
-    let (_, unit_id, _) = parse_node_id(node_id).ok_or_else(|| format!("invalid node id {node_id}"))?;
+    let (_, unit_id, _) =
+        parse_node_id(node_id).ok_or_else(|| format!("invalid node id {node_id}"))?;
     let units = framework_units(&pair_key, cefr)?;
     let unit = units
         .iter()
@@ -897,9 +895,7 @@ pub fn complete_section(
     if passed {
         let refreshed = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
         if is_level_fully_completed(&refreshed) {
-            if let Some(upgraded) =
-                try_upgrade_cefr_level(pool, user_id, target_lang, cefr)?
-            {
+            if let Some(upgraded) = try_upgrade_cefr_level(pool, user_id, target_lang, cefr)? {
                 level_upgraded = true;
                 new_cefr_level = Some(upgraded);
             }
@@ -1044,9 +1040,11 @@ mod tests {
     #[test]
     fn grammar_explanation_cache_roundtrip() {
         let pool = test_pool();
-        assert!(get_grammar_explanation_cache(&pool, "zh-es", "A1", "U01", "test point")
-            .unwrap()
-            .is_none());
+        assert!(
+            get_grammar_explanation_cache(&pool, "zh-es", "A1", "U01", "test point")
+                .unwrap()
+                .is_none()
+        );
 
         save_grammar_explanation_cache(
             &pool,
@@ -1075,12 +1073,10 @@ mod tests {
         complete_teaching_node(&pool, &user, "zh", "es", "A1", &vocab_id).unwrap();
         let lesson = get_section_lesson(&pool, &user, "zh", "es", "A1", &section_id).unwrap();
         assert!(!lesson.questions.is_empty());
-        assert!(
-            lesson
-                .questions
-                .iter()
-                .all(|q| q.get("cefr").and_then(|v| v.as_str()) == Some("A1"))
-        );
+        assert!(lesson
+            .questions
+            .iter()
+            .all(|q| q.get("cefr").and_then(|v| v.as_str()) == Some("A1")));
     }
 
     #[test]

@@ -88,14 +88,7 @@ pub async fn get_teaching_content_cmd(
     node_id: String,
 ) -> Result<path_mod::PathTeaching, String> {
     let user = user_mod::get_or_create_user(&db)?;
-    path_mod::get_teaching_content(
-        &db,
-        &user.id,
-        &native_lang,
-        &target_lang,
-        &cefr,
-        &node_id,
-    )
+    path_mod::get_teaching_content(&db, &user.id, &native_lang, &target_lang, &cefr, &node_id)
 }
 
 #[tauri::command]

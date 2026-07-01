@@ -50,8 +50,7 @@ pub async fn create_chat_session_cmd(
     contact_type: String,
     target_lang: String,
 ) -> Result<String, String> {
-    let session_id =
-        chat_mod::create_session(&db, &user_id, &title, &contact_type, &target_lang)?;
+    let session_id = chat_mod::create_session(&db, &user_id, &title, &contact_type, &target_lang)?;
     after_syncable_write(&db);
     Ok(session_id)
 }
