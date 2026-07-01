@@ -12,6 +12,44 @@ describe("API module", () => {
     api.__resetInvoke();
   });
 
+  describe("Client factory", () => {
+    it("createApiClient builds an isolated client around the provided invoke", () => {
+      const customInvoke = vi.fn();
+      const client = api.createApiClient(customInvoke);
+
+      client.getCurrentUser();
+      client.updateWordMastery("u1", 42, 2, "exercise");
+
+      expect(customInvoke).toHaveBeenNthCalledWith(1, "get_current_user");
+      expect(customInvoke).toHaveBeenNthCalledWith(2, "update_word_mastery_cmd", {
+        userId: "u1",
+        wordId: 42,
+        mastery: 2,
+        source: "exercise",
+      });
+      expect(mockInvoke).not.toHaveBeenCalled();
+    });
+
+    it("createApiClient validates the invoke dependency", () => {
+      expect(() => api.createApiClient(null)).toThrow("invoke function");
+    });
+
+    it("default exports follow the currently injected invoke", () => {
+      const firstInvoke = vi.fn();
+      const secondInvoke = vi.fn();
+
+      api.__setInvoke(firstInvoke);
+      api.getCurrentUser();
+
+      api.__setInvoke(secondInvoke);
+      api.getCurrentUser();
+
+      expect(firstInvoke).toHaveBeenCalledTimes(1);
+      expect(secondInvoke).toHaveBeenCalledTimes(1);
+      expect(secondInvoke).toHaveBeenCalledWith("get_current_user");
+    });
+  });
+
   describe("User API", () => {
     it("getCurrentUser calls invoke with correct command", () => {
       api.getCurrentUser();

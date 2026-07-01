@@ -2,12 +2,166 @@ import { invoke as tauriInvoke, isTauri } from "@tauri-apps/api/core";
 
 let _invoke = tauriInvoke;
 
+function invokeWithOptionalArgs(invoke, command, args) {
+  return args === undefined ? invoke(command) : invoke(command, args);
+}
+
+export function createApiClient(invoke) {
+  if (typeof invoke !== "function") {
+    throw new TypeError("createApiClient requires an invoke function");
+  }
+
+  const call = (command, args) => invokeWithOptionalArgs(invoke, command, args);
+
+  return {
+    // Database
+    isSchemaCompatible: () => call("is_schema_compatible_cmd"),
+    resetDatabase: () => call("reset_database_cmd"),
+    getDatabaseStatus: () => call("get_database_status_cmd"),
+    deleteDatabaseFile: () => call("delete_database_file_cmd"),
+    deleteDatabaseAndRestart: () => call("delete_database_and_restart_cmd"),
+    exitApp: () => call("exit_app_cmd"),
+
+    // User
+    getCurrentUser: () => call("get_current_user"),
+    createUser: (request) => call("create_user", { request }),
+    updateUser: (request) => call("update_user_cmd", { request }),
+    saveLearningGoal: (goal) => call("save_learning_goal_cmd", { goal }),
+    getLearningGoals: (userId) => call("get_learning_goals_cmd", { userId }),
+    isWizardCompleted: () => call("is_wizard_completed_cmd"),
+    resetWizard: () => call("reset_wizard_cmd"),
+    setTargetLanguage: (language) => call("set_target_language_cmd", { language }),
+    getTargetLanguage: () => call("get_target_language_cmd"),
+    updateLearningGoalCefr: (targetLanguage, cefrLevel) =>
+      call("update_learning_goal_cefr_cmd", { targetLanguage, cefrLevel }),
+
+    // Vocabulary
+    importVocabBank: () => call("import_vocab_bank_cmd"),
+    reimportVocabBank: () => call("reimport_vocab_bank_cmd"),
+    initUserVocab: (userId, cefrLevel) =>
+      call("init_user_vocab_cmd", { userId, cefrLevel }),
+    updateWordMastery: (userId, wordId, mastery, source) =>
+      call("update_word_mastery_cmd", { userId, wordId, mastery, source }),
+    getUnknownWords: (userId, cefrLevel, limit, targetLang) =>
+      call("get_unknown_words_cmd", { userId, cefrLevel, limit, targetLang }),
+    getUserVocabStats: (userId, targetLang) =>
+      call("get_user_vocab_stats_cmd", { userId, targetLang }),
+    getUserVocabByLevel: (userId, language, cefrLevel) =>
+      call("get_user_vocab_by_level_cmd", { userId, language, cefrLevel }),
+    getUserVocabStatsByLevel: (userId, language) =>
+      call("get_user_vocab_stats_by_level_cmd", { userId, language }),
+    markWordsSeen: (userId, wordIds) =>
+      call("mark_words_seen_cmd", { userId, wordIds }),
+    lookupWordIds: (words, language) =>
+      call("lookup_word_ids_cmd", { words, language }),
+    addDiscoveredWord: (userId, word, language, context) =>
+      call("add_discovered_word_cmd", { userId, word, language, context }),
+    ensureWordsSeen: (userId, words, language) =>
+      call("ensure_words_seen_cmd", { userId, words, language }),
+    resetUserVocabByLevel: (userId, language, cefrLevel) =>
+      call("reset_user_vocab_by_level_cmd", { userId, language, cefrLevel }),
+
+    // Progression path
+    getPathCurriculum: (nativeLang, targetLang, cefr) =>
+      call("get_path_curriculum_cmd", { nativeLang, targetLang, cefr }),
+    getSectionLesson: (nativeLang, targetLang, cefr, sectionId) =>
+      call("get_section_lesson_cmd", { nativeLang, targetLang, cefr, sectionId }),
+    getTeachingContent: (nativeLang, targetLang, cefr, nodeId) =>
+      call("get_teaching_content_cmd", { nativeLang, targetLang, cefr, nodeId }),
+    getGrammarExplanationCached: (cefr, unitId, pointText) =>
+      call("get_grammar_explanation_cached_cmd", { cefr, unitId, pointText }),
+    explainGrammarPoint: (cefr, targetLang, unitId, pointText, unitTitle, unitGoal) =>
+      call("explain_grammar_point_cmd", {
+        cefr,
+        targetLang,
+        unitId,
+        pointText,
+        unitTitle,
+        unitGoal,
+      }),
+    completeTeachingNode: (nativeLang, targetLang, cefr, nodeId) =>
+      call("complete_teaching_node_cmd", { nativeLang, targetLang, cefr, nodeId }),
+    completeSection: (nativeLang, targetLang, cefr, sectionId, correctCount, totalCount) =>
+      call("complete_section_cmd", {
+        nativeLang,
+        targetLang,
+        cefr,
+        sectionId,
+        correctCount,
+        totalCount,
+      }),
+
+    // News
+    fetchNews: (region, targetLang) => call("fetch_news_cmd", { region, targetLang }),
+    getArticles: (region) => call("get_articles_cmd", { region }),
+    getArticle: (articleId) => call("get_article_cmd", { articleId }),
+    saveReadingLog: (logEntry) => call("save_reading_log_cmd", { logEntry }),
+    getReadArticleCount: (userId) => call("get_read_article_count_cmd", { userId }),
+
+    // LLM
+    rewriteArticle: (articleId, cefrLevel, userId, targetLang) =>
+      call("rewrite_article_cmd", { articleId, cefrLevel, userId, targetLang }),
+    translateWord: (word, context, sourceLang, nativeLang) =>
+      call("translate_word_cmd", { word, context, sourceLang, nativeLang }),
+    testLlmConnection: (config) => call("test_llm_connection_cmd", { config }),
+    saveLlmConfig: (key, config) => call("save_llm_config_cmd", { key, config }),
+    getLlmConfig: () => call("get_llm_config_cmd"),
+    getBilingual: (articleId, sourceLang, nativeLang) =>
+      call("get_bilingual_cmd", { articleId, sourceLang, nativeLang }),
+    translateText: (text, sourceLang, nativeLang) =>
+      call("translate_text_cmd", { text, sourceLang, nativeLang }),
+
+    // Settings
+    saveSetting: (key, value) => call("save_setting_cmd", { key, value }),
+    getSetting: (key) => call("get_setting_cmd", { key }),
+
+    // Prompts
+    getAllPrompts: () => call("get_all_prompts_cmd"),
+    getPrompt: (key) => call("get_prompt_cmd", { key }),
+    savePrompt: (key, name, category, systemPrompt, userPromptTemplate) =>
+      call("save_prompt_cmd", { key, name, category, systemPrompt, userPromptTemplate }),
+    resetPrompt: (key) => call("reset_prompt_cmd", { key }),
+    resetAllPrompts: () => call("reset_all_prompts_cmd"),
+
+    // Update
+    checkUpdate: () => call("check_update"),
+
+    // Chat
+    chatCompletion: (messages, nativeLang, targetLang) =>
+      call("chat_completion_cmd", { messages, nativeLang, targetLang }),
+    chatCompletionWithSession: (sessionId, message, nativeLang, targetLang) =>
+      call("chat_completion_with_session_cmd", { sessionId, message, nativeLang, targetLang }),
+    createChatSession: (userId, title, contactType, targetLang) =>
+      call("create_chat_session_cmd", { userId, title, contactType, targetLang }),
+    getChatSessions: (targetLang) => call("get_chat_sessions_cmd", { targetLang }),
+    deleteChatSession: (sessionId) => call("delete_chat_session_cmd", { sessionId }),
+    getChatMessages: (sessionId, limit = 50) =>
+      call("get_chat_messages_cmd", { sessionId, limit }),
+    updateChatSessionTitle: (sessionId, title) =>
+      call("update_chat_session_title_cmd", { sessionId, title }),
+    getAmigaProfile: (targetLang) => call("get_amiga_profile_cmd", { targetLang }),
+
+    shareText: (text) => call("share_text_cmd", { text }),
+
+    // Cloud sync
+    testCloudSync: () => call("test_cloud_sync_cmd"),
+    getCloudSyncStatus: () => call("get_cloud_sync_status_cmd"),
+    setCloudSyncEnabled: (enabled, forceEnable = false) =>
+      call("set_cloud_sync_enabled_cmd", { enabled, forceEnable }),
+    runCloudSync: () => call("run_cloud_sync_cmd"),
+  };
+}
+
 // In a plain browser (vite dev without Tauri shell), every Tauri call throws.
 // The components already handle that with try/catch + empty states, so we just
 // route the calls through `tauriInvoke` and let them reject. The reason we
 // expose `isTauri` is so pages can skip certain interactions entirely in
 // browser dev mode if needed.
 export const inTauri = isTauri;
+
+export const defaultApiClient = createApiClient((command, args) =>
+  invokeWithOptionalArgs(_invoke, command, args),
+);
 
 export function __setInvoke(fn) {
   _invoke = fn;
@@ -18,149 +172,100 @@ export function __resetInvoke() {
 }
 
 // --- Database ---
-export const isSchemaCompatible = () => _invoke("is_schema_compatible_cmd");
-export const resetDatabase = () => _invoke("reset_database_cmd");
-export const getDatabaseStatus = () => _invoke("get_database_status_cmd");
-export const deleteDatabaseFile = () => _invoke("delete_database_file_cmd");
-export const deleteDatabaseAndRestart = () => _invoke("delete_database_and_restart_cmd");
-export const exitApp = () => _invoke("exit_app_cmd");
+export const isSchemaCompatible = (...args) => defaultApiClient.isSchemaCompatible(...args);
+export const resetDatabase = (...args) => defaultApiClient.resetDatabase(...args);
+export const getDatabaseStatus = (...args) => defaultApiClient.getDatabaseStatus(...args);
+export const deleteDatabaseFile = (...args) => defaultApiClient.deleteDatabaseFile(...args);
+export const deleteDatabaseAndRestart = (...args) =>
+  defaultApiClient.deleteDatabaseAndRestart(...args);
+export const exitApp = (...args) => defaultApiClient.exitApp(...args);
 
-// ─── User ───
-export const getCurrentUser = () => _invoke("get_current_user");
-export const createUser = (request) => _invoke("create_user", { request });
-export const updateUser = (request) => _invoke("update_user_cmd", { request });
-export const saveLearningGoal = (goal) => _invoke("save_learning_goal_cmd", { goal });
-export const getLearningGoals = (userId) => _invoke("get_learning_goals_cmd", { userId });
-export const isWizardCompleted = () => _invoke("is_wizard_completed_cmd");
-export const resetWizard = () => _invoke("reset_wizard_cmd");
-export const setTargetLanguage = (language) =>
-  _invoke("set_target_language_cmd", { language });
-export const getTargetLanguage = () => _invoke("get_target_language_cmd");
-export const updateLearningGoalCefr = (targetLanguage, cefrLevel) =>
-  _invoke("update_learning_goal_cefr_cmd", { targetLanguage, cefrLevel });
+// --- User ---
+export const getCurrentUser = (...args) => defaultApiClient.getCurrentUser(...args);
+export const createUser = (...args) => defaultApiClient.createUser(...args);
+export const updateUser = (...args) => defaultApiClient.updateUser(...args);
+export const saveLearningGoal = (...args) => defaultApiClient.saveLearningGoal(...args);
+export const getLearningGoals = (...args) => defaultApiClient.getLearningGoals(...args);
+export const isWizardCompleted = (...args) => defaultApiClient.isWizardCompleted(...args);
+export const resetWizard = (...args) => defaultApiClient.resetWizard(...args);
+export const setTargetLanguage = (...args) => defaultApiClient.setTargetLanguage(...args);
+export const getTargetLanguage = (...args) => defaultApiClient.getTargetLanguage(...args);
+export const updateLearningGoalCefr = (...args) =>
+  defaultApiClient.updateLearningGoalCefr(...args);
 
-// ─── Vocabulary ───
-export const importVocabBank = () => _invoke("import_vocab_bank_cmd");
-export const reimportVocabBank = () => _invoke("reimport_vocab_bank_cmd");
-export const initUserVocab = (userId, cefrLevel) =>
-  _invoke("init_user_vocab_cmd", { userId, cefrLevel });
-export const updateWordMastery = (userId, wordId, mastery, source) =>
-  _invoke("update_word_mastery_cmd", { userId, wordId, mastery, source });
-export const getUnknownWords = (userId, cefrLevel, limit, targetLang) =>
-  _invoke("get_unknown_words_cmd", { userId, cefrLevel, limit, targetLang });
-export const getUserVocabStats = (userId, targetLang) =>
-  _invoke("get_user_vocab_stats_cmd", { userId, targetLang });
-export const getUserVocabByLevel = (userId, language, cefrLevel) =>
-  _invoke("get_user_vocab_by_level_cmd", { userId, language, cefrLevel });
-export const getUserVocabStatsByLevel = (userId, language) =>
-  _invoke("get_user_vocab_stats_by_level_cmd", { userId, language });
-export const markWordsSeen = (userId, wordIds) =>
-  _invoke("mark_words_seen_cmd", { userId, wordIds });
-export const lookupWordIds = (words, language) =>
-  _invoke("lookup_word_ids_cmd", { words, language });
-export const addDiscoveredWord = (userId, word, language, context) =>
-  _invoke("add_discovered_word_cmd", { userId, word, language, context });
-export const ensureWordsSeen = (userId, words, language) =>
-  _invoke("ensure_words_seen_cmd", { userId, words, language });
-export const resetUserVocabByLevel = (userId, language, cefrLevel) =>
-  _invoke("reset_user_vocab_by_level_cmd", { userId, language, cefrLevel });
+// --- Vocabulary ---
+export const importVocabBank = (...args) => defaultApiClient.importVocabBank(...args);
+export const reimportVocabBank = (...args) => defaultApiClient.reimportVocabBank(...args);
+export const initUserVocab = (...args) => defaultApiClient.initUserVocab(...args);
+export const updateWordMastery = (...args) => defaultApiClient.updateWordMastery(...args);
+export const getUnknownWords = (...args) => defaultApiClient.getUnknownWords(...args);
+export const getUserVocabStats = (...args) => defaultApiClient.getUserVocabStats(...args);
+export const getUserVocabByLevel = (...args) => defaultApiClient.getUserVocabByLevel(...args);
+export const getUserVocabStatsByLevel = (...args) =>
+  defaultApiClient.getUserVocabStatsByLevel(...args);
+export const markWordsSeen = (...args) => defaultApiClient.markWordsSeen(...args);
+export const lookupWordIds = (...args) => defaultApiClient.lookupWordIds(...args);
+export const addDiscoveredWord = (...args) => defaultApiClient.addDiscoveredWord(...args);
+export const ensureWordsSeen = (...args) => defaultApiClient.ensureWordsSeen(...args);
+export const resetUserVocabByLevel = (...args) =>
+  defaultApiClient.resetUserVocabByLevel(...args);
 
-// ─── Progression path ───
-export const getPathCurriculum = (nativeLang, targetLang, cefr) =>
-  _invoke("get_path_curriculum_cmd", { nativeLang, targetLang, cefr });
-export const getSectionLesson = (nativeLang, targetLang, cefr, sectionId) =>
-  _invoke("get_section_lesson_cmd", { nativeLang, targetLang, cefr, sectionId });
-export const getTeachingContent = (nativeLang, targetLang, cefr, nodeId) =>
-  _invoke("get_teaching_content_cmd", { nativeLang, targetLang, cefr, nodeId });
-export const getGrammarExplanationCached = (cefr, unitId, pointText) =>
-  _invoke("get_grammar_explanation_cached_cmd", { cefr, unitId, pointText });
-export const explainGrammarPoint = (cefr, targetLang, unitId, pointText, unitTitle, unitGoal) =>
-  _invoke("explain_grammar_point_cmd", {
-    cefr,
-    targetLang,
-    unitId,
-    pointText,
-    unitTitle,
-    unitGoal,
-  });
-export const completeTeachingNode = (nativeLang, targetLang, cefr, nodeId) =>
-  _invoke("complete_teaching_node_cmd", { nativeLang, targetLang, cefr, nodeId });
-export const completeSection = (nativeLang, targetLang, cefr, sectionId, correctCount, totalCount) =>
-  _invoke("complete_section_cmd", {
-    nativeLang,
-    targetLang,
-    cefr,
-    sectionId,
-    correctCount,
-    totalCount,
-  });
+// --- Progression path ---
+export const getPathCurriculum = (...args) => defaultApiClient.getPathCurriculum(...args);
+export const getSectionLesson = (...args) => defaultApiClient.getSectionLesson(...args);
+export const getTeachingContent = (...args) => defaultApiClient.getTeachingContent(...args);
+export const getGrammarExplanationCached = (...args) =>
+  defaultApiClient.getGrammarExplanationCached(...args);
+export const explainGrammarPoint = (...args) => defaultApiClient.explainGrammarPoint(...args);
+export const completeTeachingNode = (...args) => defaultApiClient.completeTeachingNode(...args);
+export const completeSection = (...args) => defaultApiClient.completeSection(...args);
 
-// ─── News ───
-export const fetchNews = (region, targetLang) =>
-  _invoke("fetch_news_cmd", { region, targetLang });
-export const getArticles = (region) => _invoke("get_articles_cmd", { region });
-export const getArticle = (articleId) => _invoke("get_article_cmd", { articleId });
-export const saveReadingLog = (logEntry) =>
-  _invoke("save_reading_log_cmd", { logEntry });
-export const getReadArticleCount = (userId) =>
-  _invoke("get_read_article_count_cmd", { userId });
+// --- News ---
+export const fetchNews = (...args) => defaultApiClient.fetchNews(...args);
+export const getArticles = (...args) => defaultApiClient.getArticles(...args);
+export const getArticle = (...args) => defaultApiClient.getArticle(...args);
+export const saveReadingLog = (...args) => defaultApiClient.saveReadingLog(...args);
+export const getReadArticleCount = (...args) => defaultApiClient.getReadArticleCount(...args);
 
-// ─── LLM ───
-export const rewriteArticle = (articleId, cefrLevel, userId, targetLang) =>
-  _invoke("rewrite_article_cmd", { articleId, cefrLevel, userId, targetLang });
-export const translateWord = (word, context, sourceLang, nativeLang) =>
-  _invoke("translate_word_cmd", { word, context, sourceLang, nativeLang });
-export const testLlmConnection = (config) =>
-  _invoke("test_llm_connection_cmd", { config });
-export const saveLlmConfig = (key, config) =>
-  _invoke("save_llm_config_cmd", { key, config });
-export const getLlmConfig = () => _invoke("get_llm_config_cmd");
-export const getBilingual = (articleId, sourceLang, nativeLang) =>
-  _invoke("get_bilingual_cmd", { articleId, sourceLang, nativeLang });
-export const translateText = (text, sourceLang, nativeLang) =>
-  _invoke("translate_text_cmd", { text, sourceLang, nativeLang });
+// --- LLM ---
+export const rewriteArticle = (...args) => defaultApiClient.rewriteArticle(...args);
+export const translateWord = (...args) => defaultApiClient.translateWord(...args);
+export const testLlmConnection = (...args) => defaultApiClient.testLlmConnection(...args);
+export const saveLlmConfig = (...args) => defaultApiClient.saveLlmConfig(...args);
+export const getLlmConfig = (...args) => defaultApiClient.getLlmConfig(...args);
+export const getBilingual = (...args) => defaultApiClient.getBilingual(...args);
+export const translateText = (...args) => defaultApiClient.translateText(...args);
 
-// ─── Settings ───
-export const saveSetting = (key, value) =>
-  _invoke("save_setting_cmd", { key, value });
-export const getSetting = (key) => _invoke("get_setting_cmd", { key });
+// --- Settings ---
+export const saveSetting = (...args) => defaultApiClient.saveSetting(...args);
+export const getSetting = (...args) => defaultApiClient.getSetting(...args);
 
-// ─── Prompts ───
-export const getAllPrompts = () => _invoke("get_all_prompts_cmd");
-export const getPrompt = (key) => _invoke("get_prompt_cmd", { key });
-export const savePrompt = (key, name, category, systemPrompt, userPromptTemplate) =>
-  _invoke("save_prompt_cmd", { key, name, category, systemPrompt, userPromptTemplate });
-export const resetPrompt = (key) => _invoke("reset_prompt_cmd", { key });
-export const resetAllPrompts = () => _invoke("reset_all_prompts_cmd");
+// --- Prompts ---
+export const getAllPrompts = (...args) => defaultApiClient.getAllPrompts(...args);
+export const getPrompt = (...args) => defaultApiClient.getPrompt(...args);
+export const savePrompt = (...args) => defaultApiClient.savePrompt(...args);
+export const resetPrompt = (...args) => defaultApiClient.resetPrompt(...args);
+export const resetAllPrompts = (...args) => defaultApiClient.resetAllPrompts(...args);
 
-// ─── Update ───
-export const checkUpdate = () => _invoke("check_update");
+// --- Update ---
+export const checkUpdate = (...args) => defaultApiClient.checkUpdate(...args);
 
-// ─── Chat ───
-export const chatCompletion = (messages, nativeLang, targetLang) =>
-  _invoke("chat_completion_cmd", { messages, nativeLang, targetLang });
-export const chatCompletionWithSession = (sessionId, message, nativeLang, targetLang) =>
-  _invoke("chat_completion_with_session_cmd", { sessionId, message, nativeLang, targetLang });
-export const createChatSession = (userId, title, contactType, targetLang) =>
-  _invoke("create_chat_session_cmd", { userId, title, contactType, targetLang });
-export const getChatSessions = (targetLang) =>
-  _invoke("get_chat_sessions_cmd", { targetLang });
-export const deleteChatSession = (sessionId) =>
-  _invoke("delete_chat_session_cmd", { sessionId });
-export const getChatMessages = (sessionId, limit = 50) =>
-  _invoke("get_chat_messages_cmd", { sessionId, limit });
-export const updateChatSessionTitle = (sessionId, title) =>
-  _invoke("update_chat_session_title_cmd", { sessionId, title });
-export const getAmigaProfile = (targetLang) =>
-  _invoke("get_amiga_profile_cmd", { targetLang });
+// --- Chat ---
+export const chatCompletion = (...args) => defaultApiClient.chatCompletion(...args);
+export const chatCompletionWithSession = (...args) =>
+  defaultApiClient.chatCompletionWithSession(...args);
+export const createChatSession = (...args) => defaultApiClient.createChatSession(...args);
+export const getChatSessions = (...args) => defaultApiClient.getChatSessions(...args);
+export const deleteChatSession = (...args) => defaultApiClient.deleteChatSession(...args);
+export const getChatMessages = (...args) => defaultApiClient.getChatMessages(...args);
+export const updateChatSessionTitle = (...args) =>
+  defaultApiClient.updateChatSessionTitle(...args);
+export const getAmigaProfile = (...args) => defaultApiClient.getAmigaProfile(...args);
 
-export const shareText = (text) =>
-  _invoke("share_text_cmd", { text });
+export const shareText = (...args) => defaultApiClient.shareText(...args);
 
-// ─── Cloud sync ───
-export const testCloudSync = () => _invoke("test_cloud_sync_cmd");
-export const getCloudSyncStatus = () => _invoke("get_cloud_sync_status_cmd");
-export const setCloudSyncEnabled = (enabled, forceEnable = false) =>
-  _invoke("set_cloud_sync_enabled_cmd", { enabled, forceEnable });
-export const runCloudSync = () => _invoke("run_cloud_sync_cmd");
-
+// --- Cloud sync ---
+export const testCloudSync = (...args) => defaultApiClient.testCloudSync(...args);
+export const getCloudSyncStatus = (...args) => defaultApiClient.getCloudSyncStatus(...args);
+export const setCloudSyncEnabled = (...args) => defaultApiClient.setCloudSyncEnabled(...args);
+export const runCloudSync = (...args) => defaultApiClient.runCloudSync(...args);
