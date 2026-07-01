@@ -90,7 +90,16 @@
             class="path-step"
             :class="[laneClass(idx), { 'is-current': section.current }]"
           >
-            <div class="connector" v-if="idx > 0" />
+            <svg
+              v-if="idx > 0"
+              class="path-connector"
+              viewBox="0 0 100 124"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path :d="connectorPath(idx - 1, idx)" class="connector-shadow" />
+              <path :d="connectorPath(idx - 1, idx)" class="connector-main" />
+            </svg>
 
             <button
               type="button"
@@ -136,6 +145,7 @@ import { useTargetLangStore } from "@/stores/targetLang.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
 
 const UNIT_HUES = [145, 198, 262, 32, 12, 210];
+const LANE_X = { left: 22, center: 50, right: 78 };
 
 const router = useRouter();
 const { t } = useI18n();
@@ -160,8 +170,19 @@ function unitHue(idx) {
   return UNIT_HUES[idx % UNIT_HUES.length];
 }
 
+function laneKey(idx) {
+  return ["left", "center", "right"][idx % 3];
+}
+
 function laneClass(idx) {
-  return ["lane-left", "lane-center", "lane-right"][idx % 3];
+  return `lane-${laneKey(idx)}`;
+}
+
+function connectorPath(prevIdx, currIdx) {
+  const x1 = LANE_X[laneKey(prevIdx)];
+  const x2 = LANE_X[laneKey(currIdx)];
+  const mid = 62;
+  return `M ${x1} 0 C ${x1} ${mid}, ${x2} ${mid}, ${x2} 124`;
 }
 
 function nodeClass(section) {
@@ -531,61 +552,66 @@ onMounted(load);
   padding: 0 24px;
 }
 
-.path-lane::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 32px;
-  bottom: 32px;
-  width: 14px;
-  transform: translateX(-50%);
-  background: var(--green);
-  border-radius: 8px;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.12);
-  z-index: 0;
-}
-
 .path-step {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 1fr 72px 1fr;
   align-items: center;
   min-height: 124px;
   padding: 16px 0;
 }
 
-.connector {
+.path-connector {
   position: absolute;
-  left: 50%;
-  top: -18px;
-  width: 14px;
-  height: 28px;
-  transform: translateX(-50%);
-  background: var(--green);
-  border-radius: 6px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+  left: 0;
+  right: 0;
+  top: -62px;
+  height: 124px;
+  width: 100%;
   z-index: 0;
   pointer-events: none;
+  overflow: visible;
+}
+
+.connector-shadow {
+  fill: none;
+  stroke: #46a302;
+  stroke-width: 16;
+  stroke-linecap: round;
+}
+
+.connector-main {
+  fill: none;
+  stroke: #58cc02;
+  stroke-width: 11;
+  stroke-linecap: round;
+}
+
+.path-step.lane-left {
+  grid-template-columns: auto 1fr;
+  justify-items: start;
 }
 
 .path-step.lane-left .path-node {
-  grid-column: 2;
+  grid-column: 1;
   grid-row: 1;
-  justify-self: center;
+  margin-left: 8%;
 }
 
 .path-step.lane-left .node-caption {
-  grid-column: 1;
+  grid-column: 2;
   grid-row: 1;
-  text-align: right;
-  padding-right: 22px;
+  padding-left: 22px;
+}
+
+.path-step.lane-center {
+  grid-template-columns: 1fr auto 1fr;
+  justify-items: center;
 }
 
 .path-step.lane-center .path-node {
   grid-column: 2;
   grid-row: 1;
-  justify-self: center;
 }
 
 .path-step.lane-center .node-caption {
@@ -594,16 +620,22 @@ onMounted(load);
   padding-left: 22px;
 }
 
+.path-step.lane-right {
+  grid-template-columns: 1fr auto;
+  justify-items: end;
+}
+
 .path-step.lane-right .path-node {
   grid-column: 2;
   grid-row: 1;
-  justify-self: center;
+  margin-right: 8%;
 }
 
 .path-step.lane-right .node-caption {
-  grid-column: 3;
+  grid-column: 1;
   grid-row: 1;
-  padding-left: 22px;
+  text-align: right;
+  padding-right: 22px;
 }
 
 .path-node {

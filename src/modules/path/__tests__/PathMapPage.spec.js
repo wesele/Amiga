@@ -25,11 +25,21 @@ describe("PathMapPage unit guide layout", () => {
     expect(guideSub[0]).toMatch(/-webkit-box-orient:\s*vertical/);
   });
 
-  it("avoids duplicate kind labels and keeps captions out of the connector grid cell", () => {
+  it("avoids duplicate kind labels and draws curved SVG connectors between offset nodes", () => {
     const source = readVue("src/modules/path/PathMapPage.vue");
     expect(source).toMatch(/showKindLabel\(section\)/);
-    expect(source).toMatch(/\.connector\s*\{[\s\S]*position:\s*absolute/);
+    expect(source).toMatch(/connectorPath\(idx - 1, idx\)/);
+    expect(source).toMatch(/\.path-connector\s*\{[\s\S]*position:\s*absolute/);
+    expect(source).toMatch(/function connectorPath/);
+    expect(source).not.toMatch(/\.path-lane::before/);
     expect(source).toMatch(/\.path-step\.lane-left \.node-caption\s*\{[\s\S]*grid-row:\s*1/);
+  });
+
+  it("offsets nodes left, center, and right along the winding path", () => {
+    const source = readVue("src/modules/path/PathMapPage.vue");
+    expect(source).toMatch(/\.path-step\.lane-left \.path-node\s*\{[\s\S]*margin-left:\s*8%/);
+    expect(source).toMatch(/\.path-step\.lane-center \.path-node\s*\{[\s\S]*grid-column:\s*2/);
+    expect(source).toMatch(/\.path-step\.lane-right \.path-node\s*\{[\s\S]*margin-right:\s*8%/);
   });
 
   it("shows current level in one button and opens a picker sheet", () => {
