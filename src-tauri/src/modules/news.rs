@@ -841,6 +841,49 @@ pub fn save_bilingual_cache(
     Ok(())
 }
 
+/// Rewrite an article for a user at the given CEFR level, using unknown vocab as new-word hints.
+pub async fn rewrite_article_for_user(
+    llm: &crate::modules::llm::LlmClient,
+    db: &DatabasePool,
+    article_id: i32,
+    cefr_level: &str,
+    user_id: &str,
+    target_lang: &str,
+) -> Result<Article, String> {
+    use crate::modules::llm as llm_mod;
+    use crate::modules::vocabulary as vocab_mod;
+
+    let article = get_article(db, article_id)?;
+    let original = article.original_body.unwrap_or_default();
+
+    // Scoped to the article's target language so an English learner gets English words.
+    let unknown_words =
+        vocab_mod::get_unknown_words(db, user_id, cefr_level, 20, target_lang)?;
+    let new_words: Vec<String> = unknown_words.iter().map(|w| w.word.clone()).collect();
+
+    let result = llm_mod::rewrite_article(
+        llm,
+        db,
+        &original,
+        &article.original_title,
+        cefr_level,
+        &new_words,
+        target_lang,
+    )
+    .await?;
+
+    let new_words_json = serde_json::to_string(&result.new_words_used).unwrap_or_default();
+    save_rewritten_article(
+        db,
+        article_id,
+        &result.rewritten,
+        cefr_level,
+        &new_words_json,
+    )?;
+
+    get_article(db, article_id)
+}
+
 /// Count distinct articles a user has completed reading.
 /// Re-reads of the same article count as one; non-completed reads are excluded.
 pub fn get_read_article_count(db: &DatabasePool, user_id: &str) -> Result<i32, String> {
