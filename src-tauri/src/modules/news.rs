@@ -759,7 +759,9 @@ pub fn save_rewritten_article(
 /// Save reading log
 pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(), String> {
     let conn = db.conn()?;
-    let read_at = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
+    let read_at = chrono::Local::now()
+        .format("%Y-%m-%d %H:%M:%S%.3f")
+        .to_string();
     conn.execute(
         "INSERT INTO news_reading_log (user_id, article_id, words_looked_up, words_known, words_unknown, reading_time_sec, completed, read_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
