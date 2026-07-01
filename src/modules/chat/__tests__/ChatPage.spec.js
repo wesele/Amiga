@@ -199,6 +199,33 @@ describe("ChatPage", () => {
     expect(safeBlock[0]).toMatch(/height\s*:\s*var\(--safe-bottom/);
   });
 
+  it("zeros chat-safe-bottom while the keyboard is open to avoid double IME offset", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
+      if (cmd === "get_chat_messages_cmd") return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+
+    const wrapper = await mountPage("sess-1", mockInvoke);
+    await flushPromises();
+
+    const safeStrip = wrapper.find(".chat-safe-bottom");
+    expect(safeStrip.classes()).not.toContain("keyboard-open");
+
+    viewport.height = 500;
+    resizeHandler();
+    await flushPromises();
+    expect(safeStrip.classes()).toContain("keyboard-open");
+
+    viewport.height = 700;
+    resizeHandler();
+    await flushPromises();
+    expect(safeStrip.classes()).not.toContain("keyboard-open");
+  });
+
   it("resets the fixed chat viewport styles after the keyboard closes", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_current_user") {

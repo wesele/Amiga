@@ -317,18 +317,20 @@ onMounted(load);
   grid-row: 1 / 3;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   align-self: center;
-  padding: 8px 14px;
+  justify-self: end;
+  padding: 6px 10px;
   border: 2px solid var(--green);
   border-radius: 999px;
   background: var(--green-bg);
   color: var(--green-hover);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   cursor: pointer;
-  min-width: 56px;
+  min-width: 0;
   font-family: inherit;
+  flex-shrink: 0;
 }
 
 .level-btn:disabled {

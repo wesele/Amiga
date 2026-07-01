@@ -134,8 +134,50 @@ fn load_framework() -> Result<Value, String> {
     serde_json::from_str(FRAMEWORK_JSON).map_err(|e| format!("parse unit-framework.json: {e}"))
 }
 
+fn pair_langs(pair_key: &str) -> Option<(String, String)> {
+    match pair_key {
+        "zh-es" => Some(("zh".to_string(), "es".to_string())),
+        "pair_1781451962486" => Some(("es".to_string(), "zh".to_string())),
+        "pair_1782569237717" => Some(("zh".to_string(), "en".to_string())),
+        _ => {
+            let (from, to) = pair_key.split_once('-')?;
+            Some((from.to_string(), to.to_string()))
+        }
+    }
+}
+
+/// Resolve the content pair for a native→target language combo.
+/// Prefers an exact match; otherwise falls back to any pair with the same target language.
+fn resolve_pair_key(native_lang: &str, target_lang: &str) -> Option<String> {
+    let framework = load_framework().ok()?;
+    let root = framework.as_object()?;
+    let preferred = format!("{native_lang}-{target_lang}");
+
+    if root.contains_key(&preferred) {
+        return Some(preferred);
+    }
+
+    for key in root.keys() {
+        if let Some((from, to)) = pair_langs(key) {
+            if from == native_lang && to == target_lang {
+                return Some(key.clone());
+            }
+        }
+    }
+
+    for key in root.keys() {
+        if let Some((_, to)) = pair_langs(key) {
+            if to == target_lang {
+                return Some(key.clone());
+            }
+        }
+    }
+
+    None
+}
+
 pub fn is_path_supported(native_lang: &str, target_lang: &str) -> bool {
-    native_lang == "zh" && target_lang == "es"
+    resolve_pair_key(native_lang, target_lang).is_some()
 }
 
 fn framework_units(pair_key: &str, cefr: &str) -> Result<Vec<FrameworkUnit>, String> {
@@ -374,7 +416,7 @@ pub fn get_path_curriculum(
     target_lang: &str,
     cefr: &str,
 ) -> Result<PathCurriculum, String> {
-    if !is_path_supported(native_lang, target_lang) {
+    let Some(pair_key) = resolve_pair_key(native_lang, target_lang) else {
         return Ok(PathCurriculum {
             pair_key: String::new(),
             cefr: cefr.to_string(),
@@ -384,9 +426,7 @@ pub fn get_path_curriculum(
             total_stars: 0,
             status: "unsupported".to_string(),
         });
-    }
-
-    let pair_key = PRIMARY_PAIR_KEY.to_string();
+    };
     let units = match framework_units(&pair_key, cefr) {
         Ok(u) => u,
         Err(_) => {
@@ -529,10 +569,8 @@ pub fn get_section_lesson(
     cefr: &str,
     section_id: &str,
 ) -> Result<PathLesson, String> {
-    if !is_path_supported(native_lang, target_lang) {
-        return Err("path is only available for zh-es".to_string());
-    }
-    let pair_key = PRIMARY_PAIR_KEY.to_string();
+    let pair_key = resolve_pair_key(native_lang, target_lang)
+        .ok_or_else(|| format!("no question bank for {native_lang}-{target_lang}"))?;
     let curriculum = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
     if curriculum.status != "active" {
         return Err("path curriculum is not active".to_string());
@@ -623,8 +661,9 @@ pub async fn explain_grammar_point(
     unit_title: &str,
     unit_goal: &str,
 ) -> Result<GrammarExplainResult, String> {
-    let pair_key = PRIMARY_PAIR_KEY;
-    if let Some(cached) = get_grammar_explanation_cache(pool, pair_key, cefr, unit_id, point_text)?
+    let pair_key =
+        resolve_pair_key("zh", target_lang).unwrap_or_else(|| PRIMARY_PAIR_KEY.to_string());
+    if let Some(cached) = get_grammar_explanation_cache(pool, &pair_key, cefr, unit_id, point_text)?
     {
         return Ok(GrammarExplainResult {
             explanation: cached,
@@ -643,7 +682,7 @@ pub async fn explain_grammar_point(
     )
     .await?;
 
-    save_grammar_explanation_cache(pool, pair_key, cefr, unit_id, point_text, &explanation)?;
+    save_grammar_explanation_cache(pool, &pair_key, cefr, unit_id, point_text, &explanation)?;
 
     Ok(GrammarExplainResult {
         explanation,
@@ -659,10 +698,8 @@ pub fn get_teaching_content(
     cefr: &str,
     node_id: &str,
 ) -> Result<PathTeaching, String> {
-    if !is_path_supported(native_lang, target_lang) {
-        return Err("path is only available for zh-es".to_string());
-    }
-    let pair_key = PRIMARY_PAIR_KEY.to_string();
+    let pair_key = resolve_pair_key(native_lang, target_lang)
+        .ok_or_else(|| format!("no question bank for {native_lang}-{target_lang}"))?;
     let curriculum = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
     if curriculum.status != "active" {
         return Err("path curriculum is not active".to_string());
@@ -711,10 +748,8 @@ pub fn complete_teaching_node(
     cefr: &str,
     node_id: &str,
 ) -> Result<CompleteSectionResult, String> {
-    if !is_path_supported(native_lang, target_lang) {
-        return Err("path is only available for zh-es".to_string());
-    }
-    let pair_key = PRIMARY_PAIR_KEY.to_string();
+    let pair_key = resolve_pair_key(native_lang, target_lang)
+        .ok_or_else(|| format!("no question bank for {native_lang}-{target_lang}"))?;
     let curriculum = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
     if curriculum.status != "active" {
         return Err("path curriculum is not active".to_string());
@@ -813,10 +848,8 @@ pub fn complete_section(
     if total_count <= 0 {
         return Err("total_count must be positive".to_string());
     }
-    if !is_path_supported(native_lang, target_lang) {
-        return Err("path is only available for zh-es".to_string());
-    }
-    let pair_key = PRIMARY_PAIR_KEY.to_string();
+    let pair_key = resolve_pair_key(native_lang, target_lang)
+        .ok_or_else(|| format!("no question bank for {native_lang}-{target_lang}"))?;
     let curriculum = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
     if curriculum.status != "active" {
         return Err("path curriculum is not active".to_string());
@@ -943,9 +976,23 @@ mod tests {
     }
 
     #[test]
-    fn is_path_supported_zh_es_only() {
+    fn is_path_supported_exact_and_fallback() {
         assert!(is_path_supported("zh", "es"));
-        assert!(!is_path_supported("zh", "en"));
+        assert!(is_path_supported("zh", "en"));
+        // No en-es bank; falls back to zh-es (same target language).
+        assert!(is_path_supported("en", "es"));
+        assert!(!is_path_supported("en", "fr"));
+    }
+
+    #[test]
+    fn resolve_pair_key_prefers_exact_then_fallback() {
+        assert_eq!(resolve_pair_key("zh", "es").as_deref(), Some("zh-es"));
+        assert_eq!(
+            resolve_pair_key("zh", "en").as_deref(),
+            Some("pair_1782569237717")
+        );
+        assert_eq!(resolve_pair_key("en", "es").as_deref(), Some("zh-es"));
+        assert!(resolve_pair_key("en", "fr").is_none());
     }
 
     #[test]
@@ -978,9 +1025,19 @@ mod tests {
     fn unsupported_pair_returns_status() {
         let pool = test_pool();
         let user = test_user(&pool);
-        let curriculum = get_path_curriculum(&pool, &user, "zh", "en", "A1").unwrap();
+        let curriculum = get_path_curriculum(&pool, &user, "en", "fr", "A1").unwrap();
         assert_eq!(curriculum.status, "unsupported");
         assert!(curriculum.units.is_empty());
+    }
+
+    #[test]
+    fn en_native_es_target_falls_back_to_zh_es() {
+        let pool = test_pool();
+        let user = test_user(&pool);
+        let curriculum = get_path_curriculum(&pool, &user, "en", "es", "A1").unwrap();
+        assert_eq!(curriculum.pair_key, "zh-es");
+        assert_eq!(curriculum.status, "active");
+        assert!(!curriculum.units.is_empty());
     }
 
     #[test]

@@ -69,7 +69,7 @@
       />
         <div class="send-btn" :class="{ disabled: loading || !inputText.trim() }" @click="sendMessage">{{ t('chat.send') }}</div>
     </div>
-    <div class="chat-safe-bottom" aria-hidden="true" />
+    <div class="chat-safe-bottom" :class="{ 'keyboard-open': keyboardOpen }" aria-hidden="true" />
   </div>
 </template>
 
@@ -119,6 +119,7 @@ const targetLang = ref("es");
 const nativeLang = computed(() => locale.value);
 const targetLabel = computed(() => displayLang(targetLang.value, locale.value));
 const isAmiga = computed(() => contactType.value === "amiga");
+const keyboardOpen = ref(false);
 let cachedViewportHeight = 0;
 let syncRaf = null;
 let unsubscribe = null;
@@ -157,10 +158,12 @@ function onViewportResize() {
   if (!vv) return;
   const diff = cachedViewportHeight - vv.height;
   if (diff > 80) {
+    keyboardOpen.value = true;
     startSync();
     scrollToBottom();
   } else {
     cachedViewportHeight = vv.height;
+    keyboardOpen.value = false;
     stopSync({ reset: true });
   }
 }
@@ -506,5 +509,11 @@ onMounted(async () => {
   flex-shrink: 0;
   height: var(--safe-bottom, env(safe-area-inset-bottom, 0px));
   background: var(--white);
+}
+/* visualViewport sync already shrinks the chat view above the IME;
+   including --safe-bottom (which tracks IME height on Android) would
+   push the input bar up a second time. */
+.chat-safe-bottom.keyboard-open {
+  height: 0;
 }
 </style>

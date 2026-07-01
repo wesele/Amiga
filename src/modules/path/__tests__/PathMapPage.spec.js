@@ -40,6 +40,15 @@ describe("PathMapPage unit guide layout", () => {
     expect(source).not.toMatch(/class="level-pill"/);
   });
 
+  it("keeps the level button compact so header text has more room", () => {
+    const source = readVue("src/modules/path/PathMapPage.vue");
+    const levelBtn = source.match(/\.level-btn\s*\{[\s\S]*?\}/);
+    expect(levelBtn, ".level-btn rule not found").toBeTruthy();
+    expect(levelBtn[0]).toMatch(/min-width:\s*0/);
+    expect(levelBtn[0]).toMatch(/padding:\s*6px\s+10px/);
+    expect(levelBtn[0]).not.toMatch(/min-width:\s*56px/);
+  });
+
   it("keeps path nodes and captions spaced apart", () => {
     const source = readVue("src/modules/path/PathMapPage.vue");
     const pathStep = source.match(/\.path-step\s*\{[\s\S]*?\}/);
