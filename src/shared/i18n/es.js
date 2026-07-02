@@ -406,6 +406,11 @@ export default {
     shareProgressFooter: "Únete — Amiga, aprende idiomas, conecta con el mundo",
     shareCopied: "Copiado al portapapeles",
     shareFail: "Error al compartir",
+    achievements: "Logros",
+    achievementsSummary: "{unlocked}/{total} desbloqueados",
+    achievementLesson: "{n} lecciones",
+    achievementPerfect: "Perfectas ×{n}",
+    achievementStreak: "Racha de {n} días",
   },
 
   learningLang: {

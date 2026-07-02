@@ -77,6 +77,34 @@ describe("ProfilePage", () => {
     expect(streakCell.find(".stat-value").text()).toBe("5");
   });
 
+  it("shows unlocked and locked achievement badges", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([
+        { id: 1, target_language: "es", cefr_level: "A1" },
+      ]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 0, total_learning: 0, total: 0 });
+      if (cmd === "get_read_article_count_cmd") return Promise.resolve(0);
+      if (cmd === "get_learning_streak_cmd") return Promise.resolve({ current: 14, longest: 14, practiced_today: true });
+      if (cmd === "get_lesson_milestone_progress_cmd") {
+        return Promise.resolve({ completed: 25, next_milestone: 50, progress_pct: 50 });
+      }
+      if (cmd === "get_perfect_lesson_streak_cmd") {
+        return Promise.resolve({ current: 3, best: 5 });
+      }
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+    expect(wrapper.text()).toContain("成就徽章");
+    expect(wrapper.text()).toContain("已解锁 6/15");
+    const unlocked = wrapper.findAll(".achievement-badge.unlocked");
+    expect(unlocked.length).toBe(6);
+    expect(unlocked.some((badge) => badge.text().includes("10 节课"))).toBe(true);
+    expect(unlocked.some((badge) => badge.text().includes("14 天连胜"))).toBe(true);
+  });
+
   it("shows the read article count returned by the API", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });

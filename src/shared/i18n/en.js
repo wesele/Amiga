@@ -406,6 +406,11 @@ export default {
     shareProgressFooter: "Join me — Amiga, learn languages, connect worlds",
     shareCopied: "Copied to clipboard",
     shareFail: "Share failed",
+    achievements: "Achievements",
+    achievementsSummary: "{unlocked}/{total} unlocked",
+    achievementLesson: "{n} lessons",
+    achievementPerfect: "Perfect ×{n}",
+    achievementStreak: "{n}-day streak",
   },
 
   learningLang: {

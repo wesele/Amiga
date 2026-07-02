@@ -408,6 +408,11 @@ export default {
     shareProgressFooter: "一起来学吧 — 阿米加，学语言，连世界",
     shareCopied: "已复制到剪贴板",
     shareFail: "分享失败",
+    achievements: "成就徽章",
+    achievementsSummary: "已解锁 {unlocked}/{total}",
+    achievementLesson: "{n} 节课",
+    achievementPerfect: "完美 ×{n}",
+    achievementStreak: "{n} 天连胜",
   },
 
   learningLang: {

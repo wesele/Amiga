@@ -57,6 +57,31 @@
       </div>
     </section>
 
+    <section v-if="showAchievements" class="settings-section">
+      <h3 class="section-header">{{ t('profile.achievements') }}</h3>
+      <p class="section-desc">
+        {{ t('profile.achievementsSummary', {
+          unlocked: achievements.unlockedCount,
+          total: achievements.totalCount,
+        }) }}
+      </p>
+      <div class="achievements-card">
+        <div class="achievements-grid" role="list">
+          <div
+            v-for="badge in achievements.items"
+            :key="badge.id"
+            class="achievement-badge"
+            :class="{ unlocked: badge.unlocked }"
+            role="listitem"
+            :aria-label="t(badge.labelKey, badge.labelParams)"
+          >
+            <span class="achievement-icon" aria-hidden="true">{{ badge.icon }}</span>
+            <span class="achievement-label">{{ t(badge.labelKey, badge.labelParams) }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Learning language switcher -->
     <section class="settings-section">
       <h3 class="section-header">{{ t('learningLang.section') }}</h3>
@@ -168,6 +193,8 @@ import {
   getUserVocabStats,
   getReadArticleCount,
   getLearningStreak,
+  getLessonMilestoneProgress,
+  getPerfectLessonStreak,
   checkUpdate,
   updateLearningGoalCefr,
   shareText as nativeShareText,
@@ -187,6 +214,7 @@ import {
   buildPracticeAccuracy,
   shouldShowPracticeAccuracy,
 } from "./practiceAccuracy.js";
+import { buildAchievements, shouldShowAchievements } from "./achievements.js";
 
 const { t } = useI18n();
 const targetLangStore = useTargetLangStore();
@@ -195,6 +223,16 @@ const goals = ref([]);
 const vocabStats = ref(null);
 const readArticleCount = ref(0);
 const learningStreak = ref(null);
+const lessonMilestone = ref(null);
+const perfectLessonStreak = ref(null);
+const achievements = computed(() =>
+  buildAchievements({
+    lessonProgress: lessonMilestone.value,
+    perfectStreak: perfectLessonStreak.value,
+    learningStreak: learningStreak.value,
+  }),
+);
+const showAchievements = computed(() => shouldShowAchievements(achievements.value));
 const practiceAccuracy = ref(null);
 const showPracticeAccuracy = computed(() =>
   shouldShowPracticeAccuracy(practiceAccuracy.value),
@@ -223,6 +261,7 @@ onMounted(async () => {
     vocabStats.value = await getUserVocabStats(user.value.id, currentTargetLang.value);
     readArticleCount.value = await getReadArticleCount(user.value.id);
     learningStreak.value = await getLearningStreak(user.value.id);
+    await refreshAchievementProgress(ctx.user.native_language, currentTargetLang.value);
     refreshPracticeAccuracy(ctx.user.native_language, currentTargetLang.value);
     if (ctx.currentGoal) currentLevel.value = ctx.cefr;
   } catch (e) {
@@ -255,6 +294,22 @@ function refreshPracticeAccuracy(nativeLang, targetLang) {
   practiceAccuracy.value = buildPracticeAccuracy(pairStatsKey(nativeLang, targetLang));
 }
 
+async function refreshAchievementProgress(nativeLang, targetLang) {
+  lessonMilestone.value = null;
+  perfectLessonStreak.value = null;
+  if (!nativeLang || !targetLang) return;
+  try {
+    lessonMilestone.value = await getLessonMilestoneProgress(nativeLang, targetLang);
+  } catch {
+    lessonMilestone.value = null;
+  }
+  try {
+    perfectLessonStreak.value = await getPerfectLessonStreak();
+  } catch {
+    perfectLessonStreak.value = null;
+  }
+}
+
 async function onSwitchLang(code) {
   if (switching.value || code === currentTargetLang.value) return;
   try {
@@ -265,6 +320,7 @@ async function onSwitchLang(code) {
       if (u) {
         goals.value = await getLearningGoals(u.id);
         refreshPracticeAccuracy(u.native_language, code);
+        await refreshAchievementProgress(u.native_language, code);
       }
       const g = pickLearningGoal(goals.value, code);
       if (g) currentLevel.value = g.cefr_level;
@@ -543,6 +599,55 @@ async function handleInstallUpdate() {
   height: 32px;
   background: var(--border);
   flex-shrink: 0;
+}
+
+.achievements-card {
+  margin: 0 16px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.achievement-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-variant);
+  opacity: 0.45;
+  filter: grayscale(1);
+  transition: opacity var(--transition), filter var(--transition);
+}
+
+.achievement-badge.unlocked {
+  opacity: 1;
+  filter: none;
+  background: var(--green-bg);
+}
+
+.achievement-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.achievement-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-light);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.achievement-badge.unlocked .achievement-label {
+  color: var(--text);
 }
 
 .share-progress-btn {
