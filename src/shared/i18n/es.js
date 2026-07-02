@@ -134,6 +134,8 @@ export default {
     streakMilestone100: "🏆 ¡100 días de racha! Compromiso legendario",
     streakMilestone365: "🏆 ¡Un año de racha! ¡Increíble!",
     dailyGoalMetCelebration: "🎯 ¡Meta diaria cumplida! {done}/{total} lecciones",
+    dailyGoalRemaining: "🎯 {remaining} lección(es) más para la meta de hoy ({done}/{total})",
+    dailyGoalContinue: "Seguir ({remaining} para la meta diaria)",
     weeklyGoalMetCelebration: "📅 ¡Meta semanal cumplida! {done}/{total} días activos",
     lessonMilestoneReached: "🏆 ¡{n} lecciones completadas! Sigue avanzando",
     perfectLesson: "✨ ¡Lección perfecta! Todo correcto, sin errores",

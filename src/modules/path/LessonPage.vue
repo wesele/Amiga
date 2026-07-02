@@ -69,6 +69,15 @@
             })
           }}
         </p>
+        <p v-else-if="showDailyGoalNudge" class="daily-goal-banner is-nudge">
+          {{
+            t("path.dailyGoalRemaining", {
+              remaining: dailyGoalRemaining,
+              done: result.daily_goal_lessons_today,
+              total: result.daily_goal_target,
+            })
+          }}
+        </p>
         <p v-if="result?.passed && result?.weekly_goal_just_met" class="weekly-goal-banner">
           {{
             t("path.weeklyGoalMetCelebration", {
@@ -122,7 +131,13 @@
         <div class="summary-actions">
           <button class="action-btn secondary" @click="retryLesson">{{ t("path.retry") }}</button>
           <button class="action-btn primary" @click="finishLesson">
-            {{ result?.passed ? t("path.continuePath") : t("path.backToPath") }}
+            {{
+              result?.passed
+                ? showDailyGoalNudge
+                  ? t("path.dailyGoalContinue", { remaining: dailyGoalRemaining })
+                  : t("path.continuePath")
+                : t("path.backToPath")
+            }}
           </button>
         </div>
       </div>
@@ -232,6 +247,10 @@ import { recordAccuracyPeak } from "@/modules/profile/accuracyPeakStats.js";
 import { recordComboAttempt } from "./lessonComboStats.js";
 import { recordLessonMistake } from "./mistakeReviewStore.js";
 import { shareLessonResult, shouldShowLessonShare } from "./lessonShare.js";
+import {
+  dailyGoalLessonsRemaining,
+  shouldShowDailyGoalNudge,
+} from "./dailyGoalNudge.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -367,6 +386,10 @@ const perfectLesson = computed(() =>
 );
 
 const showLessonShare = computed(() => shouldShowLessonShare(result.value));
+
+const showDailyGoalNudge = computed(() => shouldShowDailyGoalNudge(result.value));
+
+const dailyGoalRemaining = computed(() => dailyGoalLessonsRemaining(result.value));
 
 const summaryEmoji = computed(() => {
   if (!result.value?.passed) return "💪";
@@ -970,6 +993,12 @@ onMounted(load);
   border-radius: var(--radius-md);
   font-weight: 700;
   animation: goal-pop 0.5s ease;
+}
+
+.daily-goal-banner.is-nudge {
+  background: linear-gradient(135deg, #fff8e6 0%, #ffefcc 100%);
+  color: #8a6200;
+  border: 1px solid #e6b84d;
 }
 
 .weekly-goal-banner {
