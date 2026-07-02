@@ -7,6 +7,9 @@
       <div class="progress-track">
         <div class="progress-fill" :style="{ width: progressPct + '%' }" />
       </div>
+      <span v-if="showProgressLabel" class="progress-label">
+        {{ t("path.lessonProgress", { current: progress.current, total: progress.total }) }}
+      </span>
       <span
         v-if="comboBadgeVisible"
         class="combo-badge"
@@ -322,6 +325,10 @@ import {
   shouldAutoSubmitOnChoice,
 } from "./choiceAutoSubmit.js";
 import { correctAutoAdvanceDelayMs } from "./practiceFlowTiming.js";
+import {
+  lessonSessionProgress,
+  lessonSessionProgressPct,
+} from "./lessonProgress.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -376,16 +383,33 @@ const reinforcementLabel = computed(() =>
   ),
 );
 
+const progress = computed(() =>
+  lessonSessionProgress({
+    inReinforcement: inReinforcement.value,
+    index: index.value,
+    reinforcementIndex: reinforcementIndex.value,
+    totalQuestions: questions.value.length,
+    reinforcementTotal: reinforcementQueue.value.length,
+  }),
+);
+
+const showProgressLabel = computed(
+  () =>
+    !finished.value &&
+    !loading.value &&
+    !error.value &&
+    progress.value.total > 0,
+);
+
 const progressPct = computed(() => {
   if (finished.value) return 100;
-  if (inReinforcement.value) {
-    const total = reinforcementQueue.value.length;
-    if (!total) return 100;
-    const done = reinforcementIndex.value + (showResult.value ? 1 : 0);
-    return Math.round((done / total) * 100);
-  }
-  if (!questions.value.length) return 0;
-  return Math.round((index.value / questions.value.length) * 100);
+  return lessonSessionProgressPct({
+    inReinforcement: inReinforcement.value,
+    index: index.value,
+    reinforcementIndex: reinforcementIndex.value,
+    totalQuestions: questions.value.length,
+    reinforcementTotal: reinforcementQueue.value.length,
+  });
 });
 
 const canCheck = computed(() => {
@@ -895,6 +919,13 @@ onMounted(load);
   background: var(--green);
   border-radius: 999px;
   transition: width 0.25s ease;
+}
+
+.progress-label {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-light);
 }
 
 .combo-badge {

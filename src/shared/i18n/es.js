@@ -182,6 +182,7 @@ export default {
     reviewMistakesHint: "Repasa lo que fallaste antes de seguir",
     reinforceMistakes: "Repasar errores {current}/{total}",
     reinforceMistakesHint: "Vuelve a intentar las preguntas que fallaste",
+    lessonProgress: "{current}/{total}",
     mistakeReviewProgress: "{current}/{total}",
     mistakeReviewBadge: "Repaso espaciado · refuerza errores",
     mistakeReviewSrsStage: "Dominio {stage}/{total}",

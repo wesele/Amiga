@@ -185,6 +185,7 @@ export default {
     reviewMistakesHint: "复习一下答错的题目，加深记忆后再继续",
     reinforceMistakes: "错题巩固 {current}/{total}",
     reinforceMistakesHint: "再练一遍答错的题目，加深记忆",
+    lessonProgress: "{current}/{total}",
     mistakeReviewProgress: "{current}/{total}",
     mistakeReviewBadge: "间隔复习 · 巩固错题",
     mistakeReviewSrsStage: "掌握进度 {stage}/{total}",

@@ -182,6 +182,7 @@ export default {
     reviewMistakesHint: "Go over what you missed before moving on",
     reinforceMistakes: "Review mistakes {current}/{total}",
     reinforceMistakesHint: "Try again on questions you missed to lock them in",
+    lessonProgress: "{current}/{total}",
     mistakeReviewProgress: "{current}/{total}",
     mistakeReviewBadge: "Spaced review · reinforce mistakes",
     mistakeReviewSrsStage: "Mastery {stage}/{total}",

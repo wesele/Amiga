@@ -242,6 +242,64 @@ describe("LessonPage choice auto-submit flow", () => {
   });
 });
 
+describe("LessonPage session progress", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload(4));
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("shows current question progress from the first question", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".progress-label").text()).toBe("1/4");
+    expect(wrapper.find(".progress-fill").attributes("style")).toContain("width: 25%");
+  });
+
+  it("updates progress after advancing to the next question", async () => {
+    vi.useFakeTimers();
+
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    await flushPromises();
+    vi.advanceTimersByTime(700);
+    await flushPromises();
+
+    expect(wrapper.find(".progress-label").text()).toBe("2/4");
+    expect(wrapper.find(".progress-fill").attributes("style")).toContain("width: 50%");
+
+    vi.useRealTimers();
+  });
+});
+
 describe("LessonPage lesson share", () => {
   it("includes share-win button markup on the summary screen", () => {
     const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
