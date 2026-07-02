@@ -163,10 +163,32 @@
           <h3 class="mistake-review-title">{{ t("path.reviewMistakes") }}</h3>
           <p class="mistake-review-hint">{{ t("path.reviewMistakesHint") }}</p>
           <ul class="mistake-list">
-            <li v-for="(item, idx) in mistakes" :key="item.question.id || idx" class="mistake-item">
-              <span class="mistake-index">{{ idx + 1 }}</span>
-              <div class="mistake-body">
+            <li
+              v-for="(item, idx) in mistakes"
+              :key="item.question.id || idx"
+              class="mistake-item"
+              :class="{ 'is-expanded': isMistakeExpanded(item, idx) }"
+            >
+              <button
+                type="button"
+                class="mistake-item-header"
+                :aria-expanded="isMistakeExpanded(item, idx)"
+                @click="toggleMistakeExpand(item, idx)"
+              >
+                <span v-if="item.reinforced" class="mistake-reinforced-badge">
+                  {{ t("path.mistakeSummaryReinforced") }}
+                </span>
+                <span v-else class="mistake-index">{{ idx + 1 }}</span>
                 <p class="mistake-prompt">{{ formatQuestionPrompt(item.question, t) }}</p>
+                <span class="mistake-toggle" aria-hidden="true">
+                  {{
+                    isMistakeExpanded(item, idx)
+                      ? t("path.mistakeSummaryCollapse")
+                      : t("path.mistakeSummaryExpand")
+                  }}
+                </span>
+              </button>
+              <div v-if="isMistakeExpanded(item, idx)" class="mistake-body">
                 <p
                   v-if="formatUserAnswer(item.question, item.answer)"
                   class="mistake-wrong"
@@ -180,6 +202,28 @@
                 <p class="mistake-answer">
                   {{ t("path.correctAnswer", { answer: formatCorrectAnswer(item.question) }) }}
                 </p>
+                <p
+                  v-for="(line, lineIdx) in summaryFeedbackLines(item)"
+                  :key="lineIdx"
+                  class="mistake-feedback-line"
+                  :class="{
+                    'common-mistake-tip': line.type === 'common-mistake',
+                    'near-miss-tip': line.type === 'near-miss',
+                    'wrong-explanation': line.type === 'wrong-explanation' || line.type === 'hint',
+                    'mistake-feedback-fallback': line.type === 'fallback',
+                  }"
+                >
+                  {{ line.text }}
+                </p>
+                <button
+                  v-if="canPlayMistakeAudio(item)"
+                  type="button"
+                  class="mistake-audio-btn"
+                  :disabled="mistakeAudioBusyKey === mistakeItemKey(item, idx)"
+                  @click.stop="playMistakeAudio(item, idx)"
+                >
+                  🔊 {{ t("path.playAudio") }}
+                </button>
               </div>
             </li>
           </ul>
@@ -339,6 +383,13 @@ import { getCommonMistakeFeedback } from "./commonMistakeFeedback.js";
 import { getNearMissFeedback } from "./nearMissAnswer.js";
 import { shouldShowYourAnswer, yourAnswerText } from "./wrongAnswerFeedback.js";
 import { wrongAnswerExplanationText } from "./wrongAnswerExplanation.js";
+import {
+  buildMistakeFeedbackSnapshot,
+  markMistakeReinforced,
+  mistakeItemKey,
+  mistakeSummaryLines,
+} from "./mistakeSummaryFeedback.js";
+import { hasQuestionAudio, speakQuestionAudio } from "./questionAudio.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 import {
   buildFocusArea,
@@ -437,6 +488,8 @@ const dueMistakesAtStart = ref(0);
 const sessionMistakeIds = ref(new Set());
 const dueVocabAtStart = ref(0);
 const focusAreaAtStart = ref(null);
+const expandedMistakeKeys = ref(new Set());
+const mistakeAudioBusyKey = ref(null);
 
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
@@ -880,6 +933,8 @@ function resetSession() {
   result.value = null;
   mistakes.value = [];
   sessionMistakeIds.value = new Set();
+  expandedMistakeKeys.value = new Set();
+  mistakeAudioBusyKey.value = null;
   phase.value = LESSON_PHASE_MAIN;
   reinforcementQueue.value = [];
   reinforcementIndex.value = 0;
@@ -1012,10 +1067,26 @@ function checkCurrentAnswer() {
   updateCombo(lastCorrect.value);
   if (lastCorrect.value) {
     correctCount.value += 1;
+    if (inReinforcement.value && currentQuestion.value?.id) {
+      mistakes.value = markMistakeReinforced(
+        mistakes.value,
+        currentQuestion.value.id,
+      );
+    }
   } else if (!inReinforcement.value) {
     mistakes.value.push({
       question: currentQuestion.value,
       answer: currentAnswer.value,
+      feedback: buildMistakeFeedbackSnapshot(
+        currentQuestion.value,
+        currentAnswer.value,
+        {
+          t,
+          hintAlreadyShown: hintShown.value,
+          hintText: hintText.value,
+        },
+      ),
+      reinforced: false,
     });
     const pairKey = pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang);
     recordLessonMistake(pairKey, currentQuestion.value, currentAnswer.value);
@@ -1108,8 +1179,53 @@ async function submitLesson() {
     );
     result.value = res;
     finished.value = true;
+    initExpandedMistakes();
   } catch (e) {
     error.value = e?.message || String(e);
+  }
+}
+
+function initExpandedMistakes() {
+  if (!mistakes.value.length) {
+    expandedMistakeKeys.value = new Set();
+    return;
+  }
+  expandedMistakeKeys.value = new Set([mistakeItemKey(mistakes.value[0], 0)]);
+}
+
+function isMistakeExpanded(item, idx) {
+  return expandedMistakeKeys.value.has(mistakeItemKey(item, idx));
+}
+
+function toggleMistakeExpand(item, idx) {
+  const key = mistakeItemKey(item, idx);
+  const next = new Set(expandedMistakeKeys.value);
+  if (next.has(key)) {
+    next.delete(key);
+  } else {
+    next.add(key);
+  }
+  expandedMistakeKeys.value = next;
+}
+
+function summaryFeedbackLines(item) {
+  return mistakeSummaryLines(item, t);
+}
+
+function canPlayMistakeAudio(item) {
+  return hasQuestionAudio(item?.question);
+}
+
+async function playMistakeAudio(item, idx) {
+  const key = mistakeItemKey(item, idx);
+  if (!canPlayMistakeAudio(item) || mistakeAudioBusyKey.value === key) return;
+  mistakeAudioBusyKey.value = key;
+  try {
+    await speakQuestionAudio(item.question);
+  } finally {
+    if (mistakeAudioBusyKey.value === key) {
+      mistakeAudioBusyKey.value = null;
+    }
   }
 }
 
@@ -1750,11 +1866,25 @@ onMounted(load);
 }
 
 .mistake-item {
-  display: flex;
-  gap: 10px;
-  padding: 10px 12px;
   background: var(--green-bg);
   border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.mistake-item.is-expanded {
+  border: 1px solid var(--border);
+}
+
+.mistake-item-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
 }
 
 .mistake-index {
@@ -1770,13 +1900,36 @@ onMounted(load);
   text-align: center;
 }
 
+.mistake-reinforced-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--green-bg);
+  border: 1px solid var(--green);
+  color: var(--green-hover);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.mistake-toggle {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-light);
+  line-height: 22px;
+}
+
 .mistake-body {
-  flex: 1;
-  min-width: 0;
+  padding: 0 12px 12px 44px;
 }
 
 .mistake-prompt {
-  margin: 0 0 4px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.4;
@@ -1790,10 +1943,46 @@ onMounted(load);
 }
 
 .mistake-answer {
-  margin: 0;
+  margin: 0 0 8px;
   font-size: 13px;
   color: var(--green-hover);
   line-height: 1.4;
+}
+
+.mistake-feedback-line {
+  margin: 0 0 8px;
+}
+
+.mistake-feedback-line.common-mistake-tip,
+.mistake-feedback-line.near-miss-tip,
+.mistake-feedback-line.wrong-explanation {
+  text-align: left;
+}
+
+.mistake-feedback-fallback {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-light);
+  line-height: 1.4;
+}
+
+.mistake-audio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mistake-audio-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .share-lesson-btn {

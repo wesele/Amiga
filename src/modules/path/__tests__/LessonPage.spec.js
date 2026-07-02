@@ -689,6 +689,11 @@ describe("LessonPage mistake review", () => {
     expect(source).toMatch(/class="mistake-review"/);
     expect(source).toMatch(/path\.reviewMistakes/);
     expect(source).toMatch(/formatQuestionPrompt/);
+    expect(source).toMatch(/mistakeSummaryFeedback\.js/);
+    expect(source).toMatch(/buildMistakeFeedbackSnapshot/);
+    expect(source).toMatch(/summaryFeedbackLines/);
+    expect(source).toMatch(/mistake-item-header/);
+    expect(source).toMatch(/path\.mistakeSummaryExpand/);
   });
 
   it("shows the learner's wrong answer alongside the correct one in the recap", () => {
@@ -697,6 +702,71 @@ describe("LessonPage mistake review", () => {
     expect(source).toMatch(/class="mistake-wrong"/);
     expect(source).toMatch(/path\.mistakeReviewPreviousAnswer/);
     expect(source).toMatch(/item\.answer/);
+    expect(source).toMatch(/markMistakeReinforced/);
+    expect(source).toMatch(/mistake-reinforced-badge/);
+  });
+
+  it("renders saved feedback on the summary screen with the first mistake expanded", async () => {
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    const mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") {
+        return Promise.resolve({
+          section_title_native: "闯关练习",
+          questions: [
+            {
+              id: "q1",
+              type: "T05",
+              sentence: "Hola, me llamo ____.",
+              options: ["Ana", "casa", "perro", "libro"],
+              answerIdx: 0,
+              hint: "想想自我介绍时会说什么名字",
+            },
+          ],
+        });
+      }
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({ passed: true, stars: 2 });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 1;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const mistakeReview = wrapper.find(".mistake-review");
+    expect(mistakeReview.exists()).toBe(true);
+    expect(wrapper.find(".mistake-item.is-expanded").exists()).toBe(true);
+    expect(wrapper.find(".mistake-wrong").text()).toContain("casa");
+    expect(wrapper.find(".mistake-answer").text()).toContain("Ana");
+    expect(wrapper.find(".wrong-explanation").exists()).toBe(true);
+    expect(wrapper.find(".mistake-reinforced-badge").text()).toContain("已巩固");
   });
 });
 
