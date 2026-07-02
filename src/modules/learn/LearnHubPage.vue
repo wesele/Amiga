@@ -159,12 +159,27 @@
           }}
         </p>
         <div
-          v-if="showWeeklyActivity"
+          v-if="showWeeklyGoal"
           class="week-strip"
+          :class="{ 'is-goal-met': weeklyGoal.goal_met }"
           role="img"
-          :aria-label="t('learn.weeklyActivitySummary', { done: weeklyActivity.active_days })"
+          :aria-label="weeklyGoalAriaLabel"
         >
-          <p class="week-strip-label">{{ t("learn.weeklyActivity") }}</p>
+          <div class="week-strip-header">
+            <p class="week-strip-label">{{ t("learn.weeklyGoal") }}</p>
+            <span class="week-goal-badge">
+              {{ t("learn.weeklyGoalSummary", {
+                done: weeklyGoal.active_days,
+                total: weeklyGoal.target_days,
+              }) }}
+            </span>
+          </div>
+          <div class="week-goal-bar" aria-hidden="true">
+            <div
+              class="week-goal-bar-fill"
+              :style="{ width: weeklyGoal.progress_pct + '%' }"
+            />
+          </div>
           <div class="week-days">
             <div
               v-for="day in weeklyActivity.days"
@@ -183,7 +198,11 @@
             </div>
           </div>
           <p class="week-strip-summary">
-            {{ t("learn.weeklyActivitySummary", { done: weeklyActivity.active_days }) }}
+            {{
+              weeklyGoal.goal_met
+                ? t("learn.weeklyGoalMet")
+                : t("learn.weeklyGoalRemaining", { n: weeklyGoal.days_remaining })
+            }}
           </p>
         </div>
       </div>
@@ -234,7 +253,11 @@ import {
   vocabReviewHasMore,
   vocabReviewPreview,
 } from "./vocabReviewCard.js";
-import { hasWeeklyActivity, weekdayLabel } from "./weeklyActivity.js";
+import { weekdayLabel } from "./weeklyActivity.js";
+import {
+  buildWeeklyGoalProgress,
+  shouldShowWeeklyGoal,
+} from "./weeklyGoal.js";
 import {
   lessonMilestoneRingOffset,
   shouldShowLessonMilestone,
@@ -284,7 +307,26 @@ const vocabReviewPreviewText = computed(() => vocabReviewPreview(vocabReviewWord
 
 const vocabReviewTruncated = computed(() => vocabReviewHasMore(vocabReviewWords.value));
 
-const showWeeklyActivity = computed(() => hasWeeklyActivity(weeklyActivity.value));
+const weeklyGoal = computed(() => {
+  if (!weeklyActivity.value || !dailyGoal.value) return null;
+  return buildWeeklyGoalProgress(
+    weeklyActivity.value,
+    dailyGoal.value.target_lessons,
+  );
+});
+
+const showWeeklyGoal = computed(() =>
+  shouldShowWeeklyGoal(weeklyActivity.value, dailyGoal.value?.target_lessons ?? 0),
+);
+
+const weeklyGoalAriaLabel = computed(() => {
+  if (!weeklyGoal.value) return "";
+  if (weeklyGoal.value.goal_met) return t("learn.weeklyGoalMet");
+  return `${t("learn.weeklyGoalSummary", {
+    done: weeklyGoal.value.active_days,
+    total: weeklyGoal.value.target_days,
+  })} · ${t("learn.weeklyGoalRemaining", { n: weeklyGoal.value.days_remaining })}`;
+});
 
 const showLessonMilestone = computed(() => shouldShowLessonMilestone(lessonMilestone.value));
 
@@ -898,13 +940,54 @@ onMounted(loadHubData);
   border-top: 1px solid var(--border);
 }
 
+.week-strip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
 .week-strip-label {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-light);
+}
+
+.week-goal-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  background: #f0f2f5;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.week-strip.is-goal-met .week-goal-badge {
+  color: var(--green-hover);
+  background: #e8f5e9;
+}
+
+.week-goal-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: #f0f2f5;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.week-goal-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f5a623, #e65a00);
+  transition: width 0.4s ease;
+}
+
+.week-strip.is-goal-met .week-goal-bar-fill {
+  background: var(--green);
 }
 
 .week-days {
@@ -968,6 +1051,11 @@ onMounted(loadHubData);
   margin: 8px 0 0;
   font-size: 12px;
   color: var(--text-light);
+}
+
+.week-strip.is-goal-met .week-strip-summary {
+  color: var(--green-hover);
+  font-weight: 600;
 }
 
 .module-grid {

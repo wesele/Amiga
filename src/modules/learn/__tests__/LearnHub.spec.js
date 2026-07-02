@@ -345,7 +345,7 @@ describe("LearnHubPage", () => {
     expect(card.text()).toContain("3 天连胜");
   });
 
-  it("shows weekly activity strip inside daily goal card", async () => {
+  it("shows weekly goal strip inside daily goal card", async () => {
     const router = makeRouter();
     const wrapper = mount(LearnHubPage, {
       global: { plugins: [router] },
@@ -354,12 +354,14 @@ describe("LearnHubPage", () => {
 
     const strip = wrapper.find(".week-strip");
     expect(strip.exists()).toBe(true);
-    expect(strip.text()).toContain("近 7 天");
-    expect(strip.text()).toContain("本周已练习 3/7 天");
+    expect(strip.text()).toContain("本周目标");
+    expect(strip.text()).toContain("3/5");
+    expect(strip.text()).toContain("还差 2 天达成本周目标");
+    expect(wrapper.find(".week-goal-bar-fill").attributes("style")).toContain("width: 60%");
     expect(wrapper.findAll(".week-dot.is-active")).toHaveLength(3);
   });
 
-  it("hides weekly activity strip when activity data is unavailable", async () => {
+  it("hides weekly goal strip when activity data is unavailable", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_weekly_activity_cmd") return Promise.resolve(null);
       return defaultInvoke(cmd);
