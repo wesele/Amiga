@@ -430,6 +430,7 @@ export default {
     achievementVocab: "{n} 个单词",
     achievementMistake: "{n} 道错题",
     achievementCombo: "{n} 连击",
+    achievementAccuracy: "{n}% 正确率",
   },
 
   learningLang: {

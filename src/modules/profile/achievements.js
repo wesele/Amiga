@@ -4,6 +4,7 @@ import { VOCAB_MILESTONES } from "@/modules/learn/vocabMilestones.js";
 import { COMBO_MILESTONES } from "@/modules/path/lessonCombo.js";
 import { PERFECT_LESSON_MILESTONES } from "@/modules/path/perfectLessonStreak.js";
 import { STREAK_MILESTONES } from "@/modules/path/streakMilestone.js";
+import { ACCURACY_MILESTONES } from "./accuracyMilestones.js";
 
 export function isMilestoneUnlocked(threshold, value) {
   return (value ?? 0) >= threshold;
@@ -75,6 +76,15 @@ export function buildComboAchievements(bestCombo) {
   });
 }
 
+export function buildAccuracyAchievements(bestAccuracyPct) {
+  return mapMilestones(ACCURACY_MILESTONES, {
+    category: "accuracy",
+    icon: "🎯",
+    labelKey: "profile.achievementAccuracy",
+    value: bestAccuracyPct,
+  });
+}
+
 export function buildAchievements({
   lessonProgress = null,
   perfectStreak = null,
@@ -82,6 +92,7 @@ export function buildAchievements({
   vocabStats = null,
   mistakeMastery = null,
   comboBest = 0,
+  accuracyBest = 0,
 } = {}) {
   const items = [
     ...buildLessonAchievements(lessonProgress?.completed ?? 0),
@@ -90,6 +101,7 @@ export function buildAchievements({
     ...buildVocabAchievements(vocabStats?.total_known ?? 0),
     ...buildMistakeAchievements(mistakeMastery?.mastered ?? 0),
     ...buildComboAchievements(comboBest ?? 0),
+    ...buildAccuracyAchievements(accuracyBest ?? 0),
   ];
   const unlockedCount = items.filter((item) => item.unlocked).length;
   return {

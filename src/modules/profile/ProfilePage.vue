@@ -247,6 +247,7 @@ import {
   shouldShowPracticeWeakAreas,
 } from "./practiceWeakAreas.js";
 import { buildAchievements, shouldShowAchievements } from "./achievements.js";
+import { loadBestAccuracy, recordAccuracyPeak } from "./accuracyPeakStats.js";
 import { loadBestCombo } from "@/modules/path/lessonComboStats.js";
 import { loadMistakeMasteryStats } from "@/modules/path/mistakeMasteryStats.js";
 import { mistakeMilestoneProgress } from "@/modules/learn/mistakeMilestones.js";
@@ -262,6 +263,7 @@ const lessonMilestone = ref(null);
 const perfectLessonStreak = ref(null);
 const mistakeMastery = ref(null);
 const comboBest = ref(0);
+const accuracyBest = ref(0);
 const achievements = computed(() =>
   buildAchievements({
     lessonProgress: lessonMilestone.value,
@@ -270,6 +272,7 @@ const achievements = computed(() =>
     vocabStats: vocabStats.value,
     mistakeMastery: mistakeMastery.value,
     comboBest: comboBest.value,
+    accuracyBest: accuracyBest.value,
   }),
 );
 const showAchievements = computed(() => shouldShowAchievements(achievements.value));
@@ -334,9 +337,12 @@ async function onSwitchLevel(level) {
 function refreshPracticeAccuracy(nativeLang, targetLang) {
   if (!nativeLang || !targetLang) {
     practiceAccuracy.value = null;
+    accuracyBest.value = 0;
     return;
   }
-  practiceAccuracy.value = buildPracticeAccuracy(pairStatsKey(nativeLang, targetLang));
+  const pairKey = pairStatsKey(nativeLang, targetLang);
+  practiceAccuracy.value = buildPracticeAccuracy(pairKey);
+  accuracyBest.value = recordAccuracyPeak(pairKey).best;
 }
 
 function refreshPracticeWeakAreas(nativeLang, targetLang) {
@@ -352,6 +358,7 @@ async function refreshAchievementProgress(nativeLang, targetLang) {
   perfectLessonStreak.value = null;
   mistakeMastery.value = null;
   comboBest.value = 0;
+  accuracyBest.value = 0;
   if (!nativeLang || !targetLang) return;
   try {
     lessonMilestone.value = await getLessonMilestoneProgress(nativeLang, targetLang);
@@ -367,6 +374,7 @@ async function refreshAchievementProgress(nativeLang, targetLang) {
   const mastered = loadMistakeMasteryStats(pairKey);
   mistakeMastery.value = mistakeMilestoneProgress(mastered);
   comboBest.value = loadBestCombo(pairKey);
+  accuracyBest.value = loadBestAccuracy(pairKey);
 }
 
 async function onSwitchLang(code) {

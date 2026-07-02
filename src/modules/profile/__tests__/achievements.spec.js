@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildAchievements,
+  buildAccuracyAchievements,
   buildComboAchievements,
   buildLessonAchievements,
   buildMistakeAchievements,
@@ -88,6 +89,20 @@ describe("achievements", () => {
     });
   });
 
+  it("builds accuracy achievements from peak practice accuracy", () => {
+    const items = buildAccuracyAchievements(85);
+    expect(items).toHaveLength(4);
+    expect(items.filter((item) => item.unlocked).map((item) => item.threshold)).toEqual([
+      70, 80,
+    ]);
+    expect(items[0]).toMatchObject({
+      id: "accuracy-70",
+      category: "accuracy",
+      icon: "🎯",
+      labelKey: "profile.achievementAccuracy",
+    });
+  });
+
   it("aggregates all achievement tracks", () => {
     const result = buildAchievements({
       lessonProgress: { completed: 50 },
@@ -96,9 +111,10 @@ describe("achievements", () => {
       vocabStats: { total_known: 150 },
       mistakeMastery: { mastered: 12 },
       comboBest: 5,
+      accuracyBest: 85,
     });
-    expect(result.totalCount).toBe(25);
-    expect(result.unlockedCount).toBe(11);
+    expect(result.totalCount).toBe(29);
+    expect(result.unlockedCount).toBe(13);
     expect(shouldShowAchievements(result)).toBe(true);
   });
 

@@ -202,6 +202,7 @@ import { perfectLessonMilestoneKey } from "./perfectLessonStreak.js";
 import { getCommonMistakeFeedback } from "./commonMistakeFeedback.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 import { pairStatsKey, recordAnswer } from "@/modules/learn/questionTypeStats.js";
+import { recordAccuracyPeak } from "@/modules/profile/accuracyPeakStats.js";
 import { recordComboAttempt } from "./lessonComboStats.js";
 import { recordLessonMistake } from "./mistakeReviewStore.js";
 
@@ -507,11 +508,9 @@ function onPrimaryAction() {
     lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
     playAnswerFeedback(lastCorrect.value);
     if (!inReinforcement.value && currentQuestion.value?.type) {
-      recordAnswer(
-        pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang),
-        currentQuestion.value.type,
-        lastCorrect.value,
-      );
+      const pairKey = pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang);
+      recordAnswer(pairKey, currentQuestion.value.type, lastCorrect.value);
+      recordAccuracyPeak(pairKey);
     }
     updateCombo(lastCorrect.value);
     if (lastCorrect.value) {

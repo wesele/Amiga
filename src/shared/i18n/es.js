@@ -428,6 +428,7 @@ export default {
     achievementVocab: "{n} palabras",
     achievementMistake: "{n} errores",
     achievementCombo: "{n} seguidas",
+    achievementAccuracy: "{n}% de aciertos",
   },
 
   learningLang: {
