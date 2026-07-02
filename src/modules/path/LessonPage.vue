@@ -28,6 +28,14 @@
         <p v-if="result?.passed && result?.streak_extended" class="streak-banner">
           {{ t("path.streakExtended", { n: result.streak_current }) }}
         </p>
+        <p v-if="result?.passed && result?.daily_goal_just_met" class="daily-goal-banner">
+          {{
+            t("path.dailyGoalMetCelebration", {
+              done: result.daily_goal_lessons_today,
+              total: result.daily_goal_target,
+            })
+          }}
+        </p>
         <p v-if="result?.level_upgraded" class="level-up-banner">
           🎓 {{ t("path.levelUp", { level: result.new_cefr_level }) }}
         </p>
@@ -411,6 +419,30 @@ onMounted(load);
   color: var(--orange-hover);
   border-radius: var(--radius-md);
   font-weight: 700;
+}
+
+.daily-goal-banner {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  background: var(--green-bg);
+  color: var(--green-hover);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  animation: goal-pop 0.5s ease;
+}
+
+@keyframes goal-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  60% {
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .level-up-banner {

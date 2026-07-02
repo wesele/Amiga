@@ -48,6 +48,7 @@ export default {
     progress: "已完成 {done}/{total} 关",
     streakDays: "{n} 天连胜",
     streakExtended: "🔥 {n} 天连胜！",
+    dailyGoalMetCelebration: "🎯 今日目标达成！完成 {done}/{total} 节课",
     comingSoon: "题目筹备中",
     playAudio: "播放",
     listenChoose: "听句子，选择正确答案",

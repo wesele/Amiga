@@ -45,6 +45,7 @@ export default {
     progress: "{done}/{total} secciones completadas",
     streakDays: "Racha de {n} días",
     streakExtended: "🔥 ¡Racha de {n} días!",
+    dailyGoalMetCelebration: "🎯 ¡Meta diaria cumplida! {done}/{total} lecciones",
     comingSoon: "Próximamente",
     playAudio: "Reproducir",
     listenChoose: "Escucha y elige la respuesta correcta",

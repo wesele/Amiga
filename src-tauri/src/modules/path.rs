@@ -97,6 +97,12 @@ pub struct CompleteSectionResult {
     pub streak_current: i32,
     #[serde(default)]
     pub streak_extended: bool,
+    #[serde(default)]
+    pub daily_goal_just_met: bool,
+    #[serde(default)]
+    pub daily_goal_lessons_today: i32,
+    #[serde(default)]
+    pub daily_goal_target: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -831,6 +837,8 @@ pub fn complete_teaching_node(
 
     let (streak_current, streak_extended) =
         streak_fields_for_completion(pool, user_id, passed);
+    let (daily_goal_just_met, daily_goal_lessons_today, daily_goal_target) =
+        daily_goal_fields_for_completion(pool, user_id, target_lang, passed);
 
     Ok(CompleteSectionResult {
         stars: new_stars,
@@ -841,6 +849,9 @@ pub fn complete_teaching_node(
         new_cefr_level,
         streak_current,
         streak_extended,
+        daily_goal_just_met,
+        daily_goal_lessons_today,
+        daily_goal_target,
     })
 }
 
@@ -956,6 +967,8 @@ pub fn complete_section(
 
     let (streak_current, streak_extended) =
         streak_fields_for_completion(pool, user_id, passed);
+    let (daily_goal_just_met, daily_goal_lessons_today, daily_goal_target) =
+        daily_goal_fields_for_completion(pool, user_id, target_lang, passed);
 
     Ok(CompleteSectionResult {
         stars: new_stars,
@@ -966,7 +979,43 @@ pub fn complete_section(
         new_cefr_level,
         streak_current,
         streak_extended,
+        daily_goal_just_met,
+        daily_goal_lessons_today,
+        daily_goal_target,
     })
+}
+
+fn daily_goal_fields_for_completion(
+    pool: &DatabasePool,
+    user_id: &str,
+    target_lang: &str,
+    passed: bool,
+) -> (bool, i32, i32) {
+    if !passed {
+        return (false, 0, 0);
+    }
+    let daily_minutes = match user::get_daily_minutes_for_target(pool, user_id, target_lang) {
+        Ok(minutes) => minutes,
+        Err(e) => {
+            log::warn!("Failed to load daily minutes: {}", e);
+            return (false, 0, 0);
+        }
+    };
+    match crate::modules::streak::get_daily_goal_progress(pool, user_id, daily_minutes) {
+        Ok(progress) => {
+            let just_met =
+                progress.goal_met && progress.lessons_today == progress.target_lessons;
+            (
+                just_met,
+                progress.lessons_today,
+                progress.target_lessons,
+            )
+        }
+        Err(e) => {
+            log::warn!("Failed to load daily goal progress: {}", e);
+            (false, 0, 0)
+        }
+    }
 }
 
 fn streak_fields_for_completion(
@@ -1101,6 +1150,33 @@ mod tests {
         let result = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5).unwrap();
         assert!(result.passed);
         assert_eq!(result.stars, 3);
+    }
+
+    #[test]
+    fn complete_section_reports_daily_goal_just_met() {
+        let pool = test_pool();
+        let user = test_user(&pool);
+        let curriculum = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
+        let grammar = curriculum.units[0].sections[0].id.clone();
+        let vocab = curriculum.units[0].sections[1].id.clone();
+        let practice = curriculum.units[0].sections[2].id.clone();
+
+        let after_grammar =
+            complete_teaching_node(&pool, &user, "zh", "es", "A1", &grammar).unwrap();
+        assert!(!after_grammar.daily_goal_just_met);
+        assert_eq!(after_grammar.daily_goal_lessons_today, 1);
+        assert_eq!(after_grammar.daily_goal_target, 2);
+
+        let after_vocab = complete_teaching_node(&pool, &user, "zh", "es", "A1", &vocab).unwrap();
+        assert!(after_vocab.daily_goal_just_met);
+        assert_eq!(after_vocab.daily_goal_lessons_today, 2);
+        assert_eq!(after_vocab.daily_goal_target, 2);
+
+        let after_practice =
+            complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5).unwrap();
+        assert!(!after_practice.daily_goal_just_met);
+        assert_eq!(after_practice.daily_goal_lessons_today, 3);
+        assert_eq!(after_practice.daily_goal_target, 2);
     }
 
     #[test]
