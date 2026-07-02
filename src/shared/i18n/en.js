@@ -363,6 +363,7 @@ export default {
     reviewReinforce: "Needs reinforcement",
     reviewStillLearning: "Still learning",
     reviewGotIt: "Got it!",
+    reviewSwipeHint: "Swipe left: still learning · right: got it",
     reviewComplete: "Review complete!",
     reviewCompleteHint: "You reviewed {n} words — great spaced practice.",
     reviewMasteredCount: "{n} marked as mastered",

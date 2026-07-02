@@ -67,17 +67,41 @@
         <p v-if="currentWord?.mastery === 1" class="review-badge">
           {{ t("vocab.reviewReinforce") }}
         </p>
+        <p v-if="flipped && !acting && !ratingAck" class="swipe-guide">
+          {{ t("vocab.reviewSwipeHint") }}
+        </p>
         <button
           type="button"
           class="flashcard"
           :class="{
             'is-flipped': flipped,
+            'is-swipe-ready': swipeEnabled,
+            'is-swiping': swipeDragging,
             'is-ack-positive': ratingAck === 'positive',
             'is-ack-learning': ratingAck === 'learning',
           }"
+          :style="swipeCardStyle"
           :aria-label="flipped ? t('vocab.reviewTapToHide') : t('vocab.reviewTapToReveal')"
-          @click="toggleFlip"
+          @click="onCardClick"
+          @pointerdown="onSwipePointerDown"
+          @pointermove="onSwipePointerMove"
+          @pointerup="onSwipePointerUp"
+          @pointercancel="onSwipePointerCancel"
         >
+          <div v-if="flipped" class="swipe-overlays" aria-hidden="true">
+            <span
+              class="swipe-overlay swipe-overlay-left"
+              :style="{ opacity: swipeHints.stillLearning }"
+            >
+              {{ t("vocab.reviewStillLearning") }}
+            </span>
+            <span
+              class="swipe-overlay swipe-overlay-right"
+              :style="{ opacity: swipeHints.gotIt }"
+            >
+              {{ t("vocab.reviewGotIt") }}
+            </span>
+          </div>
           <div class="flashcard-inner">
             <div class="flashcard-face flashcard-front">
               <span class="flashcard-word">{{ currentWord?.word }}</span>
@@ -146,6 +170,14 @@ import {
   shouldOfferVocabContinuation,
   vocabContinueLabelKey,
 } from "./vocabReviewContinuation.js";
+import {
+  canSwipeToRate,
+  isVocabSwipeTap,
+  shouldAbortVocabSwipe,
+  vocabSwipeDragStyle,
+  vocabSwipeHintOpacity,
+  vocabSwipeRating,
+} from "./vocabSwipeRating.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -158,6 +190,13 @@ const index = ref(0);
 const flipped = ref(false);
 const cardRated = ref(false);
 const ratingAck = ref(null);
+const swipeOffsetX = ref(0);
+const swipeDragging = ref(false);
+const swipeConsumed = ref(false);
+let swipeStartX = 0;
+let swipeStartY = 0;
+let swipeActive = false;
+let swipeAborted = false;
 const finished = ref(false);
 const acting = ref(false);
 const masteredCount = ref(0);
@@ -211,15 +250,106 @@ const continueReviewLabel = computed(() => {
   return t(key, { n });
 });
 
+const swipeEnabled = computed(() =>
+  canSwipeToRate({
+    flipped: flipped.value,
+    acting: acting.value,
+    ratingAck: ratingAck.value,
+  }),
+);
+
+const swipeCardStyle = computed(() => {
+  if (!swipeDragging.value || swipeOffsetX.value === 0) return undefined;
+  return vocabSwipeDragStyle(swipeOffsetX.value);
+});
+
+const swipeHints = computed(() => vocabSwipeHintOpacity(swipeOffsetX.value));
+
+function resetSwipeState() {
+  swipeOffsetX.value = 0;
+  swipeDragging.value = false;
+  swipeActive = false;
+  swipeAborted = false;
+}
+
+function onSwipePointerDown(event) {
+  if (!swipeEnabled.value) return;
+  swipeStartX = event.clientX;
+  swipeStartY = event.clientY;
+  swipeActive = true;
+  swipeAborted = false;
+  swipeDragging.value = false;
+  swipeOffsetX.value = 0;
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+}
+
+function onSwipePointerMove(event) {
+  if (!swipeActive || swipeAborted) return;
+  const deltaX = event.clientX - swipeStartX;
+  const deltaY = event.clientY - swipeStartY;
+  if (!swipeDragging.value && shouldAbortVocabSwipe({ deltaX, deltaY })) {
+    swipeAborted = true;
+    resetSwipeState();
+    return;
+  }
+  if (!swipeDragging.value && !isVocabSwipeTap(deltaX, deltaY) && Math.abs(deltaX) > 6) {
+    swipeDragging.value = true;
+  }
+  if (swipeDragging.value) {
+    swipeOffsetX.value = deltaX;
+    event.preventDefault();
+  }
+}
+
+function onSwipePointerUp(event) {
+  if (!swipeActive) return;
+  const deltaX = event.clientX - swipeStartX;
+  const deltaY = event.clientY - swipeStartY;
+  const rating = swipeDragging.value ? vocabSwipeRating(deltaX) : null;
+
+  if (rating === "got_it") {
+    swipeConsumed.value = true;
+    resetSwipeState();
+    markGotIt();
+    return;
+  }
+  if (rating === "still_learning") {
+    swipeConsumed.value = true;
+    resetSwipeState();
+    markStillLearning();
+    return;
+  }
+
+  resetSwipeState();
+
+  if (!isVocabSwipeTap(deltaX, deltaY)) {
+    swipeConsumed.value = true;
+  }
+}
+
+function onSwipePointerCancel() {
+  resetSwipeState();
+}
+
 function toggleFlip() {
   if (!currentWord.value) return;
   flipped.value = !flipped.value;
+}
+
+function onCardClick() {
+  if (swipeConsumed.value) {
+    swipeConsumed.value = false;
+    return;
+  }
+  toggleFlip();
 }
 
 function resetCard() {
   flipped.value = false;
   cardRated.value = false;
   ratingAck.value = null;
+  resetSwipeState();
+  swipeConsumed.value = false;
 }
 
 async function load() {
@@ -481,7 +611,16 @@ onMounted(load);
   font-weight: 600;
 }
 
+.swipe-guide {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
 .flashcard {
+  position: relative;
   width: 100%;
   max-width: 360px;
   height: 280px;
@@ -490,6 +629,47 @@ onMounted(load);
   background: transparent;
   padding: 0;
   cursor: pointer;
+  touch-action: manipulation;
+}
+
+.flashcard.is-swipe-ready {
+  touch-action: none;
+}
+
+.flashcard.is-swiping .flashcard-inner {
+  transition: none;
+}
+
+.swipe-overlays {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.swipe-overlay {
+  position: absolute;
+  top: 50%;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  transform: translateY(-50%);
+  transition: opacity 0.08s ease;
+}
+
+.swipe-overlay-left {
+  left: 12px;
+  color: #9a6200;
+  background: rgba(240, 180, 41, 0.22);
+  border: 2px solid rgba(240, 180, 41, 0.55);
+}
+
+.swipe-overlay-right {
+  right: 12px;
+  color: #2d7a18;
+  background: rgba(88, 204, 2, 0.18);
+  border: 2px solid rgba(88, 204, 2, 0.5);
 }
 
 .flashcard-inner {

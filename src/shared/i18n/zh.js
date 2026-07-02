@@ -366,6 +366,7 @@ export default {
     reviewReinforce: "待巩固",
     reviewStillLearning: "还在学",
     reviewGotIt: "掌握了！",
+    reviewSwipeHint: "左滑还在学 · 右滑掌握",
     reviewComplete: "复习完成！",
     reviewCompleteHint: "本轮复习了 {n} 个单词，间隔重复效果更好。",
     reviewMasteredCount: "标记掌握 {n} 个",

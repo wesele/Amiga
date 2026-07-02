@@ -363,6 +363,7 @@ export default {
     reviewReinforce: "Por reforzar",
     reviewStillLearning: "Sigo aprendiendo",
     reviewGotIt: "¡Lo tengo!",
+    reviewSwipeHint: "Desliza izquierda: sigo aprendiendo · derecha: lo tengo",
     reviewComplete: "¡Repaso completo!",
     reviewCompleteHint: "Repasaste {n} palabras — buena práctica espaciada.",
     reviewMasteredCount: "{n} marcadas como dominadas",

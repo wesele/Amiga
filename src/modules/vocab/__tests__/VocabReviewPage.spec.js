@@ -1,10 +1,17 @@
 import { beforeEach, describe, expect, it, vi, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
 import * as vocabRatingFeedback from "../vocabRatingFeedback.js";
+
+const VOCAB_PAGE_SOURCE = readFileSync(
+  resolve(import.meta.dirname, "../VocabReviewPage.vue"),
+  "utf8",
+);
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
@@ -143,6 +150,53 @@ describe("VocabReviewPage", () => {
     await flushPromises();
 
     expect(wrapper.find(".flashcard").classes()).not.toContain("is-ack-positive");
+    expect(wrapper.text()).toContain("casa");
+  });
+
+  it("wires swipe-to-rate handlers on the flashcard", () => {
+    expect(VOCAB_PAGE_SOURCE).toMatch(/vocabSwipeRating\.js/);
+    expect(VOCAB_PAGE_SOURCE).toMatch(/@pointerdown="onSwipePointerDown"/);
+    expect(VOCAB_PAGE_SOURCE).toMatch(/reviewSwipeHint/);
+    expect(VOCAB_PAGE_SOURCE).toMatch(/swipe-overlay-left/);
+  });
+
+  it("rates a card when the learner swipes right after flipping", async () => {
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    const card = wrapper.find(".flashcard");
+
+    await card.trigger("pointerdown", { clientX: 100, clientY: 200 });
+    await card.trigger("pointermove", { clientX: 190, clientY: 200 });
+    await card.trigger("pointerup", { clientX: 190, clientY: 200 });
+    await flushPromises();
+
+    expect(vocabRatingFeedback.playVocabRatingFeedback).toHaveBeenCalledWith(2);
+    expect(wrapper.text()).toContain("casa");
+  });
+
+  it("rates a card when the learner swipes left after flipping", async () => {
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    const card = wrapper.find(".flashcard");
+
+    await card.trigger("pointerdown", { clientX: 200, clientY: 200 });
+    await card.trigger("pointermove", { clientX: 110, clientY: 200 });
+    await card.trigger("pointerup", { clientX: 110, clientY: 200 });
+    await flushPromises();
+
+    expect(vocabRatingFeedback.playVocabRatingFeedback).toHaveBeenCalledWith(1);
     expect(wrapper.text()).toContain("casa");
   });
 
