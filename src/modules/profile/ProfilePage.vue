@@ -17,7 +17,7 @@
             </div>
           </div>
         </div>
-        <div class="stats-row">
+        <div class="stats-row" :class="{ 'has-accuracy': showPracticeAccuracy }">
           <div class="stat-cell">
             <div class="stat-value">{{ learningStreak?.current || 0 }}</div>
             <div class="stat-label">{{ t('profile.streak') }}</div>
@@ -32,6 +32,18 @@
             <div class="stat-value">{{ readArticleCount }}</div>
             <div class="stat-label">{{ t('profile.articles') }}</div>
           </div>
+          <template v-if="showPracticeAccuracy">
+            <div class="stat-divider" />
+            <div class="stat-cell">
+              <div
+                class="stat-value"
+                :class="accuracyValueClass(practiceAccuracy.accuracyPct)"
+              >
+                {{ practiceAccuracy.accuracyPct }}%
+              </div>
+              <div class="stat-label">{{ t('profile.accuracy') }}</div>
+            </div>
+          </template>
         </div>
         <button
           type="button"
@@ -169,6 +181,12 @@ import { AVAILABLE_LANGUAGES, LEARNING_CEFR_LEVELS } from "@/shared/constants.js
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
 import { shareLearningProgress } from "./shareProgress.js";
+import { pairStatsKey } from "@/modules/learn/questionTypeStats.js";
+import {
+  accuracyValueClass,
+  buildPracticeAccuracy,
+  shouldShowPracticeAccuracy,
+} from "./practiceAccuracy.js";
 
 const { t } = useI18n();
 const targetLangStore = useTargetLangStore();
@@ -177,6 +195,10 @@ const goals = ref([]);
 const vocabStats = ref(null);
 const readArticleCount = ref(0);
 const learningStreak = ref(null);
+const practiceAccuracy = ref(null);
+const showPracticeAccuracy = computed(() =>
+  shouldShowPracticeAccuracy(practiceAccuracy.value),
+);
 const sharing = ref(false);
 const shareStatus = ref("");
 let shareStatusTimer = null;
@@ -201,6 +223,7 @@ onMounted(async () => {
     vocabStats.value = await getUserVocabStats(user.value.id, currentTargetLang.value);
     readArticleCount.value = await getReadArticleCount(user.value.id);
     learningStreak.value = await getLearningStreak(user.value.id);
+    refreshPracticeAccuracy(ctx.user.native_language, currentTargetLang.value);
     if (ctx.currentGoal) currentLevel.value = ctx.cefr;
   } catch (e) {
     console.error("Failed to load profile:", e);
@@ -224,6 +247,14 @@ async function onSwitchLevel(level) {
   }
 }
 
+function refreshPracticeAccuracy(nativeLang, targetLang) {
+  if (!nativeLang || !targetLang) {
+    practiceAccuracy.value = null;
+    return;
+  }
+  practiceAccuracy.value = buildPracticeAccuracy(pairStatsKey(nativeLang, targetLang));
+}
+
 async function onSwitchLang(code) {
   if (switching.value || code === currentTargetLang.value) return;
   try {
@@ -231,7 +262,10 @@ async function onSwitchLang(code) {
     // Refresh goals list so the level summary updates.
     try {
       const u = user.value;
-      if (u) goals.value = await getLearningGoals(u.id);
+      if (u) {
+        goals.value = await getLearningGoals(u.id);
+        refreshPracticeAccuracy(u.native_language, code);
+      }
       const g = pickLearningGoal(goals.value, code);
       if (g) currentLevel.value = g.cefr_level;
     } catch (_) { /* ignore */ }
@@ -268,6 +302,7 @@ async function onShareProgress() {
       streakLongest: learningStreak.value?.longest || 0,
       wordsKnown: vocabStats.value?.total_known || 0,
       articlesRead: readArticleCount.value,
+      practiceAccuracyPct: practiceAccuracy.value?.accuracyPct ?? null,
       t,
       nativeShareText,
       showShareStatus,
@@ -469,6 +504,13 @@ async function handleInstallUpdate() {
   border-top: 1px solid var(--border);
   padding: 4px 0;
 }
+.stats-row.has-accuracy {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.stats-row.has-accuracy .stat-divider {
+  display: none;
+}
 .stat-cell {
   flex: 1;
   text-align: center;
@@ -478,6 +520,18 @@ async function handleInstallUpdate() {
   font-size: 18px;
   font-weight: 600;
   color: var(--green);
+}
+.stat-value.tier-excellent {
+  color: #2e9e44;
+}
+.stat-value.tier-good {
+  color: var(--green);
+}
+.stat-value.tier-fair {
+  color: #c47d00;
+}
+.stat-value.tier-needs_work {
+  color: #d64545;
 }
 .stat-label {
   font-size: 11px;

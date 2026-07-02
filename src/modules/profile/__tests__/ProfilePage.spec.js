@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
+import { STATS_STORAGE_KEY } from "@/modules/learn/questionTypeStats.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -29,6 +30,7 @@ describe("ProfilePage", () => {
 
   beforeEach(() => {
     setActivePinia(createPinia());
+    localStorage.clear();
     mockInvoke = vi.fn();
     api.__setInvoke(mockInvoke);
   });
@@ -89,6 +91,60 @@ describe("ProfilePage", () => {
     const cells = wrapper.findAll(".stat-cell");
     const readCell = cells.find((c) => c.text().includes("已读文章"));
     expect(readCell.find(".stat-value").text()).toBe("7");
+  });
+
+  it("shows practice accuracy when enough lesson answers are tracked", async () => {
+    localStorage.setItem(
+      STATS_STORAGE_KEY,
+      JSON.stringify({
+        "zh-es": {
+          T01: { correct: 8, wrong: 2 },
+          T09: { correct: 4, wrong: 1 },
+        },
+      }),
+    );
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([
+        { id: 1, target_language: "es", cefr_level: "A1" },
+      ]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 0, total_learning: 0, total: 0 });
+      if (cmd === "get_read_article_count_cmd") return Promise.resolve(0);
+      if (cmd === "get_learning_streak_cmd") return Promise.resolve({ current: 0, longest: 0, practiced_today: false });
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+    expect(wrapper.find(".stats-row.has-accuracy").exists()).toBe(true);
+    const accuracyCell = wrapper.findAll(".stat-cell").find((c) => c.text().includes("答题正确率"));
+    expect(accuracyCell.find(".stat-value").text()).toBe("80%");
+  });
+
+  it("hides practice accuracy until enough lesson answers are tracked", async () => {
+    localStorage.setItem(
+      STATS_STORAGE_KEY,
+      JSON.stringify({
+        "zh-es": {
+          T01: { correct: 2, wrong: 1 },
+        },
+      }),
+    );
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([
+        { id: 1, target_language: "es", cefr_level: "A1" },
+      ]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 0, total_learning: 0, total: 0 });
+      if (cmd === "get_read_article_count_cmd") return Promise.resolve(0);
+      if (cmd === "get_learning_streak_cmd") return Promise.resolve({ current: 0, longest: 0, practiced_today: false });
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+    expect(wrapper.find(".stats-row.has-accuracy").exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("答题正确率");
   });
 
   it("shows the mastered vocab count returned by the API", async () => {

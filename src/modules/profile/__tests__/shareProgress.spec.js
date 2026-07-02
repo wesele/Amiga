@@ -8,6 +8,7 @@ const t = (key, params = {}) => {
     "profile.shareProgressIntroNoGoal":
       "🔥 {name} is on a {streak}-day streak on Amiga!",
     "profile.shareProgressStats": "📚 {words} words mastered · {articles} articles read",
+    "profile.shareProgressAccuracy": "🎯 {pct}% practice accuracy",
     "profile.shareProgressLongest": "🏆 Longest streak: {n} days",
     "profile.shareProgressFooter": "Join me — Amiga, learn languages, connect worlds",
     "profile.shareProgressTitle": "My Amiga progress",
@@ -55,6 +56,35 @@ describe("buildProgressShareText", () => {
       t,
     });
     expect(text).not.toContain("Longest streak");
+  });
+
+  it("includes practice accuracy when enough lesson data exists", () => {
+    const text = buildProgressShareText({
+      nickname: "Hao",
+      targetLangLabel: "Spanish",
+      level: "A1",
+      streakCurrent: 5,
+      streakLongest: 5,
+      wordsKnown: 42,
+      articlesRead: 3,
+      practiceAccuracyPct: 82,
+      t,
+    });
+    expect(text).toContain("82% practice accuracy");
+  });
+
+  it("omits practice accuracy when not available", () => {
+    const text = buildProgressShareText({
+      nickname: "Hao",
+      targetLangLabel: "Spanish",
+      level: "A1",
+      streakCurrent: 5,
+      streakLongest: 5,
+      wordsKnown: 42,
+      articlesRead: 3,
+      t,
+    });
+    expect(text).not.toContain("practice accuracy");
   });
 
   it("uses no-goal intro when language is missing", () => {

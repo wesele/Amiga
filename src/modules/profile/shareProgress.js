@@ -12,6 +12,7 @@ export function buildProgressShareText({
   streakLongest = 0,
   wordsKnown = 0,
   articlesRead = 0,
+  practiceAccuracyPct = null,
   t,
 }) {
   if (!t) return "";
@@ -43,6 +44,10 @@ export function buildProgressShareText({
     }),
   );
 
+  if (Number.isFinite(practiceAccuracyPct)) {
+    lines.push(t("profile.shareProgressAccuracy", { pct: practiceAccuracyPct }));
+  }
+
   if (streakLongest > streakCurrent) {
     lines.push(t("profile.shareProgressLongest", { n: streakLongest }));
   }
@@ -59,6 +64,7 @@ export async function shareLearningProgress({
   streakLongest,
   wordsKnown,
   articlesRead,
+  practiceAccuracyPct = null,
   t,
   nativeShareText,
   showShareStatus,
@@ -75,6 +81,7 @@ export async function shareLearningProgress({
     streakLongest,
     wordsKnown,
     articlesRead,
+    practiceAccuracyPct,
     t,
   });
 
