@@ -35,6 +35,35 @@ export function srsDotStates(level) {
 }
 
 /**
+ * SRS level shown in the mastery row. After a correct check, preview the
+ * next stage so learners see progress tick forward before advancing.
+ */
+export function srsDisplayLevel(level, { answeredCorrect = false } = {}) {
+  const normalized = normalizeSrsLevel(level);
+  if (!answeredCorrect) return normalized;
+  return Math.min(normalized + 1, MASTERED_LEVEL - 1);
+}
+
+/**
+ * 0-based index of the dot that just filled after a correct answer, or -1.
+ */
+export function srsJustFilledDotIndex(level, { answeredCorrect = false } = {}) {
+  if (!answeredCorrect) return -1;
+  const normalized = normalizeSrsLevel(level);
+  if (normalized >= MASTERED_LEVEL - 1) return -1;
+  return srsStageNumber(level);
+}
+
+/** Dot states reflecting an in-flight correct answer (preview next stage). */
+export function srsDisplayDotStates(level, { answeredCorrect = false } = {}) {
+  return srsDotStates(srsDisplayLevel(level, { answeredCorrect }));
+}
+
+export function srsDisplayStageLabel(level, t, { answeredCorrect = false } = {}) {
+  return srsStageLabel(srsDisplayLevel(level, { answeredCorrect }), t);
+}
+
+/**
  * Days until the next review after a correct answer at `level`,
  * or null when the mistake is mastered.
  */

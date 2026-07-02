@@ -329,6 +329,30 @@ describe("MistakeReviewPage SRS progress", () => {
     expect(schedule.text()).toContain("1 天后再次复习");
   });
 
+  it("advances mastery dots and stage label immediately after a correct answer", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-mistake-review" });
+    await router.isReady();
+
+    const wrapper = mount(MistakeReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const progress = wrapper.find(".srs-progress");
+    expect(progress.findAll(".srs-dot.is-filled")).toHaveLength(1);
+    expect(progress.find(".srs-label").text()).toContain("掌握进度 1/4");
+
+    await wrapper.find(".text-input").setValue("hola");
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(progress.findAll(".srs-dot.is-filled")).toHaveLength(2);
+    expect(progress.find(".srs-dot.is-just-filled").exists()).toBe(true);
+    expect(progress.find(".srs-label").text()).toContain("掌握进度 2/4");
+    expect(wrapper.find(".srs-schedule.is-revealed").exists()).toBe(true);
+  });
+
   it("announces mastery on the final SRS stage", async () => {
     saveMistakeQueue([
       {

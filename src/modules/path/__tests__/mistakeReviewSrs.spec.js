@@ -5,8 +5,12 @@ import {
   SRS_NEXT_DAYS_KEY,
   srsCorrectFeedback,
   srsCorrectFeedbackKey,
+  srsDisplayDotStates,
+  srsDisplayLevel,
+  srsDisplayStageLabel,
   srsDotStates,
   srsIntervalDaysAfterCorrect,
+  srsJustFilledDotIndex,
   srsStageLabel,
   srsStageNumber,
   srsStageProgress,
@@ -70,5 +74,24 @@ describe("mistakeReviewSrs", () => {
     expect(srsCorrectFeedback(0, t)).toBe("in 1 day");
     expect(srsCorrectFeedback(1, t)).toBe("in 3 days");
     expect(srsCorrectFeedback(3, t)).toBe("mastered");
+  });
+
+  it("previews the next SRS stage after a correct answer", () => {
+    expect(srsDisplayLevel(0)).toBe(0);
+    expect(srsDisplayLevel(0, { answeredCorrect: true })).toBe(1);
+    expect(srsDisplayDotStates(0, { answeredCorrect: true })).toEqual([
+      true,
+      true,
+      false,
+      false,
+    ]);
+    expect(srsDisplayStageLabel(0, t, { answeredCorrect: true })).toBe("stage 2/4");
+  });
+
+  it("identifies which mastery dot just filled on a correct answer", () => {
+    expect(srsJustFilledDotIndex(0)).toBe(-1);
+    expect(srsJustFilledDotIndex(0, { answeredCorrect: true })).toBe(1);
+    expect(srsJustFilledDotIndex(2, { answeredCorrect: true })).toBe(3);
+    expect(srsJustFilledDotIndex(3, { answeredCorrect: true })).toBe(-1);
   });
 });

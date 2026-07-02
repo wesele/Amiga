@@ -68,7 +68,10 @@
                 v-for="(filled, dotIdx) in srsDots"
                 :key="dotIdx"
                 class="srs-dot"
-                :class="{ 'is-filled': filled }"
+                :class="{
+                  'is-filled': filled,
+                  'is-just-filled': filled && dotIdx === srsJustFilledDot,
+                }"
                 aria-hidden="true"
               />
               <span class="srs-label">{{ srsStageLabelText }}</span>
@@ -107,7 +110,11 @@
         <p v-if="nearMissFeedback" class="near-miss-tip">
           {{ nearMissFeedback }}
         </p>
-        <p v-if="showResult && lastCorrect && srsScheduleText" class="srs-schedule">
+        <p
+          v-if="showResult && lastCorrect && srsScheduleText"
+          class="srs-schedule"
+          :class="{ 'is-revealed': showResult && lastCorrect }"
+        >
           {{ srsScheduleText }}
         </p>
         <p
@@ -144,8 +151,9 @@ import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 import { getQuestionHint, hasQuestionHint } from "./questionHint.js";
 import {
   srsCorrectFeedback,
-  srsDotStates,
-  srsStageLabel,
+  srsDisplayDotStates,
+  srsDisplayStageLabel,
+  srsJustFilledDotIndex,
 } from "./mistakeReviewSrs.js";
 import { HINT_IDLE_MS, shouldScheduleAutoHint } from "./questionHintTimer.js";
 import { recordMistakesMastered } from "./mistakeMasteryStats.js";
@@ -264,10 +272,24 @@ const previousWrongAnswerText = computed(() => {
   return formatUserAnswer(q, currentEntry.value?.user_answer);
 });
 
-const srsDots = computed(() => srsDotStates(currentEntry.value?.level));
+const srsAnsweredCorrect = computed(() => showResult.value && lastCorrect.value);
+
+const srsDots = computed(() =>
+  srsDisplayDotStates(currentEntry.value?.level, {
+    answeredCorrect: srsAnsweredCorrect.value,
+  }),
+);
+
+const srsJustFilledDot = computed(() =>
+  srsJustFilledDotIndex(currentEntry.value?.level, {
+    answeredCorrect: srsAnsweredCorrect.value,
+  }),
+);
 
 const srsStageLabelText = computed(() =>
-  srsStageLabel(currentEntry.value?.level, t),
+  srsDisplayStageLabel(currentEntry.value?.level, t, {
+    answeredCorrect: srsAnsweredCorrect.value,
+  }),
 );
 
 const srsScheduleText = computed(() => {
@@ -622,6 +644,30 @@ onMounted(load);
 .srs-dot.is-filled {
   background: var(--orange);
   border-color: var(--orange);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.srs-dot.is-just-filled {
+  animation: srs-dot-fill 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes srs-dot-fill {
+  0% {
+    transform: scale(0.6);
+    background: var(--gray-light);
+    border-color: var(--border);
+  }
+  55% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+    background: var(--orange);
+    border-color: var(--orange);
+  }
 }
 
 .srs-label {
@@ -707,6 +753,28 @@ onMounted(load);
   font-weight: 600;
   text-align: center;
   line-height: 1.4;
+}
+
+.srs-schedule.is-revealed {
+  animation: srs-schedule-in 0.4s ease;
+}
+
+@keyframes srs-schedule-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .srs-dot.is-just-filled,
+  .srs-schedule.is-revealed {
+    animation: none;
+  }
 }
 
 .feedback.ok {
