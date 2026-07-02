@@ -104,6 +104,7 @@ export default {
     comboMilestone10: "🔥 ¡10 seguidas! Imparable",
     correctAnswer: "Respuesta correcta: {answer}",
     getHint: "Pista",
+    hintAutoRevealed: "¿Atascado? Una pista:",
     hintEliminate: "Prueba descartar: {options}",
     hintMatchPair: "Un par es: {left} → {right}",
     hintWordOrder: "La frase tiene {count} palabras; empieza con \"{first}\"",

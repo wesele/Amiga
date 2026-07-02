@@ -104,6 +104,7 @@ export default {
     comboMilestone10: "🔥 10 in a row! Unstoppable",
     correctAnswer: "Correct answer: {answer}",
     getHint: "Hint",
+    hintAutoRevealed: "Stuck? Here's a nudge:",
     hintEliminate: "Try ruling out: {options}",
     hintMatchPair: "One pair is: {left} → {right}",
     hintWordOrder: "The sentence has {count} words; it starts with \"{first}\"",

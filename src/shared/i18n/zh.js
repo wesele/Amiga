@@ -107,6 +107,7 @@ export default {
     comboMilestone10: "🔥 十连击！无人能挡",
     correctAnswer: "正确答案：{answer}",
     getHint: "提示",
+    hintAutoRevealed: "卡住太久？小提示：",
     hintEliminate: "试试排除这些选项：{options}",
     hintMatchPair: "有一对是：{left} → {right}",
     hintWordOrder: "这句话有 {count} 个词，第一个词是「{first}」",

@@ -130,7 +130,10 @@
         >
           💡 {{ t("path.getHint") }}
         </button>
-        <p v-if="hintText" class="hint-text">{{ hintText }}</p>
+        <p v-if="hintText" class="hint-text" :class="{ 'is-auto': hintAutoRevealed }">
+          <span v-if="hintAutoRevealed" class="hint-auto-label">{{ t("path.hintAutoRevealed") }}</span>
+          {{ hintText }}
+        </p>
         <p v-if="showResult" class="feedback" :class="lastCorrect ? 'ok' : 'bad'">
           {{ lastCorrect ? t("path.correct") : t("path.incorrect") }}
         </p>
@@ -154,7 +157,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
@@ -166,6 +169,7 @@ import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import { checkAnswer, formatCorrectAnswer, formatQuestionPrompt } from "./checkAnswer.js";
 import { getQuestionHint, hasQuestionHint } from "./questionHint.js";
+import { HINT_IDLE_MS, shouldScheduleAutoHint } from "./questionHintTimer.js";
 import {
   LESSON_PHASE_MAIN,
   LESSON_PHASE_REINFORCEMENT,
@@ -206,6 +210,8 @@ const reinforcementQueue = ref([]);
 const reinforcementIndex = ref(0);
 const hintText = ref("");
 const hintShown = ref(false);
+const hintAutoRevealed = ref(false);
+let hintIdleTimer = null;
 const comboCount = ref(0);
 const comboToast = ref("");
 
@@ -305,17 +311,44 @@ const summaryEmoji = computed(() => {
   return perfectLesson.value ? "✨" : "🎉";
 });
 
-function revealHint() {
+function clearHintIdleTimer() {
+  if (hintIdleTimer != null) {
+    clearTimeout(hintIdleTimer);
+    hintIdleTimer = null;
+  }
+}
+
+function revealHint({ auto = false } = {}) {
   if (hintShown.value || !currentQuestion.value) return;
   const hint = getQuestionHint(currentQuestion.value, t);
   if (!hint) return;
+  clearHintIdleTimer();
   hintText.value = hint;
   hintShown.value = true;
+  hintAutoRevealed.value = auto;
 }
 
 function resetHint() {
+  clearHintIdleTimer();
   hintText.value = "";
   hintShown.value = false;
+  hintAutoRevealed.value = false;
+}
+
+function scheduleAutoHint() {
+  clearHintIdleTimer();
+  if (
+    !shouldScheduleAutoHint({
+      hintAvailable: hintAvailable.value,
+      hintShown: hintShown.value,
+      showResult: showResult.value,
+      finished: finished.value,
+      inReinforcement: inReinforcement.value,
+    })
+  ) {
+    return;
+  }
+  hintIdleTimer = setTimeout(() => revealHint({ auto: true }), HINT_IDLE_MS);
 }
 
 function resetCombo() {
@@ -329,6 +362,24 @@ function updateCombo(isCorrect) {
   const milestone = getComboMilestone(comboCount.value);
   comboToast.value = milestone ? t(comboMilestoneKey(milestone)) : "";
 }
+
+watch(
+  [
+    currentQuestion,
+    hintShown,
+    showResult,
+    finished,
+    inReinforcement,
+    currentAnswer,
+  ],
+  () => {
+    scheduleAutoHint();
+  },
+);
+
+onUnmounted(() => {
+  clearHintIdleTimer();
+});
 
 async function load() {
   loading.value = true;
@@ -609,6 +660,19 @@ onMounted(load);
 .hint-btn:disabled {
   opacity: 0.55;
   cursor: default;
+}
+
+.hint-text.is-auto {
+  border-color: rgba(255, 193, 7, 0.35);
+  background: rgba(255, 193, 7, 0.08);
+}
+
+.hint-auto-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #888);
+  margin-bottom: 4px;
 }
 
 .hint-text {
