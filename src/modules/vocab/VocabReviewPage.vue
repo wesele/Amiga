@@ -38,6 +38,7 @@
       <p v-if="masteredCount" class="summary-stat">
         {{ t("vocab.reviewMasteredCount", { n: masteredCount }) }}
       </p>
+      <p v-if="streakCelebration" class="streak-banner">{{ streakCelebration }}</p>
       <button type="button" class="action-btn primary" @click="exitReview">
         {{ t("vocab.reviewBack") }}
       </button>
@@ -99,6 +100,7 @@ import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { getUnknownWords, updateWordMastery } from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
+import { applyReviewStreak, reviewStreakCelebration } from "@/shared/reviewStreak.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import {
   REVIEW_SESSION_LIMIT,
@@ -120,6 +122,7 @@ const flipped = ref(false);
 const finished = ref(false);
 const acting = ref(false);
 const masteredCount = ref(0);
+const streakUpdate = ref(null);
 const userId = ref("");
 const nativeLang = ref("zh");
 const cefr = ref("A1");
@@ -133,6 +136,10 @@ const progressPct = computed(() => sessionProgressPct(index.value, words.value.l
 
 const definitionText = computed(() =>
   vocabDefinition(currentWord.value, nativeLang.value),
+);
+
+const streakCelebration = computed(() =>
+  reviewStreakCelebration(streakUpdate.value, t),
 );
 
 function toggleFlip() {
@@ -162,6 +169,7 @@ async function load() {
     index.value = 0;
     finished.value = false;
     masteredCount.value = 0;
+    streakUpdate.value = null;
     resetCard();
   } catch {
     error.value = t("common.fail");
@@ -186,6 +194,7 @@ async function advanceAfterMark(mastery) {
   const nextIndex = index.value + 1;
   if (isSessionComplete(nextIndex, words.value.length)) {
     finished.value = true;
+    streakUpdate.value = await applyReviewStreak(userId.value, words.value.length);
     return;
   }
   index.value = nextIndex;
@@ -290,6 +299,15 @@ onMounted(load);
   color: var(--text-secondary);
   font-size: 15px;
   line-height: 1.5;
+}
+
+.streak-banner {
+  margin: 12px 0 0;
+  padding: 12px 16px;
+  background: var(--orange-bg);
+  color: var(--orange-hover);
+  border-radius: var(--radius-md);
+  font-weight: 700;
 }
 
 .spinner {

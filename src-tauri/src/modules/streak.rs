@@ -277,6 +277,36 @@ pub fn record_article_read(pool: &DatabasePool, user_id: &str) -> Result<(), Str
     Ok(())
 }
 
+/// Records spaced-repetition review (vocab flashcards, mistake review) toward today's streak.
+pub fn record_review_practice(
+    pool: &DatabasePool,
+    user_id: &str,
+    items_reviewed: i32,
+) -> Result<StreakUpdate, String> {
+    let count = items_reviewed.max(1);
+    let today = today_local();
+    let was_active_today = {
+        let conn = pool.conn()?;
+        let was_active = was_active_on_date(&conn, user_id, &today)?;
+        conn.execute(
+            "INSERT INTO streak_records (user_id, date, words_learned)
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT(user_id, date) DO UPDATE SET
+               words_learned = words_learned + ?3",
+            params![user_id, today, count],
+        )
+        .map_err(|e| e.to_string())?;
+        was_active
+    };
+
+    let streak = get_learning_streak(pool, user_id)?;
+    Ok(StreakUpdate {
+        current: streak.current,
+        extended: !was_active_today,
+        practiced_today: true,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -389,6 +419,47 @@ mod tests {
         let streak = get_learning_streak(&pool, &user).unwrap();
         assert_eq!(streak.current, 1);
         assert!(streak.practiced_today);
+    }
+
+    #[test]
+    fn review_practice_starts_streak() {
+        let pool = test_pool();
+        let user = seed_user(&pool);
+        let update = record_review_practice(&pool, &user, 3).unwrap();
+        assert!(update.extended);
+        assert_eq!(update.current, 1);
+        assert!(update.practiced_today);
+
+        let streak = get_learning_streak(&pool, &user).unwrap();
+        assert_eq!(streak.current, 1);
+        assert!(streak.practiced_today);
+    }
+
+    #[test]
+    fn review_practice_same_day_does_not_reextend_streak() {
+        let pool = test_pool();
+        let user = seed_user(&pool);
+        record_review_practice(&pool, &user, 2).unwrap();
+        let update = record_review_practice(&pool, &user, 4).unwrap();
+        assert!(!update.extended);
+        assert_eq!(update.current, 1);
+    }
+
+    #[test]
+    fn review_practice_counts_at_least_one_item() {
+        let pool = test_pool();
+        let user = seed_user(&pool);
+        record_review_practice(&pool, &user, 0).unwrap();
+        let today = today_local();
+        let conn = pool.conn().unwrap();
+        let words: i32 = conn
+            .query_row(
+                "SELECT words_learned FROM streak_records WHERE user_id = ?1 AND date = ?2",
+                params![user, today],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(words, 1);
     }
 
     #[test]

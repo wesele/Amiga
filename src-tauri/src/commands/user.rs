@@ -115,3 +115,14 @@ pub async fn get_weekly_activity_cmd(
 ) -> Result<crate::modules::streak::WeeklyActivity, String> {
     crate::modules::streak::get_weekly_activity(&db, &user_id)
 }
+
+#[tauri::command]
+pub async fn record_review_practice_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+    items_reviewed: i32,
+) -> Result<crate::modules::streak::StreakUpdate, String> {
+    let update = crate::modules::streak::record_review_practice(&db, &user_id, items_reviewed)?;
+    after_syncable_write(&db);
+    Ok(update)
+}

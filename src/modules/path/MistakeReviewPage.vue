@@ -34,6 +34,7 @@
       <p v-if="masteredCount" class="summary-stat">
         {{ t("path.mistakeReviewMasteredCount", { n: masteredCount }) }}
       </p>
+      <p v-if="streakCelebration" class="streak-banner">{{ streakCelebration }}</p>
       <button type="button" class="action-btn primary" @click="exitReview">
         {{ t("path.mistakeReviewBack") }}
       </button>
@@ -81,6 +82,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
+import { applyReviewStreak, reviewStreakCelebration } from "@/shared/reviewStreak.js";
 import { pairStatsKey } from "@/modules/learn/questionTypeStats.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
@@ -106,6 +108,8 @@ const finished = ref(false);
 const masteredCount = ref(0);
 const sessionTotal = ref(0);
 const pairKey = ref("");
+const userId = ref("");
+const streakUpdate = ref(null);
 
 const currentEntry = computed(() => queue.value[index.value] ?? null);
 const currentQuestion = computed(() => currentEntry.value?.question ?? null);
@@ -116,6 +120,10 @@ const progressPct = computed(() => {
   if (!queue.value.length) return 0;
   return Math.round((progressCurrent.value / queue.value.length) * 100);
 });
+
+const streakCelebration = computed(() =>
+  reviewStreakCelebration(streakUpdate.value, t),
+);
 
 const correctAnswerText = computed(() =>
   currentQuestion.value ? formatCorrectAnswer(currentQuestion.value) : "",
@@ -153,6 +161,7 @@ async function load() {
   error.value = "";
   try {
     const ctx = await loadLearningContext();
+    userId.value = ctx.user?.id ?? "";
     pairKey.value = pairStatsKey(ctx.nativeLang, ctx.targetLang);
     queue.value = loadDueMistakes(pairKey.value);
     sessionTotal.value = queue.value.length;
@@ -160,6 +169,7 @@ async function load() {
     resetQuestion();
     finished.value = false;
     masteredCount.value = 0;
+    streakUpdate.value = null;
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {
@@ -194,7 +204,7 @@ function persistReviewResult(isCorrect) {
   }
 }
 
-function onPrimaryAction() {
+async function onPrimaryAction() {
   if (!showResult.value) {
     lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
     playAnswerFeedback(lastCorrect.value);
@@ -211,6 +221,7 @@ function onPrimaryAction() {
   }
 
   finished.value = true;
+  streakUpdate.value = await applyReviewStreak(userId.value, sessionTotal.value);
 }
 
 function exitReview() {
@@ -367,6 +378,15 @@ onMounted(load);
 .summary-stat {
   color: var(--green-hover);
   font-weight: 600;
+}
+
+.streak-banner {
+  margin: 4px 0 0;
+  padding: 12px 16px;
+  background: var(--orange-bg);
+  color: var(--orange-hover);
+  border-radius: var(--radius-md);
+  font-weight: 700;
 }
 
 .action-btn {

@@ -19,9 +19,17 @@ vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
 vi.mock("@/shared/learningContext.js", () => ({
   loadLearningContext: vi.fn().mockResolvedValue({
+    user: { id: "u1" },
     nativeLang: "zh",
     targetLang: "es",
   }),
+}));
+
+vi.mock("@/shared/reviewStreak.js", () => ({
+  applyReviewStreak: vi.fn().mockResolvedValue({ extended: true, current: 4 }),
+  reviewStreakCelebration: vi.fn((update, t) =>
+    update?.extended ? t("path.streakExtended", { n: update.current }) : "",
+  ),
 }));
 
 vi.mock("@/shared/lessonFeedback.js", () => ({
@@ -78,5 +86,49 @@ describe("MistakeReviewPage previous wrong answer", () => {
     const banner = wrapper.find(".previous-wrong");
     expect(banner.exists()).toBe(true);
     expect(banner.text()).toContain("上次答错：ola");
+  });
+});
+
+describe("MistakeReviewPage review streak", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    setLocale("zh");
+    saveMistakeQueue(
+      upsertMistake([], {
+        question: Q1,
+        userAnswer: "ola",
+        pairKey: PAIR,
+        now: 1000,
+      }),
+    );
+  });
+
+  it("includes streak celebration markup in the summary template", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/MistakeReviewPage.vue"), "utf8");
+    expect(source).toMatch(/class="streak-banner"/);
+    expect(source).toMatch(/applyReviewStreak/);
+  });
+
+  it("shows streak banner after completing the review session", async () => {
+    const { applyReviewStreak } = await import("@/shared/reviewStreak.js");
+    applyReviewStreak.mockResolvedValue({ extended: true, current: 4 });
+
+    const router = makeRouter();
+    await router.push({ name: "path-mistake-review" });
+    await router.isReady();
+
+    const wrapper = mount(MistakeReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".text-input").setValue("hola");
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(applyReviewStreak).toHaveBeenCalledWith("u1", 1);
+    expect(wrapper.find(".streak-banner").text()).toContain("4 天连胜");
   });
 });

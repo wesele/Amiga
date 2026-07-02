@@ -38,6 +38,8 @@ export function createApiClient(invoke) {
     getDailyGoalProgress: (userId, targetLanguage) =>
       call("get_daily_goal_progress_cmd", { userId, targetLanguage }),
     getWeeklyActivity: (userId) => call("get_weekly_activity_cmd", { userId }),
+    recordReviewPractice: (userId, itemsReviewed) =>
+      call("record_review_practice_cmd", { userId, itemsReviewed }),
 
     // Vocabulary
     importVocabBank: () => call("import_vocab_bank_cmd"),
@@ -212,6 +214,8 @@ export const getLearningStreak = (...args) => defaultApiClient.getLearningStreak
 export const getDailyGoalProgress = (...args) =>
   defaultApiClient.getDailyGoalProgress(...args);
 export const getWeeklyActivity = (...args) => defaultApiClient.getWeeklyActivity(...args);
+export const recordReviewPractice = (...args) =>
+  defaultApiClient.recordReviewPractice(...args);
 
 // --- Vocabulary ---
 export const importVocabBank = (...args) => defaultApiClient.importVocabBank(...args);

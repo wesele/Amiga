@@ -48,6 +48,9 @@ function defaultInvoke(cmd) {
   }
   if (cmd === "get_unknown_words_cmd") return Promise.resolve(MOCK_WORDS);
   if (cmd === "update_word_mastery_cmd") return Promise.resolve();
+  if (cmd === "record_review_practice_cmd") {
+    return Promise.resolve({ extended: true, current: 3 });
+  }
   return Promise.resolve(null);
 }
 
@@ -110,5 +113,10 @@ describe("VocabReviewPage", () => {
     expect(
       mockInvoke.mock.calls.filter(([cmd]) => cmd === "update_word_mastery_cmd").length,
     ).toBe(2);
+    expect(mockInvoke).toHaveBeenCalledWith("record_review_practice_cmd", {
+      userId: "u1",
+      itemsReviewed: 2,
+    });
+    expect(wrapper.find(".streak-banner").text()).toContain("3 天连胜");
   });
 });

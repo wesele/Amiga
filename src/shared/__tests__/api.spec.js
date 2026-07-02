@@ -96,6 +96,14 @@ describe("API module", () => {
       api.resetWizard();
       expect(mockInvoke).toHaveBeenCalledWith("reset_wizard_cmd");
     });
+
+    it("recordReviewPractice calls invoke with userId and itemsReviewed", () => {
+      api.recordReviewPractice("u1", 5);
+      expect(mockInvoke).toHaveBeenCalledWith("record_review_practice_cmd", {
+        userId: "u1",
+        itemsReviewed: 5,
+      });
+    });
   });
 
   describe("Vocabulary API", () => {
