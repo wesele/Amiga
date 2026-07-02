@@ -311,6 +311,7 @@ import {
   vocabReviewNudgeCount,
 } from "./vocabReviewNudge.js";
 import { shouldShowFocusAreaNudge } from "./focusAreaNudge.js";
+import { focusPracticeRoute } from "./focusPracticeRoute.js";
 import {
   continueRouteAfterLesson,
   shouldContinueToNextLesson,
@@ -688,6 +689,8 @@ async function finishLesson() {
     return;
   }
   if (showFocusAreaNudge.value) {
+    const typeId = focusAreaAtStart.value?.typeId;
+    if (typeId) { router.replace(focusPracticeRoute(typeId)); return; }
     router.replace({ name: "path" });
     return;
   }

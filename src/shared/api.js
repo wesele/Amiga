@@ -75,6 +75,8 @@ export function createApiClient(invoke) {
     getPerfectLessonStreak: () => call("get_perfect_lesson_streak_cmd"),
     getSectionLesson: (nativeLang, targetLang, cefr, sectionId) =>
       call("get_section_lesson_cmd", { nativeLang, targetLang, cefr, sectionId }),
+    getFocusPractice: (nativeLang, targetLang, cefr, questionType, limit) =>
+      call("get_focus_practice_cmd", { nativeLang, targetLang, cefr, questionType, limit }),
     getTeachingContent: (nativeLang, targetLang, cefr, nodeId) =>
       call("get_teaching_content_cmd", { nativeLang, targetLang, cefr, nodeId }),
     getGrammarExplanationCached: (cefr, unitId, pointText) =>
@@ -241,6 +243,7 @@ export const getLessonMilestoneProgress = (...args) =>
 export const getPerfectLessonStreak = (...args) =>
   defaultApiClient.getPerfectLessonStreak(...args);
 export const getSectionLesson = (...args) => defaultApiClient.getSectionLesson(...args);
+export const getFocusPractice = (...args) => defaultApiClient.getFocusPractice(...args);
 export const getTeachingContent = (...args) => defaultApiClient.getTeachingContent(...args);
 export const getGrammarExplanationCached = (...args) =>
   defaultApiClient.getGrammarExplanationCached(...args);

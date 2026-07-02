@@ -5,7 +5,9 @@ use log;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 pub const PRIMARY_PAIR_KEY: &str = "zh-es";
 const CEFR_LEVELS: &[&str] = &["A0", "A1", "A2", "B1", "B2", "C1"];
@@ -82,6 +84,14 @@ pub struct PathLesson {
     pub section_title_native: String,
     pub section_title_target: String,
     pub unit_title_native: String,
+    pub questions: Vec<Value>,
+}
+
+pub const FOCUS_PRACTICE_SESSION_LIMIT: usize = 5;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FocusPracticeSession {
+    pub question_type: String,
     pub questions: Vec<Value>,
 }
 
@@ -819,6 +829,79 @@ pub fn get_section_lesson(
         section_title_target: section.1.title_target.clone(),
         unit_title_native: section.0.title_native.clone(),
         questions,
+    })
+}
+
+fn unlocked_practice_section_ids(curriculum: &PathCurriculum) -> Vec<String> {
+    curriculum
+        .units
+        .iter()
+        .flat_map(|unit| unit.sections.iter())
+        .filter(|s| s.kind == "practice" && !s.locked && s.question_count > 0)
+        .map(|s| s.id.clone())
+        .collect()
+}
+
+fn focus_practice_order_key(user_id: &str, question_id: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    user_id.hash(&mut hasher);
+    question_id.hash(&mut hasher);
+    hasher.finish()
+}
+
+pub fn get_focus_practice(
+    pool: &DatabasePool,
+    user_id: &str,
+    native_lang: &str,
+    target_lang: &str,
+    cefr: &str,
+    question_type: &str,
+    limit: usize,
+) -> Result<FocusPracticeSession, String> {
+    let pair_key = resolve_pair_key(native_lang, target_lang)
+        .ok_or_else(|| format!("no question bank for {native_lang}-{target_lang}"))?;
+    let curriculum = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
+    if curriculum.status != "active" {
+        return Err("path curriculum is not active".to_string());
+    }
+
+    let allowed: HashSet<String> = unlocked_practice_section_ids(&curriculum)
+        .into_iter()
+        .collect();
+    let session_limit = limit.min(FOCUS_PRACTICE_SESSION_LIMIT).max(1);
+    if allowed.is_empty() {
+        return Ok(FocusPracticeSession {
+            question_type: question_type.to_string(),
+            questions: vec![],
+        });
+    }
+
+    let mut candidates: Vec<Value> = load_questions()?
+        .into_iter()
+        .filter(|q| {
+            q.get("pairId").and_then(|v| v.as_str()) == Some(pair_key.as_str())
+                && q.get("cefr").and_then(|v| v.as_str()) == Some(cefr)
+                && q.get("type").and_then(|v| v.as_str()) == Some(question_type)
+                && q.get("sectionId")
+                    .and_then(|v| v.as_str())
+                    .is_some_and(|sid| allowed.contains(sid))
+        })
+        .map(|mut q| {
+            rewrite_image_urls(&mut q);
+            q
+        })
+        .collect();
+
+    candidates.sort_by(|a, b| {
+        let id_a = a.get("id").and_then(|v| v.as_str()).unwrap_or("");
+        let id_b = b.get("id").and_then(|v| v.as_str()).unwrap_or("");
+        focus_practice_order_key(user_id, id_a).cmp(&focus_practice_order_key(user_id, id_b))
+    });
+    candidates.truncate(session_limit);
+
+    Ok(FocusPracticeSession {
+        question_type: question_type.to_string(),
+        questions: candidates,
     })
 }
 

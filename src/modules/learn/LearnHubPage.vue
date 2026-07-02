@@ -251,7 +251,7 @@
       v-if="showFocusArea"
       type="button"
       class="focus-area-card"
-      @click="goToPath"
+      @click="goToFocusPractice"
     >
       <span class="focus-area-icon" aria-hidden="true">🎯</span>
       <div class="focus-area-copy">
@@ -546,6 +546,7 @@ import {
   pairStatsKey,
   shouldShowFocusArea,
 } from "./questionTypeStats.js";
+import { focusPracticeRoute } from "@/modules/path/focusPracticeRoute.js";
 import {
   mistakeReviewCount,
   shouldShowMistakeReview,
@@ -846,6 +847,12 @@ async function loadHubData() {
 
 function goToPath() {
   router.push({ name: "path" });
+}
+
+function goToFocusPractice() {
+  const typeId = focusArea.value?.typeId;
+  if (!typeId) { goToPath(); return; }
+  router.push(focusPracticeRoute(typeId));
 }
 
 function goToVocabReview() {

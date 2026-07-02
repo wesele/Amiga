@@ -1,6 +1,7 @@
 import PathMapPage from "./PathMapPage.vue";
 import LessonPage from "./LessonPage.vue";
 import MistakeReviewPage from "./MistakeReviewPage.vue";
+import FocusPracticePage from "./FocusPracticePage.vue";
 import TeachingPage from "./TeachingPage.vue";
 
 export default [
@@ -20,6 +21,12 @@ export default [
     path: "/learn/path/review/mistakes",
     name: "path-mistake-review",
     component: MistakeReviewPage,
+    meta: { parent: "learn" },
+  },
+  {
+    path: "/learn/path/practice/:typeId",
+    name: "path-focus-practice",
+    component: FocusPracticePage,
     meta: { parent: "learn" },
   },
   {

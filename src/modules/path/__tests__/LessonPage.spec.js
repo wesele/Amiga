@@ -19,6 +19,7 @@ function makeRouter() {
     history: createMemoryHistory(),
     routes: [
       { path: "/learn/path", name: "path", component: { template: "<div/>" } },
+      { path: "/learn/path/practice/:typeId", name: "path-focus-practice", component: { template: "<div/>" } },
       {
         path: "/learn/path/lesson/:sectionId",
         name: "path-lesson",
@@ -1038,7 +1039,7 @@ describe("LessonPage focus area nudge", () => {
     expect(primary.text()).toContain("去强化薄弱题型");
   });
 
-  it("routes to path when the focus area nudge primary action is taken", async () => {
+  it("routes to focus practice when the focus area nudge primary action is taken", async () => {
     const router = makeRouter();
     await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
     await router.isReady();
@@ -1057,7 +1058,8 @@ describe("LessonPage focus area nudge", () => {
     await wrapper.find(".summary-actions .action-btn.primary").trigger("click");
     await flushPromises();
 
-    expect(router.currentRoute.value.name).toBe("path");
+    expect(router.currentRoute.value.name).toBe("path-focus-practice");
+    expect(router.currentRoute.value.params.typeId).toBe("T09");
   });
 
   it("prefers vocab review nudge over focus area when both apply", async () => {

@@ -50,6 +50,27 @@ pub async fn get_section_lesson_cmd(
 }
 
 #[tauri::command]
+pub async fn get_focus_practice_cmd(
+    db: State<'_, DatabasePool>,
+    native_lang: String,
+    target_lang: String,
+    cefr: String,
+    question_type: String,
+    limit: Option<usize>,
+) -> Result<path_mod::FocusPracticeSession, String> {
+    let user = user_mod::get_or_create_user(&db)?;
+    path_mod::get_focus_practice(
+        &db,
+        &user.id,
+        &native_lang,
+        &target_lang,
+        &cefr,
+        &question_type,
+        limit.unwrap_or(path_mod::FOCUS_PRACTICE_SESSION_LIMIT),
+    )
+}
+
+#[tauri::command]
 pub fn get_grammar_explanation_cached_cmd(
     db: State<'_, DatabasePool>,
     cefr: String,

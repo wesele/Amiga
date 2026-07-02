@@ -122,6 +122,11 @@ function makeRouter() {
         component: { template: "<div/>" },
       },
       {
+        path: "/learn/path/practice/:typeId",
+        name: "path-focus-practice",
+        component: { template: "<div/>" },
+      },
+      {
         path: "/learn/path/:sectionId",
         name: "path-lesson",
         component: { template: "<div/>" },
@@ -384,7 +389,7 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     await wrapper.find(".streak-risk-banner").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path-focus-practice", params: { typeId: "T06" } });
   });
 
   it("shows daily goal progress card with streak", async () => {
@@ -441,7 +446,7 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     await wrapper.find(".daily-goal-card").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path-focus-practice", params: { typeId: "T06" } });
   });
 
   it("shows perfect lesson streak card when learner has an active streak", async () => {
@@ -687,7 +692,7 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     await wrapper.find(".streak-milestone-card").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path-focus-practice", params: { typeId: "T06" } });
   });
 
   it("shows perfect milestone progress card when a personal-best perfect streak exists", async () => {
@@ -755,7 +760,7 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     await wrapper.find(".perfect-milestone-card").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path-focus-practice", params: { typeId: "T06" } });
   });
 
   it("hides accuracy milestone card when practice attempts are insufficient", async () => {
@@ -826,7 +831,7 @@ describe("LearnHubPage", () => {
     expect(card.text()).toContain("去练习");
   });
 
-  it("navigates to path when focus area card is clicked", async () => {
+  it("navigates to focus practice when focus area card is clicked", async () => {
     localStorage.setItem(
       STATS_STORAGE_KEY,
       JSON.stringify({ "zh-es": { T06: { correct: 1, wrong: 5 } } }),
@@ -840,7 +845,7 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     await wrapper.find(".focus-area-card").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path-focus-practice", params: { typeId: "T06" } });
   });
 
   it("hides focus area card when no question type is weak enough", async () => {

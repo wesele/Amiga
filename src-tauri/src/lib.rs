@@ -123,6 +123,7 @@ pub fn run() {
             commands::path::get_path_curriculum_cmd,
             commands::path::get_lesson_milestone_progress_cmd,
             commands::path::get_section_lesson_cmd,
+            commands::path::get_focus_practice_cmd,
             commands::path::get_teaching_content_cmd,
             commands::path::get_grammar_explanation_cached_cmd,
             commands::path::explain_grammar_point_cmd,
