@@ -174,13 +174,24 @@
       <span class="perfect-streak-chevron" aria-hidden="true">›</span>
     </button>
 
-    <button
+    <div
       v-if="dailyGoal"
-      type="button"
       class="daily-goal-card"
-      :class="{ 'is-complete': dailyGoal.goal_met }"
-      @click="goToPath"
+      :class="{ 'is-complete': dailyGoal.goal_met, 'has-resume': resumeTarget }"
     >
+      <button
+        v-if="resumeTarget"
+        type="button"
+        class="goal-continue-btn"
+        @click="continueLearning"
+      >
+        {{ t("learn.continueLearning") }}
+      </button>
+      <button
+        type="button"
+        class="daily-goal-main"
+        @click="goToPath"
+      >
       <div class="goal-ring" aria-hidden="true">
         <svg viewBox="0 0 44 44" class="goal-ring-svg">
           <circle class="goal-ring-track" cx="22" cy="22" r="18" />
@@ -264,7 +275,8 @@
         </div>
       </div>
       <span class="goal-chevron" aria-hidden="true">›</span>
-    </button>
+      </button>
+    </div>
 
     <div class="module-grid">
       <button
@@ -287,12 +299,18 @@ import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
   getDailyGoalProgress,
+  getPathCurriculum,
   getPerfectLessonStreak,
   getWeeklyActivity,
 } from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
+import {
+  canResumeSection,
+  findCurrentSection,
+  pathSectionRoute,
+} from "./pathResume.js";
 import { weekdayLabel } from "./weeklyActivity.js";
 import {
   buildWeeklyGoalProgress,
@@ -336,6 +354,7 @@ const targetLangStore = useTargetLangStore();
 const opening = ref(null);
 const dailyGoal = ref(null);
 const weeklyActivity = ref(null);
+const resumeTarget = ref(null);
 const accuracyMilestone = ref(null);
 const comboMilestone = ref(null);
 const perfectMilestone = ref(null);
@@ -428,6 +447,17 @@ async function loadWeeklyActivity(userId) {
   }
 }
 
+async function loadResumeSection(nativeLang, targetLang, cefr) {
+  try {
+    const curriculum = await getPathCurriculum(nativeLang, targetLang, cefr);
+    const hit = findCurrentSection(curriculum);
+    resumeTarget.value =
+      hit && canResumeSection(hit.section) ? hit : null;
+  } catch {
+    resumeTarget.value = null;
+  }
+}
+
 async function loadPerfectStreak() {
   try {
     perfectStreak.value = await getPerfectLessonStreak();
@@ -457,7 +487,7 @@ function loadComboMilestone(nativeLang, targetLang) {
 
 async function loadHubData() {
   try {
-    const { user, targetLang, nativeLang } = await loadLearningContext({
+    const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
       targetLangStore,
     });
     loadFocusArea(nativeLang, targetLang);
@@ -467,11 +497,13 @@ async function loadHubData() {
     await Promise.all([
       loadDailyGoal(user.id, targetLang),
       loadWeeklyActivity(user.id),
+      loadResumeSection(nativeLang, targetLang, cefr),
       loadPerfectStreak(),
     ]);
   } catch {
     dailyGoal.value = null;
     weeklyActivity.value = null;
+    resumeTarget.value = null;
     perfectStreak.value = null;
     perfectMilestone.value = null;
     focusArea.value = null;
@@ -483,6 +515,11 @@ async function loadHubData() {
 
 function goToPath() {
   router.push({ name: "path" });
+}
+
+function continueLearning() {
+  if (!resumeTarget.value) return;
+  router.push(pathSectionRoute(resumeTarget.value.section));
 }
 
 function goToFocusPractice() {
@@ -1350,11 +1387,16 @@ onMounted(loadHubData);
 }
 
 .daily-goal-card {
+  position: relative;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+}
+
+.daily-goal-main {
   display: flex;
   align-items: center;
   gap: 14px;
-  width: calc(100% - 32px);
-  margin: 12px 16px 0;
+  width: 100%;
   padding: 14px 16px;
   background: var(--white);
   border: 1px solid var(--border);
@@ -1366,13 +1408,43 @@ onMounted(loadHubData);
   transition: background var(--transition), box-shadow var(--transition);
 }
 
-.daily-goal-card:hover {
+.daily-goal-card.has-resume .daily-goal-main {
+  padding-top: 38px;
+}
+
+.daily-goal-main:hover {
   background: var(--green-bg);
 }
 
-.daily-goal-card.is-complete {
+.daily-goal-card.is-complete .daily-goal-main {
   border-color: var(--green);
   background: var(--green-bg);
+}
+
+.goal-continue-btn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 1;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--green-hover);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.goal-continue-btn:hover {
+  background: var(--green);
+  transform: translateY(-1px);
+}
+
+.daily-goal-card.is-complete .goal-continue-btn {
+  background: var(--green);
 }
 
 .goal-ring {

@@ -300,7 +300,7 @@ describe("LearnHubPage", () => {
     expect(wrapper.find(".week-strip").exists()).toBe(false);
   });
 
-  it("navigates to path when daily goal card is clicked", async () => {
+  it("navigates to path when daily goal card body is clicked", async () => {
     const router = makeRouter();
     const pushSpy = vi.spyOn(router, "push");
     const wrapper = mount(LearnHubPage, {
@@ -308,8 +308,52 @@ describe("LearnHubPage", () => {
     });
     await flushPromises();
 
-    await wrapper.find(".daily-goal-card").trigger("click");
+    await wrapper.find(".daily-goal-main").trigger("click");
     expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
+  });
+
+  it("shows continue-learning button on daily goal card when path is active", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const btn = wrapper.find(".goal-continue-btn");
+    expect(btn.exists()).toBe(true);
+    expect(btn.text()).toContain("继续学习");
+  });
+
+  it("navigates to current lesson when continue-learning button is clicked", async () => {
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".goal-continue-btn").trigger("click");
+    expect(pushSpy).toHaveBeenCalledWith({
+      name: "path-lesson",
+      params: { sectionId: "zh-es/U01-PRACTICE" },
+    });
+  });
+
+  it("hides continue-learning button when path curriculum is not active", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_path_curriculum_cmd") {
+        return Promise.resolve({ ...MOCK_CURRICULUM, status: "level_complete" });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".goal-continue-btn").exists()).toBe(false);
   });
 
   it("shows perfect lesson streak card when learner has an active streak", async () => {
