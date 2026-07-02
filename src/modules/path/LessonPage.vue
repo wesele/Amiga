@@ -437,6 +437,7 @@ import {
   shouldShowFreshMistakeInMistakeSection,
   STEP_IDS,
 } from "./postLessonPlan.js";
+import { pathRouteWithCurrentFocus } from "./pathMapScroll.js";
 import {
   RECOVERY_STEP_IDS,
   buildFailedLessonPlan,
@@ -977,7 +978,7 @@ function retryLesson() {
 }
 
 function exitLesson() {
-  router.replace({ name: "path" });
+  router.replace(pathRouteWithCurrentFocus());
 }
 
 function goToMistakeReview() {

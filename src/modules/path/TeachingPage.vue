@@ -114,6 +114,7 @@ import {
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
+import { pathRouteWithCurrentFocus } from "./pathMapScroll.js";
 import { promiseWithTimeout } from "@/shared/promiseTimeout.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 
@@ -262,7 +263,7 @@ async function onUnknown() {
 }
 
 function exitTeaching() {
-  router.replace({ name: "path" });
+  router.replace(pathRouteWithCurrentFocus());
 }
 
 async function load() {
@@ -300,7 +301,7 @@ async function finishTeaching() {
       userMeta.value.cefr,
       route.params.nodeId,
     );
-    router.replace({ name: "path" });
+    router.replace(pathRouteWithCurrentFocus());
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {

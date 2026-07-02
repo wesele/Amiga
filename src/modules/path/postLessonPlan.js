@@ -21,6 +21,7 @@ import {
   vocabReviewNudgeCount,
 } from "./vocabReviewNudge.js";
 import { shouldShowFocusAreaNudge } from "./focusAreaNudge.js";
+import { pathRouteWithCurrentFocus } from "./pathMapScroll.js";
 
 export const STEP_IDS = {
   DAILY_GOAL: "dailyGoal",
@@ -35,7 +36,7 @@ export const STEP_IDS = {
 
 function buildDailyGoalStep(result) {
   const remaining = dailyGoalLessonsRemaining(result);
-  const route = continueRouteAfterLesson(result) ?? { name: "path" };
+  const route = continueRouteAfterLesson(result) ?? pathRouteWithCurrentFocus();
   const done = result.daily_goal_lessons_today;
   const total = result.daily_goal_target;
   return {
@@ -127,7 +128,7 @@ function buildNextLessonStep(route) {
 function buildPathStep() {
   return {
     id: STEP_IDS.PATH,
-    route: { name: "path" },
+    route: pathRouteWithCurrentFocus(),
     icon: "🛤️",
     titleKey: "path.nextStep.path",
     subtitleKey: "path.nextStep.pathHint",
@@ -293,7 +294,7 @@ export function buildPostLessonPlan({
 
 /** Route for the primary CTA — mirrors finishLesson() priority. */
 export function primaryStepRoute(plan) {
-  return plan?.primary?.route ?? { name: "path" };
+  return plan?.primary?.route ?? pathRouteWithCurrentFocus();
 }
 
 export function shouldShowFreshMistakeInMistakeSection(result, freshMistakeCount, plan) {

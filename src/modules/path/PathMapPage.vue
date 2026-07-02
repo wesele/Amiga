@@ -73,7 +73,7 @@
       <p>{{ t("path.levelCompleteDesc") }}</p>
     </div>
 
-    <div v-else-if="curriculum" class="path-scroll">
+    <div v-else-if="curriculum" ref="pathScrollEl" class="path-scroll">
       <div
         v-for="(unit, uIdx) in curriculum.units"
         :key="unit.id"
@@ -94,7 +94,11 @@
             v-for="(section, idx) in unit.sections"
             :key="section.id"
             class="path-step"
-            :class="[laneClass(idx), { 'is-current': section.current }]"
+            :id="section.current ? currentSectionDomId(section) : undefined"
+            :class="[
+              laneClass(idx),
+              { 'is-current': section.current, 'is-highlighted': highlightedSectionId === section.id },
+            ]"
           >
             <div class="step-body">
               <button
@@ -134,13 +138,27 @@
       </div>
       <div class="path-end-cap" />
     </div>
+
+    <Teleport to="body">
+      <Transition name="jump-fab">
+        <div v-if="showJumpFab" class="jump-current-bar">
+          <button type="button" class="jump-current-btn" @click="onJumpCurrentClick">
+            <span class="jump-current-icon" aria-hidden="true">▶</span>
+            <span class="jump-current-copy">
+              <span class="jump-current-label">{{ t("path.continueCurrent") }}</span>
+              <span v-if="continueCurrentSub" class="jump-current-sub">{{ continueCurrentSub }}</span>
+            </span>
+          </button>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { CEFR_LEVELS, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";
 import {
@@ -151,12 +169,24 @@ import {
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
+import {
+  canResumeSection,
+  findCurrentSection,
+  pathSectionRoute,
+  sectionKindKey,
+} from "@/modules/learn/pathResume.js";
+import {
+  currentSectionDomId,
+  PATH_FOCUS_QUERY,
+  shouldShowJumpToCurrent,
+} from "./pathMapScroll.js";
 
 const UNIT_HUES = [145, 198, 262, 32, 12, 210];
 const LANE_X = { left: 22, center: 50, right: 78 };
 const CONNECTOR_HEIGHT = 40;
 
 const router = useRouter();
+const route = useRoute();
 const { t } = useI18n();
 const targetLangStore = useTargetLangStore();
 
@@ -168,6 +198,31 @@ const currentCefr = ref("A1");
 const levelSwitching = ref(false);
 const showLevelPicker = ref(false);
 const learningLevels = LEARNING_CEFR_LEVELS;
+const pathScrollEl = ref(null);
+const currentVisible = ref(true);
+const highlightedSectionId = ref(null);
+
+let currentObserver = null;
+let highlightTimer = null;
+
+const currentTarget = computed(() => findCurrentSection(curriculum.value));
+
+const showJumpFab = computed(() =>
+  shouldShowJumpToCurrent({
+    hasCurrent: !!currentTarget.value,
+    currentVisible: currentVisible.value,
+    curriculumActive: curriculum.value?.status === "active",
+  }),
+);
+
+const continueCurrentSub = computed(() => {
+  const section = currentTarget.value?.section;
+  if (!section) return "";
+  return t("path.continueCurrentSub", {
+    kind: t(sectionKindKey(section.kind)),
+    title: section.title_native,
+  });
+});
 
 const completedLevelLabel = computed(() => {
   const current = curriculum.value?.cefr;
@@ -248,6 +303,84 @@ function startNode(section) {
   router.push({ name: "path-lesson", params: { sectionId: section.id } });
 }
 
+function disconnectCurrentObserver() {
+  currentObserver?.disconnect();
+  currentObserver = null;
+}
+
+async function setupCurrentObserver() {
+  disconnectCurrentObserver();
+  await nextTick();
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  const scrollEl = pathScrollEl.value;
+  const section = currentTarget.value?.section;
+  const domId = currentSectionDomId(section);
+  if (!scrollEl || !domId) {
+    currentVisible.value = false;
+    return;
+  }
+
+  const el = scrollEl.querySelector(`#${CSS.escape(domId)}`);
+  if (!el) {
+    currentVisible.value = false;
+    return;
+  }
+
+  currentObserver = new IntersectionObserver(
+    (entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      currentVisible.value =
+        entry.isIntersecting && entry.intersectionRatio >= 0.35;
+    },
+    { root: scrollEl, threshold: [0, 0.35, 1] },
+  );
+  currentObserver.observe(el);
+}
+
+function flashCurrentHighlight(sectionId) {
+  if (!sectionId) return;
+  highlightedSectionId.value = sectionId;
+  if (highlightTimer) clearTimeout(highlightTimer);
+  highlightTimer = setTimeout(() => {
+    highlightedSectionId.value = null;
+    highlightTimer = null;
+  }, 300);
+}
+
+async function scrollToCurrentSection({ smooth = true } = {}) {
+  const section = currentTarget.value?.section;
+  const domId = currentSectionDomId(section);
+  if (!domId || curriculum.value?.status !== "active") return;
+
+  await nextTick();
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  const scrollEl = pathScrollEl.value;
+  const el =
+    scrollEl?.querySelector(`#${CSS.escape(domId)}`) ?? document.getElementById(domId);
+  if (!el) return;
+
+  el.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" });
+  flashCurrentHighlight(section.id);
+}
+
+async function focusCurrentOnMap() {
+  await setupCurrentObserver();
+  await scrollToCurrentSection({ smooth: true });
+}
+
+function onJumpCurrentClick() {
+  const section = currentTarget.value?.section;
+  if (!section) return;
+  if (canResumeSection(section)) {
+    router.push(pathSectionRoute(section));
+    return;
+  }
+  scrollToCurrentSection({ smooth: true });
+}
+
 async function load() {
   loading.value = true;
   error.value = "";
@@ -263,6 +396,13 @@ async function load() {
     error.value = e?.message || String(e);
   } finally {
     loading.value = false;
+  }
+  await nextTick();
+  if (curriculum.value?.status === "active" && currentTarget.value) {
+    await focusCurrentOnMap();
+  } else {
+    currentVisible.value = false;
+    disconnectCurrentObserver();
   }
 }
 
@@ -282,6 +422,13 @@ async function onSwitchLevel(level) {
   } finally {
     levelSwitching.value = false;
   }
+  await nextTick();
+  if (curriculum.value?.status === "active" && currentTarget.value) {
+    await focusCurrentOnMap();
+  } else {
+    currentVisible.value = false;
+    disconnectCurrentObserver();
+  }
 }
 
 async function pickLevel(level) {
@@ -289,7 +436,25 @@ async function pickLevel(level) {
   await onSwitchLevel(level);
 }
 
+watch(
+  () => route.query.focus,
+  async (focus) => {
+    if (focus !== PATH_FOCUS_QUERY || loading.value || !curriculum.value) return;
+    await focusCurrentOnMap();
+    router.replace({ name: "path" });
+  },
+);
+
 onMounted(load);
+onActivated(async () => {
+  if (!loading.value && curriculum.value?.status === "active" && currentTarget.value) {
+    await focusCurrentOnMap();
+  }
+});
+onBeforeUnmount(() => {
+  disconnectCurrentObserver();
+  if (highlightTimer) clearTimeout(highlightTimer);
+});
 </script>
 
 <style scoped>
@@ -716,5 +881,91 @@ onMounted(load);
 
 .path-step.is-current .caption-title {
   color: var(--green-hover);
+}
+
+.path-step.is-highlighted .path-node.current .node-inner {
+  animation: highlight-pop 0.3s ease;
+}
+
+@keyframes highlight-pop {
+  0% { transform: scale(1.12); }
+  100% { transform: scale(1.06); }
+}
+
+.jump-current-bar {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--safe-bottom) + 56px);
+  z-index: 900;
+  max-width: 448px;
+  margin: 0 auto;
+}
+
+.jump-current-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.14);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  backdrop-filter: blur(8px);
+}
+
+.jump-current-btn:active {
+  transform: translateY(1px);
+}
+
+.jump-current-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--green-hover);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.jump-current-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.jump-current-label {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.jump-current-sub {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jump-fab-enter-active,
+.jump-fab-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.jump-fab-enter-from,
+.jump-fab-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 </style>

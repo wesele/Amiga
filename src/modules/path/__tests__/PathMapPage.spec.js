@@ -1,6 +1,24 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { mount, flushPromises } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
+import { createRouter, createMemoryHistory } from "vue-router";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+
+vi.mock("@/shared/api.js", () => ({
+  getPathCurriculum: vi.fn(),
+  getCurrentUser: vi.fn().mockResolvedValue({ id: "u1", native_language: "zh" }),
+  getLearningGoals: vi.fn().mockResolvedValue([{ target_language: "es", cefr_level: "A1" }]),
+  getLearningStreak: vi.fn().mockResolvedValue({ current: 3 }),
+  updateLearningGoalCefr: vi.fn(),
+}));
+
+vi.mock("@/stores/targetLang.js", () => ({
+  useTargetLangStore: () => ({
+    code: "es",
+    load: vi.fn().mockResolvedValue("es"),
+  }),
+}));
 
 const ROOT = resolve(__dirname, "../../../..");
 function readVue(rel) {
@@ -75,5 +93,84 @@ describe("PathMapPage unit guide layout", () => {
     expect(source).toMatch(/class="step-body"[\s\S]*class="path-connector"/);
     expect(source).toMatch(/\.path-connector\s*\{[\s\S]*margin:\s*2px 0 8px/);
     expect(source).toMatch(/\.step-body\s*\{[\s\S]*gap:\s*6px/);
+  });
+
+  it("auto-scrolls to the current node and shows a floating continue entry", () => {
+    const source = readVue("src/modules/path/PathMapPage.vue");
+    expect(source).toMatch(/currentSectionDomId\(section\)/);
+    expect(source).toMatch(/scrollToCurrentSection/);
+    expect(source).toMatch(/IntersectionObserver/);
+    expect(source).toMatch(/shouldShowJumpToCurrent/);
+    expect(source).toMatch(/class="jump-current-bar"/);
+    expect(source).toMatch(/path\.continueCurrent/);
+    expect(source).toMatch(/PATH_FOCUS_QUERY/);
+  });
+});
+
+function makeCurriculum() {
+  const sections = Array.from({ length: 6 }, (_, idx) => ({
+    id: `zh-es-U0${idx + 1}-GRAMMAR`,
+    kind: "grammar",
+    title_native: `节点 ${idx + 1}`,
+    title_target: `Node ${idx + 1}`,
+    locked: idx > 2,
+    current: idx === 2,
+    stars: idx < 2 ? 1 : 0,
+    question_count: 0,
+  }));
+  return {
+    status: "active",
+    cefr: "A1",
+    completed_sections: 2,
+    total_sections: 6,
+    total_stars: 2,
+    units: [{ id: "U01", title_native: "单元一", title_target: "Unit 1", sections }],
+  };
+}
+
+class MockIntersectionObserver {
+  constructor(callback) {
+    this.callback = callback;
+  }
+  observe() {}
+  disconnect() {}
+}
+
+describe("PathMapPage scroll behavior", () => {
+  let scrollIntoViewSpy;
+
+  beforeEach(() => {
+    scrollIntoViewSpy = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoViewSpy;
+    globalThis.IntersectionObserver = MockIntersectionObserver;
+    setActivePinia(createPinia());
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("tags the current section with a stable DOM id after curriculum loads", async () => {
+    const api = await import("@/shared/api.js");
+    api.getPathCurriculum.mockResolvedValue(makeCurriculum());
+
+    const PathMapPage = (await import("@/modules/path/PathMapPage.vue")).default;
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn", name: "learn", component: { template: "<div/>" } },
+        { path: "/learn/path", name: "path", component: PathMapPage },
+      ],
+    });
+    await router.push("/learn/path");
+    await router.isReady();
+
+    const wrapper = mount(PathMapPage, { global: { plugins: [router] } });
+    await flushPromises();
+    await vi.waitUntil(() => wrapper.find(".path-scroll").exists(), { timeout: 2000 });
+
+    const currentStep = wrapper.find(".path-step.is-current");
+    expect(currentStep.exists()).toBe(true);
+    expect(currentStep.attributes("id")).toBe("path-node-zh-es-U03-GRAMMAR");
   });
 });

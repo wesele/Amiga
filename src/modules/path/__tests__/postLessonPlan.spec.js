@@ -133,7 +133,7 @@ describe("buildPostLessonPlan", () => {
 
 describe("primaryStepRoute", () => {
   it("falls back to path when plan is missing", () => {
-    expect(primaryStepRoute(null)).toEqual({ name: "path" });
+    expect(primaryStepRoute(null)).toEqual({ name: "path", query: { focus: "current" } });
   });
 });
 
