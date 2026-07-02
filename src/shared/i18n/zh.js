@@ -40,6 +40,9 @@ export default {
     dailyGoalMet: "目标达成！",
     dailyGoalStart: "开始一节课，点亮今日目标",
     streakDays: "{n} 天连胜",
+    streakAtRisk: "{n} 天连胜今晚就要断了！",
+    streakAtRiskHint: "完成一节课或读一篇文章即可保住连胜",
+    streakAtRiskAction: "马上学习",
   },
 
   path: {

@@ -5,6 +5,22 @@
     </header>
 
     <button
+      v-if="streakAtRisk"
+      type="button"
+      class="streak-risk-banner"
+      @click="goToPath"
+    >
+      <span class="streak-risk-icon" aria-hidden="true">🔥</span>
+      <div class="streak-risk-copy">
+        <p class="streak-risk-title">
+          {{ t("learn.streakAtRisk", { n: dailyGoal.streak_current }) }}
+        </p>
+        <p class="streak-risk-sub">{{ t("learn.streakAtRiskHint") }}</p>
+      </div>
+      <span class="streak-risk-action">{{ t("learn.streakAtRiskAction") }}</span>
+    </button>
+
+    <button
       v-if="dailyGoal"
       type="button"
       class="daily-goal-card"
@@ -86,6 +102,13 @@ const ringOffset = computed(() => {
   return RING_CIRCUMFERENCE * (1 - pct);
 });
 
+const streakAtRisk = computed(
+  () =>
+    dailyGoal.value &&
+    dailyGoal.value.streak_current > 0 &&
+    !dailyGoal.value.practiced_today,
+);
+
 const modules = [
   { id: "path", labelKey: "learn.path", icon: "🛤️", route: { name: "path" } },
   { id: "news", labelKey: "learn.news", icon: "📰", route: { name: "news" } },
@@ -146,6 +169,73 @@ onMounted(loadDailyGoal);
   margin: 0;
   font-size: 22px;
   font-weight: 700;
+}
+
+.streak-risk-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #fff4e6 0%, #ffe8cc 100%);
+  border: 1px solid #f5a623;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow var(--transition), transform var(--transition);
+  animation: streak-risk-pulse 2.4s ease-in-out infinite;
+}
+
+.streak-risk-banner:hover {
+  box-shadow: 0 2px 8px rgba(245, 166, 35, 0.25);
+}
+
+.streak-risk-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.streak-risk-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.streak-risk-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #b34700;
+  line-height: 1.3;
+}
+
+.streak-risk-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #c45c00;
+  line-height: 1.35;
+}
+
+.streak-risk-action {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: #e65a00;
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+@keyframes streak-risk-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 166, 35, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(245, 166, 35, 0.18);
+  }
 }
 
 .daily-goal-card {

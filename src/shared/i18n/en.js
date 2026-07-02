@@ -37,6 +37,9 @@ export default {
     dailyGoalMet: "Goal complete!",
     dailyGoalStart: "Start a lesson to reach today's goal",
     streakDays: "{n}-day streak",
+    streakAtRisk: "Your {n}-day streak ends tonight!",
+    streakAtRiskHint: "Complete a lesson or read an article to keep it",
+    streakAtRiskAction: "Practice now",
   },
 
   path: {

@@ -99,6 +99,74 @@ describe("LearnHubPage", () => {
     expect(pushSpy).toHaveBeenCalledWith({ name: "news" });
   });
 
+  it("shows streak-at-risk banner when user has streak but has not practiced today", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1" });
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 0,
+          target_lessons: 2,
+          progress_pct: 0,
+          goal_met: false,
+          streak_current: 5,
+          practiced_today: false,
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const banner = wrapper.find(".streak-risk-banner");
+    expect(banner.exists()).toBe(true);
+    expect(banner.text()).toContain("5 天连胜今晚就要断了");
+    expect(banner.text()).toContain("马上学习");
+    expect(wrapper.find(".daily-goal-card").exists()).toBe(true);
+  });
+
+  it("hides streak-at-risk banner after user has practiced today", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".streak-risk-banner").exists()).toBe(false);
+  });
+
+  it("navigates to path when streak-at-risk banner is clicked", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1" });
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 0,
+          target_lessons: 2,
+          progress_pct: 0,
+          goal_met: false,
+          streak_current: 4,
+          practiced_today: false,
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".streak-risk-banner").trigger("click");
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
+  });
+
   it("shows daily goal progress card with streak", async () => {
     const router = makeRouter();
     const wrapper = mount(LearnHubPage, {
