@@ -1157,6 +1157,84 @@ describe("LessonPage perfect lesson celebration", () => {
   });
 });
 
+describe("LessonPage lesson continue", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    localStorage.clear();
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload());
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({
+          passed: true,
+          stars: 3,
+          next_section_id: "zh-es/U01-VOCAB",
+        });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("wires lesson continue helpers on the summary screen", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/lessonContinue\.js/);
+    expect(source).toMatch(/continueRouteAfterLesson/);
+    expect(source).toMatch(/shouldContinueToNextLesson/);
+    expect(source).toMatch(/path\.continueNextLesson/);
+  });
+
+  it("routes directly to the next section when the lesson passes", async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn/path", name: "path", component: { template: "<div/>" } },
+        {
+          path: "/learn/path/teaching/:nodeId",
+          name: "path-teaching",
+          component: { template: "<div/>" },
+        },
+        {
+          path: "/learn/path/lesson/:sectionId",
+          name: "path-lesson",
+          component: LessonPage,
+        },
+      ],
+    });
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const primary = wrapper.find(".summary-actions .action-btn.primary");
+    expect(primary.text()).toContain("下一课");
+
+    await primary.trigger("click");
+    await flushPromises();
+
+    expect(router.currentRoute.value.name).toBe("path-teaching");
+    expect(router.currentRoute.value.params.nodeId).toBe("zh-es/U01-VOCAB");
+  });
+});
+
 describe("LessonPage answer combo", () => {
   let mockInvoke;
 

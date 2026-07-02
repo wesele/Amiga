@@ -162,7 +162,9 @@
                     ? t("path.mistakeReviewContinue")
                     : showVocabReviewNudge
                       ? t("path.vocabReviewContinue")
-                      : t("path.continuePath")
+                      : canContinueToNextLesson
+                        ? t("path.continueNextLesson")
+                        : t("path.continuePath")
                 : t("path.backToPath")
             }}
           </button>
@@ -292,6 +294,10 @@ import {
   shouldShowVocabReviewNudge,
   vocabReviewNudgeCount,
 } from "./vocabReviewNudge.js";
+import {
+  continueRouteAfterLesson,
+  shouldContinueToNextLesson,
+} from "./lessonContinue.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -462,6 +468,10 @@ const showVocabReviewNudge = computed(() =>
 );
 
 const vocabReviewNudgeTotal = computed(() => vocabReviewNudgeCount(dueVocabAtStart.value));
+
+const canContinueToNextLesson = computed(() =>
+  shouldContinueToNextLesson(result.value),
+);
 
 const summaryEmoji = computed(() => {
   if (!result.value?.passed) return "💪";
@@ -648,6 +658,11 @@ async function finishLesson() {
   }
   if (showVocabReviewNudge.value) {
     router.replace({ name: "vocab-review" });
+    return;
+  }
+  const nextRoute = continueRouteAfterLesson(result.value);
+  if (nextRoute) {
+    router.replace(nextRoute);
     return;
   }
   router.replace({ name: "path" });

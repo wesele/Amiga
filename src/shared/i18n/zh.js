@@ -197,6 +197,7 @@ export default {
     score: "答对 {correct}/{total} 题",
     retry: "再练一次",
     continuePath: "继续晋级",
+    continueNextLesson: "下一课",
     backToPath: "返回路径",
     shareLesson: "分享成就",
     shareLessonTitle: "我的阿米加课程",

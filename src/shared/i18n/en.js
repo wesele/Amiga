@@ -194,6 +194,7 @@ export default {
     score: "{correct}/{total} correct",
     retry: "Try again",
     continuePath: "Continue",
+    continueNextLesson: "Next lesson",
     backToPath: "Back to path",
     shareLesson: "Share win",
     shareLessonTitle: "My Amiga lesson",

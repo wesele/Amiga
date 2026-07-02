@@ -194,6 +194,7 @@ export default {
     score: "{correct}/{total} correctas",
     retry: "Reintentar",
     continuePath: "Continuar",
+    continueNextLesson: "Siguiente lección",
     backToPath: "Volver al camino",
     shareLesson: "Compartir logro",
     shareLessonTitle: "Mi lección en Amiga",
