@@ -122,13 +122,19 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "@/shared/i18n";
 import QuestionImage from "./QuestionImage.vue";
 import {
   isIncorrectReveal,
   textInputResultClass,
 } from "../answerRevealFeedback.js";
+import {
+  hasQuestionAudio,
+  QUESTION_AUDIO_AUTO_PLAY_MS,
+  shouldAutoPlayQuestionAudio,
+  speakQuestionAudio,
+} from "../questionAudio.js";
 import {
   isTextInputQuestionType,
   shouldSubmitOnEnter,
@@ -170,9 +176,7 @@ const textInputClass = computed(() =>
   }),
 );
 
-const hasAudio = computed(() =>
-  ["T02", "T08", "T09", "T11"].includes(props.question.type) && props.question.audioText,
-);
+const hasAudio = computed(() => hasQuestionAudio(props.question));
 
 const showMainImage = computed(() =>
   props.question.type === "T01" &&
@@ -317,25 +321,37 @@ function focusTextInput() {
   nextTick(() => textInputEl.value?.focus());
 }
 
+let autoPlayTimer = null;
+
+function clearAutoPlayTimer() {
+  if (autoPlayTimer != null) {
+    clearTimeout(autoPlayTimer);
+    autoPlayTimer = null;
+  }
+}
+
 async function playAudio() {
-  const text = props.question.audioText;
-  if (!text || !("speechSynthesis" in window)) return;
+  if (!hasQuestionAudio(props.question)) return;
   audioBusy.value = true;
   try {
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    const lang = props.question.language === "es" ? "es-ES"
-      : props.question.language === "en" ? "en-US"
-      : "zh-CN";
-    utter.lang = lang;
-    await new Promise((resolve) => {
-      utter.onend = resolve;
-      utter.onerror = resolve;
-      window.speechSynthesis.speak(utter);
-    });
+    await speakQuestionAudio(props.question);
   } finally {
     audioBusy.value = false;
   }
+}
+
+function scheduleAutoPlayAudio() {
+  clearAutoPlayTimer();
+  if (!shouldAutoPlayQuestionAudio(props.question, { showResult: props.showResult })) {
+    return;
+  }
+  autoPlayTimer = setTimeout(() => {
+    autoPlayTimer = null;
+    if (!shouldAutoPlayQuestionAudio(props.question, { showResult: props.showResult })) {
+      return;
+    }
+    void playAudio();
+  }, QUESTION_AUDIO_AUTO_PLAY_MS);
 }
 
 watch(
@@ -347,9 +363,24 @@ watch(
     textAnswer.value = "";
     emit("update:answer", isChoiceType.value ? null : props.question.type === "T03" ? [] : "");
     focusTextInput();
+    scheduleAutoPlayAudio();
   },
   { immediate: true },
 );
+
+watch(
+  () => props.showResult,
+  (showResult) => {
+    if (showResult) clearAutoPlayTimer();
+  },
+);
+
+onUnmounted(() => {
+  clearAutoPlayTimer();
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+});
 </script>
 
 <style scoped>

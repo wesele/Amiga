@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import QuestionRenderer from "../components/QuestionRenderer.vue";
+import { QUESTION_AUDIO_AUTO_PLAY_MS } from "../questionAudio.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -67,6 +68,70 @@ describe("QuestionRenderer", () => {
     await wrapper.setProps({ isCorrect: true });
     expect(wrapper.find(".text-input.is-correct").exists()).toBe(true);
     expect(wrapper.find(".text-input.is-wrong").exists()).toBe(false);
+  });
+
+  describe("auto-play audio", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      class MockUtterance {
+        constructor(text) {
+          this.text = text;
+          this.lang = "";
+          this.onend = null;
+          this.onerror = null;
+        }
+      }
+      globalThis.SpeechSynthesisUtterance = MockUtterance;
+      globalThis.speechSynthesis = {
+        cancel: vi.fn(),
+        speak: vi.fn((utter) => {
+          utter.onend?.();
+        }),
+      };
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      delete globalThis.SpeechSynthesisUtterance;
+      delete globalThis.speechSynthesis;
+    });
+
+    it("schedules audio for listening questions after a short delay", async () => {
+      const question = {
+        id: "listen-1",
+        type: "T08",
+        language: "es",
+        audioText: "Buenos días",
+        options: ["A", "B"],
+        answerIdx: 0,
+      };
+      mount(QuestionRenderer, {
+        props: { question, answer: null, showResult: false, isCorrect: false },
+      });
+
+      expect(globalThis.speechSynthesis.speak).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(QUESTION_AUDIO_AUTO_PLAY_MS);
+      await flushPromises();
+      expect(globalThis.speechSynthesis.speak).toHaveBeenCalledOnce();
+    });
+
+    it("does not auto-play while answer feedback is visible", async () => {
+      const question = {
+        id: "listen-1",
+        type: "T08",
+        language: "es",
+        audioText: "Buenos días",
+        options: ["A", "B"],
+        answerIdx: 0,
+      };
+      mount(QuestionRenderer, {
+        props: { question, answer: 1, showResult: true, isCorrect: false },
+      });
+
+      vi.advanceTimersByTime(QUESTION_AUDIO_AUTO_PLAY_MS + 100);
+      await flushPromises();
+      expect(globalThis.speechSynthesis.speak).not.toHaveBeenCalled();
+    });
   });
 
   it("marks choice options and container when a multiple-choice answer is wrong", () => {
