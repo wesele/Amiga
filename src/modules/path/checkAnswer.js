@@ -6,6 +6,24 @@ function normalizeText(value) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+export function formatQuestionPrompt(question, t) {
+  if (!question || !t) return "";
+
+  const q = question;
+
+  if (q.type === "T05") return q.sentence?.replace(/_{2,}/, "______") || q.sentence || "";
+  if (q.type === "T07") return q.sourceText || "";
+  if (q.type === "T08") return q.question || t("path.listenChoose");
+  if (q.type === "T12") return q.scenario || "";
+  if (q.type === "T09") return q.hint || "";
+  if (q.type === "T10") return q.sourceText || "";
+  if (q.type === "T01") return t("path.chooseByImage");
+  if (q.type === "T02") return t("path.listenChooseImage");
+  if (q.type === "T03") return t("path.matchPairs");
+  if (q.type === "T06") return t("path.buildSentence");
+  return "";
+}
+
 export function formatCorrectAnswer(question) {
   if (!question) return "";
 

@@ -57,6 +57,8 @@ export default {
     correct: "回答正确！",
     incorrect: "不太对，再看看",
     correctAnswer: "正确答案：{answer}",
+    reviewMistakes: "错题回顾",
+    reviewMistakesHint: "复习一下答错的题目，加深记忆后再继续",
     lessonPassed: "关卡通过！",
     lessonFailed: "继续加油",
     score: "答对 {correct}/{total} 题",

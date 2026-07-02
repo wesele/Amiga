@@ -32,6 +32,21 @@
           🎓 {{ t("path.levelUp", { level: result.new_cefr_level }) }}
         </p>
         <p v-if="!result?.passed" class="retry-hint">{{ t("path.unlimitedRetry") }}</p>
+        <section v-if="mistakes.length" class="mistake-review">
+          <h3 class="mistake-review-title">{{ t("path.reviewMistakes") }}</h3>
+          <p class="mistake-review-hint">{{ t("path.reviewMistakesHint") }}</p>
+          <ul class="mistake-list">
+            <li v-for="(item, idx) in mistakes" :key="item.question.id || idx" class="mistake-item">
+              <span class="mistake-index">{{ idx + 1 }}</span>
+              <div class="mistake-body">
+                <p class="mistake-prompt">{{ formatQuestionPrompt(item.question, t) }}</p>
+                <p class="mistake-answer">
+                  {{ t("path.correctAnswer", { answer: formatCorrectAnswer(item.question) }) }}
+                </p>
+              </div>
+            </li>
+          </ul>
+        </section>
         <div class="summary-actions">
           <button class="action-btn secondary" @click="retryLesson">{{ t("path.retry") }}</button>
           <button class="action-btn primary" @click="finishLesson">
@@ -85,7 +100,7 @@ import {
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
-import { checkAnswer, formatCorrectAnswer } from "./checkAnswer.js";
+import { checkAnswer, formatCorrectAnswer, formatQuestionPrompt } from "./checkAnswer.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -103,6 +118,7 @@ const lastCorrect = ref(false);
 const correctCount = ref(0);
 const finished = ref(false);
 const result = ref(null);
+const mistakes = ref([]);
 
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
@@ -181,6 +197,7 @@ function resetSession() {
   correctCount.value = 0;
   finished.value = false;
   result.value = null;
+  mistakes.value = [];
 }
 
 function retryLesson() {
@@ -198,7 +215,14 @@ async function finishLesson() {
 function onPrimaryAction() {
   if (!showResult.value) {
     lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
-    if (lastCorrect.value) correctCount.value += 1;
+    if (lastCorrect.value) {
+      correctCount.value += 1;
+    } else {
+      mistakes.value.push({
+        question: currentQuestion.value,
+        answer: currentAnswer.value,
+      });
+    }
     showResult.value = true;
     return;
   }
@@ -402,6 +426,79 @@ onMounted(load);
   margin: 0;
   font-size: 14px;
   color: var(--text-light);
+}
+
+.mistake-review {
+  width: 100%;
+  max-width: 360px;
+  margin-top: 8px;
+  padding: 14px 16px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+
+.mistake-review-title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mistake-review-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-light);
+  line-height: 1.4;
+}
+
+.mistake-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mistake-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--green-bg);
+  border-radius: var(--radius-sm);
+}
+
+.mistake-index {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--orange-bg);
+  color: var(--orange-hover);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+}
+
+.mistake-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.mistake-prompt {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.mistake-answer {
+  margin: 0;
+  font-size: 13px;
+  color: var(--green-hover);
+  line-height: 1.4;
 }
 
 .summary-actions {

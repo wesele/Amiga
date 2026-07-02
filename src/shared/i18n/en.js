@@ -54,6 +54,8 @@ export default {
     correct: "Correct!",
     incorrect: "Not quite — try again",
     correctAnswer: "Correct answer: {answer}",
+    reviewMistakes: "Review mistakes",
+    reviewMistakesHint: "Go over what you missed before moving on",
     lessonPassed: "Section complete!",
     lessonFailed: "Keep going!",
     score: "{correct}/{total} correct",

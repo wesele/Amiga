@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { checkAnswer, formatCorrectAnswer } from "../checkAnswer.js";
+import { checkAnswer, formatCorrectAnswer, formatQuestionPrompt } from "../checkAnswer.js";
+
+const t = (key) => {
+  const map = {
+    "path.listenChoose": "Listen and choose",
+    "path.chooseByImage": "Choose by image",
+    "path.listenChooseImage": "Listen and pick image",
+    "path.matchPairs": "Match pairs",
+    "path.buildSentence": "Build sentence",
+  };
+  return map[key] || key;
+};
 
 describe("checkAnswer", () => {
   it("checks multiple-choice by answerIdx", () => {
@@ -26,6 +37,16 @@ describe("checkAnswer", () => {
   it("normalizes accents for T09", () => {
     const q = { type: "T09", answer: "café", commonMistakes: [] };
     expect(checkAnswer(q, "cafe")).toBe(true);
+  });
+});
+
+describe("formatQuestionPrompt", () => {
+  it("returns learner-facing prompt for choice and input types", () => {
+    expect(formatQuestionPrompt({ type: "T01" }, t)).toBe("Choose by image");
+    expect(formatQuestionPrompt({ type: "T07", sourceText: "Hola" }, t)).toBe("Hola");
+    expect(formatQuestionPrompt({ type: "T05", sentence: "Yo ___ estudiante." }, t)).toBe(
+      "Yo ______ estudiante.",
+    );
   });
 });
 
