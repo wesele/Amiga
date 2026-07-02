@@ -20,7 +20,11 @@
       🔊 {{ t("path.playAudio") }}
     </button>
 
-    <div v-if="isChoiceType" class="options">
+    <div
+      v-if="isChoiceType"
+      class="options"
+      :class="{ 'reveal-incorrect': incorrectReveal }"
+    >
       <button
         v-for="(opt, idx) in choiceOptions"
         :key="idx"
@@ -103,6 +107,7 @@
         ref="textInputEl"
         v-model="textAnswer"
         class="text-input"
+        :class="textInputClass"
         :placeholder="question.hint || t('path.typeAnswer')"
         :disabled="showResult"
         enterkeyhint="go"
@@ -120,6 +125,10 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "@/shared/i18n";
 import QuestionImage from "./QuestionImage.vue";
+import {
+  isIncorrectReveal,
+  textInputResultClass,
+} from "../answerRevealFeedback.js";
 import {
   isTextInputQuestionType,
   shouldSubmitOnEnter,
@@ -145,6 +154,20 @@ const textAnswer = ref("");
 
 const isChoiceType = computed(() =>
   ["T01", "T02", "T05", "T07", "T08", "T12"].includes(props.question.type),
+);
+
+const incorrectReveal = computed(() =>
+  isIncorrectReveal({
+    showResult: props.showResult,
+    isCorrect: props.isCorrect,
+  }),
+);
+
+const textInputClass = computed(() =>
+  textInputResultClass({
+    showResult: props.showResult,
+    isCorrect: props.isCorrect,
+  }),
 );
 
 const hasAudio = computed(() =>
@@ -385,6 +408,40 @@ watch(
 .option-btn.wrong {
   border-color: var(--red);
   background: var(--red-bg);
+  animation: option-shake 0.42s ease;
+}
+
+.options.reveal-incorrect .option-btn.correct {
+  animation: correct-reveal-pulse 0.55s ease 0.12s 2;
+}
+
+@keyframes option-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  18% {
+    transform: translateX(-5px);
+  }
+  36% {
+    transform: translateX(5px);
+  }
+  54% {
+    transform: translateX(-4px);
+  }
+  72% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes correct-reveal-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(88, 204, 2, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(88, 204, 2, 0.28);
+  }
 }
 
 .option-image {
@@ -467,5 +524,25 @@ watch(
   border-radius: var(--radius-md);
   font-size: 16px;
   box-sizing: border-box;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.text-input.is-wrong {
+  border-color: var(--red);
+  background: var(--red-bg);
+  animation: option-shake 0.42s ease;
+}
+
+.text-input.is-correct {
+  border-color: var(--green);
+  background: var(--green-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .option-btn.wrong,
+  .options.reveal-incorrect .option-btn.correct,
+  .text-input.is-wrong {
+    animation: none;
+  }
 }
 </style>
