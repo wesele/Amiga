@@ -57,6 +57,30 @@
       </div>
     </section>
 
+    <section v-if="showWeakAreas" class="settings-section">
+      <h3 class="section-header">{{ t('profile.weakAreas') }}</h3>
+      <p class="section-desc">{{ t('profile.weakAreasDesc') }}</p>
+      <div class="weak-areas-card">
+        <div
+          v-for="(area, index) in practiceWeakAreas"
+          :key="area.typeId"
+          class="weak-area-item"
+          :class="{ 'has-divider': index < practiceWeakAreas.length - 1 }"
+        >
+          <div class="weak-area-header">
+            <span class="weak-area-type">{{ t(focusAreaTypeKey(area.typeId)) }}</span>
+            <span
+              class="weak-area-pct"
+              :class="accuracyValueClass(area.accuracyPct)"
+            >
+              {{ area.accuracyPct }}%
+            </span>
+          </div>
+          <p class="weak-area-tip">{{ t(focusAreaTipKey(area.typeId)) }}</p>
+        </div>
+      </div>
+    </section>
+
     <section v-if="showAchievements" class="settings-section">
       <h3 class="section-header">{{ t('profile.achievements') }}</h3>
       <p class="section-desc">
@@ -208,12 +232,20 @@ import { AVAILABLE_LANGUAGES, LEARNING_CEFR_LEVELS } from "@/shared/constants.js
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
 import { shareLearningProgress } from "./shareProgress.js";
-import { pairStatsKey } from "@/modules/learn/questionTypeStats.js";
+import {
+  focusAreaTipKey,
+  focusAreaTypeKey,
+  pairStatsKey,
+} from "@/modules/learn/questionTypeStats.js";
 import {
   accuracyValueClass,
   buildPracticeAccuracy,
   shouldShowPracticeAccuracy,
 } from "./practiceAccuracy.js";
+import {
+  buildPracticeWeakAreas,
+  shouldShowPracticeWeakAreas,
+} from "./practiceWeakAreas.js";
 import { buildAchievements, shouldShowAchievements } from "./achievements.js";
 import { loadMistakeMasteryStats } from "@/modules/path/mistakeMasteryStats.js";
 import { mistakeMilestoneProgress } from "@/modules/learn/mistakeMilestones.js";
@@ -242,6 +274,10 @@ const practiceAccuracy = ref(null);
 const showPracticeAccuracy = computed(() =>
   shouldShowPracticeAccuracy(practiceAccuracy.value),
 );
+const practiceWeakAreas = ref([]);
+const showWeakAreas = computed(() =>
+  shouldShowPracticeWeakAreas(practiceWeakAreas.value),
+);
 const sharing = ref(false);
 const shareStatus = ref("");
 let shareStatusTimer = null;
@@ -268,6 +304,7 @@ onMounted(async () => {
     learningStreak.value = await getLearningStreak(user.value.id);
     await refreshAchievementProgress(ctx.user.native_language, currentTargetLang.value);
     refreshPracticeAccuracy(ctx.user.native_language, currentTargetLang.value);
+    refreshPracticeWeakAreas(ctx.user.native_language, currentTargetLang.value);
     if (ctx.currentGoal) currentLevel.value = ctx.cefr;
   } catch (e) {
     console.error("Failed to load profile:", e);
@@ -299,6 +336,14 @@ function refreshPracticeAccuracy(nativeLang, targetLang) {
   practiceAccuracy.value = buildPracticeAccuracy(pairStatsKey(nativeLang, targetLang));
 }
 
+function refreshPracticeWeakAreas(nativeLang, targetLang) {
+  if (!nativeLang || !targetLang) {
+    practiceWeakAreas.value = [];
+    return;
+  }
+  practiceWeakAreas.value = buildPracticeWeakAreas(pairStatsKey(nativeLang, targetLang));
+}
+
 async function refreshAchievementProgress(nativeLang, targetLang) {
   lessonMilestone.value = null;
   perfectLessonStreak.value = null;
@@ -328,6 +373,7 @@ async function onSwitchLang(code) {
       if (u) {
         goals.value = await getLearningGoals(u.id);
         refreshPracticeAccuracy(u.native_language, code);
+        refreshPracticeWeakAreas(u.native_language, code);
         await refreshAchievementProgress(u.native_language, code);
       }
       const g = pickLearningGoal(goals.value, code);
@@ -607,6 +653,63 @@ async function handleInstallUpdate() {
   height: 32px;
   background: var(--border);
   flex-shrink: 0;
+}
+
+.weak-areas-card {
+  margin: 0 16px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.weak-area-item {
+  padding: 12px 14px;
+}
+
+.weak-area-item.has-divider {
+  border-bottom: 1px solid var(--border);
+}
+
+.weak-area-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.weak-area-type {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.weak-area-pct {
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.weak-area-pct.tier-excellent {
+  color: #2e9e44;
+}
+
+.weak-area-pct.tier-good {
+  color: var(--green);
+}
+
+.weak-area-pct.tier-fair {
+  color: #c47d00;
+}
+
+.weak-area-pct.tier-needs_work {
+  color: #d64545;
+}
+
+.weak-area-tip {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-lighter);
 }
 
 .achievements-card {

@@ -397,6 +397,8 @@ export default {
     articles: "已读文章",
     streak: "连续学习",
     accuracy: "答题正确率",
+    weakAreas: "待加强题型",
+    weakAreasDesc: "根据近期练习答题记录，优先攻克这些薄弱题型",
     streakDays: "{n} 天",
     general: "通用",
     about: "关于",

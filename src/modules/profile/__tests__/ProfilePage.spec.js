@@ -149,6 +149,64 @@ describe("ProfilePage", () => {
     expect(accuracyCell.find(".stat-value").text()).toBe("80%");
   });
 
+  it("shows weak areas when multiple question types are below the accuracy threshold", async () => {
+    localStorage.setItem(
+      STATS_STORAGE_KEY,
+      JSON.stringify({
+        "zh-es": {
+          T01: { correct: 8, wrong: 2 },
+          T05: { correct: 3, wrong: 7 },
+          T09: { correct: 2, wrong: 8 },
+        },
+      }),
+    );
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([
+        { id: 1, target_language: "es", cefr_level: "A1" },
+      ]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 0, total_learning: 0, total: 0 });
+      if (cmd === "get_read_article_count_cmd") return Promise.resolve(0);
+      if (cmd === "get_learning_streak_cmd") return Promise.resolve({ current: 0, longest: 0, practiced_today: false });
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+    expect(wrapper.text()).toContain("待加强题型");
+    const items = wrapper.findAll(".weak-area-item");
+    expect(items).toHaveLength(2);
+    expect(items[0].text()).toContain("拼写输入");
+    expect(items[0].text()).toContain("20%");
+    expect(items[1].text()).toContain("补全句子");
+    expect(items[1].text()).toContain("30%");
+  });
+
+  it("hides weak areas when no question type qualifies", async () => {
+    localStorage.setItem(
+      STATS_STORAGE_KEY,
+      JSON.stringify({
+        "zh-es": {
+          T01: { correct: 9, wrong: 1 },
+        },
+      }),
+    );
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([
+        { id: 1, target_language: "es", cefr_level: "A1" },
+      ]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 0, total_learning: 0, total: 0 });
+      if (cmd === "get_read_article_count_cmd") return Promise.resolve(0);
+      if (cmd === "get_learning_streak_cmd") return Promise.resolve({ current: 0, longest: 0, practiced_today: false });
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("待加强题型");
+  });
+
   it("hides practice accuracy until enough lesson answers are tracked", async () => {
     localStorage.setItem(
       STATS_STORAGE_KEY,

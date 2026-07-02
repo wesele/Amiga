@@ -394,6 +394,8 @@ export default {
     articles: "Articles read",
     streak: "Streak",
     accuracy: "Accuracy",
+    weakAreas: "Areas to improve",
+    weakAreasDesc: "Based on your recent lesson answers — focus on these question types",
     streakDays: "{n} days",
     general: "General",
     about: "About",

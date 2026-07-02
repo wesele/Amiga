@@ -394,6 +394,8 @@ export default {
     articles: "Artículos leídos",
     streak: "Racha",
     accuracy: "Precisión",
+    weakAreas: "Áreas a mejorar",
+    weakAreasDesc: "Según tus respuestas recientes — prioriza estos tipos de pregunta",
     streakDays: "{n} días",
     general: "General",
     about: "Acerca de",
