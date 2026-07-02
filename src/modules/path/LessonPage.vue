@@ -56,6 +56,12 @@
         <p v-if="showResult" class="feedback" :class="lastCorrect ? 'ok' : 'bad'">
           {{ lastCorrect ? t("path.correct") : t("path.incorrect") }}
         </p>
+        <p
+          v-if="showResult && !lastCorrect && correctAnswerText"
+          class="answer-reveal"
+        >
+          {{ t("path.correctAnswer", { answer: correctAnswerText }) }}
+        </p>
         <button
           class="action-btn primary"
           :disabled="!canCheck"
@@ -79,7 +85,7 @@ import {
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
-import { checkAnswer } from "./checkAnswer.js";
+import { checkAnswer, formatCorrectAnswer } from "./checkAnswer.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -125,6 +131,12 @@ const canCheck = computed(() => {
   }
   return false;
 });
+
+const correctAnswerText = computed(() =>
+  showResult.value && !lastCorrect.value
+    ? formatCorrectAnswer(currentQuestion.value)
+    : "",
+);
 
 const primaryLabel = computed(() => {
   if (showResult.value) {
@@ -305,6 +317,17 @@ onMounted(load);
 
 .feedback.bad {
   color: var(--red);
+}
+
+.answer-reveal {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: var(--green-bg);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .action-btn {

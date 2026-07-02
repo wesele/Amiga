@@ -56,6 +56,7 @@ export default {
     finish: "完成",
     correct: "回答正确！",
     incorrect: "不太对，再看看",
+    correctAnswer: "正确答案：{answer}",
     lessonPassed: "关卡通过！",
     lessonFailed: "继续加油",
     score: "答对 {correct}/{total} 题",
