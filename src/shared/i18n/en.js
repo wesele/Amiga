@@ -439,6 +439,8 @@ export default {
     reviewContinueMore: "Keep reviewing ({n}+ more)",
     reviewContinueHint: "Strike while the iron is hot — lock in more words",
     vocabMilestoneReached: "📚 {n} words mastered! Vocabulary milestone unlocked",
+    playPronunciation: "Play pronunciation",
+    pronunciationUnavailable: "Speech playback is not available on this device",
   },
 
   chat: {
@@ -685,6 +687,7 @@ export default {
     known: "Known",
     unknown: "Unknown",
     fail: "Translation unavailable",
+    playPronunciation: "Play pronunciation",
   },
 
   external: {

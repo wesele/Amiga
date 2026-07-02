@@ -1,7 +1,14 @@
 <template>
   <div class="popup-overlay" @click.self="$emit('close')">
     <div class="word-popup">
-      <div class="popup-word">{{ word }}</div>
+      <div class="popup-word-row">
+        <div class="popup-word">{{ word }}</div>
+        <WordSpeechButton
+          :word="word"
+          :language="sourceLang"
+          :aria-label="t('popup.playPronunciation')"
+        />
+      </div>
 
       <div v-if="loading" class="popup-loading">
         <div class="mini-spinner" />
@@ -39,6 +46,7 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { translateWord } from "@/shared/api.js";
+import WordSpeechButton from "@/shared/components/WordSpeechButton.vue";
 import { useI18n } from "@/shared/i18n";
 
 const props = defineProps({
@@ -103,11 +111,18 @@ function emitClose() {
   to { transform: translateY(0); opacity: 1; }
 }
 
+.popup-word-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
 .popup-word {
   font-size: 22px;
   font-weight: 800;
   color: var(--purple);
-  margin-bottom: 8px;
 }
 
 .popup-loading {

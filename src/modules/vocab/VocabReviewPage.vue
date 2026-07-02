@@ -73,6 +73,13 @@
         <p v-if="flipped && !acting && !ratingAck" class="swipe-guide">
           {{ t("vocab.reviewSwipeHint") }}
         </p>
+        <WordSpeechButton
+          v-if="currentWord"
+          class="flashcard-speech-btn"
+          :word="currentWord.word"
+          :language="speechLanguage"
+          :aria-label="t('vocab.playPronunciation')"
+        />
         <button
           type="button"
           class="flashcard"
@@ -144,7 +151,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import WordSpeechButton from "@/shared/components/WordSpeechButton.vue";
+import {
+  WORD_SPEECH_AUTO_PLAY_MS,
+  shouldAutoPlayWordSpeech,
+  speakWord,
+} from "@/shared/wordSpeech.js";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { getUnknownWords, getUserVocabStats, updateWordMastery } from "@/shared/api.js";
@@ -220,6 +233,29 @@ const cefr = ref("A1");
 const targetLang = ref("es");
 
 const currentWord = computed(() => words.value[index.value] || null);
+
+const speechLanguage = computed(
+  () => currentWord.value?.language ?? targetLang.value,
+);
+
+let autoPlayTimer = null;
+
+function clearAutoPlayTimer() {
+  if (autoPlayTimer) {
+    clearTimeout(autoPlayTimer);
+    autoPlayTimer = null;
+  }
+}
+
+function scheduleFlipAutoPlay() {
+  clearAutoPlayTimer();
+  if (!shouldAutoPlayWordSpeech({ showResult: acting.value })) return;
+  autoPlayTimer = setTimeout(() => {
+    autoPlayTimer = null;
+    if (!currentWord.value || !flipped.value || acting.value) return;
+    void speakWord(currentWord.value.word, speechLanguage.value);
+  }, WORD_SPEECH_AUTO_PLAY_MS);
+}
 
 const progress = computed(() => sessionProgress(index.value, words.value.length));
 
@@ -355,6 +391,15 @@ function toggleFlip() {
   flipped.value = !flipped.value;
 }
 
+watch(flipped, (isFlipped) => {
+  if (isFlipped) scheduleFlipAutoPlay();
+});
+
+watch(index, () => {
+  clearAutoPlayTimer();
+  globalThis.speechSynthesis?.cancel();
+});
+
 function onCardClick() {
   if (swipeConsumed.value) {
     swipeConsumed.value = false;
@@ -481,6 +526,11 @@ function exitReview() {
 }
 
 onMounted(load);
+
+onUnmounted(() => {
+  clearAutoPlayTimer();
+  globalThis.speechSynthesis?.cancel();
+});
 </script>
 
 <style scoped>
@@ -629,6 +679,7 @@ onMounted(load);
 }
 
 .review-body {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -636,6 +687,13 @@ onMounted(load);
   justify-content: center;
   padding: 20px 16px;
   gap: 12px;
+}
+
+.flashcard-speech-btn {
+  position: absolute;
+  top: 28px;
+  right: calc(50% - 180px + 8px);
+  z-index: 3;
 }
 
 .review-badge {

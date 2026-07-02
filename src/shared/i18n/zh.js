@@ -442,6 +442,8 @@ export default {
     reviewContinueMore: "继续复习（还有 {n}+ 个）",
     reviewContinueHint: "趁热打铁，巩固更多单词",
     vocabMilestoneReached: "📚 已掌握 {n} 个单词！词汇里程碑达成",
+    playPronunciation: "播放发音",
+    pronunciationUnavailable: "当前设备不支持语音播放",
   },
 
   chat: {
@@ -687,6 +689,7 @@ export default {
     known: "认识",
     unknown: "不认识",
     fail: "翻译暂不可用",
+    playPronunciation: "播放发音",
   },
 
   external: {

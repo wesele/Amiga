@@ -439,6 +439,8 @@ export default {
     reviewContinueMore: "Seguir repasando ({n}+ más)",
     reviewContinueHint: "Aprovecha el impulso y consolida más palabras",
     vocabMilestoneReached: "📚 ¡{n} palabras dominadas! Hito de vocabulario desbloqueado",
+    playPronunciation: "Reproducir pronunciación",
+    pronunciationUnavailable: "La reproducción de voz no está disponible en este dispositivo",
   },
 
   chat: {
@@ -685,6 +687,7 @@ export default {
     known: "Conozco",
     unknown: "No conozco",
     fail: "Traducción no disponible",
+    playPronunciation: "Reproducir pronunciación",
   },
 
   external: {

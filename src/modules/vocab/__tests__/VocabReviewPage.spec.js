@@ -7,6 +7,7 @@ import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
 import * as vocabRatingFeedback from "../vocabRatingFeedback.js";
+import * as wordSpeech from "@/shared/wordSpeech.js";
 
 const VOCAB_PAGE_SOURCE = readFileSync(
   resolve(import.meta.dirname, "../VocabReviewPage.vue"),
@@ -98,6 +99,21 @@ describe("VocabReviewPage", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("shows a pronunciation button on the review flashcard", async () => {
+    vi.spyOn(wordSpeech, "isSpeechSynthesisAvailable").mockReturnValue(true);
+
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const speechBtn = wrapper.find(".word-speech-btn");
+    expect(speechBtn.exists()).toBe(true);
+    expect(speechBtn.attributes("aria-label")).toBe("播放发音");
   });
 
   it("shows flashcard with first word and reinforcement badge", async () => {
