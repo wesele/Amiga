@@ -109,7 +109,8 @@
                 "Iré al parque mañana.",
                 "No me gusta el parque."
               ],
-              "answerIdx": 0
+              "answerIdx": 0,
+              "pragmaticsNote": "问的是上周末做了什么，要用过去时（fui）；voy/iré 是现在时和将来时，No me gusta 则答非所问。"
             }
           ]
         },

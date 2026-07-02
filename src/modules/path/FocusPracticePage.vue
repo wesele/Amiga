@@ -91,11 +91,17 @@
         <p v-if="showResult" class="feedback" :class="lastCorrect ? 'ok' : 'bad'">
           {{ lastCorrect ? t("path.correct") : t("path.incorrect") }}
         </p>
+        <p v-if="commonMistakeFeedback" class="common-mistake-tip">
+          {{ commonMistakeFeedback }}
+        </p>
         <p v-if="nearMissFeedback" class="near-miss-tip">
           {{ nearMissFeedback }}
         </p>
         <p v-if="showYourAnswer" class="your-answer-reveal">
           {{ yourAnswerFeedbackText }}
+        </p>
+        <p v-if="wrongExplanation" class="wrong-explanation">
+          {{ wrongExplanation }}
         </p>
         <p
           v-if="showResult && !lastCorrect && correctAnswerText"
@@ -146,8 +152,10 @@ import QuestionRenderer from "./components/QuestionRenderer.vue";
 import PracticeQuestionTransition from "./components/PracticeQuestionTransition.vue";
 import { practiceQuestionKey } from "./practiceQuestionKey.js";
 import { checkAnswer, formatCorrectAnswer } from "./checkAnswer.js";
+import { getCommonMistakeFeedback } from "./commonMistakeFeedback.js";
 import { getNearMissFeedback } from "./nearMissAnswer.js";
 import { shouldShowYourAnswer, yourAnswerText } from "./wrongAnswerFeedback.js";
+import { wrongAnswerExplanationText } from "./wrongAnswerExplanation.js";
 import { shouldAutoCheckOnAnswerChange } from "./practiceAnswerAutoCheck.js";
 import { correctAutoAdvanceDelayMs } from "./practiceFlowTiming.js";
 import { usePracticeEnterKey } from "./usePracticeEnterKey.js";
@@ -208,8 +216,20 @@ const correctAnswerText = computed(() =>
   currentQuestion.value ? formatCorrectAnswer(currentQuestion.value) : "",
 );
 
+const commonMistakeFeedback = computed(() => {
+  if (!showResult.value || lastCorrect.value || !currentQuestion.value) return "";
+  return (
+    getCommonMistakeFeedback(
+      currentQuestion.value,
+      currentAnswer.value,
+      t,
+    ) || ""
+  );
+});
+
 const nearMissFeedback = computed(() => {
   if (!showResult.value || lastCorrect.value || !currentQuestion.value) return "";
+  if (commonMistakeFeedback.value) return "";
   return (
     getNearMissFeedback(
       currentQuestion.value,
@@ -225,7 +245,7 @@ const showYourAnswer = computed(() =>
     lastCorrect: lastCorrect.value,
     question: currentQuestion.value,
     answer: currentAnswer.value,
-    commonMistakeFeedback: "",
+    commonMistakeFeedback: commonMistakeFeedback.value,
     nearMissFeedback: nearMissFeedback.value,
   }),
 );
@@ -235,6 +255,16 @@ const yourAnswerFeedbackText = computed(() =>
     ? yourAnswerText(currentQuestion.value, currentAnswer.value, t)
     : "",
 );
+
+const wrongExplanation = computed(() => {
+  if (!showResult.value || lastCorrect.value || !currentQuestion.value) return "";
+  return wrongAnswerExplanationText(currentQuestion.value, currentAnswer.value, {
+    t,
+    hintAlreadyShown: hintShown.value,
+    commonMistakeFeedback: commonMistakeFeedback.value,
+    nearMissFeedback: nearMissFeedback.value,
+  });
+});
 
 const canCheck = computed(() => {
   if (showResult.value) return true;
@@ -606,6 +636,18 @@ onMounted(load);
   color: var(--red);
 }
 
+.common-mistake-tip {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: #fff4e6;
+  border: 1.5px solid #f0b429;
+  border-radius: var(--radius-sm);
+  color: #7a4b00;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
+}
+
 .your-answer-reveal {
   margin: 0 0 6px;
   padding: 10px 12px;
@@ -616,6 +658,18 @@ onMounted(load);
   font-weight: 600;
   text-align: center;
   line-height: 1.45;
+}
+
+.wrong-explanation {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: #fffbe6;
+  border: 1.5px solid #f5d565;
+  border-radius: var(--radius-sm);
+  color: #5c4a00;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .answer-reveal {

@@ -275,6 +275,9 @@
         <p v-if="showYourAnswer" class="your-answer-reveal">
           {{ yourAnswerFeedbackText }}
         </p>
+        <p v-if="wrongExplanation" class="wrong-explanation">
+          {{ wrongExplanation }}
+        </p>
         <p
           v-if="showResult && !lastCorrect && correctAnswerText"
           class="answer-reveal"
@@ -335,6 +338,7 @@ import { perfectLessonMilestoneKey } from "./perfectLessonStreak.js";
 import { getCommonMistakeFeedback } from "./commonMistakeFeedback.js";
 import { getNearMissFeedback } from "./nearMissAnswer.js";
 import { shouldShowYourAnswer, yourAnswerText } from "./wrongAnswerFeedback.js";
+import { wrongAnswerExplanationText } from "./wrongAnswerExplanation.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 import {
   buildFocusArea,
@@ -546,6 +550,16 @@ const yourAnswerFeedbackText = computed(() =>
     ? yourAnswerText(currentQuestion.value, currentAnswer.value, t)
     : "",
 );
+
+const wrongExplanation = computed(() => {
+  if (!showResult.value || lastCorrect.value || !currentQuestion.value) return "";
+  return wrongAnswerExplanationText(currentQuestion.value, currentAnswer.value, {
+    t,
+    hintAlreadyShown: hintShown.value,
+    commonMistakeFeedback: commonMistakeFeedback.value,
+    nearMissFeedback: nearMissFeedback.value,
+  });
+});
 
 const primaryLabel = computed(() => {
   if (showResult.value) {
@@ -1355,6 +1369,18 @@ onMounted(load);
   color: var(--red);
   font-size: 14px;
   font-weight: 600;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.wrong-explanation {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: #fffbe6;
+  border: 1.5px solid #f5d565;
+  border-radius: var(--radius-sm);
+  color: #5c4a00;
+  font-size: 14px;
   line-height: 1.45;
   text-align: center;
 }

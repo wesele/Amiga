@@ -77,6 +77,50 @@ export function getQuestionHint(question, t) {
   return null;
 }
 
+/**
+ * Post-answer generated hint with a corrective tone (excludes author-written hint).
+ */
+export function getPostAnswerHint(question, t) {
+  if (!question || typeof t !== "function") return null;
+
+  const type = question.type;
+
+  if (["T01", "T02", "T05", "T07", "T08", "T12"].includes(type)) {
+    const wrong = getChoiceWrongLabels(question);
+    if (!wrong.length) return null;
+    return t("path.wrongHintEliminate", { options: wrong.join("、") });
+  }
+
+  if (type === "T03") {
+    const pair = (question.pairs || []).find((p) => p?.left && p?.right);
+    if (!pair) return null;
+    return t("path.wrongHintMatchPair", { left: pair.left, right: pair.right });
+  }
+
+  if (type === "T06") {
+    const words = String(question.targetSentence ?? "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!words.length) return null;
+    return t("path.wrongHintWordOrder", { count: words.length, first: words[0] });
+  }
+
+  if (type === "T09") {
+    const prefix = spellingPrefix(question.answer);
+    if (!prefix) return null;
+    return t("path.wrongHintSpelling", { prefix });
+  }
+
+  if (type === "T10") {
+    const prefix = spellingPrefix(question.acceptedAnswers?.[0]);
+    if (!prefix) return null;
+    return t("path.wrongHintSpelling", { prefix });
+  }
+
+  return null;
+}
+
 export function hasQuestionHint(question) {
   if (!question) return false;
   if (String(question.hint ?? "").trim()) return true;

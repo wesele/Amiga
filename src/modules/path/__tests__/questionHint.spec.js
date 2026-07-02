@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getQuestionHint, hasQuestionHint } from "../questionHint.js";
+import { getPostAnswerHint, getQuestionHint, hasQuestionHint } from "../questionHint.js";
 
 const t = (key, params = {}) => {
   const templates = {
@@ -7,6 +7,10 @@ const t = (key, params = {}) => {
     "path.hintMatchPair": "{left} → {right}",
     "path.hintWordOrder": "{count} words, first: {first}",
     "path.hintSpelling": "starts with {prefix}",
+    "path.wrongHintEliminate": "not these: {options}",
+    "path.wrongHintMatchPair": "pair: {left} → {right}",
+    "path.wrongHintWordOrder": "{count} words, start: {first}",
+    "path.wrongHintSpelling": "starts with {prefix}",
   };
   let text = templates[key] || key;
   for (const [k, v] of Object.entries(params)) {
@@ -54,6 +58,31 @@ describe("getQuestionHint", () => {
   it("returns null when no hint can be generated", () => {
     expect(getQuestionHint({ type: "T07", options: [], answerIdx: 0 }, t)).toBeNull();
     expect(getQuestionHint(null, t)).toBeNull();
+  });
+});
+
+describe("getPostAnswerHint", () => {
+  it("uses corrective tone for generated choice hints", () => {
+    const q = {
+      type: "T07",
+      options: ["Ana", "casa", "perro", "libro"],
+      answerIdx: 0,
+    };
+    expect(getPostAnswerHint(q, t)).toBe("not these: casa、perro");
+  });
+
+  it("ignores author-written hint", () => {
+    const q = {
+      type: "T05",
+      hint: "作者写的提示",
+      options: ["A", "B"],
+      answerIdx: 0,
+    };
+    expect(getPostAnswerHint(q, t)).toBe("not these: B");
+  });
+
+  it("returns null when no post-answer hint can be generated", () => {
+    expect(getPostAnswerHint({ type: "T07", options: [], answerIdx: 0 }, t)).toBeNull();
   });
 });
 

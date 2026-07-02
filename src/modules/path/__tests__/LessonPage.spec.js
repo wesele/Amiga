@@ -590,6 +590,97 @@ describe("LessonPage near-miss feedback", () => {
   });
 });
 
+describe("LessonPage wrong-answer explanation", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A2" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") {
+        return Promise.resolve({
+          section_title_native: "微讲解练习",
+          questions: [
+            {
+              id: "t12-1",
+              type: "T12",
+              scenario: "朋友问上周末做了什么",
+              options: ["Fui al parque", "Voy al parque", "Iré al parque"],
+              answerIdx: 0,
+              pragmaticsNote: "问的是过去的事，要用过去时 fui。",
+            },
+            {
+              id: "t05-1",
+              type: "T05",
+              sentence: "Hola, me llamo ____.",
+              options: ["Ana", "casa", "perro"],
+              answerIdx: 0,
+            },
+          ],
+        });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("wires wrong-answer explanation into the lesson footer", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/wrongAnswerExplanation\.js/);
+    expect(source).toMatch(/class="wrong-explanation"/);
+    expect(source).toMatch(/wrongExplanation/);
+  });
+
+  it("shows pragmatics note after a wrong T12 choice", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, { global: { plugins: [router] } });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 1;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const explanation = wrapper.find(".wrong-explanation");
+    expect(explanation.exists()).toBe(true);
+    expect(explanation.text()).toContain("过去时 fui");
+    expect(wrapper.find(".feedback.bad").exists()).toBe(true);
+  });
+
+  it("shows distractor compare after a wrong T05 choice", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, { global: { plugins: [router] } });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 1;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const explanation = wrapper.find(".wrong-explanation");
+    expect(explanation.exists()).toBe(true);
+    expect(explanation.text()).toContain("casa");
+    expect(explanation.text()).toContain("Ana");
+  });
+});
+
 describe("LessonPage mistake review", () => {
   it("tracks wrong answers and shows a recap on the summary screen", () => {
     const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
