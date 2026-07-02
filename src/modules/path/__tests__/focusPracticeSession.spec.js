@@ -19,6 +19,18 @@ describe("focusPracticeSession", () => {
     expect(isSessionComplete(4, 5)).toBe(false);
   });
 
+  it("advances the bar when the current question has been checked", () => {
+    expect(sessionProgressPct(0, 10)).toBe(10);
+    expect(sessionProgressPct(0, 10, { answered: true })).toBe(20);
+    expect(sessionProgressPct(2, 10, { answered: true })).toBe(40);
+    expect(sessionProgressPct(9, 10, { answered: true })).toBe(100);
+  });
+
+  it("keeps the bar steady when advancing to the next unanswered question", () => {
+    expect(sessionProgressPct(0, 10, { answered: true })).toBe(20);
+    expect(sessionProgressPct(1, 10)).toBe(20);
+  });
+
   it("computes session accuracy percentage", () => {
     expect(sessionAccuracy(3, 5)).toBe(60);
     expect(sessionAccuracy(0, 0)).toBe(0);

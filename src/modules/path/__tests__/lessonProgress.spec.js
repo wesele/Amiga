@@ -33,4 +33,22 @@ describe("lessonProgress", () => {
       }),
     ).toBe(67);
   });
+
+  it("ticks progress forward when the current question has been answered", () => {
+    expect(
+      lessonSessionProgressPct({
+        index: 0,
+        totalQuestions: 10,
+        answered: true,
+      }),
+    ).toBe(20);
+    expect(
+      lessonSessionProgressPct({
+        inReinforcement: true,
+        reinforcementIndex: 0,
+        reinforcementTotal: 4,
+        answered: true,
+      }),
+    ).toBe(50);
+  });
 });

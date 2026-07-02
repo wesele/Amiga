@@ -415,6 +415,7 @@ const progressPct = computed(() => {
     reinforcementIndex: reinforcementIndex.value,
     totalQuestions: questions.value.length,
     reinforcementTotal: reinforcementQueue.value.length,
+    answered: showResult.value,
   });
 });
 

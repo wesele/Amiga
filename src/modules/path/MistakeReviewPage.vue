@@ -168,6 +168,7 @@ import {
 } from "./mistakeReviewContinuation.js";
 import { shouldAutoCheckOnAnswerChange } from "./practiceAnswerAutoCheck.js";
 import { correctAutoAdvanceDelayMs } from "./practiceFlowTiming.js";
+import { sessionProgressPct } from "./focusPracticeSession.js";
 import { usePracticeEnterKey } from "./usePracticeEnterKey.js";
 
 const router = useRouter();
@@ -207,10 +208,11 @@ const questionTransitionKey = computed(() =>
 
 const progressCurrent = computed(() => Math.min(index.value + 1, queue.value.length || 1));
 
-const progressPct = computed(() => {
-  if (!queue.value.length) return 0;
-  return Math.round((progressCurrent.value / queue.value.length) * 100);
-});
+const progressPct = computed(() =>
+  sessionProgressPct(index.value, queue.value.length, {
+    answered: showResult.value,
+  }),
+);
 
 const streakCelebration = computed(() =>
   reviewStreakCelebration(streakUpdate.value, t),

@@ -22,9 +22,10 @@ export function lessonSessionProgressPct({
   reinforcementIndex = 0,
   totalQuestions = 0,
   reinforcementTotal = 0,
+  answered = false,
 } = {}) {
   if (inReinforcement) {
-    return sessionProgressPct(reinforcementIndex, reinforcementTotal);
+    return sessionProgressPct(reinforcementIndex, reinforcementTotal, { answered });
   }
-  return sessionProgressPct(index, totalQuestions);
+  return sessionProgressPct(index, totalQuestions, { answered });
 }

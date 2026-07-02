@@ -183,7 +183,11 @@ const questionTransitionKey = computed(() =>
 
 const progress = computed(() => sessionProgress(index.value, questions.value.length));
 
-const progressPct = computed(() => sessionProgressPct(index.value, questions.value.length));
+const progressPct = computed(() =>
+  sessionProgressPct(index.value, questions.value.length, {
+    answered: showResult.value,
+  }),
+);
 
 const accuracyPct = computed(() => sessionAccuracy(correctCount.value, questions.value.length));
 

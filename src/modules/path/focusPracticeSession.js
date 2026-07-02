@@ -9,9 +9,15 @@ export function sessionProgress(index, total) {
   };
 }
 
-export function sessionProgressPct(index, total) {
+/**
+ * Progress bar fill for a practice session.
+ * Ticks forward when the current question has been checked so learners see
+ * instant session momentum before advancing to the next item.
+ */
+export function sessionProgressPct(index, total, { answered = false } = {}) {
   if (!total) return 0;
-  return Math.round(((index + 1) / total) * 100);
+  const step = answered ? index + 2 : index + 1;
+  return Math.min(100, Math.round((step / total) * 100));
 }
 
 export function isSessionComplete(index, total) {
