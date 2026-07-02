@@ -3,10 +3,14 @@ import {
   isMatchingAnswerComplete,
   shouldAutoSubmitOnMatching,
 } from "./matchingAutoSubmit.js";
+import {
+  isWordOrderAnswerComplete,
+  shouldAutoSubmitOnWordOrder,
+} from "./wordOrderAutoSubmit.js";
 
 /**
- * Whether an answer change should immediately trigger check — choice tap or
- * last matching pair — without an extra "Check" tap.
+ * Whether an answer change should immediately trigger check — choice tap,
+ * last matching pair, or last word chip — without an extra "Check" tap.
  */
 export function shouldAutoCheckOnAnswerChange(
   question,
@@ -22,6 +26,13 @@ export function shouldAutoCheckOnAnswerChange(
   if (
     shouldAutoSubmitOnMatching(question, { showResult }) &&
     isMatchingAnswerComplete(question, answer)
+  ) {
+    return true;
+  }
+
+  if (
+    shouldAutoSubmitOnWordOrder(question, { showResult }) &&
+    isWordOrderAnswerComplete(question, answer)
   ) {
     return true;
   }

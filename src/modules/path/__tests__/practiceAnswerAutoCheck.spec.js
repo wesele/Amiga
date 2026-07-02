@@ -34,6 +34,23 @@ describe("practiceAnswerAutoCheck", () => {
     ).toBe(false);
   });
 
+  it("auto-checks word-order answers when the sentence is full", () => {
+    const question = {
+      type: "T06",
+      words: ["Yo", "soy", "estudiante."],
+      targetSentence: "Yo soy estudiante.",
+    };
+    expect(shouldAutoCheckOnAnswerChange(question, ["Yo", "soy"])).toBe(false);
+    expect(
+      shouldAutoCheckOnAnswerChange(question, ["Yo", "soy", "estudiante."]),
+    ).toBe(true);
+    expect(
+      shouldAutoCheckOnAnswerChange(question, ["Yo", "soy", "estudiante."], {
+        showResult: true,
+      }),
+    ).toBe(false);
+  });
+
   it("ignores unrelated answer changes", () => {
     expect(shouldAutoCheckOnAnswerChange({ type: "T09" }, "hola")).toBe(false);
     expect(shouldAutoCheckOnAnswerChange(null, 0)).toBe(false);
