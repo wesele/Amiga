@@ -57,6 +57,16 @@ function makeRouter() {
   });
 }
 
+describe("MistakeReviewPage choice auto-submit flow", () => {
+  it("wires instant choice submit for snappier review flow", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/MistakeReviewPage.vue"), "utf8");
+    expect(source).toMatch(/choiceAutoSubmit\.js/);
+    expect(source).toMatch(/shouldAutoSubmitOnChoice/);
+    expect(source).toMatch(/scheduleAutoAdvance/);
+    expect(source).toMatch(/checkCurrentAnswer/);
+  });
+});
+
 describe("MistakeReviewPage contextual hints", () => {
   beforeEach(() => {
     localStorage.clear();

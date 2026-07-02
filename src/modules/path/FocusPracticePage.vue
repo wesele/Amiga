@@ -135,6 +135,11 @@ import {
 } from "./focusPracticeSession.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import { checkAnswer, formatCorrectAnswer } from "./checkAnswer.js";
+import {
+  isChoiceAnswer,
+  shouldAutoSubmitOnChoice,
+} from "./choiceAutoSubmit.js";
+import { correctAutoAdvanceDelayMs } from "./practiceFlowTiming.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -158,6 +163,7 @@ const hintText = ref("");
 const hintShown = ref(false);
 const hintAutoRevealed = ref(false);
 let hintIdleTimer = null;
+let autoAdvanceTimer = null;
 
 const currentQuestion = computed(() => questions.value[index.value] ?? null);
 
@@ -249,11 +255,29 @@ watch(
   },
 );
 
+function clearAutoAdvanceTimer() {
+  if (autoAdvanceTimer != null) {
+    clearTimeout(autoAdvanceTimer);
+    autoAdvanceTimer = null;
+  }
+}
+
+function scheduleAutoAdvance() {
+  clearAutoAdvanceTimer();
+  autoAdvanceTimer = setTimeout(() => {
+    if (showResult.value && lastCorrect.value) {
+      advanceAfterResult();
+    }
+  }, correctAutoAdvanceDelayMs());
+}
+
 onUnmounted(() => {
   clearHintIdleTimer();
+  clearAutoAdvanceTimer();
 });
 
 function resetQuestion() {
+  clearAutoAdvanceTimer();
   currentAnswer.value = null;
   showResult.value = false;
   lastCorrect.value = false;
@@ -296,16 +320,22 @@ async function load() {
   }
 }
 
-async function onPrimaryAction() {
-  if (!showResult.value) {
-    lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
-    playAnswerFeedback(lastCorrect.value);
-    if (currentQuestion.value?.type) {
-      recordAnswer(pairKey.value, currentQuestion.value.type, lastCorrect.value);
-    }
-    showResult.value = true;
-    return;
+function checkCurrentAnswer() {
+  if (showResult.value || !currentQuestion.value) return;
+
+  lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
+  playAnswerFeedback(lastCorrect.value);
+  if (currentQuestion.value?.type) {
+    recordAnswer(pairKey.value, currentQuestion.value.type, lastCorrect.value);
   }
+  showResult.value = true;
+  if (lastCorrect.value) {
+    scheduleAutoAdvance();
+  }
+}
+
+async function advanceAfterResult() {
+  clearAutoAdvanceTimer();
 
   if (lastCorrect.value) correctCount.value += 1;
 
@@ -318,6 +348,22 @@ async function onPrimaryAction() {
   finished.value = true;
   streakUpdate.value = await applyReviewStreak(userId.value, questions.value.length);
 }
+
+async function onPrimaryAction() {
+  if (!showResult.value) {
+    checkCurrentAnswer();
+    return;
+  }
+
+  await advanceAfterResult();
+}
+
+watch(currentAnswer, (answer) => {
+  if (!isChoiceAnswer(answer) || showResult.value) return;
+  const question = currentQuestion.value;
+  if (!shouldAutoSubmitOnChoice(question)) return;
+  checkCurrentAnswer();
+});
 
 async function continuePractice() {
   continuing.value = true;

@@ -84,6 +84,116 @@ describe("LessonPage answer feedback", () => {
   });
 });
 
+describe("LessonPage choice auto-submit flow", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload(2));
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("wires instant choice submit and auto-advance timing helpers", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/choiceAutoSubmit\.js/);
+    expect(source).toMatch(/practiceFlowTiming\.js/);
+    expect(source).toMatch(/shouldAutoSubmitOnChoice/);
+    expect(source).toMatch(/scheduleAutoAdvance/);
+    expect(source).toMatch(/checkCurrentAnswer/);
+  });
+
+  it("auto-checks when the learner taps a choice option", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.vm.showResult).toBe(false);
+    wrapper.vm.currentAnswer = 0;
+    await flushPromises();
+
+    expect(wrapper.vm.showResult).toBe(true);
+    expect(wrapper.vm.lastCorrect).toBe(true);
+    expect(wrapper.find(".feedback.ok").exists()).toBe(true);
+  });
+
+  it("auto-advances to the next question after a brief correct-feedback pause", async () => {
+    vi.useFakeTimers();
+
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    await flushPromises();
+    expect(wrapper.vm.showResult).toBe(true);
+
+    vi.advanceTimersByTime(700);
+    await flushPromises();
+
+    expect(wrapper.vm.index).toBe(1);
+    expect(wrapper.vm.showResult).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it("does not auto-submit text-input answers", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") {
+        return Promise.resolve({
+          section_title_native: "拼写",
+          questions: [
+            { id: "spell-1", type: "T09", hint: "hola", answer: "hola" },
+          ],
+        });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = "hola";
+    await flushPromises();
+
+    expect(wrapper.vm.showResult).toBe(false);
+  });
+});
+
 describe("LessonPage lesson share", () => {
   it("includes share-win button markup on the summary screen", () => {
     const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");

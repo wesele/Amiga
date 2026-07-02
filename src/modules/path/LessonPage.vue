@@ -316,6 +316,11 @@ import {
   continueRouteAfterLesson,
   shouldContinueToNextLesson,
 } from "./lessonContinue.js";
+import {
+  isChoiceAnswer,
+  shouldAutoSubmitOnChoice,
+} from "./choiceAutoSubmit.js";
+import { correctAutoAdvanceDelayMs } from "./practiceFlowTiming.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -341,6 +346,7 @@ const hintText = ref("");
 const hintShown = ref(false);
 const hintAutoRevealed = ref(false);
 let hintIdleTimer = null;
+let autoAdvanceTimer = null;
 const comboCount = ref(0);
 const comboToast = ref("");
 const comboPersonalBestToast = ref("");
@@ -581,8 +587,29 @@ watch(
   },
 );
 
+function clearAutoAdvanceTimer() {
+  if (autoAdvanceTimer != null) {
+    clearTimeout(autoAdvanceTimer);
+    autoAdvanceTimer = null;
+  }
+}
+
+function scheduleAutoAdvance() {
+  clearAutoAdvanceTimer();
+  const delay = correctAutoAdvanceDelayMs({
+    comboToast: comboToast.value,
+    comboPersonalBestToast: comboPersonalBestToast.value,
+  });
+  autoAdvanceTimer = setTimeout(() => {
+    if (showResult.value && lastCorrect.value) {
+      advanceAfterResult();
+    }
+  }, delay);
+}
+
 onUnmounted(() => {
   clearHintIdleTimer();
+  clearAutoAdvanceTimer();
   if (shareStatusTimer) clearTimeout(shareStatusTimer);
 });
 
@@ -654,6 +681,7 @@ function startReinforcement() {
 }
 
 function advanceQuestion() {
+  clearAutoAdvanceTimer();
   currentAnswer.value = null;
   showResult.value = false;
   lastCorrect.value = false;
@@ -730,32 +758,38 @@ async function onShareLesson() {
   }
 }
 
-function onPrimaryAction() {
-  if (!showResult.value) {
-    lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
-    playAnswerFeedback(lastCorrect.value);
-    if (!inReinforcement.value && currentQuestion.value?.type) {
-      const pairKey = pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang);
-      recordAnswer(pairKey, currentQuestion.value.type, lastCorrect.value);
-      recordAccuracyPeak(pairKey);
-    }
-    updateCombo(lastCorrect.value);
-    if (lastCorrect.value) {
-      correctCount.value += 1;
-    } else if (!inReinforcement.value) {
-      mistakes.value.push({
-        question: currentQuestion.value,
-        answer: currentAnswer.value,
-      });
-      recordLessonMistake(
-        pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang),
-        currentQuestion.value,
-        currentAnswer.value,
-      );
-    }
-    showResult.value = true;
-    return;
+function checkCurrentAnswer() {
+  if (showResult.value || !currentQuestion.value) return;
+
+  lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
+  playAnswerFeedback(lastCorrect.value);
+  if (!inReinforcement.value && currentQuestion.value?.type) {
+    const pairKey = pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang);
+    recordAnswer(pairKey, currentQuestion.value.type, lastCorrect.value);
+    recordAccuracyPeak(pairKey);
   }
+  updateCombo(lastCorrect.value);
+  if (lastCorrect.value) {
+    correctCount.value += 1;
+  } else if (!inReinforcement.value) {
+    mistakes.value.push({
+      question: currentQuestion.value,
+      answer: currentAnswer.value,
+    });
+    recordLessonMistake(
+      pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang),
+      currentQuestion.value,
+      currentAnswer.value,
+    );
+  }
+  showResult.value = true;
+  if (lastCorrect.value) {
+    scheduleAutoAdvance();
+  }
+}
+
+function advanceAfterResult() {
+  clearAutoAdvanceTimer();
 
   if (inReinforcement.value) {
     if (!advanceReinforcement()) return;
@@ -776,6 +810,22 @@ function onPrimaryAction() {
 
   submitLesson();
 }
+
+function onPrimaryAction() {
+  if (!showResult.value) {
+    checkCurrentAnswer();
+    return;
+  }
+
+  advanceAfterResult();
+}
+
+watch(currentAnswer, (answer) => {
+  if (!isChoiceAnswer(answer) || showResult.value) return;
+  const question = currentQuestion.value;
+  if (!shouldAutoSubmitOnChoice(question)) return;
+  checkCurrentAnswer();
+});
 
 async function submitLesson() {
   try {

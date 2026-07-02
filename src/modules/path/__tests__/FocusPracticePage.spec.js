@@ -71,6 +71,14 @@ describe("FocusPracticePage", () => {
     api.__setInvoke(mockInvoke);
   });
 
+  it("wires instant choice submit for snappier practice flow", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/FocusPracticePage.vue"), "utf8");
+    expect(source).toMatch(/choiceAutoSubmit\.js/);
+    expect(source).toMatch(/shouldAutoSubmitOnChoice/);
+    expect(source).toMatch(/scheduleAutoAdvance/);
+    expect(source).toMatch(/checkCurrentAnswer/);
+  });
+
   it("wires hint flow and records answers during practice", () => {
     const source = readFileSync(resolve(ROOT, "src/modules/path/FocusPracticePage.vue"), "utf8");
     expect(source).toMatch(/getFocusPractice/);

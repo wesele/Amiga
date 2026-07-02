@@ -155,6 +155,11 @@ import {
   remainingMistakeReviewCount,
   shouldOfferMistakeContinuation,
 } from "./mistakeReviewContinuation.js";
+import {
+  isChoiceAnswer,
+  shouldAutoSubmitOnChoice,
+} from "./choiceAutoSubmit.js";
+import { correctAutoAdvanceDelayMs } from "./practiceFlowTiming.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -179,6 +184,7 @@ const hintText = ref("");
 const hintShown = ref(false);
 const hintAutoRevealed = ref(false);
 let hintIdleTimer = null;
+let autoAdvanceTimer = null;
 
 const currentEntry = computed(() => queue.value[index.value] ?? null);
 const currentQuestion = computed(() => currentEntry.value?.question ?? null);
@@ -310,8 +316,25 @@ watch(
   },
 );
 
+function clearAutoAdvanceTimer() {
+  if (autoAdvanceTimer != null) {
+    clearTimeout(autoAdvanceTimer);
+    autoAdvanceTimer = null;
+  }
+}
+
+function scheduleAutoAdvance() {
+  clearAutoAdvanceTimer();
+  autoAdvanceTimer = setTimeout(() => {
+    if (showResult.value && lastCorrect.value) {
+      advanceAfterResult();
+    }
+  }, correctAutoAdvanceDelayMs());
+}
+
 onUnmounted(() => {
   clearHintIdleTimer();
+  clearAutoAdvanceTimer();
 });
 
 async function load() {
@@ -340,6 +363,7 @@ async function load() {
 }
 
 function resetQuestion() {
+  clearAutoAdvanceTimer();
   currentAnswer.value = null;
   showResult.value = false;
   lastCorrect.value = false;
@@ -367,13 +391,19 @@ function persistReviewResult(isCorrect) {
   }
 }
 
-async function onPrimaryAction() {
-  if (!showResult.value) {
-    lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
-    playAnswerFeedback(lastCorrect.value);
-    showResult.value = true;
-    return;
+function checkCurrentAnswer() {
+  if (showResult.value || !currentQuestion.value) return;
+
+  lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
+  playAnswerFeedback(lastCorrect.value);
+  showResult.value = true;
+  if (lastCorrect.value) {
+    scheduleAutoAdvance();
   }
+}
+
+async function advanceAfterResult() {
+  clearAutoAdvanceTimer();
 
   persistReviewResult(lastCorrect.value);
 
@@ -391,6 +421,22 @@ async function onPrimaryAction() {
   streakUpdate.value = await applyReviewStreak(userId.value, sessionTotal.value);
   await refreshRemainingDue();
 }
+
+async function onPrimaryAction() {
+  if (!showResult.value) {
+    checkCurrentAnswer();
+    return;
+  }
+
+  await advanceAfterResult();
+}
+
+watch(currentAnswer, (answer) => {
+  if (!isChoiceAnswer(answer) || showResult.value) return;
+  const question = currentQuestion.value;
+  if (!shouldAutoSubmitOnChoice(question)) return;
+  checkCurrentAnswer();
+});
 
 function refreshRemainingDue() {
   if (!pairKey.value) {
