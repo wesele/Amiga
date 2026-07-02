@@ -93,6 +93,9 @@ function defaultInvoke(cmd) {
       progress_pct: 70,
     });
   }
+  if (cmd === "get_perfect_lesson_streak_cmd") {
+    return Promise.resolve({ current: 0, best: 0 });
+  }
   return Promise.resolve(null);
 }
 
@@ -381,6 +384,26 @@ describe("LearnHubPage", () => {
 
     await wrapper.find(".daily-goal-card").trigger("click");
     expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
+  });
+
+  it("shows perfect lesson streak card when learner has an active streak", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_perfect_lesson_streak_cmd") {
+        return Promise.resolve({ current: 4, best: 6 });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".perfect-streak-card");
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain("连续 4 课完美通关");
+    expect(card.text()).toContain("历史最佳 6 课");
   });
 
   it("shows lesson milestone progress card", async () => {

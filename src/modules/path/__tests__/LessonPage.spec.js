@@ -421,7 +421,9 @@ describe("LessonPage perfect lesson celebration", () => {
   it("includes perfect lesson celebration markup", () => {
     const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
     expect(source).toMatch(/lessonPerfect\.js/);
+    expect(source).toMatch(/perfectLessonStreak\.js/);
     expect(source).toMatch(/class="perfect-lesson-banner"/);
+    expect(source).toMatch(/class="perfect-streak-banner"/);
     expect(source).toMatch(/path\.perfectLesson/);
     expect(source).toMatch(/summaryEmoji/);
   });
@@ -446,6 +448,51 @@ describe("LessonPage perfect lesson celebration", () => {
     expect(banner.exists()).toBe(true);
     expect(banner.text()).toContain("完美通关");
     expect(wrapper.find(".summary-emoji").text()).toBe("✨");
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "complete_section_cmd",
+      expect.objectContaining({ isPerfect: true }),
+    );
+  });
+
+  it("shows perfect streak milestone banner when backend reports a milestone", async () => {
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload());
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({
+          passed: true,
+          stars: 3,
+          perfect_lesson_streak: 3,
+          perfect_lesson_milestone_reached: 3,
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const banner = wrapper.find(".perfect-streak-banner");
+    expect(banner.exists()).toBe(true);
+    expect(banner.text()).toContain("连续 3 课完美通关");
   });
 
   it("does not show perfect lesson banner after a mistake", async () => {
@@ -474,6 +521,10 @@ describe("LessonPage perfect lesson celebration", () => {
 
     expect(wrapper.find(".perfect-lesson-banner").exists()).toBe(false);
     expect(wrapper.find(".summary-emoji").text()).toBe("🎉");
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "complete_section_cmd",
+      expect.objectContaining({ isPerfect: false }),
+    );
   });
 });
 

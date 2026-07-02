@@ -126,6 +126,7 @@ pub fn run() {
             commands::path::get_grammar_explanation_cached_cmd,
             commands::path::explain_grammar_point_cmd,
             commands::path::complete_teaching_node_cmd,
+            commands::path::get_perfect_lesson_streak_cmd,
             commands::path::complete_section_cmd,
             // Cloud sync commands
             commands::sync::test_cloud_sync_cmd,

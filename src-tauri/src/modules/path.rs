@@ -107,10 +107,25 @@ pub struct CompleteSectionResult {
     pub lessons_completed_total: i32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lesson_milestone_reached: Option<i32>,
+    #[serde(default)]
+    pub perfect_lesson_streak: i32,
+    #[serde(default)]
+    pub perfect_lesson_streak_best: i32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perfect_lesson_milestone_reached: Option<i32>,
 }
 
 /// Lesson-count milestones for the learning achievements track.
 pub const LESSON_MILESTONES: &[i32] = &[10, 25, 50, 100, 250, 500];
+
+/// Consecutive flawless practice-lesson counts that trigger celebration.
+pub const PERFECT_LESSON_MILESTONES: &[i32] = &[3, 5, 10];
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PerfectLessonStreak {
+    pub current: i32,
+    pub best: i32,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LessonMilestoneProgress {
@@ -459,6 +474,83 @@ pub fn get_lesson_milestone_progress(
         .ok_or_else(|| format!("no question bank for {native_lang}-{target_lang}"))?;
     let completed = count_completed_lessons(pool, user_id, &pair_key)?;
     Ok(lesson_milestone_progress(completed))
+}
+
+fn perfect_streak_setting_key(user_id: &str) -> String {
+    format!("perfect_lesson_streak:{user_id}")
+}
+
+fn perfect_streak_best_setting_key(user_id: &str) -> String {
+    format!("perfect_lesson_streak_best:{user_id}")
+}
+
+fn read_app_setting_i32(conn: &rusqlite::Connection, key: &str) -> Option<i32> {
+    conn.query_row(
+        "SELECT value FROM app_settings WHERE key = ?1",
+        params![key],
+        |row| row.get::<_, String>(0),
+    )
+    .ok()
+    .and_then(|v| v.parse().ok())
+}
+
+fn write_app_setting_i32(conn: &rusqlite::Connection, key: &str, value: i32) -> Result<(), String> {
+    conn.execute(
+        "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![key, value.to_string()],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn load_perfect_lesson_streak(pool: &DatabasePool, user_id: &str) -> Result<PerfectLessonStreak, String> {
+    let conn = pool.conn()?;
+    let current = read_app_setting_i32(&conn, &perfect_streak_setting_key(user_id)).unwrap_or(0);
+    let best = read_app_setting_i32(&conn, &perfect_streak_best_setting_key(user_id)).unwrap_or(0);
+    Ok(PerfectLessonStreak { current, best })
+}
+
+pub fn perfect_lesson_milestone_reached(prev_streak: i32, new_streak: i32) -> Option<i32> {
+    if new_streak <= prev_streak {
+        return None;
+    }
+    PERFECT_LESSON_MILESTONES
+        .iter()
+        .copied()
+        .find(|&m| prev_streak < m && new_streak >= m)
+}
+
+pub fn update_perfect_lesson_streak(
+    pool: &DatabasePool,
+    user_id: &str,
+    passed: bool,
+    is_perfect: bool,
+) -> Result<(i32, i32, Option<i32>), String> {
+    let conn = pool.conn()?;
+    let streak_key = perfect_streak_setting_key(user_id);
+    let best_key = perfect_streak_best_setting_key(user_id);
+    let prev_current = read_app_setting_i32(&conn, &streak_key).unwrap_or(0);
+    let prev_best = read_app_setting_i32(&conn, &best_key).unwrap_or(0);
+
+    let new_current = if passed && is_perfect {
+        prev_current + 1
+    } else {
+        0
+    };
+    let new_best = prev_best.max(new_current);
+    let milestone = if passed && is_perfect {
+        perfect_lesson_milestone_reached(prev_current, new_current)
+    } else {
+        None
+    };
+
+    write_app_setting_i32(&conn, &streak_key, new_current)?;
+    if new_best > prev_best {
+        write_app_setting_i32(&conn, &best_key, new_best)?;
+    }
+
+    Ok((new_current, new_best, milestone))
 }
 
 fn lesson_fields_for_completion(
@@ -941,6 +1033,10 @@ pub fn complete_teaching_node(
         daily_goal_fields_for_completion(pool, user_id, target_lang, passed);
     let (lessons_completed_total, _) =
         lesson_fields_for_completion(pool, user_id, &pair_key, passed, false);
+    let perfect_streak = load_perfect_lesson_streak(pool, user_id).unwrap_or(PerfectLessonStreak {
+        current: 0,
+        best: 0,
+    });
 
     Ok(CompleteSectionResult {
         stars: new_stars,
@@ -956,6 +1052,9 @@ pub fn complete_teaching_node(
         daily_goal_target,
         lessons_completed_total,
         lesson_milestone_reached: None,
+        perfect_lesson_streak: perfect_streak.current,
+        perfect_lesson_streak_best: perfect_streak.best,
+        perfect_lesson_milestone_reached: None,
     })
 }
 
@@ -968,6 +1067,7 @@ pub fn complete_section(
     section_id: &str,
     correct_count: i32,
     total_count: i32,
+    is_perfect: bool,
 ) -> Result<CompleteSectionResult, String> {
     if total_count <= 0 {
         return Err("total_count must be positive".to_string());
@@ -1076,6 +1176,8 @@ pub fn complete_section(
         daily_goal_fields_for_completion(pool, user_id, target_lang, passed);
     let (lessons_completed_total, lesson_milestone_reached) =
         lesson_fields_for_completion(pool, user_id, &pair_key, passed, first_time_pass);
+    let (perfect_lesson_streak, perfect_lesson_streak_best, perfect_lesson_milestone_reached) =
+        update_perfect_lesson_streak(pool, user_id, passed, is_perfect).unwrap_or((0, 0, None));
 
     Ok(CompleteSectionResult {
         stars: new_stars,
@@ -1091,6 +1193,9 @@ pub fn complete_section(
         daily_goal_target,
         lessons_completed_total,
         lesson_milestone_reached,
+        perfect_lesson_streak,
+        perfect_lesson_streak_best,
+        perfect_lesson_milestone_reached,
     })
 }
 
@@ -1256,9 +1361,10 @@ mod tests {
         let after_vocab = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
         assert!(!after_vocab.units[0].sections[2].locked);
 
-        let result = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5).unwrap();
+        let result = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
         assert!(result.passed);
         assert_eq!(result.stars, 3);
+        assert_eq!(result.perfect_lesson_streak, 1);
     }
 
     #[test]
@@ -1282,7 +1388,7 @@ mod tests {
         assert_eq!(after_vocab.daily_goal_target, 2);
 
         let after_practice =
-            complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5).unwrap();
+            complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
         assert!(!after_practice.daily_goal_just_met);
         assert_eq!(after_practice.daily_goal_lessons_today, 3);
         assert_eq!(after_practice.daily_goal_target, 2);
@@ -1356,9 +1462,52 @@ mod tests {
             }
         }
 
-        let result = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5).unwrap();
+        let result = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
         assert_eq!(result.lessons_completed_total, 10);
         assert_eq!(result.lesson_milestone_reached, Some(10));
+    }
+
+    #[test]
+    fn perfect_lesson_milestone_reached_only_on_first_crossing() {
+        assert_eq!(perfect_lesson_milestone_reached(2, 3), Some(3));
+        assert_eq!(perfect_lesson_milestone_reached(4, 5), Some(5));
+        assert_eq!(perfect_lesson_milestone_reached(3, 4), None);
+        assert_eq!(perfect_lesson_milestone_reached(9, 10), Some(10));
+    }
+
+    #[test]
+    fn complete_section_tracks_perfect_lesson_streak() {
+        let pool = test_pool();
+        let user = test_user(&pool);
+        let curriculum = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
+        let grammar = curriculum.units[0].sections[0].id.clone();
+        let vocab = curriculum.units[0].sections[1].id.clone();
+        let practice = curriculum.units[0].sections[2].id.clone();
+
+        complete_teaching_node(&pool, &user, "zh", "es", "A1", &grammar).unwrap();
+        complete_teaching_node(&pool, &user, "zh", "es", "A1", &vocab).unwrap();
+
+        let first = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
+        assert_eq!(first.perfect_lesson_streak, 1);
+        assert_eq!(first.perfect_lesson_streak_best, 1);
+        assert!(first.perfect_lesson_milestone_reached.is_none());
+
+        let second = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
+        assert_eq!(second.perfect_lesson_streak, 2);
+
+        let third = complete_section(&pool, &user, "zh", "es", "A1", &practice, 4, 5, false).unwrap();
+        assert_eq!(third.perfect_lesson_streak, 0);
+        assert_eq!(third.perfect_lesson_streak_best, 2);
+
+        let fourth = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
+        assert_eq!(fourth.perfect_lesson_streak, 1);
+
+        let fifth = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
+        assert_eq!(fifth.perfect_lesson_streak, 2);
+
+        let sixth = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
+        assert_eq!(sixth.perfect_lesson_streak, 3);
+        assert_eq!(sixth.perfect_lesson_milestone_reached, Some(3));
     }
 
     #[tokio::test]

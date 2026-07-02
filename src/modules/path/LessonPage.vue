@@ -36,6 +36,22 @@
         <p v-if="perfectLesson" class="perfect-lesson-banner">
           {{ t("path.perfectLesson") }}
         </p>
+        <p
+          v-if="result?.perfect_lesson_milestone_reached"
+          class="perfect-streak-banner"
+        >
+          {{
+            t(perfectLessonMilestoneKey(result.perfect_lesson_milestone_reached), {
+              n: result.perfect_lesson_milestone_reached,
+            })
+          }}
+        </p>
+        <p
+          v-else-if="result?.passed && result?.perfect_lesson_streak > 1 && perfectLesson"
+          class="perfect-streak-banner"
+        >
+          {{ t("path.perfectLessonStreakActive", { n: result.perfect_lesson_streak }) }}
+        </p>
         <p v-if="streakMilestone" class="streak-milestone-banner">
           {{ t(streakMilestoneKey(streakMilestone), { n: streakMilestone }) }}
         </p>
@@ -166,6 +182,7 @@ import {
   showComboBadge,
 } from "./lessonCombo.js";
 import { isPerfectLesson } from "./lessonPerfect.js";
+import { perfectLessonMilestoneKey } from "./perfectLessonStreak.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -433,6 +450,12 @@ function onPrimaryAction() {
 
 async function submitLesson() {
   try {
+    const wasPerfect = isPerfectLesson({
+      mistakeCount: mistakes.value.length,
+      correctCount: correctCount.value,
+      totalQuestions: questions.value.length,
+      passed: true,
+    });
     const res = await completeSection(
       userMeta.value.nativeLang,
       userMeta.value.targetLang,
@@ -440,6 +463,7 @@ async function submitLesson() {
       route.params.sectionId,
       correctCount.value,
       questions.value.length,
+      wasPerfect,
     );
     result.value = res;
     finished.value = true;
@@ -781,6 +805,19 @@ onMounted(load);
   border-radius: var(--radius-md);
   font-weight: 700;
   font-size: 15px;
+  line-height: 1.4;
+  animation: perfect-pop 0.6s ease;
+}
+
+.perfect-streak-banner {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #ede8ff 0%, #d9ceff 100%);
+  color: #4a2f9e;
+  border: 1.5px solid #8b6fe0;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 14px;
   line-height: 1.4;
   animation: perfect-pop 0.6s ease;
 }

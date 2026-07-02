@@ -70,6 +70,7 @@ export function createApiClient(invoke) {
       call("get_path_curriculum_cmd", { nativeLang, targetLang, cefr }),
     getLessonMilestoneProgress: (nativeLang, targetLang) =>
       call("get_lesson_milestone_progress_cmd", { nativeLang, targetLang }),
+    getPerfectLessonStreak: () => call("get_perfect_lesson_streak_cmd"),
     getSectionLesson: (nativeLang, targetLang, cefr, sectionId) =>
       call("get_section_lesson_cmd", { nativeLang, targetLang, cefr, sectionId }),
     getTeachingContent: (nativeLang, targetLang, cefr, nodeId) =>
@@ -87,7 +88,15 @@ export function createApiClient(invoke) {
       }),
     completeTeachingNode: (nativeLang, targetLang, cefr, nodeId) =>
       call("complete_teaching_node_cmd", { nativeLang, targetLang, cefr, nodeId }),
-    completeSection: (nativeLang, targetLang, cefr, sectionId, correctCount, totalCount) =>
+    completeSection: (
+      nativeLang,
+      targetLang,
+      cefr,
+      sectionId,
+      correctCount,
+      totalCount,
+      isPerfect = false,
+    ) =>
       call("complete_section_cmd", {
         nativeLang,
         targetLang,
@@ -95,6 +104,7 @@ export function createApiClient(invoke) {
         sectionId,
         correctCount,
         totalCount,
+        isPerfect,
       }),
 
     // News
@@ -224,6 +234,8 @@ export const resetUserVocabByLevel = (...args) =>
 export const getPathCurriculum = (...args) => defaultApiClient.getPathCurriculum(...args);
 export const getLessonMilestoneProgress = (...args) =>
   defaultApiClient.getLessonMilestoneProgress(...args);
+export const getPerfectLessonStreak = (...args) =>
+  defaultApiClient.getPerfectLessonStreak(...args);
 export const getSectionLesson = (...args) => defaultApiClient.getSectionLesson(...args);
 export const getTeachingContent = (...args) => defaultApiClient.getTeachingContent(...args);
 export const getGrammarExplanationCached = (...args) =>

@@ -63,6 +63,9 @@ export default {
     lessonMilestoneNext: "下一目标：{n} 节课",
     lessonMilestoneProgress: "{done}/{total}",
     lessonMilestoneHint: "已完成 {done} 节课，继续加油！",
+    perfectStreak: "连续 {n} 课完美通关",
+    perfectStreakHint: "下一课也全对就能延续连胜",
+    perfectStreakBest: "历史最佳 {n} 课",
   },
 
   path: {
@@ -80,6 +83,10 @@ export default {
     dailyGoalMetCelebration: "🎯 今日目标达成！完成 {done}/{total} 节课",
     lessonMilestoneReached: "🏆 完成 {n} 节课！学习之旅更进一步",
     perfectLesson: "✨ 完美通关！全部答对，零失误！",
+    perfectLessonStreak3: "✨ 连续 3 课完美通关！状态火热",
+    perfectLessonStreak5: "✨ 连续 5 课完美通关！无人能挡",
+    perfectLessonStreak10: "✨ 连续 10 课完美通关！传奇学习者",
+    perfectLessonStreakActive: "✨ 连续 {n} 课完美通关，继续保持！",
     comingSoon: "题目筹备中",
     playAudio: "播放",
     listenChoose: "听句子，选择正确答案",

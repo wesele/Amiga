@@ -123,6 +123,14 @@ pub async fn complete_teaching_node_cmd(
 }
 
 #[tauri::command]
+pub async fn get_perfect_lesson_streak_cmd(
+    db: State<'_, DatabasePool>,
+) -> Result<path_mod::PerfectLessonStreak, String> {
+    let user = user_mod::get_or_create_user(&db)?;
+    path_mod::load_perfect_lesson_streak(&db, &user.id)
+}
+
+#[tauri::command]
 pub async fn complete_section_cmd(
     db: State<'_, DatabasePool>,
     native_lang: String,
@@ -131,6 +139,7 @@ pub async fn complete_section_cmd(
     section_id: String,
     correct_count: i32,
     total_count: i32,
+    #[allow(non_snake_case)] isPerfect: bool,
 ) -> Result<path_mod::CompleteSectionResult, String> {
     let user = user_mod::get_or_create_user(&db)?;
     let result = path_mod::complete_section(
@@ -142,6 +151,7 @@ pub async fn complete_section_cmd(
         &section_id,
         correct_count,
         total_count,
+        isPerfect,
     )?;
     after_syncable_write(&db);
     Ok(result)

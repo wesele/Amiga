@@ -60,6 +60,9 @@ export default {
     lessonMilestoneNext: "Próxima meta: {n} lecciones",
     lessonMilestoneProgress: "{done}/{total}",
     lessonMilestoneHint: "¡{done} lecciones completadas, sigue así!",
+    perfectStreak: "{n} lecciones perfectas seguidas",
+    perfectStreakHint: "Acerta la siguiente sin fallos para mantener la racha",
+    perfectStreakBest: "Mejor marca: {n}",
   },
 
   path: {
@@ -77,6 +80,10 @@ export default {
     dailyGoalMetCelebration: "🎯 ¡Meta diaria cumplida! {done}/{total} lecciones",
     lessonMilestoneReached: "🏆 ¡{n} lecciones completadas! Sigue avanzando",
     perfectLesson: "✨ ¡Lección perfecta! Todo correcto, sin errores",
+    perfectLessonStreak3: "✨ ¡3 lecciones perfectas seguidas! Estás en racha",
+    perfectLessonStreak5: "✨ ¡5 lecciones perfectas seguidas! Imparable",
+    perfectLessonStreak10: "✨ ¡10 lecciones perfectas seguidas! Aprendiz legendario",
+    perfectLessonStreakActive: "✨ {n} lecciones perfectas seguidas — ¡sigue así!",
     comingSoon: "Próximamente",
     playAudio: "Reproducir",
     listenChoose: "Escucha y elige la respuesta correcta",

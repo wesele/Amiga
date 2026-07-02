@@ -42,6 +42,28 @@
     </button>
 
     <button
+      v-if="showPerfectStreak"
+      type="button"
+      class="perfect-streak-card"
+      @click="goToPath"
+    >
+      <span class="perfect-streak-icon" aria-hidden="true">✨</span>
+      <div class="perfect-streak-copy">
+        <p class="perfect-streak-title">
+          {{ t("learn.perfectStreak", { n: perfectStreak.current }) }}
+        </p>
+        <p class="perfect-streak-sub">
+          {{
+            perfectStreak.best > perfectStreak.current
+              ? t("learn.perfectStreakBest", { n: perfectStreak.best })
+              : t("learn.perfectStreakHint")
+          }}
+        </p>
+      </div>
+      <span class="perfect-streak-chevron" aria-hidden="true">›</span>
+    </button>
+
+    <button
       v-if="showLessonMilestone"
       type="button"
       class="milestone-card"
@@ -191,6 +213,7 @@ import {
   getDailyGoalProgress,
   getLessonMilestoneProgress,
   getPathCurriculum,
+  getPerfectLessonStreak,
   getUnknownWords,
   getWeeklyActivity,
 } from "@/shared/api.js";
@@ -216,6 +239,7 @@ import {
   lessonMilestoneRingOffset,
   shouldShowLessonMilestone,
 } from "./lessonMilestones.js";
+import { shouldShowPerfectStreakCard } from "@/modules/path/perfectLessonStreak.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -226,6 +250,7 @@ const weeklyActivity = ref(null);
 const resumeTarget = ref(null);
 const vocabReviewWords = ref([]);
 const lessonMilestone = ref(null);
+const perfectStreak = ref(null);
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
 const MILESTONE_RING_CIRCUMFERENCE = 2 * Math.PI * 18;
@@ -262,6 +287,8 @@ const vocabReviewTruncated = computed(() => vocabReviewHasMore(vocabReviewWords.
 const showWeeklyActivity = computed(() => hasWeeklyActivity(weeklyActivity.value));
 
 const showLessonMilestone = computed(() => shouldShowLessonMilestone(lessonMilestone.value));
+
+const showPerfectStreak = computed(() => shouldShowPerfectStreakCard(perfectStreak.value?.current));
 
 const milestoneRingOffset = computed(() =>
   lessonMilestoneRingOffset(lessonMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
@@ -321,6 +348,14 @@ async function loadLessonMilestone(nativeLang, targetLang) {
   }
 }
 
+async function loadPerfectStreak() {
+  try {
+    perfectStreak.value = await getPerfectLessonStreak();
+  } catch {
+    perfectStreak.value = null;
+  }
+}
+
 async function loadHubData() {
   try {
     const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
@@ -332,6 +367,7 @@ async function loadHubData() {
       loadResumeSection(nativeLang, targetLang, cefr),
       loadVocabReview(user.id, targetLang, cefr),
       loadLessonMilestone(nativeLang, targetLang),
+      loadPerfectStreak(),
     ]);
   } catch {
     dailyGoal.value = null;
@@ -339,6 +375,7 @@ async function loadHubData() {
     resumeTarget.value = null;
     vocabReviewWords.value = [];
     lessonMilestone.value = null;
+    perfectStreak.value = null;
   }
 }
 
@@ -526,6 +563,59 @@ onMounted(loadHubData);
   background: #4285f4;
   padding: 8px 12px;
   border-radius: 999px;
+}
+
+.perfect-streak-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f3f0ff 0%, #e8e0ff 100%);
+  border: 1px solid #9b7fe8;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.perfect-streak-card:hover {
+  box-shadow: 0 2px 10px rgba(139, 111, 224, 0.28);
+  transform: translateY(-1px);
+}
+
+.perfect-streak-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.perfect-streak-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.perfect-streak-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #5b3db8;
+  line-height: 1.3;
+}
+
+.perfect-streak-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #6b4fc4;
+  line-height: 1.35;
+}
+
+.perfect-streak-chevron {
+  flex-shrink: 0;
+  font-size: 20px;
+  color: #8b6fe0;
 }
 
 .milestone-card {
