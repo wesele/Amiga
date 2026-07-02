@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { flushPromises, mount } from "@vue/test-utils";
 import { setLocale } from "@/shared/i18n";
+import { recordMistakesMastered } from "../mistakeMasteryStats.js";
 import { saveMistakeQueue, upsertMistake } from "../mistakeReviewStore.js";
 
 const ROOT = resolve(__dirname, "../../../..");
@@ -130,5 +131,52 @@ describe("MistakeReviewPage review streak", () => {
 
     expect(applyReviewStreak).toHaveBeenCalledWith("u1", 1);
     expect(wrapper.find(".streak-banner").text()).toContain("4 天连胜");
+  });
+});
+
+describe("MistakeReviewPage mastery milestones", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    setLocale("zh");
+    recordMistakesMastered(PAIR, 9);
+    saveMistakeQueue([
+      {
+        question_id: "q1",
+        pair_key: PAIR,
+        question: Q1,
+        user_answer: "ola",
+        wrong_at: 1000,
+        level: 3,
+        next_review_at: 0,
+      },
+    ]);
+  });
+
+  it("includes milestone celebration markup in the summary template", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/MistakeReviewPage.vue"), "utf8");
+    expect(source).toMatch(/class="mistake-milestone-banner"/);
+    expect(source).toMatch(/recordMistakesMastered/);
+  });
+
+  it("celebrates when cumulative mastered mistakes cross a milestone", async () => {
+    const { applyReviewStreak } = await import("@/shared/reviewStreak.js");
+    applyReviewStreak.mockResolvedValue(null);
+
+    const router = makeRouter();
+    await router.push({ name: "path-mistake-review" });
+    await router.isReady();
+
+    const wrapper = mount(MistakeReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".text-input").setValue("hola");
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".mistake-milestone-banner").text()).toContain("10 道错题");
   });
 });

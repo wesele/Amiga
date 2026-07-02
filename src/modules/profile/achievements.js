@@ -1,4 +1,5 @@
 import { LESSON_MILESTONES } from "@/modules/learn/lessonMilestones.js";
+import { MISTAKE_MILESTONES } from "@/modules/learn/mistakeMilestones.js";
 import { VOCAB_MILESTONES } from "@/modules/learn/vocabMilestones.js";
 import { PERFECT_LESSON_MILESTONES } from "@/modules/path/perfectLessonStreak.js";
 import { STREAK_MILESTONES } from "@/modules/path/streakMilestone.js";
@@ -55,17 +56,28 @@ export function buildVocabAchievements(totalKnown) {
   });
 }
 
+export function buildMistakeAchievements(mastered) {
+  return mapMilestones(MISTAKE_MILESTONES, {
+    category: "mistakes",
+    icon: "🔁",
+    labelKey: "profile.achievementMistake",
+    value: mastered,
+  });
+}
+
 export function buildAchievements({
   lessonProgress = null,
   perfectStreak = null,
   learningStreak = null,
   vocabStats = null,
+  mistakeMastery = null,
 } = {}) {
   const items = [
     ...buildLessonAchievements(lessonProgress?.completed ?? 0),
     ...buildPerfectAchievements(perfectStreak?.best ?? 0),
     ...buildStreakAchievements(learningStreak?.longest ?? 0),
     ...buildVocabAchievements(vocabStats?.total_known ?? 0),
+    ...buildMistakeAchievements(mistakeMastery?.mastered ?? 0),
   ];
   const unlockedCount = items.filter((item) => item.unlocked).length;
   return {

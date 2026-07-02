@@ -8,6 +8,7 @@ import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
 import { STATS_STORAGE_KEY } from "../questionTypeStats.js";
 import { recordLessonMistake } from "@/modules/path/mistakeReviewStore.js";
+import { recordMistakesMastered } from "@/modules/path/mistakeMasteryStats.js";
 
 const ROOT = resolve(__dirname, "../../../..");
 function readVue(rel) {
@@ -501,6 +502,34 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     expect(wrapper.find(".vocab-milestone-card").exists()).toBe(false);
+  });
+
+  it("shows mistake mastery milestone card with progress", async () => {
+    recordMistakesMastered("zh-es", 7);
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".mistake-milestone-card");
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain("错题掌握里程碑");
+    expect(card.text()).toContain("下一目标：掌握 10 道");
+    expect(card.text()).toContain("7/10");
+  });
+
+  it("hides mistake mastery milestone card when all milestones are complete", async () => {
+    recordMistakesMastered("zh-es", 100);
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".mistake-milestone-card").exists()).toBe(false);
   });
 
   it("hides lesson milestone card when all milestones are complete", async () => {

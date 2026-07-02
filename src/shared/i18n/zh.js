@@ -53,6 +53,10 @@ export default {
     mistakeReview: "错题复习",
     mistakeReviewHint: "{n} 道错题待巩固",
     mistakeReviewAction: "复习",
+    mistakeMilestone: "错题掌握里程碑",
+    mistakeMilestoneNext: "下一目标：掌握 {n} 道",
+    mistakeMilestoneProgress: "{done}/{total}",
+    mistakeMilestoneHint: "已掌握 {done} 道错题，继续巩固！",
     weeklyActivity: "近 7 天",
     weeklyActivitySummary: "本周已练习 {done}/7 天",
     weeklyGoal: "本周目标",
@@ -162,6 +166,7 @@ export default {
     mistakeReviewComplete: "错题复习完成！",
     mistakeReviewCompleteHint: "本轮复习了 {n} 道错题",
     mistakeReviewMasteredCount: "已掌握 {n} 道，下次会晚些再出现",
+    mistakeMilestoneReached: "🔁 已掌握 {n} 道错题！复习里程碑达成",
     lessonPassed: "关卡通过！",
     lessonFailed: "继续加油",
     score: "答对 {correct}/{total} 题",
@@ -419,6 +424,7 @@ export default {
     achievementPerfect: "完美 ×{n}",
     achievementStreak: "{n} 天连胜",
     achievementVocab: "{n} 个单词",
+    achievementMistake: "{n} 道错题",
   },
 
   learningLang: {

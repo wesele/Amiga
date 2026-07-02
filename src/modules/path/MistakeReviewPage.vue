@@ -35,6 +35,7 @@
         {{ t("path.mistakeReviewMasteredCount", { n: masteredCount }) }}
       </p>
       <p v-if="streakCelebration" class="streak-banner">{{ streakCelebration }}</p>
+      <p v-if="mistakeMilestoneBanner" class="mistake-milestone-banner">{{ mistakeMilestoneBanner }}</p>
       <button type="button" class="action-btn primary" @click="exitReview">
         {{ t("path.mistakeReviewBack") }}
       </button>
@@ -83,8 +84,13 @@ import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { applyReviewStreak, reviewStreakCelebration } from "@/shared/reviewStreak.js";
+import {
+  MISTAKE_MILESTONE_CELEBRATION_KEY,
+  mistakeMilestoneReached,
+} from "@/modules/learn/mistakeMilestones.js";
 import { pairStatsKey } from "@/modules/learn/questionTypeStats.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
+import { recordMistakesMastered } from "./mistakeMasteryStats.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import { checkAnswer, formatCorrectAnswer, formatUserAnswer } from "./checkAnswer.js";
 import {
@@ -124,6 +130,18 @@ const progressPct = computed(() => {
 const streakCelebration = computed(() =>
   reviewStreakCelebration(streakUpdate.value, t),
 );
+
+const masteredBefore = ref(0);
+
+const mistakeMilestoneBanner = computed(() => {
+  if (!finished.value || masteredCount.value <= 0) return "";
+  const milestone = mistakeMilestoneReached(
+    masteredBefore.value,
+    masteredBefore.value + masteredCount.value,
+  );
+  if (!milestone) return "";
+  return t(MISTAKE_MILESTONE_CELEBRATION_KEY, { n: milestone });
+});
 
 const correctAnswerText = computed(() =>
   currentQuestion.value ? formatCorrectAnswer(currentQuestion.value) : "",
@@ -169,6 +187,7 @@ async function load() {
     resetQuestion();
     finished.value = false;
     masteredCount.value = 0;
+    masteredBefore.value = 0;
     streakUpdate.value = null;
   } catch (e) {
     error.value = e?.message || String(e);
@@ -221,6 +240,10 @@ async function onPrimaryAction() {
   }
 
   finished.value = true;
+  if (masteredCount.value > 0) {
+    const { prev } = recordMistakesMastered(pairKey.value, masteredCount.value);
+    masteredBefore.value = prev;
+  }
   streakUpdate.value = await applyReviewStreak(userId.value, sessionTotal.value);
 }
 
@@ -385,6 +408,15 @@ onMounted(load);
   padding: 12px 16px;
   background: var(--orange-bg);
   color: var(--orange-hover);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+}
+
+.mistake-milestone-banner {
+  margin: 4px 0 0;
+  padding: 12px 16px;
+  background: rgba(230, 120, 90, 0.12);
+  color: #c45a3a;
   border-radius: var(--radius-md);
   font-weight: 700;
 }

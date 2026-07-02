@@ -50,6 +50,10 @@ export default {
     mistakeReview: "Repaso de errores",
     mistakeReviewHint: "{n} errores por reforzar",
     mistakeReviewAction: "Repasar",
+    mistakeMilestone: "Hito de dominio de errores",
+    mistakeMilestoneNext: "Próxima meta: {n} dominados",
+    mistakeMilestoneProgress: "{done}/{total}",
+    mistakeMilestoneHint: "¡{done} errores dominados, sigue reforzando!",
     weeklyActivity: "Últimos 7 días",
     weeklyActivitySummary: "{done}/7 días practicados esta semana",
     weeklyGoal: "Meta semanal",
@@ -159,6 +163,7 @@ export default {
     mistakeReviewComplete: "¡Repaso de errores completado!",
     mistakeReviewCompleteHint: "Repasaste {n} errores en esta ronda",
     mistakeReviewMasteredCount: "{n} dominados — volverán más tarde",
+    mistakeMilestoneReached: "🔁 ¡{n} errores dominados! Hito de repaso desbloqueado",
     lessonPassed: "¡Sección completada!",
     lessonFailed: "¡Sigue así!",
     score: "{correct}/{total} correctas",
@@ -417,6 +422,7 @@ export default {
     achievementPerfect: "Perfectas ×{n}",
     achievementStreak: "Racha de {n} días",
     achievementVocab: "{n} palabras",
+    achievementMistake: "{n} errores",
   },
 
   learningLang: {

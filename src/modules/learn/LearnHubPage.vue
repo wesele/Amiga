@@ -96,6 +96,44 @@
     </button>
 
     <button
+      v-if="showMistakeMilestone"
+      type="button"
+      class="mistake-milestone-card"
+      @click="goToMistakeReview"
+    >
+      <div class="milestone-ring" aria-hidden="true">
+        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
+          <circle class="mistake-milestone-ring-track" cx="22" cy="22" r="18" />
+          <circle
+            class="mistake-milestone-ring-fill"
+            cx="22"
+            cy="22"
+            r="18"
+            :style="{ strokeDashoffset: mistakeMilestoneRingOffsetValue }"
+          />
+        </svg>
+        <span class="milestone-ring-label">🔁</span>
+      </div>
+      <div class="milestone-copy">
+        <p class="mistake-milestone-title">{{ t("learn.mistakeMilestone") }}</p>
+        <p class="mistake-milestone-sub">
+          {{ t("learn.mistakeMilestoneNext", { n: mistakeMilestone.next_milestone }) }}
+          ·
+          {{
+            t("learn.mistakeMilestoneProgress", {
+              done: mistakeMilestone.mastered,
+              total: mistakeMilestone.next_milestone,
+            })
+          }}
+        </p>
+        <p class="mistake-milestone-hint">
+          {{ t("learn.mistakeMilestoneHint", { done: mistakeMilestone.mastered }) }}
+        </p>
+      </div>
+      <span class="milestone-chevron" aria-hidden="true">›</span>
+    </button>
+
+    <button
       v-if="showFocusArea"
       type="button"
       class="focus-area-card"
@@ -340,6 +378,12 @@ import {
   vocabMilestoneProgress,
   vocabMilestoneRingOffset,
 } from "./vocabMilestones.js";
+import {
+  mistakeMilestoneProgress,
+  mistakeMilestoneRingOffset,
+  shouldShowMistakeMilestone,
+} from "./mistakeMilestones.js";
+import { loadMistakeMasteryStats } from "@/modules/path/mistakeMasteryStats.js";
 import { shouldShowPerfectStreakCard } from "@/modules/path/perfectLessonStreak.js";
 import {
   buildFocusArea,
@@ -365,6 +409,7 @@ const resumeTarget = ref(null);
 const vocabReviewWords = ref([]);
 const lessonMilestone = ref(null);
 const vocabMilestone = ref(null);
+const mistakeMilestone = ref(null);
 const perfectStreak = ref(null);
 const focusArea = ref(null);
 const dueMistakeCount = ref(0);
@@ -434,12 +479,18 @@ const showMistakeReview = computed(() => shouldShowMistakeReview(dueMistakeCount
 
 const mistakeReviewTotal = computed(() => mistakeReviewCount(dueMistakeCount.value));
 
+const showMistakeMilestone = computed(() => shouldShowMistakeMilestone(mistakeMilestone.value));
+
 const milestoneRingOffset = computed(() =>
   lessonMilestoneRingOffset(lessonMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
 );
 
 const vocabMilestoneRingOffsetValue = computed(() =>
   vocabMilestoneRingOffset(vocabMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
+);
+
+const mistakeMilestoneRingOffsetValue = computed(() =>
+  mistakeMilestoneRingOffset(mistakeMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
 );
 
 const modules = [
@@ -522,6 +573,11 @@ function loadMistakeReview(nativeLang, targetLang) {
   dueMistakeCount.value = countDueForPair(pairStatsKey(nativeLang, targetLang));
 }
 
+function loadMistakeMilestone(nativeLang, targetLang) {
+  const mastered = loadMistakeMasteryStats(pairStatsKey(nativeLang, targetLang));
+  mistakeMilestone.value = mistakeMilestoneProgress(mastered);
+}
+
 async function loadHubData() {
   try {
     const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
@@ -529,6 +585,7 @@ async function loadHubData() {
     });
     loadFocusArea(nativeLang, targetLang);
     loadMistakeReview(nativeLang, targetLang);
+    loadMistakeMilestone(nativeLang, targetLang);
     await Promise.all([
       loadDailyGoal(user.id, targetLang),
       loadWeeklyActivity(user.id),
@@ -548,6 +605,7 @@ async function loadHubData() {
     perfectStreak.value = null;
     focusArea.value = null;
     dueMistakeCount.value = 0;
+    mistakeMilestone.value = null;
   }
 }
 
@@ -991,6 +1049,64 @@ onMounted(loadHubData);
   margin: 4px 0 0;
   font-size: 11px;
   color: #3d8f62;
+  line-height: 1.35;
+}
+
+.mistake-milestone-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fff3ee 0%, #ffe4d9 100%);
+  border: 1px solid #e6785a;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.mistake-milestone-card:hover {
+  box-shadow: 0 2px 10px rgba(230, 120, 90, 0.28);
+  transform: translateY(-1px);
+}
+
+.mistake-milestone-ring-track {
+  fill: none;
+  stroke: #f5c4b4;
+  stroke-width: 4;
+}
+
+.mistake-milestone-ring-fill {
+  fill: none;
+  stroke: #c45a3a;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 113.1;
+  transition: stroke-dashoffset 0.4s ease;
+}
+
+.mistake-milestone-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #9a3f28;
+  line-height: 1.3;
+}
+
+.mistake-milestone-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #b04d32;
+  line-height: 1.35;
+}
+
+.mistake-milestone-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #c45a3a;
   line-height: 1.35;
 }
 

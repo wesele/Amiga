@@ -215,6 +215,8 @@ import {
   shouldShowPracticeAccuracy,
 } from "./practiceAccuracy.js";
 import { buildAchievements, shouldShowAchievements } from "./achievements.js";
+import { loadMistakeMasteryStats } from "@/modules/path/mistakeMasteryStats.js";
+import { mistakeMilestoneProgress } from "@/modules/learn/mistakeMilestones.js";
 
 const { t } = useI18n();
 const targetLangStore = useTargetLangStore();
@@ -225,12 +227,14 @@ const readArticleCount = ref(0);
 const learningStreak = ref(null);
 const lessonMilestone = ref(null);
 const perfectLessonStreak = ref(null);
+const mistakeMastery = ref(null);
 const achievements = computed(() =>
   buildAchievements({
     lessonProgress: lessonMilestone.value,
     perfectStreak: perfectLessonStreak.value,
     learningStreak: learningStreak.value,
     vocabStats: vocabStats.value,
+    mistakeMastery: mistakeMastery.value,
   }),
 );
 const showAchievements = computed(() => shouldShowAchievements(achievements.value));
@@ -298,6 +302,7 @@ function refreshPracticeAccuracy(nativeLang, targetLang) {
 async function refreshAchievementProgress(nativeLang, targetLang) {
   lessonMilestone.value = null;
   perfectLessonStreak.value = null;
+  mistakeMastery.value = null;
   if (!nativeLang || !targetLang) return;
   try {
     lessonMilestone.value = await getLessonMilestoneProgress(nativeLang, targetLang);
@@ -309,6 +314,8 @@ async function refreshAchievementProgress(nativeLang, targetLang) {
   } catch {
     perfectLessonStreak.value = null;
   }
+  const mastered = loadMistakeMasteryStats(pairStatsKey(nativeLang, targetLang));
+  mistakeMastery.value = mistakeMilestoneProgress(mastered);
 }
 
 async function onSwitchLang(code) {

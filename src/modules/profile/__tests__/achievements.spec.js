@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildAchievements,
   buildLessonAchievements,
+  buildMistakeAchievements,
   buildPerfectAchievements,
   buildStreakAchievements,
   buildVocabAchievements,
@@ -58,15 +59,30 @@ describe("achievements", () => {
     });
   });
 
+  it("builds mistake-review achievements from mastered mistake count", () => {
+    const items = buildMistakeAchievements(30);
+    expect(items).toHaveLength(4);
+    expect(items.filter((item) => item.unlocked).map((item) => item.threshold)).toEqual([
+      10, 25,
+    ]);
+    expect(items[0]).toMatchObject({
+      id: "mistakes-10",
+      category: "mistakes",
+      icon: "🔁",
+      labelKey: "profile.achievementMistake",
+    });
+  });
+
   it("aggregates all achievement tracks", () => {
     const result = buildAchievements({
       lessonProgress: { completed: 50 },
       perfectStreak: { current: 2, best: 3 },
       learningStreak: { current: 8, longest: 30 },
       vocabStats: { total_known: 150 },
+      mistakeMastery: { mastered: 12 },
     });
-    expect(result.totalCount).toBe(18);
-    expect(result.unlockedCount).toBe(8);
+    expect(result.totalCount).toBe(22);
+    expect(result.unlockedCount).toBe(9);
     expect(shouldShowAchievements(result)).toBe(true);
   });
 

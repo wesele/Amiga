@@ -50,6 +50,10 @@ export default {
     mistakeReview: "Mistake review",
     mistakeReviewHint: "{n} mistakes to reinforce",
     mistakeReviewAction: "Review",
+    mistakeMilestone: "Mistake mastery milestone",
+    mistakeMilestoneNext: "Next goal: {n} mastered",
+    mistakeMilestoneProgress: "{done}/{total}",
+    mistakeMilestoneHint: "{done} mistakes mastered — keep reinforcing!",
     weeklyActivity: "Last 7 days",
     weeklyActivitySummary: "{done}/7 days practiced this week",
     weeklyGoal: "Weekly goal",
@@ -159,6 +163,7 @@ export default {
     mistakeReviewComplete: "Mistake review complete!",
     mistakeReviewCompleteHint: "You reviewed {n} mistakes this round",
     mistakeReviewMasteredCount: "{n} mastered — they'll come back later",
+    mistakeMilestoneReached: "🔁 {n} mistakes mastered! Review milestone unlocked",
     lessonPassed: "Section complete!",
     lessonFailed: "Keep going!",
     score: "{correct}/{total} correct",
@@ -417,6 +422,7 @@ export default {
     achievementPerfect: "Perfect ×{n}",
     achievementStreak: "{n}-day streak",
     achievementVocab: "{n} words",
+    achievementMistake: "{n} mistakes",
   },
 
   learningLang: {
