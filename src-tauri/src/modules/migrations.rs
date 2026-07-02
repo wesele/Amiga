@@ -66,6 +66,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add path_grammar_explain_cache for LLM grammar teaching cache",
             MIGRATION_V16,
         ),
+        (
+            17,
+            "Add lessons_completed to streak_records for daily learning streak",
+            MIGRATION_V17,
+        ),
     ]
 }
 
@@ -348,4 +353,8 @@ CREATE TABLE IF NOT EXISTS path_grammar_explain_cache (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (pair_key, cefr, unit_id, point_text)
 );
+"#;
+
+const MIGRATION_V17: &str = r#"
+ALTER TABLE streak_records ADD COLUMN lessons_completed INTEGER NOT NULL DEFAULT 0;
 "#;

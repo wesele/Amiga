@@ -11,6 +11,9 @@
           <p v-if="curriculum?.status === 'active'" class="page-sub">
             {{ t("path.progress", { done: curriculum.completed_sections, total: curriculum.total_sections }) }}
             · ⭐ {{ curriculum.total_stars }}
+            <span v-if="learningStreak?.current > 0" class="streak-pill">
+              🔥 {{ t("path.streakDays", { n: learningStreak.current }) }}
+            </span>
           </p>
         </div>
       </template>
@@ -143,6 +146,7 @@ import { useI18n } from "@/shared/i18n";
 import {
   getPathCurriculum,
   getCurrentUser,
+  getLearningStreak,
   updateLearningGoalCefr,
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
@@ -159,6 +163,7 @@ const targetLangStore = useTargetLangStore();
 const loading = ref(true);
 const error = ref("");
 const curriculum = ref(null);
+const learningStreak = ref(null);
 const currentCefr = ref("A1");
 const levelSwitching = ref(false);
 const showLevelPicker = ref(false);
@@ -253,6 +258,7 @@ async function load() {
     });
     currentCefr.value = cefr;
     curriculum.value = await getPathCurriculum(user.native_language, targetLang, cefr);
+    learningStreak.value = await getLearningStreak(user.id);
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {
@@ -310,6 +316,11 @@ onMounted(load);
   font-size: 12px;
   color: var(--text-light);
   font-weight: 600;
+}
+
+.streak-pill {
+  margin-left: 4px;
+  color: var(--orange-hover);
 }
 
 .level-btn {

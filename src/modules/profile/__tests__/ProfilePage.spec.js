@@ -42,9 +42,10 @@ describe("ProfilePage", () => {
     });
   }
 
-  it("renders both stat labels", () => {
+  it("renders all stat labels", () => {
     mockInvoke.mockRejectedValue(new Error("not wired in test"));
     const wrapper = mountPage();
+    expect(wrapper.text()).toContain("连续学习");
     expect(wrapper.text()).toContain("已掌握词汇");
     expect(wrapper.text()).toContain("已读文章");
   });
@@ -58,12 +59,29 @@ describe("ProfilePage", () => {
     expect(readCell.find(".stat-value").text()).toBe("0");
   });
 
+  it("shows the learning streak returned by the API", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 0, total_learning: 0, total: 0 });
+      if (cmd === "get_read_article_count_cmd") return Promise.resolve(0);
+      if (cmd === "get_learning_streak_cmd") return Promise.resolve({ current: 5, longest: 7, practiced_today: true });
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+    const cells = wrapper.findAll(".stat-cell");
+    const streakCell = cells.find((c) => c.text().includes("连续学习"));
+    expect(streakCell.find(".stat-value").text()).toBe("5");
+  });
+
   it("shows the read article count returned by the API", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
       if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
       if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 0, total_learning: 0, total: 0 });
       if (cmd === "get_read_article_count_cmd") return Promise.resolve(7);
+      if (cmd === "get_learning_streak_cmd") return Promise.resolve({ current: 0, longest: 0, practiced_today: false });
       return Promise.resolve(null);
     });
     const wrapper = mountPage();

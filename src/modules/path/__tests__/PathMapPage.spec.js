@@ -46,6 +46,13 @@ describe("PathMapPage unit guide layout", () => {
     expect(source).toMatch(/\.node-caption\s*\{[\s\S]*text-align:\s*center/);
   });
 
+  it("shows streak pill in header when user has an active streak", () => {
+    const source = readVue("src/modules/path/PathMapPage.vue");
+    expect(source).toMatch(/learningStreak\?\.current > 0/);
+    expect(source).toMatch(/class="streak-pill"/);
+    expect(source).toMatch(/path\.streakDays/);
+  });
+
   it("shows current level in one button and opens a picker sheet", () => {
     const source = readVue("src/modules/path/PathMapPage.vue");
     expect(source).toMatch(/class="level-btn"/);

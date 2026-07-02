@@ -777,15 +777,10 @@ pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(),
         ],
     ).map_err(|e| format!("Failed to save reading log: {}", e))?;
 
-    // Update streak record
-    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-    conn.execute(
-        "INSERT INTO streak_records (user_id, date, articles_read)
-         VALUES (?1, ?2, 1)
-         ON CONFLICT(user_id, date) DO UPDATE SET articles_read = articles_read + 1",
-        params![log_entry.user_id, today],
-    )
-    .ok();
+    drop(conn);
+    if let Err(e) = crate::modules::streak::record_article_read(db, &log_entry.user_id) {
+        log::warn!("Failed to update streak for article read: {}", e);
+    }
 
     log::info!(
         "Reading log saved: user={} article={}",

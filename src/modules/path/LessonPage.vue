@@ -25,6 +25,9 @@
         <div v-if="result?.passed" class="summary-stars">
           {{ "⭐".repeat(result.stars) }}
         </div>
+        <p v-if="result?.passed && result?.streak_extended" class="streak-banner">
+          {{ t("path.streakExtended", { n: result.streak_current }) }}
+        </p>
         <p v-if="result?.level_upgraded" class="level-up-banner">
           🎓 {{ t("path.levelUp", { level: result.new_cefr_level }) }}
         </p>
@@ -352,6 +355,15 @@ onMounted(load);
 
 .summary-stars {
   font-size: 28px;
+}
+
+.streak-banner {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  background: var(--orange-bg);
+  color: var(--orange-hover);
+  border-radius: var(--radius-md);
+  font-weight: 700;
 }
 
 .level-up-banner {

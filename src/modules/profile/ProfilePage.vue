@@ -19,6 +19,11 @@
         </div>
         <div class="stats-row">
           <div class="stat-cell">
+            <div class="stat-value">{{ learningStreak?.current || 0 }}</div>
+            <div class="stat-label">{{ t('profile.streak') }}</div>
+          </div>
+          <div class="stat-divider" />
+          <div class="stat-cell">
             <div class="stat-value">{{ vocabStats?.total_known || 0 }}</div>
             <div class="stat-label">{{ t('profile.words') }}</div>
           </div>
@@ -141,6 +146,7 @@ import {
   getLearningGoals,
   getUserVocabStats,
   getReadArticleCount,
+  getLearningStreak,
   checkUpdate,
   updateLearningGoalCefr,
 } from "@/shared/api.js";
@@ -159,6 +165,7 @@ const user = ref(null);
 const goals = ref([]);
 const vocabStats = ref(null);
 const readArticleCount = ref(0);
+const learningStreak = ref(null);
 const currentTargetLang = computed(() => targetLangStore.code || "");
 const currentLevel = ref("A1");
 const levelSwitching = ref(false);
@@ -176,6 +183,7 @@ onMounted(async () => {
     goals.value = ctx.goals;
     vocabStats.value = await getUserVocabStats(user.value.id, currentTargetLang.value);
     readArticleCount.value = await getReadArticleCount(user.value.id);
+    learningStreak.value = await getLearningStreak(user.value.id);
     if (ctx.currentGoal) currentLevel.value = ctx.cefr;
   } catch (e) {
     console.error("Failed to load profile:", e);

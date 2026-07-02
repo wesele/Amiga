@@ -88,3 +88,11 @@ pub async fn update_learning_goal_cefr_cmd(
     after_syncable_write(&db);
     Ok(())
 }
+
+#[tauri::command]
+pub async fn get_learning_streak_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+) -> Result<crate::modules::streak::LearningStreak, String> {
+    crate::modules::streak::get_learning_streak(&db, &user_id)
+}

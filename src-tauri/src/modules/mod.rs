@@ -7,6 +7,7 @@ pub mod migrations;
 pub mod news;
 pub mod path;
 pub mod prompts;
+pub mod streak;
 pub mod sync;
 pub mod translation;
 pub mod user;

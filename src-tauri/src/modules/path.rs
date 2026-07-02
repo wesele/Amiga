@@ -93,6 +93,10 @@ pub struct CompleteSectionResult {
     pub next_section_id: Option<String>,
     pub level_upgraded: bool,
     pub new_cefr_level: Option<String>,
+    #[serde(default)]
+    pub streak_current: i32,
+    #[serde(default)]
+    pub streak_extended: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -825,6 +829,9 @@ pub fn complete_teaching_node(
         }
     }
 
+    let (streak_current, streak_extended) =
+        streak_fields_for_completion(pool, user_id, passed);
+
     Ok(CompleteSectionResult {
         stars: new_stars,
         best_score: new_best,
@@ -832,6 +839,8 @@ pub fn complete_teaching_node(
         next_section_id,
         level_upgraded,
         new_cefr_level,
+        streak_current,
+        streak_extended,
     })
 }
 
@@ -945,6 +954,9 @@ pub fn complete_section(
         level_upgraded
     );
 
+    let (streak_current, streak_extended) =
+        streak_fields_for_completion(pool, user_id, passed);
+
     Ok(CompleteSectionResult {
         stars: new_stars,
         best_score: new_best,
@@ -952,7 +964,26 @@ pub fn complete_section(
         next_section_id,
         level_upgraded,
         new_cefr_level,
+        streak_current,
+        streak_extended,
     })
+}
+
+fn streak_fields_for_completion(
+    pool: &DatabasePool,
+    user_id: &str,
+    passed: bool,
+) -> (i32, bool) {
+    if !passed {
+        return (0, false);
+    }
+    match crate::modules::streak::record_lesson_completed(pool, user_id) {
+        Ok(update) => (update.current, update.extended),
+        Err(e) => {
+            log::warn!("Failed to record lesson streak: {}", e);
+            (0, false)
+        }
+    }
 }
 
 #[cfg(test)]
