@@ -29,7 +29,7 @@ describe("achievements", () => {
       id: "lessons-10",
       category: "lessons",
       icon: "🏆",
-      labelKey: "profile.achievementLesson",
+      labelKey: "achievements.badgeLesson",
     });
   });
 
@@ -57,7 +57,7 @@ describe("achievements", () => {
       id: "vocab-100",
       category: "vocab",
       icon: "📚",
-      labelKey: "profile.achievementVocab",
+      labelKey: "achievements.badgeVocab",
     });
   });
 
@@ -71,7 +71,7 @@ describe("achievements", () => {
       id: "mistakes-10",
       category: "mistakes",
       icon: "🔁",
-      labelKey: "profile.achievementMistake",
+      labelKey: "achievements.badgeMistake",
     });
   });
 
@@ -85,7 +85,7 @@ describe("achievements", () => {
       id: "combo-3",
       category: "combo",
       icon: "🔥",
-      labelKey: "profile.achievementCombo",
+      labelKey: "achievements.badgeCombo",
     });
   });
 
@@ -99,7 +99,7 @@ describe("achievements", () => {
       id: "accuracy-70",
       category: "accuracy",
       icon: "🎯",
-      labelKey: "profile.achievementAccuracy",
+      labelKey: "achievements.badgeAccuracy",
     });
   });
 

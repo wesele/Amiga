@@ -7,10 +7,12 @@ export default [
     path: "/vocab",
     name: "vocab",
     component: VocabPage,
+    meta: { parent: "learn" },
   },
   {
     path: "/vocab/review",
     name: "vocab-review",
     component: VocabReviewPage,
+    meta: { parent: "vocab" },
   },
 ];

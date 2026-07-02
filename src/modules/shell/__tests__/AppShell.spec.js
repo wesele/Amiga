@@ -26,7 +26,8 @@ function makeRouter() {
       { path: "/", component: { template: "<div>home</div>" } },
       { path: "/learn", name: "learn", component: { template: "<div>learn</div>" } },
       { path: "/news", name: "news", component: { template: "<div>news</div>" }, meta: { parent: "learn" } },
-      { path: "/vocab", name: "vocab", component: { template: "<div>vocab</div>" } },
+      { path: "/achievements", name: "achievements", component: { template: "<div>achievements</div>" } },
+      { path: "/vocab", name: "vocab", component: { template: "<div>vocab</div>" }, meta: { parent: "learn" } },
       { path: "/chat", name: "chat", component: { template: "<div>chat</div>" } },
       { path: "/profile", name: "profile", component: { template: "<div>profile</div>" } },
     ],
@@ -173,7 +174,7 @@ describe("AppShell bottom-nav tab switching (L1 isolation)", () => {
     const replaceSpy = vi.spyOn(router, "replace");
     const pushSpy = vi.spyOn(router, "push");
 
-    // The L1 tabs are listed in the order [learn, vocab, chat, profile];
+    // The L1 tabs are listed in the order [learn, achievements, chat, profile];
     // tab index 3 is "profile".
     const tabs = wrapper.findAll(".bottom-nav .nav-item");
     expect(tabs.length).toBe(4);
@@ -206,14 +207,14 @@ describe("AppShell bottom-nav tab switching (L1 isolation)", () => {
     const replaceSpy = vi.spyOn(router, "replace");
     const pushSpy = vi.spyOn(router, "push");
 
-    // Click "vocab" tab (index 1). Should replace, not push.
+    // Click "achievements" tab (index 1). Should replace, not push.
     const tabs = wrapper.findAll(".bottom-nav .nav-item");
     await tabs[1].trigger("click");
     await flushPromises();
 
-    expect(replaceSpy).toHaveBeenCalledWith({ name: "vocab" });
+    expect(replaceSpy).toHaveBeenCalledWith({ name: "achievements" });
     expect(pushSpy).not.toHaveBeenCalled();
-    expect(router.currentRoute.value.name).toBe("vocab");
+    expect(router.currentRoute.value.name).toBe("achievements");
   });
 
   it("clicking the already-active tab is a no-op (no router.replace / push)", async () => {

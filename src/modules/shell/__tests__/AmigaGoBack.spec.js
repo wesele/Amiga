@@ -60,6 +60,9 @@ function routeFileForName(name) {
     case "prompts":
     case "prompt-editor":
       return "src/modules/prompts/routes.js";
+    case "vocab":
+    case "vocab-review":
+      return "src/modules/vocab/routes.js";
     default:
       throw new Error(`routeFileForName: no mapping for ${name}`);
   }
@@ -233,6 +236,8 @@ describe("__amigaGoBack bridge", () => {
       { name: "news", parent: "learn" },
       { name: "reader", parent: "news" },
       { name: "learn-translator", parent: "learn" },
+      { name: "vocab", parent: "learn" },
+      { name: "vocab-review", parent: "vocab" },
       { name: "chat-session", parent: "chat" },
       { name: "chat-preview", parent: "chat" },
       { name: "settings", parent: "profile" },

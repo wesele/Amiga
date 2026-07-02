@@ -5,81 +5,6 @@
     </header>
 
     <button
-      v-if="resumeTarget"
-      type="button"
-      class="continue-card"
-      @click="continueLearning"
-    >
-      <span class="continue-icon" aria-hidden="true">{{ resumeIcon }}</span>
-      <div class="continue-copy">
-        <p class="continue-eyebrow">{{ t("learn.continueLearning") }}</p>
-        <p class="continue-title">{{ resumeTarget.section.title_native }}</p>
-        <p class="continue-sub">
-          {{ t("learn.continueUnit", { unit: resumeTarget.unit.title_native }) }}
-          · {{ t(resumeKindKey) }}
-        </p>
-      </div>
-      <span class="continue-action">{{ t("learn.continueAction") }}</span>
-    </button>
-
-    <button
-      v-if="showVocabMilestone"
-      type="button"
-      class="vocab-milestone-card"
-      @click="goToVocabReview"
-    >
-      <div class="milestone-ring" aria-hidden="true">
-        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
-          <circle class="vocab-milestone-ring-track" cx="22" cy="22" r="18" />
-          <circle
-            class="vocab-milestone-ring-fill"
-            cx="22"
-            cy="22"
-            r="18"
-            :style="{ strokeDashoffset: vocabMilestoneRingOffsetValue }"
-          />
-        </svg>
-        <span class="milestone-ring-label">📚</span>
-      </div>
-      <div class="milestone-copy">
-        <p class="vocab-milestone-title">{{ t("learn.vocabMilestone") }}</p>
-        <p class="vocab-milestone-sub">
-          {{ t("learn.vocabMilestoneNext", { n: vocabMilestone.next_milestone }) }}
-          ·
-          {{
-            t("learn.vocabMilestoneProgress", {
-              done: vocabMilestone.known,
-              total: vocabMilestone.next_milestone,
-            })
-          }}
-        </p>
-        <p class="vocab-milestone-hint">
-          {{ t("learn.vocabMilestoneHint", { done: vocabMilestone.known }) }}
-        </p>
-      </div>
-      <span class="milestone-chevron" aria-hidden="true">›</span>
-    </button>
-
-    <button
-      v-if="showVocabReview"
-      type="button"
-      class="vocab-review-card"
-      @click="goToVocabReview"
-    >
-      <span class="vocab-review-icon" aria-hidden="true">📚</span>
-      <div class="vocab-review-copy">
-        <p class="vocab-review-title">{{ t("learn.vocabReview") }}</p>
-        <p class="vocab-review-sub">
-          {{ t("learn.vocabReviewHint", { n: vocabReviewTotal }) }}
-          <template v-if="vocabReviewPreviewText">
-            · {{ vocabReviewPreviewText }}<template v-if="vocabReviewTruncated">…</template>
-          </template>
-        </p>
-      </div>
-      <span class="vocab-review-action">{{ t("learn.vocabReviewAction") }}</span>
-    </button>
-
-    <button
       v-if="showMistakeReview"
       type="button"
       class="mistake-review-card"
@@ -93,44 +18,6 @@
         </p>
       </div>
       <span class="mistake-review-action">{{ t("learn.mistakeReviewAction") }}</span>
-    </button>
-
-    <button
-      v-if="showMistakeMilestone"
-      type="button"
-      class="mistake-milestone-card"
-      @click="goToMistakeReview"
-    >
-      <div class="milestone-ring" aria-hidden="true">
-        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
-          <circle class="mistake-milestone-ring-track" cx="22" cy="22" r="18" />
-          <circle
-            class="mistake-milestone-ring-fill"
-            cx="22"
-            cy="22"
-            r="18"
-            :style="{ strokeDashoffset: mistakeMilestoneRingOffsetValue }"
-          />
-        </svg>
-        <span class="milestone-ring-label">🔁</span>
-      </div>
-      <div class="milestone-copy">
-        <p class="mistake-milestone-title">{{ t("learn.mistakeMilestone") }}</p>
-        <p class="mistake-milestone-sub">
-          {{ t("learn.mistakeMilestoneNext", { n: mistakeMilestone.next_milestone }) }}
-          ·
-          {{
-            t("learn.mistakeMilestoneProgress", {
-              done: mistakeMilestone.mastered,
-              total: mistakeMilestone.next_milestone,
-            })
-          }}
-        </p>
-        <p class="mistake-milestone-hint">
-          {{ t("learn.mistakeMilestoneHint", { done: mistakeMilestone.mastered }) }}
-        </p>
-      </div>
-      <span class="milestone-chevron" aria-hidden="true">›</span>
     </button>
 
     <button
@@ -166,44 +53,6 @@
         </p>
         <p class="accuracy-milestone-hint">
           {{ t("learn.accuracyMilestoneHint", { done: accuracyMilestone.best }) }}
-        </p>
-      </div>
-      <span class="milestone-chevron" aria-hidden="true">›</span>
-    </button>
-
-    <button
-      v-if="showStreakMilestone"
-      type="button"
-      class="streak-milestone-card"
-      @click="goToPath"
-    >
-      <div class="milestone-ring" aria-hidden="true">
-        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
-          <circle class="streak-milestone-ring-track" cx="22" cy="22" r="18" />
-          <circle
-            class="streak-milestone-ring-fill"
-            cx="22"
-            cy="22"
-            r="18"
-            :style="{ strokeDashoffset: streakMilestoneRingOffsetValue }"
-          />
-        </svg>
-        <span class="milestone-ring-label">🔥</span>
-      </div>
-      <div class="milestone-copy">
-        <p class="streak-milestone-title">{{ t("learn.streakMilestone") }}</p>
-        <p class="streak-milestone-sub">
-          {{ t("learn.streakMilestoneNext", { n: streakMilestone.next_milestone }) }}
-          ·
-          {{
-            t("learn.streakMilestoneProgress", {
-              done: streakMilestone.current,
-              total: streakMilestone.next_milestone,
-            })
-          }}
-        </p>
-        <p class="streak-milestone-hint">
-          {{ t("learn.streakMilestoneHint", { done: streakMilestone.current }) }}
         </p>
       </div>
       <span class="milestone-chevron" aria-hidden="true">›</span>
@@ -326,60 +175,6 @@
     </button>
 
     <button
-      v-if="showLessonMilestone"
-      type="button"
-      class="milestone-card"
-      @click="goToPath"
-    >
-      <div class="milestone-ring" aria-hidden="true">
-        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
-          <circle class="milestone-ring-track" cx="22" cy="22" r="18" />
-          <circle
-            class="milestone-ring-fill"
-            cx="22"
-            cy="22"
-            r="18"
-            :style="{ strokeDashoffset: milestoneRingOffset }"
-          />
-        </svg>
-        <span class="milestone-ring-label">🏆</span>
-      </div>
-      <div class="milestone-copy">
-        <p class="milestone-title">{{ t("learn.lessonMilestone") }}</p>
-        <p class="milestone-sub">
-          {{ t("learn.lessonMilestoneNext", { n: lessonMilestone.next_milestone }) }}
-          ·
-          {{
-            t("learn.lessonMilestoneProgress", {
-              done: lessonMilestone.completed,
-              total: lessonMilestone.next_milestone,
-            })
-          }}
-        </p>
-        <p class="milestone-hint">
-          {{ t("learn.lessonMilestoneHint", { done: lessonMilestone.completed }) }}
-        </p>
-      </div>
-      <span class="milestone-chevron" aria-hidden="true">›</span>
-    </button>
-
-    <button
-      v-if="streakAtRisk"
-      type="button"
-      class="streak-risk-banner"
-      @click="goToPath"
-    >
-      <span class="streak-risk-icon" aria-hidden="true">🔥</span>
-      <div class="streak-risk-copy">
-        <p class="streak-risk-title">
-          {{ t("learn.streakAtRisk", { n: dailyGoal.streak_current }) }}
-        </p>
-        <p class="streak-risk-sub">{{ t("learn.streakAtRiskHint") }}</p>
-      </div>
-      <span class="streak-risk-action">{{ t("learn.streakAtRiskAction") }}</span>
-    </button>
-
-    <button
       v-if="dailyGoal"
       type="button"
       class="daily-goal-card"
@@ -492,51 +287,18 @@ import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
   getDailyGoalProgress,
-  getLearningStreak,
-  getLessonMilestoneProgress,
-  getPathCurriculum,
   getPerfectLessonStreak,
-  getUnknownWords,
-  getUserVocabStats,
   getWeeklyActivity,
 } from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
-import {
-  canResumeSection,
-  findCurrentSection,
-  pathSectionRoute,
-  sectionKindIcon,
-  sectionKindKey,
-} from "./pathResume.js";
-import {
-  VOCAB_REVIEW_LIMIT,
-  shouldShowVocabReview,
-  vocabReviewCount,
-  vocabReviewHasMore,
-  vocabReviewPreview,
-} from "./vocabReviewCard.js";
 import { weekdayLabel } from "./weeklyActivity.js";
 import {
   buildWeeklyGoalProgress,
   shouldShowWeeklyGoal,
 } from "./weeklyGoal.js";
-import {
-  lessonMilestoneRingOffset,
-  shouldShowLessonMilestone,
-} from "./lessonMilestones.js";
-import {
-  shouldShowVocabMilestone,
-  vocabMilestoneProgress,
-  vocabMilestoneRingOffset,
-} from "./vocabMilestones.js";
-import {
-  mistakeMilestoneProgress,
-  mistakeMilestoneRingOffset,
-  shouldShowMistakeMilestone,
-} from "./mistakeMilestones.js";
-import { loadMistakeMasteryStats } from "@/modules/path/mistakeMasteryStats.js";
+
 import { shouldShowPerfectStreakCard } from "@/modules/path/perfectLessonStreak.js";
 import {
   buildFocusArea,
@@ -562,11 +324,6 @@ import {
 } from "./comboMilestoneCard.js";
 import { comboMilestoneRingOffset } from "./comboMilestones.js";
 import {
-  buildStreakMilestoneCard,
-  shouldShowStreakMilestoneCard,
-} from "./streakMilestoneCard.js";
-import { streakMilestoneRingOffset } from "./streakMilestones.js";
-import {
   buildPerfectMilestoneCard,
   shouldShowPerfectMilestoneCard,
 } from "./perfectMilestoneCard.js";
@@ -579,14 +336,8 @@ const targetLangStore = useTargetLangStore();
 const opening = ref(null);
 const dailyGoal = ref(null);
 const weeklyActivity = ref(null);
-const resumeTarget = ref(null);
-const vocabReviewWords = ref([]);
-const lessonMilestone = ref(null);
-const vocabMilestone = ref(null);
-const mistakeMilestone = ref(null);
 const accuracyMilestone = ref(null);
 const comboMilestone = ref(null);
-const streakMilestone = ref(null);
 const perfectMilestone = ref(null);
 const perfectStreak = ref(null);
 const focusArea = ref(null);
@@ -600,29 +351,6 @@ const ringOffset = computed(() => {
   const pct = dailyGoal.value.progress_pct / 100;
   return RING_CIRCUMFERENCE * (1 - pct);
 });
-
-const streakAtRisk = computed(
-  () =>
-    dailyGoal.value &&
-    dailyGoal.value.streak_current > 0 &&
-    !dailyGoal.value.practiced_today,
-);
-
-const resumeIcon = computed(() =>
-  resumeTarget.value ? sectionKindIcon(resumeTarget.value.section.kind) : "",
-);
-
-const resumeKindKey = computed(() =>
-  resumeTarget.value ? sectionKindKey(resumeTarget.value.section.kind) : "",
-);
-
-const showVocabReview = computed(() => shouldShowVocabReview(vocabReviewWords.value));
-
-const vocabReviewTotal = computed(() => vocabReviewCount(vocabReviewWords.value));
-
-const vocabReviewPreviewText = computed(() => vocabReviewPreview(vocabReviewWords.value));
-
-const vocabReviewTruncated = computed(() => vocabReviewHasMore(vocabReviewWords.value));
 
 const weeklyGoal = computed(() => {
   if (!weeklyActivity.value || !dailyGoal.value) return null;
@@ -645,10 +373,6 @@ const weeklyGoalAriaLabel = computed(() => {
   })} · ${t("learn.weeklyGoalRemaining", { n: weeklyGoal.value.days_remaining })}`;
 });
 
-const showLessonMilestone = computed(() => shouldShowLessonMilestone(lessonMilestone.value));
-
-const showVocabMilestone = computed(() => shouldShowVocabMilestone(vocabMilestone.value));
-
 const showPerfectMilestone = computed(() =>
   shouldShowPerfectMilestoneCard(perfectMilestone.value),
 );
@@ -661,30 +385,12 @@ const showMistakeReview = computed(() => shouldShowMistakeReview(dueMistakeCount
 
 const mistakeReviewTotal = computed(() => mistakeReviewCount(dueMistakeCount.value));
 
-const showMistakeMilestone = computed(() => shouldShowMistakeMilestone(mistakeMilestone.value));
-
 const showAccuracyMilestone = computed(() =>
   shouldShowAccuracyMilestoneCard(accuracyMilestone.value),
 );
 
 const showComboMilestone = computed(() =>
   shouldShowComboMilestoneCard(comboMilestone.value),
-);
-
-const showStreakMilestone = computed(() =>
-  shouldShowStreakMilestoneCard(streakMilestone.value),
-);
-
-const milestoneRingOffset = computed(() =>
-  lessonMilestoneRingOffset(lessonMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
-);
-
-const vocabMilestoneRingOffsetValue = computed(() =>
-  vocabMilestoneRingOffset(vocabMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
-);
-
-const mistakeMilestoneRingOffsetValue = computed(() =>
-  mistakeMilestoneRingOffset(mistakeMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
 );
 
 const accuracyMilestoneRingOffsetValue = computed(() =>
@@ -695,10 +401,6 @@ const comboMilestoneRingOffsetValue = computed(() =>
   comboMilestoneRingOffset(comboMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
 );
 
-const streakMilestoneRingOffsetValue = computed(() =>
-  streakMilestoneRingOffset(streakMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
-);
-
 const perfectMilestoneRingOffsetValue = computed(() =>
   perfectMilestoneRingOffset(perfectMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
 );
@@ -706,6 +408,7 @@ const perfectMilestoneRingOffsetValue = computed(() =>
 const modules = [
   { id: "path", labelKey: "learn.path", icon: "🛤️", route: { name: "path" } },
   { id: "news", labelKey: "learn.news", icon: "📰", route: { name: "news" } },
+  { id: "vocab", labelKey: "nav.vocab", icon: "📚", route: { name: "vocab" } },
   { id: "translator", labelKey: "chat.translator", icon: "🌐", action: "translator" },
 ];
 
@@ -722,47 +425,6 @@ async function loadWeeklyActivity(userId) {
     weeklyActivity.value = await getWeeklyActivity(userId);
   } catch {
     weeklyActivity.value = null;
-  }
-}
-
-async function loadResumeSection(nativeLang, targetLang, cefr) {
-  try {
-    const curriculum = await getPathCurriculum(nativeLang, targetLang, cefr);
-    const hit = findCurrentSection(curriculum);
-    resumeTarget.value =
-      hit && canResumeSection(hit.section) ? hit : null;
-  } catch {
-    resumeTarget.value = null;
-  }
-}
-
-async function loadVocabReview(userId, targetLang, cefr) {
-  try {
-    vocabReviewWords.value = await getUnknownWords(
-      userId,
-      cefr,
-      VOCAB_REVIEW_LIMIT,
-      targetLang,
-    );
-  } catch {
-    vocabReviewWords.value = [];
-  }
-}
-
-async function loadLessonMilestone(nativeLang, targetLang) {
-  try {
-    lessonMilestone.value = await getLessonMilestoneProgress(nativeLang, targetLang);
-  } catch {
-    lessonMilestone.value = null;
-  }
-}
-
-async function loadVocabMilestone(userId, targetLang) {
-  try {
-    const stats = await getUserVocabStats(userId, targetLang);
-    vocabMilestone.value = vocabMilestoneProgress(stats?.total_known ?? 0);
-  } catch {
-    vocabMilestone.value = null;
   }
 }
 
@@ -785,11 +447,6 @@ function loadMistakeReview(nativeLang, targetLang) {
   dueMistakeCount.value = countDueForPair(pairStatsKey(nativeLang, targetLang));
 }
 
-function loadMistakeMilestone(nativeLang, targetLang) {
-  const mastered = loadMistakeMasteryStats(pairStatsKey(nativeLang, targetLang));
-  mistakeMilestone.value = mistakeMilestoneProgress(mastered);
-}
-
 function loadAccuracyMilestone(nativeLang, targetLang) {
   accuracyMilestone.value = buildAccuracyMilestoneCard(pairStatsKey(nativeLang, targetLang));
 }
@@ -798,50 +455,29 @@ function loadComboMilestone(nativeLang, targetLang) {
   comboMilestone.value = buildComboMilestoneCard(pairStatsKey(nativeLang, targetLang));
 }
 
-async function loadStreakMilestone(userId) {
-  try {
-    const streak = await getLearningStreak(userId);
-    streakMilestone.value = buildStreakMilestoneCard(streak);
-  } catch {
-    streakMilestone.value = null;
-  }
-}
-
 async function loadHubData() {
   try {
-    const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
+    const { user, targetLang, nativeLang } = await loadLearningContext({
       targetLangStore,
     });
     loadFocusArea(nativeLang, targetLang);
     loadMistakeReview(nativeLang, targetLang);
-    loadMistakeMilestone(nativeLang, targetLang);
     loadAccuracyMilestone(nativeLang, targetLang);
     loadComboMilestone(nativeLang, targetLang);
     await Promise.all([
       loadDailyGoal(user.id, targetLang),
       loadWeeklyActivity(user.id),
-      loadResumeSection(nativeLang, targetLang, cefr),
-      loadVocabReview(user.id, targetLang, cefr),
-      loadVocabMilestone(user.id, targetLang),
-      loadLessonMilestone(nativeLang, targetLang),
       loadPerfectStreak(),
-      loadStreakMilestone(user.id),
     ]);
   } catch {
     dailyGoal.value = null;
     weeklyActivity.value = null;
-    resumeTarget.value = null;
-    vocabReviewWords.value = [];
-    lessonMilestone.value = null;
-    vocabMilestone.value = null;
     perfectStreak.value = null;
     perfectMilestone.value = null;
     focusArea.value = null;
     dueMistakeCount.value = 0;
-    mistakeMilestone.value = null;
     accuracyMilestone.value = null;
     comboMilestone.value = null;
-    streakMilestone.value = null;
   }
 }
 
@@ -855,17 +491,8 @@ function goToFocusPractice() {
   router.push(focusPracticeRoute(typeId));
 }
 
-function goToVocabReview() {
-  router.push({ name: "vocab-review" });
-}
-
 function goToMistakeReview() {
   router.push({ name: "path-mistake-review" });
-}
-
-function continueLearning() {
-  if (!resumeTarget.value) return;
-  router.push(pathSectionRoute(resumeTarget.value.section));
 }
 
 async function openModule(mod) {

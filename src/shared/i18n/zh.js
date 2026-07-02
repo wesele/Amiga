@@ -26,8 +26,21 @@ export default {
   nav: {
     learn: "学习",
     vocab: "单词",
+    achievements: "成就",
     chat: "聊天",
     profile: "我的",
+  },
+
+  achievements: {
+    title: "成就",
+    summary: "已解锁 {unlocked}/{total}",
+    badgeLesson: "{n} 节课",
+    badgePerfect: "完美 ×{n}",
+    badgeStreak: "{n} 天连胜",
+    badgeVocab: "{n} 个单词",
+    badgeMistake: "{n} 道错题",
+    badgeCombo: "{n} 连击",
+    badgeAccuracy: "{n}% 正确率",
   },
 
   learn: {

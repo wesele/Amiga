@@ -4,7 +4,7 @@ import { VOCAB_MILESTONES } from "@/modules/learn/vocabMilestones.js";
 import { COMBO_MILESTONES } from "@/modules/path/lessonCombo.js";
 import { PERFECT_LESSON_MILESTONES } from "@/modules/path/perfectLessonStreak.js";
 import { STREAK_MILESTONES } from "@/modules/path/streakMilestone.js";
-import { ACCURACY_MILESTONES } from "./accuracyMilestones.js";
+import { ACCURACY_MILESTONES } from "@/modules/profile/accuracyMilestones.js";
 
 export function isMilestoneUnlocked(threshold, value) {
   return (value ?? 0) >= threshold;
@@ -26,7 +26,7 @@ export function buildLessonAchievements(completed) {
   return mapMilestones(LESSON_MILESTONES, {
     category: "lessons",
     icon: "🏆",
-    labelKey: "profile.achievementLesson",
+    labelKey: "achievements.badgeLesson",
     value: completed,
   });
 }
@@ -35,7 +35,7 @@ export function buildPerfectAchievements(bestStreak) {
   return mapMilestones(PERFECT_LESSON_MILESTONES, {
     category: "perfect",
     icon: "✨",
-    labelKey: "profile.achievementPerfect",
+    labelKey: "achievements.badgePerfect",
     value: bestStreak,
   });
 }
@@ -44,7 +44,7 @@ export function buildStreakAchievements(longestStreak) {
   return mapMilestones(STREAK_MILESTONES, {
     category: "streak",
     icon: "🔥",
-    labelKey: "profile.achievementStreak",
+    labelKey: "achievements.badgeStreak",
     value: longestStreak,
   });
 }
@@ -53,7 +53,7 @@ export function buildVocabAchievements(totalKnown) {
   return mapMilestones(VOCAB_MILESTONES, {
     category: "vocab",
     icon: "📚",
-    labelKey: "profile.achievementVocab",
+    labelKey: "achievements.badgeVocab",
     value: totalKnown,
   });
 }
@@ -62,7 +62,7 @@ export function buildMistakeAchievements(mastered) {
   return mapMilestones(MISTAKE_MILESTONES, {
     category: "mistakes",
     icon: "🔁",
-    labelKey: "profile.achievementMistake",
+    labelKey: "achievements.badgeMistake",
     value: mastered,
   });
 }
@@ -71,7 +71,7 @@ export function buildComboAchievements(bestCombo) {
   return mapMilestones(COMBO_MILESTONES, {
     category: "combo",
     icon: "🔥",
-    labelKey: "profile.achievementCombo",
+    labelKey: "achievements.badgeCombo",
     value: bestCombo,
   });
 }
@@ -80,7 +80,7 @@ export function buildAccuracyAchievements(bestAccuracyPct) {
   return mapMilestones(ACCURACY_MILESTONES, {
     category: "accuracy",
     icon: "🎯",
-    labelKey: "profile.achievementAccuracy",
+    labelKey: "achievements.badgeAccuracy",
     value: bestAccuracyPct,
   });
 }

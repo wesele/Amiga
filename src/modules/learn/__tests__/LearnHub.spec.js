@@ -170,7 +170,7 @@ describe("LearnHubPage", () => {
     expect(source).toMatch(/font-size:\s*clamp\(14px,\s*5vw,\s*18px\)/);
   });
 
-  it("renders three module tiles in a grid", async () => {
+  it("renders four module tiles in a grid", async () => {
     const router = makeRouter();
     const wrapper = mount(LearnHubPage, {
       global: { plugins: [router] },
@@ -178,11 +178,27 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     const tiles = wrapper.findAll(".module-tile");
-    expect(tiles.length).toBe(3);
+    expect(tiles.length).toBe(4);
     const labels = tiles.map((t) => t.find(".module-label").text());
     expect(labels).toContain("晋级之路");
     expect(labels).toContain("新闻");
+    expect(labels).toContain("单词");
     expect(labels).toContain("AI 翻译");
+  });
+
+  it("navigates to vocab when the vocab tile is clicked", async () => {
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const vocabTile = wrapper.findAll(".module-tile")
+      .find((t) => t.find(".module-label").text() === "单词");
+    await vocabTile.trigger("click");
+
+    expect(pushSpy).toHaveBeenCalledWith({ name: "vocab" });
   });
 
   it("navigates to news when the news tile is clicked", async () => {
@@ -198,33 +214,6 @@ describe("LearnHubPage", () => {
     await newsTile.trigger("click");
 
     expect(pushSpy).toHaveBeenCalledWith({ name: "news" });
-  });
-
-  it("shows vocab review card when unmastered words are available", async () => {
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    const card = wrapper.find(".vocab-review-card");
-    expect(card.exists()).toBe(true);
-    expect(card.text()).toContain("单词复习");
-    expect(card.text()).toContain("4 个单词待巩固");
-    expect(card.text()).toContain("hola, gracias, casa");
-    expect(card.text()).toContain("复习");
-  });
-
-  it("navigates to flashcard review when review card is clicked", async () => {
-    const router = makeRouter();
-    const pushSpy = vi.spyOn(router, "push");
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    await wrapper.find(".vocab-review-card").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "vocab-review" });
   });
 
   it("shows mistake review card when due mistakes exist for the language pair", async () => {
@@ -264,132 +253,6 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     expect(wrapper.find(".mistake-review-card").exists()).toBe(false);
-  });
-
-  it("hides vocab review card when no unmastered words are returned", async () => {
-    mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_unknown_words_cmd") return Promise.resolve([]);
-      return defaultInvoke(cmd);
-    });
-
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    expect(wrapper.find(".vocab-review-card").exists()).toBe(false);
-  });
-
-  it("shows continue-learning card for the current path section", async () => {
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    const card = wrapper.find(".continue-card");
-    expect(card.exists()).toBe(true);
-    expect(card.text()).toContain("继续学习");
-    expect(card.text()).toContain("闯关练习");
-    expect(card.text()).toContain("问候与介绍");
-    expect(card.text()).toContain("开始");
-  });
-
-  it("navigates directly to the current lesson when continue card is clicked", async () => {
-    const router = makeRouter();
-    const pushSpy = vi.spyOn(router, "push");
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    await wrapper.find(".continue-card").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({
-      name: "path-lesson",
-      params: { sectionId: "zh-es/U01-PRACTICE" },
-    });
-  });
-
-  it("hides continue card when path curriculum is not active", async () => {
-    mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_path_curriculum_cmd") {
-        return Promise.resolve({ ...MOCK_CURRICULUM, status: "level_complete" });
-      }
-      return defaultInvoke(cmd);
-    });
-
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    expect(wrapper.find(".continue-card").exists()).toBe(false);
-  });
-
-  it("shows streak-at-risk banner when user has streak but has not practiced today", async () => {
-    mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_daily_goal_progress_cmd") {
-        return Promise.resolve({
-          lessons_today: 0,
-          target_lessons: 2,
-          progress_pct: 0,
-          goal_met: false,
-          streak_current: 5,
-          practiced_today: false,
-        });
-      }
-      return defaultInvoke(cmd);
-    });
-
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    const banner = wrapper.find(".streak-risk-banner");
-    expect(banner.exists()).toBe(true);
-    expect(banner.text()).toContain("5 天连胜今晚就要断了");
-    expect(banner.text()).toContain("马上学习");
-    expect(wrapper.find(".daily-goal-card").exists()).toBe(true);
-  });
-
-  it("hides streak-at-risk banner after user has practiced today", async () => {
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    expect(wrapper.find(".streak-risk-banner").exists()).toBe(false);
-  });
-
-  it("navigates to path when streak-at-risk banner is clicked", async () => {
-    mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_daily_goal_progress_cmd") {
-        return Promise.resolve({
-          lessons_today: 0,
-          target_lessons: 2,
-          progress_pct: 0,
-          goal_met: false,
-          streak_current: 4,
-          practiced_today: false,
-        });
-      }
-      return defaultInvoke(cmd);
-    });
-
-    const router = makeRouter();
-    const pushSpy = vi.spyOn(router, "push");
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    await wrapper.find(".streak-risk-banner").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
   });
 
   it("shows daily goal progress card with streak", async () => {
@@ -467,79 +330,6 @@ describe("LearnHubPage", () => {
     expect(card.exists()).toBe(true);
     expect(card.text()).toContain("连续 4 课完美通关");
     expect(card.text()).toContain("历史最佳 6 课");
-  });
-
-  it("shows lesson milestone progress card", async () => {
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    const card = wrapper.find(".milestone-card");
-    expect(card.exists()).toBe(true);
-    expect(card.text()).toContain("学习里程碑");
-    expect(card.text()).toContain("下一目标：10 节课");
-    expect(card.text()).toContain("7/10");
-  });
-
-  it("shows vocabulary milestone progress card", async () => {
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    const card = wrapper.find(".vocab-milestone-card");
-    expect(card.exists()).toBe(true);
-    expect(card.text()).toContain("词汇里程碑");
-    expect(card.text()).toContain("下一目标：100 个单词");
-    expect(card.text()).toContain("72/100");
-  });
-
-  it("hides vocabulary milestone card when all milestones are complete", async () => {
-    mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_user_vocab_stats_cmd") {
-        return Promise.resolve({ total_known: 1000, total_learning: 0, total: 1000 });
-      }
-      return defaultInvoke(cmd);
-    });
-
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    expect(wrapper.find(".vocab-milestone-card").exists()).toBe(false);
-  });
-
-  it("shows mistake mastery milestone card with progress", async () => {
-    recordMistakesMastered("zh-es", 7);
-
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    const card = wrapper.find(".mistake-milestone-card");
-    expect(card.exists()).toBe(true);
-    expect(card.text()).toContain("错题掌握里程碑");
-    expect(card.text()).toContain("下一目标：掌握 10 道");
-    expect(card.text()).toContain("7/10");
-  });
-
-  it("hides mistake mastery milestone card when all milestones are complete", async () => {
-    recordMistakesMastered("zh-es", 100);
-
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    expect(wrapper.find(".mistake-milestone-card").exists()).toBe(false);
   });
 
   it("shows accuracy milestone progress card when enough practice data exists", async () => {
@@ -634,67 +424,6 @@ describe("LearnHubPage", () => {
     expect(wrapper.find(".combo-milestone-card").exists()).toBe(false);
   });
 
-  it("shows streak milestone card when an active streak has milestones remaining", async () => {
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    const card = wrapper.find(".streak-milestone-card");
-    expect(card.exists()).toBe(true);
-    expect(card.text()).toContain("连胜里程碑");
-    expect(card.text()).toContain("下一目标：7 天");
-    expect(card.text()).toContain("5/7");
-    expect(card.text()).toContain("当前连胜 5 天");
-  });
-
-  it("hides streak milestone card when streak is inactive", async () => {
-    mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_learning_streak_cmd") {
-        return Promise.resolve({ current: 0, longest: 10, practiced_today: false });
-      }
-      return defaultInvoke(cmd);
-    });
-
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    expect(wrapper.find(".streak-milestone-card").exists()).toBe(false);
-  });
-
-  it("hides streak milestone card when all milestones are complete", async () => {
-    mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_learning_streak_cmd") {
-        return Promise.resolve({ current: 30, longest: 365, practiced_today: true });
-      }
-      return defaultInvoke(cmd);
-    });
-
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    expect(wrapper.find(".streak-milestone-card").exists()).toBe(false);
-  });
-
-  it("navigates to path when streak milestone card is clicked", async () => {
-    const router = makeRouter();
-    const pushSpy = vi.spyOn(router, "push");
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    await wrapper.find(".streak-milestone-card").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
-  });
-
   it("shows perfect milestone progress card when a personal-best perfect streak exists", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_perfect_lesson_streak_cmd") {
@@ -782,27 +511,6 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     expect(wrapper.find(".accuracy-milestone-card").exists()).toBe(false);
-  });
-
-  it("hides lesson milestone card when all milestones are complete", async () => {
-    mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_lesson_milestone_progress_cmd") {
-        return Promise.resolve({
-          completed: 500,
-          next_milestone: null,
-          progress_pct: 100,
-        });
-      }
-      return defaultInvoke(cmd);
-    });
-
-    const router = makeRouter();
-    const wrapper = mount(LearnHubPage, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-
-    expect(wrapper.find(".milestone-card").exists()).toBe(false);
   });
 
   it("shows focus area card when a question type is consistently weak", async () => {

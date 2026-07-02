@@ -4,6 +4,7 @@ export const APP_MODULES = [
   { name: "path", parent: "shell" },
   { name: "news", parent: "shell" },
   { name: "vocab", parent: "shell" },
+  { name: "achievements", parent: "shell" },
   { name: "profile", parent: "shell" },
   { name: "ai-chat" },
   { name: "chat", parent: "shell" },

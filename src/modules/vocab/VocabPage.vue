@@ -2,9 +2,11 @@
   <div class="vocab-page">
     <!-- Stats overview -->
     <template v-if="!drilledLevel">
-      <header class="page-header">
-        <h1 class="page-title">{{ t('vocab.title') }}</h1>
-      </header>
+      <PageHeader
+        :title="t('vocab.title')"
+        variant="vocab"
+        :back-label="t('common.back')"
+      />
 
       <div v-if="loading" class="loading-center">
         <div class="spinner" />
@@ -115,6 +117,7 @@ import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
 import { displayLang } from "@/shared/constants.js";
+import PageHeader from "@/shared/components/PageHeader.vue";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 

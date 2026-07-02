@@ -23,8 +23,21 @@ export default {
   nav: {
     learn: "Aprender",
     vocab: "Palabras",
+    achievements: "Logros",
     chat: "Chat",
     profile: "Yo",
+  },
+
+  achievements: {
+    title: "Logros",
+    summary: "{unlocked}/{total} desbloqueados",
+    badgeLesson: "{n} lecciones",
+    badgePerfect: "Perfectas ×{n}",
+    badgeStreak: "Racha de {n} días",
+    badgeVocab: "{n} palabras",
+    badgeMistake: "{n} errores",
+    badgeCombo: "{n} seguidas",
+    badgeAccuracy: "{n}% de aciertos",
   },
 
   learn: {
