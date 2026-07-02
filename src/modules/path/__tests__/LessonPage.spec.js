@@ -240,6 +240,33 @@ describe("LessonPage choice auto-submit flow", () => {
     expect(wrapper.vm.showResult).toBe(true);
     expect(wrapper.vm.lastCorrect).toBe(true);
   });
+
+  it("wires global Enter-to-continue after feedback", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/usePracticeEnterKey/);
+  });
+
+  it("advances to the next question when Enter is pressed after a wrong choice", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 1;
+    await flushPromises();
+    expect(wrapper.vm.showResult).toBe(true);
+    expect(wrapper.vm.lastCorrect).toBe(false);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await flushPromises();
+
+    expect(wrapper.vm.index).toBe(1);
+    expect(wrapper.vm.showResult).toBe(false);
+  });
 });
 
 describe("LessonPage session progress", () => {

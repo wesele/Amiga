@@ -11,10 +11,11 @@ export function hasTextInputAnswer(answer) {
 
 /**
  * Whether pressing Enter should trigger the primary action (check or advance).
- * Learners expect the keyboard "Go" key to submit spelling and translation answers.
+ * Learners expect the keyboard "Go" key to submit spelling and translation answers,
+ * and to continue after feedback on any question type.
  */
 export function shouldSubmitOnEnter(question, { showResult = false, answer = null } = {}) {
-  if (!question || !isTextInputQuestionType(question.type)) return false;
   if (showResult) return true;
+  if (!question || !isTextInputQuestionType(question.type)) return false;
   return hasTextInputAnswer(answer);
 }

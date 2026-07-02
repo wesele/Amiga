@@ -41,4 +41,10 @@ describe("textInputSubmit", () => {
       shouldSubmitOnEnter({ type: "T05" }, { showResult: false, answer: 0 }),
     ).toBe(false);
   });
+
+  it("allows Enter to advance after feedback on choice questions", () => {
+    expect(
+      shouldSubmitOnEnter({ type: "T05" }, { showResult: true, answer: 1 }),
+    ).toBe(true);
+  });
 });

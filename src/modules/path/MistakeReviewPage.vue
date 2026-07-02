@@ -161,6 +161,7 @@ import {
   shouldAutoSubmitOnChoice,
 } from "./choiceAutoSubmit.js";
 import { correctAutoAdvanceDelayMs } from "./practiceFlowTiming.js";
+import { usePracticeEnterKey } from "./usePracticeEnterKey.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -431,6 +432,20 @@ async function onPrimaryAction() {
 
   await advanceAfterResult();
 }
+
+usePracticeEnterKey(
+  () => ({
+    showResult: showResult.value,
+    question: currentQuestion.value,
+    answer: currentAnswer.value,
+    disabled:
+      loading.value ||
+      Boolean(error.value) ||
+      finished.value ||
+      !currentQuestion.value,
+  }),
+  onPrimaryAction,
+);
 
 watch(currentAnswer, (answer) => {
   if (!isChoiceAnswer(answer) || showResult.value) return;

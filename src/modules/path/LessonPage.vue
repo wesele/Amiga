@@ -329,6 +329,7 @@ import {
   lessonSessionProgress,
   lessonSessionProgressPct,
 } from "./lessonProgress.js";
+import { usePracticeEnterKey } from "./usePracticeEnterKey.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -844,6 +845,20 @@ function onPrimaryAction() {
 
   advanceAfterResult();
 }
+
+usePracticeEnterKey(
+  () => ({
+    showResult: showResult.value,
+    question: currentQuestion.value,
+    answer: currentAnswer.value,
+    disabled:
+      loading.value ||
+      Boolean(error.value) ||
+      finished.value ||
+      !currentQuestion.value,
+  }),
+  onPrimaryAction,
+);
 
 watch(currentAnswer, (answer) => {
   if (!isChoiceAnswer(answer) || showResult.value) return;
