@@ -71,6 +71,8 @@ export default {
     hintSpelling: "La respuesta empieza con \"{prefix}\"",
     reviewMistakes: "Repasar errores",
     reviewMistakesHint: "Repasa lo que fallaste antes de seguir",
+    reinforceMistakes: "Repasar errores {current}/{total}",
+    reinforceMistakesHint: "Vuelve a intentar las preguntas que fallaste",
     lessonPassed: "¡Sección completada!",
     lessonFailed: "¡Sigue así!",
     score: "{correct}/{total} correctas",

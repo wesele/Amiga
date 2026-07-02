@@ -66,7 +66,16 @@
 
     <template v-else-if="currentQuestion">
       <div class="lesson-body">
-        <p class="section-label">{{ lesson?.section_title_native }}</p>
+        <p v-if="inReinforcement" class="reinforcement-banner">
+          {{
+            t("path.reinforceMistakes", {
+              current: reinforcementLabel.current,
+              total: reinforcementLabel.total,
+            })
+          }}
+        </p>
+        <p v-if="inReinforcement" class="reinforcement-hint">{{ t("path.reinforceMistakesHint") }}</p>
+        <p v-else class="section-label">{{ lesson?.section_title_native }}</p>
         <QuestionRenderer
           :question="currentQuestion"
           v-model:answer="currentAnswer"
@@ -120,6 +129,14 @@ import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import { checkAnswer, formatCorrectAnswer, formatQuestionPrompt } from "./checkAnswer.js";
 import { getQuestionHint, hasQuestionHint } from "./questionHint.js";
+import {
+  LESSON_PHASE_MAIN,
+  LESSON_PHASE_REINFORCEMENT,
+  buildReinforcementQueue,
+  isLastReinforcementQuestion,
+  reinforcementLabel as formatReinforcementLabel,
+  shouldStartReinforcement,
+} from "./lessonReinforcement.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -138,15 +155,39 @@ const correctCount = ref(0);
 const finished = ref(false);
 const result = ref(null);
 const mistakes = ref([]);
+const phase = ref(LESSON_PHASE_MAIN);
+const reinforcementQueue = ref([]);
+const reinforcementIndex = ref(0);
 const hintText = ref("");
 const hintShown = ref(false);
 
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
-const currentQuestion = computed(() => questions.value[index.value] || null);
+const inReinforcement = computed(() => phase.value === LESSON_PHASE_REINFORCEMENT);
+
+const currentQuestion = computed(() => {
+  if (inReinforcement.value) {
+    return reinforcementQueue.value[reinforcementIndex.value] || null;
+  }
+  return questions.value[index.value] || null;
+});
+
+const reinforcementLabel = computed(() =>
+  formatReinforcementLabel(
+    reinforcementIndex.value,
+    reinforcementQueue.value.length,
+  ),
+);
+
 const progressPct = computed(() => {
-  if (!questions.value.length) return 0;
   if (finished.value) return 100;
+  if (inReinforcement.value) {
+    const total = reinforcementQueue.value.length;
+    if (!total) return 100;
+    const done = reinforcementIndex.value + (showResult.value ? 1 : 0);
+    return Math.round((done / total) * 100);
+  }
+  if (!questions.value.length) return 0;
   return Math.round((index.value / questions.value.length) * 100);
 });
 
@@ -177,9 +218,13 @@ const correctAnswerText = computed(() =>
 
 const primaryLabel = computed(() => {
   if (showResult.value) {
-    return index.value >= questions.value.length - 1
-      ? t("path.finish")
-      : t("path.next");
+    const isLast = inReinforcement.value
+      ? isLastReinforcementQuestion(
+          reinforcementIndex.value,
+          reinforcementQueue.value.length,
+        )
+      : index.value >= questions.value.length - 1;
+    return isLast ? t("path.finish") : t("path.next");
   }
   return t("path.check");
 });
@@ -234,7 +279,36 @@ function resetSession() {
   finished.value = false;
   result.value = null;
   mistakes.value = [];
+  phase.value = LESSON_PHASE_MAIN;
+  reinforcementQueue.value = [];
+  reinforcementIndex.value = 0;
   resetHint();
+}
+
+function startReinforcement() {
+  phase.value = LESSON_PHASE_REINFORCEMENT;
+  reinforcementQueue.value = buildReinforcementQueue(mistakes.value);
+  reinforcementIndex.value = 0;
+  currentAnswer.value = null;
+  showResult.value = false;
+  lastCorrect.value = false;
+  resetHint();
+}
+
+function advanceQuestion() {
+  currentAnswer.value = null;
+  showResult.value = false;
+  lastCorrect.value = false;
+  resetHint();
+}
+
+function advanceReinforcement() {
+  if (reinforcementIndex.value < reinforcementQueue.value.length - 1) {
+    reinforcementIndex.value += 1;
+    advanceQuestion();
+    return false;
+  }
+  return true;
 }
 
 function retryLesson() {
@@ -254,7 +328,7 @@ function onPrimaryAction() {
     lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
     if (lastCorrect.value) {
       correctCount.value += 1;
-    } else {
+    } else if (!inReinforcement.value) {
       mistakes.value.push({
         question: currentQuestion.value,
         answer: currentAnswer.value,
@@ -264,12 +338,20 @@ function onPrimaryAction() {
     return;
   }
 
+  if (inReinforcement.value) {
+    if (!advanceReinforcement()) return;
+    submitLesson();
+    return;
+  }
+
   if (index.value < questions.value.length - 1) {
     index.value += 1;
-    currentAnswer.value = null;
-    showResult.value = false;
-    lastCorrect.value = false;
-    resetHint();
+    advanceQuestion();
+    return;
+  }
+
+  if (shouldStartReinforcement(mistakes.value, phase.value)) {
+    startReinforcement();
     return;
   }
 
@@ -359,6 +441,25 @@ onMounted(load);
   font-size: 13px;
   color: var(--text-light);
   font-weight: 600;
+}
+
+.reinforcement-banner {
+  margin: 0 0 6px;
+  padding: 10px 12px;
+  background: var(--orange-bg);
+  color: var(--orange-hover);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.reinforcement-hint {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-light);
+  text-align: center;
+  line-height: 1.35;
 }
 
 .lesson-footer {

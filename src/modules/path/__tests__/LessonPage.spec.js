@@ -26,18 +26,26 @@ function makeRouter() {
   });
 }
 
-function lessonPayload() {
+function lessonPayload(questionCount = 1) {
+  const questions = [
+    {
+      id: "q1",
+      type: "T05",
+      sentence: "Hola, me llamo ____.",
+      options: ["Ana", "casa", "perro", "libro"],
+      answerIdx: 0,
+    },
+    {
+      id: "q2",
+      type: "T05",
+      sentence: "Buenos ____.",
+      options: ["días", "noches", "tardes", "años"],
+      answerIdx: 0,
+    },
+  ];
   return {
     section_title_native: "闯关练习",
-    questions: [
-      {
-        id: "q1",
-        type: "T05",
-        sentence: "Hola, me llamo ____.",
-        options: ["Ana", "casa", "perro", "libro"],
-        answerIdx: 0,
-      },
-    ],
+    questions: questions.slice(0, questionCount),
   };
 }
 
@@ -110,6 +118,86 @@ describe("LessonPage smart hints", () => {
     expect(hint.exists()).toBe(true);
     expect(hint.text()).toContain("casa");
     expect(hintBtn.attributes("disabled")).toBeDefined();
+  });
+});
+
+describe("LessonPage mistake reinforcement", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload(2));
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({ passed: true, stars: 2, correctCount: 1 });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("wires reinforcement banner and helper imports in the lesson body", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/lessonReinforcement\.js/);
+    expect(source).toMatch(/class="reinforcement-banner"/);
+    expect(source).toMatch(/path\.reinforceMistakes/);
+    expect(source).toMatch(/shouldStartReinforcement/);
+  });
+
+  it("runs a reinforcement round before submitting when the learner missed questions", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 1;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 1;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const banner = wrapper.find(".reinforcement-banner");
+    expect(banner.exists()).toBe(true);
+    expect(banner.text()).toContain("错题巩固");
+    expect(banner.text()).toContain("1/2");
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    expect(wrapper.find(".reinforcement-banner").text()).toContain("2/2");
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "complete_section_cmd",
+      expect.anything(),
+    );
+    expect(wrapper.find(".summary").exists()).toBe(true);
   });
 });
 

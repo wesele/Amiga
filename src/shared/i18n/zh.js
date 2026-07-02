@@ -74,6 +74,8 @@ export default {
     hintSpelling: "答案以「{prefix}」开头",
     reviewMistakes: "错题回顾",
     reviewMistakesHint: "复习一下答错的题目，加深记忆后再继续",
+    reinforceMistakes: "错题巩固 {current}/{total}",
+    reinforceMistakesHint: "再练一遍答错的题目，加深记忆",
     lessonPassed: "关卡通过！",
     lessonFailed: "继续加油",
     score: "答对 {correct}/{total} 题",
