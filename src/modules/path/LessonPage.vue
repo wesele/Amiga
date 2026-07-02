@@ -50,6 +50,9 @@
             })
           }}
         </p>
+        <p v-if="result?.passed && result?.lesson_milestone_reached" class="lesson-milestone-banner">
+          {{ t("path.lessonMilestoneReached", { n: result.lesson_milestone_reached }) }}
+        </p>
         <p v-if="result?.level_upgraded" class="level-up-banner">
           🎓 {{ t("path.levelUp", { level: result.new_cefr_level }) }}
         </p>
@@ -738,6 +741,17 @@ onMounted(load);
     opacity: 1;
     transform: scale(1);
   }
+}
+
+.lesson-milestone-banner {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #fff8e6 0%, #ffefcc 100%);
+  color: #8a6200;
+  border: 1px solid #e6b84d;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  animation: goal-pop 0.5s ease;
 }
 
 .level-up-banner {

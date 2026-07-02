@@ -21,6 +21,16 @@ pub async fn get_path_curriculum_cmd(
 }
 
 #[tauri::command]
+pub async fn get_lesson_milestone_progress_cmd(
+    db: State<'_, DatabasePool>,
+    native_lang: String,
+    target_lang: String,
+) -> Result<path_mod::LessonMilestoneProgress, String> {
+    let user = user_mod::get_or_create_user(&db)?;
+    path_mod::get_lesson_milestone_progress(&db, &user.id, &native_lang, &target_lang)
+}
+
+#[tauri::command]
 pub async fn get_section_lesson_cmd(
     db: State<'_, DatabasePool>,
     native_lang: String,

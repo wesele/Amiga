@@ -56,6 +56,10 @@ export default {
     weekdayFri: "F",
     weekdaySat: "S",
     weekdaySun: "S",
+    lessonMilestone: "Learning milestone",
+    lessonMilestoneNext: "Next goal: {n} lessons",
+    lessonMilestoneProgress: "{done}/{total}",
+    lessonMilestoneHint: "{done} lessons done — keep going!",
   },
 
   path: {
@@ -71,6 +75,7 @@ export default {
     streakMilestone100: "🏆 100-day streak! Legendary commitment",
     streakMilestone365: "🏆 One year streak! Absolutely amazing!",
     dailyGoalMetCelebration: "🎯 Daily goal complete! {done}/{total} lessons done",
+    lessonMilestoneReached: "🏆 {n} lessons complete! You're on a roll",
     comingSoon: "Coming soon",
     playAudio: "Play",
     listenChoose: "Listen and choose the correct answer",

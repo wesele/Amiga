@@ -56,6 +56,10 @@ export default {
     weekdayFri: "V",
     weekdaySat: "S",
     weekdaySun: "D",
+    lessonMilestone: "Hito de aprendizaje",
+    lessonMilestoneNext: "Próxima meta: {n} lecciones",
+    lessonMilestoneProgress: "{done}/{total}",
+    lessonMilestoneHint: "¡{done} lecciones completadas, sigue así!",
   },
 
   path: {
@@ -71,6 +75,7 @@ export default {
     streakMilestone100: "🏆 ¡100 días de racha! Compromiso legendario",
     streakMilestone365: "🏆 ¡Un año de racha! ¡Increíble!",
     dailyGoalMetCelebration: "🎯 ¡Meta diaria cumplida! {done}/{total} lecciones",
+    lessonMilestoneReached: "🏆 ¡{n} lecciones completadas! Sigue avanzando",
     comingSoon: "Próximamente",
     playAudio: "Reproducir",
     listenChoose: "Escucha y elige la respuesta correcta",

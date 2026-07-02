@@ -338,6 +338,63 @@ describe("LessonPage daily goal celebration", () => {
   });
 });
 
+describe("LessonPage lesson milestone celebration", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload());
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({
+          passed: true,
+          stars: 3,
+          lesson_milestone_reached: 10,
+          lessons_completed_total: 10,
+        });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("includes lesson milestone celebration markup", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/lesson_milestone_reached/);
+    expect(source).toMatch(/class="lesson-milestone-banner"/);
+    expect(source).toMatch(/path\.lessonMilestoneReached/);
+  });
+
+  it("renders milestone banner when a lesson milestone is reached", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const banner = wrapper.find(".lesson-milestone-banner");
+    expect(banner.exists()).toBe(true);
+    expect(banner.text()).toContain("10 节课");
+  });
+});
+
 describe("LessonPage answer combo", () => {
   let mockInvoke;
 

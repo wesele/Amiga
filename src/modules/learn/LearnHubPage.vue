@@ -42,6 +42,44 @@
     </button>
 
     <button
+      v-if="showLessonMilestone"
+      type="button"
+      class="milestone-card"
+      @click="goToPath"
+    >
+      <div class="milestone-ring" aria-hidden="true">
+        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
+          <circle class="milestone-ring-track" cx="22" cy="22" r="18" />
+          <circle
+            class="milestone-ring-fill"
+            cx="22"
+            cy="22"
+            r="18"
+            :style="{ strokeDashoffset: milestoneRingOffset }"
+          />
+        </svg>
+        <span class="milestone-ring-label">🏆</span>
+      </div>
+      <div class="milestone-copy">
+        <p class="milestone-title">{{ t("learn.lessonMilestone") }}</p>
+        <p class="milestone-sub">
+          {{ t("learn.lessonMilestoneNext", { n: lessonMilestone.next_milestone }) }}
+          ·
+          {{
+            t("learn.lessonMilestoneProgress", {
+              done: lessonMilestone.completed,
+              total: lessonMilestone.next_milestone,
+            })
+          }}
+        </p>
+        <p class="milestone-hint">
+          {{ t("learn.lessonMilestoneHint", { done: lessonMilestone.completed }) }}
+        </p>
+      </div>
+      <span class="milestone-chevron" aria-hidden="true">›</span>
+    </button>
+
+    <button
       v-if="streakAtRisk"
       type="button"
       class="streak-risk-banner"
@@ -151,6 +189,7 @@ import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
   getDailyGoalProgress,
+  getLessonMilestoneProgress,
   getPathCurriculum,
   getUnknownWords,
   getWeeklyActivity,
@@ -173,6 +212,10 @@ import {
   vocabReviewPreview,
 } from "./vocabReviewCard.js";
 import { hasWeeklyActivity, weekdayLabel } from "./weeklyActivity.js";
+import {
+  lessonMilestoneRingOffset,
+  shouldShowLessonMilestone,
+} from "./lessonMilestones.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -182,8 +225,10 @@ const dailyGoal = ref(null);
 const weeklyActivity = ref(null);
 const resumeTarget = ref(null);
 const vocabReviewWords = ref([]);
+const lessonMilestone = ref(null);
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
+const MILESTONE_RING_CIRCUMFERENCE = 2 * Math.PI * 18;
 
 const ringOffset = computed(() => {
   if (!dailyGoal.value) return RING_CIRCUMFERENCE;
@@ -215,6 +260,12 @@ const vocabReviewPreviewText = computed(() => vocabReviewPreview(vocabReviewWord
 const vocabReviewTruncated = computed(() => vocabReviewHasMore(vocabReviewWords.value));
 
 const showWeeklyActivity = computed(() => hasWeeklyActivity(weeklyActivity.value));
+
+const showLessonMilestone = computed(() => shouldShowLessonMilestone(lessonMilestone.value));
+
+const milestoneRingOffset = computed(() =>
+  lessonMilestoneRingOffset(lessonMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
+);
 
 const modules = [
   { id: "path", labelKey: "learn.path", icon: "🛤️", route: { name: "path" } },
@@ -262,6 +313,14 @@ async function loadVocabReview(userId, targetLang, cefr) {
   }
 }
 
+async function loadLessonMilestone(nativeLang, targetLang) {
+  try {
+    lessonMilestone.value = await getLessonMilestoneProgress(nativeLang, targetLang);
+  } catch {
+    lessonMilestone.value = null;
+  }
+}
+
 async function loadHubData() {
   try {
     const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
@@ -272,12 +331,14 @@ async function loadHubData() {
       loadWeeklyActivity(user.id),
       loadResumeSection(nativeLang, targetLang, cefr),
       loadVocabReview(user.id, targetLang, cefr),
+      loadLessonMilestone(nativeLang, targetLang),
     ]);
   } catch {
     dailyGoal.value = null;
     weeklyActivity.value = null;
     resumeTarget.value = null;
     vocabReviewWords.value = [];
+    lessonMilestone.value = null;
   }
 }
 
@@ -465,6 +526,98 @@ onMounted(loadHubData);
   background: #4285f4;
   padding: 8px 12px;
   border-radius: 999px;
+}
+
+.milestone-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fff8e6 0%, #ffefcc 100%);
+  border: 1px solid #e6b84d;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.milestone-card:hover {
+  box-shadow: 0 2px 10px rgba(230, 184, 77, 0.28);
+  transform: translateY(-1px);
+}
+
+.milestone-ring {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+.milestone-ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.milestone-ring-track {
+  fill: none;
+  stroke: #f0d9a0;
+  stroke-width: 4;
+}
+
+.milestone-ring-fill {
+  fill: none;
+  stroke: #d4a017;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 113.1;
+  transition: stroke-dashoffset 0.4s ease;
+}
+
+.milestone-ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.milestone-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.milestone-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #8a6200;
+  line-height: 1.3;
+}
+
+.milestone-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #a67c00;
+  line-height: 1.35;
+}
+
+.milestone-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #b8922e;
+  line-height: 1.3;
+}
+
+.milestone-chevron {
+  flex-shrink: 0;
+  font-size: 20px;
+  color: #c9a030;
+  font-weight: 700;
 }
 
 .streak-risk-banner {

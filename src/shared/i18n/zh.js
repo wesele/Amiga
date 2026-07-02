@@ -59,6 +59,10 @@ export default {
     weekdayFri: "五",
     weekdaySat: "六",
     weekdaySun: "日",
+    lessonMilestone: "学习里程碑",
+    lessonMilestoneNext: "下一目标：{n} 节课",
+    lessonMilestoneProgress: "{done}/{total}",
+    lessonMilestoneHint: "已完成 {done} 节课，继续加油！",
   },
 
   path: {
@@ -74,6 +78,7 @@ export default {
     streakMilestone100: "🏆 百天连胜！传奇般的坚持",
     streakMilestone365: "🏆 一整年连胜！不可思议！",
     dailyGoalMetCelebration: "🎯 今日目标达成！完成 {done}/{total} 节课",
+    lessonMilestoneReached: "🏆 完成 {n} 节课！学习之旅更进一步",
     comingSoon: "题目筹备中",
     playAudio: "播放",
     listenChoose: "听句子，选择正确答案",

@@ -86,6 +86,13 @@ function defaultInvoke(cmd) {
       { id: 4, word: "perro" },
     ]);
   }
+  if (cmd === "get_lesson_milestone_progress_cmd") {
+    return Promise.resolve({
+      completed: 7,
+      next_milestone: 10,
+      progress_pct: 70,
+    });
+  }
   return Promise.resolve(null);
 }
 
@@ -373,6 +380,41 @@ describe("LearnHubPage", () => {
 
     await wrapper.find(".daily-goal-card").trigger("click");
     expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
+  });
+
+  it("shows lesson milestone progress card", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".milestone-card");
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain("学习里程碑");
+    expect(card.text()).toContain("下一目标：10 节课");
+    expect(card.text()).toContain("7/10");
+  });
+
+  it("hides lesson milestone card when all milestones are complete", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_lesson_milestone_progress_cmd") {
+        return Promise.resolve({
+          completed: 500,
+          next_milestone: null,
+          progress_pct: 100,
+        });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".milestone-card").exists()).toBe(false);
   });
 
   it("opens translator session via learn-translator route", async () => {

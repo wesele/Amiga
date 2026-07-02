@@ -68,6 +68,8 @@ export function createApiClient(invoke) {
     // Progression path
     getPathCurriculum: (nativeLang, targetLang, cefr) =>
       call("get_path_curriculum_cmd", { nativeLang, targetLang, cefr }),
+    getLessonMilestoneProgress: (nativeLang, targetLang) =>
+      call("get_lesson_milestone_progress_cmd", { nativeLang, targetLang }),
     getSectionLesson: (nativeLang, targetLang, cefr, sectionId) =>
       call("get_section_lesson_cmd", { nativeLang, targetLang, cefr, sectionId }),
     getTeachingContent: (nativeLang, targetLang, cefr, nodeId) =>
@@ -220,6 +222,8 @@ export const resetUserVocabByLevel = (...args) =>
 
 // --- Progression path ---
 export const getPathCurriculum = (...args) => defaultApiClient.getPathCurriculum(...args);
+export const getLessonMilestoneProgress = (...args) =>
+  defaultApiClient.getLessonMilestoneProgress(...args);
 export const getSectionLesson = (...args) => defaultApiClient.getSectionLesson(...args);
 export const getTeachingContent = (...args) => defaultApiClient.getTeachingContent(...args);
 export const getGrammarExplanationCached = (...args) =>

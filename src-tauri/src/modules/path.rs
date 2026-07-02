@@ -103,6 +103,20 @@ pub struct CompleteSectionResult {
     pub daily_goal_lessons_today: i32,
     #[serde(default)]
     pub daily_goal_target: i32,
+    #[serde(default)]
+    pub lessons_completed_total: i32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lesson_milestone_reached: Option<i32>,
+}
+
+/// Lesson-count milestones for the learning achievements track.
+pub const LESSON_MILESTONES: &[i32] = &[10, 25, 50, 100, 250, 500];
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LessonMilestoneProgress {
+    pub completed: i32,
+    pub next_milestone: Option<i32>,
+    pub progress_pct: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -384,6 +398,92 @@ fn stars_from_score(score: i32) -> i32 {
         1
     } else {
         0
+    }
+}
+
+/// Count passed practice lessons (excludes grammar/vocab teaching nodes).
+pub fn count_completed_lessons(pool: &DatabasePool, user_id: &str, pair_key: &str) -> Result<i32, String> {
+    let conn = pool.conn()?;
+    conn.query_row(
+        "SELECT COUNT(*) FROM path_section_progress
+         WHERE user_id = ?1 AND pair_key = ?2 AND stars > 0
+           AND section_id NOT LIKE '%-GRAMMAR' AND section_id NOT LIKE '%-VOCAB'",
+        params![user_id, pair_key],
+        |row| row.get(0),
+    )
+    .map_err(|e| e.to_string())
+}
+
+pub fn lesson_milestone_progress(completed: i32) -> LessonMilestoneProgress {
+    let next = LESSON_MILESTONES
+        .iter()
+        .copied()
+        .find(|&m| completed < m);
+    let progress_pct = match next {
+        Some(target) => {
+            let prev = LESSON_MILESTONES
+                .iter()
+                .copied()
+                .filter(|&m| m < target)
+                .last()
+                .unwrap_or(0);
+            let span = (target - prev).max(1);
+            (((completed - prev) as f64 / span as f64) * 100.0).round() as i32
+        }
+        None => 100,
+    };
+    LessonMilestoneProgress {
+        completed,
+        next_milestone: next,
+        progress_pct: progress_pct.clamp(0, 100),
+    }
+}
+
+pub fn lesson_milestone_reached(prev_completed: i32, new_completed: i32) -> Option<i32> {
+    if new_completed <= prev_completed {
+        return None;
+    }
+    LESSON_MILESTONES
+        .iter()
+        .copied()
+        .find(|&m| prev_completed < m && new_completed >= m)
+}
+
+pub fn get_lesson_milestone_progress(
+    pool: &DatabasePool,
+    user_id: &str,
+    native_lang: &str,
+    target_lang: &str,
+) -> Result<LessonMilestoneProgress, String> {
+    let pair_key = resolve_pair_key(native_lang, target_lang)
+        .ok_or_else(|| format!("no question bank for {native_lang}-{target_lang}"))?;
+    let completed = count_completed_lessons(pool, user_id, &pair_key)?;
+    Ok(lesson_milestone_progress(completed))
+}
+
+fn lesson_fields_for_completion(
+    pool: &DatabasePool,
+    user_id: &str,
+    pair_key: &str,
+    passed: bool,
+    first_time_pass: bool,
+) -> (i32, Option<i32>) {
+    if !passed {
+        return (0, None);
+    }
+    match count_completed_lessons(pool, user_id, pair_key) {
+        Ok(total) => {
+            let milestone = if first_time_pass {
+                lesson_milestone_reached(total - 1, total)
+            } else {
+                None
+            };
+            (total, milestone)
+        }
+        Err(e) => {
+            log::warn!("Failed to count completed lessons: {}", e);
+            (0, None)
+        }
     }
 }
 
@@ -839,6 +939,8 @@ pub fn complete_teaching_node(
         streak_fields_for_completion(pool, user_id, passed);
     let (daily_goal_just_met, daily_goal_lessons_today, daily_goal_target) =
         daily_goal_fields_for_completion(pool, user_id, target_lang, passed);
+    let (lessons_completed_total, _) =
+        lesson_fields_for_completion(pool, user_id, &pair_key, passed, false);
 
     Ok(CompleteSectionResult {
         stars: new_stars,
@@ -852,6 +954,8 @@ pub fn complete_teaching_node(
         daily_goal_just_met,
         daily_goal_lessons_today,
         daily_goal_target,
+        lessons_completed_total,
+        lesson_milestone_reached: None,
     })
 }
 
@@ -888,7 +992,7 @@ pub fn complete_section(
     let stars = stars_from_score(score);
     let passed = stars > 0;
 
-    let (new_stars, new_best, _new_attempts) = {
+    let (prev_stars, new_stars, new_best, _new_attempts) = {
         let conn = pool.conn()?;
         let existing: Option<(i32, i32, i32)> = conn
             .query_row(
@@ -930,8 +1034,9 @@ pub fn complete_section(
             ],
         )
         .map_err(|e| e.to_string())?;
-        (new_stars, new_best, new_attempts)
+        (prev_stars, new_stars, new_best, new_attempts)
     };
+    let first_time_pass = passed && prev_stars == 0;
 
     let ordered = ordered_node_ids(&pair_key, cefr)?;
     let next_section_id = if passed {
@@ -969,6 +1074,8 @@ pub fn complete_section(
         streak_fields_for_completion(pool, user_id, passed);
     let (daily_goal_just_met, daily_goal_lessons_today, daily_goal_target) =
         daily_goal_fields_for_completion(pool, user_id, target_lang, passed);
+    let (lessons_completed_total, lesson_milestone_reached) =
+        lesson_fields_for_completion(pool, user_id, &pair_key, passed, first_time_pass);
 
     Ok(CompleteSectionResult {
         stars: new_stars,
@@ -982,6 +1089,8 @@ pub fn complete_section(
         daily_goal_just_met,
         daily_goal_lessons_today,
         daily_goal_target,
+        lessons_completed_total,
+        lesson_milestone_reached,
     })
 }
 
@@ -1200,6 +1309,56 @@ mod tests {
 
     fn import_vocab_for_tests(pool: &DatabasePool) {
         let _ = crate::modules::vocabulary::import_vocab_bank(pool);
+    }
+
+    #[test]
+    fn lesson_milestone_progress_counts_toward_next_target() {
+        let progress = lesson_milestone_progress(3);
+        assert_eq!(progress.completed, 3);
+        assert_eq!(progress.next_milestone, Some(10));
+        assert_eq!(progress.progress_pct, 30);
+
+        let maxed = lesson_milestone_progress(500);
+        assert_eq!(maxed.next_milestone, None);
+        assert_eq!(maxed.progress_pct, 100);
+    }
+
+    #[test]
+    fn lesson_milestone_reached_only_on_first_crossing() {
+        assert_eq!(lesson_milestone_reached(9, 10), Some(10));
+        assert_eq!(lesson_milestone_reached(24, 25), Some(25));
+        assert_eq!(lesson_milestone_reached(10, 11), None);
+        assert_eq!(lesson_milestone_reached(10, 10), None);
+    }
+
+    #[test]
+    fn complete_section_reports_lesson_milestone_on_first_pass() {
+        let pool = test_pool();
+        let user = test_user(&pool);
+        let curriculum = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
+        let grammar = curriculum.units[0].sections[0].id.clone();
+        let vocab = curriculum.units[0].sections[1].id.clone();
+        let practice = curriculum.units[0].sections[2].id.clone();
+
+        complete_teaching_node(&pool, &user, "zh", "es", "A1", &grammar).unwrap();
+        complete_teaching_node(&pool, &user, "zh", "es", "A1", &vocab).unwrap();
+
+        {
+            let conn = pool.conn().unwrap();
+            for i in 0..9 {
+                conn.execute(
+                    "INSERT INTO path_section_progress
+                        (user_id, pair_key, section_id, stars, best_score, attempts, completed_at)
+                     VALUES (?1, 'zh-es', ?2, 1, 80, 1, datetime('now'))",
+                    params![user, format!("zh-es/FAKE-PRACTICE-{i}")],
+                )
+                .unwrap();
+            }
+        }
+
+        let result = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5).unwrap();
+        assert_eq!(result.lessons_completed_total, 10);
+        assert_eq!(result.lesson_milestone_reached, Some(10));
     }
 
     #[tokio::test]
