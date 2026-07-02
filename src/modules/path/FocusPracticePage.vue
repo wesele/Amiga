@@ -37,8 +37,23 @@
         {{ t("path.focusPracticeAccuracy", { pct: accuracyPct }) }}
       </p>
       <p v-if="streakCelebration" class="streak-banner">{{ streakCelebration }}</p>
+      <p v-if="showContinuePractice" class="continue-hint">{{ t(FOCUS_CONTINUE_HINT_KEY) }}</p>
       <div class="summary-actions">
-        <button type="button" class="action-btn primary" @click="exitPractice">
+        <button
+          v-if="showContinuePractice"
+          type="button"
+          class="action-btn primary"
+          :disabled="continuing"
+          @click="continuePractice"
+        >
+          {{ t(FOCUS_CONTINUE_LABEL_KEY) }}
+        </button>
+        <button
+          type="button"
+          class="action-btn"
+          :class="showContinuePractice ? 'secondary' : 'primary'"
+          @click="exitPractice"
+        >
           {{ t("path.focusPracticeBack") }}
         </button>
       </div>
@@ -109,6 +124,11 @@ import { getQuestionHint, hasQuestionHint } from "./questionHint.js";
 import { HINT_IDLE_MS, shouldScheduleAutoHint } from "./questionHintTimer.js";
 import { isValidFocusType } from "./focusPracticeRoute.js";
 import {
+  FOCUS_CONTINUE_HINT_KEY,
+  FOCUS_CONTINUE_LABEL_KEY,
+  shouldOfferFocusContinuation,
+} from "./focusPracticeContinuation.js";
+import {
   sessionAccuracy,
   sessionProgress,
   sessionProgressPct,
@@ -133,6 +153,7 @@ const correctCount = ref(0);
 const userId = ref("");
 const pairKey = ref("");
 const streakUpdate = ref(null);
+const continuing = ref(false);
 const hintText = ref("");
 const hintShown = ref(false);
 const hintAutoRevealed = ref(false);
@@ -148,6 +169,10 @@ const accuracyPct = computed(() => sessionAccuracy(correctCount.value, questions
 
 const streakCelebration = computed(() =>
   reviewStreakCelebration(streakUpdate.value, t),
+);
+
+const showContinuePractice = computed(() =>
+  shouldOfferFocusContinuation(questions.value.length, accuracyPct.value),
 );
 
 const correctAnswerText = computed(() =>
@@ -261,6 +286,7 @@ async function load() {
     correctCount.value = 0;
     finished.value = false;
     streakUpdate.value = null;
+    continuing.value = false;
     resetQuestion();
   } catch (e) {
     error.value = e?.message || t("common.fail");
@@ -291,6 +317,15 @@ async function onPrimaryAction() {
 
   finished.value = true;
   streakUpdate.value = await applyReviewStreak(userId.value, questions.value.length);
+}
+
+async function continuePractice() {
+  continuing.value = true;
+  try {
+    await load();
+  } finally {
+    continuing.value = false;
+  }
 }
 
 function exitPractice() {
@@ -496,6 +531,13 @@ onMounted(load);
   color: var(--orange-hover);
   border-radius: var(--radius-sm);
   font-weight: 700;
+}
+
+.continue-hint {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--text-light);
+  line-height: 1.45;
 }
 
 .summary-actions {

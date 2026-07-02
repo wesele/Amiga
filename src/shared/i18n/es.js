@@ -203,6 +203,8 @@ export default {
     focusPracticeComplete: "¡Práctica focalizada completada!",
     focusPracticeCompleteHint: "Practicaste {n} preguntas en esta ronda",
     focusPracticeAccuracy: "{pct}% correctas — sigue practicando esta habilidad",
+    focusPracticeContinue: "Practicar otra ronda",
+    focusPracticeContinueHint: "Aprovecha el impulso y refuerza este punto débil",
     focusPracticeInvalidType: "Este tipo de pregunta no está disponible para práctica",
     mistakeReviewContinueHint: "Aprovecha el impulso y refuerza más errores",
     mistakeMilestoneReached: "🔁 ¡{n} errores dominados! Hito de repaso desbloqueado",

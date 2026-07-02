@@ -206,6 +206,8 @@ export default {
     focusPracticeComplete: "专项练习完成！",
     focusPracticeCompleteHint: "本轮共练习 {n} 道题",
     focusPracticeAccuracy: "正确率 {pct}% — 继续攻克这个题型",
+    focusPracticeContinue: "再练一轮",
+    focusPracticeContinueHint: "趁热打铁，继续攻克这个薄弱环节",
     focusPracticeInvalidType: "该题型暂不支持专项练习",
     mistakeReviewContinueHint: "趁热打铁，巩固更多错题",
     mistakeMilestoneReached: "🔁 已掌握 {n} 道错题！复习里程碑达成",

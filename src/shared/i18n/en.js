@@ -203,6 +203,8 @@ export default {
     focusPracticeComplete: "Focus practice complete!",
     focusPracticeCompleteHint: "You practiced {n} questions this round",
     focusPracticeAccuracy: "{pct}% correct — keep drilling this skill",
+    focusPracticeContinue: "Practice another round",
+    focusPracticeContinueHint: "Strike while the iron is hot — drill this weak spot again",
     focusPracticeInvalidType: "This question type is not available for practice",
     mistakeReviewContinueHint: "Strike while the iron is hot — reinforce more mistakes",
     mistakeMilestoneReached: "🔁 {n} mistakes mastered! Review milestone unlocked",

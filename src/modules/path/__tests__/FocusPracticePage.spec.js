@@ -78,6 +78,92 @@ describe("FocusPracticePage", () => {
     expect(source).toMatch(/class="hint-btn"/);
     expect(source).toMatch(/path\.focusPracticeBadge/);
     expect(source).toMatch(/sessionAccuracy/);
+    expect(source).toMatch(/focusPracticeContinuation\.js/);
+    expect(source).toMatch(/FOCUS_CONTINUE_LABEL_KEY/);
+    expect(source).toMatch(/continuePractice/);
+  });
+
+  it("offers another round when the session was not perfect", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-focus-practice", params: { typeId: "T09" } });
+    await router.isReady();
+
+    const wrapper = mount({ template: "<router-view />" }, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find("input").setValue("wrong");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("专项练习完成");
+    expect(wrapper.text()).toContain("再练一轮");
+    expect(wrapper.text()).toContain("趁热打铁");
+  });
+
+  it("hides continue button after a perfect focus practice round", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_focus_practice_cmd") {
+        return Promise.resolve({
+          question_type: "T09",
+          questions: [{ ...MOCK_QUESTION, answer: "hola" }],
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    const router = makeRouter();
+    await router.push({ name: "path-focus-practice", params: { typeId: "T09" } });
+    await router.isReady();
+
+    const wrapper = mount({ template: "<router-view />" }, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".hint-btn").trigger("click");
+    await flushPromises();
+    const answerInput = wrapper.find("input");
+    await answerInput.setValue("hola");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("专项练习完成");
+    expect(wrapper.text()).not.toContain("再练一轮");
+  });
+
+  it("reloads another round when learner taps continue practicing", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-focus-practice", params: { typeId: "T09" } });
+    await router.isReady();
+
+    const wrapper = mount({ template: "<router-view />" }, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find("input").setValue("wrong");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    const continueBtn = wrapper
+      .findAll(".summary-actions .action-btn.primary")
+      .find((btn) => btn.text().includes("再练一轮"));
+    expect(continueBtn).toBeTruthy();
+    await continueBtn.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("专项练习 · 薄弱环节强化");
+    expect(
+      mockInvoke.mock.calls.filter(([cmd]) => cmd === "get_focus_practice_cmd").length,
+    ).toBe(2);
   });
 
   it("shows an error for unsupported question types", async () => {
