@@ -17,14 +17,41 @@ pub struct StreakUpdate {
     pub practiced_today: bool,
 }
 
+/// Max review sessions that count toward today's lesson goal (busy-day rescue cap).
+pub const REVIEW_SESSION_DAILY_CAP: i32 = 1;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DailyGoalProgress {
     pub lessons_today: i32,
+    #[serde(default)]
+    pub review_sessions_today: i32,
+    #[serde(default)]
+    pub effective_lessons_today: i32,
     pub target_lessons: i32,
     pub progress_pct: i32,
     pub goal_met: bool,
     pub streak_current: i32,
     pub practiced_today: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ReviewPracticeResult {
+    pub streak: StreakUpdate,
+    pub daily_goal: DailyGoalProgress,
+    pub daily_goal_just_met: bool,
+}
+
+pub fn review_credit(review_sessions_today: i32) -> i32 {
+    review_sessions_today.min(REVIEW_SESSION_DAILY_CAP)
+}
+
+pub fn effective_lessons_today(
+    lessons_today: i32,
+    review_sessions_today: i32,
+    target_lessons: i32,
+) -> i32 {
+    let credit = review_credit(review_sessions_today);
+    (lessons_today + credit).min(target_lessons)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -199,16 +226,17 @@ fn load_today_activity(
     conn: &rusqlite::Connection,
     user_id: &str,
     date: &str,
-) -> Result<(i32, i32, i32), String> {
-    let row: Option<(i32, i32, i32)> = conn
+) -> Result<(i32, i32, i32, i32), String> {
+    let row: Option<(i32, i32, i32, i32)> = conn
         .query_row(
-            "SELECT articles_read, words_learned, COALESCE(lessons_completed, 0)
+            "SELECT articles_read, words_learned, COALESCE(lessons_completed, 0),
+                    COALESCE(review_sessions, 0)
              FROM streak_records WHERE user_id = ?1 AND date = ?2",
             params![user_id, date],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )
         .ok();
-    Ok(row.unwrap_or((0, 0, 0)))
+    Ok(row.unwrap_or((0, 0, 0, 0)))
 }
 
 fn weekday_index(date: NaiveDate) -> u8 {
@@ -254,21 +282,24 @@ pub fn get_daily_goal_progress(
     daily_minutes: i32,
 ) -> Result<DailyGoalProgress, String> {
     let today = today_local();
-    let lessons_today = {
+    let (lessons_today, review_sessions_today) = {
         let conn = pool.conn()?;
-        let (_, _, lessons) = load_today_activity(&conn, user_id, &today)?;
-        lessons
+        let (_, _, lessons, review_sessions) = load_today_activity(&conn, user_id, &today)?;
+        (lessons, review_sessions)
     };
     let target_lessons = lesson_goal_from_daily_minutes(daily_minutes);
+    let effective = effective_lessons_today(lessons_today, review_sessions_today, target_lessons);
     let progress_pct = if target_lessons > 0 {
-        ((lessons_today.min(target_lessons) * 100) / target_lessons).min(100)
+        ((effective * 100) / target_lessons).min(100)
     } else {
         0
     };
-    let goal_met = lessons_today >= target_lessons;
+    let goal_met = effective >= target_lessons;
     let streak = get_learning_streak(pool, user_id)?;
     Ok(DailyGoalProgress {
         lessons_today,
+        review_sessions_today,
+        effective_lessons_today: effective,
         target_lessons,
         progress_pct,
         goal_met,
@@ -295,28 +326,45 @@ pub fn record_review_practice(
     pool: &DatabasePool,
     user_id: &str,
     items_reviewed: i32,
-) -> Result<StreakUpdate, String> {
+    session_complete: bool,
+    daily_minutes: i32,
+) -> Result<ReviewPracticeResult, String> {
     let count = items_reviewed.max(1);
     let today = today_local();
+    let goal_met_before = if session_complete {
+        get_daily_goal_progress(pool, user_id, daily_minutes)
+            .map(|p| p.goal_met)
+            .unwrap_or(false)
+    } else {
+        false
+    };
+    let session_delta = if session_complete { 1 } else { 0 };
     let was_active_today = {
         let conn = pool.conn()?;
         let was_active = was_active_on_date(&conn, user_id, &today)?;
         conn.execute(
-            "INSERT INTO streak_records (user_id, date, words_learned)
-             VALUES (?1, ?2, ?3)
+            "INSERT INTO streak_records (user_id, date, words_learned, review_sessions)
+             VALUES (?1, ?2, ?3, ?4)
              ON CONFLICT(user_id, date) DO UPDATE SET
-               words_learned = words_learned + ?3",
-            params![user_id, today, count],
+               words_learned = words_learned + ?3,
+               review_sessions = COALESCE(review_sessions, 0) + ?4",
+            params![user_id, today, count, session_delta],
         )
         .map_err(|e| e.to_string())?;
         was_active
     };
 
     let streak = get_learning_streak(pool, user_id)?;
-    Ok(StreakUpdate {
-        current: streak.current,
-        extended: !was_active_today,
-        practiced_today: true,
+    let daily_goal = get_daily_goal_progress(pool, user_id, daily_minutes)?;
+    let daily_goal_just_met = session_complete && !goal_met_before && daily_goal.goal_met;
+    Ok(ReviewPracticeResult {
+        streak: StreakUpdate {
+            current: streak.current,
+            extended: !was_active_today,
+            practiced_today: true,
+        },
+        daily_goal,
+        daily_goal_just_met,
     })
 }
 
@@ -435,10 +483,10 @@ mod tests {
     fn review_practice_starts_streak() {
         let pool = test_pool();
         let user = seed_user(&pool);
-        let update = record_review_practice(&pool, &user, 3).unwrap();
-        assert!(update.extended);
-        assert_eq!(update.current, 1);
-        assert!(update.practiced_today);
+        let result = record_review_practice(&pool, &user, 3, false, 15).unwrap();
+        assert!(result.streak.extended);
+        assert_eq!(result.streak.current, 1);
+        assert!(result.streak.practiced_today);
 
         let streak = get_learning_streak(&pool, &user).unwrap();
         assert_eq!(streak.current, 1);
@@ -449,17 +497,17 @@ mod tests {
     fn review_practice_same_day_does_not_reextend_streak() {
         let pool = test_pool();
         let user = seed_user(&pool);
-        record_review_practice(&pool, &user, 2).unwrap();
-        let update = record_review_practice(&pool, &user, 4).unwrap();
-        assert!(!update.extended);
-        assert_eq!(update.current, 1);
+        record_review_practice(&pool, &user, 2, false, 15).unwrap();
+        let result = record_review_practice(&pool, &user, 4, false, 15).unwrap();
+        assert!(!result.streak.extended);
+        assert_eq!(result.streak.current, 1);
     }
 
     #[test]
     fn review_practice_counts_at_least_one_item() {
         let pool = test_pool();
         let user = seed_user(&pool);
-        record_review_practice(&pool, &user, 0).unwrap();
+        record_review_practice(&pool, &user, 0, false, 15).unwrap();
         let today = today_local();
         let conn = pool.conn().unwrap();
         let words: i32 = conn
@@ -514,6 +562,65 @@ mod tests {
         assert_eq!(progress.lessons_today, 2);
         assert!(progress.goal_met);
         assert_eq!(progress.progress_pct, 100);
+    }
+
+    #[test]
+    fn review_credit_caps_at_one_session() {
+        assert_eq!(review_credit(0), 0);
+        assert_eq!(review_credit(1), 1);
+        assert_eq!(review_credit(3), 1);
+    }
+
+    #[test]
+    fn review_session_counts_toward_daily_goal_when_target_is_one() {
+        let pool = test_pool();
+        let user = seed_user(&pool);
+        let result = record_review_practice(&pool, &user, 5, true, 5).unwrap();
+        assert!(result.daily_goal_just_met);
+        assert_eq!(result.daily_goal.review_sessions_today, 1);
+        assert_eq!(result.daily_goal.effective_lessons_today, 1);
+        assert!(result.daily_goal.goal_met);
+
+        let progress = get_daily_goal_progress(&pool, &user, 5).unwrap();
+        assert!(progress.goal_met);
+        assert_eq!(progress.effective_lessons_today, 1);
+    }
+
+    #[test]
+    fn review_session_partially_counts_when_target_is_two() {
+        let pool = test_pool();
+        let user = seed_user(&pool);
+        let result = record_review_practice(&pool, &user, 5, true, 15).unwrap();
+        assert!(!result.daily_goal_just_met);
+        assert_eq!(result.daily_goal.target_lessons, 2);
+        assert_eq!(result.daily_goal.effective_lessons_today, 1);
+        assert!(!result.daily_goal.goal_met);
+
+        record_lesson_completed(&pool, &user).unwrap();
+        let progress = get_daily_goal_progress(&pool, &user, 15).unwrap();
+        assert!(progress.goal_met);
+        assert_eq!(progress.lessons_today, 1);
+        assert_eq!(progress.effective_lessons_today, 2);
+    }
+
+    #[test]
+    fn second_review_session_same_day_does_not_add_more_credit() {
+        let pool = test_pool();
+        let user = seed_user(&pool);
+        record_review_practice(&pool, &user, 5, true, 15).unwrap();
+        let result = record_review_practice(&pool, &user, 5, true, 15).unwrap();
+        assert_eq!(result.daily_goal.review_sessions_today, 2);
+        assert_eq!(result.daily_goal.effective_lessons_today, 1);
+        assert!(!result.daily_goal.goal_met);
+    }
+
+    #[test]
+    fn incomplete_review_does_not_increment_review_sessions() {
+        let pool = test_pool();
+        let user = seed_user(&pool);
+        let result = record_review_practice(&pool, &user, 2, false, 5).unwrap();
+        assert_eq!(result.daily_goal.review_sessions_today, 0);
+        assert!(!result.daily_goal.goal_met);
     }
 
     #[test]

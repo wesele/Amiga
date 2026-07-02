@@ -168,6 +168,7 @@ const finished = ref(false);
 const correctCount = ref(0);
 const userId = ref("");
 const pairKey = ref("");
+const targetLang = ref("es");
 const streakUpdate = ref(null);
 const continuing = ref(false);
 const hintText = ref("");
@@ -347,6 +348,7 @@ async function load() {
   try {
     const ctx = await loadLearningContext();
     userId.value = ctx.user?.id ?? "";
+    targetLang.value = ctx.targetLang;
     pairKey.value = pairStatsKey(ctx.nativeLang, ctx.targetLang);
     const session = await getFocusPractice(
       ctx.nativeLang,
@@ -396,7 +398,10 @@ async function advanceAfterResult() {
   }
 
   finished.value = true;
-  streakUpdate.value = await applyReviewStreak(userId.value, questions.value.length);
+  streakUpdate.value = await applyReviewStreak(userId.value, questions.value.length, {
+    sessionComplete: false,
+    targetLanguage: targetLang.value,
+  });
 }
 
 async function onPrimaryAction() {

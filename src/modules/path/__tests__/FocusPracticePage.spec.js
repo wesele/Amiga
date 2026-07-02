@@ -27,9 +27,15 @@ vi.mock("@/shared/learningContext.js", () => ({
 }));
 
 vi.mock("@/shared/reviewStreak.js", () => ({
-  applyReviewStreak: vi.fn().mockResolvedValue({ extended: true, current: 3 }),
+  applyReviewStreak: vi.fn().mockResolvedValue({
+    streak: { extended: true, current: 3 },
+    daily_goal_just_met: false,
+    daily_goal: { goal_met: false },
+  }),
   reviewStreakCelebration: vi.fn((update, t) =>
-    update?.extended ? t("path.streakExtended", { n: update.current }) : "",
+    (update?.streak?.extended ?? update?.extended)
+      ? t("path.streakExtended", { n: update?.streak?.current ?? update?.current })
+      : "",
   ),
 }));
 

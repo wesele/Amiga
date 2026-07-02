@@ -35,6 +35,9 @@
         {{ t("path.mistakeReviewMasteredCount", { n: masteredCount }) }}
       </p>
       <p v-if="streakCelebration" class="streak-banner">{{ streakCelebration }}</p>
+      <p v-if="dailyGoalCelebration" class="daily-goal-banner">{{ dailyGoalCelebration }}</p>
+      <p v-else-if="dailyGoalNudge" class="daily-goal-banner is-nudge">{{ dailyGoalNudge }}</p>
+      <p v-else-if="dailyGoalContributed" class="daily-goal-banner">{{ dailyGoalContributed }}</p>
       <p v-if="mistakeMilestoneBanner" class="mistake-milestone-banner">{{ mistakeMilestoneBanner }}</p>
       <p v-if="showContinueReview" class="continue-hint">{{ t("path.mistakeReviewContinueHint") }}</p>
       <div class="summary-actions">
@@ -141,7 +144,13 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { applyReviewStreak, reviewStreakCelebration } from "@/shared/reviewStreak.js";
+import {
+  applyReviewStreak,
+  reviewDailyGoalCelebration,
+  reviewDailyGoalContributed,
+  reviewDailyGoalNudge,
+  reviewStreakCelebration,
+} from "@/shared/reviewStreak.js";
 import {
   MISTAKE_MILESTONE_CELEBRATION_KEY,
   mistakeMilestoneReached,
@@ -194,7 +203,8 @@ const masteredCount = ref(0);
 const sessionTotal = ref(0);
 const pairKey = ref("");
 const userId = ref("");
-const streakUpdate = ref(null);
+const reviewResult = ref(null);
+const targetLang = ref("es");
 const remainingDue = ref(0);
 const checkingRemaining = ref(false);
 const continuing = ref(false);
@@ -223,7 +233,17 @@ const progressPct = computed(() =>
 );
 
 const streakCelebration = computed(() =>
-  reviewStreakCelebration(streakUpdate.value, t),
+  reviewStreakCelebration(reviewResult.value, t),
+);
+
+const dailyGoalCelebration = computed(() =>
+  reviewDailyGoalCelebration(reviewResult.value, t),
+);
+
+const dailyGoalNudge = computed(() => reviewDailyGoalNudge(reviewResult.value, t));
+
+const dailyGoalContributed = computed(() =>
+  reviewDailyGoalContributed(reviewResult.value, t),
 );
 
 const masteredBefore = ref(0);
@@ -394,6 +414,7 @@ async function load() {
   try {
     const ctx = await loadLearningContext();
     userId.value = ctx.user?.id ?? "";
+    targetLang.value = ctx.targetLang;
     pairKey.value = pairStatsKey(ctx.nativeLang, ctx.targetLang);
     queue.value = loadDueMistakes(pairKey.value);
     sessionTotal.value = queue.value.length;
@@ -402,7 +423,7 @@ async function load() {
     finished.value = false;
     masteredCount.value = 0;
     masteredBefore.value = 0;
-    streakUpdate.value = null;
+    reviewResult.value = null;
     remainingDue.value = 0;
     checkingRemaining.value = false;
     continuing.value = false;
@@ -469,7 +490,10 @@ async function advanceAfterResult() {
     const { prev } = recordMistakesMastered(pairKey.value, masteredCount.value);
     masteredBefore.value = prev;
   }
-  streakUpdate.value = await applyReviewStreak(userId.value, sessionTotal.value);
+  reviewResult.value = await applyReviewStreak(userId.value, sessionTotal.value, {
+    sessionComplete: true,
+    targetLanguage: targetLang.value,
+  });
   await refreshRemainingDue();
 }
 
@@ -839,6 +863,21 @@ onMounted(load);
   color: var(--orange-hover);
   border-radius: var(--radius-md);
   font-weight: 700;
+}
+
+.daily-goal-banner {
+  margin: 4px 0 0;
+  padding: 12px 16px;
+  background: var(--green-bg);
+  color: var(--green-hover);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+}
+
+.daily-goal-banner.is-nudge {
+  background: linear-gradient(135deg, #fff8e6 0%, #ffefcc 100%);
+  color: #8a6200;
+  border: 1px solid #e6b84d;
 }
 
 .mistake-milestone-banner {

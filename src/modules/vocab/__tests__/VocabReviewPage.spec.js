@@ -66,7 +66,17 @@ function defaultInvoke(cmd) {
   if (cmd === "get_unknown_words_cmd") return Promise.resolve(MOCK_WORDS);
   if (cmd === "update_word_mastery_cmd") return Promise.resolve();
   if (cmd === "record_review_practice_cmd") {
-    return Promise.resolve({ extended: true, current: 3 });
+    return Promise.resolve({
+      streak: { extended: true, current: 3 },
+      daily_goal_just_met: false,
+      daily_goal: {
+        lessons_today: 0,
+        review_sessions_today: 1,
+        effective_lessons_today: 1,
+        target_lessons: 2,
+        goal_met: false,
+      },
+    });
   }
   if (cmd === "get_user_vocab_stats_cmd") {
     return Promise.resolve({ total_known: 0, total_learning: 2, total: 1000 });
@@ -238,6 +248,8 @@ describe("VocabReviewPage", () => {
     expect(mockInvoke).toHaveBeenCalledWith("record_review_practice_cmd", {
       userId: "u1",
       itemsReviewed: 2,
+      sessionComplete: true,
+      targetLanguage: "es",
     });
     expect(wrapper.find(".streak-banner").text()).toContain("3 天连胜");
     expect(wrapper.text()).toContain("继续复习（还有 2 个）");

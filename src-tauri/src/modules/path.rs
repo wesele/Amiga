@@ -1372,8 +1372,17 @@ fn daily_goal_fields_for_completion(
     };
     match crate::modules::streak::get_daily_goal_progress(pool, user_id, daily_minutes) {
         Ok(progress) => {
-            let just_met = progress.goal_met && progress.lessons_today == progress.target_lessons;
-            (just_met, progress.lessons_today, progress.target_lessons)
+            let effective_before = crate::modules::streak::effective_lessons_today(
+                progress.lessons_today - 1,
+                progress.review_sessions_today,
+                progress.target_lessons,
+            );
+            let just_met = progress.goal_met && effective_before < progress.target_lessons;
+            (
+                just_met,
+                progress.effective_lessons_today,
+                progress.target_lessons,
+            )
         }
         Err(e) => {
             log::warn!("Failed to load daily goal progress: {}", e);
@@ -1567,7 +1576,7 @@ mod tests {
         let after_practice =
             complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
         assert!(!after_practice.daily_goal_just_met);
-        assert_eq!(after_practice.daily_goal_lessons_today, 3);
+        assert_eq!(after_practice.daily_goal_lessons_today, 2);
         assert_eq!(after_practice.daily_goal_target, 2);
     }
 

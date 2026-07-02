@@ -39,6 +39,9 @@
         {{ t("vocab.reviewMasteredCount", { n: masteredCount }) }}
       </p>
       <p v-if="streakCelebration" class="streak-banner">{{ streakCelebration }}</p>
+      <p v-if="dailyGoalCelebration" class="daily-goal-banner">{{ dailyGoalCelebration }}</p>
+      <p v-else-if="dailyGoalNudge" class="daily-goal-banner is-nudge">{{ dailyGoalNudge }}</p>
+      <p v-else-if="dailyGoalContributed" class="daily-goal-banner">{{ dailyGoalContributed }}</p>
       <p v-if="vocabMilestoneBanner" class="vocab-milestone-banner">{{ vocabMilestoneBanner }}</p>
       <p v-if="showContinueReview" class="continue-hint">{{ t("vocab.reviewContinueHint") }}</p>
       <div class="summary-actions">
@@ -150,7 +153,13 @@ import {
   vocabMilestoneReached,
 } from "@/modules/learn/vocabMilestones.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { applyReviewStreak, reviewStreakCelebration } from "@/shared/reviewStreak.js";
+import {
+  applyReviewStreak,
+  reviewDailyGoalCelebration,
+  reviewDailyGoalContributed,
+  reviewDailyGoalNudge,
+  reviewStreakCelebration,
+} from "@/shared/reviewStreak.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import {
   REVIEW_SESSION_LIMIT,
@@ -201,7 +210,7 @@ const finished = ref(false);
 const acting = ref(false);
 const masteredCount = ref(0);
 const knownBefore = ref(0);
-const streakUpdate = ref(null);
+const reviewResult = ref(null);
 const remainingDue = ref(0);
 const checkingRemaining = ref(false);
 const continuing = ref(false);
@@ -225,7 +234,17 @@ const definitionText = computed(() =>
 );
 
 const streakCelebration = computed(() =>
-  reviewStreakCelebration(streakUpdate.value, t),
+  reviewStreakCelebration(reviewResult.value, t),
+);
+
+const dailyGoalCelebration = computed(() =>
+  reviewDailyGoalCelebration(reviewResult.value, t),
+);
+
+const dailyGoalNudge = computed(() => reviewDailyGoalNudge(reviewResult.value, t));
+
+const dailyGoalContributed = computed(() =>
+  reviewDailyGoalContributed(reviewResult.value, t),
 );
 
 const vocabMilestoneBanner = computed(() => {
@@ -370,7 +389,7 @@ async function load() {
     index.value = 0;
     finished.value = false;
     masteredCount.value = 0;
-    streakUpdate.value = null;
+    reviewResult.value = null;
     remainingDue.value = 0;
     checkingRemaining.value = false;
     continuing.value = false;
@@ -404,7 +423,10 @@ async function advanceAfterMark(mastery) {
   const nextIndex = index.value + 1;
   if (isSessionComplete(nextIndex, words.value.length)) {
     finished.value = true;
-    streakUpdate.value = await applyReviewStreak(userId.value, words.value.length);
+    reviewResult.value = await applyReviewStreak(userId.value, words.value.length, {
+      sessionComplete: true,
+      targetLanguage: targetLang.value,
+    });
     await refreshRemainingDue();
     return;
   }
@@ -549,6 +571,21 @@ onMounted(load);
   color: var(--orange-hover);
   border-radius: var(--radius-md);
   font-weight: 700;
+}
+
+.daily-goal-banner {
+  margin: 12px 0 0;
+  padding: 12px 16px;
+  background: var(--green-bg);
+  color: var(--green-hover);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+}
+
+.daily-goal-banner.is-nudge {
+  background: linear-gradient(135deg, #fff8e6 0%, #ffefcc 100%);
+  color: #8a6200;
+  border: 1px solid #e6b84d;
 }
 
 .vocab-milestone-banner {

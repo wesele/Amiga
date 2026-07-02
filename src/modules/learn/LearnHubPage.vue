@@ -63,7 +63,7 @@
         </svg>
         <span class="goal-ring-label">
           {{ dailyGoal.goal_met ? "✓" : t("learn.dailyGoalProgress", {
-            done: dailyGoal.lessons_today,
+            done: dailyGoalRingDone,
             total: dailyGoal.target_lessons,
           }) }}
         </span>
@@ -76,13 +76,7 @@
           </span>
         </div>
         <p class="goal-sub">
-          {{
-            dailyGoal.goal_met
-              ? t("learn.dailyGoalMet")
-              : dailyGoal.lessons_today > 0
-                ? t("learn.dailyGoalLessons", { n: dailyGoal.target_lessons })
-                : t("learn.dailyGoalStart")
-          }}
+          {{ t(dailyGoalSubI18nKey, dailyGoalSubI18nParams) }}
         </p>
         <div
           v-if="showWeeklyGoal"
@@ -374,6 +368,12 @@ import {
 } from "./perfectMilestoneCard.js";
 import { perfectMilestoneRingOffset } from "./perfectMilestones.js";
 import { loadDueMistakes } from "@/modules/path/mistakeReviewStore.js";
+import {
+  dailyGoalRingDone as ringDone,
+  dailyGoalRemainingLessons,
+  dailyGoalSubKey,
+  dailyGoalSubParams,
+} from "./dailyGoalDisplay.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -399,6 +399,12 @@ const ringOffset = computed(() => {
   const pct = dailyGoal.value.progress_pct / 100;
   return RING_CIRCUMFERENCE * (1 - pct);
 });
+
+const dailyGoalRingDone = computed(() => ringDone(dailyGoal.value));
+
+const dailyGoalSubI18nKey = computed(() => dailyGoalSubKey(dailyGoal.value));
+
+const dailyGoalSubI18nParams = computed(() => dailyGoalSubParams(dailyGoal.value));
 
 const weeklyGoal = computed(() => {
   if (!weeklyActivity.value || !dailyGoal.value) return null;
@@ -523,10 +529,7 @@ const focusHeroSub = computed(() => {
       return t("learn.focusContinueSub");
     }
     return t("learn.focusDailyGoalSub", {
-      remaining: Math.max(
-        0,
-        (dailyGoal.value?.target_lessons ?? 0) - (dailyGoal.value?.lessons_today ?? 0),
-      ),
+      remaining: dailyGoalRemainingLessons(dailyGoal.value),
     });
   }
   if (focus.id === FOCUS_IDS.CONTINUE_SECTION) {

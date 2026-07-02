@@ -112,16 +112,15 @@ export function pickLearningHubFocus(ctx) {
   }
 
   if (!goalMet) {
+    const effective =
+      dailyGoal?.effective_lessons_today ?? dailyGoal?.lessons_today ?? 0;
     return {
       id: FOCUS_IDS.DAILY_GOAL,
       route: { name: "path" },
       icon: "🎯",
       lessonsToday: dailyGoal?.lessons_today ?? 0,
       targetLessons: dailyGoal?.target_lessons ?? 0,
-      remaining: Math.max(
-        0,
-        (dailyGoal?.target_lessons ?? 0) - (dailyGoal?.lessons_today ?? 0),
-      ),
+      remaining: Math.max(0, (dailyGoal?.target_lessons ?? 0) - effective),
     };
   }
 

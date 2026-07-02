@@ -31,10 +31,19 @@ vi.mock("@/shared/learningContext.js", () => ({
 }));
 
 vi.mock("@/shared/reviewStreak.js", () => ({
-  applyReviewStreak: vi.fn().mockResolvedValue({ extended: true, current: 4 }),
+  applyReviewStreak: vi.fn().mockResolvedValue({
+    streak: { extended: true, current: 4 },
+    daily_goal_just_met: false,
+    daily_goal: { goal_met: false, review_sessions_today: 1, effective_lessons_today: 1, target_lessons: 2 },
+  }),
   reviewStreakCelebration: vi.fn((update, t) =>
-    update?.extended ? t("path.streakExtended", { n: update.current }) : "",
+    (update?.streak?.extended ?? update?.extended)
+      ? t("path.streakExtended", { n: update?.streak?.current ?? update?.current })
+      : "",
   ),
+  reviewDailyGoalCelebration: vi.fn(() => ""),
+  reviewDailyGoalNudge: vi.fn(() => ""),
+  reviewDailyGoalContributed: vi.fn(() => ""),
 }));
 
 vi.mock("@/shared/lessonFeedback.js", () => ({
@@ -197,12 +206,17 @@ describe("MistakeReviewPage review streak", () => {
   it("includes streak celebration markup in the summary template", () => {
     const source = readFileSync(resolve(ROOT, "src/modules/path/MistakeReviewPage.vue"), "utf8");
     expect(source).toMatch(/class="streak-banner"/);
+    expect(source).toMatch(/class="daily-goal-banner"/);
     expect(source).toMatch(/applyReviewStreak/);
   });
 
   it("shows streak banner after completing the review session", async () => {
     const { applyReviewStreak } = await import("@/shared/reviewStreak.js");
-    applyReviewStreak.mockResolvedValue({ extended: true, current: 4 });
+    applyReviewStreak.mockResolvedValue({
+      streak: { extended: true, current: 4 },
+      daily_goal_just_met: false,
+      daily_goal: { goal_met: false },
+    });
 
     const router = makeRouter();
     await router.push({ name: "path-mistake-review" });
@@ -219,7 +233,10 @@ describe("MistakeReviewPage review streak", () => {
     await wrapper.find(".action-btn.primary").trigger("click");
     await flushPromises();
 
-    expect(applyReviewStreak).toHaveBeenCalledWith("u1", 1);
+    expect(applyReviewStreak).toHaveBeenCalledWith("u1", 1, {
+      sessionComplete: true,
+      targetLanguage: "es",
+    });
     expect(wrapper.find(".streak-banner").text()).toContain("4 天连胜");
   });
 });

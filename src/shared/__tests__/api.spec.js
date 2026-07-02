@@ -97,11 +97,13 @@ describe("API module", () => {
       expect(mockInvoke).toHaveBeenCalledWith("reset_wizard_cmd");
     });
 
-    it("recordReviewPractice calls invoke with userId and itemsReviewed", () => {
-      api.recordReviewPractice("u1", 5);
+    it("recordReviewPractice calls invoke with session completion args", () => {
+      api.recordReviewPractice("u1", 5, true, "es");
       expect(mockInvoke).toHaveBeenCalledWith("record_review_practice_cmd", {
         userId: "u1",
         itemsReviewed: 5,
+        sessionComplete: true,
+        targetLanguage: "es",
       });
     });
   });

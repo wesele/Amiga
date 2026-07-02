@@ -77,6 +77,21 @@ describe("learningHubFocus", () => {
     expect(focus.route.name).toBe("vocab-review");
   });
 
+  it("treats review credit as daily goal progress for remaining lessons", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: {
+        goal_met: false,
+        lessons_today: 0,
+        review_sessions_today: 1,
+        effective_lessons_today: 1,
+        target_lessons: 2,
+      },
+      localHour: 10,
+    });
+    expect(focus.id).toBe(FOCUS_IDS.DAILY_GOAL);
+    expect(focus.remaining).toBe(1);
+  });
+
   it("falls back to explore path when everything is complete", () => {
     const focus = pickLearningHubFocus({
       dailyGoal: { goal_met: true, practiced_today: true },

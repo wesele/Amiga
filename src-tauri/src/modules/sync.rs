@@ -158,6 +158,8 @@ pub struct SyncStreakRow {
     pub words_learned: i32,
     #[serde(default)]
     pub lessons_completed: i32,
+    #[serde(default)]
+    pub review_sessions: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -430,7 +432,8 @@ pub fn export_sync_payload(db: &DatabasePool) -> Result<SyncPayload, String> {
 
     let mut stmt = conn
         .prepare(
-            "SELECT date, articles_read, words_learned, COALESCE(lessons_completed, 0)
+            "SELECT date, articles_read, words_learned, COALESCE(lessons_completed, 0),
+                    COALESCE(review_sessions, 0)
              FROM streak_records WHERE user_id = ?1",
         )
         .map_err(|e| e.to_string())?;
@@ -441,6 +444,7 @@ pub fn export_sync_payload(db: &DatabasePool) -> Result<SyncPayload, String> {
                 articles_read: row.get(1)?,
                 words_learned: row.get(2)?,
                 lessons_completed: row.get(3)?,
+                review_sessions: row.get(4)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -690,18 +694,20 @@ fn import_sync_payload_tx(tx: &Transaction<'_>, payload: &SyncPayload) -> Result
 
     for row in &payload.streak_records {
         tx.execute(
-            "INSERT INTO streak_records (user_id, date, articles_read, words_learned, lessons_completed)
-             VALUES (?1, ?2, ?3, ?4, ?5)
+            "INSERT INTO streak_records (user_id, date, articles_read, words_learned, lessons_completed, review_sessions)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
              ON CONFLICT(user_id, date) DO UPDATE SET
                articles_read = excluded.articles_read,
                words_learned = excluded.words_learned,
-               lessons_completed = excluded.lessons_completed",
+               lessons_completed = excluded.lessons_completed,
+               review_sessions = excluded.review_sessions",
             params![
                 local_user_id,
                 row.date,
                 row.articles_read,
                 row.words_learned,
                 row.lessons_completed,
+                row.review_sessions,
             ],
         )
         .map_err(|e| format!("Failed to import streak record: {}", e))?;

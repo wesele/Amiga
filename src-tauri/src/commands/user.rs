@@ -120,8 +120,17 @@ pub async fn record_review_practice_cmd(
     db: State<'_, DatabasePool>,
     user_id: String,
     items_reviewed: i32,
-) -> Result<crate::modules::streak::StreakUpdate, String> {
-    let update = crate::modules::streak::record_review_practice(&db, &user_id, items_reviewed)?;
+    session_complete: bool,
+    target_language: String,
+) -> Result<crate::modules::streak::ReviewPracticeResult, String> {
+    let daily_minutes = user_mod::get_daily_minutes_for_target(&db, &user_id, &target_language)?;
+    let result = crate::modules::streak::record_review_practice(
+        &db,
+        &user_id,
+        items_reviewed,
+        session_complete,
+        daily_minutes,
+    )?;
     after_syncable_write(&db);
-    Ok(update)
+    Ok(result)
 }

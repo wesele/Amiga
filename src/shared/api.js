@@ -38,8 +38,13 @@ export function createApiClient(invoke) {
     getDailyGoalProgress: (userId, targetLanguage) =>
       call("get_daily_goal_progress_cmd", { userId, targetLanguage }),
     getWeeklyActivity: (userId) => call("get_weekly_activity_cmd", { userId }),
-    recordReviewPractice: (userId, itemsReviewed) =>
-      call("record_review_practice_cmd", { userId, itemsReviewed }),
+    recordReviewPractice: (userId, itemsReviewed, sessionComplete, targetLanguage) =>
+      call("record_review_practice_cmd", {
+        userId,
+        itemsReviewed,
+        sessionComplete,
+        targetLanguage,
+      }),
 
     // Vocabulary
     importVocabBank: () => call("import_vocab_bank_cmd"),

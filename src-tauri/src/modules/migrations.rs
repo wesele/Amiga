@@ -71,6 +71,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add lessons_completed to streak_records for daily learning streak",
             MIGRATION_V17,
         ),
+        (
+            18,
+            "Add review_sessions to streak_records for daily goal review credit",
+            MIGRATION_V18,
+        ),
     ]
 }
 
@@ -357,4 +362,8 @@ CREATE TABLE IF NOT EXISTS path_grammar_explain_cache (
 
 const MIGRATION_V17: &str = r#"
 ALTER TABLE streak_records ADD COLUMN lessons_completed INTEGER NOT NULL DEFAULT 0;
+"#;
+
+const MIGRATION_V18: &str = r#"
+ALTER TABLE streak_records ADD COLUMN review_sessions INTEGER NOT NULL DEFAULT 0;
 "#;
