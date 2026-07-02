@@ -31,6 +31,12 @@ export default {
     title: "Learn",
     path: "Progress Path",
     news: "News",
+    dailyGoal: "Daily goal",
+    dailyGoalLessons: "Complete {n} lessons",
+    dailyGoalProgress: "{done}/{total}",
+    dailyGoalMet: "Goal complete!",
+    dailyGoalStart: "Start a lesson to reach today's goal",
+    streakDays: "{n}-day streak",
   },
 
   path: {

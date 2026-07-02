@@ -67,6 +67,7 @@ pub fn run() {
             commands::user::get_target_language_cmd,
             commands::user::update_learning_goal_cefr_cmd,
             commands::user::get_learning_streak_cmd,
+            commands::user::get_daily_goal_progress_cmd,
             // Vocabulary commands
             commands::vocabulary::import_vocab_bank_cmd,
             commands::vocabulary::reimport_vocab_bank_cmd,

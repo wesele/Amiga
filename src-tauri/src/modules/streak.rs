@@ -17,6 +17,24 @@ pub struct StreakUpdate {
     pub practiced_today: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DailyGoalProgress {
+    pub lessons_today: i32,
+    pub target_lessons: i32,
+    pub progress_pct: i32,
+    pub goal_met: bool,
+    pub streak_current: i32,
+    pub practiced_today: bool,
+}
+
+pub fn lesson_goal_from_daily_minutes(daily_minutes: i32) -> i32 {
+    match daily_minutes {
+        0..=10 => 1,
+        11..=20 => 2,
+        _ => 3,
+    }
+}
+
 fn today_local() -> String {
     Local::now().format("%Y-%m-%d").to_string()
 }
@@ -149,6 +167,51 @@ pub fn record_lesson_completed(pool: &DatabasePool, user_id: &str) -> Result<Str
     })
 }
 
+fn load_today_activity(
+    conn: &rusqlite::Connection,
+    user_id: &str,
+    date: &str,
+) -> Result<(i32, i32, i32), String> {
+    let row: Option<(i32, i32, i32)> = conn
+        .query_row(
+            "SELECT articles_read, words_learned, COALESCE(lessons_completed, 0)
+             FROM streak_records WHERE user_id = ?1 AND date = ?2",
+            params![user_id, date],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .ok();
+    Ok(row.unwrap_or((0, 0, 0)))
+}
+
+pub fn get_daily_goal_progress(
+    pool: &DatabasePool,
+    user_id: &str,
+    daily_minutes: i32,
+) -> Result<DailyGoalProgress, String> {
+    let today = today_local();
+    let lessons_today = {
+        let conn = pool.conn()?;
+        let (_, _, lessons) = load_today_activity(&conn, user_id, &today)?;
+        lessons
+    };
+    let target_lessons = lesson_goal_from_daily_minutes(daily_minutes);
+    let progress_pct = if target_lessons > 0 {
+        ((lessons_today.min(target_lessons) * 100) / target_lessons).min(100)
+    } else {
+        0
+    };
+    let goal_met = lessons_today >= target_lessons;
+    let streak = get_learning_streak(pool, user_id)?;
+    Ok(DailyGoalProgress {
+        lessons_today,
+        target_lessons,
+        progress_pct,
+        goal_met,
+        streak_current: streak.current,
+        practiced_today: streak.practiced_today,
+    })
+}
+
 pub fn record_article_read(pool: &DatabasePool, user_id: &str) -> Result<(), String> {
     let today = today_local();
     let conn = pool.conn()?;
@@ -274,5 +337,42 @@ mod tests {
         let streak = get_learning_streak(&pool, &user).unwrap();
         assert_eq!(streak.current, 1);
         assert!(streak.practiced_today);
+    }
+
+    #[test]
+    fn lesson_goal_from_daily_minutes_maps_intensity() {
+        assert_eq!(lesson_goal_from_daily_minutes(5), 1);
+        assert_eq!(lesson_goal_from_daily_minutes(10), 1);
+        assert_eq!(lesson_goal_from_daily_minutes(15), 2);
+        assert_eq!(lesson_goal_from_daily_minutes(20), 2);
+        assert_eq!(lesson_goal_from_daily_minutes(30), 3);
+    }
+
+    #[test]
+    fn daily_goal_progress_tracks_lessons_today() {
+        let pool = test_pool();
+        let user = seed_user(&pool);
+        record_lesson_completed(&pool, &user).unwrap();
+
+        let progress = get_daily_goal_progress(&pool, &user, 15).unwrap();
+        assert_eq!(progress.lessons_today, 1);
+        assert_eq!(progress.target_lessons, 2);
+        assert_eq!(progress.progress_pct, 50);
+        assert!(!progress.goal_met);
+        assert_eq!(progress.streak_current, 1);
+        assert!(progress.practiced_today);
+    }
+
+    #[test]
+    fn daily_goal_met_when_target_reached() {
+        let pool = test_pool();
+        let user = seed_user(&pool);
+        record_lesson_completed(&pool, &user).unwrap();
+        record_lesson_completed(&pool, &user).unwrap();
+
+        let progress = get_daily_goal_progress(&pool, &user, 15).unwrap();
+        assert_eq!(progress.lessons_today, 2);
+        assert!(progress.goal_met);
+        assert_eq!(progress.progress_pct, 100);
     }
 }

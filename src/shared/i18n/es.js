@@ -31,6 +31,12 @@ export default {
     title: "Aprender",
     path: "Camino de progreso",
     news: "Noticias",
+    dailyGoal: "Meta diaria",
+    dailyGoalLessons: "Completa {n} lecciones",
+    dailyGoalProgress: "{done}/{total}",
+    dailyGoalMet: "¡Meta cumplida!",
+    dailyGoalStart: "Empieza una lección para alcanzar tu meta",
+    streakDays: "Racha de {n} días",
   },
 
   path: {

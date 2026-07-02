@@ -617,6 +617,23 @@ pub fn get_learning_goals(db: &DatabasePool, user_id: &str) -> Result<Vec<Learni
     Ok(goals)
 }
 
+pub fn get_daily_minutes_for_target(
+    db: &DatabasePool,
+    user_id: &str,
+    target_language: &str,
+) -> Result<i32, String> {
+    let conn = db.conn()?;
+    let minutes: Option<i32> = conn
+        .query_row(
+            "SELECT daily_minutes FROM learning_goals
+             WHERE user_id = ?1 AND target_language = ?2",
+            params![user_id, target_language],
+            |row| row.get(0),
+        )
+        .ok();
+    Ok(minutes.unwrap_or(15))
+}
+
 pub fn reset_wizard(db: &DatabasePool) -> Result<(), String> {
     let conn = db.conn()?;
     conn.execute("UPDATE users SET wizard_completed = 0", [])

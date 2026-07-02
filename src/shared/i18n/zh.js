@@ -34,6 +34,12 @@ export default {
     title: "学习",
     path: "晋级之路",
     news: "新闻",
+    dailyGoal: "今日目标",
+    dailyGoalLessons: "完成 {n} 节课",
+    dailyGoalProgress: "{done}/{total}",
+    dailyGoalMet: "目标达成！",
+    dailyGoalStart: "开始一节课，点亮今日目标",
+    streakDays: "{n} 天连胜",
   },
 
   path: {

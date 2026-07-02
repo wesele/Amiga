@@ -35,6 +35,8 @@ export function createApiClient(invoke) {
     updateLearningGoalCefr: (targetLanguage, cefrLevel) =>
       call("update_learning_goal_cefr_cmd", { targetLanguage, cefrLevel }),
     getLearningStreak: (userId) => call("get_learning_streak_cmd", { userId }),
+    getDailyGoalProgress: (userId, targetLanguage) =>
+      call("get_daily_goal_progress_cmd", { userId, targetLanguage }),
 
     // Vocabulary
     importVocabBank: () => call("import_vocab_bank_cmd"),
@@ -194,6 +196,8 @@ export const getTargetLanguage = (...args) => defaultApiClient.getTargetLanguage
 export const updateLearningGoalCefr = (...args) =>
   defaultApiClient.updateLearningGoalCefr(...args);
 export const getLearningStreak = (...args) => defaultApiClient.getLearningStreak(...args);
+export const getDailyGoalProgress = (...args) =>
+  defaultApiClient.getDailyGoalProgress(...args);
 
 // --- Vocabulary ---
 export const importVocabBank = (...args) => defaultApiClient.importVocabBank(...args);

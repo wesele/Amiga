@@ -42,6 +42,16 @@ describe("LearnHubPage", () => {
       if (cmd === "get_target_language_cmd") return Promise.resolve("es");
       if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1" });
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 1,
+          target_lessons: 2,
+          progress_pct: 50,
+          goal_met: false,
+          streak_current: 3,
+          practiced_today: true,
+        });
+      }
       if (cmd === "create_chat_session_cmd") return Promise.resolve("translator-sess");
       return Promise.resolve(null);
     });
@@ -87,6 +97,32 @@ describe("LearnHubPage", () => {
     await newsTile.trigger("click");
 
     expect(pushSpy).toHaveBeenCalledWith({ name: "news" });
+  });
+
+  it("shows daily goal progress card with streak", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".daily-goal-card");
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain("今日目标");
+    expect(card.text()).toContain("1/2");
+    expect(card.text()).toContain("3 天连胜");
+  });
+
+  it("navigates to path when daily goal card is clicked", async () => {
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".daily-goal-card").trigger("click");
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
   });
 
   it("opens translator session via learn-translator route", async () => {

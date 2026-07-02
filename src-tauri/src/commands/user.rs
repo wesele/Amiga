@@ -96,3 +96,14 @@ pub async fn get_learning_streak_cmd(
 ) -> Result<crate::modules::streak::LearningStreak, String> {
     crate::modules::streak::get_learning_streak(&db, &user_id)
 }
+
+#[tauri::command]
+pub async fn get_daily_goal_progress_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+    target_language: String,
+) -> Result<crate::modules::streak::DailyGoalProgress, String> {
+    let daily_minutes =
+        user_mod::get_daily_minutes_for_target(&db, &user_id, &target_language)?;
+    crate::modules::streak::get_daily_goal_progress(&db, &user_id, daily_minutes)
+}
