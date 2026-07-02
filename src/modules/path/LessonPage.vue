@@ -250,6 +250,9 @@
         <p v-if="nearMissFeedback" class="near-miss-tip">
           {{ nearMissFeedback }}
         </p>
+        <p v-if="showYourAnswer" class="your-answer-reveal">
+          {{ yourAnswerFeedbackText }}
+        </p>
         <p
           v-if="showResult && !lastCorrect && correctAnswerText"
           class="answer-reveal"
@@ -309,6 +312,7 @@ import { isPerfectLesson } from "./lessonPerfect.js";
 import { perfectLessonMilestoneKey } from "./perfectLessonStreak.js";
 import { getCommonMistakeFeedback } from "./commonMistakeFeedback.js";
 import { getNearMissFeedback } from "./nearMissAnswer.js";
+import { shouldShowYourAnswer, yourAnswerText } from "./wrongAnswerFeedback.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 import {
   buildFocusArea,
@@ -494,6 +498,23 @@ const nearMissFeedback = computed(() => {
     ) || ""
   );
 });
+
+const showYourAnswer = computed(() =>
+  shouldShowYourAnswer({
+    showResult: showResult.value,
+    lastCorrect: lastCorrect.value,
+    question: currentQuestion.value,
+    answer: currentAnswer.value,
+    commonMistakeFeedback: commonMistakeFeedback.value,
+    nearMissFeedback: nearMissFeedback.value,
+  }),
+);
+
+const yourAnswerFeedbackText = computed(() =>
+  showYourAnswer.value
+    ? yourAnswerText(currentQuestion.value, currentAnswer.value, t)
+    : "",
+);
 
 const primaryLabel = computed(() => {
   if (showResult.value) {
@@ -1233,6 +1254,18 @@ onMounted(load);
   border-radius: var(--radius-sm);
   color: #1a5a9e;
   font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.your-answer-reveal {
+  margin: 0 0 6px;
+  padding: 10px 12px;
+  background: var(--red-bg);
+  border-radius: var(--radius-sm);
+  color: var(--red);
+  font-size: 14px;
+  font-weight: 600;
   line-height: 1.45;
   text-align: center;
 }

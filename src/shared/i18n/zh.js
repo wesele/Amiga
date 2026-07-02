@@ -199,6 +199,7 @@ export default {
     comboMilestone10: "🔥 十连击！无人能挡",
     comboPersonalBest: "🏅 新纪录！最高 {n} 连击",
     correctAnswer: "正确答案：{answer}",
+    yourAnswer: "你的答案：{answer}",
     commonMistakeTip: "「{mistake}」是常见错误，正确答案是「{correct}」",
     commonMistakeWithHint: "「{mistake}」是常见错误。{hint}",
     nearMissTip: "很接近了！你输入的是「{answer}」，只差一个字母，正确拼写是「{correct}」",

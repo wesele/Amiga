@@ -91,6 +91,15 @@ describe("FocusPracticePage", () => {
     expect(source).toMatch(/continuePractice/);
   });
 
+  it("shows your answer alongside correct answer when focus practice answer is wrong", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/FocusPracticePage.vue"), "utf8");
+    expect(source).toMatch(/wrongAnswerFeedback\.js/);
+    expect(source).toMatch(/shouldShowYourAnswer/);
+    expect(source).toMatch(/yourAnswerText/);
+    expect(source).toMatch(/class="your-answer-reveal"/);
+    expect(source).toMatch(/showYourAnswer/);
+  });
+
   it("offers another round when the session was not perfect", async () => {
     const router = makeRouter();
     await router.push({ name: "path-focus-practice", params: { typeId: "T09" } });

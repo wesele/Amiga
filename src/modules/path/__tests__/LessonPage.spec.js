@@ -75,6 +75,55 @@ describe("LessonPage answer reveal", () => {
     expect(source).toMatch(/path\.correctAnswer/);
     expect(source).toMatch(/showResult && !lastCorrect && correctAnswerText/);
   });
+
+  it("shows your answer alongside correct answer when practice answer is wrong", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/wrongAnswerFeedback\.js/);
+    expect(source).toMatch(/shouldShowYourAnswer/);
+    expect(source).toMatch(/yourAnswerText/);
+    expect(source).toMatch(/class="your-answer-reveal"/);
+    expect(source).toMatch(/showYourAnswer/);
+  });
+
+  it("renders your answer and correct answer in the footer after a wrong choice", async () => {
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    const mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") {
+        return Promise.resolve(lessonPayload(1));
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 1;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const yourAnswer = wrapper.find(".your-answer-reveal");
+    const correctAnswer = wrapper.find(".answer-reveal");
+    expect(yourAnswer.exists()).toBe(true);
+    expect(yourAnswer.text()).toContain("你的答案：casa");
+    expect(correctAnswer.exists()).toBe(true);
+    expect(correctAnswer.text()).toContain("正确答案：Ana");
+    expect(wrapper.find(".feedback.bad").exists()).toBe(true);
+  });
 });
 
 describe("LessonPage answer feedback", () => {

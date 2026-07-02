@@ -196,6 +196,7 @@ export default {
     comboMilestone10: "🔥 ¡10 seguidas! Imparable",
     comboPersonalBest: "🏅 ¡Nuevo récord! Mejor racha: {n} seguidas",
     correctAnswer: "Respuesta correcta: {answer}",
+    yourAnswer: "Tu respuesta: {answer}",
     commonMistakeTip: "«{mistake}» es un error común — la forma correcta es «{correct}»",
     commonMistakeWithHint: "«{mistake}» es un error común. {hint}",
     nearMissTip: "¡Casi! Escribiste «{answer}» — solo te falta una letra. Correcto: «{correct}»",

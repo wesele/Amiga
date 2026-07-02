@@ -94,6 +94,9 @@
         <p v-if="nearMissFeedback" class="near-miss-tip">
           {{ nearMissFeedback }}
         </p>
+        <p v-if="showYourAnswer" class="your-answer-reveal">
+          {{ yourAnswerFeedbackText }}
+        </p>
         <p
           v-if="showResult && !lastCorrect && correctAnswerText"
           class="answer-reveal"
@@ -144,6 +147,7 @@ import PracticeQuestionTransition from "./components/PracticeQuestionTransition.
 import { practiceQuestionKey } from "./practiceQuestionKey.js";
 import { checkAnswer, formatCorrectAnswer } from "./checkAnswer.js";
 import { getNearMissFeedback } from "./nearMissAnswer.js";
+import { shouldShowYourAnswer, yourAnswerText } from "./wrongAnswerFeedback.js";
 import { shouldAutoCheckOnAnswerChange } from "./practiceAnswerAutoCheck.js";
 import { correctAutoAdvanceDelayMs } from "./practiceFlowTiming.js";
 import { usePracticeEnterKey } from "./usePracticeEnterKey.js";
@@ -213,6 +217,23 @@ const nearMissFeedback = computed(() => {
     ) || ""
   );
 });
+
+const showYourAnswer = computed(() =>
+  shouldShowYourAnswer({
+    showResult: showResult.value,
+    lastCorrect: lastCorrect.value,
+    question: currentQuestion.value,
+    answer: currentAnswer.value,
+    commonMistakeFeedback: "",
+    nearMissFeedback: nearMissFeedback.value,
+  }),
+);
+
+const yourAnswerFeedbackText = computed(() =>
+  showYourAnswer.value
+    ? yourAnswerText(currentQuestion.value, currentAnswer.value, t)
+    : "",
+);
 
 const canCheck = computed(() => {
   if (showResult.value) return true;
@@ -578,6 +599,18 @@ onMounted(load);
 
 .feedback.bad {
   color: var(--red);
+}
+
+.your-answer-reveal {
+  margin: 0 0 6px;
+  padding: 10px 12px;
+  background: var(--red-bg);
+  border-radius: var(--radius-sm);
+  color: var(--red);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.45;
 }
 
 .answer-reveal {

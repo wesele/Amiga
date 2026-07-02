@@ -196,6 +196,7 @@ export default {
     comboMilestone10: "🔥 10 in a row! Unstoppable",
     comboPersonalBest: "🏅 New record! Best streak: {n} in a row",
     correctAnswer: "Correct answer: {answer}",
+    yourAnswer: "Your answer: {answer}",
     commonMistakeTip: "\"{mistake}\" is a common mistake — the correct spelling is \"{correct}\"",
     commonMistakeWithHint: "\"{mistake}\" is a common mistake. {hint}",
     nearMissTip: "So close! You typed \"{answer}\" — just one letter off. Correct: \"{correct}\"",
