@@ -172,6 +172,44 @@
     </button>
 
     <button
+      v-if="showStreakMilestone"
+      type="button"
+      class="streak-milestone-card"
+      @click="goToPath"
+    >
+      <div class="milestone-ring" aria-hidden="true">
+        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
+          <circle class="streak-milestone-ring-track" cx="22" cy="22" r="18" />
+          <circle
+            class="streak-milestone-ring-fill"
+            cx="22"
+            cy="22"
+            r="18"
+            :style="{ strokeDashoffset: streakMilestoneRingOffsetValue }"
+          />
+        </svg>
+        <span class="milestone-ring-label">🔥</span>
+      </div>
+      <div class="milestone-copy">
+        <p class="streak-milestone-title">{{ t("learn.streakMilestone") }}</p>
+        <p class="streak-milestone-sub">
+          {{ t("learn.streakMilestoneNext", { n: streakMilestone.next_milestone }) }}
+          ·
+          {{
+            t("learn.streakMilestoneProgress", {
+              done: streakMilestone.current,
+              total: streakMilestone.next_milestone,
+            })
+          }}
+        </p>
+        <p class="streak-milestone-hint">
+          {{ t("learn.streakMilestoneHint", { done: streakMilestone.current }) }}
+        </p>
+      </div>
+      <span class="milestone-chevron" aria-hidden="true">›</span>
+    </button>
+
+    <button
       v-if="showComboMilestone"
       type="button"
       class="combo-milestone-card"
@@ -416,6 +454,7 @@ import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
   getDailyGoalProgress,
+  getLearningStreak,
   getLessonMilestoneProgress,
   getPathCurriculum,
   getPerfectLessonStreak,
@@ -483,6 +522,11 @@ import {
   shouldShowComboMilestoneCard,
 } from "./comboMilestoneCard.js";
 import { comboMilestoneRingOffset } from "./comboMilestones.js";
+import {
+  buildStreakMilestoneCard,
+  shouldShowStreakMilestoneCard,
+} from "./streakMilestoneCard.js";
+import { streakMilestoneRingOffset } from "./streakMilestones.js";
 import { countDueForPair } from "@/modules/path/mistakeReviewStore.js";
 
 const router = useRouter();
@@ -498,6 +542,7 @@ const vocabMilestone = ref(null);
 const mistakeMilestone = ref(null);
 const accuracyMilestone = ref(null);
 const comboMilestone = ref(null);
+const streakMilestone = ref(null);
 const perfectStreak = ref(null);
 const focusArea = ref(null);
 const dueMistakeCount = ref(0);
@@ -577,6 +622,10 @@ const showComboMilestone = computed(() =>
   shouldShowComboMilestoneCard(comboMilestone.value),
 );
 
+const showStreakMilestone = computed(() =>
+  shouldShowStreakMilestoneCard(streakMilestone.value),
+);
+
 const milestoneRingOffset = computed(() =>
   lessonMilestoneRingOffset(lessonMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
 );
@@ -595,6 +644,10 @@ const accuracyMilestoneRingOffsetValue = computed(() =>
 
 const comboMilestoneRingOffsetValue = computed(() =>
   comboMilestoneRingOffset(comboMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
+);
+
+const streakMilestoneRingOffsetValue = computed(() =>
+  streakMilestoneRingOffset(streakMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
 );
 
 const modules = [
@@ -690,6 +743,15 @@ function loadComboMilestone(nativeLang, targetLang) {
   comboMilestone.value = buildComboMilestoneCard(pairStatsKey(nativeLang, targetLang));
 }
 
+async function loadStreakMilestone(userId) {
+  try {
+    const streak = await getLearningStreak(userId);
+    streakMilestone.value = buildStreakMilestoneCard(streak);
+  } catch {
+    streakMilestone.value = null;
+  }
+}
+
 async function loadHubData() {
   try {
     const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
@@ -708,6 +770,7 @@ async function loadHubData() {
       loadVocabMilestone(user.id, targetLang),
       loadLessonMilestone(nativeLang, targetLang),
       loadPerfectStreak(),
+      loadStreakMilestone(user.id),
     ]);
   } catch {
     dailyGoal.value = null;
@@ -722,6 +785,7 @@ async function loadHubData() {
     mistakeMilestone.value = null;
     accuracyMilestone.value = null;
     comboMilestone.value = null;
+    streakMilestone.value = null;
   }
 }
 
@@ -1339,6 +1403,64 @@ onMounted(loadHubData);
   margin: 4px 0 0;
   font-size: 11px;
   color: #c46a28;
+  line-height: 1.35;
+}
+
+.streak-milestone-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fff0e6 0%, #ffd9c2 100%);
+  border: 1px solid #e87830;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.streak-milestone-card:hover {
+  box-shadow: 0 2px 10px rgba(230, 90, 30, 0.28);
+  transform: translateY(-1px);
+}
+
+.streak-milestone-ring-track {
+  fill: none;
+  stroke: #f5b896;
+  stroke-width: 4;
+}
+
+.streak-milestone-ring-fill {
+  fill: none;
+  stroke: #e65100;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 113.1;
+  transition: stroke-dashoffset 0.4s ease;
+}
+
+.streak-milestone-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #bf360c;
+  line-height: 1.3;
+}
+
+.streak-milestone-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #d84315;
+  line-height: 1.35;
+}
+
+.streak-milestone-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #e64a19;
   line-height: 1.35;
 }
 

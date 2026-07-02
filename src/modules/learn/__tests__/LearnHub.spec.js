@@ -98,6 +98,9 @@ function defaultInvoke(cmd) {
       progress_pct: 70,
     });
   }
+  if (cmd === "get_learning_streak_cmd") {
+    return Promise.resolve({ current: 5, longest: 5, practiced_today: true });
+  }
   if (cmd === "get_perfect_lesson_streak_cmd") {
     return Promise.resolve({ current: 0, best: 0 });
   }
@@ -624,6 +627,67 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     expect(wrapper.find(".combo-milestone-card").exists()).toBe(false);
+  });
+
+  it("shows streak milestone card when an active streak has milestones remaining", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".streak-milestone-card");
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain("连胜里程碑");
+    expect(card.text()).toContain("下一目标：7 天");
+    expect(card.text()).toContain("5/7");
+    expect(card.text()).toContain("当前连胜 5 天");
+  });
+
+  it("hides streak milestone card when streak is inactive", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_learning_streak_cmd") {
+        return Promise.resolve({ current: 0, longest: 10, practiced_today: false });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".streak-milestone-card").exists()).toBe(false);
+  });
+
+  it("hides streak milestone card when all milestones are complete", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_learning_streak_cmd") {
+        return Promise.resolve({ current: 30, longest: 365, practiced_today: true });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".streak-milestone-card").exists()).toBe(false);
+  });
+
+  it("navigates to path when streak milestone card is clicked", async () => {
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".streak-milestone-card").trigger("click");
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
   });
 
   it("hides accuracy milestone card when practice attempts are insufficient", async () => {
