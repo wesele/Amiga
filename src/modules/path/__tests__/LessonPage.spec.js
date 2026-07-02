@@ -8,6 +8,7 @@ import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
 import { recordLessonMistake } from "../mistakeReviewStore.js";
 import { STATS_STORAGE_KEY } from "@/modules/learn/questionTypeStats.js";
+import QuestionRenderer from "../components/QuestionRenderer.vue";
 
 const ROOT = resolve(__dirname, "../../../..");
 const SECTION_ID = "zh-es/U01-PRACTICE";
@@ -157,7 +158,12 @@ describe("LessonPage choice auto-submit flow", () => {
     vi.useRealTimers();
   });
 
-  it("does not auto-submit text-input answers", async () => {
+  it("wires Enter-to-submit for text-input questions", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/@submit="onPrimaryAction"/);
+  });
+
+  it("does not auto-submit text-input answers on value change", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_current_user") {
         return Promise.resolve({ id: "u1", native_language: "zh" });
@@ -191,6 +197,48 @@ describe("LessonPage choice auto-submit flow", () => {
     await flushPromises();
 
     expect(wrapper.vm.showResult).toBe(false);
+  });
+
+  it("checks a text answer when the learner presses Enter", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") {
+        return Promise.resolve({
+          section_title_native: "拼写",
+          questions: [
+            { id: "spell-1", type: "T09", hint: "hola", answer: "hola" },
+          ],
+        });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = "hola";
+    await flushPromises();
+    expect(wrapper.vm.showResult).toBe(false);
+
+    const renderer = wrapper.findComponent(QuestionRenderer);
+    renderer.vm.$emit("submit");
+    await flushPromises();
+
+    expect(wrapper.vm.showResult).toBe(true);
+    expect(wrapper.vm.lastCorrect).toBe(true);
   });
 });
 

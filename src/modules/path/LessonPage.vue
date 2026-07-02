@@ -199,6 +199,7 @@
           v-model:answer="currentAnswer"
           :show-result="showResult"
           :is-correct="lastCorrect"
+          @submit="onPrimaryAction"
         />
       </div>
 

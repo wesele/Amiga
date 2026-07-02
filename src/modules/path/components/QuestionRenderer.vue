@@ -100,20 +100,30 @@
 
     <div v-else-if="question.type === 'T09' || question.type === 'T10'" class="text-input-wrap">
       <input
+        ref="textInputEl"
         v-model="textAnswer"
         class="text-input"
         :placeholder="question.hint || t('path.typeAnswer')"
         :disabled="showResult"
+        enterkeyhint="go"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
         @input="emitAnswer"
+        @keydown.enter.prevent="onEnterKey"
       />
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "@/shared/i18n";
 import QuestionImage from "./QuestionImage.vue";
+import {
+  isTextInputQuestionType,
+  shouldSubmitOnEnter,
+} from "../textInputSubmit.js";
 
 const props = defineProps({
   question: { type: Object, required: true },
@@ -122,9 +132,10 @@ const props = defineProps({
   isCorrect: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["update:answer"]);
+const emit = defineEmits(["update:answer", "submit"]);
 const { t } = useI18n();
 const audioBusy = ref(false);
+const textInputEl = ref(null);
 const selectedLeft = ref(null);
 const selectedRight = ref(null);
 const matchedPairs = ref([]);
@@ -267,6 +278,22 @@ function emitAnswer() {
   emit("update:answer", textAnswer.value);
 }
 
+function onEnterKey() {
+  if (
+    shouldSubmitOnEnter(props.question, {
+      showResult: props.showResult,
+      answer: props.answer,
+    })
+  ) {
+    emit("submit");
+  }
+}
+
+function focusTextInput() {
+  if (!isTextInputQuestionType(props.question?.type)) return;
+  nextTick(() => textInputEl.value?.focus());
+}
+
 async function playAudio() {
   const text = props.question.audioText;
   if (!text || !("speechSynthesis" in window)) return;
@@ -296,6 +323,7 @@ watch(
     shuffleRights();
     textAnswer.value = "";
     emit("update:answer", isChoiceType.value ? null : props.question.type === "T03" ? [] : "");
+    focusTextInput();
   },
   { immediate: true },
 );

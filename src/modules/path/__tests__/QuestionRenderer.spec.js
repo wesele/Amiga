@@ -23,4 +23,17 @@ describe("QuestionRenderer", () => {
     expect(source).not.toContain('class="image-desc"');
     expect(source).toContain("imageAlt");
   });
+
+  it("submits text answers on Enter and focuses the input for T09/T10", () => {
+    const source = readFileSync(
+      resolve(ROOT, "modules/path/components/QuestionRenderer.vue"),
+      "utf8",
+    );
+    expect(source).toMatch(/textInputSubmit\.js/);
+    expect(source).toMatch(/shouldSubmitOnEnter/);
+    expect(source).toMatch(/@keydown\.enter\.prevent="onEnterKey"/);
+    expect(source).toMatch(/emit\("submit"\)/);
+    expect(source).toMatch(/enterkeyhint="go"/);
+    expect(source).toMatch(/focusTextInput/);
+  });
 });
