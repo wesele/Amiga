@@ -81,6 +81,17 @@ describe("LessonPage answer feedback", () => {
   });
 });
 
+describe("LessonPage lesson share", () => {
+  it("includes share-win button markup on the summary screen", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/lessonShare\.js/);
+    expect(source).toMatch(/shouldShowLessonShare/);
+    expect(source).toMatch(/shareLessonResult/);
+    expect(source).toMatch(/class="share-lesson-btn"/);
+    expect(source).toMatch(/path\.shareLesson/);
+  });
+});
+
 describe("LessonPage question type stats", () => {
   it("records answer results by question type during the main lesson phase", () => {
     const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");

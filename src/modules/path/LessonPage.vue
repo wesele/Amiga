@@ -109,6 +109,16 @@
             </li>
           </ul>
         </section>
+        <button
+          v-if="showLessonShare"
+          type="button"
+          class="share-lesson-btn"
+          :disabled="sharingLesson"
+          @click="onShareLesson"
+        >
+          📤 {{ t("path.shareLesson") }}
+        </button>
+        <p v-if="shareStatus" class="share-status" role="status">{{ shareStatus }}</p>
         <div class="summary-actions">
           <button class="action-btn secondary" @click="retryLesson">{{ t("path.retry") }}</button>
           <button class="action-btn primary" @click="finishLesson">
@@ -185,6 +195,7 @@ import { useI18n } from "@/shared/i18n";
 import {
   completeSection,
   getSectionLesson,
+  shareText as nativeShareText,
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
@@ -220,6 +231,7 @@ import { pairStatsKey, recordAnswer } from "@/modules/learn/questionTypeStats.js
 import { recordAccuracyPeak } from "@/modules/profile/accuracyPeakStats.js";
 import { recordComboAttempt } from "./lessonComboStats.js";
 import { recordLessonMistake } from "./mistakeReviewStore.js";
+import { shareLessonResult, shouldShowLessonShare } from "./lessonShare.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -248,6 +260,9 @@ let hintIdleTimer = null;
 const comboCount = ref(0);
 const comboToast = ref("");
 const comboPersonalBestToast = ref("");
+const sharingLesson = ref(false);
+const shareStatus = ref("");
+let shareStatusTimer = null;
 
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
@@ -351,6 +366,8 @@ const perfectLesson = computed(() =>
   }),
 );
 
+const showLessonShare = computed(() => shouldShowLessonShare(result.value));
+
 const summaryEmoji = computed(() => {
   if (!result.value?.passed) return "💪";
   return perfectLesson.value ? "✨" : "🎉";
@@ -433,6 +450,7 @@ watch(
 
 onUnmounted(() => {
   clearHintIdleTimer();
+  if (shareStatusTimer) clearTimeout(shareStatusTimer);
 });
 
 async function load() {
@@ -516,6 +534,34 @@ function exitLesson() {
 
 async function finishLesson() {
   router.replace({ name: "path" });
+}
+
+function showShareStatus(message) {
+  shareStatus.value = message;
+  if (shareStatusTimer) clearTimeout(shareStatusTimer);
+  shareStatusTimer = setTimeout(() => {
+    shareStatus.value = "";
+  }, 2500);
+}
+
+async function onShareLesson() {
+  if (sharingLesson.value || !result.value?.passed) return;
+  sharingLesson.value = true;
+  try {
+    await shareLessonResult({
+      sectionTitle: lesson.value?.section_title_native,
+      correct: correctCount.value,
+      total: questions.value.length,
+      stars: result.value.stars ?? 0,
+      result: result.value,
+      perfectLesson: perfectLesson.value,
+      t,
+      nativeShareText,
+      showShareStatus,
+    });
+  } finally {
+    sharingLesson.value = false;
+  }
 }
 
 function onPrimaryAction() {
@@ -1094,6 +1140,42 @@ onMounted(load);
   font-size: 13px;
   color: var(--green-hover);
   line-height: 1.4;
+}
+
+.share-lesson-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.share-lesson-btn:hover:not(:disabled) {
+  background: var(--green-bg);
+  border-color: var(--green);
+  color: var(--green-hover);
+}
+
+.share-lesson-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.share-status {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-lighter);
+  text-align: center;
 }
 
 .summary-actions {
