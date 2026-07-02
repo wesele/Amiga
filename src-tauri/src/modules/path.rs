@@ -5,8 +5,8 @@ use log;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
 pub const PRIMARY_PAIR_KEY: &str = "zh-es";

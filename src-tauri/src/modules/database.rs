@@ -146,7 +146,8 @@ mod tests {
         let count: i32 = conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(count, 16, "Should have 16 migrations applied");
+        let expected = super::migrations::all_migrations().len() as i32;
+        assert_eq!(count, expected, "Should have all migrations applied");
     }
 
     #[test]

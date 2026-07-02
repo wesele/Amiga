@@ -246,6 +246,7 @@ mod tests {
         assert_eq!(get_read_article_count(&pool, "user-r").unwrap(), 1);
 
         // re-read a1 (same article) — distinct count should stay 1
+        std::thread::sleep(std::time::Duration::from_millis(5));
         save_reading_log(
             &pool,
             &ReadingLog {
