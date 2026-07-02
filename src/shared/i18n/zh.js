@@ -336,6 +336,9 @@ export default {
     reviewMasteredCount: "标记掌握 {n} 个",
     reviewAllCaughtUp: "暂时没有需要复习的单词。",
     reviewBack: "返回学习",
+    reviewContinue: "继续复习（还有 {n} 个）",
+    reviewContinueMore: "继续复习（还有 {n}+ 个）",
+    reviewContinueHint: "趁热打铁，巩固更多单词",
     vocabMilestoneReached: "📚 已掌握 {n} 个单词！词汇里程碑达成",
   },
 

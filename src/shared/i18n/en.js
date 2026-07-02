@@ -333,6 +333,9 @@ export default {
     reviewMasteredCount: "{n} marked as mastered",
     reviewAllCaughtUp: "You're all caught up — no words need review right now.",
     reviewBack: "Back to Learn",
+    reviewContinue: "Keep reviewing ({n} more)",
+    reviewContinueMore: "Keep reviewing ({n}+ more)",
+    reviewContinueHint: "Strike while the iron is hot — lock in more words",
     vocabMilestoneReached: "📚 {n} words mastered! Vocabulary milestone unlocked",
   },
 

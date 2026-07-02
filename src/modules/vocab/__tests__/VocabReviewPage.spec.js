@@ -121,6 +121,78 @@ describe("VocabReviewPage", () => {
       itemsReviewed: 2,
     });
     expect(wrapper.find(".streak-banner").text()).toContain("3 天连胜");
+    expect(wrapper.text()).toContain("继续复习（还有 2 个）");
+    expect(
+      mockInvoke.mock.calls.filter(([cmd]) => cmd === "get_unknown_words_cmd").length,
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  it("hides continue button when no more words are due", async () => {
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "get_unknown_words_cmd") {
+        if (args?.limit === 50) return Promise.resolve([]);
+        return Promise.resolve(MOCK_WORDS);
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("复习完成");
+    expect(wrapper.text()).not.toContain("继续复习");
+  });
+
+  it("starts a new session when learner taps continue reviewing", async () => {
+    let peekCount = 0;
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "get_unknown_words_cmd") {
+        const limit = args?.limit ?? 5;
+        if (limit === 50) {
+          peekCount += 1;
+          return Promise.resolve(peekCount === 1 ? MOCK_WORDS : []);
+        }
+        return Promise.resolve(MOCK_WORDS);
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    const continueBtn = wrapper
+      .findAll(".summary-actions .action-btn.primary")
+      .find((btn) => btn.text().includes("继续复习"));
+    expect(continueBtn).toBeTruthy();
+    await continueBtn.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("hola");
+    expect(wrapper.text()).toContain("1/2");
   });
 
   it("celebrates vocabulary milestone when session crosses a threshold", async () => {

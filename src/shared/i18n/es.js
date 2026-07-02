@@ -333,6 +333,9 @@ export default {
     reviewMasteredCount: "{n} marcadas como dominadas",
     reviewAllCaughtUp: "No hay palabras pendientes de repaso.",
     reviewBack: "Volver a Aprender",
+    reviewContinue: "Seguir repasando ({n} más)",
+    reviewContinueMore: "Seguir repasando ({n}+ más)",
+    reviewContinueHint: "Aprovecha el impulso y consolida más palabras",
     vocabMilestoneReached: "📚 ¡{n} palabras dominadas! Hito de vocabulario desbloqueado",
   },
 

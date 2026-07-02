@@ -40,9 +40,26 @@
       </p>
       <p v-if="streakCelebration" class="streak-banner">{{ streakCelebration }}</p>
       <p v-if="vocabMilestoneBanner" class="vocab-milestone-banner">{{ vocabMilestoneBanner }}</p>
-      <button type="button" class="action-btn primary" @click="exitReview">
-        {{ t("vocab.reviewBack") }}
-      </button>
+      <p v-if="showContinueReview" class="continue-hint">{{ t("vocab.reviewContinueHint") }}</p>
+      <div class="summary-actions">
+        <button
+          v-if="showContinueReview"
+          type="button"
+          class="action-btn primary"
+          :disabled="continuing"
+          @click="continueReview"
+        >
+          {{ continueReviewLabel }}
+        </button>
+        <button
+          type="button"
+          class="action-btn"
+          :class="showContinueReview ? 'secondary' : 'primary'"
+          @click="exitReview"
+        >
+          {{ t("vocab.reviewBack") }}
+        </button>
+      </div>
     </div>
 
     <template v-else>
@@ -114,6 +131,12 @@ import {
   sessionProgressPct,
   vocabDefinition,
 } from "./vocabReviewSession.js";
+import {
+  REMAINING_PEEK_LIMIT,
+  remainingVocabReviewCount,
+  shouldOfferVocabContinuation,
+  vocabContinueLabelKey,
+} from "./vocabReviewContinuation.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -129,6 +152,9 @@ const acting = ref(false);
 const masteredCount = ref(0);
 const knownBefore = ref(0);
 const streakUpdate = ref(null);
+const remainingDue = ref(0);
+const checkingRemaining = ref(false);
+const continuing = ref(false);
 const userId = ref("");
 const nativeLang = ref("zh");
 const cefr = ref("A1");
@@ -155,6 +181,19 @@ const vocabMilestoneBanner = computed(() => {
   );
   if (!milestone) return "";
   return t(VOCAB_MILESTONE_CELEBRATION_KEY, { n: milestone });
+});
+
+const showContinueReview = computed(
+  () => !checkingRemaining.value && shouldOfferVocabContinuation(remainingDue.value),
+);
+
+const continueReviewLabel = computed(() => {
+  const key = vocabContinueLabelKey(remainingDue.value);
+  const n =
+    remainingDue.value >= REMAINING_PEEK_LIMIT
+      ? REMAINING_PEEK_LIMIT
+      : remainingDue.value;
+  return t(key, { n });
 });
 
 function toggleFlip() {
@@ -185,6 +224,9 @@ async function load() {
     finished.value = false;
     masteredCount.value = 0;
     streakUpdate.value = null;
+    remainingDue.value = 0;
+    checkingRemaining.value = false;
+    continuing.value = false;
     resetCard();
   } catch {
     error.value = t("common.fail");
@@ -210,6 +252,7 @@ async function advanceAfterMark(mastery) {
   if (isSessionComplete(nextIndex, words.value.length)) {
     finished.value = true;
     streakUpdate.value = await applyReviewStreak(userId.value, words.value.length);
+    await refreshRemainingDue();
     return;
   }
   index.value = nextIndex;
@@ -222,6 +265,36 @@ function markGotIt() {
 
 function markStillLearning() {
   advanceAfterMark(1);
+}
+
+async function refreshRemainingDue() {
+  if (!userId.value) {
+    remainingDue.value = 0;
+    return;
+  }
+  checkingRemaining.value = true;
+  try {
+    const peeked = await getUnknownWords(
+      userId.value,
+      cefr.value,
+      REMAINING_PEEK_LIMIT,
+      targetLang.value,
+    );
+    remainingDue.value = remainingVocabReviewCount(peeked);
+  } catch {
+    remainingDue.value = 0;
+  } finally {
+    checkingRemaining.value = false;
+  }
+}
+
+async function continueReview() {
+  continuing.value = true;
+  try {
+    await load();
+  } finally {
+    continuing.value = false;
+  }
 }
 
 function exitReview() {
@@ -332,6 +405,22 @@ onMounted(load);
   color: #1f6b47;
   border-radius: var(--radius-md);
   font-weight: 700;
+}
+
+.continue-hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.summary-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 280px;
+  margin-top: 4px;
 }
 
 .spinner {
