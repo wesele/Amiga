@@ -8,6 +8,7 @@ import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
 import { STATS_STORAGE_KEY } from "../questionTypeStats.js";
 import { ACCURACY_PEAK_KEY } from "@/modules/profile/accuracyPeakStats.js";
+import { COMBO_STATS_KEY } from "@/modules/path/lessonComboStats.js";
 import { recordLessonMistake } from "@/modules/path/mistakeReviewStore.js";
 import { recordMistakesMastered } from "@/modules/path/mistakeMasteryStats.js";
 
@@ -578,6 +579,51 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     expect(wrapper.find(".accuracy-milestone-card").exists()).toBe(false);
+  });
+
+  it("shows combo milestone progress card when a personal-best combo exists", async () => {
+    localStorage.setItem(
+      COMBO_STATS_KEY,
+      JSON.stringify({ "zh-es": { best: 4, updated_at: 1 } }),
+    );
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".combo-milestone-card");
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain("连击里程碑");
+    expect(card.text()).toContain("下一目标：5 连击");
+    expect(card.text()).toContain("4/5");
+    expect(card.text()).toContain("最高 4 连击");
+  });
+
+  it("hides combo milestone card when all milestones are complete", async () => {
+    localStorage.setItem(
+      COMBO_STATS_KEY,
+      JSON.stringify({ "zh-es": { best: 10, updated_at: 1 } }),
+    );
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".combo-milestone-card").exists()).toBe(false);
+  });
+
+  it("hides combo milestone card when no combo record exists", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".combo-milestone-card").exists()).toBe(false);
   });
 
   it("hides accuracy milestone card when practice attempts are insufficient", async () => {

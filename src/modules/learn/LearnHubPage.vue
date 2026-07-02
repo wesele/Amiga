@@ -172,6 +172,44 @@
     </button>
 
     <button
+      v-if="showComboMilestone"
+      type="button"
+      class="combo-milestone-card"
+      @click="goToPath"
+    >
+      <div class="milestone-ring" aria-hidden="true">
+        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
+          <circle class="combo-milestone-ring-track" cx="22" cy="22" r="18" />
+          <circle
+            class="combo-milestone-ring-fill"
+            cx="22"
+            cy="22"
+            r="18"
+            :style="{ strokeDashoffset: comboMilestoneRingOffsetValue }"
+          />
+        </svg>
+        <span class="milestone-ring-label">🔥</span>
+      </div>
+      <div class="milestone-copy">
+        <p class="combo-milestone-title">{{ t("learn.comboMilestone") }}</p>
+        <p class="combo-milestone-sub">
+          {{ t("learn.comboMilestoneNext", { n: comboMilestone.next_milestone }) }}
+          ·
+          {{
+            t("learn.comboMilestoneProgress", {
+              done: comboMilestone.best,
+              total: comboMilestone.next_milestone,
+            })
+          }}
+        </p>
+        <p class="combo-milestone-hint">
+          {{ t("learn.comboMilestoneHint", { done: comboMilestone.best }) }}
+        </p>
+      </div>
+      <span class="milestone-chevron" aria-hidden="true">›</span>
+    </button>
+
+    <button
       v-if="showFocusArea"
       type="button"
       class="focus-area-card"
@@ -440,6 +478,11 @@ import {
   buildAccuracyMilestoneCard,
   shouldShowAccuracyMilestoneCard,
 } from "./accuracyMilestoneCard.js";
+import {
+  buildComboMilestoneCard,
+  shouldShowComboMilestoneCard,
+} from "./comboMilestoneCard.js";
+import { comboMilestoneRingOffset } from "./comboMilestones.js";
 import { countDueForPair } from "@/modules/path/mistakeReviewStore.js";
 
 const router = useRouter();
@@ -454,6 +497,7 @@ const lessonMilestone = ref(null);
 const vocabMilestone = ref(null);
 const mistakeMilestone = ref(null);
 const accuracyMilestone = ref(null);
+const comboMilestone = ref(null);
 const perfectStreak = ref(null);
 const focusArea = ref(null);
 const dueMistakeCount = ref(0);
@@ -529,6 +573,10 @@ const showAccuracyMilestone = computed(() =>
   shouldShowAccuracyMilestoneCard(accuracyMilestone.value),
 );
 
+const showComboMilestone = computed(() =>
+  shouldShowComboMilestoneCard(comboMilestone.value),
+);
+
 const milestoneRingOffset = computed(() =>
   lessonMilestoneRingOffset(lessonMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
 );
@@ -543,6 +591,10 @@ const mistakeMilestoneRingOffsetValue = computed(() =>
 
 const accuracyMilestoneRingOffsetValue = computed(() =>
   accuracyMilestoneRingOffset(accuracyMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
+);
+
+const comboMilestoneRingOffsetValue = computed(() =>
+  comboMilestoneRingOffset(comboMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
 );
 
 const modules = [
@@ -634,6 +686,10 @@ function loadAccuracyMilestone(nativeLang, targetLang) {
   accuracyMilestone.value = buildAccuracyMilestoneCard(pairStatsKey(nativeLang, targetLang));
 }
 
+function loadComboMilestone(nativeLang, targetLang) {
+  comboMilestone.value = buildComboMilestoneCard(pairStatsKey(nativeLang, targetLang));
+}
+
 async function loadHubData() {
   try {
     const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
@@ -643,6 +699,7 @@ async function loadHubData() {
     loadMistakeReview(nativeLang, targetLang);
     loadMistakeMilestone(nativeLang, targetLang);
     loadAccuracyMilestone(nativeLang, targetLang);
+    loadComboMilestone(nativeLang, targetLang);
     await Promise.all([
       loadDailyGoal(user.id, targetLang),
       loadWeeklyActivity(user.id),
@@ -664,6 +721,7 @@ async function loadHubData() {
     dueMistakeCount.value = 0;
     mistakeMilestone.value = null;
     accuracyMilestone.value = null;
+    comboMilestone.value = null;
   }
 }
 
@@ -1223,6 +1281,64 @@ onMounted(loadHubData);
   margin: 4px 0 0;
   font-size: 11px;
   color: #3d72ad;
+  line-height: 1.35;
+}
+
+.combo-milestone-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fff4e8 0%, #ffe4c7 100%);
+  border: 1px solid #e89a4a;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.combo-milestone-card:hover {
+  box-shadow: 0 2px 10px rgba(232, 120, 50, 0.28);
+  transform: translateY(-1px);
+}
+
+.combo-milestone-ring-track {
+  fill: none;
+  stroke: #f5c9a0;
+  stroke-width: 4;
+}
+
+.combo-milestone-ring-fill {
+  fill: none;
+  stroke: #d96b1a;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 113.1;
+  transition: stroke-dashoffset 0.4s ease;
+}
+
+.combo-milestone-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #9a4510;
+  line-height: 1.3;
+}
+
+.combo-milestone-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #b85a18;
+  line-height: 1.35;
+}
+
+.combo-milestone-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #c46a28;
   line-height: 1.35;
 }
 
