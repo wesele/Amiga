@@ -25,7 +25,13 @@
         <div v-if="result?.passed" class="summary-stars">
           {{ "⭐".repeat(result.stars) }}
         </div>
-        <p v-if="result?.passed && result?.streak_extended" class="streak-banner">
+        <p v-if="streakMilestone" class="streak-milestone-banner">
+          {{ t(streakMilestoneKey(streakMilestone), { n: streakMilestone }) }}
+        </p>
+        <p
+          v-else-if="result?.passed && result?.streak_extended"
+          class="streak-banner"
+        >
           {{ t("path.streakExtended", { n: result.streak_current }) }}
         </p>
         <p v-if="result?.passed && result?.daily_goal_just_met" class="daily-goal-banner">
@@ -137,6 +143,7 @@ import {
   reinforcementLabel as formatReinforcementLabel,
   shouldStartReinforcement,
 } from "./lessonReinforcement.js";
+import { getStreakMilestone, streakMilestoneKey } from "./streakMilestone.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -230,6 +237,14 @@ const primaryLabel = computed(() => {
 });
 
 const hintAvailable = computed(() => hasQuestionHint(currentQuestion.value));
+
+const streakMilestone = computed(() => {
+  if (!result.value?.passed) return null;
+  return getStreakMilestone(
+    result.value.streak_current,
+    result.value.streak_extended,
+  );
+});
 
 function revealHint() {
   if (hintShown.value || !currentQuestion.value) return;
@@ -579,6 +594,34 @@ onMounted(load);
   color: var(--orange-hover);
   border-radius: var(--radius-md);
   font-weight: 700;
+}
+
+.streak-milestone-banner {
+  margin: 8px 0 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fff8e6 0%, #ffe4a8 100%);
+  color: #8a5a00;
+  border: 1.5px solid #e6a817;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.4;
+  text-align: center;
+  animation: milestone-pop 0.6s ease;
+}
+
+@keyframes milestone-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  60% {
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .daily-goal-banner {
