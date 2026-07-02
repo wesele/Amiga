@@ -138,6 +138,8 @@ export default {
     dailyGoalContinue: "Seguir ({remaining} para la meta diaria)",
     weeklyGoalMetCelebration: "📅 ¡Meta semanal cumplida! {done}/{total} días activos",
     weeklyGoalRemainingNudge: "📅 {done}/{total} días activos esta semana — faltan {remaining} para tu meta semanal",
+    mistakeReviewRemainingNudge: "🔁 {n} error(es) pendientes — refuérzalos antes de nuevas lecciones",
+    mistakeReviewContinue: "Repasar errores",
     lessonMilestoneReached: "🏆 ¡{n} lecciones completadas! Sigue avanzando",
     perfectLesson: "✨ ¡Lección perfecta! Todo correcto, sin errores",
     perfectLessonStreak3: "✨ ¡3 lecciones perfectas seguidas! Estás en racha",

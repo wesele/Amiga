@@ -6,6 +6,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
+import { recordLessonMistake } from "../mistakeReviewStore.js";
 
 const ROOT = resolve(__dirname, "../../../..");
 const SECTION_ID = "zh-es/U01-PRACTICE";
@@ -677,6 +678,131 @@ describe("LessonPage weekly goal nudge", () => {
     expect(weeklyNudge.exists()).toBe(true);
     expect(weeklyNudge.text()).toContain("还差 2 天");
     expect(weeklyNudge.text()).toContain("3/5");
+  });
+});
+
+describe("LessonPage mistake review nudge", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    localStorage.clear();
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    recordLessonMistake(
+      "zh-es",
+      { id: "due-q1", type: "T09", answer: "hola" },
+      "ola",
+      Date.now(),
+    );
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload());
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({
+          passed: true,
+          stars: 3,
+          daily_goal_just_met: true,
+          daily_goal_lessons_today: 2,
+          daily_goal_target: 2,
+        });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("wires mistake review nudge helpers in the summary screen", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/mistakeReviewNudge\.js/);
+    expect(source).toMatch(/shouldShowMistakeReviewNudge/);
+    expect(source).toMatch(/class="mistake-review-nudge-banner"/);
+    expect(source).toMatch(/path\.mistakeReviewRemainingNudge/);
+    expect(source).toMatch(/path\.mistakeReviewContinue/);
+    expect(source).toMatch(/path-mistake-review/);
+  });
+
+  it("shows due-mistake nudge and updates the primary action when daily goal is met", async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn/path", name: "path", component: { template: "<div/>" } },
+        {
+          path: "/learn/path/review/mistakes",
+          name: "path-mistake-review",
+          component: { template: "<div/>" },
+        },
+        {
+          path: "/learn/path/lesson/:sectionId",
+          name: "path-lesson",
+          component: LessonPage,
+        },
+      ],
+    });
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    expect(wrapper.vm.dueMistakesAtStart).toBe(1);
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const nudge = wrapper.find(".mistake-review-nudge-banner");
+    expect(nudge.exists()).toBe(true);
+    expect(nudge.text()).toContain("1 道错题");
+    expect(wrapper.find(".daily-goal-banner.is-nudge").exists()).toBe(false);
+
+    const primary = wrapper.find(".summary-actions .action-btn.primary");
+    expect(primary.text()).toContain("去复习错题");
+  });
+
+  it("routes to mistake review when the nudge primary action is taken", async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn/path", name: "path", component: { template: "<div/>" } },
+        {
+          path: "/learn/path/review/mistakes",
+          name: "path-mistake-review",
+          component: { template: "<div/>" },
+        },
+        {
+          path: "/learn/path/lesson/:sectionId",
+          name: "path-lesson",
+          component: LessonPage,
+        },
+      ],
+    });
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    await wrapper.find(".summary-actions .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(router.currentRoute.value.name).toBe("path-mistake-review");
   });
 });
 
