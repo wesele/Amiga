@@ -109,6 +109,14 @@
             })
           }}
         </p>
+        <p v-if="showFocusAreaNudge" class="focus-area-nudge-banner">
+          {{
+            t("path.focusAreaRemainingNudge", {
+              type: t(focusAreaTypeKey(focusAreaAtStart.typeId)),
+              pct: focusAreaAtStart.accuracyPct,
+            })
+          }}
+        </p>
         <p v-if="result?.passed && result?.lesson_milestone_reached" class="lesson-milestone-banner">
           {{ t("path.lessonMilestoneReached", { n: result.lesson_milestone_reached }) }}
         </p>
@@ -162,9 +170,11 @@
                     ? t("path.mistakeReviewContinue")
                     : showVocabReviewNudge
                       ? t("path.vocabReviewContinue")
-                      : canContinueToNextLesson
-                        ? t("path.continueNextLesson")
-                        : t("path.continuePath")
+                      : showFocusAreaNudge
+                        ? t("path.focusAreaContinue")
+                        : canContinueToNextLesson
+                          ? t("path.continueNextLesson")
+                          : t("path.continuePath")
                 : t("path.backToPath")
             }}
           </button>
@@ -271,7 +281,13 @@ import { isPerfectLesson } from "./lessonPerfect.js";
 import { perfectLessonMilestoneKey } from "./perfectLessonStreak.js";
 import { getCommonMistakeFeedback } from "./commonMistakeFeedback.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
-import { pairStatsKey, recordAnswer } from "@/modules/learn/questionTypeStats.js";
+import {
+  buildFocusArea,
+  focusAreaTypeKey,
+  loadQuestionTypeStats,
+  pairStatsKey,
+  recordAnswer,
+} from "@/modules/learn/questionTypeStats.js";
 import { recordAccuracyPeak } from "@/modules/profile/accuracyPeakStats.js";
 import { recordComboAttempt } from "./lessonComboStats.js";
 import { countDueForPair, recordLessonMistake } from "./mistakeReviewStore.js";
@@ -294,6 +310,7 @@ import {
   shouldShowVocabReviewNudge,
   vocabReviewNudgeCount,
 } from "./vocabReviewNudge.js";
+import { shouldShowFocusAreaNudge } from "./focusAreaNudge.js";
 import {
   continueRouteAfterLesson,
   shouldContinueToNextLesson,
@@ -331,6 +348,7 @@ const shareStatus = ref("");
 let shareStatusTimer = null;
 const dueMistakesAtStart = ref(0);
 const dueVocabAtStart = ref(0);
+const focusAreaAtStart = ref(null);
 
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
@@ -469,6 +487,15 @@ const showVocabReviewNudge = computed(() =>
 
 const vocabReviewNudgeTotal = computed(() => vocabReviewNudgeCount(dueVocabAtStart.value));
 
+const showFocusAreaNudge = computed(() =>
+  shouldShowFocusAreaNudge(result.value, {
+    focusArea: focusAreaAtStart.value,
+    dailyGoalNudgeActive: showDailyGoalNudge.value,
+    mistakeReviewNudgeActive: showMistakeReviewNudge.value,
+    vocabReviewNudgeActive: showVocabReviewNudge.value,
+  }),
+);
+
 const canContinueToNextLesson = computed(() =>
   shouldContinueToNextLesson(result.value),
 );
@@ -568,9 +595,9 @@ async function load() {
       targetLang,
       cefr,
     };
-    dueMistakesAtStart.value = countDueForPair(
-      pairStatsKey(user.native_language, targetLang),
-    );
+    const pairKey = pairStatsKey(user.native_language, targetLang);
+    dueMistakesAtStart.value = countDueForPair(pairKey);
+    focusAreaAtStart.value = buildFocusArea(loadQuestionTypeStats(pairKey));
     try {
       const words = await getUnknownWords(
         user.id,
@@ -658,6 +685,10 @@ async function finishLesson() {
   }
   if (showVocabReviewNudge.value) {
     router.replace({ name: "vocab-review" });
+    return;
+  }
+  if (showFocusAreaNudge.value) {
+    router.replace({ name: "path" });
     return;
   }
   const nextRoute = continueRouteAfterLesson(result.value);
@@ -1143,6 +1174,17 @@ onMounted(load);
   background: linear-gradient(135deg, #eef4ff 0%, #dce8ff 100%);
   color: #1a4f9c;
   border: 1px solid #7ba7f7;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  animation: goal-pop 0.5s ease;
+}
+
+.focus-area-nudge-banner {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #fff8ef 0%, #ffe8d4 100%);
+  color: #8a4a00;
+  border: 1px solid #e6a85c;
   border-radius: var(--radius-md);
   font-weight: 700;
   animation: goal-pop 0.5s ease;

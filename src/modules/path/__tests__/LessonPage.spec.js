@@ -7,6 +7,7 @@ import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
 import { recordLessonMistake } from "../mistakeReviewStore.js";
+import { STATS_STORAGE_KEY } from "@/modules/learn/questionTypeStats.js";
 
 const ROOT = resolve(__dirname, "../../../..");
 const SECTION_ID = "zh-es/U01-PRACTICE";
@@ -964,6 +965,155 @@ describe("LessonPage vocab review nudge", () => {
     expect(wrapper.find(".mistake-review-nudge-banner").exists()).toBe(true);
     expect(wrapper.find(".vocab-review-nudge-banner").exists()).toBe(false);
     expect(wrapper.find(".summary-actions .action-btn.primary").text()).toContain("去复习错题");
+  });
+});
+
+describe("LessonPage focus area nudge", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    localStorage.clear();
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    localStorage.setItem(
+      STATS_STORAGE_KEY,
+      JSON.stringify({ "zh-es": { T09: { correct: 1, wrong: 5 } } }),
+    );
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_unknown_words_cmd") return Promise.resolve([]);
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload());
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({
+          passed: true,
+          stars: 3,
+          daily_goal_just_met: true,
+          daily_goal_lessons_today: 2,
+          daily_goal_target: 2,
+        });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("wires focus area nudge helpers in the summary screen", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/focusAreaNudge\.js/);
+    expect(source).toMatch(/shouldShowFocusAreaNudge/);
+    expect(source).toMatch(/class="focus-area-nudge-banner"/);
+    expect(source).toMatch(/path\.focusAreaRemainingNudge/);
+    expect(source).toMatch(/path\.focusAreaContinue/);
+  });
+
+  it("shows focus area nudge and updates the primary action when daily goal is met", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    expect(wrapper.vm.focusAreaAtStart?.typeId).toBe("T09");
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const nudge = wrapper.find(".focus-area-nudge-banner");
+    expect(nudge.exists()).toBe(true);
+    expect(nudge.text()).toContain("拼写输入");
+    expect(nudge.text()).toContain("17%");
+
+    const primary = wrapper.find(".summary-actions .action-btn.primary");
+    expect(primary.text()).toContain("去强化薄弱题型");
+  });
+
+  it("routes to path when the focus area nudge primary action is taken", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    await wrapper.find(".summary-actions .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(router.currentRoute.value.name).toBe("path");
+  });
+
+  it("prefers vocab review nudge over focus area when both apply", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_unknown_words_cmd") {
+        return Promise.resolve([{ id: 1, word: "hola", definitions: { zh: "你好" } }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload());
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({
+          passed: true,
+          stars: 3,
+          daily_goal_just_met: true,
+          daily_goal_lessons_today: 2,
+          daily_goal_target: 2,
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn/path", name: "path", component: { template: "<div/>" } },
+        { path: "/vocab/review", name: "vocab-review", component: { template: "<div/>" } },
+        {
+          path: "/learn/path/lesson/:sectionId",
+          name: "path-lesson",
+          component: LessonPage,
+        },
+      ],
+    });
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    expect(wrapper.find(".vocab-review-nudge-banner").exists()).toBe(true);
+    expect(wrapper.find(".focus-area-nudge-banner").exists()).toBe(false);
+    expect(wrapper.find(".summary-actions .action-btn.primary").text()).toContain("去复习单词");
   });
 });
 

@@ -142,6 +142,8 @@ export default {
     mistakeReviewContinue: "Review mistakes",
     vocabReviewRemainingNudge: "📚 {n} word(s) to reinforce — review vocabulary before new lessons",
     vocabReviewContinue: "Review vocabulary",
+    focusAreaRemainingNudge: "🎯 {type} at {pct}% accuracy — reinforce this skill before new lessons",
+    focusAreaContinue: "Practice weak area",
     lessonMilestoneReached: "🏆 {n} lessons complete! You're on a roll",
     perfectLesson: "✨ Perfect lesson! Every answer right, zero mistakes!",
     perfectLessonStreak3: "✨ 3 perfect lessons in a row! You're on fire",
