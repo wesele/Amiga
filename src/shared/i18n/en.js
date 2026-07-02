@@ -174,6 +174,13 @@ export default {
     vocabReviewContinue: "Review vocabulary",
     focusAreaRemainingNudge: "🎯 {type} at {pct}% accuracy — reinforce this skill before new lessons",
     focusAreaContinue: "Practice weak area",
+    recoveryStep: {
+      title: "Get back on track",
+      retry: "Try again",
+      retryHint: "Strike while the iron is hot — aim to pass",
+      freshMistake: "Reinforce {n} mistake(s) from this lesson",
+      queueTitle: "Suggestions ({n})",
+    },
     nextStep: {
       title: "Next step",
       queueTitle: "Queue ({n})",

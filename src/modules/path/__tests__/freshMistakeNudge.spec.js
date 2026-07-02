@@ -5,6 +5,7 @@ import {
   shouldFreshMistakeTakePrimary,
   shouldShowFreshMistakeAction,
   shouldShowFreshMistakeNudge,
+  shouldShowFreshMistakeOnFailure,
 } from "../freshMistakeNudge.js";
 
 const PAIR = "zh-es";
@@ -80,5 +81,23 @@ describe("freshMistakeNudge", () => {
     const queue = [queueEntry("q1"), queueEntry("q2")];
     expect(freshMistakeCountFromSession(ids, queue, PAIR, NOW)).toBe(2);
     expect(shouldShowFreshMistakeNudge({ passed: true }, { freshCount: 2 })).toBe(true);
+  });
+
+  it("shows fresh mistake action on failure when mistakes were recorded to SRS", () => {
+    expect(
+      shouldShowFreshMistakeOnFailure({ mistakeCount: 4, freshCount: 3 }),
+    ).toBe(true);
+    expect(
+      shouldShowFreshMistakeOnFailure({ mistakeCount: 4, freshCount: 0 }),
+    ).toBe(false);
+    expect(
+      shouldShowFreshMistakeOnFailure({ mistakeCount: 0, freshCount: 2 }),
+    ).toBe(false);
+  });
+
+  it("keeps pass-path nudge gated on passed result", () => {
+    expect(
+      shouldShowFreshMistakeNudge({ passed: false }, { freshCount: 2 }),
+    ).toBe(false);
   });
 });

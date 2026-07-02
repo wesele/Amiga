@@ -177,6 +177,13 @@ export default {
     vocabReviewContinue: "去复习单词",
     focusAreaRemainingNudge: "🎯 {type} 正确率仅 {pct}%，先强化薄弱题型再学新课效果更好",
     focusAreaContinue: "去强化薄弱题型",
+    recoveryStep: {
+      title: "恢复学习",
+      retry: "再练一次",
+      retryHint: "趁热打铁，争取过关",
+      freshMistake: "巩固本节 {n} 道错题",
+      queueTitle: "建议（{n}）",
+    },
     nextStep: {
       title: "下一步",
       queueTitle: "待办（{n}）",

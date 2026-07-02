@@ -2135,3 +2135,77 @@ describe("LessonPage answer combo", () => {
     expect(personalBest.text()).toContain("3 连击");
   });
 });
+
+describe("LessonPage failed lesson recovery", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload(1));
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({ passed: false, stars: 0 });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("wires failed lesson recovery helpers in the summary screen", () => {
+    const page = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    const plan = readFileSync(resolve(ROOT, "src/modules/path/failedLessonPlan.js"), "utf8");
+    expect(page).toMatch(/failedLessonPlan\.js/);
+    expect(page).toMatch(/buildFailedLessonPlan/);
+    expect(page).toMatch(/path\.recoveryStep\.title/);
+    expect(plan).toMatch(/path\.recoveryStep\.retry/);
+    expect(plan).toMatch(/path\.recoveryStep\.freshMistake/);
+  });
+
+  it("shows recovery panel and swaps CTA priority when the lesson fails", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 1;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 1;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const panels = wrapper.findAll(".next-steps-panel");
+    expect(panels.length).toBe(1);
+    expect(panels[0].text()).toContain("恢复学习");
+    expect(panels[0].text()).toContain("再练一次");
+    expect(panels[0].text()).toContain("巩固本节");
+
+    const primary = wrapper.find(".summary-actions .action-btn.primary");
+    const secondary = wrapper.find(".summary-actions .action-btn.secondary");
+    expect(primary.text()).toContain("再练一次");
+    expect(secondary.text()).toContain("返回路径");
+
+    await wrapper.find(".summary-actions .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".summary").exists()).toBe(false);
+    expect(wrapper.vm.finished).toBe(false);
+  });
+});

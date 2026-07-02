@@ -174,6 +174,13 @@ export default {
     vocabReviewContinue: "Repasar vocabulario",
     focusAreaRemainingNudge: "🎯 {type} con {pct}% de aciertos — refuérzalo antes de nuevas lecciones",
     focusAreaContinue: "Practicar área débil",
+    recoveryStep: {
+      title: "Recupera el ritmo",
+      retry: "Reintentar",
+      retryHint: "Aprovecha el impulso y consigue aprobar",
+      freshMistake: "Reforzar {n} error(es) de esta lección",
+      queueTitle: "Sugerencias ({n})",
+    },
     nextStep: {
       title: "Siguiente paso",
       queueTitle: "Pendientes ({n})",

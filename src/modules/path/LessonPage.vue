@@ -80,6 +80,42 @@
             })
           }}
         </p>
+        <section v-if="failedLessonPlan" class="next-steps-panel">
+          <p class="next-steps-eyebrow">{{ t("path.recoveryStep.title") }}</p>
+          <div class="next-steps-primary">
+            <span class="next-steps-icon" aria-hidden="true">{{ failedLessonPlan.primary.icon }}</span>
+            <div class="next-steps-copy">
+              <p class="next-steps-primary-title">{{ stepTitle(failedLessonPlan.primary) }}</p>
+              <p
+                v-if="failedLessonPlan.primary.subtitleKey"
+                class="next-steps-primary-sub"
+              >
+                {{ stepSubtitle(failedLessonPlan.primary) }}
+              </p>
+            </div>
+          </div>
+          <div v-if="failedLessonPlan.secondary.length" class="next-steps-queue">
+            <p class="next-steps-queue-title">
+              {{ t("path.recoveryStep.queueTitle", { n: failedLessonPlan.secondary.length }) }}
+            </p>
+            <button
+              v-for="step in failedLessonPlan.secondary"
+              :key="step.id"
+              type="button"
+              class="next-steps-queue-item"
+              :disabled="!step.route"
+              @click="goToRecoveryStep(step)"
+            >
+              <span class="next-steps-queue-icon" aria-hidden="true">{{ step.icon }}</span>
+              <div class="next-steps-queue-copy">
+                <p class="next-steps-queue-item-title">{{ stepTitle(step) }}</p>
+                <p v-if="step.subtitleKey" class="next-steps-queue-item-sub">
+                  {{ stepSubtitle(step) }}
+                </p>
+              </div>
+            </button>
+          </div>
+        </section>
         <section v-if="postLessonPlan" class="next-steps-panel">
           <p class="next-steps-eyebrow">{{ t("path.nextStep.title") }}</p>
           <div class="next-steps-primary">
@@ -153,7 +189,7 @@
             class="action-btn secondary mistake-review-action"
             @click="goToMistakeReview"
           >
-            {{ t("path.reviewMistakesAction", { n: freshMistakeTotal }) }}
+            {{ t("path.reviewMistakesAction", { n: freshMistakeActionCount }) }}
           </button>
         </section>
         <button
@@ -167,7 +203,20 @@
         </button>
         <p v-if="shareStatus" class="share-status" role="status">{{ shareStatus }}</p>
         <div class="summary-actions">
-          <button class="action-btn secondary" @click="retryLesson">{{ t("path.retry") }}</button>
+          <button
+            v-if="result?.passed"
+            class="action-btn secondary"
+            @click="retryLesson"
+          >
+            {{ t("path.retry") }}
+          </button>
+          <button
+            v-else
+            class="action-btn secondary"
+            @click="exitLesson"
+          >
+            {{ t("path.backToPath") }}
+          </button>
           <button class="action-btn primary" @click="finishLesson">
             {{ primaryActionLabel }}
           </button>
@@ -333,6 +382,10 @@ import {
   shouldShowFreshMistakeInMistakeSection,
   STEP_IDS,
 } from "./postLessonPlan.js";
+import {
+  RECOVERY_STEP_IDS,
+  buildFailedLessonPlan,
+} from "./failedLessonPlan.js";
 import {
   continueRouteAfterLesson,
   shouldContinueToNextLesson,
@@ -554,13 +607,18 @@ const showWeeklyGoalNudge = computed(() =>
 const weeklyGoalRemaining = computed(() => weeklyGoalDaysRemaining(result.value));
 
 const freshMistakeTotal = computed(() => {
-  if (!finished.value || !result.value?.passed) return 0;
+  if (!finished.value) return 0;
   const pairKey = pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang);
   return freshMistakeCountFromSession(
     sessionMistakeIds.value,
     loadMistakeQueue(),
     pairKey,
   );
+});
+
+const freshMistakeActionCount = computed(() => {
+  if (freshMistakeTotal.value > 0) return freshMistakeTotal.value;
+  return mistakes.value.length;
 });
 
 const showFreshMistakeNudge = computed(() =>
@@ -578,20 +636,36 @@ const postLessonPlan = computed(() => {
   });
 });
 
+const failedLessonPlan = computed(() => {
+  if (!finished.value || result.value?.passed) return null;
+  return buildFailedLessonPlan({
+    mistakeCount: mistakes.value.length,
+    freshMistakeCount: freshMistakeTotal.value,
+  });
+});
+
 const primaryActionLabel = computed(() => {
-  if (!result.value?.passed) return t("path.backToPath");
+  if (!result.value?.passed) {
+    const step = failedLessonPlan.value?.primary;
+    return step?.continueKey ? t(step.continueKey) : t("path.retry");
+  }
   const step = postLessonPlan.value?.primary;
   if (!step?.continueKey) return t("path.continuePath");
   return t(step.continueKey, step.continueParams ?? {});
 });
 
-const showFreshMistakeAction = computed(() =>
-  shouldShowFreshMistakeInMistakeSection(
-    result.value,
-    freshMistakeTotal.value,
-    postLessonPlan.value,
-  ) && shouldShowFreshMistakeAction(result.value, { freshCount: freshMistakeTotal.value }),
-);
+const showFreshMistakeAction = computed(() => {
+  if (!result.value?.passed) {
+    return mistakes.value.length > 0;
+  }
+  return (
+    shouldShowFreshMistakeInMistakeSection(
+      result.value,
+      freshMistakeTotal.value,
+      postLessonPlan.value,
+    ) && shouldShowFreshMistakeAction(result.value, { freshCount: freshMistakeTotal.value })
+  );
+});
 
 const showFreshMistakePrimary = computed(() =>
   shouldFreshMistakeTakePrimary(result.value, {
@@ -866,9 +940,18 @@ function goToPostLessonStep(step) {
   router.replace(step.route);
 }
 
+function goToRecoveryStep(step) {
+  if (!step) return;
+  if (step.id === RECOVERY_STEP_IDS.RETRY || !step.route) {
+    retryLesson();
+    return;
+  }
+  router.replace(step.route);
+}
+
 async function finishLesson() {
   if (!result.value?.passed) {
-    router.replace({ name: "path" });
+    retryLesson();
     return;
   }
   router.replace(primaryStepRoute(postLessonPlan.value));

@@ -35,6 +35,14 @@ export function shouldShowFreshMistakeAction(result, { freshCount = 0 } = {}) {
   return shouldShowFreshMistakeNudge(result, { freshCount });
 }
 
+/** Fresh mistake reinforcement on the failed-lesson summary screen. */
+export function shouldShowFreshMistakeOnFailure({
+  mistakeCount = 0,
+  freshCount = 0,
+} = {}) {
+  return Number(mistakeCount) > 0 && Number(freshCount) > 0;
+}
+
 /** Fresh mistakes take the primary CTA when daily goal is already met. */
 export function shouldFreshMistakeTakePrimary(result, {
   freshCount = 0,
