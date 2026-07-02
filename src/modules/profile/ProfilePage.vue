@@ -247,6 +247,7 @@ import {
   shouldShowPracticeWeakAreas,
 } from "./practiceWeakAreas.js";
 import { buildAchievements, shouldShowAchievements } from "./achievements.js";
+import { loadBestCombo } from "@/modules/path/lessonComboStats.js";
 import { loadMistakeMasteryStats } from "@/modules/path/mistakeMasteryStats.js";
 import { mistakeMilestoneProgress } from "@/modules/learn/mistakeMilestones.js";
 
@@ -260,6 +261,7 @@ const learningStreak = ref(null);
 const lessonMilestone = ref(null);
 const perfectLessonStreak = ref(null);
 const mistakeMastery = ref(null);
+const comboBest = ref(0);
 const achievements = computed(() =>
   buildAchievements({
     lessonProgress: lessonMilestone.value,
@@ -267,6 +269,7 @@ const achievements = computed(() =>
     learningStreak: learningStreak.value,
     vocabStats: vocabStats.value,
     mistakeMastery: mistakeMastery.value,
+    comboBest: comboBest.value,
   }),
 );
 const showAchievements = computed(() => shouldShowAchievements(achievements.value));
@@ -348,6 +351,7 @@ async function refreshAchievementProgress(nativeLang, targetLang) {
   lessonMilestone.value = null;
   perfectLessonStreak.value = null;
   mistakeMastery.value = null;
+  comboBest.value = 0;
   if (!nativeLang || !targetLang) return;
   try {
     lessonMilestone.value = await getLessonMilestoneProgress(nativeLang, targetLang);
@@ -359,8 +363,10 @@ async function refreshAchievementProgress(nativeLang, targetLang) {
   } catch {
     perfectLessonStreak.value = null;
   }
-  const mastered = loadMistakeMasteryStats(pairStatsKey(nativeLang, targetLang));
+  const pairKey = pairStatsKey(nativeLang, targetLang);
+  const mastered = loadMistakeMasteryStats(pairKey);
   mistakeMastery.value = mistakeMilestoneProgress(mastered);
+  comboBest.value = loadBestCombo(pairKey);
 }
 
 async function onSwitchLang(code) {

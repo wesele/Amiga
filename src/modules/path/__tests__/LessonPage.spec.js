@@ -738,8 +738,10 @@ describe("LessonPage answer combo", () => {
   it("wires combo helpers and lesson UI markup", () => {
     const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
     expect(source).toMatch(/lessonCombo\.js/);
+    expect(source).toMatch(/lessonComboStats\.js/);
     expect(source).toMatch(/class="combo-badge"/);
     expect(source).toMatch(/class="combo-toast"/);
+    expect(source).toMatch(/class="combo-personal-best"/);
     expect(source).toMatch(/path\.comboActive/);
     expect(source).toMatch(/updateCombo/);
   });
@@ -809,5 +811,41 @@ describe("LessonPage answer combo", () => {
     await flushPromises();
 
     expect(wrapper.find(".combo-badge").exists()).toBe(false);
+  });
+
+  it("celebrates a new personal-best combo streak", async () => {
+    localStorage.setItem(
+      "lesson_combo_stats_v1",
+      JSON.stringify({ "zh-es": { best: 2 } }),
+    );
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const answerCorrect = async () => {
+      wrapper.vm.currentAnswer = 0;
+      wrapper.vm.onPrimaryAction();
+      await flushPromises();
+      wrapper.vm.onPrimaryAction();
+      await flushPromises();
+    };
+
+    await answerCorrect();
+    await answerCorrect();
+    expect(wrapper.find(".combo-personal-best").exists()).toBe(false);
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const personalBest = wrapper.find(".combo-personal-best");
+    expect(personalBest.exists()).toBe(true);
+    expect(personalBest.text()).toContain("新纪录");
+    expect(personalBest.text()).toContain("3 连击");
   });
 });

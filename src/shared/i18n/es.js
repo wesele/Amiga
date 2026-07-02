@@ -143,6 +143,7 @@ export default {
     comboMilestone3: "🔥 ¡3 seguidas! Sigue así",
     comboMilestone5: "🔥 ¡5 seguidas! Estás en racha",
     comboMilestone10: "🔥 ¡10 seguidas! Imparable",
+    comboPersonalBest: "🏅 ¡Nuevo récord! Mejor racha: {n} seguidas",
     correctAnswer: "Respuesta correcta: {answer}",
     commonMistakeTip: "«{mistake}» es un error común — la forma correcta es «{correct}»",
     commonMistakeWithHint: "«{mistake}» es un error común. {hint}",
@@ -426,6 +427,7 @@ export default {
     achievementStreak: "Racha de {n} días",
     achievementVocab: "{n} palabras",
     achievementMistake: "{n} errores",
+    achievementCombo: "{n} seguidas",
   },
 
   learningLang: {

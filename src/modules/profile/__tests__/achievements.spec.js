@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildAchievements,
+  buildComboAchievements,
   buildLessonAchievements,
   buildMistakeAchievements,
   buildPerfectAchievements,
@@ -73,6 +74,20 @@ describe("achievements", () => {
     });
   });
 
+  it("builds combo achievements from best in-lesson streak", () => {
+    const items = buildComboAchievements(7);
+    expect(items).toHaveLength(3);
+    expect(items.filter((item) => item.unlocked).map((item) => item.threshold)).toEqual([
+      3, 5,
+    ]);
+    expect(items[0]).toMatchObject({
+      id: "combo-3",
+      category: "combo",
+      icon: "🔥",
+      labelKey: "profile.achievementCombo",
+    });
+  });
+
   it("aggregates all achievement tracks", () => {
     const result = buildAchievements({
       lessonProgress: { completed: 50 },
@@ -80,9 +95,10 @@ describe("achievements", () => {
       learningStreak: { current: 8, longest: 30 },
       vocabStats: { total_known: 150 },
       mistakeMastery: { mastered: 12 },
+      comboBest: 5,
     });
-    expect(result.totalCount).toBe(22);
-    expect(result.unlockedCount).toBe(9);
+    expect(result.totalCount).toBe(25);
+    expect(result.unlockedCount).toBe(11);
     expect(shouldShowAchievements(result)).toBe(true);
   });
 

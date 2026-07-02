@@ -146,6 +146,7 @@ export default {
     comboMilestone3: "🔥 三连击！保持势头",
     comboMilestone5: "🔥 五连击！状态火热",
     comboMilestone10: "🔥 十连击！无人能挡",
+    comboPersonalBest: "🏅 新纪录！最高 {n} 连击",
     correctAnswer: "正确答案：{answer}",
     commonMistakeTip: "「{mistake}」是常见错误，正确答案是「{correct}」",
     commonMistakeWithHint: "「{mistake}」是常见错误。{hint}",
@@ -428,6 +429,7 @@ export default {
     achievementStreak: "{n} 天连胜",
     achievementVocab: "{n} 个单词",
     achievementMistake: "{n} 道错题",
+    achievementCombo: "{n} 连击",
   },
 
   learningLang: {

@@ -143,6 +143,7 @@ export default {
     comboMilestone3: "🔥 3 in a row! Keep it up",
     comboMilestone5: "🔥 5 in a row! You're on fire",
     comboMilestone10: "🔥 10 in a row! Unstoppable",
+    comboPersonalBest: "🏅 New record! Best streak: {n} in a row",
     correctAnswer: "Correct answer: {answer}",
     commonMistakeTip: "\"{mistake}\" is a common mistake — the correct spelling is \"{correct}\"",
     commonMistakeWithHint: "\"{mistake}\" is a common mistake. {hint}",
@@ -426,6 +427,7 @@ export default {
     achievementStreak: "{n}-day streak",
     achievementVocab: "{n} words",
     achievementMistake: "{n} mistakes",
+    achievementCombo: "{n} in a row",
   },
 
   learningLang: {

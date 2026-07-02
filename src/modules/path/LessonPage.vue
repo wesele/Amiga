@@ -146,6 +146,7 @@
           {{ lastCorrect ? t("path.correct") : t("path.incorrect") }}
         </p>
         <p v-if="comboToast" class="combo-toast">{{ comboToast }}</p>
+        <p v-if="comboPersonalBestToast" class="combo-personal-best">{{ comboPersonalBestToast }}</p>
         <p v-if="commonMistakeFeedback" class="common-mistake-tip">
           {{ commonMistakeFeedback }}
         </p>
@@ -201,6 +202,7 @@ import { perfectLessonMilestoneKey } from "./perfectLessonStreak.js";
 import { getCommonMistakeFeedback } from "./commonMistakeFeedback.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 import { pairStatsKey, recordAnswer } from "@/modules/learn/questionTypeStats.js";
+import { recordComboAttempt } from "./lessonComboStats.js";
 import { recordLessonMistake } from "./mistakeReviewStore.js";
 
 const route = useRoute();
@@ -229,6 +231,7 @@ const hintAutoRevealed = ref(false);
 let hintIdleTimer = null;
 const comboCount = ref(0);
 const comboToast = ref("");
+const comboPersonalBestToast = ref("");
 
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
@@ -380,6 +383,7 @@ function scheduleAutoHint() {
 function resetCombo() {
   comboCount.value = 0;
   comboToast.value = "";
+  comboPersonalBestToast.value = "";
 }
 
 function updateCombo(isCorrect) {
@@ -387,6 +391,14 @@ function updateCombo(isCorrect) {
   comboCount.value = nextComboCount(comboCount.value, isCorrect);
   const milestone = getComboMilestone(comboCount.value);
   comboToast.value = milestone ? t(comboMilestoneKey(milestone)) : "";
+  comboPersonalBestToast.value = "";
+  if (isCorrect && comboCount.value > 0) {
+    const pairKey = pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang);
+    const { isNewBest, best } = recordComboAttempt(pairKey, comboCount.value);
+    if (isNewBest) {
+      comboPersonalBestToast.value = t("path.comboPersonalBest", { n: best });
+    }
+  }
 }
 
 watch(
@@ -466,6 +478,7 @@ function advanceQuestion() {
   lastCorrect.value = false;
   resetHint();
   comboToast.value = "";
+  comboPersonalBestToast.value = "";
 }
 
 function advanceReinforcement() {
@@ -745,6 +758,19 @@ onMounted(load);
   background: linear-gradient(135deg, #fff8e6 0%, #ffe4a8 100%);
   color: #8a5a00;
   border: 1.5px solid #e6a817;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  animation: combo-toast-pop 0.5s ease;
+}
+
+.combo-personal-best {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #f3ecff 0%, #e0d0ff 100%);
+  color: #5a3d8a;
+  border: 1.5px solid #9b7ad8;
   border-radius: var(--radius-sm);
   font-size: 15px;
   font-weight: 700;
