@@ -167,6 +167,86 @@ describe("QuestionRenderer", () => {
     expect(buttons[1].classes()).toContain("wrong");
   });
 
+  it("highlights wrong matching pairs and hints correct partners after check", async () => {
+    const question = {
+      id: "m1",
+      type: "T03",
+      pairs: [
+        { left: "hola", right: "hello" },
+        { left: "adiós", right: "goodbye" },
+      ],
+    };
+    const wrapper = mount(QuestionRenderer, {
+      props: { question, answer: null, showResult: false, isCorrect: false },
+    });
+
+    const leftButtons = wrapper.findAll(".match-col").at(0).findAll(".match-item");
+    const rightButtons = wrapper.findAll(".match-col").at(1).findAll(".match-item");
+    const wrongRightForHola = rightButtons.findIndex((btn) => btn.text() === "goodbye");
+
+    await leftButtons[0].trigger("click");
+    await rightButtons[wrongRightForHola].trigger("click");
+
+    const wrongRightForAdios = rightButtons.findIndex((btn) => btn.text() === "hello");
+    await leftButtons[1].trigger("click");
+    await rightButtons[wrongRightForAdios].trigger("click");
+
+    await wrapper.setProps({ showResult: true, isCorrect: false });
+
+    expect(wrapper.find(".matching.reveal-incorrect").exists()).toBe(true);
+    expect(leftButtons[0].classes()).toContain("wrong");
+    expect(leftButtons[1].classes()).toContain("wrong");
+    const helloBtn = rightButtons.find((btn) => btn.text() === "hello");
+    expect(helloBtn.classes()).toContain("wrong");
+    expect(helloBtn.classes()).toContain("correct-hint");
+  });
+
+  it("shakes the built sentence when word order is wrong", async () => {
+    const question = {
+      id: "w1",
+      type: "T06",
+      words: ["Buenos", "días"],
+      targetSentence: "Buenos días",
+    };
+    const wrapper = mount(QuestionRenderer, {
+      props: { question, answer: null, showResult: false, isCorrect: false },
+    });
+
+    const bank = wrapper.findAll(".word-bank .word-chip");
+    const diasIdx = bank.findIndex((chip) => chip.text() === "días");
+    const buenosIdx = bank.findIndex((chip) => chip.text() === "Buenos");
+    await bank[diasIdx].trigger("click");
+    await bank[buenosIdx].trigger("click");
+
+    await wrapper.setProps({ showResult: true, isCorrect: false });
+
+    expect(wrapper.find(".word-order.reveal-incorrect").exists()).toBe(true);
+    expect(wrapper.find(".built-sentence.is-wrong").exists()).toBe(true);
+  });
+
+  it("celebrates a correct built sentence after check", async () => {
+    const question = {
+      id: "w2",
+      type: "T06",
+      words: ["Buenos", "días"],
+      targetSentence: "Buenos días",
+    };
+    const wrapper = mount(QuestionRenderer, {
+      props: { question, answer: null, showResult: false, isCorrect: false },
+    });
+
+    const bank = wrapper.findAll(".word-bank .word-chip");
+    const buenosIdx = bank.findIndex((chip) => chip.text() === "Buenos");
+    const diasIdx = bank.findIndex((chip) => chip.text() === "días");
+    await bank[buenosIdx].trigger("click");
+    await bank[diasIdx].trigger("click");
+
+    await wrapper.setProps({ showResult: true, isCorrect: true });
+
+    expect(wrapper.find(".word-order.reveal-correct").exists()).toBe(true);
+    expect(wrapper.find(".built-sentence.is-correct").exists()).toBe(true);
+  });
+
   it("marks choice options and container when a multiple-choice answer is correct", () => {
     const question = {
       id: "q1",

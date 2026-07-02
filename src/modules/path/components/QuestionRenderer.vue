@@ -48,14 +48,21 @@
       </button>
     </div>
 
-    <div v-else-if="question.type === 'T03'" class="matching">
+    <div
+      v-else-if="question.type === 'T03'"
+      class="matching"
+      :class="{
+        'reveal-incorrect': incorrectReveal,
+        'reveal-correct': correctReveal,
+      }"
+    >
       <div class="match-col">
         <button
           v-for="(left, idx) in leftItems"
           :key="'l' + idx"
           type="button"
           class="match-item"
-          :class="{ selected: selectedLeft === idx, matched: isLeftMatched(idx) }"
+          :class="leftMatchClass(idx)"
           :disabled="showResult || isLeftMatched(idx)"
           @click="selectLeft(idx)"
         >
@@ -68,7 +75,7 @@
           :key="'r' + idx"
           type="button"
           class="match-item"
-          :class="{ selected: selectedRight === idx, matched: isRightMatched(idx) }"
+          :class="rightMatchClass(idx, right)"
           :disabled="showResult || isRightMatched(idx)"
           @click="selectRight(idx)"
         >
@@ -77,8 +84,15 @@
       </div>
     </div>
 
-    <div v-else-if="question.type === 'T06'" class="word-order">
-      <div class="built-sentence">
+    <div
+      v-else-if="question.type === 'T06'"
+      class="word-order"
+      :class="{
+        'reveal-incorrect': incorrectReveal,
+        'reveal-correct': correctReveal,
+      }"
+    >
+      <div class="built-sentence" :class="builtSentenceClass">
         <button
           v-for="(word, idx) in builtWords"
           :key="'b' + idx"
@@ -134,6 +148,11 @@ import {
   textInputResultClass,
 } from "../answerRevealFeedback.js";
 import {
+  builtSentenceRevealState,
+  leftMatchRevealState,
+  rightMatchRevealState,
+} from "../matchingRevealFeedback.js";
+import {
   hasQuestionAudio,
   QUESTION_AUDIO_AUTO_PLAY_MS,
   shouldAutoPlayQuestionAudio,
@@ -182,6 +201,13 @@ const correctReveal = computed(() =>
 
 const textInputClass = computed(() =>
   textInputResultClass({
+    showResult: props.showResult,
+    isCorrect: props.isCorrect,
+  }),
+);
+
+const builtSentenceClass = computed(() =>
+  builtSentenceRevealState({
     showResult: props.showResult,
     isCorrect: props.isCorrect,
   }),
@@ -240,6 +266,39 @@ function optionClass(idx) {
   if (idx === props.question.answerIdx) return "correct";
   if (props.answer === idx && !props.isCorrect) return "wrong";
   return "";
+}
+
+function leftMatchClass(idx) {
+  if (!props.showResult) {
+    return {
+      selected: selectedLeft.value === idx,
+      matched: isLeftMatched(idx),
+    };
+  }
+  return leftMatchRevealState({
+    showResult: props.showResult,
+    isCorrect: props.isCorrect,
+    leftIdx: idx,
+    matchedPairs: matchedPairs.value,
+    question: props.question,
+  });
+}
+
+function rightMatchClass(idx, rightText) {
+  if (!props.showResult) {
+    return {
+      selected: selectedRight.value === idx,
+      matched: isRightMatched(idx),
+    };
+  }
+  return rightMatchRevealState({
+    showResult: props.showResult,
+    isCorrect: props.isCorrect,
+    rightIdx: idx,
+    rightText,
+    matchedPairs: matchedPairs.value,
+    question: props.question,
+  });
 }
 
 function selectChoice(idx) {
@@ -538,6 +597,34 @@ onUnmounted(() => {
   opacity: 0.8;
 }
 
+.match-item.correct {
+  border-color: var(--green);
+  background: var(--green-bg);
+}
+
+.matching.reveal-correct .match-item.correct {
+  animation: correct-success-pulse 0.5s ease;
+}
+
+.match-item.wrong {
+  border-color: var(--red);
+  background: var(--red-bg);
+  animation: option-shake 0.42s ease;
+}
+
+.match-item.unmatched {
+  opacity: 0.45;
+}
+
+.match-item.correct-hint {
+  border-color: var(--green);
+  background: var(--green-bg);
+}
+
+.matching.reveal-incorrect .match-item.correct-hint {
+  animation: correct-reveal-pulse 0.55s ease 0.12s 2;
+}
+
 .word-order {
   display: flex;
   flex-direction: column;
@@ -553,6 +640,24 @@ onUnmounted(() => {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.built-sentence.is-wrong {
+  border-color: var(--red);
+  border-style: solid;
+  background: var(--red-bg);
+  animation: option-shake 0.42s ease;
+}
+
+.built-sentence.is-correct {
+  border-color: var(--green);
+  border-style: solid;
+  background: var(--green-bg);
+}
+
+.word-order.reveal-correct .built-sentence.is-correct {
+  animation: correct-success-pulse 0.5s ease;
 }
 
 .placeholder {
@@ -602,7 +707,12 @@ onUnmounted(() => {
   .options.reveal-incorrect .option-btn.correct,
   .options.reveal-correct .option-btn.correct,
   .text-input.is-wrong,
-  .text-input.is-correct {
+  .text-input.is-correct,
+  .match-item.wrong,
+  .matching.reveal-incorrect .match-item.correct-hint,
+  .matching.reveal-correct .match-item.correct,
+  .built-sentence.is-wrong,
+  .word-order.reveal-correct .built-sentence.is-correct {
     animation: none;
   }
 }
