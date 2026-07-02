@@ -81,6 +81,24 @@ describe("VocabReviewPage", () => {
     expect(wrapper.find(".action-btn.primary").attributes("disabled")).toBeDefined();
   });
 
+  it("ticks the progress bar when the learner rates a card", async () => {
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".progress-fill").attributes("style")).toContain("width: 50%");
+
+    await wrapper.find(".flashcard").trigger("click");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".progress-fill").attributes("style")).toContain("width: 100%");
+    expect(wrapper.text()).toContain("casa");
+  });
+
   it("reveals definition on flip and enables mastery actions", async () => {
     const router = makeRouter();
     await router.push("/vocab/review");

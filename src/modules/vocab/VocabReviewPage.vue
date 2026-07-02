@@ -147,6 +147,7 @@ const error = ref("");
 const words = ref([]);
 const index = ref(0);
 const flipped = ref(false);
+const cardRated = ref(false);
 const finished = ref(false);
 const acting = ref(false);
 const masteredCount = ref(0);
@@ -164,7 +165,11 @@ const currentWord = computed(() => words.value[index.value] || null);
 
 const progress = computed(() => sessionProgress(index.value, words.value.length));
 
-const progressPct = computed(() => sessionProgressPct(index.value, words.value.length));
+const progressPct = computed(() =>
+  sessionProgressPct(index.value, words.value.length, {
+    answered: cardRated.value,
+  }),
+);
 
 const definitionText = computed(() =>
   vocabDefinition(currentWord.value, nativeLang.value),
@@ -203,6 +208,7 @@ function toggleFlip() {
 
 function resetCard() {
   flipped.value = false;
+  cardRated.value = false;
 }
 
 async function load() {
@@ -238,6 +244,7 @@ async function load() {
 
 async function advanceAfterMark(mastery) {
   if (!currentWord.value || acting.value) return;
+  cardRated.value = true;
   acting.value = true;
   try {
     await updateWordMastery(userId.value, currentWord.value.id, mastery, "vocab_flashcard");

@@ -38,6 +38,18 @@ describe("vocabReviewSession", () => {
     expect(sessionProgressPct(0, 0)).toBe(0);
   });
 
+  it("advances the bar when the current card has been rated", () => {
+    expect(sessionProgressPct(0, 5)).toBe(20);
+    expect(sessionProgressPct(0, 5, { answered: true })).toBe(40);
+    expect(sessionProgressPct(2, 5, { answered: true })).toBe(80);
+    expect(sessionProgressPct(4, 5, { answered: true })).toBe(100);
+  });
+
+  it("keeps the bar steady when advancing to the next unrated card", () => {
+    expect(sessionProgressPct(0, 5, { answered: true })).toBe(40);
+    expect(sessionProgressPct(1, 5)).toBe(40);
+  });
+
   it("isSessionComplete is true only after the last card", () => {
     expect(isSessionComplete(4, 5)).toBe(false);
     expect(isSessionComplete(5, 5)).toBe(true);
