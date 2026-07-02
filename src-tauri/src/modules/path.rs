@@ -423,7 +423,11 @@ fn stars_from_score(score: i32) -> i32 {
 }
 
 /// Count passed practice lessons (excludes grammar/vocab teaching nodes).
-pub fn count_completed_lessons(pool: &DatabasePool, user_id: &str, pair_key: &str) -> Result<i32, String> {
+pub fn count_completed_lessons(
+    pool: &DatabasePool,
+    user_id: &str,
+    pair_key: &str,
+) -> Result<i32, String> {
     let conn = pool.conn()?;
     conn.query_row(
         "SELECT COUNT(*) FROM path_section_progress
@@ -436,10 +440,7 @@ pub fn count_completed_lessons(pool: &DatabasePool, user_id: &str, pair_key: &st
 }
 
 pub fn lesson_milestone_progress(completed: i32) -> LessonMilestoneProgress {
-    let next = LESSON_MILESTONES
-        .iter()
-        .copied()
-        .find(|&m| completed < m);
+    let next = LESSON_MILESTONES.iter().copied().find(|&m| completed < m);
     let progress_pct = match next {
         Some(target) => {
             let prev = LESSON_MILESTONES
@@ -510,7 +511,10 @@ fn write_app_setting_i32(conn: &rusqlite::Connection, key: &str, value: i32) -> 
     Ok(())
 }
 
-pub fn load_perfect_lesson_streak(pool: &DatabasePool, user_id: &str) -> Result<PerfectLessonStreak, String> {
+pub fn load_perfect_lesson_streak(
+    pool: &DatabasePool,
+    user_id: &str,
+) -> Result<PerfectLessonStreak, String> {
     let conn = pool.conn()?;
     let current = read_app_setting_i32(&conn, &perfect_streak_setting_key(user_id)).unwrap_or(0);
     let best = read_app_setting_i32(&conn, &perfect_streak_best_setting_key(user_id)).unwrap_or(0);
@@ -1034,8 +1038,7 @@ pub fn complete_teaching_node(
     }
 
     let weekly_active_days_before = weekly_active_days_before_completion(pool, user_id, passed);
-    let (streak_current, streak_extended) =
-        streak_fields_for_completion(pool, user_id, passed);
+    let (streak_current, streak_extended) = streak_fields_for_completion(pool, user_id, passed);
     let (daily_goal_just_met, daily_goal_lessons_today, daily_goal_target) =
         daily_goal_fields_for_completion(pool, user_id, target_lang, passed);
     let (weekly_goal_just_met, weekly_goal_active_days, weekly_goal_target_days) =
@@ -1189,8 +1192,7 @@ pub fn complete_section(
     );
 
     let weekly_active_days_before = weekly_active_days_before_completion(pool, user_id, passed);
-    let (streak_current, streak_extended) =
-        streak_fields_for_completion(pool, user_id, passed);
+    let (streak_current, streak_extended) = streak_fields_for_completion(pool, user_id, passed);
     let (daily_goal_just_met, daily_goal_lessons_today, daily_goal_target) =
         daily_goal_fields_for_completion(pool, user_id, target_lang, passed);
     let (weekly_goal_just_met, weekly_goal_active_days, weekly_goal_target_days) =
@@ -1229,11 +1231,7 @@ pub fn complete_section(
     })
 }
 
-fn weekly_active_days_before_completion(
-    pool: &DatabasePool,
-    user_id: &str,
-    passed: bool,
-) -> i32 {
+fn weekly_active_days_before_completion(pool: &DatabasePool, user_id: &str, passed: bool) -> i32 {
     if !passed {
         return 0;
     }
@@ -1259,13 +1257,11 @@ fn weekly_goal_fields_for_completion(
             return (false, 0, 0);
         }
     };
-    let target_lessons =
-        crate::modules::streak::lesson_goal_from_daily_minutes(daily_minutes);
+    let target_lessons = crate::modules::streak::lesson_goal_from_daily_minutes(daily_minutes);
     let target_days = crate::modules::streak::weekly_goal_from_daily_target(target_lessons);
     match crate::modules::streak::get_weekly_activity(pool, user_id) {
         Ok(activity) => {
-            let just_met =
-                active_days_before < target_days && activity.active_days >= target_days;
+            let just_met = active_days_before < target_days && activity.active_days >= target_days;
             (just_met, activity.active_days, target_days)
         }
         Err(e) => {
@@ -1293,13 +1289,8 @@ fn daily_goal_fields_for_completion(
     };
     match crate::modules::streak::get_daily_goal_progress(pool, user_id, daily_minutes) {
         Ok(progress) => {
-            let just_met =
-                progress.goal_met && progress.lessons_today == progress.target_lessons;
-            (
-                just_met,
-                progress.lessons_today,
-                progress.target_lessons,
-            )
+            let just_met = progress.goal_met && progress.lessons_today == progress.target_lessons;
+            (just_met, progress.lessons_today, progress.target_lessons)
         }
         Err(e) => {
             log::warn!("Failed to load daily goal progress: {}", e);
@@ -1308,11 +1299,7 @@ fn daily_goal_fields_for_completion(
     }
 }
 
-fn streak_fields_for_completion(
-    pool: &DatabasePool,
-    user_id: &str,
-    passed: bool,
-) -> (i32, bool) {
+fn streak_fields_for_completion(pool: &DatabasePool, user_id: &str, passed: bool) -> (i32, bool) {
     if !passed {
         return (0, false);
     }
@@ -1437,7 +1424,8 @@ mod tests {
         let after_vocab = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
         assert!(!after_vocab.units[0].sections[2].locked);
 
-        let result = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
+        let result =
+            complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
         assert!(result.passed);
         assert_eq!(result.stars, 3);
         assert_eq!(result.perfect_lesson_streak, 1);
@@ -1568,7 +1556,8 @@ mod tests {
             }
         }
 
-        let result = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
+        let result =
+            complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
         assert_eq!(result.lessons_completed_total, 10);
         assert_eq!(result.lesson_milestone_reached, Some(10));
     }
@@ -1593,25 +1582,31 @@ mod tests {
         complete_teaching_node(&pool, &user, "zh", "es", "A1", &grammar).unwrap();
         complete_teaching_node(&pool, &user, "zh", "es", "A1", &vocab).unwrap();
 
-        let first = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
+        let first =
+            complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
         assert_eq!(first.perfect_lesson_streak, 1);
         assert_eq!(first.perfect_lesson_streak_best, 1);
         assert!(first.perfect_lesson_milestone_reached.is_none());
 
-        let second = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
+        let second =
+            complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
         assert_eq!(second.perfect_lesson_streak, 2);
 
-        let third = complete_section(&pool, &user, "zh", "es", "A1", &practice, 4, 5, false).unwrap();
+        let third =
+            complete_section(&pool, &user, "zh", "es", "A1", &practice, 4, 5, false).unwrap();
         assert_eq!(third.perfect_lesson_streak, 0);
         assert_eq!(third.perfect_lesson_streak_best, 2);
 
-        let fourth = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
+        let fourth =
+            complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
         assert_eq!(fourth.perfect_lesson_streak, 1);
 
-        let fifth = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
+        let fifth =
+            complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
         assert_eq!(fifth.perfect_lesson_streak, 2);
 
-        let sixth = complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
+        let sixth =
+            complete_section(&pool, &user, "zh", "es", "A1", &practice, 5, 5, true).unwrap();
         assert_eq!(sixth.perfect_lesson_streak, 3);
         assert_eq!(sixth.perfect_lesson_milestone_reached, Some(3));
     }

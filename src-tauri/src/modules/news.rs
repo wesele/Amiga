@@ -852,8 +852,7 @@ pub async fn rewrite_article_for_user(
     let original = article.original_body.unwrap_or_default();
 
     // Scoped to the article's target language so an English learner gets English words.
-    let unknown_words =
-        vocab_mod::get_unknown_words(db, user_id, cefr_level, 20, target_lang)?;
+    let unknown_words = vocab_mod::get_unknown_words(db, user_id, cefr_level, 20, target_lang)?;
     let new_words: Vec<String> = unknown_words.iter().map(|w| w.word.clone()).collect();
 
     let result = llm_mod::rewrite_article(

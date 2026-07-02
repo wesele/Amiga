@@ -155,7 +155,11 @@ pub fn get_learning_streak(pool: &DatabasePool, user_id: &str) -> Result<Learnin
     })
 }
 
-fn was_active_on_date(conn: &rusqlite::Connection, user_id: &str, date: &str) -> Result<bool, String> {
+fn was_active_on_date(
+    conn: &rusqlite::Connection,
+    user_id: &str,
+    date: &str,
+) -> Result<bool, String> {
     let row: Option<(i32, i32, i32)> = conn
         .query_row(
             "SELECT articles_read, words_learned, COALESCE(lessons_completed, 0)
@@ -164,9 +168,7 @@ fn was_active_on_date(conn: &rusqlite::Connection, user_id: &str, date: &str) ->
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
         .ok();
-    Ok(row
-        .map(|(a, w, l)| is_active_row(a, w, l))
-        .unwrap_or(false))
+    Ok(row.map(|(a, w, l)| is_active_row(a, w, l)).unwrap_or(false))
 }
 
 pub fn record_lesson_completed(pool: &DatabasePool, user_id: &str) -> Result<StreakUpdate, String> {
@@ -329,11 +331,8 @@ mod tests {
 
     fn seed_user(pool: &DatabasePool) -> String {
         let conn = pool.conn().unwrap();
-        conn.execute(
-            "INSERT INTO users (id, nickname) VALUES ('u1', 'Test')",
-            [],
-        )
-        .unwrap();
+        conn.execute("INSERT INTO users (id, nickname) VALUES ('u1', 'Test')", [])
+            .unwrap();
         "u1".to_string()
     }
 
@@ -525,12 +524,7 @@ mod tests {
         let yesterday = today - Duration::days(1);
         let three_days_ago = today - Duration::days(3);
 
-        insert_active_day(
-            &pool,
-            &user,
-            &yesterday.format("%Y-%m-%d").to_string(),
-            1,
-        );
+        insert_active_day(&pool, &user, &yesterday.format("%Y-%m-%d").to_string(), 1);
         insert_active_day(
             &pool,
             &user,
