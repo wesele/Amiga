@@ -4,175 +4,33 @@
       <h1 class="page-title">{{ t("learn.title") }}</h1>
     </header>
 
-    <button
-      v-if="showMistakeReview"
-      type="button"
-      class="mistake-review-card"
-      @click="goToMistakeReview"
-    >
-      <span class="mistake-review-icon" aria-hidden="true">🔁</span>
-      <div class="mistake-review-copy">
-        <p class="mistake-review-title">{{ t("learn.mistakeReview") }}</p>
-        <p class="mistake-review-sub">
-          {{ t("learn.mistakeReviewHint", { n: mistakeReviewTotal }) }}<template v-if="mistakeReviewPreviewText">{{ t("learn.mistakeReviewPreviewSep") }}{{ mistakeReviewPreviewText }}</template>
-        </p>
+    <section v-if="hubFocus" class="focus-hero-card">
+      <div
+        v-if="showStreakUrgency"
+        class="focus-urgency-strip"
+      >
+        <span class="streak-risk-icon" aria-hidden="true">🔥</span>
+        <div class="streak-risk-copy">
+          <p class="streak-risk-title">
+            {{ t("learn.streakAtRisk", { n: dailyGoal?.streak_current ?? 0 }) }}
+          </p>
+          <p class="streak-risk-sub">{{ t("learn.streakAtRiskHint") }}</p>
+        </div>
       </div>
-      <span class="mistake-review-action">{{ t("learn.mistakeReviewAction") }}</span>
-    </button>
-
-    <button
-      v-if="showAccuracyMilestone"
-      type="button"
-      class="accuracy-milestone-card"
-      @click="goToPath"
-    >
-      <div class="milestone-ring" aria-hidden="true">
-        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
-          <circle class="accuracy-milestone-ring-track" cx="22" cy="22" r="18" />
-          <circle
-            class="accuracy-milestone-ring-fill"
-            cx="22"
-            cy="22"
-            r="18"
-            :style="{ strokeDashoffset: accuracyMilestoneRingOffsetValue }"
-          />
-        </svg>
-        <span class="milestone-ring-label">🎯</span>
+      <div class="focus-hero-body">
+        <p class="focus-eyebrow">{{ t("learn.todayFocus") }}</p>
+        <div class="focus-hero-main">
+          <span class="focus-hero-icon" aria-hidden="true">{{ hubFocus.icon }}</span>
+          <div class="focus-hero-copy">
+            <p class="focus-hero-title">{{ focusHeroTitle }}</p>
+            <p class="focus-hero-sub">{{ focusHeroSub }}</p>
+          </div>
+        </div>
+        <button type="button" class="focus-hero-action" @click="goToFocus">
+          {{ focusHeroAction }}
+        </button>
       </div>
-      <div class="milestone-copy">
-        <p class="accuracy-milestone-title">{{ t("learn.accuracyMilestone") }}</p>
-        <p class="accuracy-milestone-sub">
-          {{ t("learn.accuracyMilestoneNext", { n: accuracyMilestone.next_milestone }) }}
-          ·
-          {{
-            t("learn.accuracyMilestoneProgress", {
-              done: accuracyMilestone.best,
-              total: accuracyMilestone.next_milestone,
-            })
-          }}
-        </p>
-        <p class="accuracy-milestone-hint">
-          {{ t("learn.accuracyMilestoneHint", { done: accuracyMilestone.best }) }}
-        </p>
-      </div>
-      <span class="milestone-chevron" aria-hidden="true">›</span>
-    </button>
-
-    <button
-      v-if="showComboMilestone"
-      type="button"
-      class="combo-milestone-card"
-      @click="goToPath"
-    >
-      <div class="milestone-ring" aria-hidden="true">
-        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
-          <circle class="combo-milestone-ring-track" cx="22" cy="22" r="18" />
-          <circle
-            class="combo-milestone-ring-fill"
-            cx="22"
-            cy="22"
-            r="18"
-            :style="{ strokeDashoffset: comboMilestoneRingOffsetValue }"
-          />
-        </svg>
-        <span class="milestone-ring-label">🔥</span>
-      </div>
-      <div class="milestone-copy">
-        <p class="combo-milestone-title">{{ t("learn.comboMilestone") }}</p>
-        <p class="combo-milestone-sub">
-          {{ t("learn.comboMilestoneNext", { n: comboMilestone.next_milestone }) }}
-          ·
-          {{
-            t("learn.comboMilestoneProgress", {
-              done: comboMilestone.best,
-              total: comboMilestone.next_milestone,
-            })
-          }}
-        </p>
-        <p class="combo-milestone-hint">
-          {{ t("learn.comboMilestoneHint", { done: comboMilestone.best }) }}
-        </p>
-      </div>
-      <span class="milestone-chevron" aria-hidden="true">›</span>
-    </button>
-
-    <button
-      v-if="showFocusArea"
-      type="button"
-      class="focus-area-card"
-      @click="goToFocusPractice"
-    >
-      <span class="focus-area-icon" aria-hidden="true">🎯</span>
-      <div class="focus-area-copy">
-        <p class="focus-area-title">{{ t("learn.focusArea") }}</p>
-        <p class="focus-area-sub">
-          {{ t(focusAreaTypeKey(focusArea.typeId)) }}
-          · {{ t("learn.focusAreaAccuracy", { pct: focusArea.accuracyPct }) }}
-        </p>
-        <p class="focus-area-hint">{{ t(focusAreaTipKey(focusArea.typeId)) }}</p>
-      </div>
-      <span class="focus-area-action">{{ t("learn.focusAreaAction") }}</span>
-    </button>
-
-    <button
-      v-if="showPerfectMilestone"
-      type="button"
-      class="perfect-milestone-card"
-      @click="goToPath"
-    >
-      <div class="milestone-ring" aria-hidden="true">
-        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
-          <circle class="perfect-milestone-ring-track" cx="22" cy="22" r="18" />
-          <circle
-            class="perfect-milestone-ring-fill"
-            cx="22"
-            cy="22"
-            r="18"
-            :style="{ strokeDashoffset: perfectMilestoneRingOffsetValue }"
-          />
-        </svg>
-        <span class="milestone-ring-label">✨</span>
-      </div>
-      <div class="milestone-copy">
-        <p class="perfect-milestone-title">{{ t("learn.perfectMilestone") }}</p>
-        <p class="perfect-milestone-sub">
-          {{ t("learn.perfectMilestoneNext", { n: perfectMilestone.next_milestone }) }}
-          ·
-          {{
-            t("learn.perfectMilestoneProgress", {
-              done: perfectMilestone.best,
-              total: perfectMilestone.next_milestone,
-            })
-          }}
-        </p>
-        <p class="perfect-milestone-hint">
-          {{ t("learn.perfectMilestoneHint", { done: perfectMilestone.best }) }}
-        </p>
-      </div>
-      <span class="milestone-chevron" aria-hidden="true">›</span>
-    </button>
-
-    <button
-      v-if="showPerfectStreak"
-      type="button"
-      class="perfect-streak-card"
-      @click="goToPath"
-    >
-      <span class="perfect-streak-icon" aria-hidden="true">✨</span>
-      <div class="perfect-streak-copy">
-        <p class="perfect-streak-title">
-          {{ t("learn.perfectStreak", { n: perfectStreak.current }) }}
-        </p>
-        <p class="perfect-streak-sub">
-          {{
-            perfectStreak.best > perfectStreak.current
-              ? t("learn.perfectStreakBest", { n: perfectStreak.best })
-              : t("learn.perfectStreakHint")
-          }}
-        </p>
-      </div>
-      <span class="perfect-streak-chevron" aria-hidden="true">›</span>
-    </button>
+    </section>
 
     <div
       v-if="dailyGoal"
@@ -278,6 +136,163 @@
       </button>
     </div>
 
+    <details v-if="secondarySuggestions.length" class="hub-more-suggestions">
+      <summary class="hub-more-summary">
+        {{ t("learn.moreSuggestions", { n: secondarySuggestions.length }) }}
+      </summary>
+      <div class="hub-more-list">
+        <button
+          v-for="item in secondarySuggestions"
+          :key="item.type"
+          type="button"
+          :class="secondaryCardClass(item.type)"
+          @click="onSecondarySuggestion(item.type)"
+        >
+          <template v-if="item.type === 'mistakeReview'">
+            <span class="mistake-review-icon" aria-hidden="true">🔁</span>
+            <div class="mistake-review-copy">
+              <p class="mistake-review-title">{{ t("learn.mistakeReview") }}</p>
+              <p class="mistake-review-sub">
+                {{ t("learn.mistakeReviewHint", { n: mistakeReviewTotal }) }}<template v-if="mistakeReviewPreviewText">{{ t("learn.mistakeReviewPreviewSep") }}{{ mistakeReviewPreviewText }}</template>
+              </p>
+            </div>
+            <span class="mistake-review-action">{{ t("learn.mistakeReviewAction") }}</span>
+          </template>
+
+          <template v-else-if="item.type === 'vocabReview'">
+            <span class="vocab-review-icon" aria-hidden="true">📚</span>
+            <div class="vocab-review-copy">
+              <p class="vocab-review-title">{{ t("learn.vocabReview") }}</p>
+              <p class="vocab-review-sub">
+                {{ t("learn.vocabReviewHint", { n: vocabReviewTotal }) }}<template v-if="vocabReviewPreviewText">{{ t("learn.vocabReviewPreviewSep") }}{{ vocabReviewPreviewText }}<template v-if="vocabReviewHasMoreWords">{{ t("learn.vocabReviewMore") }}</template></template>
+              </p>
+            </div>
+            <span class="vocab-review-action">{{ t("learn.vocabReviewAction") }}</span>
+          </template>
+
+          <template v-else-if="item.type === 'focusArea'">
+            <span class="focus-area-icon" aria-hidden="true">🎯</span>
+            <div class="focus-area-copy">
+              <p class="focus-area-title">{{ t("learn.focusArea") }}</p>
+              <p class="focus-area-sub">
+                {{ t(focusAreaTypeKey(focusArea.typeId)) }}
+                · {{ t("learn.focusAreaAccuracy", { pct: focusArea.accuracyPct }) }}
+              </p>
+              <p class="focus-area-hint">{{ t(focusAreaTipKey(focusArea.typeId)) }}</p>
+            </div>
+            <span class="focus-area-action">{{ t("learn.focusAreaAction") }}</span>
+          </template>
+
+          <template v-else-if="item.type === 'accuracy'">
+            <div class="milestone-ring" aria-hidden="true">
+              <svg viewBox="0 0 44 44" class="milestone-ring-svg">
+                <circle class="accuracy-milestone-ring-track" cx="22" cy="22" r="18" />
+                <circle
+                  class="accuracy-milestone-ring-fill"
+                  cx="22"
+                  cy="22"
+                  r="18"
+                  :style="{ strokeDashoffset: accuracyMilestoneRingOffsetValue }"
+                />
+              </svg>
+              <span class="milestone-ring-label">🎯</span>
+            </div>
+            <div class="milestone-copy">
+              <p class="accuracy-milestone-title">{{ t("learn.accuracyMilestone") }}</p>
+              <p class="accuracy-milestone-sub">
+                {{ t("learn.accuracyMilestoneNext", { n: accuracyMilestone.next_milestone }) }}
+                ·
+                {{
+                  t("learn.accuracyMilestoneProgress", {
+                    done: accuracyMilestone.best,
+                    total: accuracyMilestone.next_milestone,
+                  })
+                }}
+              </p>
+            </div>
+            <span class="milestone-chevron" aria-hidden="true">›</span>
+          </template>
+
+          <template v-else-if="item.type === 'combo'">
+            <div class="milestone-ring" aria-hidden="true">
+              <svg viewBox="0 0 44 44" class="milestone-ring-svg">
+                <circle class="combo-milestone-ring-track" cx="22" cy="22" r="18" />
+                <circle
+                  class="combo-milestone-ring-fill"
+                  cx="22"
+                  cy="22"
+                  r="18"
+                  :style="{ strokeDashoffset: comboMilestoneRingOffsetValue }"
+                />
+              </svg>
+              <span class="milestone-ring-label">🔥</span>
+            </div>
+            <div class="milestone-copy">
+              <p class="combo-milestone-title">{{ t("learn.comboMilestone") }}</p>
+              <p class="combo-milestone-sub">
+                {{ t("learn.comboMilestoneNext", { n: comboMilestone.next_milestone }) }}
+                ·
+                {{
+                  t("learn.comboMilestoneProgress", {
+                    done: comboMilestone.best,
+                    total: comboMilestone.next_milestone,
+                  })
+                }}
+              </p>
+            </div>
+            <span class="milestone-chevron" aria-hidden="true">›</span>
+          </template>
+
+          <template v-else-if="item.type === 'perfect'">
+            <div class="milestone-ring" aria-hidden="true">
+              <svg viewBox="0 0 44 44" class="milestone-ring-svg">
+                <circle class="perfect-milestone-ring-track" cx="22" cy="22" r="18" />
+                <circle
+                  class="perfect-milestone-ring-fill"
+                  cx="22"
+                  cy="22"
+                  r="18"
+                  :style="{ strokeDashoffset: perfectMilestoneRingOffsetValue }"
+                />
+              </svg>
+              <span class="milestone-ring-label">✨</span>
+            </div>
+            <div class="milestone-copy">
+              <p class="perfect-milestone-title">{{ t("learn.perfectMilestone") }}</p>
+              <p class="perfect-milestone-sub">
+                {{ t("learn.perfectMilestoneNext", { n: perfectMilestone.next_milestone }) }}
+                ·
+                {{
+                  t("learn.perfectMilestoneProgress", {
+                    done: perfectMilestone.best,
+                    total: perfectMilestone.next_milestone,
+                  })
+                }}
+              </p>
+            </div>
+            <span class="milestone-chevron" aria-hidden="true">›</span>
+          </template>
+
+          <template v-else-if="item.type === 'perfectStreak'">
+            <span class="perfect-streak-icon" aria-hidden="true">✨</span>
+            <div class="perfect-streak-copy">
+              <p class="perfect-streak-title">
+                {{ t("learn.perfectStreak", { n: perfectStreak.current }) }}
+              </p>
+              <p class="perfect-streak-sub">
+                {{
+                  perfectStreak.best > perfectStreak.current
+                    ? t("learn.perfectStreakBest", { n: perfectStreak.best })
+                    : t("learn.perfectStreakHint")
+                }}
+              </p>
+            </div>
+            <span class="perfect-streak-chevron" aria-hidden="true">›</span>
+          </template>
+        </button>
+      </div>
+    </details>
+
     <div class="module-grid">
       <button
         v-for="mod in modules"
@@ -301,6 +316,7 @@ import {
   getDailyGoalProgress,
   getPathCurriculum,
   getPerfectLessonStreak,
+  getUnknownWords,
   getWeeklyActivity,
 } from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
@@ -328,10 +344,20 @@ import {
 } from "./questionTypeStats.js";
 import { focusPracticeRoute } from "@/modules/path/focusPracticeRoute.js";
 import {
+  FOCUS_IDS,
+  pickLearningHubFocus,
+  pickSecondarySuggestions,
+} from "./learningHubFocus.js";
+import {
   mistakeReviewCount,
   mistakeReviewPreview,
-  shouldShowMistakeReview,
 } from "./mistakeReviewCard.js";
+import {
+  VOCAB_REVIEW_LIMIT,
+  vocabReviewCount,
+  vocabReviewHasMore,
+  vocabReviewPreview,
+} from "./vocabReviewCard.js";
 import { accuracyMilestoneRingOffset } from "@/modules/profile/accuracyMilestones.js";
 import {
   buildAccuracyMilestoneCard,
@@ -362,6 +388,8 @@ const perfectMilestone = ref(null);
 const perfectStreak = ref(null);
 const focusArea = ref(null);
 const dueMistakeEntries = ref([]);
+const dueVocabWords = ref([]);
+const localHour = ref(new Date().getHours());
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
 const MILESTONE_RING_CIRCUMFERENCE = 2 * Math.PI * 18;
@@ -401,13 +429,147 @@ const showPerfectStreak = computed(() => shouldShowPerfectStreakCard(perfectStre
 
 const showFocusArea = computed(() => shouldShowFocusArea(focusArea.value));
 
-const showMistakeReview = computed(() => shouldShowMistakeReview(dueMistakeEntries.value.length));
-
 const mistakeReviewTotal = computed(() => mistakeReviewCount(dueMistakeEntries.value.length));
 
 const mistakeReviewPreviewText = computed(() =>
   mistakeReviewPreview(dueMistakeEntries.value, t),
 );
+
+const vocabReviewTotal = computed(() => vocabReviewCount(dueVocabWords.value));
+
+const vocabReviewPreviewText = computed(() =>
+  vocabReviewPreview(dueVocabWords.value),
+);
+
+const vocabReviewHasMoreWords = computed(() =>
+  vocabReviewHasMore(dueVocabWords.value),
+);
+
+const hubFocus = computed(() =>
+  pickLearningHubFocus({
+    dailyGoal: dailyGoal.value,
+    resumeTarget: resumeTarget.value,
+    dueMistakes: dueMistakeEntries.value.length,
+    dueVocabWords: dueVocabWords.value,
+    focusArea: focusArea.value,
+    localHour: localHour.value,
+    mistakePreview: mistakeReviewPreviewText.value,
+    vocabPreview: vocabReviewPreviewText.value,
+  }),
+);
+
+const showStreakUrgency = computed(() => hubFocus.value?.id === FOCUS_IDS.STREAK_AT_RISK);
+
+const secondarySuggestions = computed(() =>
+  pickSecondarySuggestions(
+    {
+      dueMistakes: dueMistakeEntries.value.length,
+      dueVocabWords: dueVocabWords.value,
+      focusArea: focusArea.value,
+      showFocusArea: showFocusArea.value,
+      showAccuracy: showAccuracyMilestone.value,
+      showCombo: showComboMilestone.value,
+      showPerfect: showPerfectMilestone.value,
+      showPerfectStreak: showPerfectStreak.value,
+    },
+    hubFocus.value,
+  ),
+);
+
+const focusHeroTitle = computed(() => {
+  const focus = hubFocus.value;
+  if (!focus) return "";
+  if (focus.id === FOCUS_IDS.STREAK_AT_RISK) {
+    if (focus.actionId === FOCUS_IDS.MISTAKE_REVIEW) {
+      return t("learn.mistakeReview");
+    }
+    if (focus.actionId === FOCUS_IDS.VOCAB_REVIEW) {
+      return t("learn.vocabReview");
+    }
+    if (focus.actionId === FOCUS_IDS.CONTINUE_SECTION) {
+      return resumeTarget.value?.section?.title_native || t("learn.continueLearning");
+    }
+    return t("learn.dailyGoal");
+  }
+  if (focus.id === FOCUS_IDS.CONTINUE_SECTION) {
+    return focus.sectionTitle || t("learn.continueLearning");
+  }
+  if (focus.id === FOCUS_IDS.MISTAKE_REVIEW) {
+    return t("learn.mistakeReview");
+  }
+  if (focus.id === FOCUS_IDS.VOCAB_REVIEW) {
+    return t("learn.vocabReview");
+  }
+  if (focus.id === FOCUS_IDS.FOCUS_PRACTICE) {
+    return t("learn.focusArea");
+  }
+  if (focus.id === FOCUS_IDS.DAILY_GOAL) {
+    return t("learn.dailyGoal");
+  }
+  return t("learn.focusExploreTitle");
+});
+
+const focusHeroSub = computed(() => {
+  const focus = hubFocus.value;
+  if (!focus) return "";
+  if (focus.id === FOCUS_IDS.STREAK_AT_RISK) {
+    if (focus.actionId === FOCUS_IDS.MISTAKE_REVIEW) {
+      return formatMistakeSub(focus.dueMistakes, focus.mistakePreview);
+    }
+    if (focus.actionId === FOCUS_IDS.VOCAB_REVIEW) {
+      return formatVocabSub(focus.vocabCount, vocabReviewPreviewText.value);
+    }
+    if (focus.actionId === FOCUS_IDS.CONTINUE_SECTION) {
+      return t("learn.focusContinueSub");
+    }
+    return t("learn.focusDailyGoalSub", {
+      remaining: Math.max(
+        0,
+        (dailyGoal.value?.target_lessons ?? 0) - (dailyGoal.value?.lessons_today ?? 0),
+      ),
+    });
+  }
+  if (focus.id === FOCUS_IDS.CONTINUE_SECTION) {
+    return t("learn.focusContinueSub");
+  }
+  if (focus.id === FOCUS_IDS.MISTAKE_REVIEW) {
+    return formatMistakeSub(focus.dueMistakes, focus.mistakePreview);
+  }
+  if (focus.id === FOCUS_IDS.VOCAB_REVIEW) {
+    return formatVocabSub(focus.vocabCount, vocabReviewPreviewText.value);
+  }
+  if (focus.id === FOCUS_IDS.FOCUS_PRACTICE) {
+    return `${t(focusAreaTypeKey(focus.typeId))} · ${t("learn.focusAreaAccuracy", { pct: focus.accuracyPct })}`;
+  }
+  if (focus.id === FOCUS_IDS.DAILY_GOAL) {
+    return t("learn.focusDailyGoalSub", { remaining: focus.remaining });
+  }
+  return t("learn.focusExploreSub");
+});
+
+const focusHeroAction = computed(() => {
+  const focus = hubFocus.value;
+  if (!focus) return "";
+  if (focus.id === FOCUS_IDS.STREAK_AT_RISK) {
+    return t("learn.streakAtRiskAction");
+  }
+  if (focus.id === FOCUS_IDS.CONTINUE_SECTION) {
+    return t("learn.focusContinueAction");
+  }
+  if (focus.id === FOCUS_IDS.MISTAKE_REVIEW) {
+    return t("learn.mistakeReviewAction");
+  }
+  if (focus.id === FOCUS_IDS.VOCAB_REVIEW) {
+    return t("learn.vocabReviewAction");
+  }
+  if (focus.id === FOCUS_IDS.FOCUS_PRACTICE) {
+    return t("learn.focusAreaAction");
+  }
+  if (focus.id === FOCUS_IDS.DAILY_GOAL) {
+    return t("learn.focusDailyGoalAction");
+  }
+  return t("learn.focusExploreAction");
+});
 
 const showAccuracyMilestone = computed(() =>
   shouldShowAccuracyMilestoneCard(accuracyMilestone.value),
@@ -482,6 +644,27 @@ function loadMistakeReview(nativeLang, targetLang) {
   dueMistakeEntries.value = loadDueMistakes(pairStatsKey(nativeLang, targetLang));
 }
 
+async function loadVocabReview(userId, cefr, targetLang) {
+  try {
+    const words = await getUnknownWords(userId, cefr, VOCAB_REVIEW_LIMIT, targetLang);
+    dueVocabWords.value = Array.isArray(words) ? words : [];
+  } catch {
+    dueVocabWords.value = [];
+  }
+}
+
+function formatMistakeSub(count, preview) {
+  const base = t("learn.mistakeReviewHint", { n: count });
+  return preview ? `${base}${t("learn.mistakeReviewPreviewSep")}${preview}` : base;
+}
+
+function formatVocabSub(count, preview) {
+  const base = t("learn.vocabReviewHint", { n: count });
+  if (!preview) return base;
+  const more = vocabReviewHasMore(dueVocabWords.value) ? t("learn.vocabReviewMore") : "";
+  return `${base}${t("learn.vocabReviewPreviewSep")}${preview}${more}`;
+}
+
 function loadAccuracyMilestone(nativeLang, targetLang) {
   accuracyMilestone.value = buildAccuracyMilestoneCard(pairStatsKey(nativeLang, targetLang));
 }
@@ -499,11 +682,13 @@ async function loadHubData() {
     loadMistakeReview(nativeLang, targetLang);
     loadAccuracyMilestone(nativeLang, targetLang);
     loadComboMilestone(nativeLang, targetLang);
+    localHour.value = new Date().getHours();
     await Promise.all([
       loadDailyGoal(user.id, targetLang),
       loadWeeklyActivity(user.id),
       loadResumeSection(nativeLang, targetLang, cefr),
       loadPerfectStreak(),
+      loadVocabReview(user.id, cefr, targetLang),
     ]);
   } catch {
     dailyGoal.value = null;
@@ -512,7 +697,8 @@ async function loadHubData() {
     perfectStreak.value = null;
     perfectMilestone.value = null;
     focusArea.value = null;
-    dueMistakeCount.value = 0;
+    dueMistakeEntries.value = [];
+    dueVocabWords.value = [];
     accuracyMilestone.value = null;
     comboMilestone.value = null;
   }
@@ -535,6 +721,42 @@ function goToFocusPractice() {
 
 function goToMistakeReview() {
   router.push({ name: "path-mistake-review" });
+}
+
+function goToVocabReview() {
+  router.push({ name: "vocab-review" });
+}
+
+function goToFocus() {
+  const route = hubFocus.value?.route;
+  if (route) router.push(route);
+}
+
+function secondaryCardClass(type) {
+  if (type === "mistakeReview") return "mistake-review-card";
+  if (type === "vocabReview") return "vocab-review-card";
+  if (type === "focusArea") return "focus-area-card";
+  if (type === "accuracy") return "accuracy-milestone-card";
+  if (type === "combo") return "combo-milestone-card";
+  if (type === "perfect") return "perfect-milestone-card";
+  if (type === "perfectStreak") return "perfect-streak-card";
+  return "hub-secondary-card";
+}
+
+function onSecondarySuggestion(type) {
+  if (type === "mistakeReview") {
+    goToMistakeReview();
+    return;
+  }
+  if (type === "vocabReview") {
+    goToVocabReview();
+    return;
+  }
+  if (type === "focusArea") {
+    goToFocusPractice();
+    return;
+  }
+  goToPath();
 }
 
 async function openModule(mod) {
@@ -575,6 +797,131 @@ onMounted(loadHubData);
   margin: 0;
   font-size: 22px;
   font-weight: 700;
+}
+
+.focus-hero-card {
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  background: linear-gradient(135deg, #e8f8ef 0%, #d4f5e0 100%);
+  border: 1px solid var(--green);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.focus-urgency-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #fff4e6 0%, #ffe8cc 100%);
+  border-bottom: 1px solid #f5a623;
+  animation: streak-risk-pulse 2.4s ease-in-out infinite;
+}
+
+.focus-hero-body {
+  padding: 14px 16px 16px;
+}
+
+.focus-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--green-hover);
+}
+
+.focus-hero-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.focus-hero-icon {
+  font-size: 30px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.focus-hero-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.focus-hero-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.focus-hero-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-light);
+  line-height: 1.4;
+}
+
+.focus-hero-action {
+  width: 100%;
+  margin-top: 14px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--green-hover);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.focus-hero-action:hover {
+  background: var(--green);
+  transform: translateY(-1px);
+}
+
+.hub-more-suggestions {
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+}
+
+.hub-more-summary {
+  padding: 12px 14px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+}
+
+.hub-more-summary::-webkit-details-marker {
+  display: none;
+}
+
+.hub-more-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.hub-more-list .mistake-review-card,
+.hub-more-list .vocab-review-card,
+.hub-more-list .focus-area-card,
+.hub-more-list .accuracy-milestone-card,
+.hub-more-list .combo-milestone-card,
+.hub-more-list .perfect-milestone-card,
+.hub-more-list .perfect-streak-card {
+  width: 100%;
+  margin: 0;
 }
 
 .continue-card {
@@ -1667,9 +2014,9 @@ onMounted(loadHubData);
 
 .module-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6vw;
-  padding: 10vw 8vw 14vw;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  padding: 12px 16px 20px;
   box-sizing: border-box;
 }
 
@@ -1678,10 +2025,10 @@ onMounted(loadHubData);
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.6em;
+  gap: 8px;
   width: 100%;
-  aspect-ratio: 1;
-  padding: 0;
+  min-height: 88px;
+  padding: 12px 8px;
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -1701,12 +2048,12 @@ onMounted(loadHubData);
 }
 
 .module-icon {
-  font-size: 12vw;
+  font-size: clamp(24px, 8vw, 32px);
   line-height: 1;
 }
 
 .module-label {
-  font-size: clamp(14px, 5vw, 18px);
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
   text-align: center;

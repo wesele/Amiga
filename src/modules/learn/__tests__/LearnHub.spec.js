@@ -159,15 +159,13 @@ describe("LearnHubPage", () => {
     api.__setInvoke(mockInvoke);
   });
 
-  it("uses a 2-column tile grid with two icons per row", () => {
+  it("uses a compact 2-column tile grid", () => {
     const source = readVue("src/modules/learn/LearnHubPage.vue");
-    expect(source).toMatch(/grid-template-columns:\s*repeat\(2/);
-    expect(source).toMatch(/aspect-ratio:\s*1/);
-    expect(source).not.toMatch(/width:\s*130px/);
-    expect(source).toMatch(/font-size:\s*12vw/);
-    expect(source).toMatch(/gap:\s*6vw/);
-    expect(source).toMatch(/padding:\s*10vw\s+8vw\s+14vw/);
-    expect(source).toMatch(/font-size:\s*clamp\(14px,\s*5vw,\s*18px\)/);
+    expect(source).toMatch(/grid-template-columns:\s*repeat\(2,\s*1fr\)/);
+    expect(source).toMatch(/min-height:\s*88px/);
+    expect(source).toMatch(/font-size:\s*clamp\(24px,\s*8vw,\s*32px\)/);
+    expect(source).toMatch(/class="focus-hero-card"/);
+    expect(source).toMatch(/hub-more-suggestions/);
   });
 
   it("renders four module tiles in a grid", async () => {
@@ -216,7 +214,7 @@ describe("LearnHubPage", () => {
     expect(pushSpy).toHaveBeenCalledWith({ name: "news" });
   });
 
-  it("shows mistake review card when due mistakes exist for the language pair", async () => {
+  it("shows mistake review in more suggestions when due mistakes exist", async () => {
     recordLessonMistake(
       "zh-es",
       { id: "q1", type: "T09", hint: "Hola", answer: "hola" },
@@ -230,14 +228,14 @@ describe("LearnHubPage", () => {
     });
     await flushPromises();
 
-    const card = wrapper.find(".mistake-review-card");
+    const card = wrapper.find(".hub-more-suggestions .mistake-review-card");
     expect(card.exists()).toBe(true);
     expect(card.text()).toContain("错题复习");
     expect(card.text()).toContain("1 道错题待巩固");
     expect(card.text()).toContain("Hola");
   });
 
-  it("navigates to mistake review when the card is clicked", async () => {
+  it("navigates to mistake review when the secondary card is clicked", async () => {
     recordLessonMistake("zh-es", { id: "q1", type: "T09", answer: "hola" }, "ola", Date.now());
 
     const router = makeRouter();
@@ -247,7 +245,7 @@ describe("LearnHubPage", () => {
     });
     await flushPromises();
 
-    await wrapper.find(".mistake-review-card").trigger("click");
+    await wrapper.find(".hub-more-suggestions .mistake-review-card").trigger("click");
     expect(pushSpy).toHaveBeenCalledWith({ name: "path-mistake-review" });
   });
 
@@ -362,11 +360,12 @@ describe("LearnHubPage", () => {
     expect(wrapper.find(".goal-continue-btn").exists()).toBe(false);
   });
 
-  it("shows perfect lesson streak card when learner has an active streak", async () => {
+  it("shows perfect lesson streak card inside more suggestions", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_perfect_lesson_streak_cmd") {
-        return Promise.resolve({ current: 4, best: 6 });
+        return Promise.resolve({ current: 4, best: 10 });
       }
+      if (cmd === "get_unknown_words_cmd") return Promise.resolve([]);
       return defaultInvoke(cmd);
     });
 
@@ -376,10 +375,10 @@ describe("LearnHubPage", () => {
     });
     await flushPromises();
 
-    const card = wrapper.find(".perfect-streak-card");
+    const card = wrapper.find(".hub-more-suggestions .perfect-streak-card");
     expect(card.exists()).toBe(true);
     expect(card.text()).toContain("连续 4 课完美通关");
-    expect(card.text()).toContain("历史最佳 6 课");
+    expect(card.text()).toContain("历史最佳 10 课");
   });
 
   it("shows accuracy milestone progress card when enough practice data exists", async () => {
@@ -400,12 +399,11 @@ describe("LearnHubPage", () => {
     });
     await flushPromises();
 
-    const card = wrapper.find(".accuracy-milestone-card");
+    const card = wrapper.find(".hub-more-suggestions .accuracy-milestone-card");
     expect(card.exists()).toBe(true);
     expect(card.text()).toContain("准确率里程碑");
     expect(card.text()).toContain("下一目标：80%");
     expect(card.text()).toContain("75/80");
-    expect(card.text()).toContain("当前最高 75%");
   });
 
   it("hides accuracy milestone card when all milestones are complete", async () => {
@@ -441,12 +439,11 @@ describe("LearnHubPage", () => {
     });
     await flushPromises();
 
-    const card = wrapper.find(".combo-milestone-card");
+    const card = wrapper.find(".hub-more-suggestions .combo-milestone-card");
     expect(card.exists()).toBe(true);
     expect(card.text()).toContain("连击里程碑");
     expect(card.text()).toContain("下一目标：5 连击");
     expect(card.text()).toContain("4/5");
-    expect(card.text()).toContain("最高 4 连击");
   });
 
   it("hides combo milestone card when all milestones are complete", async () => {
@@ -488,12 +485,11 @@ describe("LearnHubPage", () => {
     });
     await flushPromises();
 
-    const card = wrapper.find(".perfect-milestone-card");
+    const card = wrapper.find(".hub-more-suggestions .perfect-milestone-card");
     expect(card.exists()).toBe(true);
     expect(card.text()).toContain("完美通关里程碑");
     expect(card.text()).toContain("下一目标：3 课");
     expect(card.text()).toContain("2/3");
-    expect(card.text()).toContain("历史最佳 2 课");
   });
 
   it("hides perfect milestone card when all milestones are complete", async () => {
@@ -580,7 +576,7 @@ describe("LearnHubPage", () => {
     });
     await flushPromises();
 
-    const card = wrapper.find(".focus-area-card");
+    const card = wrapper.find(".hub-more-suggestions .focus-area-card");
     expect(card.exists()).toBe(true);
     expect(card.text()).toContain("薄弱环节");
     expect(card.text()).toContain("拼写输入");
@@ -602,11 +598,97 @@ describe("LearnHubPage", () => {
     });
     await flushPromises();
 
-    await wrapper.find(".focus-area-card").trigger("click");
+    await wrapper.find(".hub-more-suggestions .focus-area-card").trigger("click");
     expect(pushSpy).toHaveBeenCalledWith({
       name: "path-focus-practice",
       params: { typeId: "T06" },
     });
+  });
+
+  it("shows focus hero card and vocab preview when words are due", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_path_curriculum_cmd") {
+        return Promise.resolve({ ...MOCK_CURRICULUM, status: "level_complete" });
+      }
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 2,
+          target_lessons: 2,
+          progress_pct: 100,
+          goal_met: true,
+          streak_current: 3,
+          practiced_today: true,
+        });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".focus-hero-card").exists()).toBe(true);
+    expect(wrapper.text()).toContain("今日焦点");
+    expect(wrapper.text()).toContain("单词复习");
+    expect(wrapper.find(".focus-hero-sub").text()).toContain("hola");
+  });
+
+  it("shows streak urgency strip when the evening streak is at risk", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 0,
+          target_lessons: 2,
+          progress_pct: 0,
+          goal_met: false,
+          streak_current: 5,
+          practiced_today: false,
+        });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    wrapper.vm.localHour = 19;
+    await flushPromises();
+
+    expect(wrapper.find(".focus-urgency-strip").exists()).toBe(true);
+    expect(wrapper.text()).toContain("5 天连胜今晚就要断了");
+  });
+
+  it("navigates from focus hero action to the chosen route", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_path_curriculum_cmd") {
+        return Promise.resolve({ ...MOCK_CURRICULUM, status: "level_complete" });
+      }
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 2,
+          target_lessons: 2,
+          progress_pct: 100,
+          goal_met: true,
+          streak_current: 3,
+          practiced_today: true,
+        });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".focus-hero-action").trigger("click");
+    expect(pushSpy).toHaveBeenCalledWith({ name: "vocab-review" });
   });
 
   it("hides focus area card when no question type is weak enough", async () => {
