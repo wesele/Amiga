@@ -6,6 +6,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
+import { STATS_STORAGE_KEY } from "../questionTypeStats.js";
 
 const ROOT = resolve(__dirname, "../../../..");
 function readVue(rel) {
@@ -131,6 +132,7 @@ describe("LearnHubPage", () => {
   let mockInvoke;
 
   beforeEach(() => {
+    localStorage.clear();
     setActivePinia(createPinia());
     setLocale("zh", { persist: false });
     mockInvoke = vi.fn().mockImplementation(defaultInvoke);
@@ -441,6 +443,64 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     expect(wrapper.find(".milestone-card").exists()).toBe(false);
+  });
+
+  it("shows focus area card when a question type is consistently weak", async () => {
+    localStorage.setItem(
+      STATS_STORAGE_KEY,
+      JSON.stringify({
+        "zh-es": {
+          T09: { correct: 1, wrong: 5 },
+          T01: { correct: 8, wrong: 2 },
+        },
+      }),
+    );
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".focus-area-card");
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain("薄弱环节");
+    expect(card.text()).toContain("拼写输入");
+    expect(card.text()).toContain("正确率 17%");
+    expect(card.text()).toContain("听发音时注意重音和拼写规则");
+    expect(card.text()).toContain("去练习");
+  });
+
+  it("navigates to path when focus area card is clicked", async () => {
+    localStorage.setItem(
+      STATS_STORAGE_KEY,
+      JSON.stringify({ "zh-es": { T06: { correct: 1, wrong: 5 } } }),
+    );
+
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".focus-area-card").trigger("click");
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
+  });
+
+  it("hides focus area card when no question type is weak enough", async () => {
+    localStorage.setItem(
+      STATS_STORAGE_KEY,
+      JSON.stringify({ "zh-es": { T01: { correct: 9, wrong: 1 } } }),
+    );
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".focus-area-card").exists()).toBe(false);
   });
 
   it("opens translator session via learn-translator route", async () => {

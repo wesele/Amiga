@@ -42,6 +42,24 @@
     </button>
 
     <button
+      v-if="showFocusArea"
+      type="button"
+      class="focus-area-card"
+      @click="goToPath"
+    >
+      <span class="focus-area-icon" aria-hidden="true">🎯</span>
+      <div class="focus-area-copy">
+        <p class="focus-area-title">{{ t("learn.focusArea") }}</p>
+        <p class="focus-area-sub">
+          {{ t(focusAreaTypeKey(focusArea.typeId)) }}
+          · {{ t("learn.focusAreaAccuracy", { pct: focusArea.accuracyPct }) }}
+        </p>
+        <p class="focus-area-hint">{{ t(focusAreaTipKey(focusArea.typeId)) }}</p>
+      </div>
+      <span class="focus-area-action">{{ t("learn.focusAreaAction") }}</span>
+    </button>
+
+    <button
       v-if="showPerfectStreak"
       type="button"
       class="perfect-streak-card"
@@ -263,6 +281,14 @@ import {
   shouldShowLessonMilestone,
 } from "./lessonMilestones.js";
 import { shouldShowPerfectStreakCard } from "@/modules/path/perfectLessonStreak.js";
+import {
+  buildFocusArea,
+  focusAreaTipKey,
+  focusAreaTypeKey,
+  loadQuestionTypeStats,
+  pairStatsKey,
+  shouldShowFocusArea,
+} from "./questionTypeStats.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -274,6 +300,7 @@ const resumeTarget = ref(null);
 const vocabReviewWords = ref([]);
 const lessonMilestone = ref(null);
 const perfectStreak = ref(null);
+const focusArea = ref(null);
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
 const MILESTONE_RING_CIRCUMFERENCE = 2 * Math.PI * 18;
@@ -331,6 +358,8 @@ const weeklyGoalAriaLabel = computed(() => {
 const showLessonMilestone = computed(() => shouldShowLessonMilestone(lessonMilestone.value));
 
 const showPerfectStreak = computed(() => shouldShowPerfectStreakCard(perfectStreak.value?.current));
+
+const showFocusArea = computed(() => shouldShowFocusArea(focusArea.value));
 
 const milestoneRingOffset = computed(() =>
   lessonMilestoneRingOffset(lessonMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
@@ -398,11 +427,17 @@ async function loadPerfectStreak() {
   }
 }
 
+function loadFocusArea(nativeLang, targetLang) {
+  const stats = loadQuestionTypeStats(pairStatsKey(nativeLang, targetLang));
+  focusArea.value = buildFocusArea(stats);
+}
+
 async function loadHubData() {
   try {
     const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
       targetLangStore,
     });
+    loadFocusArea(nativeLang, targetLang);
     await Promise.all([
       loadDailyGoal(user.id, targetLang),
       loadWeeklyActivity(user.id),
@@ -418,6 +453,7 @@ async function loadHubData() {
     vocabReviewWords.value = [];
     lessonMilestone.value = null;
     perfectStreak.value = null;
+    focusArea.value = null;
   }
 }
 
@@ -603,6 +639,70 @@ onMounted(loadHubData);
   font-weight: 700;
   color: #fff;
   background: #4285f4;
+  padding: 8px 12px;
+  border-radius: 999px;
+}
+
+.focus-area-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fff8ed 0%, #ffefd6 100%);
+  border: 1px solid #e8a84a;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.focus-area-card:hover {
+  box-shadow: 0 2px 10px rgba(232, 168, 74, 0.28);
+  transform: translateY(-1px);
+}
+
+.focus-area-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.focus-area-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.focus-area-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #8a5a12;
+  line-height: 1.3;
+}
+
+.focus-area-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #a66f1f;
+  line-height: 1.35;
+}
+
+.focus-area-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #b8842e;
+  line-height: 1.35;
+}
+
+.focus-area-action {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: #e8a84a;
   padding: 8px 12px;
   border-radius: 999px;
 }

@@ -81,6 +81,15 @@ describe("LessonPage answer feedback", () => {
   });
 });
 
+describe("LessonPage question type stats", () => {
+  it("records answer results by question type during the main lesson phase", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/questionTypeStats\.js/);
+    expect(source).toMatch(/recordAnswer/);
+    expect(source).toMatch(/!inReinforcement\.value && currentQuestion\.value\?\.type/);
+  });
+});
+
 describe("LessonPage common mistake feedback", () => {
   let mockInvoke;
 

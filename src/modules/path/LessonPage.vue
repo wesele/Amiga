@@ -192,6 +192,7 @@ import { isPerfectLesson } from "./lessonPerfect.js";
 import { perfectLessonMilestoneKey } from "./perfectLessonStreak.js";
 import { getCommonMistakeFeedback } from "./commonMistakeFeedback.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
+import { pairStatsKey, recordAnswer } from "@/modules/learn/questionTypeStats.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -483,6 +484,13 @@ function onPrimaryAction() {
   if (!showResult.value) {
     lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
     playAnswerFeedback(lastCorrect.value);
+    if (!inReinforcement.value && currentQuestion.value?.type) {
+      recordAnswer(
+        pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang),
+        currentQuestion.value.type,
+        lastCorrect.value,
+      );
+    }
     updateCombo(lastCorrect.value);
     if (lastCorrect.value) {
       correctCount.value += 1;
