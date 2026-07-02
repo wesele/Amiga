@@ -73,6 +73,19 @@
       </div>
 
       <footer class="review-footer">
+        <button
+          v-if="!showResult && hintAvailable"
+          type="button"
+          class="hint-btn"
+          :disabled="hintShown"
+          @click="revealHint"
+        >
+          💡 {{ t("path.getHint") }}
+        </button>
+        <p v-if="hintText" class="hint-text" :class="{ 'is-auto': hintAutoRevealed }">
+          <span v-if="hintAutoRevealed" class="hint-auto-label">{{ t("path.hintAutoRevealed") }}</span>
+          {{ hintText }}
+        </p>
         <p v-if="showResult" class="feedback" :class="lastCorrect ? 'ok' : 'bad'">
           {{ lastCorrect ? t("path.correct") : t("path.incorrect") }}
         </p>
@@ -96,7 +109,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
@@ -107,6 +120,8 @@ import {
 } from "@/modules/learn/mistakeMilestones.js";
 import { pairStatsKey } from "@/modules/learn/questionTypeStats.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
+import { getQuestionHint, hasQuestionHint } from "./questionHint.js";
+import { HINT_IDLE_MS, shouldScheduleAutoHint } from "./questionHintTimer.js";
 import { recordMistakesMastered } from "./mistakeMasteryStats.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import { checkAnswer, formatCorrectAnswer, formatUserAnswer } from "./checkAnswer.js";
@@ -142,6 +157,10 @@ const streakUpdate = ref(null);
 const remainingDue = ref(0);
 const checkingRemaining = ref(false);
 const continuing = ref(false);
+const hintText = ref("");
+const hintShown = ref(false);
+const hintAutoRevealed = ref(false);
+let hintIdleTimer = null;
 
 const currentEntry = computed(() => queue.value[index.value] ?? null);
 const currentQuestion = computed(() => currentEntry.value?.question ?? null);
@@ -213,6 +232,59 @@ const primaryLabel = computed(() => {
   return t("path.finish");
 });
 
+const hintAvailable = computed(() => hasQuestionHint(currentQuestion.value));
+
+function clearHintIdleTimer() {
+  if (hintIdleTimer != null) {
+    clearTimeout(hintIdleTimer);
+    hintIdleTimer = null;
+  }
+}
+
+function revealHint({ auto = false } = {}) {
+  if (hintShown.value || !currentQuestion.value) return;
+  const hint = getQuestionHint(currentQuestion.value, t);
+  if (!hint) return;
+  clearHintIdleTimer();
+  hintText.value = hint;
+  hintShown.value = true;
+  hintAutoRevealed.value = auto;
+}
+
+function resetHint() {
+  clearHintIdleTimer();
+  hintText.value = "";
+  hintShown.value = false;
+  hintAutoRevealed.value = false;
+}
+
+function scheduleAutoHint() {
+  clearHintIdleTimer();
+  if (
+    !shouldScheduleAutoHint({
+      hintAvailable: hintAvailable.value,
+      hintShown: hintShown.value,
+      showResult: showResult.value,
+      finished: finished.value,
+      inReinforcement: false,
+    })
+  ) {
+    return;
+  }
+  hintIdleTimer = setTimeout(() => revealHint({ auto: true }), HINT_IDLE_MS);
+}
+
+watch(
+  [currentQuestion, hintShown, showResult, finished, currentAnswer],
+  () => {
+    scheduleAutoHint();
+  },
+);
+
+onUnmounted(() => {
+  clearHintIdleTimer();
+});
+
 async function load() {
   loading.value = true;
   error.value = "";
@@ -242,6 +314,7 @@ function resetQuestion() {
   currentAnswer.value = null;
   showResult.value = false;
   lastCorrect.value = false;
+  resetHint();
 }
 
 function persistReviewResult(isCorrect) {
@@ -420,6 +493,48 @@ onMounted(load);
   padding: 16px 20px calc(16px + var(--safe-bottom));
   background: var(--white);
   border-top: 1px solid var(--border);
+}
+
+.hint-btn {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hint-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.hint-text.is-auto {
+  border-color: rgba(255, 193, 7, 0.35);
+  background: rgba(255, 193, 7, 0.08);
+}
+
+.hint-auto-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #888);
+  margin-bottom: 4px;
+}
+
+.hint-text {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: var(--orange-bg);
+  border-radius: var(--radius-sm);
+  color: var(--orange-hover);
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .feedback {

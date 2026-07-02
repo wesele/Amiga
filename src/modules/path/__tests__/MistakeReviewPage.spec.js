@@ -57,6 +57,82 @@ function makeRouter() {
   });
 }
 
+describe("MistakeReviewPage contextual hints", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    setLocale("zh");
+    saveMistakeQueue(
+      upsertMistake([], {
+        question: Q1,
+        userAnswer: "ola",
+        pairKey: PAIR,
+        now: 1000,
+      }),
+    );
+  });
+
+  it("wires hint button and reveal flow in the review footer", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/MistakeReviewPage.vue"), "utf8");
+    expect(source).toMatch(/getQuestionHint/);
+    expect(source).toMatch(/class="hint-btn"/);
+    expect(source).toMatch(/class="hint-text"/);
+    expect(source).toMatch(/path\.getHint/);
+    expect(source).toMatch(/questionHintTimer\.js/);
+    expect(source).toMatch(/scheduleAutoHint/);
+    expect(source).toMatch(/path\.hintAutoRevealed/);
+  });
+
+  it("shows a contextual hint when the learner taps the hint button", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-mistake-review" });
+    await router.isReady();
+
+    const wrapper = mount(MistakeReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const hintBtn = wrapper.find(".hint-btn");
+    expect(hintBtn.exists()).toBe(true);
+
+    await hintBtn.trigger("click");
+    await flushPromises();
+
+    const hint = wrapper.find(".hint-text");
+    expect(hint.exists()).toBe(true);
+    expect(hint.text()).toContain("hello");
+    expect(hint.classes()).not.toContain("is-auto");
+    expect(hintBtn.attributes("disabled")).toBeDefined();
+  });
+
+  it("auto-reveals a hint after the learner idles on a review question", async () => {
+    vi.useFakeTimers();
+
+    const router = makeRouter();
+    await router.push({ name: "path-mistake-review" });
+    await router.isReady();
+
+    const wrapper = mount(MistakeReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".hint-text").exists()).toBe(false);
+
+    vi.advanceTimersByTime(15_000);
+    await flushPromises();
+
+    const hint = wrapper.find(".hint-text");
+    expect(hint.exists()).toBe(true);
+    expect(hint.text()).toContain("卡住太久");
+    expect(hint.text()).toContain("hello");
+    expect(hint.classes()).toContain("is-auto");
+    expect(wrapper.find(".hint-btn").attributes("disabled")).toBeDefined();
+
+    vi.useRealTimers();
+  });
+});
+
 describe("MistakeReviewPage previous wrong answer", () => {
   beforeEach(() => {
     localStorage.clear();
