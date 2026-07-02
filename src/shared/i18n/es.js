@@ -172,6 +172,7 @@ export default {
     correctAnswer: "Respuesta correcta: {answer}",
     commonMistakeTip: "«{mistake}» es un error común — la forma correcta es «{correct}»",
     commonMistakeWithHint: "«{mistake}» es un error común. {hint}",
+    nearMissTip: "¡Casi! Escribiste «{answer}» — solo te falta una letra. Correcto: «{correct}»",
     getHint: "Pista",
     hintAutoRevealed: "¿Atascado? Una pista:",
     hintEliminate: "Prueba descartar: {options}",

@@ -175,6 +175,7 @@ export default {
     correctAnswer: "正确答案：{answer}",
     commonMistakeTip: "「{mistake}」是常见错误，正确答案是「{correct}」",
     commonMistakeWithHint: "「{mistake}」是常见错误。{hint}",
+    nearMissTip: "很接近了！你输入的是「{answer}」，只差一个字母，正确拼写是「{correct}」",
     getHint: "提示",
     hintAutoRevealed: "卡住太久？小提示：",
     hintEliminate: "试试排除这些选项：{options}",

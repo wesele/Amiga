@@ -172,6 +172,7 @@ export default {
     correctAnswer: "Correct answer: {answer}",
     commonMistakeTip: "\"{mistake}\" is a common mistake — the correct spelling is \"{correct}\"",
     commonMistakeWithHint: "\"{mistake}\" is a common mistake. {hint}",
+    nearMissTip: "So close! You typed \"{answer}\" — just one letter off. Correct: \"{correct}\"",
     getHint: "Hint",
     hintAutoRevealed: "Stuck? Here's a nudge:",
     hintEliminate: "Try ruling out: {options}",

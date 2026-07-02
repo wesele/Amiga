@@ -100,6 +100,9 @@
         <p v-if="showResult" class="feedback" :class="lastCorrect ? 'ok' : 'bad'">
           {{ lastCorrect ? t("path.correct") : t("path.incorrect") }}
         </p>
+        <p v-if="nearMissFeedback" class="near-miss-tip">
+          {{ nearMissFeedback }}
+        </p>
         <p v-if="showResult && lastCorrect && srsScheduleText" class="srs-schedule">
           {{ srsScheduleText }}
         </p>
@@ -144,6 +147,7 @@ import { HINT_IDLE_MS, shouldScheduleAutoHint } from "./questionHintTimer.js";
 import { recordMistakesMastered } from "./mistakeMasteryStats.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import { checkAnswer, formatCorrectAnswer, formatUserAnswer } from "./checkAnswer.js";
+import { getNearMissFeedback } from "./nearMissAnswer.js";
 import {
   applyReviewResult,
   loadDueMistakes,
@@ -227,6 +231,17 @@ const continueReviewLabel = computed(() => {
 const correctAnswerText = computed(() =>
   currentQuestion.value ? formatCorrectAnswer(currentQuestion.value) : "",
 );
+
+const nearMissFeedback = computed(() => {
+  if (!showResult.value || lastCorrect.value || !currentQuestion.value) return "";
+  return (
+    getNearMissFeedback(
+      currentQuestion.value,
+      currentAnswer.value,
+      t,
+    ) || ""
+  );
+});
 
 const previousWrongAnswerText = computed(() => {
   const q = currentQuestion.value;
@@ -689,6 +704,18 @@ onMounted(load);
   color: var(--text-light);
   text-align: center;
   line-height: 1.4;
+}
+
+.near-miss-tip {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: #eef6ff;
+  border: 1.5px solid #6eb5ff;
+  border-radius: var(--radius-sm);
+  color: #1a5a9e;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .summary {

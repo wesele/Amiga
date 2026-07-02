@@ -228,6 +228,9 @@
         <p v-if="commonMistakeFeedback" class="common-mistake-tip">
           {{ commonMistakeFeedback }}
         </p>
+        <p v-if="nearMissFeedback" class="near-miss-tip">
+          {{ nearMissFeedback }}
+        </p>
         <p
           v-if="showResult && !lastCorrect && correctAnswerText"
           class="answer-reveal"
@@ -284,6 +287,7 @@ import {
 import { isPerfectLesson } from "./lessonPerfect.js";
 import { perfectLessonMilestoneKey } from "./perfectLessonStreak.js";
 import { getCommonMistakeFeedback } from "./commonMistakeFeedback.js";
+import { getNearMissFeedback } from "./nearMissAnswer.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 import {
   buildFocusArea,
@@ -439,6 +443,18 @@ const commonMistakeFeedback = computed(() => {
   if (!showResult.value || lastCorrect.value || !currentQuestion.value) return "";
   return (
     getCommonMistakeFeedback(
+      currentQuestion.value,
+      currentAnswer.value,
+      t,
+    ) || ""
+  );
+});
+
+const nearMissFeedback = computed(() => {
+  if (!showResult.value || lastCorrect.value || !currentQuestion.value) return "";
+  if (commonMistakeFeedback.value) return "";
+  return (
+    getNearMissFeedback(
       currentQuestion.value,
       currentAnswer.value,
       t,
@@ -1123,6 +1139,18 @@ onMounted(load);
   border: 1.5px solid #f0b429;
   border-radius: var(--radius-sm);
   color: #7a4b00;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.near-miss-tip {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: #eef6ff;
+  border: 1.5px solid #6eb5ff;
+  border-radius: var(--radius-sm);
+  color: #1a5a9e;
   font-size: 14px;
   line-height: 1.45;
   text-align: center;

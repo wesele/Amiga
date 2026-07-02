@@ -468,6 +468,70 @@ describe("LessonPage common mistake feedback", () => {
   });
 });
 
+describe("LessonPage near-miss feedback", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") {
+        return Promise.resolve({
+          section_title_native: "拼写练习",
+          questions: [
+            {
+              id: "spell-near",
+              type: "T09",
+              hint: "学生",
+              answer: "estudiante",
+              commonMistakes: [],
+            },
+          ],
+        });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("wires near-miss feedback into the lesson footer", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/nearMissAnswer\.js/);
+    expect(source).toMatch(/getNearMissFeedback/);
+    expect(source).toMatch(/class="near-miss-tip"/);
+    expect(source).toMatch(/nearMissFeedback/);
+  });
+
+  it("shows an encouraging tip when the learner is one letter off", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = "estudante";
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const tip = wrapper.find(".near-miss-tip");
+    expect(tip.exists()).toBe(true);
+    expect(tip.text()).toContain("estudante");
+    expect(tip.text()).toContain("estudiante");
+    expect(wrapper.find(".common-mistake-tip").exists()).toBe(false);
+    expect(wrapper.find(".feedback.bad").exists()).toBe(true);
+  });
+});
+
 describe("LessonPage mistake review", () => {
   it("tracks wrong answers and shows a recap on the summary screen", () => {
     const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");

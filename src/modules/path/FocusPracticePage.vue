@@ -89,6 +89,9 @@
         <p v-if="showResult" class="feedback" :class="lastCorrect ? 'ok' : 'bad'">
           {{ lastCorrect ? t("path.correct") : t("path.incorrect") }}
         </p>
+        <p v-if="nearMissFeedback" class="near-miss-tip">
+          {{ nearMissFeedback }}
+        </p>
         <p
           v-if="showResult && !lastCorrect && correctAnswerText"
           class="answer-reveal"
@@ -136,6 +139,7 @@ import {
 } from "./focusPracticeSession.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import { checkAnswer, formatCorrectAnswer } from "./checkAnswer.js";
+import { getNearMissFeedback } from "./nearMissAnswer.js";
 import { shouldAutoCheckOnAnswerChange } from "./practiceAnswerAutoCheck.js";
 import { correctAutoAdvanceDelayMs } from "./practiceFlowTiming.js";
 import { usePracticeEnterKey } from "./usePracticeEnterKey.js";
@@ -183,6 +187,17 @@ const showContinuePractice = computed(() =>
 const correctAnswerText = computed(() =>
   currentQuestion.value ? formatCorrectAnswer(currentQuestion.value) : "",
 );
+
+const nearMissFeedback = computed(() => {
+  if (!showResult.value || lastCorrect.value || !currentQuestion.value) return "";
+  return (
+    getNearMissFeedback(
+      currentQuestion.value,
+      currentAnswer.value,
+      t,
+    ) || ""
+  );
+});
 
 const canCheck = computed(() => {
   if (showResult.value) return true;
@@ -558,6 +573,18 @@ onMounted(load);
   font-size: 14px;
   text-align: center;
   line-height: 1.45;
+}
+
+.near-miss-tip {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: #eef6ff;
+  border: 1.5px solid #6eb5ff;
+  border-radius: var(--radius-sm);
+  color: #1a5a9e;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .summary {
