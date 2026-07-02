@@ -73,8 +73,8 @@ describe("FocusPracticePage", () => {
 
   it("wires instant choice submit for snappier practice flow", () => {
     const source = readFileSync(resolve(ROOT, "src/modules/path/FocusPracticePage.vue"), "utf8");
-    expect(source).toMatch(/choiceAutoSubmit\.js/);
-    expect(source).toMatch(/shouldAutoSubmitOnChoice/);
+    expect(source).toMatch(/practiceAnswerAutoCheck\.js/);
+    expect(source).toMatch(/shouldAutoCheckOnAnswerChange/);
     expect(source).toMatch(/scheduleAutoAdvance/);
     expect(source).toMatch(/checkCurrentAnswer/);
   });

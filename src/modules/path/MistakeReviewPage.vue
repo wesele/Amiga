@@ -156,10 +156,7 @@ import {
   remainingMistakeReviewCount,
   shouldOfferMistakeContinuation,
 } from "./mistakeReviewContinuation.js";
-import {
-  isChoiceAnswer,
-  shouldAutoSubmitOnChoice,
-} from "./choiceAutoSubmit.js";
+import { shouldAutoCheckOnAnswerChange } from "./practiceAnswerAutoCheck.js";
 import { correctAutoAdvanceDelayMs } from "./practiceFlowTiming.js";
 import { usePracticeEnterKey } from "./usePracticeEnterKey.js";
 
@@ -448,9 +445,13 @@ usePracticeEnterKey(
 );
 
 watch(currentAnswer, (answer) => {
-  if (!isChoiceAnswer(answer) || showResult.value) return;
-  const question = currentQuestion.value;
-  if (!shouldAutoSubmitOnChoice(question)) return;
+  if (
+    !shouldAutoCheckOnAnswerChange(currentQuestion.value, answer, {
+      showResult: showResult.value,
+    })
+  ) {
+    return;
+  }
   checkCurrentAnswer();
 });
 

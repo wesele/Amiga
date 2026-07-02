@@ -105,11 +105,11 @@ describe("LessonPage choice auto-submit flow", () => {
     api.__setInvoke(mockInvoke);
   });
 
-  it("wires instant choice submit and auto-advance timing helpers", () => {
+  it("wires instant answer auto-check and auto-advance timing helpers", () => {
     const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
-    expect(source).toMatch(/choiceAutoSubmit\.js/);
+    expect(source).toMatch(/practiceAnswerAutoCheck\.js/);
     expect(source).toMatch(/practiceFlowTiming\.js/);
-    expect(source).toMatch(/shouldAutoSubmitOnChoice/);
+    expect(source).toMatch(/shouldAutoCheckOnAnswerChange/);
     expect(source).toMatch(/scheduleAutoAdvance/);
     expect(source).toMatch(/checkCurrentAnswer/);
   });
@@ -126,6 +126,55 @@ describe("LessonPage choice auto-submit flow", () => {
 
     expect(wrapper.vm.showResult).toBe(false);
     wrapper.vm.currentAnswer = 0;
+    await flushPromises();
+
+    expect(wrapper.vm.showResult).toBe(true);
+    expect(wrapper.vm.lastCorrect).toBe(true);
+    expect(wrapper.find(".feedback.ok").exists()).toBe(true);
+  });
+
+  it("auto-checks when the learner completes the last matching pair", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") {
+        return Promise.resolve({
+          section_title_native: "配对",
+          questions: [
+            {
+              id: "match-1",
+              type: "T03",
+              pairs: [
+                { left: "hola", right: "你好" },
+                { left: "adiós", right: "再见" },
+              ],
+            },
+          ],
+        });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.vm.showResult).toBe(false);
+    wrapper.vm.currentAnswer = [
+      { left: "hola", right: "你好" },
+      { left: "adiós", right: "再见" },
+    ];
     await flushPromises();
 
     expect(wrapper.vm.showResult).toBe(true);
