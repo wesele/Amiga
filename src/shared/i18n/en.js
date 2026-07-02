@@ -149,6 +149,7 @@ export default {
     reinforceMistakesHint: "Try again on questions you missed to lock them in",
     mistakeReviewProgress: "{current}/{total}",
     mistakeReviewBadge: "Spaced review · reinforce mistakes",
+    mistakeReviewPreviousAnswer: "You answered: {answer}",
     mistakeReviewAllCaughtUp: "No mistakes due for review — keep it up!",
     mistakeReviewBack: "Back to learn",
     mistakeReviewComplete: "Mistake review complete!",

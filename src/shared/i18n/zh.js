@@ -152,6 +152,7 @@ export default {
     reinforceMistakesHint: "再练一遍答错的题目，加深记忆",
     mistakeReviewProgress: "{current}/{total}",
     mistakeReviewBadge: "间隔复习 · 巩固错题",
+    mistakeReviewPreviousAnswer: "上次答错：{answer}",
     mistakeReviewAllCaughtUp: "暂无待复习错题，继续保持！",
     mistakeReviewBack: "返回学习",
     mistakeReviewComplete: "错题复习完成！",

@@ -99,6 +99,18 @@ describe("mistakeReviewStore", () => {
     expect(queue[0].next_review_at).toBe(nextReviewAt(0, wrongAgain));
   });
 
+  it("updates the stored wrong answer when a review attempt fails", () => {
+    const now = Date.parse("2026-07-02T10:00:00Z");
+    let queue = upsertMistake([], {
+      question: Q1,
+      userAnswer: "ola",
+      pairKey: PAIR,
+      now,
+    });
+    queue = applyReviewResult(queue, "q1", false, now, "holo");
+    expect(queue[0].user_answer).toBe("holo");
+  });
+
   it("persists mistakes per language pair in localStorage", () => {
     recordLessonMistake(PAIR, Q1, "ola", 1000);
     recordLessonMistake("zh-fr", Q2, 1, 2000);

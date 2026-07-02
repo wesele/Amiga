@@ -149,6 +149,7 @@ export default {
     reinforceMistakesHint: "Vuelve a intentar las preguntas que fallaste",
     mistakeReviewProgress: "{current}/{total}",
     mistakeReviewBadge: "Repaso espaciado · refuerza errores",
+    mistakeReviewPreviousAnswer: "Respondiste: {answer}",
     mistakeReviewAllCaughtUp: "No hay errores pendientes — ¡sigue así!",
     mistakeReviewBack: "Volver a aprender",
     mistakeReviewComplete: "¡Repaso de errores completado!",

@@ -42,6 +42,9 @@
     <template v-else-if="currentQuestion">
       <div class="review-body">
         <p class="review-badge">{{ t("path.mistakeReviewBadge") }}</p>
+        <p v-if="previousWrongAnswerText" class="previous-wrong">
+          {{ t("path.mistakeReviewPreviousAnswer", { answer: previousWrongAnswerText }) }}
+        </p>
         <QuestionRenderer
           :question="currentQuestion"
           v-model:answer="currentAnswer"
@@ -81,7 +84,7 @@ import { loadLearningContext } from "@/shared/learningContext.js";
 import { pairStatsKey } from "@/modules/learn/questionTypeStats.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
-import { checkAnswer, formatCorrectAnswer } from "./checkAnswer.js";
+import { checkAnswer, formatCorrectAnswer, formatUserAnswer } from "./checkAnswer.js";
 import {
   applyReviewResult,
   loadDueMistakes,
@@ -117,6 +120,12 @@ const progressPct = computed(() => {
 const correctAnswerText = computed(() =>
   currentQuestion.value ? formatCorrectAnswer(currentQuestion.value) : "",
 );
+
+const previousWrongAnswerText = computed(() => {
+  const q = currentQuestion.value;
+  if (!q) return "";
+  return formatUserAnswer(q, currentEntry.value?.user_answer);
+});
 
 const canCheck = computed(() => {
   if (showResult.value) return true;
@@ -169,7 +178,13 @@ function persistReviewResult(isCorrect) {
   if (!questionId) return;
 
   const all = loadMistakeQueue();
-  const next = applyReviewResult(all, questionId, isCorrect);
+  const next = applyReviewResult(
+    all,
+    questionId,
+    isCorrect,
+    Date.now(),
+    isCorrect ? undefined : currentAnswer.value,
+  );
   saveMistakeQueue(next);
 
   if (isCorrect) {
@@ -277,7 +292,7 @@ onMounted(load);
 }
 
 .review-badge {
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   padding: 8px 12px;
   background: var(--orange-bg);
   color: var(--orange-hover);
@@ -285,6 +300,18 @@ onMounted(load);
   font-size: 13px;
   font-weight: 700;
   text-align: center;
+}
+
+.previous-wrong {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  background: var(--red-bg);
+  color: var(--red);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.4;
 }
 
 .review-footer {

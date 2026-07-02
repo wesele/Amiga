@@ -24,6 +24,43 @@ export function formatQuestionPrompt(question, t) {
   return "";
 }
 
+/** Learner-facing text for a stored wrong answer (mistake review, lesson summary). */
+export function formatUserAnswer(question, userAnswer) {
+  if (!question || userAnswer == null) return "";
+
+  const type = question.type;
+
+  if (["T01", "T05", "T07", "T08", "T12"].includes(type)) {
+    const idx = Number(userAnswer);
+    if (!Number.isFinite(idx)) return "";
+    return question.options?.[idx] || "";
+  }
+
+  if (type === "T02") {
+    const idx = Number(userAnswer);
+    if (!Number.isFinite(idx)) return "";
+    return question.imageOptions?.[idx]?.desc || "";
+  }
+
+  if (type === "T03") {
+    if (!Array.isArray(userAnswer) || userAnswer.length === 0) return "";
+    return userAnswer
+      .map((p) => `${p.left} → ${p.right}`)
+      .join(" · ");
+  }
+
+  if (type === "T06") {
+    if (!Array.isArray(userAnswer) || userAnswer.length === 0) return "";
+    return userAnswer.join(" ");
+  }
+
+  if (type === "T09" || type === "T10") {
+    return String(userAnswer ?? "").trim();
+  }
+
+  return "";
+}
+
 export function formatCorrectAnswer(question) {
   if (!question) return "";
 

@@ -75,7 +75,13 @@ export function countDueMistakes(queue, pairKey, now = Date.now()) {
   return queue.filter((e) => e.pair_key === pairKey && isDue(e, now)).length;
 }
 
-export function applyReviewResult(queue, questionId, isCorrect, now = Date.now()) {
+export function applyReviewResult(
+  queue,
+  questionId,
+  isCorrect,
+  now = Date.now(),
+  userAnswer = undefined,
+) {
   if (!questionId || !Array.isArray(queue)) return queue ?? [];
 
   return queue.flatMap((entry) => {
@@ -88,6 +94,7 @@ export function applyReviewResult(queue, questionId, isCorrect, now = Date.now()
           level: 0,
           wrong_at: now,
           next_review_at: nextReviewAt(0, now),
+          ...(userAnswer !== undefined ? { user_answer: userAnswer } : {}),
         },
       ];
     }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { checkAnswer, formatCorrectAnswer, formatQuestionPrompt } from "../checkAnswer.js";
+import {
+  checkAnswer,
+  formatCorrectAnswer,
+  formatQuestionPrompt,
+  formatUserAnswer,
+} from "../checkAnswer.js";
 
 const t = (key) => {
   const map = {
@@ -83,5 +88,31 @@ describe("formatCorrectAnswer", () => {
   it("returns canonical answer for T09 and T10", () => {
     expect(formatCorrectAnswer({ type: "T09", answer: "café" })).toBe("café");
     expect(formatCorrectAnswer({ type: "T10", acceptedAnswers: ["Hello", "Hi"] })).toBe("Hello");
+  });
+});
+
+describe("formatUserAnswer", () => {
+  it("returns the selected option for multiple-choice mistakes", () => {
+    const q = { type: "T07", options: ["A", "B", "C"] };
+    expect(formatUserAnswer(q, 1)).toBe("B");
+    expect(formatUserAnswer(q, null)).toBe("");
+  });
+
+  it("formats T03 and T06 learner submissions", () => {
+    const t03 = {
+      type: "T03",
+      pairs: [{ left: "hola", right: "你好" }],
+    };
+    expect(
+      formatUserAnswer(t03, [{ left: "hola", right: "再见" }]),
+    ).toBe("hola → 再见");
+
+    const t06 = { type: "T06", targetSentence: "Yo soy estudiante." };
+    expect(formatUserAnswer(t06, ["Yo", "estudiante.", "soy"])).toBe("Yo estudiante. soy");
+  });
+
+  it("returns trimmed text for spelling and translation inputs", () => {
+    expect(formatUserAnswer({ type: "T09", answer: "hola" }, "  ola ")).toBe("ola");
+    expect(formatUserAnswer({ type: "T10", acceptedAnswers: ["Hello"] }, "Hi")).toBe("Hi");
   });
 });
