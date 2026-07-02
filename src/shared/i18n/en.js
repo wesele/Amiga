@@ -40,6 +40,9 @@ export default {
     streakAtRisk: "Your {n}-day streak ends tonight!",
     streakAtRiskHint: "Complete a lesson or read an article to keep it",
     streakAtRiskAction: "Practice now",
+    continueLearning: "Continue learning",
+    continueUnit: "{unit}",
+    continueAction: "Start",
   },
 
   path: {

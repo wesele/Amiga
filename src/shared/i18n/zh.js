@@ -43,6 +43,9 @@ export default {
     streakAtRisk: "{n} 天连胜今晚就要断了！",
     streakAtRiskHint: "完成一节课或读一篇文章即可保住连胜",
     streakAtRiskAction: "马上学习",
+    continueLearning: "继续学习",
+    continueUnit: "{unit}",
+    continueAction: "开始",
   },
 
   path: {

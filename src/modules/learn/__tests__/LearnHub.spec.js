@@ -16,12 +16,73 @@ vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
 const LearnHubPage = (await import("@/modules/learn/LearnHubPage.vue")).default;
 
+const MOCK_CURRICULUM = {
+  status: "active",
+  units: [
+    {
+      id: "U01",
+      title_native: "问候与介绍",
+      sections: [
+        {
+          id: "zh-es/U01-GRAMMAR",
+          kind: "grammar",
+          title_native: "单元知识",
+          current: false,
+          locked: false,
+        },
+        {
+          id: "zh-es/U01-PRACTICE",
+          kind: "practice",
+          title_native: "闯关练习",
+          current: true,
+          locked: false,
+          question_count: 6,
+        },
+      ],
+    },
+  ],
+};
+
+function defaultInvoke(cmd) {
+  if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+  if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
+  if (cmd === "get_current_user") {
+    return Promise.resolve({ id: "u1", native_language: "zh" });
+  }
+  if (cmd === "get_learning_goals_cmd") {
+    return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+  }
+  if (cmd === "get_path_curriculum_cmd") return Promise.resolve(MOCK_CURRICULUM);
+  if (cmd === "get_daily_goal_progress_cmd") {
+    return Promise.resolve({
+      lessons_today: 1,
+      target_lessons: 2,
+      progress_pct: 50,
+      goal_met: false,
+      streak_current: 3,
+      practiced_today: true,
+    });
+  }
+  if (cmd === "create_chat_session_cmd") return Promise.resolve("translator-sess");
+  return Promise.resolve(null);
+}
+
 function makeRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: "/learn", name: "learn", component: LearnHubPage },
       { path: "/learn/path", name: "path", component: { template: "<div/>" } },
+      {
+        path: "/learn/path/teach/:nodeId",
+        name: "path-teaching",
+        component: { template: "<div/>" },
+      },
+      {
+        path: "/learn/path/:sectionId",
+        name: "path-lesson",
+        component: { template: "<div/>" },
+      },
       { path: "/news", name: "news", component: { template: "<div/>" } },
       {
         path: "/learn/translator/:sessionId",
@@ -38,23 +99,7 @@ describe("LearnHubPage", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     setLocale("zh", { persist: false });
-    mockInvoke = vi.fn().mockImplementation((cmd) => {
-      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
-      if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
-      if (cmd === "get_current_user") return Promise.resolve({ id: "u1" });
-      if (cmd === "get_daily_goal_progress_cmd") {
-        return Promise.resolve({
-          lessons_today: 1,
-          target_lessons: 2,
-          progress_pct: 50,
-          goal_met: false,
-          streak_current: 3,
-          practiced_today: true,
-        });
-      }
-      if (cmd === "create_chat_session_cmd") return Promise.resolve("translator-sess");
-      return Promise.resolve(null);
-    });
+    mockInvoke = vi.fn().mockImplementation(defaultInvoke);
     api.__setInvoke(mockInvoke);
   });
 
@@ -99,10 +144,55 @@ describe("LearnHubPage", () => {
     expect(pushSpy).toHaveBeenCalledWith({ name: "news" });
   });
 
+  it("shows continue-learning card for the current path section", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".continue-card");
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain("继续学习");
+    expect(card.text()).toContain("闯关练习");
+    expect(card.text()).toContain("问候与介绍");
+    expect(card.text()).toContain("开始");
+  });
+
+  it("navigates directly to the current lesson when continue card is clicked", async () => {
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".continue-card").trigger("click");
+    expect(pushSpy).toHaveBeenCalledWith({
+      name: "path-lesson",
+      params: { sectionId: "zh-es/U01-PRACTICE" },
+    });
+  });
+
+  it("hides continue card when path curriculum is not active", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_path_curriculum_cmd") {
+        return Promise.resolve({ ...MOCK_CURRICULUM, status: "level_complete" });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".continue-card").exists()).toBe(false);
+  });
+
   it("shows streak-at-risk banner when user has streak but has not practiced today", async () => {
     mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
-      if (cmd === "get_current_user") return Promise.resolve({ id: "u1" });
       if (cmd === "get_daily_goal_progress_cmd") {
         return Promise.resolve({
           lessons_today: 0,
@@ -113,7 +203,7 @@ describe("LearnHubPage", () => {
           practiced_today: false,
         });
       }
-      return Promise.resolve(null);
+      return defaultInvoke(cmd);
     });
 
     const router = makeRouter();
@@ -141,8 +231,6 @@ describe("LearnHubPage", () => {
 
   it("navigates to path when streak-at-risk banner is clicked", async () => {
     mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
-      if (cmd === "get_current_user") return Promise.resolve({ id: "u1" });
       if (cmd === "get_daily_goal_progress_cmd") {
         return Promise.resolve({
           lessons_today: 0,
@@ -153,7 +241,7 @@ describe("LearnHubPage", () => {
           practiced_today: false,
         });
       }
-      return Promise.resolve(null);
+      return defaultInvoke(cmd);
     });
 
     const router = makeRouter();

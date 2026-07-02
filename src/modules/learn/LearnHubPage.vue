@@ -5,6 +5,24 @@
     </header>
 
     <button
+      v-if="resumeTarget"
+      type="button"
+      class="continue-card"
+      @click="continueLearning"
+    >
+      <span class="continue-icon" aria-hidden="true">{{ resumeIcon }}</span>
+      <div class="continue-copy">
+        <p class="continue-eyebrow">{{ t("learn.continueLearning") }}</p>
+        <p class="continue-title">{{ resumeTarget.section.title_native }}</p>
+        <p class="continue-sub">
+          {{ t("learn.continueUnit", { unit: resumeTarget.unit.title_native }) }}
+          · {{ t(resumeKindKey) }}
+        </p>
+      </div>
+      <span class="continue-action">{{ t("learn.continueAction") }}</span>
+    </button>
+
+    <button
       v-if="streakAtRisk"
       type="button"
       class="streak-risk-banner"
@@ -84,15 +102,24 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
-import { getCurrentUser, getDailyGoalProgress } from "@/shared/api.js";
+import { getDailyGoalProgress, getPathCurriculum } from "@/shared/api.js";
+import { loadLearningContext } from "@/shared/learningContext.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
+import {
+  canResumeSection,
+  findCurrentSection,
+  pathSectionRoute,
+  sectionKindIcon,
+  sectionKindKey,
+} from "./pathResume.js";
 
 const router = useRouter();
 const { t } = useI18n();
 const targetLangStore = useTargetLangStore();
 const opening = ref(null);
 const dailyGoal = ref(null);
+const resumeTarget = ref(null);
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
 
@@ -109,26 +136,61 @@ const streakAtRisk = computed(
     !dailyGoal.value.practiced_today,
 );
 
+const resumeIcon = computed(() =>
+  resumeTarget.value ? sectionKindIcon(resumeTarget.value.section.kind) : "",
+);
+
+const resumeKindKey = computed(() =>
+  resumeTarget.value ? sectionKindKey(resumeTarget.value.section.kind) : "",
+);
+
 const modules = [
   { id: "path", labelKey: "learn.path", icon: "🛤️", route: { name: "path" } },
   { id: "news", labelKey: "learn.news", icon: "📰", route: { name: "news" } },
   { id: "translator", labelKey: "chat.translator", icon: "🌐", action: "translator" },
 ];
 
-async function loadDailyGoal() {
+async function loadDailyGoal(userId, lang) {
   try {
-    const [user, lang] = await Promise.all([
-      getCurrentUser(),
-      targetLangStore.code ? Promise.resolve(targetLangStore.code) : targetLangStore.load(),
-    ]);
-    dailyGoal.value = await getDailyGoalProgress(user.id, lang);
+    dailyGoal.value = await getDailyGoalProgress(userId, lang);
   } catch {
     dailyGoal.value = null;
   }
 }
 
+async function loadResumeSection(nativeLang, targetLang, cefr) {
+  try {
+    const curriculum = await getPathCurriculum(nativeLang, targetLang, cefr);
+    const hit = findCurrentSection(curriculum);
+    resumeTarget.value =
+      hit && canResumeSection(hit.section) ? hit : null;
+  } catch {
+    resumeTarget.value = null;
+  }
+}
+
+async function loadHubData() {
+  try {
+    const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
+      targetLangStore,
+    });
+    await Promise.all([
+      loadDailyGoal(user.id, targetLang),
+      loadResumeSection(nativeLang, targetLang, cefr),
+    ]);
+  } catch {
+    dailyGoal.value = null;
+    resumeTarget.value = null;
+  }
+}
+
 function goToPath() {
   router.push({ name: "path" });
+}
+
+function continueLearning() {
+  if (!resumeTarget.value) return;
+  router.push(pathSectionRoute(resumeTarget.value.section));
 }
 
 async function openModule(mod) {
@@ -151,7 +213,7 @@ async function openModule(mod) {
   }
 }
 
-onMounted(loadDailyGoal);
+onMounted(loadHubData);
 </script>
 
 <style scoped>
@@ -169,6 +231,79 @@ onMounted(loadDailyGoal);
   margin: 0;
   font-size: 22px;
   font-weight: 700;
+}
+
+.continue-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #e8f8ef 0%, #d4f5e0 100%);
+  border: 1px solid var(--green);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.continue-card:hover {
+  box-shadow: 0 2px 10px rgba(88, 204, 2, 0.22);
+  transform: translateY(-1px);
+}
+
+.continue-icon {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.continue-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.continue-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--green-hover);
+  line-height: 1.2;
+}
+
+.continue-title {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.continue-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-light);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.continue-action {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--green-hover);
+  padding: 8px 12px;
+  border-radius: 999px;
 }
 
 .streak-risk-banner {
