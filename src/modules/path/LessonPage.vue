@@ -197,13 +197,15 @@
         </p>
         <p v-if="inReinforcement" class="reinforcement-hint">{{ t("path.reinforceMistakesHint") }}</p>
         <p v-else class="section-label">{{ lesson?.section_title_native }}</p>
-        <QuestionRenderer
-          :question="currentQuestion"
-          v-model:answer="currentAnswer"
-          :show-result="showResult"
-          :is-correct="lastCorrect"
-          @submit="onPrimaryAction"
-        />
+        <PracticeQuestionTransition :question-key="questionTransitionKey">
+          <QuestionRenderer
+            :question="currentQuestion"
+            v-model:answer="currentAnswer"
+            :show-result="showResult"
+            :is-correct="lastCorrect"
+            @submit="onPrimaryAction"
+          />
+        </PracticeQuestionTransition>
       </div>
 
       <footer class="lesson-footer">
@@ -261,6 +263,8 @@ import {
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
+import PracticeQuestionTransition from "./components/PracticeQuestionTransition.vue";
+import { practiceQuestionKey } from "./practiceQuestionKey.js";
 import {
   checkAnswer,
   formatCorrectAnswer,
@@ -474,6 +478,15 @@ const primaryLabel = computed(() => {
   }
   return t("path.check");
 });
+
+const questionTransitionKey = computed(() =>
+  practiceQuestionKey({
+    question: currentQuestion.value,
+    index: index.value,
+    reinforcementIndex: reinforcementIndex.value,
+    inReinforcement: inReinforcement.value,
+  }),
+);
 
 const hintAvailable = computed(() => hasQuestionHint(currentQuestion.value));
 

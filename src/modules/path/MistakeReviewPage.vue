@@ -61,26 +61,30 @@
     <template v-else-if="currentQuestion">
       <div class="review-body">
         <p class="review-badge">{{ t("path.mistakeReviewBadge") }}</p>
-        <div v-if="srsDots.length" class="srs-progress" :aria-label="srsStageLabelText">
-          <span
-            v-for="(filled, dotIdx) in srsDots"
-            :key="dotIdx"
-            class="srs-dot"
-            :class="{ 'is-filled': filled }"
-            aria-hidden="true"
-          />
-          <span class="srs-label">{{ srsStageLabelText }}</span>
-        </div>
-        <p v-if="previousWrongAnswerText" class="previous-wrong">
-          {{ t("path.mistakeReviewPreviousAnswer", { answer: previousWrongAnswerText }) }}
-        </p>
-        <QuestionRenderer
-          :question="currentQuestion"
-          v-model:answer="currentAnswer"
-          :show-result="showResult"
-          :is-correct="lastCorrect"
-          @submit="onPrimaryAction"
-        />
+        <PracticeQuestionTransition :question-key="questionTransitionKey">
+          <div class="question-block">
+            <div v-if="srsDots.length" class="srs-progress" :aria-label="srsStageLabelText">
+              <span
+                v-for="(filled, dotIdx) in srsDots"
+                :key="dotIdx"
+                class="srs-dot"
+                :class="{ 'is-filled': filled }"
+                aria-hidden="true"
+              />
+              <span class="srs-label">{{ srsStageLabelText }}</span>
+            </div>
+            <p v-if="previousWrongAnswerText" class="previous-wrong">
+              {{ t("path.mistakeReviewPreviousAnswer", { answer: previousWrongAnswerText }) }}
+            </p>
+            <QuestionRenderer
+              :question="currentQuestion"
+              v-model:answer="currentAnswer"
+              :show-result="showResult"
+              :is-correct="lastCorrect"
+              @submit="onPrimaryAction"
+            />
+          </div>
+        </PracticeQuestionTransition>
       </div>
 
       <footer class="review-footer">
@@ -146,6 +150,8 @@ import {
 import { HINT_IDLE_MS, shouldScheduleAutoHint } from "./questionHintTimer.js";
 import { recordMistakesMastered } from "./mistakeMasteryStats.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
+import PracticeQuestionTransition from "./components/PracticeQuestionTransition.vue";
+import { practiceQuestionKey } from "./practiceQuestionKey.js";
 import { checkAnswer, formatCorrectAnswer, formatUserAnswer } from "./checkAnswer.js";
 import { getNearMissFeedback } from "./nearMissAnswer.js";
 import {
@@ -191,6 +197,13 @@ let autoAdvanceTimer = null;
 
 const currentEntry = computed(() => queue.value[index.value] ?? null);
 const currentQuestion = computed(() => currentEntry.value?.question ?? null);
+
+const questionTransitionKey = computed(() =>
+  practiceQuestionKey({
+    question: currentQuestion.value,
+    index: index.value,
+  }),
+);
 
 const progressCurrent = computed(() => Math.min(index.value + 1, queue.value.length || 1));
 
@@ -582,6 +595,10 @@ onMounted(load);
   font-size: 13px;
   font-weight: 700;
   text-align: center;
+}
+
+.question-block {
+  width: 100%;
 }
 
 .srs-progress {

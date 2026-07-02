@@ -63,13 +63,15 @@
       <div class="review-body">
         <p class="review-badge">{{ t("path.focusPracticeBadge") }}</p>
         <p class="type-label">{{ t(focusAreaTypeKey(questionType)) }}</p>
-        <QuestionRenderer
-          :question="currentQuestion"
-          v-model:answer="currentAnswer"
-          :show-result="showResult"
-          :is-correct="lastCorrect"
-          @submit="onPrimaryAction"
-        />
+        <PracticeQuestionTransition :question-key="questionTransitionKey">
+          <QuestionRenderer
+            :question="currentQuestion"
+            v-model:answer="currentAnswer"
+            :show-result="showResult"
+            :is-correct="lastCorrect"
+            @submit="onPrimaryAction"
+          />
+        </PracticeQuestionTransition>
       </div>
 
       <footer class="review-footer">
@@ -138,6 +140,8 @@ import {
   sessionProgressPct,
 } from "./focusPracticeSession.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
+import PracticeQuestionTransition from "./components/PracticeQuestionTransition.vue";
+import { practiceQuestionKey } from "./practiceQuestionKey.js";
 import { checkAnswer, formatCorrectAnswer } from "./checkAnswer.js";
 import { getNearMissFeedback } from "./nearMissAnswer.js";
 import { shouldAutoCheckOnAnswerChange } from "./practiceAnswerAutoCheck.js";
@@ -169,6 +173,13 @@ let hintIdleTimer = null;
 let autoAdvanceTimer = null;
 
 const currentQuestion = computed(() => questions.value[index.value] ?? null);
+
+const questionTransitionKey = computed(() =>
+  practiceQuestionKey({
+    question: currentQuestion.value,
+    index: index.value,
+  }),
+);
 
 const progress = computed(() => sessionProgress(index.value, questions.value.length));
 

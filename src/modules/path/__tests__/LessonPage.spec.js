@@ -85,6 +85,15 @@ describe("LessonPage answer feedback", () => {
   });
 });
 
+describe("LessonPage question transition", () => {
+  it("wraps QuestionRenderer in a slide transition keyed by question position", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/PracticeQuestionTransition/);
+    expect(source).toMatch(/practiceQuestionKey\.js/);
+    expect(source).toMatch(/:question-key="questionTransitionKey"/);
+  });
+});
+
 describe("LessonPage choice auto-submit flow", () => {
   let mockInvoke;
 
