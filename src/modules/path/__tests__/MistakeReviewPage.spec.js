@@ -261,6 +261,96 @@ describe("MistakeReviewPage mastery milestones", () => {
   });
 });
 
+describe("MistakeReviewPage SRS progress", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    setLocale("zh");
+    saveMistakeQueue(
+      upsertMistake([], {
+        question: Q1,
+        userAnswer: "ola",
+        pairKey: PAIR,
+        now: 1000,
+      }),
+    );
+  });
+
+  it("wires SRS progress markup and helpers in the review body", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/MistakeReviewPage.vue"), "utf8");
+    expect(source).toMatch(/mistakeReviewSrs\.js/);
+    expect(source).toMatch(/class="srs-progress"/);
+    expect(source).toMatch(/class="srs-schedule"/);
+    expect(source).toMatch(/srsStageLabel/);
+    expect(source).toMatch(/srsCorrectFeedback/);
+  });
+
+  it("shows mastery dots and stage label for the current SRS level", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-mistake-review" });
+    await router.isReady();
+
+    const wrapper = mount(MistakeReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const progress = wrapper.find(".srs-progress");
+    expect(progress.exists()).toBe(true);
+    expect(progress.findAll(".srs-dot.is-filled")).toHaveLength(1);
+    expect(progress.find(".srs-label").text()).toContain("掌握进度 1/4");
+  });
+
+  it("shows the next review schedule after a correct answer", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-mistake-review" });
+    await router.isReady();
+
+    const wrapper = mount(MistakeReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".text-input").setValue("hola");
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+
+    const schedule = wrapper.find(".srs-schedule");
+    expect(schedule.exists()).toBe(true);
+    expect(schedule.text()).toContain("1 天后再次复习");
+  });
+
+  it("announces mastery on the final SRS stage", async () => {
+    saveMistakeQueue([
+      {
+        question_id: "q1",
+        pair_key: PAIR,
+        question: Q1,
+        user_answer: "ola",
+        wrong_at: 1000,
+        level: 3,
+        next_review_at: 0,
+      },
+    ]);
+
+    const router = makeRouter();
+    await router.push({ name: "path-mistake-review" });
+    await router.isReady();
+
+    const wrapper = mount(MistakeReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".srs-label").text()).toContain("掌握进度 4/4");
+
+    await wrapper.find(".text-input").setValue("hola");
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".srs-schedule").text()).toContain("已掌握");
+  });
+});
+
 const REVIEW_ANSWER = "ok";
 
 function seedDueMistakes(count, pairKey = PAIR) {

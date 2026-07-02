@@ -61,6 +61,16 @@
     <template v-else-if="currentQuestion">
       <div class="review-body">
         <p class="review-badge">{{ t("path.mistakeReviewBadge") }}</p>
+        <div v-if="srsDots.length" class="srs-progress" :aria-label="srsStageLabelText">
+          <span
+            v-for="(filled, dotIdx) in srsDots"
+            :key="dotIdx"
+            class="srs-dot"
+            :class="{ 'is-filled': filled }"
+            aria-hidden="true"
+          />
+          <span class="srs-label">{{ srsStageLabelText }}</span>
+        </div>
         <p v-if="previousWrongAnswerText" class="previous-wrong">
           {{ t("path.mistakeReviewPreviousAnswer", { answer: previousWrongAnswerText }) }}
         </p>
@@ -88,6 +98,9 @@
         </p>
         <p v-if="showResult" class="feedback" :class="lastCorrect ? 'ok' : 'bad'">
           {{ lastCorrect ? t("path.correct") : t("path.incorrect") }}
+        </p>
+        <p v-if="showResult && lastCorrect && srsScheduleText" class="srs-schedule">
+          {{ srsScheduleText }}
         </p>
         <p
           v-if="showResult && !lastCorrect && correctAnswerText"
@@ -121,6 +134,11 @@ import {
 import { pairStatsKey } from "@/modules/learn/questionTypeStats.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 import { getQuestionHint, hasQuestionHint } from "./questionHint.js";
+import {
+  srsCorrectFeedback,
+  srsDotStates,
+  srsStageLabel,
+} from "./mistakeReviewSrs.js";
 import { HINT_IDLE_MS, shouldScheduleAutoHint } from "./questionHintTimer.js";
 import { recordMistakesMastered } from "./mistakeMasteryStats.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
@@ -209,6 +227,17 @@ const previousWrongAnswerText = computed(() => {
   const q = currentQuestion.value;
   if (!q) return "";
   return formatUserAnswer(q, currentEntry.value?.user_answer);
+});
+
+const srsDots = computed(() => srsDotStates(currentEntry.value?.level));
+
+const srsStageLabelText = computed(() =>
+  srsStageLabel(currentEntry.value?.level, t),
+);
+
+const srsScheduleText = computed(() => {
+  if (!showResult.value || !lastCorrect.value) return "";
+  return srsCorrectFeedback(currentEntry.value?.level, t);
 });
 
 const canCheck = computed(() => {
@@ -467,7 +496,7 @@ onMounted(load);
 }
 
 .review-badge {
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   padding: 8px 12px;
   background: var(--orange-bg);
   color: var(--orange-hover);
@@ -475,6 +504,34 @@ onMounted(load);
   font-size: 13px;
   font-weight: 700;
   text-align: center;
+}
+
+.srs-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.srs-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gray-light);
+  border: 1px solid var(--border);
+}
+
+.srs-dot.is-filled {
+  background: var(--orange);
+  border-color: var(--orange);
+}
+
+.srs-label {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-light);
 }
 
 .previous-wrong {
@@ -541,6 +598,18 @@ onMounted(load);
   margin: 0 0 10px;
   font-weight: 700;
   text-align: center;
+}
+
+.srs-schedule {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  background: rgba(76, 175, 80, 0.1);
+  border-radius: var(--radius-sm);
+  color: var(--green-hover);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.4;
 }
 
 .feedback.ok {
