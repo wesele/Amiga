@@ -76,6 +76,7 @@ export default {
     streakMilestone365: "🏆 One year streak! Absolutely amazing!",
     dailyGoalMetCelebration: "🎯 Daily goal complete! {done}/{total} lessons done",
     lessonMilestoneReached: "🏆 {n} lessons complete! You're on a roll",
+    perfectLesson: "✨ Perfect lesson! Every answer right, zero mistakes!",
     comingSoon: "Coming soon",
     playAudio: "Play",
     listenChoose: "Listen and choose the correct answer",

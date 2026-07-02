@@ -25,7 +25,7 @@
 
     <template v-else-if="finished">
       <div class="summary">
-        <div class="summary-emoji">{{ result?.passed ? "🎉" : "💪" }}</div>
+        <div class="summary-emoji">{{ summaryEmoji }}</div>
         <h2>{{ result?.passed ? t("path.lessonPassed") : t("path.lessonFailed") }}</h2>
         <p class="summary-score">
           {{ t("path.score", { correct: correctCount, total: questions.length }) }}
@@ -33,6 +33,9 @@
         <div v-if="result?.passed" class="summary-stars">
           {{ "⭐".repeat(result.stars) }}
         </div>
+        <p v-if="perfectLesson" class="perfect-lesson-banner">
+          {{ t("path.perfectLesson") }}
+        </p>
         <p v-if="streakMilestone" class="streak-milestone-banner">
           {{ t(streakMilestoneKey(streakMilestone), { n: streakMilestone }) }}
         </p>
@@ -162,6 +165,7 @@ import {
   nextComboCount,
   showComboBadge,
 } from "./lessonCombo.js";
+import { isPerfectLesson } from "./lessonPerfect.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -268,6 +272,20 @@ const streakMilestone = computed(() => {
     result.value.streak_current,
     result.value.streak_extended,
   );
+});
+
+const perfectLesson = computed(() =>
+  isPerfectLesson({
+    mistakeCount: mistakes.value.length,
+    correctCount: correctCount.value,
+    totalQuestions: questions.value.length,
+    passed: Boolean(result.value?.passed),
+  }),
+);
+
+const summaryEmoji = computed(() => {
+  if (!result.value?.passed) return "💪";
+  return perfectLesson.value ? "✨" : "🎉";
 });
 
 function revealHint() {
@@ -752,6 +770,33 @@ onMounted(load);
   border-radius: var(--radius-md);
   font-weight: 700;
   animation: goal-pop 0.5s ease;
+}
+
+.perfect-lesson-banner {
+  margin: 8px 0 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f3f0ff 0%, #e4dbff 100%);
+  color: #5b3db8;
+  border: 1.5px solid #9b7fe8;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.4;
+  animation: perfect-pop 0.6s ease;
+}
+
+@keyframes perfect-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(6px);
+  }
+  60% {
+    transform: scale(1.04) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .level-up-banner {

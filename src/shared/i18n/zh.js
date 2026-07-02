@@ -79,6 +79,7 @@ export default {
     streakMilestone365: "🏆 一整年连胜！不可思议！",
     dailyGoalMetCelebration: "🎯 今日目标达成！完成 {done}/{total} 节课",
     lessonMilestoneReached: "🏆 完成 {n} 节课！学习之旅更进一步",
+    perfectLesson: "✨ 完美通关！全部答对，零失误！",
     comingSoon: "题目筹备中",
     playAudio: "播放",
     listenChoose: "听句子，选择正确答案",

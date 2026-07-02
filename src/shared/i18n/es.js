@@ -76,6 +76,7 @@ export default {
     streakMilestone365: "🏆 ¡Un año de racha! ¡Increíble!",
     dailyGoalMetCelebration: "🎯 ¡Meta diaria cumplida! {done}/{total} lecciones",
     lessonMilestoneReached: "🏆 ¡{n} lecciones completadas! Sigue avanzando",
+    perfectLesson: "✨ ¡Lección perfecta! Todo correcto, sin errores",
     comingSoon: "Próximamente",
     playAudio: "Reproducir",
     listenChoose: "Escucha y elige la respuesta correcta",
