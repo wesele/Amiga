@@ -23,7 +23,10 @@
     <div
       v-if="isChoiceType"
       class="options"
-      :class="{ 'reveal-incorrect': incorrectReveal }"
+      :class="{
+        'reveal-incorrect': incorrectReveal,
+        'reveal-correct': correctReveal,
+      }"
     >
       <button
         v-for="(opt, idx) in choiceOptions"
@@ -126,6 +129,7 @@ import { computed, nextTick, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "@/shared/i18n";
 import QuestionImage from "./QuestionImage.vue";
 import {
+  isCorrectReveal,
   isIncorrectReveal,
   textInputResultClass,
 } from "../answerRevealFeedback.js";
@@ -164,6 +168,13 @@ const isChoiceType = computed(() =>
 
 const incorrectReveal = computed(() =>
   isIncorrectReveal({
+    showResult: props.showResult,
+    isCorrect: props.isCorrect,
+  }),
+);
+
+const correctReveal = computed(() =>
+  isCorrectReveal({
     showResult: props.showResult,
     isCorrect: props.isCorrect,
   }),
@@ -436,6 +447,10 @@ onUnmounted(() => {
   background: var(--green-bg);
 }
 
+.options.reveal-correct .option-btn.correct {
+  animation: correct-success-pulse 0.5s ease;
+}
+
 .option-btn.wrong {
   border-color: var(--red);
   background: var(--red-bg);
@@ -472,6 +487,18 @@ onUnmounted(() => {
   }
   50% {
     box-shadow: 0 0 0 4px rgba(88, 204, 2, 0.28);
+  }
+}
+
+@keyframes correct-success-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(88, 204, 2, 0);
+    transform: scale(1);
+  }
+  40% {
+    box-shadow: 0 0 0 5px rgba(88, 204, 2, 0.32);
+    transform: scale(1.012);
   }
 }
 
@@ -567,12 +594,15 @@ onUnmounted(() => {
 .text-input.is-correct {
   border-color: var(--green);
   background: var(--green-bg);
+  animation: correct-success-pulse 0.5s ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .option-btn.wrong,
   .options.reveal-incorrect .option-btn.correct,
-  .text-input.is-wrong {
+  .options.reveal-correct .option-btn.correct,
+  .text-input.is-wrong,
+  .text-input.is-correct {
     animation: none;
   }
 }

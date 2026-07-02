@@ -51,6 +51,15 @@ describe("QuestionRenderer", () => {
     expect(source).toMatch(/prefers-reduced-motion/);
   });
 
+  it("pulses the chosen option and text input after a correct answer", () => {
+    const source = readFileSync(
+      resolve(ROOT, "modules/path/components/QuestionRenderer.vue"),
+      "utf8",
+    );
+    expect(source).toMatch(/reveal-correct/);
+    expect(source).toMatch(/correct-success-pulse/);
+  });
+
   it("applies result classes to text inputs after check", async () => {
     const question = { id: "q1", type: "T09", hint: "hola", answer: "hola" };
     const wrapper = mount(QuestionRenderer, {
@@ -153,7 +162,32 @@ describe("QuestionRenderer", () => {
 
     const buttons = wrapper.findAll(".option-btn");
     expect(wrapper.find(".options.reveal-incorrect").exists()).toBe(true);
+    expect(wrapper.find(".options.reveal-correct").exists()).toBe(false);
     expect(buttons[0].classes()).toContain("correct");
     expect(buttons[1].classes()).toContain("wrong");
+  });
+
+  it("marks choice options and container when a multiple-choice answer is correct", () => {
+    const question = {
+      id: "q1",
+      type: "T05",
+      sentence: "Hola ____.",
+      options: ["Ana", "casa", "perro", "libro"],
+      answerIdx: 0,
+    };
+    const wrapper = mount(QuestionRenderer, {
+      props: {
+        question,
+        answer: 0,
+        showResult: true,
+        isCorrect: true,
+      },
+    });
+
+    const buttons = wrapper.findAll(".option-btn");
+    expect(wrapper.find(".options.reveal-correct").exists()).toBe(true);
+    expect(wrapper.find(".options.reveal-incorrect").exists()).toBe(false);
+    expect(buttons[0].classes()).toContain("correct");
+    expect(buttons[1].classes()).not.toContain("wrong");
   });
 });
