@@ -421,6 +421,7 @@ export default {
     wordMarkedKnown: "已标记为掌握",
     readingSummary: "本次阅读新标记 {n} 个生词",
     readingSummaryAction: "去复习",
+    reviewSessionCta: "复习本次 {n} 个生词",
   },
 
   vocab: {
@@ -456,6 +457,8 @@ export default {
     reviewContinue: "继续复习（还有 {n} 个）",
     reviewContinueMore: "继续复习（还有 {n}+ 个）",
     reviewContinueHint: "趁热打铁，巩固更多单词",
+    reviewFromNews: "来自新闻阅读",
+    reviewSessionComplete: "已巩固阅读中标记的 {n} 个词",
     vocabMilestoneReached: "📚 已掌握 {n} 个单词！词汇里程碑达成",
     playPronunciation: "播放发音",
     pronunciationUnavailable: "当前设备不支持语音播放",

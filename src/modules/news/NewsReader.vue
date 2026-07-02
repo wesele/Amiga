@@ -132,6 +132,15 @@
       <div v-if="wordToast" class="word-toast">{{ wordToast }}</div>
     </Transition>
 
+    <button
+      v-if="article?.rewritten_body && wordsUnknownSet.size > 0"
+      type="button"
+      class="reading-review-cta"
+      @click="goToSessionReview"
+    >
+      {{ t("news.reviewSessionCta", { n: wordsUnknownSet.size }) }}
+    </button>
+
     <!-- Fixed bottom bar -->
     <div v-if="article?.rewritten_body" class="bottom-bar">
       <button
@@ -212,6 +221,7 @@ const selectedWord = ref(null);
 const knownWordIds = ref(new Set());
 const wordsKnownSet = ref(new Set());
 const wordsUnknownSet = ref(new Set());
+const sessionWordsRef = ref([]);
 const startTime = ref(Date.now());
 let targetLang = "es";
 let userId = "";
@@ -530,11 +540,33 @@ async function onWordKnown() {
   selectedWord.value = null;
 }
 
+function upsertSessionWord(wordText, context) {
+  const articleId = article.value?.id;
+  const key = wordText.toLowerCase();
+  const entry = { word: wordText, context, articleId };
+  const existingIndex = sessionWordsRef.value.findIndex(
+    (item) => item.word.toLowerCase() === key,
+  );
+  if (existingIndex >= 0) {
+    sessionWordsRef.value[existingIndex] = entry;
+  } else {
+    sessionWordsRef.value.push(entry);
+  }
+}
+
+function buildSessionPayload() {
+  return {
+    unknownCount: wordsUnknownSet.value.size,
+    words: sessionWordsRef.value,
+  };
+}
+
 async function onWordUnknown() {
   if (selectedWord.value) {
     const wordText = selectedWord.value.text;
     knownWordIds.value.add(wordText);
     wordsUnknownSet.value.add(wordText);
+    upsertSessionWord(wordText, selectedWord.value.context);
     try {
       const ids = await lookupWordIds([wordText], targetLang);
       if (ids.length > 0) {
@@ -573,9 +605,16 @@ async function onShare() {
   }
 }
 
+function goToSessionReview() {
+  if (wordsUnknownSet.value.size > 0) {
+    saveReadingSessionSummary(buildSessionPayload());
+  }
+  router.push({ name: "vocab-review", query: { from: "reading" } });
+}
+
 function goBack() {
   if (wordsUnknownSet.value.size > 0) {
-    saveReadingSessionSummary({ unknownCount: wordsUnknownSet.value.size });
+    saveReadingSessionSummary(buildSessionPayload());
   }
   const parent = router.currentRoute.value?.meta?.parent;
   if (parent) {
@@ -879,6 +918,27 @@ function formatSource(source) {
 
 .legend-new {
   background: var(--purple);
+}
+
+.reading-review-cta {
+  flex-shrink: 0;
+  margin: 0 16px 8px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(28, 176, 246, 0.28);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.reading-review-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(28, 176, 246, 0.34);
 }
 
 /* Fixed bottom bar */

@@ -41,6 +41,7 @@ vi.mock("@/shared/learningContext.js", () => ({
 }));
 
 const NewsReader = (await import("@/modules/news/NewsReader.vue")).default;
+const WordPopup = (await import("@/shared/components/WordPopup.vue")).default;
 
 function makeRouter() {
   return createRouter({
@@ -54,6 +55,7 @@ function makeRouter() {
         props: true,
         meta: { parent: "news" },
       },
+      { path: "/vocab/review", name: "vocab-review", component: { template: "<div/>" } },
     ],
   });
 }
@@ -96,5 +98,35 @@ describe("NewsReader mastery visualization", () => {
     expect(words.some((w) => w.classes().includes("word-mastered"))).toBe(true);
     expect(words.some((w) => w.classes().includes("word-new"))).toBe(true);
     expect(words.some((w) => w.classes().includes("word-seen"))).toBe(true);
+  });
+
+  it("shows review CTA after marking unknown words and navigates with from=reading", async () => {
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".reading-review-cta").exists()).toBe(false);
+
+    await wrapper.find(".word.word-new").trigger("click");
+    await flushPromises();
+    await wrapper.findComponent(WordPopup).vm.$emit("unknown");
+    await flushPromises();
+
+    const cta = wrapper.find(".reading-review-cta");
+    expect(cta.exists()).toBe(true);
+    expect(cta.text()).toContain("复习本次 1 个生词");
+
+    await cta.trigger("click");
+    expect(pushSpy).toHaveBeenCalledWith({
+      name: "vocab-review",
+      query: { from: "reading" },
+    });
   });
 });

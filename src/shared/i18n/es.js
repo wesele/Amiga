@@ -418,6 +418,7 @@ export default {
     wordMarkedKnown: "Marcada como dominada",
     readingSummary: "Marcaste {n} palabra(s) nueva(s) al leer",
     readingSummaryAction: "Repasar",
+    reviewSessionCta: "Repasar {n} palabra(s) de este artículo",
   },
 
   vocab: {
@@ -453,6 +454,8 @@ export default {
     reviewContinue: "Seguir repasando ({n} más)",
     reviewContinueMore: "Seguir repasando ({n}+ más)",
     reviewContinueHint: "Aprovecha el impulso y consolida más palabras",
+    reviewFromNews: "Del lectura de noticias",
+    reviewSessionComplete: "Reforzaste {n} palabra(s) marcadas al leer",
     vocabMilestoneReached: "📚 ¡{n} palabras dominadas! Hito de vocabulario desbloqueado",
     playPronunciation: "Reproducir pronunciación",
     pronunciationUnavailable: "La reproducción de voz no está disponible en este dispositivo",

@@ -418,6 +418,7 @@ export default {
     wordMarkedKnown: "Marked as mastered",
     readingSummary: "Marked {n} new word(s) while reading",
     readingSummaryAction: "Review",
+    reviewSessionCta: "Review {n} word(s) from this article",
   },
 
   vocab: {
@@ -453,6 +454,8 @@ export default {
     reviewContinue: "Keep reviewing ({n} more)",
     reviewContinueMore: "Keep reviewing ({n}+ more)",
     reviewContinueHint: "Strike while the iron is hot — lock in more words",
+    reviewFromNews: "From news reading",
+    reviewSessionComplete: "Reinforced {n} word(s) marked while reading",
     vocabMilestoneReached: "📚 {n} words mastered! Vocabulary milestone unlocked",
     playPronunciation: "Play pronunciation",
     pronunciationUnavailable: "Speech playback is not available on this device",

@@ -8,6 +8,7 @@ import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
 import * as vocabRatingFeedback from "../vocabRatingFeedback.js";
 import * as wordSpeech from "@/shared/wordSpeech.js";
+import { saveReadingSessionSummary } from "@/modules/news/readingSession.js";
 
 const VOCAB_PAGE_SOURCE = readFileSync(
   resolve(import.meta.dirname, "../VocabReviewPage.vue"),
@@ -89,6 +90,7 @@ describe("VocabReviewPage", () => {
   let mockInvoke;
 
   beforeEach(() => {
+    sessionStorage.clear();
     setActivePinia(createPinia());
     setLocale("zh", { persist: false });
     mockInvoke = vi.fn().mockImplementation(defaultInvoke);
@@ -340,6 +342,38 @@ describe("VocabReviewPage", () => {
 
     expect(wrapper.text()).toContain("hola");
     expect(wrapper.text()).toContain("1/2");
+  });
+
+  it("prioritizes reading-session words and shows highlighted context on flip", async () => {
+    saveReadingSessionSummary({
+      unknownCount: 1,
+      words: [{ word: "casa", context: "Mi casa es grande.", articleId: 12 }],
+    });
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "get_unknown_words_cmd") {
+        return Promise.resolve([
+          { id: 2, word: "casa", mastery: null, definition_zh: "房子", source: "news_reading" },
+        ]);
+      }
+      return defaultInvoke(cmd, args);
+    });
+
+    const router = makeRouter();
+    await router.push({ path: "/vocab/review", query: { from: "reading" } });
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("casa");
+    expect(wrapper.text()).toContain("1/1");
+
+    await wrapper.find(".flashcard").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("来自新闻阅读");
+    expect(wrapper.find(".flashcard-context-mark").text()).toBe("casa");
+    expect(wrapper.text()).toContain("Mi casa es grande.");
   });
 
   it("celebrates vocabulary milestone when session crosses a threshold", async () => {

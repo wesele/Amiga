@@ -196,7 +196,7 @@ function openArticle(id) {
 
 function goToVocabReview() {
   readingSummary.value = null;
-  router.push({ name: "vocab-review" });
+  router.push({ name: "vocab-review", query: { from: "reading" } });
 }
 
 function formatSource(source) {

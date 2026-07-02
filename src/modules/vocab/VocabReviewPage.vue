@@ -35,6 +35,9 @@
       <p class="summary-sub">
         {{ t("vocab.reviewCompleteHint", { n: words.length }) }}
       </p>
+      <p v-if="readingSessionMode && sessionWordCount" class="summary-reading-session">
+        {{ t("vocab.reviewSessionComplete", { n: sessionWordCount }) }}
+      </p>
       <p v-if="masteredCount" class="summary-stat">
         {{ t("vocab.reviewMasteredCount", { n: masteredCount }) }}
       </p>
@@ -119,9 +122,17 @@
             </div>
             <div class="flashcard-face flashcard-back">
               <span class="flashcard-definition">{{ definitionText }}</span>
-              <p v-if="currentWord?.example" class="flashcard-example">
-                {{ currentWord.example }}
-              </p>
+              <div v-if="reviewContextParts.length" class="flashcard-context">
+                <span v-if="showNewsSourceBadge" class="flashcard-source-badge">
+                  {{ t("vocab.reviewFromNews") }}
+                </span>
+                <p class="flashcard-example">
+                  <template v-for="(part, partIndex) in reviewContextParts" :key="partIndex">
+                    <mark v-if="part.highlight" class="flashcard-context-mark">{{ part.text }}</mark>
+                    <span v-else>{{ part.text }}</span>
+                  </template>
+                </p>
+              </div>
               <span v-if="currentWord?.pos" class="flashcard-pos">{{ currentWord.pos }}</span>
             </div>
           </div>
@@ -158,7 +169,12 @@ import {
   shouldAutoPlayWordSpeech,
   speakWord,
 } from "@/shared/wordSpeech.js";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import {
+  buildReadingReviewQueue,
+  consumeReadingSessionWords,
+  peekReadingSessionWords,
+} from "@/modules/news/readingSession.js";
 import { useI18n } from "@/shared/i18n";
 import { getUnknownWords, getUserVocabStats, updateWordMastery } from "@/shared/api.js";
 import {
@@ -200,8 +216,14 @@ import {
   vocabSwipeHintOpacity,
   vocabSwipeRating,
 } from "./vocabSwipeRating.js";
+import {
+  highlightWordInContext,
+  isFromReadingSession,
+  pickReviewContext,
+} from "./vocabReviewContext.js";
 
 const router = useRouter();
+const route = useRoute();
 const { t } = useI18n();
 const targetLangStore = useTargetLangStore();
 
@@ -231,6 +253,9 @@ const userId = ref("");
 const nativeLang = ref("zh");
 const cefr = ref("A1");
 const targetLang = ref("es");
+const readingSessionMode = ref(false);
+const sessionWordCount = ref(0);
+const sessionContextMap = ref(new Map());
 
 const currentWord = computed(() => words.value[index.value] || null);
 
@@ -268,6 +293,24 @@ const progressPct = computed(() =>
 const definitionText = computed(() =>
   vocabDefinition(currentWord.value, nativeLang.value),
 );
+
+const reviewContextText = computed(() =>
+  pickReviewContext(currentWord.value, sessionContextMap.value),
+);
+
+const reviewContextParts = computed(() =>
+  highlightWordInContext(reviewContextText.value, currentWord.value?.word),
+);
+
+const showNewsSourceBadge = computed(() => {
+  const word = currentWord.value;
+  if (!word?.word) return false;
+  if (word.source === "news_reading") return true;
+  return (
+    readingSessionMode.value &&
+    sessionContextMap.value.has(word.word.toLowerCase())
+  );
+});
 
 const streakCelebration = computed(() =>
   reviewStreakCelebration(reviewResult.value, t),
@@ -416,6 +459,12 @@ function resetCard() {
   swipeConsumed.value = false;
 }
 
+function buildSessionContextMap(sessionWords) {
+  return new Map(
+    sessionWords.map((entry) => [entry.word.toLowerCase(), entry.context]),
+  );
+}
+
 async function load() {
   loading.value = true;
   error.value = "";
@@ -425,11 +474,38 @@ async function load() {
     nativeLang.value = ctx.nativeLang;
     cefr.value = ctx.cefr;
     targetLang.value = ctx.targetLang;
-    const [reviewWords, stats] = await Promise.all([
-      getUnknownWords(ctx.user.id, ctx.cefr, REVIEW_SESSION_LIMIT, ctx.targetLang),
+
+    let sessionWords = [];
+    if (isFromReadingSession(route)) {
+      sessionWords = peekReadingSessionWords();
+      if (sessionWords.length) {
+        readingSessionMode.value = true;
+        sessionWordCount.value = sessionWords.length;
+        sessionContextMap.value = buildSessionContextMap(sessionWords);
+        consumeReadingSessionWords();
+      } else {
+        readingSessionMode.value = false;
+        sessionWordCount.value = 0;
+        sessionContextMap.value = new Map();
+      }
+    } else {
+      readingSessionMode.value = false;
+      sessionWordCount.value = 0;
+      sessionContextMap.value = new Map();
+    }
+
+    const fetchLimit = sessionWords.length
+      ? Math.max(REVIEW_SESSION_LIMIT + sessionWords.length, 50)
+      : REVIEW_SESSION_LIMIT;
+
+    const [dueWords, stats] = await Promise.all([
+      getUnknownWords(ctx.user.id, ctx.cefr, fetchLimit, ctx.targetLang),
       getUserVocabStats(ctx.user.id, ctx.targetLang),
     ]);
-    words.value = reviewWords;
+
+    words.value = sessionWords.length
+      ? buildReadingReviewQueue(sessionWords, dueWords, REVIEW_SESSION_LIMIT)
+      : dueWords.slice(0, REVIEW_SESSION_LIMIT);
     knownBefore.value = stats?.total_known ?? 0;
     index.value = 0;
     finished.value = false;
@@ -853,12 +929,43 @@ onUnmounted(() => {
   color: var(--text);
 }
 
+.flashcard-context {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.flashcard-source-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(28, 176, 246, 0.12);
+  color: var(--blue);
+}
+
 .flashcard-example {
   margin: 0;
   font-size: 14px;
   line-height: 1.5;
   color: var(--text-secondary);
   text-align: center;
+}
+
+.flashcard-context-mark {
+  background: rgba(240, 180, 41, 0.35);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.summary-reading-session {
+  margin: 0;
+  font-size: 14px;
+  color: var(--blue);
+  font-weight: 600;
 }
 
 .flashcard-pos {
