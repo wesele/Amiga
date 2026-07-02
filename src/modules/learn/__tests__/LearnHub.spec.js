@@ -217,7 +217,12 @@ describe("LearnHubPage", () => {
   });
 
   it("shows mistake review card when due mistakes exist for the language pair", async () => {
-    recordLessonMistake("zh-es", { id: "q1", type: "T09", answer: "hola" }, "ola", Date.now());
+    recordLessonMistake(
+      "zh-es",
+      { id: "q1", type: "T09", hint: "Hola", answer: "hola" },
+      "ola",
+      Date.now(),
+    );
 
     const router = makeRouter();
     const wrapper = mount(LearnHubPage, {
@@ -229,6 +234,7 @@ describe("LearnHubPage", () => {
     expect(card.exists()).toBe(true);
     expect(card.text()).toContain("错题复习");
     expect(card.text()).toContain("1 道错题待巩固");
+    expect(card.text()).toContain("Hola");
   });
 
   it("navigates to mistake review when the card is clicked", async () => {

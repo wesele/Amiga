@@ -9,6 +9,7 @@ export function shouldShowFocusAreaNudge(
     focusArea = null,
     dailyGoalNudgeActive = false,
     mistakeReviewNudgeActive = false,
+    freshMistakeNudgeActive = false,
     vocabReviewNudgeActive = false,
   } = {},
 ) {
@@ -16,6 +17,7 @@ export function shouldShowFocusAreaNudge(
     !result?.passed ||
     dailyGoalNudgeActive ||
     mistakeReviewNudgeActive ||
+    freshMistakeNudgeActive ||
     vocabReviewNudgeActive
   ) {
     return false;

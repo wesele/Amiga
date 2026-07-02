@@ -98,6 +98,13 @@
             })
           }}
         </p>
+        <p v-if="showFreshMistakeNudge" class="fresh-mistake-nudge-banner">
+          {{
+            t("path.freshMistakeNudge", {
+              n: freshMistakeTotal,
+            })
+          }}
+        </p>
         <p v-if="showMistakeReviewNudge" class="mistake-review-nudge-banner">
           {{
             t("path.mistakeReviewRemainingNudge", {
@@ -151,6 +158,14 @@
               </div>
             </li>
           </ul>
+          <button
+            v-if="showFreshMistakeAction"
+            type="button"
+            class="action-btn secondary mistake-review-action"
+            @click="goToMistakeReview"
+          >
+            {{ t("path.reviewMistakesAction", { n: freshMistakeTotal }) }}
+          </button>
         </section>
         <button
           v-if="showLessonShare"
@@ -169,8 +184,10 @@
               result?.passed
                 ? showDailyGoalNudge
                   ? t("path.dailyGoalContinue", { remaining: dailyGoalRemaining })
-                  : showMistakeReviewNudge
-                    ? t("path.mistakeReviewContinue")
+                  : showFreshMistakePrimary
+                    ? t("path.freshMistakeContinue")
+                    : showMistakeReviewNudge
+                      ? t("path.mistakeReviewContinue")
                     : showVocabReviewNudge
                       ? t("path.vocabReviewContinue")
                       : showFocusAreaNudge
@@ -302,7 +319,11 @@ import {
 } from "@/modules/learn/questionTypeStats.js";
 import { recordAccuracyPeak } from "@/modules/profile/accuracyPeakStats.js";
 import { recordComboAttempt } from "./lessonComboStats.js";
-import { countDueForPair, recordLessonMistake } from "./mistakeReviewStore.js";
+import {
+  countDueForPair,
+  loadMistakeQueue,
+  recordLessonMistake,
+} from "./mistakeReviewStore.js";
 import { VOCAB_REVIEW_LIMIT } from "@/modules/learn/vocabReviewCard.js";
 import { getUnknownWords } from "@/shared/api.js";
 import { shareLessonResult, shouldShowLessonShare } from "./lessonShare.js";
@@ -314,6 +335,12 @@ import {
   weeklyGoalDaysRemaining,
   shouldShowWeeklyGoalNudge,
 } from "./weeklyGoalNudge.js";
+import {
+  freshMistakeCountFromSession,
+  shouldFreshMistakeTakePrimary,
+  shouldShowFreshMistakeAction,
+  shouldShowFreshMistakeNudge,
+} from "./freshMistakeNudge.js";
 import {
   mistakeReviewNudgeCount,
   shouldShowMistakeReviewNudge,
@@ -368,6 +395,7 @@ const sharingLesson = ref(false);
 const shareStatus = ref("");
 let shareStatusTimer = null;
 const dueMistakesAtStart = ref(0);
+const sessionMistakeIds = ref(new Set());
 const dueVocabAtStart = ref(0);
 const focusAreaAtStart = ref(null);
 
@@ -526,6 +554,31 @@ const showWeeklyGoalNudge = computed(() =>
 
 const weeklyGoalRemaining = computed(() => weeklyGoalDaysRemaining(result.value));
 
+const freshMistakeTotal = computed(() => {
+  if (!finished.value || !result.value?.passed) return 0;
+  const pairKey = pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang);
+  return freshMistakeCountFromSession(
+    sessionMistakeIds.value,
+    loadMistakeQueue(),
+    pairKey,
+  );
+});
+
+const showFreshMistakeNudge = computed(() =>
+  shouldShowFreshMistakeNudge(result.value, { freshCount: freshMistakeTotal.value }),
+);
+
+const showFreshMistakeAction = computed(() =>
+  shouldShowFreshMistakeAction(result.value, { freshCount: freshMistakeTotal.value }),
+);
+
+const showFreshMistakePrimary = computed(() =>
+  shouldFreshMistakeTakePrimary(result.value, {
+    freshCount: freshMistakeTotal.value,
+    dailyGoalNudgeActive: showDailyGoalNudge.value,
+  }),
+);
+
 const showMistakeReviewNudge = computed(() =>
   shouldShowMistakeReviewNudge(result.value, {
     dueAtStart: dueMistakesAtStart.value,
@@ -542,6 +595,7 @@ const showVocabReviewNudge = computed(() =>
     dueAtStart: dueVocabAtStart.value,
     dailyGoalNudgeActive: showDailyGoalNudge.value,
     mistakeReviewNudgeActive: showMistakeReviewNudge.value,
+    freshMistakeNudgeActive: showFreshMistakePrimary.value,
   }),
 );
 
@@ -552,6 +606,7 @@ const showFocusAreaNudge = computed(() =>
     focusArea: focusAreaAtStart.value,
     dailyGoalNudgeActive: showDailyGoalNudge.value,
     mistakeReviewNudgeActive: showMistakeReviewNudge.value,
+    freshMistakeNudgeActive: showFreshMistakePrimary.value,
     vocabReviewNudgeActive: showVocabReviewNudge.value,
   }),
 );
@@ -715,6 +770,7 @@ function resetSession() {
   finished.value = false;
   result.value = null;
   mistakes.value = [];
+  sessionMistakeIds.value = new Set();
   phase.value = LESSON_PHASE_MAIN;
   reinforcementQueue.value = [];
   reinforcementIndex.value = 0;
@@ -760,9 +816,17 @@ function exitLesson() {
   router.replace({ name: "path" });
 }
 
+function goToMistakeReview() {
+  router.replace({ name: "path-mistake-review" });
+}
+
 async function finishLesson() {
+  if (showFreshMistakePrimary.value) {
+    goToMistakeReview();
+    return;
+  }
   if (showMistakeReviewNudge.value) {
-    router.replace({ name: "path-mistake-review" });
+    goToMistakeReview();
     return;
   }
   if (showVocabReviewNudge.value) {
@@ -829,11 +893,14 @@ function checkCurrentAnswer() {
       question: currentQuestion.value,
       answer: currentAnswer.value,
     });
-    recordLessonMistake(
-      pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang),
-      currentQuestion.value,
-      currentAnswer.value,
-    );
+    const pairKey = pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang);
+    recordLessonMistake(pairKey, currentQuestion.value, currentAnswer.value);
+    if (currentQuestion.value?.id) {
+      sessionMistakeIds.value = new Set([
+        ...sessionMistakeIds.value,
+        currentQuestion.value.id,
+      ]);
+    }
   }
   showResult.value = true;
   if (lastCorrect.value) {
@@ -1300,6 +1367,17 @@ onMounted(load);
   border: 1px solid #7eb8e8;
 }
 
+.fresh-mistake-nudge-banner {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #fff4e8 0%, #ffe4c8 100%);
+  color: #9a4a00;
+  border: 1px solid #e6a85c;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  animation: goal-pop 0.5s ease;
+}
+
 .mistake-review-nudge-banner {
   margin: 8px 0 0;
   padding: 12px 16px;
@@ -1435,6 +1513,11 @@ onMounted(load);
   font-size: 13px;
   color: var(--text-light);
   line-height: 1.4;
+}
+
+.mistake-review-action {
+  width: 100%;
+  margin-top: 12px;
 }
 
 .mistake-list {

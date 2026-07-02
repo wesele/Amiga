@@ -2,6 +2,9 @@
  * Nudge learners to clear due mistake reviews after a passing lesson.
  * Spaced-repetition items that were already due before this session should
  * be reinforced before starting new lessons.
+ *
+ * Mistakes produced during this lesson are handled by freshMistakeNudge.js,
+ * which takes priority over this nudge when the daily goal is already met.
  */
 
 export function shouldShowMistakeReviewNudge(

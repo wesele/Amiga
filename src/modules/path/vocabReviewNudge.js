@@ -10,9 +10,17 @@ export function shouldShowVocabReviewNudge(
     dueAtStart = 0,
     dailyGoalNudgeActive = false,
     mistakeReviewNudgeActive = false,
+    freshMistakeNudgeActive = false,
   } = {},
 ) {
-  if (!result?.passed || dailyGoalNudgeActive || mistakeReviewNudgeActive) return false;
+  if (
+    !result?.passed ||
+    dailyGoalNudgeActive ||
+    mistakeReviewNudgeActive ||
+    freshMistakeNudgeActive
+  ) {
+    return false;
+  }
   return Number(dueAtStart) > 0;
 }
 

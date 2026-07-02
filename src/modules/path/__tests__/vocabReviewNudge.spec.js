@@ -44,6 +44,20 @@ describe("vocabReviewNudge", () => {
     ).toBe(false);
   });
 
+  it("hides nudge while the fresh mistake nudge is still active", () => {
+    expect(
+      shouldShowVocabReviewNudge(
+        { passed: true },
+        {
+          dueAtStart: 3,
+          dailyGoalNudgeActive: false,
+          mistakeReviewNudgeActive: false,
+          freshMistakeNudgeActive: true,
+        },
+      ),
+    ).toBe(false);
+  });
+
   it("hides nudge when no vocabulary was due before the lesson", () => {
     expect(
       shouldShowVocabReviewNudge(

@@ -1173,6 +1173,207 @@ describe("LessonPage mistake review nudge", () => {
   });
 });
 
+describe("LessonPage fresh mistake nudge", () => {
+  let mockInvoke;
+
+  function freshMistakeInvoke(dailyGoalResult) {
+    return vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_unknown_words_cmd") return Promise.resolve([]);
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload());
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({
+          passed: true,
+          stars: 2,
+          ...dailyGoalResult,
+        });
+      }
+      return Promise.resolve(null);
+    });
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+  });
+
+  it("wires fresh mistake nudge helpers in the summary screen", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/freshMistakeNudge\.js/);
+    expect(source).toMatch(/shouldShowFreshMistakeNudge/);
+    expect(source).toMatch(/class="fresh-mistake-nudge-banner"/);
+    expect(source).toMatch(/path\.freshMistakeNudge/);
+    expect(source).toMatch(/path\.reviewMistakesAction/);
+    expect(source).toMatch(/mistake-review-action/);
+  });
+
+  it("shows fresh mistake banner and secondary action when daily goal is unfinished", async () => {
+    mockInvoke = freshMistakeInvoke({
+      daily_goal_lessons_today: 1,
+      daily_goal_target: 2,
+    });
+    api.__setInvoke(mockInvoke);
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn/path", name: "path", component: { template: "<div/>" } },
+        {
+          path: "/learn/path/review/mistakes",
+          name: "path-mistake-review",
+          component: { template: "<div/>" },
+        },
+        {
+          path: "/learn/path/lesson/:sectionId",
+          name: "path-lesson",
+          component: LessonPage,
+        },
+      ],
+    });
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    expect(wrapper.vm.dueMistakesAtStart).toBe(0);
+
+    wrapper.vm.currentAnswer = 1;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const banner = wrapper.find(".fresh-mistake-nudge-banner");
+    expect(banner.exists()).toBe(true);
+    expect(banner.text()).toContain("1 道错题");
+
+    const secondary = wrapper.find(".mistake-review-action");
+    expect(secondary.exists()).toBe(true);
+    expect(secondary.text()).toContain("巩固本节错题");
+
+    const primary = wrapper.find(".summary-actions .action-btn.primary");
+    expect(primary.text()).toContain("继续学习");
+    expect(primary.text()).not.toContain("巩固本节错题");
+  });
+
+  it("routes secondary fresh mistake action to mistake review", async () => {
+    mockInvoke = freshMistakeInvoke({
+      daily_goal_lessons_today: 1,
+      daily_goal_target: 2,
+    });
+    api.__setInvoke(mockInvoke);
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn/path", name: "path", component: { template: "<div/>" } },
+        {
+          path: "/learn/path/review/mistakes",
+          name: "path-mistake-review",
+          component: { template: "<div/>" },
+        },
+        {
+          path: "/learn/path/lesson/:sectionId",
+          name: "path-lesson",
+          component: LessonPage,
+        },
+      ],
+    });
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 1;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    await wrapper.find(".mistake-review-action").trigger("click");
+    await flushPromises();
+
+    expect(router.currentRoute.value.name).toBe("path-mistake-review");
+  });
+
+  it("promotes fresh mistakes to the primary action when daily goal is met", async () => {
+    mockInvoke = freshMistakeInvoke({
+      daily_goal_just_met: true,
+      daily_goal_lessons_today: 2,
+      daily_goal_target: 2,
+    });
+    api.__setInvoke(mockInvoke);
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn/path", name: "path", component: { template: "<div/>" } },
+        {
+          path: "/learn/path/review/mistakes",
+          name: "path-mistake-review",
+          component: { template: "<div/>" },
+        },
+        {
+          path: "/learn/path/lesson/:sectionId",
+          name: "path-lesson",
+          component: LessonPage,
+        },
+      ],
+    });
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 1;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    expect(wrapper.find(".fresh-mistake-nudge-banner").exists()).toBe(true);
+    const primary = wrapper.find(".summary-actions .action-btn.primary");
+    expect(primary.text()).toContain("巩固本节错题");
+
+    await primary.trigger("click");
+    await flushPromises();
+    expect(router.currentRoute.value.name).toBe("path-mistake-review");
+  });
+});
+
 describe("LessonPage vocab review nudge", () => {
   const MOCK_VOCAB_WORDS = [
     { id: 1, word: "hola", definitions: { zh: "你好" } },

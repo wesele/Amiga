@@ -14,7 +14,7 @@
       <div class="mistake-review-copy">
         <p class="mistake-review-title">{{ t("learn.mistakeReview") }}</p>
         <p class="mistake-review-sub">
-          {{ t("learn.mistakeReviewHint", { n: mistakeReviewTotal }) }}
+          {{ t("learn.mistakeReviewHint", { n: mistakeReviewTotal }) }}<template v-if="mistakeReviewPreviewText">{{ t("learn.mistakeReviewPreviewSep") }}{{ mistakeReviewPreviewText }}</template>
         </p>
       </div>
       <span class="mistake-review-action">{{ t("learn.mistakeReviewAction") }}</span>
@@ -329,6 +329,7 @@ import {
 import { focusPracticeRoute } from "@/modules/path/focusPracticeRoute.js";
 import {
   mistakeReviewCount,
+  mistakeReviewPreview,
   shouldShowMistakeReview,
 } from "./mistakeReviewCard.js";
 import { accuracyMilestoneRingOffset } from "@/modules/profile/accuracyMilestones.js";
@@ -346,7 +347,7 @@ import {
   shouldShowPerfectMilestoneCard,
 } from "./perfectMilestoneCard.js";
 import { perfectMilestoneRingOffset } from "./perfectMilestones.js";
-import { countDueForPair } from "@/modules/path/mistakeReviewStore.js";
+import { loadDueMistakes } from "@/modules/path/mistakeReviewStore.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -360,7 +361,7 @@ const comboMilestone = ref(null);
 const perfectMilestone = ref(null);
 const perfectStreak = ref(null);
 const focusArea = ref(null);
-const dueMistakeCount = ref(0);
+const dueMistakeEntries = ref([]);
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
 const MILESTONE_RING_CIRCUMFERENCE = 2 * Math.PI * 18;
@@ -400,9 +401,13 @@ const showPerfectStreak = computed(() => shouldShowPerfectStreakCard(perfectStre
 
 const showFocusArea = computed(() => shouldShowFocusArea(focusArea.value));
 
-const showMistakeReview = computed(() => shouldShowMistakeReview(dueMistakeCount.value));
+const showMistakeReview = computed(() => shouldShowMistakeReview(dueMistakeEntries.value.length));
 
-const mistakeReviewTotal = computed(() => mistakeReviewCount(dueMistakeCount.value));
+const mistakeReviewTotal = computed(() => mistakeReviewCount(dueMistakeEntries.value.length));
+
+const mistakeReviewPreviewText = computed(() =>
+  mistakeReviewPreview(dueMistakeEntries.value, t),
+);
 
 const showAccuracyMilestone = computed(() =>
   shouldShowAccuracyMilestoneCard(accuracyMilestone.value),
@@ -474,7 +479,7 @@ function loadFocusArea(nativeLang, targetLang) {
 }
 
 function loadMistakeReview(nativeLang, targetLang) {
-  dueMistakeCount.value = countDueForPair(pairStatsKey(nativeLang, targetLang));
+  dueMistakeEntries.value = loadDueMistakes(pairStatsKey(nativeLang, targetLang));
 }
 
 function loadAccuracyMilestone(nativeLang, targetLang) {

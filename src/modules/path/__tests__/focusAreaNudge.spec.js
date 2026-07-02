@@ -54,6 +54,15 @@ describe("focusAreaNudge", () => {
     ).toBe(false);
   });
 
+  it("hides nudge when fresh mistake nudge is active", () => {
+    expect(
+      shouldShowFocusAreaNudge(
+        { passed: true },
+        { focusArea, freshMistakeNudgeActive: true },
+      ),
+    ).toBe(false);
+  });
+
   it("hides nudge when no focus area qualifies", () => {
     expect(
       shouldShowFocusAreaNudge(
