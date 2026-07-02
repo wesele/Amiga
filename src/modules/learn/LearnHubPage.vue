@@ -266,6 +266,44 @@
     </button>
 
     <button
+      v-if="showPerfectMilestone"
+      type="button"
+      class="perfect-milestone-card"
+      @click="goToPath"
+    >
+      <div class="milestone-ring" aria-hidden="true">
+        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
+          <circle class="perfect-milestone-ring-track" cx="22" cy="22" r="18" />
+          <circle
+            class="perfect-milestone-ring-fill"
+            cx="22"
+            cy="22"
+            r="18"
+            :style="{ strokeDashoffset: perfectMilestoneRingOffsetValue }"
+          />
+        </svg>
+        <span class="milestone-ring-label">✨</span>
+      </div>
+      <div class="milestone-copy">
+        <p class="perfect-milestone-title">{{ t("learn.perfectMilestone") }}</p>
+        <p class="perfect-milestone-sub">
+          {{ t("learn.perfectMilestoneNext", { n: perfectMilestone.next_milestone }) }}
+          ·
+          {{
+            t("learn.perfectMilestoneProgress", {
+              done: perfectMilestone.best,
+              total: perfectMilestone.next_milestone,
+            })
+          }}
+        </p>
+        <p class="perfect-milestone-hint">
+          {{ t("learn.perfectMilestoneHint", { done: perfectMilestone.best }) }}
+        </p>
+      </div>
+      <span class="milestone-chevron" aria-hidden="true">›</span>
+    </button>
+
+    <button
       v-if="showPerfectStreak"
       type="button"
       class="perfect-streak-card"
@@ -527,6 +565,11 @@ import {
   shouldShowStreakMilestoneCard,
 } from "./streakMilestoneCard.js";
 import { streakMilestoneRingOffset } from "./streakMilestones.js";
+import {
+  buildPerfectMilestoneCard,
+  shouldShowPerfectMilestoneCard,
+} from "./perfectMilestoneCard.js";
+import { perfectMilestoneRingOffset } from "./perfectMilestones.js";
 import { countDueForPair } from "@/modules/path/mistakeReviewStore.js";
 
 const router = useRouter();
@@ -543,6 +586,7 @@ const mistakeMilestone = ref(null);
 const accuracyMilestone = ref(null);
 const comboMilestone = ref(null);
 const streakMilestone = ref(null);
+const perfectMilestone = ref(null);
 const perfectStreak = ref(null);
 const focusArea = ref(null);
 const dueMistakeCount = ref(0);
@@ -604,6 +648,10 @@ const showLessonMilestone = computed(() => shouldShowLessonMilestone(lessonMiles
 
 const showVocabMilestone = computed(() => shouldShowVocabMilestone(vocabMilestone.value));
 
+const showPerfectMilestone = computed(() =>
+  shouldShowPerfectMilestoneCard(perfectMilestone.value),
+);
+
 const showPerfectStreak = computed(() => shouldShowPerfectStreakCard(perfectStreak.value?.current));
 
 const showFocusArea = computed(() => shouldShowFocusArea(focusArea.value));
@@ -648,6 +696,10 @@ const comboMilestoneRingOffsetValue = computed(() =>
 
 const streakMilestoneRingOffsetValue = computed(() =>
   streakMilestoneRingOffset(streakMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
+);
+
+const perfectMilestoneRingOffsetValue = computed(() =>
+  perfectMilestoneRingOffset(perfectMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
 );
 
 const modules = [
@@ -716,8 +768,10 @@ async function loadVocabMilestone(userId, targetLang) {
 async function loadPerfectStreak() {
   try {
     perfectStreak.value = await getPerfectLessonStreak();
+    perfectMilestone.value = buildPerfectMilestoneCard(perfectStreak.value);
   } catch {
     perfectStreak.value = null;
+    perfectMilestone.value = null;
   }
 }
 
@@ -780,6 +834,7 @@ async function loadHubData() {
     lessonMilestone.value = null;
     vocabMilestone.value = null;
     perfectStreak.value = null;
+    perfectMilestone.value = null;
     focusArea.value = null;
     dueMistakeCount.value = 0;
     mistakeMilestone.value = null;
@@ -1098,6 +1153,64 @@ onMounted(loadHubData);
   background: #e8a84a;
   padding: 8px 12px;
   border-radius: 999px;
+}
+
+.perfect-milestone-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #faf5ff 0%, #ede4ff 100%);
+  border: 1px solid #a78bfa;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.perfect-milestone-card:hover {
+  box-shadow: 0 2px 10px rgba(139, 92, 246, 0.28);
+  transform: translateY(-1px);
+}
+
+.perfect-milestone-ring-track {
+  fill: none;
+  stroke: #ddd6fe;
+  stroke-width: 4;
+}
+
+.perfect-milestone-ring-fill {
+  fill: none;
+  stroke: #7c3aed;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 113.1;
+  transition: stroke-dashoffset 0.4s ease;
+}
+
+.perfect-milestone-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #5b21b6;
+  line-height: 1.3;
+}
+
+.perfect-milestone-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #6d28d9;
+  line-height: 1.35;
+}
+
+.perfect-milestone-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #7c3aed;
+  line-height: 1.35;
 }
 
 .perfect-streak-card {

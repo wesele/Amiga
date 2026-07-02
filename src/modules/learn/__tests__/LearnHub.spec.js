@@ -690,6 +690,74 @@ describe("LearnHubPage", () => {
     expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
   });
 
+  it("shows perfect milestone progress card when a personal-best perfect streak exists", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_perfect_lesson_streak_cmd") {
+        return Promise.resolve({ current: 2, best: 2 });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".perfect-milestone-card");
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain("完美通关里程碑");
+    expect(card.text()).toContain("下一目标：3 课");
+    expect(card.text()).toContain("2/3");
+    expect(card.text()).toContain("历史最佳 2 课");
+  });
+
+  it("hides perfect milestone card when all milestones are complete", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_perfect_lesson_streak_cmd") {
+        return Promise.resolve({ current: 10, best: 10 });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".perfect-milestone-card").exists()).toBe(false);
+  });
+
+  it("hides perfect milestone card when no perfect streak record exists", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".perfect-milestone-card").exists()).toBe(false);
+  });
+
+  it("navigates to path when perfect milestone card is clicked", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_perfect_lesson_streak_cmd") {
+        return Promise.resolve({ current: 2, best: 2 });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".perfect-milestone-card").trigger("click");
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
+  });
+
   it("hides accuracy milestone card when practice attempts are insufficient", async () => {
     localStorage.setItem(
       STATS_STORAGE_KEY,
