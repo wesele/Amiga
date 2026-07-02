@@ -171,6 +171,14 @@ describe("LessonPage mistake review", () => {
     expect(source).toMatch(/path\.reviewMistakes/);
     expect(source).toMatch(/formatQuestionPrompt/);
   });
+
+  it("shows the learner's wrong answer alongside the correct one in the recap", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/formatUserAnswer/);
+    expect(source).toMatch(/class="mistake-wrong"/);
+    expect(source).toMatch(/path\.mistakeReviewPreviousAnswer/);
+    expect(source).toMatch(/item\.answer/);
+  });
 });
 
 describe("LessonPage smart hints", () => {

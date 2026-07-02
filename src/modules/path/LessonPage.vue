@@ -92,6 +92,16 @@
               <span class="mistake-index">{{ idx + 1 }}</span>
               <div class="mistake-body">
                 <p class="mistake-prompt">{{ formatQuestionPrompt(item.question, t) }}</p>
+                <p
+                  v-if="formatUserAnswer(item.question, item.answer)"
+                  class="mistake-wrong"
+                >
+                  {{
+                    t("path.mistakeReviewPreviousAnswer", {
+                      answer: formatUserAnswer(item.question, item.answer),
+                    })
+                  }}
+                </p>
                 <p class="mistake-answer">
                   {{ t("path.correctAnswer", { answer: formatCorrectAnswer(item.question) }) }}
                 </p>
@@ -179,7 +189,12 @@ import {
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
-import { checkAnswer, formatCorrectAnswer, formatQuestionPrompt } from "./checkAnswer.js";
+import {
+  checkAnswer,
+  formatCorrectAnswer,
+  formatQuestionPrompt,
+  formatUserAnswer,
+} from "./checkAnswer.js";
 import { getQuestionHint, hasQuestionHint } from "./questionHint.js";
 import { HINT_IDLE_MS, shouldScheduleAutoHint } from "./questionHintTimer.js";
 import {
@@ -1064,6 +1079,13 @@ onMounted(load);
   margin: 0 0 4px;
   font-size: 14px;
   font-weight: 600;
+  line-height: 1.4;
+}
+
+.mistake-wrong {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--red);
   line-height: 1.4;
 }
 
