@@ -43,6 +43,10 @@ export default {
     continueLearning: "Continue learning",
     continueUnit: "{unit}",
     continueAction: "Start",
+    vocabReview: "Vocabulary review",
+    vocabReviewHint: "{n} words to reinforce",
+    vocabReviewMore: "more",
+    vocabReviewAction: "Review",
   },
 
   path: {

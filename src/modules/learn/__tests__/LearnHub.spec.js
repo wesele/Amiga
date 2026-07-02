@@ -64,6 +64,14 @@ function defaultInvoke(cmd) {
     });
   }
   if (cmd === "create_chat_session_cmd") return Promise.resolve("translator-sess");
+  if (cmd === "get_unknown_words_cmd") {
+    return Promise.resolve([
+      { id: 1, word: "hola" },
+      { id: 2, word: "gracias" },
+      { id: 3, word: "casa" },
+      { id: 4, word: "perro" },
+    ]);
+  }
   return Promise.resolve(null);
 }
 
@@ -89,6 +97,7 @@ function makeRouter() {
         name: "learn-translator",
         component: { template: "<div/>" },
       },
+      { path: "/vocab", name: "vocab", component: { template: "<div/>" } },
     ],
   });
 }
@@ -142,6 +151,48 @@ describe("LearnHubPage", () => {
     await newsTile.trigger("click");
 
     expect(pushSpy).toHaveBeenCalledWith({ name: "news" });
+  });
+
+  it("shows vocab review card when unmastered words are available", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".vocab-review-card");
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain("单词复习");
+    expect(card.text()).toContain("4 个单词待巩固");
+    expect(card.text()).toContain("hola, gracias, casa");
+    expect(card.text()).toContain("复习");
+  });
+
+  it("navigates to vocab when review card is clicked", async () => {
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".vocab-review-card").trigger("click");
+    expect(pushSpy).toHaveBeenCalledWith({ name: "vocab" });
+  });
+
+  it("hides vocab review card when no unmastered words are returned", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_unknown_words_cmd") return Promise.resolve([]);
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".vocab-review-card").exists()).toBe(false);
   });
 
   it("shows continue-learning card for the current path section", async () => {

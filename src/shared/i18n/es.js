@@ -43,6 +43,10 @@ export default {
     continueLearning: "Seguir aprendiendo",
     continueUnit: "{unit}",
     continueAction: "Empezar",
+    vocabReview: "Repaso de vocabulario",
+    vocabReviewHint: "{n} palabras por reforzar",
+    vocabReviewMore: "más",
+    vocabReviewAction: "Repasar",
   },
 
   path: {

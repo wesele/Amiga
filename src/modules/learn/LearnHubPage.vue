@@ -23,6 +23,25 @@
     </button>
 
     <button
+      v-if="showVocabReview"
+      type="button"
+      class="vocab-review-card"
+      @click="goToVocabReview"
+    >
+      <span class="vocab-review-icon" aria-hidden="true">📚</span>
+      <div class="vocab-review-copy">
+        <p class="vocab-review-title">{{ t("learn.vocabReview") }}</p>
+        <p class="vocab-review-sub">
+          {{ t("learn.vocabReviewHint", { n: vocabReviewTotal }) }}
+          <template v-if="vocabReviewPreviewText">
+            · {{ vocabReviewPreviewText }}<template v-if="vocabReviewTruncated">…</template>
+          </template>
+        </p>
+      </div>
+      <span class="vocab-review-action">{{ t("learn.vocabReviewAction") }}</span>
+    </button>
+
+    <button
       v-if="streakAtRisk"
       type="button"
       class="streak-risk-banner"
@@ -102,7 +121,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
-import { getDailyGoalProgress, getPathCurriculum } from "@/shared/api.js";
+import { getDailyGoalProgress, getPathCurriculum, getUnknownWords } from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
@@ -113,6 +132,13 @@ import {
   sectionKindIcon,
   sectionKindKey,
 } from "./pathResume.js";
+import {
+  VOCAB_REVIEW_LIMIT,
+  shouldShowVocabReview,
+  vocabReviewCount,
+  vocabReviewHasMore,
+  vocabReviewPreview,
+} from "./vocabReviewCard.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -120,6 +146,7 @@ const targetLangStore = useTargetLangStore();
 const opening = ref(null);
 const dailyGoal = ref(null);
 const resumeTarget = ref(null);
+const vocabReviewWords = ref([]);
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
 
@@ -143,6 +170,14 @@ const resumeIcon = computed(() =>
 const resumeKindKey = computed(() =>
   resumeTarget.value ? sectionKindKey(resumeTarget.value.section.kind) : "",
 );
+
+const showVocabReview = computed(() => shouldShowVocabReview(vocabReviewWords.value));
+
+const vocabReviewTotal = computed(() => vocabReviewCount(vocabReviewWords.value));
+
+const vocabReviewPreviewText = computed(() => vocabReviewPreview(vocabReviewWords.value));
+
+const vocabReviewTruncated = computed(() => vocabReviewHasMore(vocabReviewWords.value));
 
 const modules = [
   { id: "path", labelKey: "learn.path", icon: "🛤️", route: { name: "path" } },
@@ -169,6 +204,19 @@ async function loadResumeSection(nativeLang, targetLang, cefr) {
   }
 }
 
+async function loadVocabReview(userId, targetLang, cefr) {
+  try {
+    vocabReviewWords.value = await getUnknownWords(
+      userId,
+      cefr,
+      VOCAB_REVIEW_LIMIT,
+      targetLang,
+    );
+  } catch {
+    vocabReviewWords.value = [];
+  }
+}
+
 async function loadHubData() {
   try {
     const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
@@ -177,15 +225,21 @@ async function loadHubData() {
     await Promise.all([
       loadDailyGoal(user.id, targetLang),
       loadResumeSection(nativeLang, targetLang, cefr),
+      loadVocabReview(user.id, targetLang, cefr),
     ]);
   } catch {
     dailyGoal.value = null;
     resumeTarget.value = null;
+    vocabReviewWords.value = [];
   }
 }
 
 function goToPath() {
   router.push({ name: "path" });
+}
+
+function goToVocabReview() {
+  router.push({ name: "vocab" });
 }
 
 function continueLearning() {
@@ -302,6 +356,66 @@ onMounted(loadHubData);
   font-weight: 700;
   color: #fff;
   background: var(--green-hover);
+  padding: 8px 12px;
+  border-radius: 999px;
+}
+
+.vocab-review-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #eef4ff 0%, #dce8ff 100%);
+  border: 1px solid #7ba7f7;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.vocab-review-card:hover {
+  box-shadow: 0 2px 10px rgba(66, 133, 244, 0.22);
+  transform: translateY(-1px);
+}
+
+.vocab-review-icon {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.vocab-review-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.vocab-review-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a4f9c;
+  line-height: 1.3;
+}
+
+.vocab-review-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #3d6db5;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vocab-review-action {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: #4285f4;
   padding: 8px 12px;
   border-radius: 999px;
 }

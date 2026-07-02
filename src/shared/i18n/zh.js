@@ -46,6 +46,10 @@ export default {
     continueLearning: "继续学习",
     continueUnit: "{unit}",
     continueAction: "开始",
+    vocabReview: "单词复习",
+    vocabReviewHint: "{n} 个单词待巩固",
+    vocabReviewMore: "等",
+    vocabReviewAction: "复习",
   },
 
   path: {
