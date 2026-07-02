@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   ACCURACY_MILESTONES,
   accuracyMilestoneProgress,
+  accuracyMilestoneRingOffset,
   shouldShowAccuracyMilestone,
+  shouldShowAccuracyMilestoneCard,
 } from "../accuracyMilestones.js";
 
 describe("accuracyMilestones", () => {
@@ -29,6 +31,22 @@ describe("accuracyMilestones", () => {
       progress_pct: 50,
       all_unlocked: false,
     });
+  });
+
+  it("shows learn hub card while milestones remain and hides when all unlocked", () => {
+    expect(shouldShowAccuracyMilestoneCard(accuracyMilestoneProgress(72))).toBe(true);
+    expect(shouldShowAccuracyMilestoneCard(accuracyMilestoneProgress(95))).toBe(false);
+    expect(shouldShowAccuracyMilestoneCard(null)).toBe(false);
+  });
+
+  it("computes ring offset from progress percentage", () => {
+    const circumference = 113.1;
+    expect(accuracyMilestoneRingOffset({ progress_pct: 0 }, circumference)).toBe(circumference);
+    expect(accuracyMilestoneRingOffset({ progress_pct: 50 }, circumference)).toBeCloseTo(
+      circumference / 2,
+      1,
+    );
+    expect(accuracyMilestoneRingOffset({ progress_pct: 100 }, circumference)).toBe(0);
   });
 
   it("marks all milestones complete at 95% or above", () => {

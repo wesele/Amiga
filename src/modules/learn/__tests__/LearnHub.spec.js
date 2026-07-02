@@ -7,6 +7,7 @@ import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
 import { STATS_STORAGE_KEY } from "../questionTypeStats.js";
+import { ACCURACY_PEAK_KEY } from "@/modules/profile/accuracyPeakStats.js";
 import { recordLessonMistake } from "@/modules/path/mistakeReviewStore.js";
 import { recordMistakesMastered } from "@/modules/path/mistakeMasteryStats.js";
 
@@ -530,6 +531,74 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     expect(wrapper.find(".mistake-milestone-card").exists()).toBe(false);
+  });
+
+  it("shows accuracy milestone progress card when enough practice data exists", async () => {
+    localStorage.setItem(
+      STATS_STORAGE_KEY,
+      JSON.stringify({
+        "zh-es": { T01: { correct: 6, wrong: 4 } },
+      }),
+    );
+    localStorage.setItem(
+      ACCURACY_PEAK_KEY,
+      JSON.stringify({ "zh-es": { best: 75 } }),
+    );
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".accuracy-milestone-card");
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain("准确率里程碑");
+    expect(card.text()).toContain("下一目标：80%");
+    expect(card.text()).toContain("75/80");
+    expect(card.text()).toContain("当前最高 75%");
+  });
+
+  it("hides accuracy milestone card when all milestones are complete", async () => {
+    localStorage.setItem(
+      STATS_STORAGE_KEY,
+      JSON.stringify({
+        "zh-es": { T01: { correct: 9, wrong: 1 } },
+      }),
+    );
+    localStorage.setItem(
+      ACCURACY_PEAK_KEY,
+      JSON.stringify({ "zh-es": { best: 95 } }),
+    );
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".accuracy-milestone-card").exists()).toBe(false);
+  });
+
+  it("hides accuracy milestone card when practice attempts are insufficient", async () => {
+    localStorage.setItem(
+      STATS_STORAGE_KEY,
+      JSON.stringify({
+        "zh-es": { T01: { correct: 3, wrong: 2 } },
+      }),
+    );
+    localStorage.setItem(
+      ACCURACY_PEAK_KEY,
+      JSON.stringify({ "zh-es": { best: 60 } }),
+    );
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".accuracy-milestone-card").exists()).toBe(false);
   });
 
   it("hides lesson milestone card when all milestones are complete", async () => {

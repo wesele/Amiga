@@ -5,6 +5,16 @@ export function shouldShowAccuracyMilestone(bestAccuracyPct) {
   return (bestAccuracyPct ?? 0) > 0;
 }
 
+export function shouldShowAccuracyMilestoneCard(progress) {
+  return Boolean(progress && !progress.all_unlocked);
+}
+
+export function accuracyMilestoneRingOffset(progress, circumference = 113.1) {
+  if (!progress) return circumference;
+  const pct = progress.progress_pct / 100;
+  return circumference * (1 - pct);
+}
+
 /**
  * Progress toward the next accuracy badge based on peak accuracy.
  */

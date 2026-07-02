@@ -134,6 +134,44 @@
     </button>
 
     <button
+      v-if="showAccuracyMilestone"
+      type="button"
+      class="accuracy-milestone-card"
+      @click="goToPath"
+    >
+      <div class="milestone-ring" aria-hidden="true">
+        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
+          <circle class="accuracy-milestone-ring-track" cx="22" cy="22" r="18" />
+          <circle
+            class="accuracy-milestone-ring-fill"
+            cx="22"
+            cy="22"
+            r="18"
+            :style="{ strokeDashoffset: accuracyMilestoneRingOffsetValue }"
+          />
+        </svg>
+        <span class="milestone-ring-label">🎯</span>
+      </div>
+      <div class="milestone-copy">
+        <p class="accuracy-milestone-title">{{ t("learn.accuracyMilestone") }}</p>
+        <p class="accuracy-milestone-sub">
+          {{ t("learn.accuracyMilestoneNext", { n: accuracyMilestone.next_milestone }) }}
+          ·
+          {{
+            t("learn.accuracyMilestoneProgress", {
+              done: accuracyMilestone.best,
+              total: accuracyMilestone.next_milestone,
+            })
+          }}
+        </p>
+        <p class="accuracy-milestone-hint">
+          {{ t("learn.accuracyMilestoneHint", { done: accuracyMilestone.best }) }}
+        </p>
+      </div>
+      <span class="milestone-chevron" aria-hidden="true">›</span>
+    </button>
+
+    <button
       v-if="showFocusArea"
       type="button"
       class="focus-area-card"
@@ -397,6 +435,11 @@ import {
   mistakeReviewCount,
   shouldShowMistakeReview,
 } from "./mistakeReviewCard.js";
+import { accuracyMilestoneRingOffset } from "@/modules/profile/accuracyMilestones.js";
+import {
+  buildAccuracyMilestoneCard,
+  shouldShowAccuracyMilestoneCard,
+} from "./accuracyMilestoneCard.js";
 import { countDueForPair } from "@/modules/path/mistakeReviewStore.js";
 
 const router = useRouter();
@@ -410,6 +453,7 @@ const vocabReviewWords = ref([]);
 const lessonMilestone = ref(null);
 const vocabMilestone = ref(null);
 const mistakeMilestone = ref(null);
+const accuracyMilestone = ref(null);
 const perfectStreak = ref(null);
 const focusArea = ref(null);
 const dueMistakeCount = ref(0);
@@ -481,6 +525,10 @@ const mistakeReviewTotal = computed(() => mistakeReviewCount(dueMistakeCount.val
 
 const showMistakeMilestone = computed(() => shouldShowMistakeMilestone(mistakeMilestone.value));
 
+const showAccuracyMilestone = computed(() =>
+  shouldShowAccuracyMilestoneCard(accuracyMilestone.value),
+);
+
 const milestoneRingOffset = computed(() =>
   lessonMilestoneRingOffset(lessonMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
 );
@@ -491,6 +539,10 @@ const vocabMilestoneRingOffsetValue = computed(() =>
 
 const mistakeMilestoneRingOffsetValue = computed(() =>
   mistakeMilestoneRingOffset(mistakeMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
+);
+
+const accuracyMilestoneRingOffsetValue = computed(() =>
+  accuracyMilestoneRingOffset(accuracyMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
 );
 
 const modules = [
@@ -578,6 +630,10 @@ function loadMistakeMilestone(nativeLang, targetLang) {
   mistakeMilestone.value = mistakeMilestoneProgress(mastered);
 }
 
+function loadAccuracyMilestone(nativeLang, targetLang) {
+  accuracyMilestone.value = buildAccuracyMilestoneCard(pairStatsKey(nativeLang, targetLang));
+}
+
 async function loadHubData() {
   try {
     const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
@@ -586,6 +642,7 @@ async function loadHubData() {
     loadFocusArea(nativeLang, targetLang);
     loadMistakeReview(nativeLang, targetLang);
     loadMistakeMilestone(nativeLang, targetLang);
+    loadAccuracyMilestone(nativeLang, targetLang);
     await Promise.all([
       loadDailyGoal(user.id, targetLang),
       loadWeeklyActivity(user.id),
@@ -606,6 +663,7 @@ async function loadHubData() {
     focusArea.value = null;
     dueMistakeCount.value = 0;
     mistakeMilestone.value = null;
+    accuracyMilestone.value = null;
   }
 }
 
@@ -1107,6 +1165,64 @@ onMounted(loadHubData);
   margin: 4px 0 0;
   font-size: 11px;
   color: #c45a3a;
+  line-height: 1.35;
+}
+
+.accuracy-milestone-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #eef4ff 0%, #d9e6ff 100%);
+  border: 1px solid #5a8fd4;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.accuracy-milestone-card:hover {
+  box-shadow: 0 2px 10px rgba(90, 143, 212, 0.28);
+  transform: translateY(-1px);
+}
+
+.accuracy-milestone-ring-track {
+  fill: none;
+  stroke: #b8d4f5;
+  stroke-width: 4;
+}
+
+.accuracy-milestone-ring-fill {
+  fill: none;
+  stroke: #2e6eb8;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 113.1;
+  transition: stroke-dashoffset 0.4s ease;
+}
+
+.accuracy-milestone-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f4f8a;
+  line-height: 1.3;
+}
+
+.accuracy-milestone-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #2d5f9e;
+  line-height: 1.35;
+}
+
+.accuracy-milestone-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #3d72ad;
   line-height: 1.35;
 }
 
