@@ -178,6 +178,21 @@ describe("ProfilePage", () => {
     expect(switched).toBe("en");
   });
 
+  it("renders share progress button", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 0, total_learning: 0, total: 0 });
+      if (cmd === "get_read_article_count_cmd") return Promise.resolve(0);
+      if (cmd === "get_learning_streak_cmd") return Promise.resolve({ current: 0, longest: 0, practiced_today: false });
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+    expect(wrapper.find(".share-progress-btn").exists()).toBe(true);
+    expect(wrapper.text()).toContain("分享学习进度");
+  });
+
   it("active language pill stays readable (white text) on hover", () => {
     // Regression for the green-on-green bug: the generic `.lang-pill:hover`
     // rule was more specific than `.lang-pill.active` and clobbered `color`,

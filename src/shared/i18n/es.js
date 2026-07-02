@@ -344,6 +344,16 @@ export default {
     knowIt: "Entendido",
     noGoal: "Sin meta de aprendizaje",
     learnSettingsSub: "Idioma, configuración de IA, noticias",
+    shareProgress: "Compartir progreso",
+    shareProgressTitle: "Mi progreso en Amiga",
+    shareProgressIntro:
+      "🔥 ¡{name} lleva {streak} días seguidos aprendiendo {lang} ({level}) en Amiga!",
+    shareProgressIntroNoGoal: "🔥 ¡{name} lleva {streak} días seguidos en Amiga!",
+    shareProgressStats: "📚 {words} palabras dominadas · {articles} artículos leídos",
+    shareProgressLongest: "🏆 Racha más larga: {n} días",
+    shareProgressFooter: "Únete — Amiga, aprende idiomas, conecta con el mundo",
+    shareCopied: "Copiado al portapapeles",
+    shareFail: "Error al compartir",
   },
 
   learningLang: {

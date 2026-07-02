@@ -344,6 +344,16 @@ export default {
     knowIt: "Got it",
     noGoal: "No learning goal set",
     learnSettingsSub: "Language, AI config, news",
+    shareProgress: "Share progress",
+    shareProgressTitle: "My Amiga progress",
+    shareProgressIntro:
+      "🔥 {name} is on a {streak}-day streak learning {lang} ({level}) on Amiga!",
+    shareProgressIntroNoGoal: "🔥 {name} is on a {streak}-day streak on Amiga!",
+    shareProgressStats: "📚 {words} words mastered · {articles} articles read",
+    shareProgressLongest: "🏆 Longest streak: {n} days",
+    shareProgressFooter: "Join me — Amiga, learn languages, connect worlds",
+    shareCopied: "Copied to clipboard",
+    shareFail: "Share failed",
   },
 
   learningLang: {

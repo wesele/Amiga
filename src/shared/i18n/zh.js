@@ -347,6 +347,15 @@ export default {
     knowIt: "知道了",
     noGoal: "未设置学习目标",
     learnSettingsSub: "界面语言、AI 配置、新闻设置",
+    shareProgress: "分享学习进度",
+    shareProgressTitle: "我的阿米加学习进度",
+    shareProgressIntro: "🔥 {name} 在阿米加学习 {lang}（{level}），已连续学习 {streak} 天！",
+    shareProgressIntroNoGoal: "🔥 {name} 在阿米加已连续学习 {streak} 天！",
+    shareProgressStats: "📚 已掌握 {words} 个单词 · 已读 {articles} 篇文章",
+    shareProgressLongest: "🏆 最长连胜：{n} 天",
+    shareProgressFooter: "一起来学吧 — 阿米加，学语言，连世界",
+    shareCopied: "已复制到剪贴板",
+    shareFail: "分享失败",
   },
 
   learningLang: {

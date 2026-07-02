@@ -33,6 +33,15 @@
             <div class="stat-label">{{ t('profile.articles') }}</div>
           </div>
         </div>
+        <button
+          type="button"
+          class="share-progress-btn"
+          :disabled="sharing"
+          @click="onShareProgress"
+        >
+          📤 {{ t('profile.shareProgress') }}
+        </button>
+        <p v-if="shareStatus" class="share-status" role="status">{{ shareStatus }}</p>
       </div>
     </section>
 
@@ -149,6 +158,7 @@ import {
   getLearningStreak,
   checkUpdate,
   updateLearningGoalCefr,
+  shareText as nativeShareText,
 } from "@/shared/api.js";
 import { openExternalUrl } from "@/shared/external.js";
 import { canAutoInstallUpdate, pickPreferredUpdateAsset, startAppUpdate } from "@/shared/update.js";
@@ -158,6 +168,7 @@ import { useTargetLangStore } from "@/stores/targetLang.js";
 import { AVAILABLE_LANGUAGES, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
+import { shareLearningProgress } from "./shareProgress.js";
 
 const { t } = useI18n();
 const targetLangStore = useTargetLangStore();
@@ -166,7 +177,13 @@ const goals = ref([]);
 const vocabStats = ref(null);
 const readArticleCount = ref(0);
 const learningStreak = ref(null);
+const sharing = ref(false);
+const shareStatus = ref("");
+let shareStatusTimer = null;
 const currentTargetLang = computed(() => targetLangStore.code || "");
+const targetLangLabel = computed(() =>
+  currentTargetLang.value ? t(`learningLang.${currentTargetLang.value}`) : "",
+);
 const currentLevel = ref("A1");
 const levelSwitching = ref(false);
 const switching = computed(() => targetLangStore.updating);
@@ -229,6 +246,36 @@ const updateDialog = ref({ type: "", title: "", errorMsg: "" });
 const installingUpdate = ref(false);
 const primaryUpdateAsset = computed(() => pickPreferredUpdateAsset(updateInfo.value));
 const canAutoInstall = computed(() => canAutoInstallUpdate(updateInfo.value));
+
+function showShareStatus(message) {
+  shareStatus.value = message;
+  if (shareStatusTimer) clearTimeout(shareStatusTimer);
+  shareStatusTimer = setTimeout(() => {
+    shareStatus.value = "";
+    shareStatusTimer = null;
+  }, 2500);
+}
+
+async function onShareProgress() {
+  if (sharing.value) return;
+  sharing.value = true;
+  try {
+    await shareLearningProgress({
+      nickname: user.value?.nickname || t("common.learner"),
+      targetLangLabel: targetLangLabel.value,
+      level: currentLevel.value,
+      streakCurrent: learningStreak.value?.current || 0,
+      streakLongest: learningStreak.value?.longest || 0,
+      wordsKnown: vocabStats.value?.total_known || 0,
+      articlesRead: readArticleCount.value,
+      t,
+      nativeShareText,
+      showShareStatus,
+    });
+  } finally {
+    sharing.value = false;
+  }
+}
 
 let checking = false;
 async function handleCheckUpdate() {
@@ -442,6 +489,41 @@ async function handleInstallUpdate() {
   height: 32px;
   background: var(--border);
   flex-shrink: 0;
+}
+
+.share-progress-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.share-progress-btn:hover:not(:disabled) {
+  background: var(--green-bg);
+}
+
+.share-progress-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.share-status {
+  margin: 0;
+  padding: 0 16px 10px;
+  font-size: 12px;
+  color: var(--text-lighter);
+  text-align: center;
 }
 
 /* Update Dialog */
