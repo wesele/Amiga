@@ -23,6 +23,44 @@
     </button>
 
     <button
+      v-if="showVocabMilestone"
+      type="button"
+      class="vocab-milestone-card"
+      @click="goToVocabReview"
+    >
+      <div class="milestone-ring" aria-hidden="true">
+        <svg viewBox="0 0 44 44" class="milestone-ring-svg">
+          <circle class="vocab-milestone-ring-track" cx="22" cy="22" r="18" />
+          <circle
+            class="vocab-milestone-ring-fill"
+            cx="22"
+            cy="22"
+            r="18"
+            :style="{ strokeDashoffset: vocabMilestoneRingOffsetValue }"
+          />
+        </svg>
+        <span class="milestone-ring-label">📚</span>
+      </div>
+      <div class="milestone-copy">
+        <p class="vocab-milestone-title">{{ t("learn.vocabMilestone") }}</p>
+        <p class="vocab-milestone-sub">
+          {{ t("learn.vocabMilestoneNext", { n: vocabMilestone.next_milestone }) }}
+          ·
+          {{
+            t("learn.vocabMilestoneProgress", {
+              done: vocabMilestone.known,
+              total: vocabMilestone.next_milestone,
+            })
+          }}
+        </p>
+        <p class="vocab-milestone-hint">
+          {{ t("learn.vocabMilestoneHint", { done: vocabMilestone.known }) }}
+        </p>
+      </div>
+      <span class="milestone-chevron" aria-hidden="true">›</span>
+    </button>
+
+    <button
       v-if="showVocabReview"
       type="button"
       class="vocab-review-card"
@@ -268,6 +306,7 @@ import {
   getPathCurriculum,
   getPerfectLessonStreak,
   getUnknownWords,
+  getUserVocabStats,
   getWeeklyActivity,
 } from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
@@ -296,6 +335,11 @@ import {
   lessonMilestoneRingOffset,
   shouldShowLessonMilestone,
 } from "./lessonMilestones.js";
+import {
+  shouldShowVocabMilestone,
+  vocabMilestoneProgress,
+  vocabMilestoneRingOffset,
+} from "./vocabMilestones.js";
 import { shouldShowPerfectStreakCard } from "@/modules/path/perfectLessonStreak.js";
 import {
   buildFocusArea,
@@ -320,6 +364,7 @@ const weeklyActivity = ref(null);
 const resumeTarget = ref(null);
 const vocabReviewWords = ref([]);
 const lessonMilestone = ref(null);
+const vocabMilestone = ref(null);
 const perfectStreak = ref(null);
 const focusArea = ref(null);
 const dueMistakeCount = ref(0);
@@ -379,6 +424,8 @@ const weeklyGoalAriaLabel = computed(() => {
 
 const showLessonMilestone = computed(() => shouldShowLessonMilestone(lessonMilestone.value));
 
+const showVocabMilestone = computed(() => shouldShowVocabMilestone(vocabMilestone.value));
+
 const showPerfectStreak = computed(() => shouldShowPerfectStreakCard(perfectStreak.value?.current));
 
 const showFocusArea = computed(() => shouldShowFocusArea(focusArea.value));
@@ -389,6 +436,10 @@ const mistakeReviewTotal = computed(() => mistakeReviewCount(dueMistakeCount.val
 
 const milestoneRingOffset = computed(() =>
   lessonMilestoneRingOffset(lessonMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
+);
+
+const vocabMilestoneRingOffsetValue = computed(() =>
+  vocabMilestoneRingOffset(vocabMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
 );
 
 const modules = [
@@ -445,6 +496,15 @@ async function loadLessonMilestone(nativeLang, targetLang) {
   }
 }
 
+async function loadVocabMilestone(userId, targetLang) {
+  try {
+    const stats = await getUserVocabStats(userId, targetLang);
+    vocabMilestone.value = vocabMilestoneProgress(stats?.total_known ?? 0);
+  } catch {
+    vocabMilestone.value = null;
+  }
+}
+
 async function loadPerfectStreak() {
   try {
     perfectStreak.value = await getPerfectLessonStreak();
@@ -474,6 +534,7 @@ async function loadHubData() {
       loadWeeklyActivity(user.id),
       loadResumeSection(nativeLang, targetLang, cefr),
       loadVocabReview(user.id, targetLang, cefr),
+      loadVocabMilestone(user.id, targetLang),
       loadLessonMilestone(nativeLang, targetLang),
       loadPerfectStreak(),
     ]);
@@ -483,6 +544,7 @@ async function loadHubData() {
     resumeTarget.value = null;
     vocabReviewWords.value = [];
     lessonMilestone.value = null;
+    vocabMilestone.value = null;
     perfectStreak.value = null;
     focusArea.value = null;
     dueMistakeCount.value = 0;
@@ -872,6 +934,64 @@ onMounted(loadHubData);
 .milestone-card:hover {
   box-shadow: 0 2px 10px rgba(230, 184, 77, 0.28);
   transform: translateY(-1px);
+}
+
+.vocab-milestone-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #eefaf3 0%, #d9f2e4 100%);
+  border: 1px solid #5cb88a;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.vocab-milestone-card:hover {
+  box-shadow: 0 2px 10px rgba(92, 184, 138, 0.28);
+  transform: translateY(-1px);
+}
+
+.vocab-milestone-ring-track {
+  fill: none;
+  stroke: #b8e6cc;
+  stroke-width: 4;
+}
+
+.vocab-milestone-ring-fill {
+  fill: none;
+  stroke: #2e9e6a;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 113.1;
+  transition: stroke-dashoffset 0.4s ease;
+}
+
+.vocab-milestone-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f6b47;
+  line-height: 1.3;
+}
+
+.vocab-milestone-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #2d7a52;
+  line-height: 1.35;
+}
+
+.vocab-milestone-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #3d8f62;
+  line-height: 1.35;
 }
 
 .milestone-ring {

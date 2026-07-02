@@ -98,7 +98,7 @@ describe("ProfilePage", () => {
     const wrapper = mountPage();
     await flushPromises();
     expect(wrapper.text()).toContain("成就徽章");
-    expect(wrapper.text()).toContain("已解锁 6/15");
+    expect(wrapper.text()).toContain("已解锁 6/18");
     const unlocked = wrapper.findAll(".achievement-badge.unlocked");
     expect(unlocked.length).toBe(6);
     expect(unlocked.some((badge) => badge.text().includes("10 节课"))).toBe(true);

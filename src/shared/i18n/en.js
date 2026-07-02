@@ -67,6 +67,10 @@ export default {
     lessonMilestoneNext: "Next goal: {n} lessons",
     lessonMilestoneProgress: "{done}/{total}",
     lessonMilestoneHint: "{done} lessons done — keep going!",
+    vocabMilestone: "Vocabulary milestone",
+    vocabMilestoneNext: "Next goal: {n} words",
+    vocabMilestoneProgress: "{done}/{total}",
+    vocabMilestoneHint: "{done} words mastered — keep building!",
     perfectStreak: "{n} perfect lessons in a row",
     perfectStreakHint: "Get the next one flawless to keep it going",
     perfectStreakBest: "Personal best: {n}",
@@ -306,6 +310,7 @@ export default {
     reviewMasteredCount: "{n} marked as mastered",
     reviewAllCaughtUp: "You're all caught up — no words need review right now.",
     reviewBack: "Back to Learn",
+    vocabMilestoneReached: "📚 {n} words mastered! Vocabulary milestone unlocked",
   },
 
   chat: {
@@ -411,6 +416,7 @@ export default {
     achievementLesson: "{n} lessons",
     achievementPerfect: "Perfect ×{n}",
     achievementStreak: "{n}-day streak",
+    achievementVocab: "{n} words",
   },
 
   learningLang: {

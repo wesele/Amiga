@@ -4,6 +4,7 @@ import {
   buildLessonAchievements,
   buildPerfectAchievements,
   buildStreakAchievements,
+  buildVocabAchievements,
   isMilestoneUnlocked,
   shouldShowAchievements,
 } from "../achievements.js";
@@ -43,14 +44,29 @@ describe("achievements", () => {
     ]);
   });
 
+  it("builds vocabulary achievements from mastered word count", () => {
+    const items = buildVocabAchievements(250);
+    expect(items).toHaveLength(3);
+    expect(items.filter((item) => item.unlocked).map((item) => item.threshold)).toEqual([
+      100,
+    ]);
+    expect(items[0]).toMatchObject({
+      id: "vocab-100",
+      category: "vocab",
+      icon: "📚",
+      labelKey: "profile.achievementVocab",
+    });
+  });
+
   it("aggregates all achievement tracks", () => {
     const result = buildAchievements({
       lessonProgress: { completed: 50 },
       perfectStreak: { current: 2, best: 3 },
       learningStreak: { current: 8, longest: 30 },
+      vocabStats: { total_known: 150 },
     });
-    expect(result.totalCount).toBe(15);
-    expect(result.unlockedCount).toBe(7);
+    expect(result.totalCount).toBe(18);
+    expect(result.unlockedCount).toBe(8);
     expect(shouldShowAchievements(result)).toBe(true);
   });
 

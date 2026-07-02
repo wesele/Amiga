@@ -70,6 +70,10 @@ export default {
     lessonMilestoneNext: "下一目标：{n} 节课",
     lessonMilestoneProgress: "{done}/{total}",
     lessonMilestoneHint: "已完成 {done} 节课，继续加油！",
+    vocabMilestone: "词汇里程碑",
+    vocabMilestoneNext: "下一目标：{n} 个单词",
+    vocabMilestoneProgress: "{done}/{total}",
+    vocabMilestoneHint: "已掌握 {done} 个单词，继续积累！",
     perfectStreak: "连续 {n} 课完美通关",
     perfectStreakHint: "下一课也全对就能延续连胜",
     perfectStreakBest: "历史最佳 {n} 课",
@@ -309,6 +313,7 @@ export default {
     reviewMasteredCount: "标记掌握 {n} 个",
     reviewAllCaughtUp: "暂时没有需要复习的单词。",
     reviewBack: "返回学习",
+    vocabMilestoneReached: "📚 已掌握 {n} 个单词！词汇里程碑达成",
   },
 
   chat: {
@@ -413,6 +418,7 @@ export default {
     achievementLesson: "{n} 节课",
     achievementPerfect: "完美 ×{n}",
     achievementStreak: "{n} 天连胜",
+    achievementVocab: "{n} 个单词",
   },
 
   learningLang: {

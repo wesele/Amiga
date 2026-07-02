@@ -230,6 +230,7 @@ const achievements = computed(() =>
     lessonProgress: lessonMilestone.value,
     perfectStreak: perfectLessonStreak.value,
     learningStreak: learningStreak.value,
+    vocabStats: vocabStats.value,
   }),
 );
 const showAchievements = computed(() => shouldShowAchievements(achievements.value));

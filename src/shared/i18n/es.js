@@ -67,6 +67,10 @@ export default {
     lessonMilestoneNext: "Próxima meta: {n} lecciones",
     lessonMilestoneProgress: "{done}/{total}",
     lessonMilestoneHint: "¡{done} lecciones completadas, sigue así!",
+    vocabMilestone: "Hito de vocabulario",
+    vocabMilestoneNext: "Próxima meta: {n} palabras",
+    vocabMilestoneProgress: "{done}/{total}",
+    vocabMilestoneHint: "¡{done} palabras dominadas, sigue acumulando!",
     perfectStreak: "{n} lecciones perfectas seguidas",
     perfectStreakHint: "Acerta la siguiente sin fallos para mantener la racha",
     perfectStreakBest: "Mejor marca: {n}",
@@ -306,6 +310,7 @@ export default {
     reviewMasteredCount: "{n} marcadas como dominadas",
     reviewAllCaughtUp: "No hay palabras pendientes de repaso.",
     reviewBack: "Volver a Aprender",
+    vocabMilestoneReached: "📚 ¡{n} palabras dominadas! Hito de vocabulario desbloqueado",
   },
 
   chat: {
@@ -411,6 +416,7 @@ export default {
     achievementLesson: "{n} lecciones",
     achievementPerfect: "Perfectas ×{n}",
     achievementStreak: "Racha de {n} días",
+    achievementVocab: "{n} palabras",
   },
 
   learningLang: {

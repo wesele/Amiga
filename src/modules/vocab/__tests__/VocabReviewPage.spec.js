@@ -51,6 +51,9 @@ function defaultInvoke(cmd) {
   if (cmd === "record_review_practice_cmd") {
     return Promise.resolve({ extended: true, current: 3 });
   }
+  if (cmd === "get_user_vocab_stats_cmd") {
+    return Promise.resolve({ total_known: 0, total_learning: 2, total: 1000 });
+  }
   return Promise.resolve(null);
 }
 
@@ -118,5 +121,31 @@ describe("VocabReviewPage", () => {
       itemsReviewed: 2,
     });
     expect(wrapper.find(".streak-banner").text()).toContain("3 天连胜");
+  });
+
+  it("celebrates vocabulary milestone when session crosses a threshold", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_user_vocab_stats_cmd") {
+        return Promise.resolve({ total_known: 99, total_learning: 5, total: 1000 });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".vocab-milestone-banner").text()).toContain("100 个单词");
   });
 });

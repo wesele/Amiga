@@ -39,6 +39,7 @@
         {{ t("vocab.reviewMasteredCount", { n: masteredCount }) }}
       </p>
       <p v-if="streakCelebration" class="streak-banner">{{ streakCelebration }}</p>
+      <p v-if="vocabMilestoneBanner" class="vocab-milestone-banner">{{ vocabMilestoneBanner }}</p>
       <button type="button" class="action-btn primary" @click="exitReview">
         {{ t("vocab.reviewBack") }}
       </button>
@@ -98,7 +99,11 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
-import { getUnknownWords, updateWordMastery } from "@/shared/api.js";
+import { getUnknownWords, getUserVocabStats, updateWordMastery } from "@/shared/api.js";
+import {
+  VOCAB_MILESTONE_CELEBRATION_KEY,
+  vocabMilestoneReached,
+} from "@/modules/learn/vocabMilestones.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { applyReviewStreak, reviewStreakCelebration } from "@/shared/reviewStreak.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
@@ -122,6 +127,7 @@ const flipped = ref(false);
 const finished = ref(false);
 const acting = ref(false);
 const masteredCount = ref(0);
+const knownBefore = ref(0);
 const streakUpdate = ref(null);
 const userId = ref("");
 const nativeLang = ref("zh");
@@ -142,6 +148,15 @@ const streakCelebration = computed(() =>
   reviewStreakCelebration(streakUpdate.value, t),
 );
 
+const vocabMilestoneBanner = computed(() => {
+  const milestone = vocabMilestoneReached(
+    knownBefore.value,
+    knownBefore.value + masteredCount.value,
+  );
+  if (!milestone) return "";
+  return t(VOCAB_MILESTONE_CELEBRATION_KEY, { n: milestone });
+});
+
 function toggleFlip() {
   if (!currentWord.value) return;
   flipped.value = !flipped.value;
@@ -160,12 +175,12 @@ async function load() {
     nativeLang.value = ctx.nativeLang;
     cefr.value = ctx.cefr;
     targetLang.value = ctx.targetLang;
-    words.value = await getUnknownWords(
-      ctx.user.id,
-      ctx.cefr,
-      REVIEW_SESSION_LIMIT,
-      ctx.targetLang,
-    );
+    const [reviewWords, stats] = await Promise.all([
+      getUnknownWords(ctx.user.id, ctx.cefr, REVIEW_SESSION_LIMIT, ctx.targetLang),
+      getUserVocabStats(ctx.user.id, ctx.targetLang),
+    ]);
+    words.value = reviewWords;
+    knownBefore.value = stats?.total_known ?? 0;
     index.value = 0;
     finished.value = false;
     masteredCount.value = 0;
@@ -306,6 +321,15 @@ onMounted(load);
   padding: 12px 16px;
   background: var(--orange-bg);
   color: var(--orange-hover);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+}
+
+.vocab-milestone-banner {
+  margin: 12px 0 0;
+  padding: 12px 16px;
+  background: #e8f8ef;
+  color: #1f6b47;
   border-radius: var(--radius-md);
   font-weight: 700;
 }

@@ -98,6 +98,9 @@ function defaultInvoke(cmd) {
   if (cmd === "get_perfect_lesson_streak_cmd") {
     return Promise.resolve({ current: 0, best: 0 });
   }
+  if (cmd === "get_user_vocab_stats_cmd") {
+    return Promise.resolve({ total_known: 72, total_learning: 8, total: 1000 });
+  }
   return Promise.resolve(null);
 }
 
@@ -467,6 +470,37 @@ describe("LearnHubPage", () => {
     expect(card.text()).toContain("学习里程碑");
     expect(card.text()).toContain("下一目标：10 节课");
     expect(card.text()).toContain("7/10");
+  });
+
+  it("shows vocabulary milestone progress card", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".vocab-milestone-card");
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain("词汇里程碑");
+    expect(card.text()).toContain("下一目标：100 个单词");
+    expect(card.text()).toContain("72/100");
+  });
+
+  it("hides vocabulary milestone card when all milestones are complete", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_user_vocab_stats_cmd") {
+        return Promise.resolve({ total_known: 1000, total_learning: 0, total: 1000 });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".vocab-milestone-card").exists()).toBe(false);
   });
 
   it("hides lesson milestone card when all milestones are complete", async () => {
