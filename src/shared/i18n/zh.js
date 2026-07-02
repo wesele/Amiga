@@ -140,6 +140,7 @@ export default {
     dailyGoalRemaining: "🎯 还差 {remaining} 节课达成今日目标（{done}/{total}）",
     dailyGoalContinue: "继续学习（还差 {remaining} 节）",
     weeklyGoalMetCelebration: "📅 本周目标达成！已练习 {done}/{total} 天",
+    weeklyGoalRemainingNudge: "📅 本周已练习 {done}/{total} 天，还差 {remaining} 天达成本周目标",
     lessonMilestoneReached: "🏆 完成 {n} 节课！学习之旅更进一步",
     perfectLesson: "✨ 完美通关！全部答对，零失误！",
     perfectLessonStreak3: "✨ 连续 3 课完美通关！状态火热",

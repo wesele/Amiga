@@ -610,6 +610,76 @@ describe("LessonPage weekly goal celebration", () => {
   });
 });
 
+describe("LessonPage weekly goal nudge", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload());
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({
+          passed: true,
+          stars: 3,
+          streak_current: 3,
+          streak_extended: true,
+          daily_goal_just_met: true,
+          daily_goal_lessons_today: 2,
+          daily_goal_target: 2,
+          weekly_goal_just_met: false,
+          weekly_goal_active_days: 3,
+          weekly_goal_target_days: 5,
+        });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("wires weekly goal nudge helpers in the summary screen", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/weeklyGoalNudge\.js/);
+    expect(source).toMatch(/shouldShowWeeklyGoalNudge/);
+    expect(source).toMatch(/class="weekly-goal-banner is-nudge"/);
+    expect(source).toMatch(/path\.weeklyGoalRemainingNudge/);
+  });
+
+  it("shows remaining-days nudge when daily goal is met but weekly goal is not", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const dailyCelebration = wrapper.find(".daily-goal-banner:not(.is-nudge)");
+    expect(dailyCelebration.exists()).toBe(true);
+    expect(dailyCelebration.text()).toContain("今日目标达成");
+
+    const weeklyNudge = wrapper.find(".weekly-goal-banner.is-nudge");
+    expect(weeklyNudge.exists()).toBe(true);
+    expect(weeklyNudge.text()).toContain("还差 2 天");
+    expect(weeklyNudge.text()).toContain("3/5");
+  });
+});
+
 describe("LessonPage lesson milestone celebration", () => {
   let mockInvoke;
 

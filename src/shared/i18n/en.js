@@ -137,6 +137,7 @@ export default {
     dailyGoalRemaining: "🎯 {remaining} more lesson(s) to hit today's goal ({done}/{total})",
     dailyGoalContinue: "Keep going ({remaining} left for daily goal)",
     weeklyGoalMetCelebration: "📅 Weekly goal complete! {done}/{total} active days",
+    weeklyGoalRemainingNudge: "📅 {done}/{total} active days this week — {remaining} more to hit your weekly goal",
     lessonMilestoneReached: "🏆 {n} lessons complete! You're on a roll",
     perfectLesson: "✨ Perfect lesson! Every answer right, zero mistakes!",
     perfectLessonStreak3: "✨ 3 perfect lessons in a row! You're on fire",

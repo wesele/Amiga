@@ -86,6 +86,15 @@
             })
           }}
         </p>
+        <p v-else-if="showWeeklyGoalNudge" class="weekly-goal-banner is-nudge">
+          {{
+            t("path.weeklyGoalRemainingNudge", {
+              remaining: weeklyGoalRemaining,
+              done: result.weekly_goal_active_days,
+              total: result.weekly_goal_target_days,
+            })
+          }}
+        </p>
         <p v-if="result?.passed && result?.lesson_milestone_reached" class="lesson-milestone-banner">
           {{ t("path.lessonMilestoneReached", { n: result.lesson_milestone_reached }) }}
         </p>
@@ -251,6 +260,10 @@ import {
   dailyGoalLessonsRemaining,
   shouldShowDailyGoalNudge,
 } from "./dailyGoalNudge.js";
+import {
+  weeklyGoalDaysRemaining,
+  shouldShowWeeklyGoalNudge,
+} from "./weeklyGoalNudge.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -390,6 +403,14 @@ const showLessonShare = computed(() => shouldShowLessonShare(result.value));
 const showDailyGoalNudge = computed(() => shouldShowDailyGoalNudge(result.value));
 
 const dailyGoalRemaining = computed(() => dailyGoalLessonsRemaining(result.value));
+
+const showWeeklyGoalNudge = computed(() =>
+  shouldShowWeeklyGoalNudge(result.value, {
+    dailyGoalNudgeActive: showDailyGoalNudge.value,
+  }),
+);
+
+const weeklyGoalRemaining = computed(() => weeklyGoalDaysRemaining(result.value));
 
 const summaryEmoji = computed(() => {
   if (!result.value?.passed) return "💪";
@@ -1009,6 +1030,12 @@ onMounted(load);
   border-radius: var(--radius-md);
   font-weight: 700;
   animation: goal-pop 0.5s ease;
+}
+
+.weekly-goal-banner.is-nudge {
+  background: linear-gradient(135deg, #eef6ff 0%, #d9ebff 100%);
+  color: #1a5a9e;
+  border: 1px solid #7eb8e8;
 }
 
 @keyframes goal-pop {
