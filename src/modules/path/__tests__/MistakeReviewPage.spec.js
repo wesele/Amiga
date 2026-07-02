@@ -5,7 +5,11 @@ import { createMemoryHistory, createRouter } from "vue-router";
 import { flushPromises, mount } from "@vue/test-utils";
 import { setLocale } from "@/shared/i18n";
 import { recordMistakesMastered } from "../mistakeMasteryStats.js";
-import { saveMistakeQueue, upsertMistake } from "../mistakeReviewStore.js";
+import {
+  MISTAKE_REVIEW_SESSION_LIMIT,
+  saveMistakeQueue,
+  upsertMistake,
+} from "../mistakeReviewStore.js";
 
 const ROOT = resolve(__dirname, "../../../..");
 const PAIR = "zh-es";
@@ -178,5 +182,88 @@ describe("MistakeReviewPage mastery milestones", () => {
     await flushPromises();
 
     expect(wrapper.find(".mistake-milestone-banner").text()).toContain("10 道错题");
+  });
+});
+
+const REVIEW_ANSWER = "ok";
+
+function seedDueMistakes(count, pairKey = PAIR) {
+  const now = 1000;
+  const items = Array.from({ length: count }, (_, i) => ({
+    question_id: `q${i + 1}`,
+    pair_key: pairKey,
+    question: {
+      id: `q${i + 1}`,
+      type: "T09",
+      hint: `word-${i + 1}`,
+      answer: REVIEW_ANSWER,
+    },
+    user_answer: "wrong",
+    wrong_at: now + i,
+    level: 0,
+    next_review_at: 0,
+  }));
+  saveMistakeQueue(items);
+}
+
+async function completeMistakeReviewSession(wrapper) {
+  while (!wrapper.find(".summary").exists()) {
+    const input = wrapper.find(".text-input");
+    if (!input.exists()) break;
+    await input.setValue(REVIEW_ANSWER);
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+  }
+}
+
+describe("MistakeReviewPage continue reviewing", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    setLocale("zh");
+  });
+
+  it("includes continue-review markup in the summary template", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/MistakeReviewPage.vue"), "utf8");
+    expect(source).toMatch(/showContinueReview/);
+    expect(source).toMatch(/mistakeReviewContinuation\.js/);
+    expect(source).toMatch(/path\.mistakeReviewContinueHint/);
+  });
+
+  it("offers to continue when more mistakes remain due", async () => {
+    seedDueMistakes(MISTAKE_REVIEW_SESSION_LIMIT + 1);
+
+    const router = makeRouter();
+    await router.push({ name: "path-mistake-review" });
+    await router.isReady();
+
+    const wrapper = mount(MistakeReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await completeMistakeReviewSession(wrapper);
+
+    expect(wrapper.text()).toContain("错题复习完成");
+    expect(wrapper.text()).toContain("继续复习（还有 1 道）");
+  });
+
+  it("hides continue button when no more mistakes are due", async () => {
+    seedDueMistakes(1);
+
+    const router = makeRouter();
+    await router.push({ name: "path-mistake-review" });
+    await router.isReady();
+
+    const wrapper = mount(MistakeReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await completeMistakeReviewSession(wrapper);
+
+    expect(wrapper.text()).toContain("错题复习完成");
+    expect(wrapper.text()).not.toContain("继续复习");
   });
 });

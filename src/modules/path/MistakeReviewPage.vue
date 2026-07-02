@@ -36,9 +36,26 @@
       </p>
       <p v-if="streakCelebration" class="streak-banner">{{ streakCelebration }}</p>
       <p v-if="mistakeMilestoneBanner" class="mistake-milestone-banner">{{ mistakeMilestoneBanner }}</p>
-      <button type="button" class="action-btn primary" @click="exitReview">
-        {{ t("path.mistakeReviewBack") }}
-      </button>
+      <p v-if="showContinueReview" class="continue-hint">{{ t("path.mistakeReviewContinueHint") }}</p>
+      <div class="summary-actions">
+        <button
+          v-if="showContinueReview"
+          type="button"
+          class="action-btn primary"
+          :disabled="continuing"
+          @click="continueReview"
+        >
+          {{ continueReviewLabel }}
+        </button>
+        <button
+          type="button"
+          class="action-btn"
+          :class="showContinueReview ? 'secondary' : 'primary'"
+          @click="exitReview"
+        >
+          {{ t("path.mistakeReviewBack") }}
+        </button>
+      </div>
     </div>
 
     <template v-else-if="currentQuestion">
@@ -99,6 +116,12 @@ import {
   loadMistakeQueue,
   saveMistakeQueue,
 } from "./mistakeReviewStore.js";
+import {
+  REMAINING_PEEK_LIMIT,
+  mistakeContinueLabelKey,
+  remainingMistakeReviewCount,
+  shouldOfferMistakeContinuation,
+} from "./mistakeReviewContinuation.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -116,6 +139,9 @@ const sessionTotal = ref(0);
 const pairKey = ref("");
 const userId = ref("");
 const streakUpdate = ref(null);
+const remainingDue = ref(0);
+const checkingRemaining = ref(false);
+const continuing = ref(false);
 
 const currentEntry = computed(() => queue.value[index.value] ?? null);
 const currentQuestion = computed(() => currentEntry.value?.question ?? null);
@@ -141,6 +167,19 @@ const mistakeMilestoneBanner = computed(() => {
   );
   if (!milestone) return "";
   return t(MISTAKE_MILESTONE_CELEBRATION_KEY, { n: milestone });
+});
+
+const showContinueReview = computed(
+  () => !checkingRemaining.value && shouldOfferMistakeContinuation(remainingDue.value),
+);
+
+const continueReviewLabel = computed(() => {
+  const key = mistakeContinueLabelKey(remainingDue.value);
+  const n =
+    remainingDue.value >= REMAINING_PEEK_LIMIT
+      ? REMAINING_PEEK_LIMIT
+      : remainingDue.value;
+  return t(key, { n });
 });
 
 const correctAnswerText = computed(() =>
@@ -189,6 +228,9 @@ async function load() {
     masteredCount.value = 0;
     masteredBefore.value = 0;
     streakUpdate.value = null;
+    remainingDue.value = 0;
+    checkingRemaining.value = false;
+    continuing.value = false;
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {
@@ -245,6 +287,32 @@ async function onPrimaryAction() {
     masteredBefore.value = prev;
   }
   streakUpdate.value = await applyReviewStreak(userId.value, sessionTotal.value);
+  await refreshRemainingDue();
+}
+
+function refreshRemainingDue() {
+  if (!pairKey.value) {
+    remainingDue.value = 0;
+    return;
+  }
+  checkingRemaining.value = true;
+  try {
+    const peeked = loadDueMistakes(pairKey.value, { limit: REMAINING_PEEK_LIMIT });
+    remainingDue.value = remainingMistakeReviewCount(peeked);
+  } catch {
+    remainingDue.value = 0;
+  } finally {
+    checkingRemaining.value = false;
+  }
+}
+
+async function continueReview() {
+  continuing.value = true;
+  try {
+    await load();
+  } finally {
+    continuing.value = false;
+  }
 }
 
 function exitReview() {
@@ -419,6 +487,21 @@ onMounted(load);
   color: #c45a3a;
   border-radius: var(--radius-md);
   font-weight: 700;
+}
+
+.continue-hint {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--text-light);
+  line-height: 1.45;
+}
+
+.summary-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .action-btn {
