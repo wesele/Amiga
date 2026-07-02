@@ -103,6 +103,8 @@ export default {
     comboMilestone5: "🔥 ¡5 seguidas! Estás en racha",
     comboMilestone10: "🔥 ¡10 seguidas! Imparable",
     correctAnswer: "Respuesta correcta: {answer}",
+    commonMistakeTip: "«{mistake}» es un error común — la forma correcta es «{correct}»",
+    commonMistakeWithHint: "«{mistake}» es un error común. {hint}",
     getHint: "Pista",
     hintAutoRevealed: "¿Atascado? Una pista:",
     hintEliminate: "Prueba descartar: {options}",

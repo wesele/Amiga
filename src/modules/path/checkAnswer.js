@@ -80,8 +80,7 @@ export function checkAnswer(question, answer) {
   }
 
   if (type === "T09") {
-    const accepted = [question.answer, ...(question.commonMistakes || [])].map(normalizeText);
-    return accepted.includes(normalizeText(answer));
+    return normalizeText(answer) === normalizeText(question.answer);
   }
 
   if (type === "T10") {

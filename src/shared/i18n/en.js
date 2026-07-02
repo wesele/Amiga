@@ -103,6 +103,8 @@ export default {
     comboMilestone5: "🔥 5 in a row! You're on fire",
     comboMilestone10: "🔥 10 in a row! Unstoppable",
     correctAnswer: "Correct answer: {answer}",
+    commonMistakeTip: "\"{mistake}\" is a common mistake — the correct spelling is \"{correct}\"",
+    commonMistakeWithHint: "\"{mistake}\" is a common mistake. {hint}",
     getHint: "Hint",
     hintAutoRevealed: "Stuck? Here's a nudge:",
     hintEliminate: "Try ruling out: {options}",

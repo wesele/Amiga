@@ -106,6 +106,8 @@ export default {
     comboMilestone5: "🔥 五连击！状态火热",
     comboMilestone10: "🔥 十连击！无人能挡",
     correctAnswer: "正确答案：{answer}",
+    commonMistakeTip: "「{mistake}」是常见错误，正确答案是「{correct}」",
+    commonMistakeWithHint: "「{mistake}」是常见错误。{hint}",
     getHint: "提示",
     hintAutoRevealed: "卡住太久？小提示：",
     hintEliminate: "试试排除这些选项：{options}",

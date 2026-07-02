@@ -138,6 +138,9 @@
           {{ lastCorrect ? t("path.correct") : t("path.incorrect") }}
         </p>
         <p v-if="comboToast" class="combo-toast">{{ comboToast }}</p>
+        <p v-if="commonMistakeFeedback" class="common-mistake-tip">
+          {{ commonMistakeFeedback }}
+        </p>
         <p
           v-if="showResult && !lastCorrect && correctAnswerText"
           class="answer-reveal"
@@ -187,6 +190,7 @@ import {
 } from "./lessonCombo.js";
 import { isPerfectLesson } from "./lessonPerfect.js";
 import { perfectLessonMilestoneKey } from "./perfectLessonStreak.js";
+import { getCommonMistakeFeedback } from "./commonMistakeFeedback.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -269,6 +273,17 @@ const correctAnswerText = computed(() =>
     ? formatCorrectAnswer(currentQuestion.value)
     : "",
 );
+
+const commonMistakeFeedback = computed(() => {
+  if (!showResult.value || lastCorrect.value || !currentQuestion.value) return "";
+  return (
+    getCommonMistakeFeedback(
+      currentQuestion.value,
+      currentAnswer.value,
+      t,
+    ) || ""
+  );
+});
 
 const primaryLabel = computed(() => {
   if (showResult.value) {
@@ -725,6 +740,18 @@ onMounted(load);
     opacity: 1;
     transform: scale(1);
   }
+}
+
+.common-mistake-tip {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: #fff4e6;
+  border: 1.5px solid #f0b429;
+  border-radius: var(--radius-sm);
+  color: #7a4b00;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .answer-reveal {

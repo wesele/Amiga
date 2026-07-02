@@ -38,6 +38,17 @@ describe("checkAnswer", () => {
     const q = { type: "T09", answer: "café", commonMistakes: [] };
     expect(checkAnswer(q, "cafe")).toBe(true);
   });
+
+  it("rejects author-tagged common mistakes for T09", () => {
+    const q = {
+      type: "T09",
+      answer: "drinks",
+      commonMistakes: ["drink", "drinck", "drings"],
+    };
+    expect(checkAnswer(q, "drinks")).toBe(true);
+    expect(checkAnswer(q, "drink")).toBe(false);
+    expect(checkAnswer(q, "drinck")).toBe(false);
+  });
 });
 
 describe("formatQuestionPrompt", () => {
