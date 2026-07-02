@@ -166,6 +166,13 @@ describe("API module", () => {
       });
     });
 
+    it("lookupWordsMastery calls invoke with userId, words, and language", () => {
+      api.lookupWordsMastery("u1", ["hola", "gato"], "es");
+      expect(mockInvoke).toHaveBeenCalledWith("lookup_words_mastery_cmd", {
+        userId: "u1", words: ["hola", "gato"], language: "es",
+      });
+    });
+
     it("resetUserVocabByLevel calls invoke with userId, language, cefrLevel", () => {
       api.resetUserVocabByLevel("u1", "es", "A1");
       expect(mockInvoke).toHaveBeenCalledWith("reset_user_vocab_by_level_cmd", {

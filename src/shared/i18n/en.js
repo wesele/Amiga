@@ -69,6 +69,7 @@ export default {
     continueAction: "Start",
     vocabReview: "Vocabulary review",
     vocabReviewHint: "{n} words to reinforce",
+    vocabReviewFromNews: "including {n} from news reading",
     vocabReviewPreviewSep: " · ",
     vocabReviewMore: "more",
     vocabReviewAction: "Review",
@@ -409,6 +410,14 @@ export default {
     shareSource: "Source: ",
     shareCopied: "Copied to clipboard — paste it in Gemini or any AI to keep discussing",
     shareFail: "Share failed, please try again",
+    vocabLegend: "Word legend",
+    vocabLegendMastered: "Mastered",
+    vocabLegendSeen: "To reinforce",
+    vocabLegendNew: "New",
+    wordMarkedUnknown: "Added to vocab list — will appear in review",
+    wordMarkedKnown: "Marked as mastered",
+    readingSummary: "Marked {n} new word(s) while reading",
+    readingSummaryAction: "Review",
   },
 
   vocab: {

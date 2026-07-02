@@ -4,6 +4,15 @@
       <h1 class="page-title">{{ t("learn.title") }}</h1>
     </header>
 
+    <div v-if="readingSummary" class="reading-summary-banner">
+      <p class="reading-summary-text">
+        {{ t("news.readingSummary", { n: readingSummary.unknownCount }) }}
+      </p>
+      <button type="button" class="reading-summary-action" @click="goToVocabReview">
+        {{ t("news.readingSummaryAction") }}
+      </button>
+    </div>
+
     <section v-if="hubFocus" class="focus-hero-card">
       <div
         v-if="showStreakUrgency"
@@ -157,9 +166,7 @@
             <span class="vocab-review-icon" aria-hidden="true">📚</span>
             <div class="vocab-review-copy">
               <p class="vocab-review-title">{{ t("learn.vocabReview") }}</p>
-              <p class="vocab-review-sub">
-                {{ t("learn.vocabReviewHint", { n: vocabReviewTotal }) }}<template v-if="vocabReviewPreviewText">{{ t("learn.vocabReviewPreviewSep") }}{{ vocabReviewPreviewText }}<template v-if="vocabReviewHasMoreWords">{{ t("learn.vocabReviewMore") }}</template></template>
-              </p>
+              <p class="vocab-review-sub">{{ vocabReviewSubText }}</p>
             </div>
             <span class="vocab-review-action">{{ t("learn.vocabReviewAction") }}</span>
           </template>
@@ -349,9 +356,11 @@ import {
 import {
   VOCAB_REVIEW_LIMIT,
   vocabReviewCount,
+  vocabReviewFromNewsCount,
   vocabReviewHasMore,
   vocabReviewPreview,
 } from "./vocabReviewCard.js";
+import { consumeReadingSessionSummary } from "@/modules/news/readingSession.js";
 import { accuracyMilestoneRingOffset } from "@/modules/profile/accuracyMilestones.js";
 import {
   buildAccuracyMilestoneCard,
@@ -389,6 +398,7 @@ const perfectStreak = ref(null);
 const focusArea = ref(null);
 const dueMistakeEntries = ref([]);
 const dueVocabWords = ref([]);
+const readingSummary = ref(null);
 const localHour = ref(new Date().getHours());
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
@@ -450,6 +460,11 @@ const vocabReviewPreviewText = computed(() =>
 const vocabReviewHasMoreWords = computed(() =>
   vocabReviewHasMore(dueVocabWords.value),
 );
+
+const vocabReviewSubText = computed(() => formatVocabSub(
+  vocabReviewTotal.value,
+  vocabReviewPreviewText.value,
+));
 
 const hubFocus = computed(() =>
   pickLearningHubFocus({
@@ -662,7 +677,11 @@ function formatMistakeSub(count, preview) {
 }
 
 function formatVocabSub(count, preview) {
-  const base = t("learn.vocabReviewHint", { n: count });
+  const fromNews = vocabReviewFromNewsCount(dueVocabWords.value);
+  let base = t("learn.vocabReviewHint", { n: count });
+  if (fromNews > 0) {
+    base += ` · ${t("learn.vocabReviewFromNews", { n: fromNews })}`;
+  }
   if (!preview) return base;
   const more = vocabReviewHasMore(dueVocabWords.value) ? t("learn.vocabReviewMore") : "";
   return `${base}${t("learn.vocabReviewPreviewSep")}${preview}${more}`;
@@ -677,6 +696,7 @@ function loadComboMilestone(nativeLang, targetLang) {
 }
 
 async function loadHubData() {
+  readingSummary.value = consumeReadingSessionSummary();
   try {
     const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
       targetLangStore,
@@ -727,6 +747,7 @@ function goToMistakeReview() {
 }
 
 function goToVocabReview() {
+  readingSummary.value = null;
   router.push({ name: "vocab-review" });
 }
 
@@ -794,6 +815,40 @@ onMounted(loadHubData);
 .page-header {
   padding: 16px 20px 12px;
   background: var(--white);
+}
+
+.reading-summary-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 16px 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--purple-bg);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+.reading-summary-text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--purple);
+  line-height: 1.35;
+  flex: 1;
+}
+
+.reading-summary-action {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: var(--purple);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 .page-title {

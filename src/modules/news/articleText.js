@@ -1,3 +1,5 @@
+import { wordKey, tokenMastery } from "./wordMastery.js";
+
 export function extractWordTexts(text) {
   if (!text) return [];
   const matches = text.match(/\b\p{L}{2,}\b/gu);
@@ -48,6 +50,16 @@ export function tokenizeArticleText(text) {
   }
 
   return result;
+}
+
+/** Annotate word tokens with masteryLevel from a lowercase word map. */
+export function applyMasteryToTokens(tokens, masteryMap) {
+  if (!Array.isArray(tokens)) return [];
+  return tokens.map((token) => {
+    if (!token.isWord) return token;
+    const masteryLevel = tokenMastery(token, masteryMap);
+    return { ...token, masteryLevel, isNewWord: masteryLevel === 0 };
+  });
 }
 
 function pushSplitTokens(result, value, fullText) {

@@ -17,6 +17,15 @@
       </template>
     </PageHeader>
 
+    <div v-if="readingSummary" class="reading-summary-banner">
+      <p class="reading-summary-text">
+        {{ t("news.readingSummary", { n: readingSummary.unknownCount }) }}
+      </p>
+      <button type="button" class="reading-summary-action" @click="goToVocabReview">
+        {{ t("news.readingSummaryAction") }}
+      </button>
+    </div>
+
     <!-- Loading skeleton -->
     <div v-if="loading && articles.length === 0" class="skeleton-list">
       <div v-for="i in 3" :key="i" class="skeleton-card" />
@@ -79,6 +88,7 @@ import { useRouter } from "vue-router";
 import { getArticles, fetchNews, getCurrentUser } from "@/shared/api.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { openSourceUrl } from "./utils.js";
+import { consumeReadingSessionSummary } from "./readingSession.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -89,6 +99,7 @@ const targetLangStore = useTargetLangStore();
 const articles = ref([]);
 const loading = ref(false);
 const statusText = ref("");
+const readingSummary = ref(null);
 let statusTimer = null;
 let userId = "";
 
@@ -107,6 +118,7 @@ const formattedDate = computed(() => {
 });
 
 onMounted(async () => {
+  readingSummary.value = consumeReadingSessionSummary();
   try {
     const u = await getCurrentUser();
     userId = u?.id || "";
@@ -182,6 +194,11 @@ function openArticle(id) {
   router.push(`/news/${id}`);
 }
 
+function goToVocabReview() {
+  readingSummary.value = null;
+  router.push({ name: "vocab-review" });
+}
+
 function formatSource(source) {
   if (!source) return "";
   try {
@@ -204,6 +221,40 @@ function formatSource(source) {
   flex-direction: column;
   min-height: 100%;
   background: var(--bg);
+}
+
+.reading-summary-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 16px 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--purple-bg);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+.reading-summary-text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--purple);
+  line-height: 1.35;
+  flex: 1;
+}
+
+.reading-summary-action {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: var(--purple);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 .today-label {

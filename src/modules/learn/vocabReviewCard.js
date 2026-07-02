@@ -24,3 +24,8 @@ export function vocabReviewPreview(words, maxPreview = VOCAB_PREVIEW_MAX) {
 export function vocabReviewHasMore(words, maxPreview = VOCAB_PREVIEW_MAX) {
   return Array.isArray(words) && words.length > maxPreview;
 }
+
+export function vocabReviewFromNewsCount(words) {
+  if (!Array.isArray(words)) return 0;
+  return words.filter((w) => w?.source === "news_reading").length;
+}

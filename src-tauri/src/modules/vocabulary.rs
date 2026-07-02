@@ -536,6 +536,72 @@ mod tests {
     }
 
     #[test]
+    fn test_lookup_words_mastery_empty_list() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        drop(conn);
+
+        let entries = lookup_words_mastery(&pool, &uid, &[], "es").unwrap();
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn test_lookup_words_mastery_partial_hits_and_defaults() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        let w1 = insert_test_word(&conn, "hola", "A1", "es");
+        let w2 = insert_test_word(&conn, "gato", "A1", "es");
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 2, 'test')",
+            params![uid, w1],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 1, 'news_reading')",
+            params![uid, w2],
+        )
+        .unwrap();
+        drop(conn);
+
+        let entries = lookup_words_mastery(
+            &pool,
+            &uid,
+            &[
+                "Hola".to_string(),
+                "gato".to_string(),
+                "missing".to_string(),
+            ],
+            "es",
+        )
+        .unwrap();
+
+        assert_eq!(entries.len(), 2);
+        let hola = entries.iter().find(|e| e.word == "hola").unwrap();
+        assert_eq!(hola.mastery, 2);
+        let gato = entries.iter().find(|e| e.word == "gato").unwrap();
+        assert_eq!(gato.mastery, 1);
+        assert_eq!(gato.word_id, w2);
+    }
+
+    #[test]
+    fn test_lookup_words_mastery_discovered_word() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        drop(conn);
+
+        let wid = add_discovered_word(&pool, &uid, "mariposa", "es", None).unwrap();
+        let entries =
+            lookup_words_mastery(&pool, &uid, &["mariposa".to_string()], "es").unwrap();
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].word_id, wid);
+        assert_eq!(entries[0].mastery, 1);
+    }
+
+    #[test]
     fn test_get_user_vocab_stats() {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
@@ -736,6 +802,14 @@ pub struct VocabWord {
     pub frequency: i32,
     /// `None` = unseen; `1` = seen but not mastered; `2` = mastered (filtered out).
     pub mastery: Option<i32>,
+    pub source: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct WordMasteryEntry {
+    pub word: String,
+    pub word_id: i32,
+    pub mastery: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -878,7 +952,7 @@ pub fn get_unknown_words(
     let mut stmt = conn
         .prepare(
             "SELECT v.id, v.word, v.lemma, v.pos, v.cefr_level, v.language,
-                v.definition_zh, v.definition_es, v.example, v.frequency, uv.mastery
+                v.definition_zh, v.definition_es, v.example, v.frequency, uv.mastery, uv.source
          FROM vocab_bank v
          LEFT JOIN user_vocab uv ON v.id = uv.word_id AND uv.user_id = ?1
          WHERE (uv.mastery IS NULL OR uv.mastery < 2)
@@ -906,6 +980,7 @@ pub fn get_unknown_words(
                 example: row.get(8)?,
                 frequency: row.get(9)?,
                 mastery: row.get(10)?,
+                source: row.get(11)?,
             })
         })
         .map_err(|e| format!("Failed to query unknown words: {}", e))?
@@ -1139,6 +1214,57 @@ pub fn lookup_word_ids(
         .collect();
 
     Ok(ids)
+}
+
+/// Look up per-user mastery for a batch of words (case-insensitive).
+/// Words missing from `vocab_bank` are omitted; callers treat absence as mastery 0.
+pub fn lookup_words_mastery(
+    db: &DatabasePool,
+    user_id: &str,
+    words: &[String],
+    language: &str,
+) -> Result<Vec<WordMasteryEntry>, String> {
+    if words.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let conn = db.conn()?;
+
+    let placeholders: Vec<String> = (0..words.len()).map(|i| format!("?{}", i + 3)).collect();
+    let sql = format!(
+        "SELECT LOWER(v.word), v.id, COALESCE(uv.mastery, 0)
+         FROM vocab_bank v
+         LEFT JOIN user_vocab uv ON v.id = uv.word_id AND uv.user_id = ?1
+         WHERE v.language = ?2 AND LOWER(v.word) IN ({})",
+        placeholders.join(",")
+    );
+
+    let mut params_vec: Vec<Box<dyn ToSql>> = vec![
+        Box::new(user_id.to_string()),
+        Box::new(language.to_string()),
+    ];
+    for w in words {
+        params_vec.push(Box::new(w.to_lowercase()));
+    }
+    let param_refs: Vec<&dyn ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
+
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|e| format!("Query error: {}", e))?;
+
+    let entries: Vec<WordMasteryEntry> = stmt
+        .query_map(param_refs.as_slice(), |row| {
+            Ok(WordMasteryEntry {
+                word: row.get(0)?,
+                word_id: row.get(1)?,
+                mastery: row.get(2)?,
+            })
+        })
+        .map_err(|e| format!("Failed to lookup words mastery: {}", e))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(entries)
 }
 
 /// Add a word that is not in the pre-imported graded vocabulary to the

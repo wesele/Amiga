@@ -69,6 +69,7 @@ export default {
     continueAction: "Empezar",
     vocabReview: "Repaso de vocabulario",
     vocabReviewHint: "{n} palabras por reforzar",
+    vocabReviewFromNews: "incluye {n} de la lectura de noticias",
     vocabReviewPreviewSep: " · ",
     vocabReviewMore: "más",
     vocabReviewAction: "Repasar",
@@ -409,6 +410,14 @@ export default {
     shareSource: "Fuente: ",
     shareCopied: "Copiado al portapapeles — pégalo en Gemini u otro asistente para continuar",
     shareFail: "Error al compartir, inténtalo de nuevo",
+    vocabLegend: "Leyenda de vocabulario",
+    vocabLegendMastered: "Dominadas",
+    vocabLegendSeen: "Por reforzar",
+    vocabLegendNew: "Nuevas",
+    wordMarkedUnknown: "Añadida a la lista — aparecerá en el repaso",
+    wordMarkedKnown: "Marcada como dominada",
+    readingSummary: "Marcaste {n} palabra(s) nueva(s) al leer",
+    readingSummaryAction: "Repasar",
   },
 
   vocab: {

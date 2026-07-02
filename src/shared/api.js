@@ -65,6 +65,8 @@ export function createApiClient(invoke) {
       call("mark_words_seen_cmd", { userId, wordIds }),
     lookupWordIds: (words, language) =>
       call("lookup_word_ids_cmd", { words, language }),
+    lookupWordsMastery: (userId, words, language) =>
+      call("lookup_words_mastery_cmd", { userId, words, language }),
     addDiscoveredWord: (userId, word, language, context) =>
       call("add_discovered_word_cmd", { userId, word, language, context }),
     ensureWordsSeen: (userId, words, language) =>
@@ -236,6 +238,7 @@ export const getUserVocabStatsByLevel = (...args) =>
   defaultApiClient.getUserVocabStatsByLevel(...args);
 export const markWordsSeen = (...args) => defaultApiClient.markWordsSeen(...args);
 export const lookupWordIds = (...args) => defaultApiClient.lookupWordIds(...args);
+export const lookupWordsMastery = (...args) => defaultApiClient.lookupWordsMastery(...args);
 export const addDiscoveredWord = (...args) => defaultApiClient.addDiscoveredWord(...args);
 export const ensureWordsSeen = (...args) => defaultApiClient.ensureWordsSeen(...args);
 export const resetUserVocabByLevel = (...args) =>

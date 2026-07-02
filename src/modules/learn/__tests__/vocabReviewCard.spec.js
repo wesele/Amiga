@@ -5,6 +5,7 @@ import {
   shouldShowVocabReview,
   vocabReviewCount,
   vocabReviewHasMore,
+  vocabReviewFromNewsCount,
   vocabReviewPreview,
 } from "../vocabReviewCard.js";
 
@@ -41,5 +42,15 @@ describe("vocabReviewCard", () => {
   it("vocabReviewHasMore detects truncated previews", () => {
     expect(vocabReviewHasMore(words)).toBe(true);
     expect(vocabReviewHasMore(words.slice(0, 3))).toBe(false);
+  });
+
+  it("vocabReviewFromNewsCount counts news_reading source", () => {
+    const mixed = [
+      { word: "hola", source: "news_reading" },
+      { word: "casa", source: "exercise" },
+      { word: "perro", source: "news_reading" },
+    ];
+    expect(vocabReviewFromNewsCount(mixed)).toBe(2);
+    expect(vocabReviewFromNewsCount([])).toBe(0);
   });
 });

@@ -101,6 +101,16 @@ pub async fn lookup_word_ids_cmd(
 }
 
 #[tauri::command]
+pub async fn lookup_words_mastery_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+    words: Vec<String>,
+    language: String,
+) -> Result<Vec<vocab_mod::WordMasteryEntry>, String> {
+    vocab_mod::lookup_words_mastery(&db, &user_id, &words, &language)
+}
+
+#[tauri::command]
 pub async fn ensure_words_seen_cmd(
     db: State<'_, DatabasePool>,
     user_id: String,

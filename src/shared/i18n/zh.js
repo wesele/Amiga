@@ -72,6 +72,7 @@ export default {
     continueAction: "开始",
     vocabReview: "单词复习",
     vocabReviewHint: "{n} 个单词待巩固",
+    vocabReviewFromNews: "含 {n} 个来自新闻阅读",
     vocabReviewPreviewSep: " · ",
     vocabReviewMore: "等",
     vocabReviewAction: "复习",
@@ -412,6 +413,14 @@ export default {
     shareSource: "来源：",
     shareCopied: "已复制到剪贴板，可粘贴到 Gemini 等应用继续讨论",
     shareFail: "分享失败，请重试",
+    vocabLegend: "词汇图例",
+    vocabLegendMastered: "已掌握",
+    vocabLegendSeen: "待巩固",
+    vocabLegendNew: "生词",
+    wordMarkedUnknown: "已加入生词本，将在单词复习中出现",
+    wordMarkedKnown: "已标记为掌握",
+    readingSummary: "本次阅读新标记 {n} 个生词",
+    readingSummaryAction: "去复习",
   },
 
   vocab: {

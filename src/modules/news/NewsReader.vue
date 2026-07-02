@@ -42,7 +42,12 @@
       <!-- Original mode -->
       <div v-if="!bilingualMode" class="article-text">
         <template v-for="(token, idx) in tokens" :key="idx">
-          <span v-if="token.isWord" class="word" @click.stop="onWordTap(token)">
+          <span
+            v-if="token.isWord"
+            class="word"
+            :class="resolveWordClass(token)"
+            @click.stop="onWordTap(token)"
+          >
             {{ token.text }}
           </span>
           <span v-else>{{ token.text }}</span>
@@ -54,7 +59,12 @@
         <template v-for="(tokens, pidx) in paraTokens" :key="pidx">
           <p class="para-original">
             <template v-for="(token, idx) in tokens" :key="idx">
-              <span v-if="token.isWord" class="word" @click.stop="onWordTap(token)">{{ token.text }}</span>
+              <span
+                v-if="token.isWord"
+                class="word"
+                :class="resolveWordClass(token)"
+                @click.stop="onWordTap(token)"
+              >{{ token.text }}</span>
               <span v-else>{{ token.text }}</span>
             </template>
           </p>
@@ -117,8 +127,29 @@
       @click="onTranslateButtonClick"
     >{{ t('news.translate') }}</button>
 
+    <!-- Word mastery toast -->
+    <Transition name="popup">
+      <div v-if="wordToast" class="word-toast">{{ wordToast }}</div>
+    </Transition>
+
     <!-- Fixed bottom bar -->
     <div v-if="article?.rewritten_body" class="bottom-bar">
+      <button
+        type="button"
+        class="legend-toggle"
+        :aria-expanded="legendExpanded"
+        @click="legendExpanded = !legendExpanded"
+      >
+        <span>{{ t('news.vocabLegend') }}</span>
+        <svg class="legend-chevron" :class="{ 'is-open': legendExpanded }" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+          <path d="M7 10l5 5 5-5z"/>
+        </svg>
+      </button>
+      <div v-if="legendExpanded" class="vocab-legend">
+        <span class="legend-item"><span class="legend-dot legend-mastered" />{{ t('news.vocabLegendMastered') }}</span>
+        <span class="legend-item"><span class="legend-dot legend-seen" />{{ t('news.vocabLegendSeen') }}</span>
+        <span class="legend-item"><span class="legend-dot legend-new" />{{ t('news.vocabLegendNew') }}</span>
+      </div>
       <div class="mode-bar">
         <button
           class="mode-btn mode-toggle"
@@ -155,7 +186,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, saveReadingLog, updateWordMastery, getBilingual, translateText, lookupWordIds, ensureWordsSeen, addDiscoveredWord, shareText as nativeShareText } from "@/shared/api.js";
+import { getArticle, rewriteArticle, saveReadingLog, updateWordMastery, getBilingual, translateText, lookupWordIds, lookupWordsMastery, ensureWordsSeen, addDiscoveredWord, shareText as nativeShareText } from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -163,9 +194,11 @@ import { eventBus } from "@/shared/eventBus.js";
 import { openSourceUrl } from "./utils.js";
 import { displayLang } from "@/shared/constants.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { extractWordTexts, tokenizeArticleText } from "./articleText.js";
+import { extractWordTexts, tokenizeArticleText, applyMasteryToTokens } from "./articleText.js";
 import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
+import { buildMasteryMap, resolveWordClass as resolveWordMasteryClass, wordKey } from "./wordMastery.js";
+import { saveReadingSessionSummary } from "./readingSession.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -198,6 +231,14 @@ const translationError = ref("");
 const sharing = ref(false);
 const shareStatus = ref("");
 let shareStatusTimer = null;
+
+// Word mastery visualization
+const masteryMap = ref(new Map());
+const sessionMarkedWords = ref(new Set());
+const legendExpanded = ref(false);
+const wordToast = ref("");
+let wordToastTimer = null;
+const sessionMarkTimers = new Map();
 
 const {
   selectionText,
@@ -262,6 +303,14 @@ onBeforeUnmount(async () => {
     clearTimeout(shareStatusTimer);
     shareStatusTimer = null;
   }
+  if (wordToastTimer) {
+    clearTimeout(wordToastTimer);
+    wordToastTimer = null;
+  }
+  for (const timer of sessionMarkTimers.values()) {
+    clearTimeout(timer);
+  }
+  sessionMarkTimers.clear();
   if (userId && article.value) {
     const elapsed = Math.round((Date.now() - startTime.value) / 1000);
     try {
@@ -312,9 +361,77 @@ async function processArticleWords() {
   try {
     await ensureWordsSeen(userId, wordTokens, targetLang);
     wordsProcessed = true;
+    await loadWordMastery(allText);
   } catch (e) {
     console.error("Failed to process article words:", e);
   }
+}
+
+async function loadWordMastery(allText) {
+  if (!userId) return;
+  const body = allText || article.value?.rewritten_body || article.value?.original_body || "";
+  const title = article.value?.original_title || "";
+  const text = allText ? allText : `${title} ${body}`;
+  const wordTokens = extractWordTexts(text);
+  if (wordTokens.length === 0) return;
+  try {
+    const entries = await lookupWordsMastery(userId, wordTokens, targetLang);
+    masteryMap.value = buildMasteryMap(entries);
+    refreshTokenMastery();
+  } catch (e) {
+    console.error("Failed to load word mastery:", e);
+  }
+}
+
+function refreshTokenMastery() {
+  if (tokens.value.length > 0) {
+    tokens.value = applyMasteryToTokens(tokens.value, masteryMap.value);
+  }
+  if (paraTokens.value.length > 0) {
+    paraTokens.value = paraTokens.value.map((para) =>
+      applyMasteryToTokens(para, masteryMap.value),
+    );
+  }
+}
+
+function resolveWordClass(token) {
+  return resolveWordMasteryClass(token, masteryMap.value, sessionMarkedWords.value);
+}
+
+function setLocalMastery(wordText, mastery) {
+  const key = wordKey(wordText);
+  const next = new Map(masteryMap.value);
+  next.set(key, mastery);
+  masteryMap.value = next;
+  refreshTokenMastery();
+}
+
+function markSessionUnknown(wordText) {
+  const key = wordKey(wordText);
+  const next = new Set(sessionMarkedWords.value);
+  next.add(key);
+  sessionMarkedWords.value = next;
+
+  const existing = sessionMarkTimers.get(key);
+  if (existing) clearTimeout(existing);
+  sessionMarkTimers.set(
+    key,
+    setTimeout(() => {
+      const cleared = new Set(sessionMarkedWords.value);
+      cleared.delete(key);
+      sessionMarkedWords.value = cleared;
+      sessionMarkTimers.delete(key);
+    }, 2000),
+  );
+}
+
+function showWordToast(msg) {
+  wordToast.value = msg;
+  if (wordToastTimer) clearTimeout(wordToastTimer);
+  wordToastTimer = setTimeout(() => {
+    wordToast.value = "";
+    wordToastTimer = null;
+  }, 2500);
 }
 
 async function doRewrite() {
@@ -346,7 +463,9 @@ async function loadBilingual() {
     // Split body into paragraphs
     const body = article.value?.rewritten_body || article.value?.original_body || "";
     paragraphs.value = body.split("\n\n").map(p => p.trim()).filter(p => p);
-    paraTokens.value = paragraphs.value.map(p => tokenizeArticleText(p));
+    paraTokens.value = paragraphs.value.map((p) =>
+      applyMasteryToTokens(tokenizeArticleText(p), masteryMap.value),
+    );
     const result = await getBilingual(Number(props.id), targetLang, getLocale());
     translations.value = result;
     // Translate title
@@ -369,7 +488,7 @@ async function loadBilingual() {
 // Tokenize article body
 const tokens = ref([]);
 function parseText(text) {
-  tokens.value = tokenizeArticleText(text);
+  tokens.value = applyMasteryToTokens(tokenizeArticleText(text), masteryMap.value);
 }
 
 watch(() => article.value?.rewritten_body, (val) => {
@@ -393,16 +512,19 @@ function onWordTap(token) {
 
 async function onWordKnown() {
   if (selectedWord.value) {
-    knownWordIds.value.add(selectedWord.value.text);
-    wordsKnownSet.value.add(selectedWord.value.text);
+    const wordText = selectedWord.value.text;
+    knownWordIds.value.add(wordText);
+    wordsKnownSet.value.add(wordText);
     try {
-      const ids = await lookupWordIds([selectedWord.value.text], targetLang);
+      const ids = await lookupWordIds([wordText], targetLang);
       if (ids.length > 0) {
         await updateWordMastery(userId, ids[0], 2, "news_reading");
       } else {
-        const newId = await addDiscoveredWord(userId, selectedWord.value.text, targetLang, selectedWord.value.context);
+        const newId = await addDiscoveredWord(userId, wordText, targetLang, selectedWord.value.context);
         await updateWordMastery(userId, newId, 2, "news_reading");
       }
+      setLocalMastery(wordText, 2);
+      showWordToast(t("news.wordMarkedKnown"));
     } catch (_) {}
   }
   selectedWord.value = null;
@@ -410,15 +532,19 @@ async function onWordKnown() {
 
 async function onWordUnknown() {
   if (selectedWord.value) {
-    knownWordIds.value.add(selectedWord.value.text);
-    wordsUnknownSet.value.add(selectedWord.value.text);
+    const wordText = selectedWord.value.text;
+    knownWordIds.value.add(wordText);
+    wordsUnknownSet.value.add(wordText);
     try {
-      const ids = await lookupWordIds([selectedWord.value.text], targetLang);
+      const ids = await lookupWordIds([wordText], targetLang);
       if (ids.length > 0) {
         await updateWordMastery(userId, ids[0], 1, "news_reading");
       } else {
-        await addDiscoveredWord(userId, selectedWord.value.text, targetLang, selectedWord.value.context);
+        await addDiscoveredWord(userId, wordText, targetLang, selectedWord.value.context);
       }
+      setLocalMastery(wordText, 1);
+      markSessionUnknown(wordText);
+      showWordToast(t("news.wordMarkedUnknown"));
     } catch (_) {}
   }
   selectedWord.value = null;
@@ -448,6 +574,9 @@ async function onShare() {
 }
 
 function goBack() {
+  if (wordsUnknownSet.value.size > 0) {
+    saveReadingSessionSummary({ unknownCount: wordsUnknownSet.value.size });
+  }
   const parent = router.currentRoute.value?.meta?.parent;
   if (parent) {
     router.replace({ name: parent });
@@ -635,14 +764,121 @@ function formatSource(source) {
   cursor: pointer;
   padding: 0 1px;
   border-radius: 3px;
-  transition: background 0.1s;
+  transition: background 0.15s, box-shadow 0.15s;
   white-space: normal;
   -webkit-user-select: text;
   user-select: text;
 }
 
-.word:hover {
+.word-mastered {
+  color: var(--text);
+}
+
+.word-seen {
+  color: var(--blue);
+  font-weight: 600;
   background: var(--blue-bg);
+}
+
+.word-new {
+  color: var(--purple);
+  font-weight: 600;
+  background: var(--purple-bg);
+}
+
+.word-session-marked {
+  color: var(--red);
+  font-weight: 700;
+  background: rgba(255, 75, 75, 0.12);
+  box-shadow: inset 3px 0 0 var(--red);
+  animation: word-pulse 0.6s ease-out;
+}
+
+@keyframes word-pulse {
+  0% { background: rgba(255, 75, 75, 0.28); }
+  100% { background: rgba(255, 75, 75, 0.12); }
+}
+
+.word:hover {
+  filter: brightness(0.97);
+}
+
+.word-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(120px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  transform: translateX(-50%);
+  background: var(--text);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 400;
+  max-width: calc(100% - 40px);
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  line-height: 1.4;
+}
+
+.legend-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: var(--text-lighter);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.legend-chevron {
+  transition: transform var(--transition);
+}
+
+.legend-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.vocab-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 14px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-mastered {
+  background: var(--text);
+}
+
+.legend-seen {
+  background: var(--blue);
+}
+
+.legend-new {
+  background: var(--purple);
 }
 
 /* Fixed bottom bar */
