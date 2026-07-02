@@ -380,6 +380,8 @@ export default {
     title: "Ajustes",
     interface: "Interfaz",
     uiLang: "Idioma de la interfaz",
+    lessonFeedback: "Sonidos y vibración en lecciones",
+    lessonFeedbackSub: "Reproducir sonido y vibración al comprobar respuestas",
     ai: "Configuración de IA",
     primaryModel: "Modelo de IA",
     primaryModelSub: "Integrado o personalizado",

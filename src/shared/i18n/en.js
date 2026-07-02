@@ -380,6 +380,8 @@ export default {
     title: "Settings",
     interface: "Interface",
     uiLang: "Interface language",
+    lessonFeedback: "Lesson sounds & haptics",
+    lessonFeedbackSub: "Play a sound and vibration when checking answers",
     ai: "AI configuration",
     primaryModel: "AI model",
     primaryModelSub: "Built-in or custom",

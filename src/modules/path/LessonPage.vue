@@ -191,6 +191,7 @@ import {
 import { isPerfectLesson } from "./lessonPerfect.js";
 import { perfectLessonMilestoneKey } from "./perfectLessonStreak.js";
 import { getCommonMistakeFeedback } from "./commonMistakeFeedback.js";
+import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -481,6 +482,7 @@ async function finishLesson() {
 function onPrimaryAction() {
   if (!showResult.value) {
     lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
+    playAnswerFeedback(lastCorrect.value);
     updateCombo(lastCorrect.value);
     if (lastCorrect.value) {
       correctCount.value += 1;

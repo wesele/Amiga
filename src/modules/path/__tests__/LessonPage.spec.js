@@ -73,6 +73,14 @@ describe("LessonPage answer reveal", () => {
   });
 });
 
+describe("LessonPage answer feedback", () => {
+  it("plays sound and haptic feedback when an answer is checked", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/playAnswerFeedback/);
+    expect(source).toMatch(/playAnswerFeedback\(lastCorrect\.value\)/);
+  });
+});
+
 describe("LessonPage common mistake feedback", () => {
   let mockInvoke;
 

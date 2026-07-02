@@ -6,7 +6,24 @@
     <section class="settings-section">
       <h3 class="section-header">{{ t('settings.interface') }}</h3>
       <div class="settings-card">
-        <SettingsItem :title="t('settings.uiLang')" :trailingText="currentLangLabel" @click="showLangDialog = true" :showDivider="false" />
+        <SettingsItem :title="t('settings.uiLang')" :trailingText="currentLangLabel" @click="showLangDialog = true" />
+        <SettingsItem
+          :title="t('settings.lessonFeedback')"
+          :subtitle="t('settings.lessonFeedbackSub')"
+          :showDivider="false"
+        >
+          <template #trailing>
+            <label class="sync-switch">
+              <input
+                type="checkbox"
+                class="sync-switch-input"
+                :checked="lessonFeedbackEnabled"
+                @change="onLessonFeedbackToggle"
+              />
+              <span class="sync-switch-track" />
+            </label>
+          </template>
+        </SettingsItem>
       </div>
     </section>
 
@@ -137,6 +154,7 @@ import SettingsItem from "./components/SettingsItem.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import ModalShell from "@/shared/components/ModalShell.vue";
 import { useI18n } from "@/shared/i18n";
+import { getFeedbackPrefs, setFeedbackEnabled } from "@/shared/lessonFeedback.js";
 
 const router = useRouter();
 const { t, locale, setLocale } = useI18n();
@@ -152,6 +170,7 @@ const cloudSyncBusy = ref(false);
 const cloudSyncNickname = ref("");
 const cloudSyncLastSyncedAt = ref("");
 const cloudSyncLastError = ref("");
+const lessonFeedbackEnabled = ref(true);
 
 const langOptions = computed(() => [
   { code: "zh", flag: "🇨🇳", label: t("lang.zh") },
@@ -245,7 +264,14 @@ async function confirmCloudSyncConflict() {
   await applyCloudSyncEnabled(true, true);
 }
 
+function onLessonFeedbackToggle(event) {
+  const next = Boolean(event?.target?.checked);
+  lessonFeedbackEnabled.value = next;
+  setFeedbackEnabled(next);
+}
+
 onMounted(() => {
+  lessonFeedbackEnabled.value = getFeedbackPrefs().enabled;
   // Initialise the picker from the active i18n locale.
   uiLang.value = locale.value || "zh";
   getSetting("news_fetch_limit").then((val) => {

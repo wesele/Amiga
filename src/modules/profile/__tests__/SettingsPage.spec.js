@@ -15,6 +15,13 @@ function makeRoutes() {
   ];
 }
 
+function findToggleByRowLabel(wrapper, label) {
+  return wrapper.findAll(".sync-switch-input").find((el) => {
+    const row = el.element.closest(".settings-item");
+    return row?.textContent?.includes(label);
+  });
+}
+
 describe("SettingsPage", () => {
   let mockInvoke;
 
@@ -173,8 +180,8 @@ describe("SettingsPage", () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    const toggle = wrapper.find(".sync-switch-input");
-    expect(toggle.exists()).toBe(true);
+    const toggle = findToggleByRowLabel(wrapper, "云同步");
+    expect(toggle).toBeTruthy();
     expect(toggle.element.checked).toBe(false);
 
     await toggle.setValue(true);
@@ -210,7 +217,7 @@ describe("SettingsPage", () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    const toggle = wrapper.find(".sync-switch-input");
+    const toggle = findToggleByRowLabel(wrapper, "云同步");
     await toggle.setValue(true);
     await flushPromises();
 
@@ -247,11 +254,34 @@ describe("SettingsPage", () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    const toggle = wrapper.find(".sync-switch-input");
+    const toggle = findToggleByRowLabel(wrapper, "云同步");
     await toggle.setValue(true);
     await flushPromises();
 
-    expect(wrapper.find(".sync-switch-input").element.checked).toBe(false);
+    expect(findToggleByRowLabel(wrapper, "云同步").element.checked).toBe(false);
     expect(wrapper.text()).toContain("同步失败");
+  });
+
+  it("toggles lesson feedback preference from the interface section", async () => {
+    localStorage.clear();
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      return Promise.resolve(null);
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("练习音效与振动");
+    const feedbackToggle = findToggleByRowLabel(wrapper, "练习音效与振动");
+    expect(feedbackToggle).toBeTruthy();
+    expect(feedbackToggle.element.checked).toBe(true);
+
+    await feedbackToggle.setValue(false);
+    await flushPromises();
+
+    expect(JSON.parse(localStorage.getItem("lesson_feedback_prefs"))).toEqual({
+      enabled: false,
+    });
   });
 });

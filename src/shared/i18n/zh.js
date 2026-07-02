@@ -382,6 +382,8 @@ export default {
     title: "设置",
     interface: "界面",
     uiLang: "界面语言",
+    lessonFeedback: "练习音效与振动",
+    lessonFeedbackSub: "检查答案时播放提示音并振动",
     ai: "AI 配置",
     primaryModel: "AI 模型配置",
     primaryModelSub: "选择系统内置或自定义",
