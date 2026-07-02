@@ -104,6 +104,12 @@ pub struct CompleteSectionResult {
     #[serde(default)]
     pub daily_goal_target: i32,
     #[serde(default)]
+    pub weekly_goal_just_met: bool,
+    #[serde(default)]
+    pub weekly_goal_active_days: i32,
+    #[serde(default)]
+    pub weekly_goal_target_days: i32,
+    #[serde(default)]
     pub lessons_completed_total: i32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lesson_milestone_reached: Option<i32>,
@@ -1027,10 +1033,19 @@ pub fn complete_teaching_node(
         }
     }
 
+    let weekly_active_days_before = weekly_active_days_before_completion(pool, user_id, passed);
     let (streak_current, streak_extended) =
         streak_fields_for_completion(pool, user_id, passed);
     let (daily_goal_just_met, daily_goal_lessons_today, daily_goal_target) =
         daily_goal_fields_for_completion(pool, user_id, target_lang, passed);
+    let (weekly_goal_just_met, weekly_goal_active_days, weekly_goal_target_days) =
+        weekly_goal_fields_for_completion(
+            pool,
+            user_id,
+            target_lang,
+            passed,
+            weekly_active_days_before,
+        );
     let (lessons_completed_total, _) =
         lesson_fields_for_completion(pool, user_id, &pair_key, passed, false);
     let perfect_streak = load_perfect_lesson_streak(pool, user_id).unwrap_or(PerfectLessonStreak {
@@ -1050,6 +1065,9 @@ pub fn complete_teaching_node(
         daily_goal_just_met,
         daily_goal_lessons_today,
         daily_goal_target,
+        weekly_goal_just_met,
+        weekly_goal_active_days,
+        weekly_goal_target_days,
         lessons_completed_total,
         lesson_milestone_reached: None,
         perfect_lesson_streak: perfect_streak.current,
@@ -1170,10 +1188,19 @@ pub fn complete_section(
         level_upgraded
     );
 
+    let weekly_active_days_before = weekly_active_days_before_completion(pool, user_id, passed);
     let (streak_current, streak_extended) =
         streak_fields_for_completion(pool, user_id, passed);
     let (daily_goal_just_met, daily_goal_lessons_today, daily_goal_target) =
         daily_goal_fields_for_completion(pool, user_id, target_lang, passed);
+    let (weekly_goal_just_met, weekly_goal_active_days, weekly_goal_target_days) =
+        weekly_goal_fields_for_completion(
+            pool,
+            user_id,
+            target_lang,
+            passed,
+            weekly_active_days_before,
+        );
     let (lessons_completed_total, lesson_milestone_reached) =
         lesson_fields_for_completion(pool, user_id, &pair_key, passed, first_time_pass);
     let (perfect_lesson_streak, perfect_lesson_streak_best, perfect_lesson_milestone_reached) =
@@ -1191,12 +1218,61 @@ pub fn complete_section(
         daily_goal_just_met,
         daily_goal_lessons_today,
         daily_goal_target,
+        weekly_goal_just_met,
+        weekly_goal_active_days,
+        weekly_goal_target_days,
         lessons_completed_total,
         lesson_milestone_reached,
         perfect_lesson_streak,
         perfect_lesson_streak_best,
         perfect_lesson_milestone_reached,
     })
+}
+
+fn weekly_active_days_before_completion(
+    pool: &DatabasePool,
+    user_id: &str,
+    passed: bool,
+) -> i32 {
+    if !passed {
+        return 0;
+    }
+    crate::modules::streak::get_weekly_activity(pool, user_id)
+        .map(|activity| activity.active_days)
+        .unwrap_or(0)
+}
+
+fn weekly_goal_fields_for_completion(
+    pool: &DatabasePool,
+    user_id: &str,
+    target_lang: &str,
+    passed: bool,
+    active_days_before: i32,
+) -> (bool, i32, i32) {
+    if !passed {
+        return (false, 0, 0);
+    }
+    let daily_minutes = match user::get_daily_minutes_for_target(pool, user_id, target_lang) {
+        Ok(minutes) => minutes,
+        Err(e) => {
+            log::warn!("Failed to load daily minutes: {}", e);
+            return (false, 0, 0);
+        }
+    };
+    let target_lessons =
+        crate::modules::streak::lesson_goal_from_daily_minutes(daily_minutes);
+    let target_days = crate::modules::streak::weekly_goal_from_daily_target(target_lessons);
+    match crate::modules::streak::get_weekly_activity(pool, user_id) {
+        Ok(activity) => {
+            let just_met =
+                active_days_before < target_days && activity.active_days >= target_days;
+            (just_met, activity.active_days, target_days)
+        }
+        Err(e) => {
+            log::warn!("Failed to load weekly activity: {}", e);
+            (false, 0, 0)
+        }
+    }
 }
 
 fn daily_goal_fields_for_completion(
@@ -1365,6 +1441,36 @@ mod tests {
         assert!(result.passed);
         assert_eq!(result.stars, 3);
         assert_eq!(result.perfect_lesson_streak, 1);
+    }
+
+    fn insert_active_day(pool: &DatabasePool, user_id: &str, date: &str) {
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO streak_records (user_id, date, lessons_completed) VALUES (?1, ?2, 1)",
+            rusqlite::params![user_id, date],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn complete_section_reports_weekly_goal_just_met() {
+        use chrono::{Duration, Local};
+
+        let pool = test_pool();
+        let user = test_user(&pool);
+        let today = Local::now().date_naive();
+        for offset in 1..=4 {
+            let date = today - Duration::days(offset);
+            insert_active_day(&pool, &user, &date.format("%Y-%m-%d").to_string());
+        }
+
+        let curriculum = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
+        let grammar = curriculum.units[0].sections[0].id.clone();
+
+        let result = complete_teaching_node(&pool, &user, "zh", "es", "A1", &grammar).unwrap();
+        assert!(result.weekly_goal_just_met);
+        assert_eq!(result.weekly_goal_active_days, 5);
+        assert_eq!(result.weekly_goal_target_days, 5);
     }
 
     #[test]

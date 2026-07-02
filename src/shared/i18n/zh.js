@@ -121,6 +121,7 @@ export default {
     streakMilestone100: "🏆 百天连胜！传奇般的坚持",
     streakMilestone365: "🏆 一整年连胜！不可思议！",
     dailyGoalMetCelebration: "🎯 今日目标达成！完成 {done}/{total} 节课",
+    weeklyGoalMetCelebration: "📅 本周目标达成！已练习 {done}/{total} 天",
     lessonMilestoneReached: "🏆 完成 {n} 节课！学习之旅更进一步",
     perfectLesson: "✨ 完美通关！全部答对，零失误！",
     perfectLessonStreak3: "✨ 连续 3 课完美通关！状态火热",

@@ -69,6 +69,14 @@
             })
           }}
         </p>
+        <p v-if="result?.passed && result?.weekly_goal_just_met" class="weekly-goal-banner">
+          {{
+            t("path.weeklyGoalMetCelebration", {
+              done: result.weekly_goal_active_days,
+              total: result.weekly_goal_target_days,
+            })
+          }}
+        </p>
         <p v-if="result?.passed && result?.lesson_milestone_reached" class="lesson-milestone-banner">
           {{ t("path.lessonMilestoneReached", { n: result.lesson_milestone_reached }) }}
         </p>
@@ -873,6 +881,16 @@ onMounted(load);
   padding: 12px 16px;
   background: var(--green-bg);
   color: var(--green-hover);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  animation: goal-pop 0.5s ease;
+}
+
+.weekly-goal-banner {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  background: var(--blue-bg);
+  color: var(--blue-hover);
   border-radius: var(--radius-md);
   font-weight: 700;
   animation: goal-pop 0.5s ease;

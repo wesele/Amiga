@@ -50,6 +50,17 @@ pub fn lesson_goal_from_daily_minutes(daily_minutes: i32) -> i32 {
     }
 }
 
+/// Active-day targets for a rolling 7-day window, aligned with the frontend weekly goal card.
+pub fn weekly_goal_from_daily_target(target_lessons: i32) -> i32 {
+    if target_lessons >= 3 {
+        6
+    } else if target_lessons >= 2 {
+        5
+    } else {
+        3
+    }
+}
+
 fn today_local() -> String {
     Local::now().format("%Y-%m-%d").to_string()
 }
@@ -469,6 +480,13 @@ mod tests {
         assert_eq!(lesson_goal_from_daily_minutes(15), 2);
         assert_eq!(lesson_goal_from_daily_minutes(20), 2);
         assert_eq!(lesson_goal_from_daily_minutes(30), 3);
+    }
+
+    #[test]
+    fn weekly_goal_from_daily_target_maps_intensity() {
+        assert_eq!(weekly_goal_from_daily_target(1), 3);
+        assert_eq!(weekly_goal_from_daily_target(2), 5);
+        assert_eq!(weekly_goal_from_daily_target(3), 6);
     }
 
     #[test]
