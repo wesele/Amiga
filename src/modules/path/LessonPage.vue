@@ -7,6 +7,14 @@
       <div class="progress-track">
         <div class="progress-fill" :style="{ width: progressPct + '%' }" />
       </div>
+      <span
+        v-if="comboBadgeVisible"
+        class="combo-badge"
+        :class="{ 'is-milestone': comboToast }"
+        aria-live="polite"
+      >
+        🔥 {{ t("path.comboActive", { n: comboCount }) }}
+      </span>
     </header>
 
     <div v-if="loading" class="center-state">{{ t("path.loading") }}</div>
@@ -104,6 +112,7 @@
         <p v-if="showResult" class="feedback" :class="lastCorrect ? 'ok' : 'bad'">
           {{ lastCorrect ? t("path.correct") : t("path.incorrect") }}
         </p>
+        <p v-if="comboToast" class="combo-toast">{{ comboToast }}</p>
         <p
           v-if="showResult && !lastCorrect && correctAnswerText"
           class="answer-reveal"
@@ -144,6 +153,12 @@ import {
   shouldStartReinforcement,
 } from "./lessonReinforcement.js";
 import { getStreakMilestone, streakMilestoneKey } from "./streakMilestone.js";
+import {
+  comboMilestoneKey,
+  getComboMilestone,
+  nextComboCount,
+  showComboBadge,
+} from "./lessonCombo.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -167,6 +182,8 @@ const reinforcementQueue = ref([]);
 const reinforcementIndex = ref(0);
 const hintText = ref("");
 const hintShown = ref(false);
+const comboCount = ref(0);
+const comboToast = ref("");
 
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
@@ -238,6 +255,10 @@ const primaryLabel = computed(() => {
 
 const hintAvailable = computed(() => hasQuestionHint(currentQuestion.value));
 
+const comboBadgeVisible = computed(
+  () => !finished.value && !inReinforcement.value && showComboBadge(comboCount.value),
+);
+
 const streakMilestone = computed(() => {
   if (!result.value?.passed) return null;
   return getStreakMilestone(
@@ -257,6 +278,18 @@ function revealHint() {
 function resetHint() {
   hintText.value = "";
   hintShown.value = false;
+}
+
+function resetCombo() {
+  comboCount.value = 0;
+  comboToast.value = "";
+}
+
+function updateCombo(isCorrect) {
+  if (inReinforcement.value) return;
+  comboCount.value = nextComboCount(comboCount.value, isCorrect);
+  const milestone = getComboMilestone(comboCount.value);
+  comboToast.value = milestone ? t(comboMilestoneKey(milestone)) : "";
 }
 
 async function load() {
@@ -298,6 +331,7 @@ function resetSession() {
   reinforcementQueue.value = [];
   reinforcementIndex.value = 0;
   resetHint();
+  resetCombo();
 }
 
 function startReinforcement() {
@@ -308,6 +342,7 @@ function startReinforcement() {
   showResult.value = false;
   lastCorrect.value = false;
   resetHint();
+  resetCombo();
 }
 
 function advanceQuestion() {
@@ -315,6 +350,7 @@ function advanceQuestion() {
   showResult.value = false;
   lastCorrect.value = false;
   resetHint();
+  comboToast.value = "";
 }
 
 function advanceReinforcement() {
@@ -341,6 +377,7 @@ async function finishLesson() {
 function onPrimaryAction() {
   if (!showResult.value) {
     lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
+    updateCombo(lastCorrect.value);
     if (lastCorrect.value) {
       correctCount.value += 1;
     } else if (!inReinforcement.value) {
@@ -435,6 +472,34 @@ onMounted(load);
   transition: width 0.25s ease;
 }
 
+.combo-badge {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  background: var(--orange-bg);
+  color: var(--orange-hover);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: transform 0.2s ease;
+}
+
+.combo-badge.is-milestone {
+  animation: combo-pop 0.45s ease;
+}
+
+@keyframes combo-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 .center-state,
 .lesson-body,
 .summary {
@@ -524,6 +589,33 @@ onMounted(load);
 
 .feedback.bad {
   color: var(--red);
+}
+
+.combo-toast {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #fff8e6 0%, #ffe4a8 100%);
+  color: #8a5a00;
+  border: 1.5px solid #e6a817;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  animation: combo-toast-pop 0.5s ease;
+}
+
+@keyframes combo-toast-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  60% {
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .answer-reveal {

@@ -42,6 +42,20 @@ function lessonPayload(questionCount = 1) {
       options: ["días", "noches", "tardes", "años"],
       answerIdx: 0,
     },
+    {
+      id: "q3",
+      type: "T05",
+      sentence: "Muchas ____.",
+      options: ["gracias", "noches", "casas", "libros"],
+      answerIdx: 0,
+    },
+    {
+      id: "q4",
+      type: "T05",
+      sentence: "Hasta ____.",
+      options: ["luego", "noche", "casa", "perro"],
+      answerIdx: 0,
+    },
   ];
   return {
     section_title_native: "闯关练习",
@@ -321,5 +335,105 @@ describe("LessonPage daily goal celebration", () => {
     expect(banner.exists()).toBe(true);
     expect(banner.text()).toContain("今日目标达成");
     expect(banner.text()).toContain("2/2");
+  });
+});
+
+describe("LessonPage answer combo", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload(4));
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({ passed: true, stars: 2 });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("wires combo helpers and lesson UI markup", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/lessonCombo\.js/);
+    expect(source).toMatch(/class="combo-badge"/);
+    expect(source).toMatch(/class="combo-toast"/);
+    expect(source).toMatch(/path\.comboActive/);
+    expect(source).toMatch(/updateCombo/);
+  });
+
+  it("shows combo badge and milestone toast after consecutive correct answers", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const answerCorrect = async () => {
+      wrapper.vm.currentAnswer = 0;
+      wrapper.vm.onPrimaryAction();
+      await flushPromises();
+      wrapper.vm.onPrimaryAction();
+      await flushPromises();
+    };
+
+    await answerCorrect();
+    expect(wrapper.find(".combo-badge").exists()).toBe(false);
+
+    await answerCorrect();
+    const badge = wrapper.find(".combo-badge");
+    expect(badge.exists()).toBe(true);
+    expect(badge.text()).toContain("2 连击");
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const toast = wrapper.find(".combo-toast");
+    expect(toast.exists()).toBe(true);
+    expect(toast.text()).toContain("三连击");
+    expect(wrapper.find(".combo-badge").text()).toContain("3 连击");
+  });
+
+  it("resets combo after a wrong answer", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    expect(wrapper.find(".combo-badge").text()).toContain("2 连击");
+
+    wrapper.vm.currentAnswer = 1;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    expect(wrapper.find(".combo-badge").exists()).toBe(false);
   });
 });
