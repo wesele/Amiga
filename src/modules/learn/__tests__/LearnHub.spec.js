@@ -7,6 +7,7 @@ import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
 import { STATS_STORAGE_KEY } from "../questionTypeStats.js";
+import { recordLessonMistake } from "@/modules/path/mistakeReviewStore.js";
 
 const ROOT = resolve(__dirname, "../../../..");
 function readVue(rel) {
@@ -124,6 +125,11 @@ function makeRouter() {
       },
       { path: "/vocab", name: "vocab", component: { template: "<div/>" } },
       { path: "/vocab/review", name: "vocab-review", component: { template: "<div/>" } },
+      {
+        path: "/learn/path/review/mistakes",
+        name: "path-mistake-review",
+        component: { template: "<div/>" },
+      },
     ],
   });
 }
@@ -205,6 +211,45 @@ describe("LearnHubPage", () => {
 
     await wrapper.find(".vocab-review-card").trigger("click");
     expect(pushSpy).toHaveBeenCalledWith({ name: "vocab-review" });
+  });
+
+  it("shows mistake review card when due mistakes exist for the language pair", async () => {
+    recordLessonMistake("zh-es", { id: "q1", type: "T09", answer: "hola" }, "ola", Date.now());
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".mistake-review-card");
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain("错题复习");
+    expect(card.text()).toContain("1 道错题待巩固");
+  });
+
+  it("navigates to mistake review when the card is clicked", async () => {
+    recordLessonMistake("zh-es", { id: "q1", type: "T09", answer: "hola" }, "ola", Date.now());
+
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".mistake-review-card").trigger("click");
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path-mistake-review" });
+  });
+
+  it("hides mistake review card when no mistakes are due", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".mistake-review-card").exists()).toBe(false);
   });
 
   it("hides vocab review card when no unmastered words are returned", async () => {

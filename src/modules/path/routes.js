@@ -1,5 +1,6 @@
 import PathMapPage from "./PathMapPage.vue";
 import LessonPage from "./LessonPage.vue";
+import MistakeReviewPage from "./MistakeReviewPage.vue";
 import TeachingPage from "./TeachingPage.vue";
 
 export default [
@@ -14,6 +15,12 @@ export default [
     name: "path-teaching",
     component: TeachingPage,
     meta: { parent: "path" },
+  },
+  {
+    path: "/learn/path/review/mistakes",
+    name: "path-mistake-review",
+    component: MistakeReviewPage,
+    meta: { parent: "learn" },
   },
   {
     path: "/learn/path/:sectionId",

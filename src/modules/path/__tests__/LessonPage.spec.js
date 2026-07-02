@@ -90,6 +90,15 @@ describe("LessonPage question type stats", () => {
   });
 });
 
+describe("LessonPage mistake review queue", () => {
+  it("persists wrong answers into the spaced-repetition mistake queue", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/mistakeReviewStore\.js/);
+    expect(source).toMatch(/recordLessonMistake/);
+    expect(source).toMatch(/!inReinforcement\.value\)/);
+  });
+});
+
 describe("LessonPage common mistake feedback", () => {
   let mockInvoke;
 

@@ -42,6 +42,22 @@
     </button>
 
     <button
+      v-if="showMistakeReview"
+      type="button"
+      class="mistake-review-card"
+      @click="goToMistakeReview"
+    >
+      <span class="mistake-review-icon" aria-hidden="true">🔁</span>
+      <div class="mistake-review-copy">
+        <p class="mistake-review-title">{{ t("learn.mistakeReview") }}</p>
+        <p class="mistake-review-sub">
+          {{ t("learn.mistakeReviewHint", { n: mistakeReviewTotal }) }}
+        </p>
+      </div>
+      <span class="mistake-review-action">{{ t("learn.mistakeReviewAction") }}</span>
+    </button>
+
+    <button
       v-if="showFocusArea"
       type="button"
       class="focus-area-card"
@@ -289,6 +305,11 @@ import {
   pairStatsKey,
   shouldShowFocusArea,
 } from "./questionTypeStats.js";
+import {
+  mistakeReviewCount,
+  shouldShowMistakeReview,
+} from "./mistakeReviewCard.js";
+import { countDueForPair } from "@/modules/path/mistakeReviewStore.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -301,6 +322,7 @@ const vocabReviewWords = ref([]);
 const lessonMilestone = ref(null);
 const perfectStreak = ref(null);
 const focusArea = ref(null);
+const dueMistakeCount = ref(0);
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
 const MILESTONE_RING_CIRCUMFERENCE = 2 * Math.PI * 18;
@@ -360,6 +382,10 @@ const showLessonMilestone = computed(() => shouldShowLessonMilestone(lessonMiles
 const showPerfectStreak = computed(() => shouldShowPerfectStreakCard(perfectStreak.value?.current));
 
 const showFocusArea = computed(() => shouldShowFocusArea(focusArea.value));
+
+const showMistakeReview = computed(() => shouldShowMistakeReview(dueMistakeCount.value));
+
+const mistakeReviewTotal = computed(() => mistakeReviewCount(dueMistakeCount.value));
 
 const milestoneRingOffset = computed(() =>
   lessonMilestoneRingOffset(lessonMilestone.value, MILESTONE_RING_CIRCUMFERENCE),
@@ -432,12 +458,17 @@ function loadFocusArea(nativeLang, targetLang) {
   focusArea.value = buildFocusArea(stats);
 }
 
+function loadMistakeReview(nativeLang, targetLang) {
+  dueMistakeCount.value = countDueForPair(pairStatsKey(nativeLang, targetLang));
+}
+
 async function loadHubData() {
   try {
     const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
       targetLangStore,
     });
     loadFocusArea(nativeLang, targetLang);
+    loadMistakeReview(nativeLang, targetLang);
     await Promise.all([
       loadDailyGoal(user.id, targetLang),
       loadWeeklyActivity(user.id),
@@ -454,6 +485,7 @@ async function loadHubData() {
     lessonMilestone.value = null;
     perfectStreak.value = null;
     focusArea.value = null;
+    dueMistakeCount.value = 0;
   }
 }
 
@@ -463,6 +495,10 @@ function goToPath() {
 
 function goToVocabReview() {
   router.push({ name: "vocab-review" });
+}
+
+function goToMistakeReview() {
+  router.push({ name: "path-mistake-review" });
 }
 
 function continueLearning() {
@@ -639,6 +675,63 @@ onMounted(loadHubData);
   font-weight: 700;
   color: #fff;
   background: #4285f4;
+  padding: 8px 12px;
+  border-radius: 999px;
+}
+
+.mistake-review-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 32px);
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fff4ec 0%, #ffe8d6 100%);
+  border: 1px solid #e6a060;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.mistake-review-card:hover {
+  box-shadow: 0 2px 10px rgba(230, 126, 34, 0.22);
+  transform: translateY(-1px);
+}
+
+.mistake-review-icon {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mistake-review-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.mistake-review-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #8a4a12;
+  line-height: 1.3;
+}
+
+.mistake-review-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #a65c1a;
+  line-height: 1.35;
+}
+
+.mistake-review-action {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: #e67e22;
   padding: 8px 12px;
   border-radius: 999px;
 }

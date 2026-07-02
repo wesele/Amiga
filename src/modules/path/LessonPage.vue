@@ -193,6 +193,7 @@ import { perfectLessonMilestoneKey } from "./perfectLessonStreak.js";
 import { getCommonMistakeFeedback } from "./commonMistakeFeedback.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 import { pairStatsKey, recordAnswer } from "@/modules/learn/questionTypeStats.js";
+import { recordLessonMistake } from "./mistakeReviewStore.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -499,6 +500,11 @@ function onPrimaryAction() {
         question: currentQuestion.value,
         answer: currentAnswer.value,
       });
+      recordLessonMistake(
+        pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang),
+        currentQuestion.value,
+        currentAnswer.value,
+      );
     }
     showResult.value = true;
     return;
