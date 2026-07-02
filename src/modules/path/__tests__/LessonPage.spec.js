@@ -925,13 +925,14 @@ describe("LessonPage daily goal nudge", () => {
     api.__setInvoke(mockInvoke);
   });
 
-  it("wires daily goal nudge helpers in the summary screen", () => {
-    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
-    expect(source).toMatch(/dailyGoalNudge\.js/);
-    expect(source).toMatch(/shouldShowDailyGoalNudge/);
-    expect(source).toMatch(/class="daily-goal-banner is-nudge"/);
-    expect(source).toMatch(/path\.dailyGoalRemaining/);
-    expect(source).toMatch(/path\.dailyGoalContinue/);
+  it("wires post-lesson plan helpers in the summary screen", () => {
+    const page = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    const plan = readFileSync(resolve(ROOT, "src/modules/path/postLessonPlan.js"), "utf8");
+    expect(page).toMatch(/postLessonPlan\.js/);
+    expect(page).toMatch(/buildPostLessonPlan/);
+    expect(page).toMatch(/class="next-steps-panel"/);
+    expect(plan).toMatch(/path\.dailyGoalRemaining/);
+    expect(plan).toMatch(/path\.dailyGoalContinue/);
   });
 
   it("shows remaining-lesson nudge and updates the primary action", async () => {
@@ -951,10 +952,10 @@ describe("LessonPage daily goal nudge", () => {
     wrapper.vm.onPrimaryAction();
     await flushPromises();
 
-    const nudge = wrapper.find(".daily-goal-banner.is-nudge");
-    expect(nudge.exists()).toBe(true);
-    expect(nudge.text()).toContain("还差 1 节课");
-    expect(nudge.text()).toContain("1/2");
+    const panel = wrapper.find(".next-steps-panel");
+    expect(panel.exists()).toBe(true);
+    expect(panel.text()).toContain("还差 1 节课");
+    expect(panel.text()).toContain("1/2");
     expect(wrapper.find(".daily-goal-banner:not(.is-nudge)").exists()).toBe(false);
 
     const primary = wrapper.find(".summary-actions .action-btn.primary");
@@ -1061,12 +1062,11 @@ describe("LessonPage weekly goal nudge", () => {
     api.__setInvoke(mockInvoke);
   });
 
-  it("wires weekly goal nudge helpers in the summary screen", () => {
-    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
-    expect(source).toMatch(/weeklyGoalNudge\.js/);
-    expect(source).toMatch(/shouldShowWeeklyGoalNudge/);
-    expect(source).toMatch(/class="weekly-goal-banner is-nudge"/);
-    expect(source).toMatch(/path\.weeklyGoalRemainingNudge/);
+  it("wires weekly goal into the next steps queue", () => {
+    const page = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    const plan = readFileSync(resolve(ROOT, "src/modules/path/postLessonPlan.js"), "utf8");
+    expect(page).toMatch(/class="next-steps-queue"/);
+    expect(plan).toMatch(/path\.weeklyGoalRemainingNudge/);
   });
 
   it("shows remaining-days nudge when daily goal is met but weekly goal is not", async () => {
@@ -1090,10 +1090,10 @@ describe("LessonPage weekly goal nudge", () => {
     expect(dailyCelebration.exists()).toBe(true);
     expect(dailyCelebration.text()).toContain("今日目标达成");
 
-    const weeklyNudge = wrapper.find(".weekly-goal-banner.is-nudge");
-    expect(weeklyNudge.exists()).toBe(true);
-    expect(weeklyNudge.text()).toContain("还差 2 天");
-    expect(weeklyNudge.text()).toContain("3/5");
+    const queue = wrapper.find(".next-steps-queue");
+    expect(queue.exists()).toBe(true);
+    expect(queue.text()).toContain("还差 2 天");
+    expect(queue.text()).toContain("3/5");
   });
 });
 
@@ -1133,14 +1133,13 @@ describe("LessonPage mistake review nudge", () => {
     api.__setInvoke(mockInvoke);
   });
 
-  it("wires mistake review nudge helpers in the summary screen", () => {
-    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
-    expect(source).toMatch(/mistakeReviewNudge\.js/);
-    expect(source).toMatch(/shouldShowMistakeReviewNudge/);
-    expect(source).toMatch(/class="mistake-review-nudge-banner"/);
-    expect(source).toMatch(/path\.mistakeReviewRemainingNudge/);
-    expect(source).toMatch(/path\.mistakeReviewContinue/);
-    expect(source).toMatch(/path-mistake-review/);
+  it("wires mistake review into the next steps panel", () => {
+    const page = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    const plan = readFileSync(resolve(ROOT, "src/modules/path/postLessonPlan.js"), "utf8");
+    expect(page).toMatch(/class="next-steps-primary"/);
+    expect(plan).toMatch(/path\.mistakeReviewRemainingNudge/);
+    expect(plan).toMatch(/path\.mistakeReviewContinue/);
+    expect(plan).toMatch(/path-mistake-review/);
   });
 
   it("shows due-mistake nudge and updates the primary action when daily goal is met", async () => {
@@ -1175,9 +1174,9 @@ describe("LessonPage mistake review nudge", () => {
     wrapper.vm.onPrimaryAction();
     await flushPromises();
 
-    const nudge = wrapper.find(".mistake-review-nudge-banner");
-    expect(nudge.exists()).toBe(true);
-    expect(nudge.text()).toContain("1 道错题");
+    const panel = wrapper.find(".next-steps-panel");
+    expect(panel.exists()).toBe(true);
+    expect(panel.find(".next-steps-primary").text()).toContain("1 道错题");
     expect(wrapper.find(".daily-goal-banner.is-nudge").exists()).toBe(false);
 
     const primary = wrapper.find(".summary-actions .action-btn.primary");
@@ -1253,14 +1252,13 @@ describe("LessonPage fresh mistake nudge", () => {
     setLocale("zh", { persist: false });
   });
 
-  it("wires fresh mistake nudge helpers in the summary screen", () => {
-    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
-    expect(source).toMatch(/freshMistakeNudge\.js/);
-    expect(source).toMatch(/shouldShowFreshMistakeNudge/);
-    expect(source).toMatch(/class="fresh-mistake-nudge-banner"/);
-    expect(source).toMatch(/path\.freshMistakeNudge/);
-    expect(source).toMatch(/path\.reviewMistakesAction/);
-    expect(source).toMatch(/mistake-review-action/);
+  it("wires fresh mistake handling in the summary screen", () => {
+    const page = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    const plan = readFileSync(resolve(ROOT, "src/modules/path/postLessonPlan.js"), "utf8");
+    expect(page).toMatch(/shouldShowFreshMistakeInMistakeSection/);
+    expect(plan).toMatch(/path\.freshMistakeNudge/);
+    expect(page).toMatch(/path\.reviewMistakesAction/);
+    expect(page).toMatch(/mistake-review-action/);
   });
 
   it("shows fresh mistake banner and secondary action when daily goal is unfinished", async () => {
@@ -1307,9 +1305,8 @@ describe("LessonPage fresh mistake nudge", () => {
     wrapper.vm.onPrimaryAction();
     await flushPromises();
 
-    const banner = wrapper.find(".fresh-mistake-nudge-banner");
-    expect(banner.exists()).toBe(true);
-    expect(banner.text()).toContain("1 道错题");
+    expect(wrapper.find(".next-steps-primary").text()).toContain("还差 1 节");
+    expect(wrapper.find(".fresh-mistake-nudge-banner").exists()).toBe(false);
 
     const secondary = wrapper.find(".mistake-review-action");
     expect(secondary.exists()).toBe(true);
@@ -1413,7 +1410,7 @@ describe("LessonPage fresh mistake nudge", () => {
     wrapper.vm.onPrimaryAction();
     await flushPromises();
 
-    expect(wrapper.find(".fresh-mistake-nudge-banner").exists()).toBe(true);
+    expect(wrapper.find(".next-steps-primary").text()).toContain("1 道错题");
     const primary = wrapper.find(".summary-actions .action-btn.primary");
     expect(primary.text()).toContain("巩固本节错题");
 
@@ -1459,14 +1456,13 @@ describe("LessonPage vocab review nudge", () => {
     api.__setInvoke(mockInvoke);
   });
 
-  it("wires vocab review nudge helpers in the summary screen", () => {
-    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
-    expect(source).toMatch(/vocabReviewNudge\.js/);
-    expect(source).toMatch(/shouldShowVocabReviewNudge/);
-    expect(source).toMatch(/class="vocab-review-nudge-banner"/);
-    expect(source).toMatch(/path\.vocabReviewRemainingNudge/);
-    expect(source).toMatch(/path\.vocabReviewContinue/);
-    expect(source).toMatch(/vocab-review/);
+  it("wires vocab review into the next steps panel", () => {
+    const page = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    const plan = readFileSync(resolve(ROOT, "src/modules/path/postLessonPlan.js"), "utf8");
+    expect(page).toMatch(/class="next-steps-primary"/);
+    expect(plan).toMatch(/path\.vocabReviewRemainingNudge/);
+    expect(plan).toMatch(/path\.vocabReviewContinue/);
+    expect(plan).toMatch(/vocab-review/);
   });
 
   it("shows due-vocab nudge and updates the primary action when daily goal is met", async () => {
@@ -1497,9 +1493,9 @@ describe("LessonPage vocab review nudge", () => {
     wrapper.vm.onPrimaryAction();
     await flushPromises();
 
-    const nudge = wrapper.find(".vocab-review-nudge-banner");
-    expect(nudge.exists()).toBe(true);
-    expect(nudge.text()).toContain("3 个单词");
+    const panel = wrapper.find(".next-steps-panel");
+    expect(panel.exists()).toBe(true);
+    expect(panel.find(".next-steps-primary").text()).toContain("3 个单词");
     expect(wrapper.find(".daily-goal-banner.is-nudge").exists()).toBe(false);
 
     const primary = wrapper.find(".summary-actions .action-btn.primary");
@@ -1578,8 +1574,8 @@ describe("LessonPage vocab review nudge", () => {
     wrapper.vm.onPrimaryAction();
     await flushPromises();
 
-    expect(wrapper.find(".mistake-review-nudge-banner").exists()).toBe(true);
-    expect(wrapper.find(".vocab-review-nudge-banner").exists()).toBe(false);
+    expect(wrapper.find(".next-steps-primary").text()).toContain("1 道错题");
+    expect(wrapper.find(".next-steps-queue").text()).toContain("3 个单词");
     expect(wrapper.find(".summary-actions .action-btn.primary").text()).toContain("去复习错题");
   });
 });
@@ -1619,13 +1615,12 @@ describe("LessonPage focus area nudge", () => {
     api.__setInvoke(mockInvoke);
   });
 
-  it("wires focus area nudge helpers in the summary screen", () => {
-    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
-    expect(source).toMatch(/focusAreaNudge\.js/);
-    expect(source).toMatch(/shouldShowFocusAreaNudge/);
-    expect(source).toMatch(/class="focus-area-nudge-banner"/);
-    expect(source).toMatch(/path\.focusAreaRemainingNudge/);
-    expect(source).toMatch(/path\.focusAreaContinue/);
+  it("wires focus area into the next steps panel", () => {
+    const page = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    const plan = readFileSync(resolve(ROOT, "src/modules/path/postLessonPlan.js"), "utf8");
+    expect(page).toMatch(/class="next-steps-primary"/);
+    expect(plan).toMatch(/path\.focusAreaRemainingNudge/);
+    expect(plan).toMatch(/path\.focusAreaContinue/);
   });
 
   it("shows focus area nudge and updates the primary action when daily goal is met", async () => {
@@ -1645,10 +1640,10 @@ describe("LessonPage focus area nudge", () => {
     wrapper.vm.onPrimaryAction();
     await flushPromises();
 
-    const nudge = wrapper.find(".focus-area-nudge-banner");
-    expect(nudge.exists()).toBe(true);
-    expect(nudge.text()).toContain("拼写输入");
-    expect(nudge.text()).toContain("17%");
+    const panel = wrapper.find(".next-steps-primary");
+    expect(panel.exists()).toBe(true);
+    expect(panel.text()).toContain("拼写输入");
+    expect(panel.text()).toContain("17%");
 
     const primary = wrapper.find(".summary-actions .action-btn.primary");
     expect(primary.text()).toContain("去强化薄弱题型");
@@ -1728,8 +1723,8 @@ describe("LessonPage focus area nudge", () => {
     wrapper.vm.onPrimaryAction();
     await flushPromises();
 
-    expect(wrapper.find(".vocab-review-nudge-banner").exists()).toBe(true);
-    expect(wrapper.find(".focus-area-nudge-banner").exists()).toBe(false);
+    expect(wrapper.find(".next-steps-primary").text()).toContain("1 个单词");
+    expect(wrapper.find(".next-steps-queue").text()).toContain("拼写输入");
     expect(wrapper.find(".summary-actions .action-btn.primary").text()).toContain("去复习单词");
   });
 });
@@ -1953,11 +1948,12 @@ describe("LessonPage lesson continue", () => {
   });
 
   it("wires lesson continue helpers on the summary screen", () => {
-    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
-    expect(source).toMatch(/lessonContinue\.js/);
-    expect(source).toMatch(/continueRouteAfterLesson/);
-    expect(source).toMatch(/shouldContinueToNextLesson/);
-    expect(source).toMatch(/path\.continueNextLesson/);
+    const page = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    const plan = readFileSync(resolve(ROOT, "src/modules/path/postLessonPlan.js"), "utf8");
+    expect(page).toMatch(/lessonContinue\.js/);
+    expect(page).toMatch(/shouldContinueToNextLesson/);
+    expect(plan).toMatch(/continueRouteAfterLesson/);
+    expect(plan).toMatch(/continueNextLesson/);
   });
 
   it("routes directly to the next section when the lesson passes", async () => {

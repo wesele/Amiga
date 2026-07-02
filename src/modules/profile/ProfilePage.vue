@@ -61,11 +61,13 @@
       <h3 class="section-header">{{ t('profile.weakAreas') }}</h3>
       <p class="section-desc">{{ t('profile.weakAreasDesc') }}</p>
       <div class="weak-areas-card">
-        <div
+        <button
           v-for="(area, index) in practiceWeakAreas"
           :key="area.typeId"
+          type="button"
           class="weak-area-item"
           :class="{ 'has-divider': index < practiceWeakAreas.length - 1 }"
+          @click="goToFocusPractice(area.typeId)"
         >
           <div class="weak-area-header">
             <span class="weak-area-type">{{ t(focusAreaTypeKey(area.typeId)) }}</span>
@@ -77,7 +79,7 @@
             </span>
           </div>
           <p class="weak-area-tip">{{ t(focusAreaTipKey(area.typeId)) }}</p>
-        </div>
+        </button>
       </div>
     </section>
 
@@ -187,6 +189,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
+import { useRouter } from "vue-router";
 import {
   getLearningGoals,
   getUserVocabStats,
@@ -220,7 +223,9 @@ import {
   shouldShowPracticeWeakAreas,
 } from "./practiceWeakAreas.js";
 import { recordAccuracyPeak } from "./accuracyPeakStats.js";
+import { focusPracticeRoute } from "@/modules/path/focusPracticeRoute.js";
 
+const router = useRouter();
 const { t } = useI18n();
 const targetLangStore = useTargetLangStore();
 const user = ref(null);
@@ -267,6 +272,10 @@ onMounted(async () => {
     console.error("Failed to load profile:", e);
   }
 });
+
+function goToFocusPractice(typeId) {
+  router.push(focusPracticeRoute(typeId));
+}
 
 async function onSwitchLevel(level) {
   if (levelSwitching.value || level === currentLevel.value) return;
@@ -602,7 +611,18 @@ async function handleInstallUpdate() {
 }
 
 .weak-area-item {
+  display: block;
+  width: 100%;
   padding: 12px 14px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.weak-area-item:hover {
+  background: var(--white);
 }
 
 .weak-area-item.has-divider {

@@ -72,15 +72,6 @@
             })
           }}
         </p>
-        <p v-else-if="showDailyGoalNudge" class="daily-goal-banner is-nudge">
-          {{
-            t("path.dailyGoalRemaining", {
-              remaining: dailyGoalRemaining,
-              done: result.daily_goal_lessons_today,
-              total: result.daily_goal_target,
-            })
-          }}
-        </p>
         <p v-if="result?.passed && result?.weekly_goal_just_met" class="weekly-goal-banner">
           {{
             t("path.weeklyGoalMetCelebration", {
@@ -89,44 +80,42 @@
             })
           }}
         </p>
-        <p v-else-if="showWeeklyGoalNudge" class="weekly-goal-banner is-nudge">
-          {{
-            t("path.weeklyGoalRemainingNudge", {
-              remaining: weeklyGoalRemaining,
-              done: result.weekly_goal_active_days,
-              total: result.weekly_goal_target_days,
-            })
-          }}
-        </p>
-        <p v-if="showFreshMistakeNudge" class="fresh-mistake-nudge-banner">
-          {{
-            t("path.freshMistakeNudge", {
-              n: freshMistakeTotal,
-            })
-          }}
-        </p>
-        <p v-if="showMistakeReviewNudge" class="mistake-review-nudge-banner">
-          {{
-            t("path.mistakeReviewRemainingNudge", {
-              n: mistakeReviewNudgeTotal,
-            })
-          }}
-        </p>
-        <p v-if="showVocabReviewNudge" class="vocab-review-nudge-banner">
-          {{
-            t("path.vocabReviewRemainingNudge", {
-              n: vocabReviewNudgeTotal,
-            })
-          }}
-        </p>
-        <p v-if="showFocusAreaNudge" class="focus-area-nudge-banner">
-          {{
-            t("path.focusAreaRemainingNudge", {
-              type: t(focusAreaTypeKey(focusAreaAtStart.typeId)),
-              pct: focusAreaAtStart.accuracyPct,
-            })
-          }}
-        </p>
+        <section v-if="postLessonPlan" class="next-steps-panel">
+          <p class="next-steps-eyebrow">{{ t("path.nextStep.title") }}</p>
+          <div class="next-steps-primary">
+            <span class="next-steps-icon" aria-hidden="true">{{ postLessonPlan.primary.icon }}</span>
+            <div class="next-steps-copy">
+              <p class="next-steps-primary-title">{{ stepTitle(postLessonPlan.primary) }}</p>
+              <p
+                v-if="postLessonPlan.primary.subtitleKey"
+                class="next-steps-primary-sub"
+              >
+                {{ stepSubtitle(postLessonPlan.primary) }}
+              </p>
+            </div>
+          </div>
+          <div v-if="postLessonPlan.secondary.length" class="next-steps-queue">
+            <p class="next-steps-queue-title">
+              {{ t("path.nextStep.queueTitle", { n: postLessonPlan.secondary.length }) }}
+            </p>
+            <button
+              v-for="step in postLessonPlan.secondary"
+              :key="step.id"
+              type="button"
+              class="next-steps-queue-item"
+              :disabled="!step.route"
+              @click="goToPostLessonStep(step)"
+            >
+              <span class="next-steps-queue-icon" aria-hidden="true">{{ step.icon }}</span>
+              <div class="next-steps-queue-copy">
+                <p class="next-steps-queue-item-title">{{ stepTitle(step) }}</p>
+                <p v-if="step.subtitleKey" class="next-steps-queue-item-sub">
+                  {{ stepSubtitle(step) }}
+                </p>
+              </div>
+            </button>
+          </div>
+        </section>
         <p v-if="result?.passed && result?.lesson_milestone_reached" class="lesson-milestone-banner">
           {{ t("path.lessonMilestoneReached", { n: result.lesson_milestone_reached }) }}
         </p>
@@ -180,23 +169,7 @@
         <div class="summary-actions">
           <button class="action-btn secondary" @click="retryLesson">{{ t("path.retry") }}</button>
           <button class="action-btn primary" @click="finishLesson">
-            {{
-              result?.passed
-                ? showDailyGoalNudge
-                  ? t("path.dailyGoalContinue", { remaining: dailyGoalRemaining })
-                  : showFreshMistakePrimary
-                    ? t("path.freshMistakeContinue")
-                    : showMistakeReviewNudge
-                      ? t("path.mistakeReviewContinue")
-                    : showVocabReviewNudge
-                      ? t("path.vocabReviewContinue")
-                      : showFocusAreaNudge
-                        ? t("path.focusAreaContinue")
-                        : canContinueToNextLesson
-                          ? t("path.continueNextLesson")
-                          : t("path.continuePath")
-                : t("path.backToPath")
-            }}
+            {{ primaryActionLabel }}
           </button>
         </div>
       </div>
@@ -354,7 +327,12 @@ import {
   vocabReviewNudgeCount,
 } from "./vocabReviewNudge.js";
 import { shouldShowFocusAreaNudge } from "./focusAreaNudge.js";
-import { focusPracticeRoute } from "./focusPracticeRoute.js";
+import {
+  buildPostLessonPlan,
+  primaryStepRoute,
+  shouldShowFreshMistakeInMistakeSection,
+  STEP_IDS,
+} from "./postLessonPlan.js";
 import {
   continueRouteAfterLesson,
   shouldContinueToNextLesson,
@@ -589,8 +567,30 @@ const showFreshMistakeNudge = computed(() =>
   shouldShowFreshMistakeNudge(result.value, { freshCount: freshMistakeTotal.value }),
 );
 
+const postLessonPlan = computed(() => {
+  if (!finished.value || !result.value?.passed) return null;
+  return buildPostLessonPlan({
+    result: result.value,
+    freshMistakeCount: freshMistakeTotal.value,
+    dueMistakesAtStart: dueMistakesAtStart.value,
+    dueVocabAtStart: dueVocabAtStart.value,
+    focusArea: focusAreaAtStart.value,
+  });
+});
+
+const primaryActionLabel = computed(() => {
+  if (!result.value?.passed) return t("path.backToPath");
+  const step = postLessonPlan.value?.primary;
+  if (!step?.continueKey) return t("path.continuePath");
+  return t(step.continueKey, step.continueParams ?? {});
+});
+
 const showFreshMistakeAction = computed(() =>
-  shouldShowFreshMistakeAction(result.value, { freshCount: freshMistakeTotal.value }),
+  shouldShowFreshMistakeInMistakeSection(
+    result.value,
+    freshMistakeTotal.value,
+    postLessonPlan.value,
+  ) && shouldShowFreshMistakeAction(result.value, { freshCount: freshMistakeTotal.value }),
 );
 
 const showFreshMistakePrimary = computed(() =>
@@ -841,31 +841,37 @@ function goToMistakeReview() {
   router.replace({ name: "path-mistake-review" });
 }
 
+function stepTitle(step) {
+  if (!step) return "";
+  const params = { ...(step.titleParams ?? {}) };
+  if (step.id === STEP_IDS.FOCUS_AREA && params.typeId) {
+    params.type = t(focusAreaTypeKey(params.typeId));
+    delete params.typeId;
+  }
+  return t(step.titleKey, params);
+}
+
+function stepSubtitle(step) {
+  if (!step?.subtitleKey) return "";
+  const params = { ...(step.subtitleParams ?? {}) };
+  if (step.id === STEP_IDS.FOCUS_AREA && params.typeId) {
+    params.type = t(focusAreaTypeKey(params.typeId));
+    delete params.typeId;
+  }
+  return t(step.subtitleKey, params);
+}
+
+function goToPostLessonStep(step) {
+  if (!step?.route) return;
+  router.replace(step.route);
+}
+
 async function finishLesson() {
-  if (showFreshMistakePrimary.value) {
-    goToMistakeReview();
-    return;
-  }
-  if (showMistakeReviewNudge.value) {
-    goToMistakeReview();
-    return;
-  }
-  if (showVocabReviewNudge.value) {
-    router.replace({ name: "vocab-review" });
-    return;
-  }
-  if (showFocusAreaNudge.value) {
-    const typeId = focusAreaAtStart.value?.typeId;
-    if (typeId) { router.replace(focusPracticeRoute(typeId)); return; }
+  if (!result.value?.passed) {
     router.replace({ name: "path" });
     return;
   }
-  const nextRoute = continueRouteAfterLesson(result.value);
-  if (nextRoute) {
-    router.replace(nextRoute);
-    return;
-  }
-  router.replace({ name: "path" });
+  router.replace(primaryStepRoute(postLessonPlan.value));
 }
 
 function showShareStatus(message) {
@@ -1400,48 +1406,120 @@ onMounted(load);
   border: 1px solid #7eb8e8;
 }
 
-.fresh-mistake-nudge-banner {
-  margin: 8px 0 0;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #fff4e8 0%, #ffe4c8 100%);
-  color: #9a4a00;
-  border: 1px solid #e6a85c;
+.next-steps-panel {
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 14px 16px 16px;
+  background: linear-gradient(135deg, #e8f8ef 0%, #d4f5e0 100%);
+  border: 1px solid var(--green);
   border-radius: var(--radius-md);
-  font-weight: 700;
-  animation: goal-pop 0.5s ease;
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
-.mistake-review-nudge-banner {
-  margin: 8px 0 0;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #fff0f3 0%, #ffe0e8 100%);
-  color: #9e1a3a;
-  border: 1px solid #e87e9a;
-  border-radius: var(--radius-md);
+.next-steps-eyebrow {
+  margin: 0;
+  font-size: 11px;
   font-weight: 700;
-  animation: goal-pop 0.5s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--green-hover);
 }
 
-.vocab-review-nudge-banner {
-  margin: 8px 0 0;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #eef4ff 0%, #dce8ff 100%);
-  color: #1a4f9c;
-  border: 1px solid #7ba7f7;
-  border-radius: var(--radius-md);
-  font-weight: 700;
-  animation: goal-pop 0.5s ease;
+.next-steps-primary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 8px;
 }
 
-.focus-area-nudge-banner {
-  margin: 8px 0 0;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #fff8ef 0%, #ffe8d4 100%);
-  color: #8a4a00;
-  border: 1px solid #e6a85c;
-  border-radius: var(--radius-md);
+.next-steps-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.next-steps-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-primary-title {
+  margin: 0;
+  font-size: 17px;
   font-weight: 700;
-  animation: goal-pop 0.5s ease;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.next-steps-primary-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-light);
+  line-height: 1.4;
+}
+
+.next-steps-queue {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(88, 204, 2, 0.25);
+}
+
+.next-steps-queue-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+.next-steps-queue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.next-steps-queue-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.next-steps-queue-item:disabled {
+  cursor: default;
+}
+
+.next-steps-queue-icon {
+  font-size: 18px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.next-steps-queue-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-queue-item-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.next-steps-queue-item-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-lighter);
+  line-height: 1.35;
 }
 
 @keyframes goal-pop {

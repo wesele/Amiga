@@ -15,6 +15,15 @@
       <div v-else-if="error" class="empty-state">{{ error }}</div>
 
       <template v-else>
+        <button
+          v-if="dueReviewCount > 0"
+          type="button"
+          class="review-due-btn"
+          @click="goToVocabReview"
+        >
+          📚 {{ t("vocab.reviewDueAction", { n: dueReviewCount }) }}
+        </button>
+
         <div class="level-cards">
           <button
             v-for="s in stats"
@@ -112,7 +121,17 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
-import { getCurrentUser, getUserVocabByLevel, getUserVocabStatsByLevel, updateWordMastery, resetUserVocabByLevel } from "@/shared/api.js";
+import { useRouter } from "vue-router";
+import {
+  getCurrentUser,
+  getUnknownWords,
+  getUserVocabByLevel,
+  getUserVocabStatsByLevel,
+  updateWordMastery,
+  resetUserVocabByLevel,
+} from "@/shared/api.js";
+import { loadLearningContext } from "@/shared/learningContext.js";
+import { VOCAB_REVIEW_LIMIT } from "@/modules/learn/vocabReviewCard.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -121,9 +140,11 @@ import PageHeader from "@/shared/components/PageHeader.vue";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 
+const router = useRouter();
 const { t, locale } = useI18n();
 const targetLangStore = useTargetLangStore();
 const loading = ref(true);
+const dueReviewCount = ref(0);
 const error = ref("");
 const stats = ref([]);
 const words = ref([]);
@@ -218,6 +239,29 @@ async function loadStats() {
   }
 }
 
+async function loadDueReviewCount() {
+  if (!userId.value) {
+    dueReviewCount.value = 0;
+    return;
+  }
+  try {
+    const ctx = await loadLearningContext();
+    const words = await getUnknownWords(
+      userId.value,
+      ctx.cefr,
+      VOCAB_REVIEW_LIMIT,
+      ctx.targetLang,
+    );
+    dueReviewCount.value = Array.isArray(words) ? words.length : 0;
+  } catch {
+    dueReviewCount.value = 0;
+  }
+}
+
+function goToVocabReview() {
+  router.push({ name: "vocab-review" });
+}
+
 function onWordTap(w) {
   selectedWord.value = w;
 }
@@ -264,6 +308,7 @@ onMounted(async () => {
     userId.value = user.id;
     await targetLangStore.load();
     await loadStats();
+    await loadDueReviewCount();
   } catch (e) {
     error.value = t("common.fail");
   } finally {
@@ -273,6 +318,7 @@ onMounted(async () => {
     drilledLevel.value = "";
     words.value = [];
     await loadStats();
+    await loadDueReviewCount();
   });
   syncAndroidBackHook();
 });
@@ -289,6 +335,7 @@ watch(userLang, async () => {
   drilledLevel.value = "";
   words.value = [];
   await loadStats();
+  await loadDueReviewCount();
 });
 
 watch(drilledLevel, () => {
@@ -398,6 +445,22 @@ watch(drilledLevel, () => {
 }
 
 /* Level cards */
+.review-due-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 0 16px 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--blue);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #eef4ff 0%, #dce8ff 100%);
+  color: #1a4f9c;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .level-cards {
   display: flex;
   flex-direction: column;
