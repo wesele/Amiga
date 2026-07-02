@@ -347,7 +347,7 @@ function goToPath() {
 }
 
 function goToVocabReview() {
-  router.push({ name: "vocab" });
+  router.push({ name: "vocab-review" });
 }
 
 function continueLearning() {

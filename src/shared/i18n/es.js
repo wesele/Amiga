@@ -245,6 +245,17 @@ export default {
     seen: "Vistas",
     unseen: "Sin ver",
     wordMastery: "Dominio",
+    reviewProgress: "{current}/{total}",
+    reviewTapToReveal: "Toca para ver",
+    reviewTapToHide: "Toca para ocultar",
+    reviewReinforce: "Por reforzar",
+    reviewStillLearning: "Sigo aprendiendo",
+    reviewGotIt: "¡Lo tengo!",
+    reviewComplete: "¡Repaso completo!",
+    reviewCompleteHint: "Repasaste {n} palabras — buena práctica espaciada.",
+    reviewMasteredCount: "{n} marcadas como dominadas",
+    reviewAllCaughtUp: "No hay palabras pendientes de repaso.",
+    reviewBack: "Volver a Aprender",
   },
 
   chat: {

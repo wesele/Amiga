@@ -1,0 +1,45 @@
+/** Words surfaced in a single quick-review flashcard session. */
+export const REVIEW_SESSION_LIMIT = 5;
+
+/**
+ * Pick the best definition for the learner's native language.
+ * Falls back across available fields when the preferred one is missing.
+ */
+export function vocabDefinition(word, nativeLang) {
+  if (!word) return "";
+  if (nativeLang === "zh") {
+    return word.definition_zh || word.definition_es || "";
+  }
+  if (nativeLang === "es") {
+    return word.definition_es || word.definition_zh || "";
+  }
+  return word.definition_es || word.definition_zh || "";
+}
+
+export function sessionProgress(index, total) {
+  const safeTotal = Math.max(0, total);
+  return {
+    current: Math.min(index + 1, safeTotal || 1),
+    total: safeTotal,
+  };
+}
+
+export function sessionProgressPct(index, total) {
+  if (!total) return 0;
+  return Math.round(((index + 1) / total) * 100);
+}
+
+export function isSessionComplete(index, total) {
+  return total > 0 && index >= total;
+}
+
+/** mastery === 1 means seen but not yet locked in — highest SRS priority. */
+export function countReinforcementWords(words) {
+  if (!Array.isArray(words)) return 0;
+  return words.filter((w) => w?.mastery === 1).length;
+}
+
+export function countNewWords(words) {
+  if (!Array.isArray(words)) return 0;
+  return words.filter((w) => w?.mastery == null).length;
+}

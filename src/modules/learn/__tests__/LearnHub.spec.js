@@ -119,6 +119,7 @@ function makeRouter() {
         component: { template: "<div/>" },
       },
       { path: "/vocab", name: "vocab", component: { template: "<div/>" } },
+      { path: "/vocab/review", name: "vocab-review", component: { template: "<div/>" } },
     ],
   });
 }
@@ -189,7 +190,7 @@ describe("LearnHubPage", () => {
     expect(card.text()).toContain("复习");
   });
 
-  it("navigates to vocab when review card is clicked", async () => {
+  it("navigates to flashcard review when review card is clicked", async () => {
     const router = makeRouter();
     const pushSpy = vi.spyOn(router, "push");
     const wrapper = mount(LearnHubPage, {
@@ -198,7 +199,7 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     await wrapper.find(".vocab-review-card").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "vocab" });
+    expect(pushSpy).toHaveBeenCalledWith({ name: "vocab-review" });
   });
 
   it("hides vocab review card when no unmastered words are returned", async () => {

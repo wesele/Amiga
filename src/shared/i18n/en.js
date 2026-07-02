@@ -245,6 +245,17 @@ export default {
     seen: "Seen",
     unseen: "Unseen",
     wordMastery: "Mastery",
+    reviewProgress: "{current}/{total}",
+    reviewTapToReveal: "Tap to reveal",
+    reviewTapToHide: "Tap to hide",
+    reviewReinforce: "Needs reinforcement",
+    reviewStillLearning: "Still learning",
+    reviewGotIt: "Got it!",
+    reviewComplete: "Review complete!",
+    reviewCompleteHint: "You reviewed {n} words — great spaced practice.",
+    reviewMasteredCount: "{n} marked as mastered",
+    reviewAllCaughtUp: "You're all caught up — no words need review right now.",
+    reviewBack: "Back to Learn",
   },
 
   chat: {

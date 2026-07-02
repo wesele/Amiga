@@ -292,6 +292,69 @@ mod tests {
     }
 
     #[test]
+    fn test_get_unknown_words_prioritizes_seen_not_mastered_by_recency() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+
+        let stale_seen = insert_test_word(&conn, "viejo", "A1", "es");
+        let fresh_seen = insert_test_word(&conn, "nuevo", "A1", "es");
+        let high_freq_new = insert_test_word(&conn, "frecuente", "A1", "es");
+        conn.execute(
+            "UPDATE vocab_bank SET frequency = 500 WHERE id = ?1",
+            params![high_freq_new],
+        )
+        .unwrap();
+
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
+             VALUES (?1, ?2, 1, 'test', '2026-01-01')",
+            params![uid, stale_seen],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
+             VALUES (?1, ?2, 1, 'test', '2026-06-01')",
+            params![uid, fresh_seen],
+        )
+        .unwrap();
+        drop(conn);
+
+        let words = get_unknown_words(&pool, &uid, "A2", 10, "es").unwrap();
+        let order: Vec<String> = words.iter().map(|w| w.word.clone()).collect();
+
+        let stale_idx = order.iter().position(|w| w == "viejo").expect("stale seen");
+        let fresh_idx = order.iter().position(|w| w == "nuevo").expect("fresh seen");
+        let new_idx = order
+            .iter()
+            .position(|w| w == "frecuente")
+            .expect("unseen word");
+
+        assert!(
+            stale_idx < fresh_idx,
+            "Oldest seen-not-mastered word should come first, got {:?}",
+            order
+        );
+        assert!(
+            fresh_idx < new_idx,
+            "Seen-not-mastered words should precede unseen, got {:?}",
+            order
+        );
+        assert_eq!(
+            words.iter().find(|w| w.word == "viejo").unwrap().mastery,
+            Some(1)
+        );
+        assert_eq!(
+            words
+                .iter()
+                .find(|w| w.word == "frecuente")
+                .unwrap()
+                .mastery,
+            None
+        );
+    }
+
+    #[test]
     fn test_get_user_vocab_by_level_returns_all_level_words() {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
@@ -671,6 +734,8 @@ pub struct VocabWord {
     pub definition_es: Option<String>,
     pub example: Option<String>,
     pub frequency: i32,
+    /// `None` = unseen; `1` = seen but not mastered; `2` = mastered (filtered out).
+    pub mastery: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -813,13 +878,16 @@ pub fn get_unknown_words(
     let mut stmt = conn
         .prepare(
             "SELECT v.id, v.word, v.lemma, v.pos, v.cefr_level, v.language,
-                v.definition_zh, v.definition_es, v.example, v.frequency
+                v.definition_zh, v.definition_es, v.example, v.frequency, uv.mastery
          FROM vocab_bank v
          LEFT JOIN user_vocab uv ON v.id = uv.word_id AND uv.user_id = ?1
          WHERE (uv.mastery IS NULL OR uv.mastery < 2)
            AND v.cefr_level <= ?2
            AND v.language = ?4
-         ORDER BY v.frequency DESC
+         ORDER BY
+           CASE WHEN uv.mastery = 1 THEN 0 ELSE 1 END,
+           COALESCE(uv.updated_at, '9999-12-31') ASC,
+           v.frequency DESC
          LIMIT ?3",
         )
         .map_err(|e| format!("Query error: {}", e))?;
@@ -837,6 +905,7 @@ pub fn get_unknown_words(
                 definition_es: row.get(7)?,
                 example: row.get(8)?,
                 frequency: row.get(9)?,
+                mastery: row.get(10)?,
             })
         })
         .map_err(|e| format!("Failed to query unknown words: {}", e))?

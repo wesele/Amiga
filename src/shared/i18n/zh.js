@@ -248,6 +248,17 @@ export default {
     seen: "已展示",
     unseen: "未展示",
     wordMastery: "掌握度",
+    reviewProgress: "{current}/{total}",
+    reviewTapToReveal: "点击翻转查看释义",
+    reviewTapToHide: "点击翻回单词",
+    reviewReinforce: "待巩固",
+    reviewStillLearning: "还在学",
+    reviewGotIt: "掌握了！",
+    reviewComplete: "复习完成！",
+    reviewCompleteHint: "本轮复习了 {n} 个单词，间隔重复效果更好。",
+    reviewMasteredCount: "标记掌握 {n} 个",
+    reviewAllCaughtUp: "暂时没有需要复习的单词。",
+    reviewBack: "返回学习",
   },
 
   chat: {
