@@ -140,6 +140,8 @@ export default {
     weeklyGoalRemainingNudge: "📅 {done}/{total} active days this week — {remaining} more to hit your weekly goal",
     mistakeReviewRemainingNudge: "🔁 {n} mistake(s) due for review — reinforce before new lessons",
     mistakeReviewContinue: "Review mistakes",
+    vocabReviewRemainingNudge: "📚 {n} word(s) to reinforce — review vocabulary before new lessons",
+    vocabReviewContinue: "Review vocabulary",
     lessonMilestoneReached: "🏆 {n} lessons complete! You're on a roll",
     perfectLesson: "✨ Perfect lesson! Every answer right, zero mistakes!",
     perfectLessonStreak3: "✨ 3 perfect lessons in a row! You're on fire",

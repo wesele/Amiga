@@ -806,6 +806,167 @@ describe("LessonPage mistake review nudge", () => {
   });
 });
 
+describe("LessonPage vocab review nudge", () => {
+  const MOCK_VOCAB_WORDS = [
+    { id: 1, word: "hola", definitions: { zh: "你好" } },
+    { id: 2, word: "gracias", definitions: { zh: "谢谢" } },
+    { id: 3, word: "casa", definitions: { zh: "房子" } },
+  ];
+  let mockInvoke;
+
+  beforeEach(() => {
+    localStorage.clear();
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_unknown_words_cmd") return Promise.resolve(MOCK_VOCAB_WORDS);
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload());
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({
+          passed: true,
+          stars: 3,
+          daily_goal_just_met: true,
+          daily_goal_lessons_today: 2,
+          daily_goal_target: 2,
+        });
+      }
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("wires vocab review nudge helpers in the summary screen", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/vocabReviewNudge\.js/);
+    expect(source).toMatch(/shouldShowVocabReviewNudge/);
+    expect(source).toMatch(/class="vocab-review-nudge-banner"/);
+    expect(source).toMatch(/path\.vocabReviewRemainingNudge/);
+    expect(source).toMatch(/path\.vocabReviewContinue/);
+    expect(source).toMatch(/vocab-review/);
+  });
+
+  it("shows due-vocab nudge and updates the primary action when daily goal is met", async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn/path", name: "path", component: { template: "<div/>" } },
+        { path: "/vocab/review", name: "vocab-review", component: { template: "<div/>" } },
+        {
+          path: "/learn/path/lesson/:sectionId",
+          name: "path-lesson",
+          component: LessonPage,
+        },
+      ],
+    });
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    expect(wrapper.vm.dueVocabAtStart).toBe(3);
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    const nudge = wrapper.find(".vocab-review-nudge-banner");
+    expect(nudge.exists()).toBe(true);
+    expect(nudge.text()).toContain("3 个单词");
+    expect(wrapper.find(".daily-goal-banner.is-nudge").exists()).toBe(false);
+
+    const primary = wrapper.find(".summary-actions .action-btn.primary");
+    expect(primary.text()).toContain("去复习单词");
+  });
+
+  it("routes to vocab review when the nudge primary action is taken", async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn/path", name: "path", component: { template: "<div/>" } },
+        { path: "/vocab/review", name: "vocab-review", component: { template: "<div/>" } },
+        {
+          path: "/learn/path/lesson/:sectionId",
+          name: "path-lesson",
+          component: LessonPage,
+        },
+      ],
+    });
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    await wrapper.find(".summary-actions .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(router.currentRoute.value.name).toBe("vocab-review");
+  });
+
+  it("prefers mistake review nudge over vocab review when both are due", async () => {
+    recordLessonMistake(
+      "zh-es",
+      { id: "due-q1", type: "T09", answer: "hola" },
+      "ola",
+      Date.now(),
+    );
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn/path", name: "path", component: { template: "<div/>" } },
+        {
+          path: "/learn/path/review/mistakes",
+          name: "path-mistake-review",
+          component: { template: "<div/>" },
+        },
+        { path: "/vocab/review", name: "vocab-review", component: { template: "<div/>" } },
+        {
+          path: "/learn/path/lesson/:sectionId",
+          name: "path-lesson",
+          component: LessonPage,
+        },
+      ],
+    });
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+    wrapper.vm.onPrimaryAction();
+    await flushPromises();
+
+    expect(wrapper.find(".mistake-review-nudge-banner").exists()).toBe(true);
+    expect(wrapper.find(".vocab-review-nudge-banner").exists()).toBe(false);
+    expect(wrapper.find(".summary-actions .action-btn.primary").text()).toContain("去复习错题");
+  });
+});
+
 describe("LessonPage lesson milestone celebration", () => {
   let mockInvoke;
 

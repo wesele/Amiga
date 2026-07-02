@@ -143,6 +143,8 @@ export default {
     weeklyGoalRemainingNudge: "📅 本周已练习 {done}/{total} 天，还差 {remaining} 天达成本周目标",
     mistakeReviewRemainingNudge: "🔁 有 {n} 道错题待复习，先巩固再学新课效果更好",
     mistakeReviewContinue: "去复习错题",
+    vocabReviewRemainingNudge: "📚 有 {n} 个单词待巩固，先复习词汇再学新课效果更好",
+    vocabReviewContinue: "去复习单词",
     lessonMilestoneReached: "🏆 完成 {n} 节课！学习之旅更进一步",
     perfectLesson: "✨ 完美通关！全部答对，零失误！",
     perfectLessonStreak3: "✨ 连续 3 课完美通关！状态火热",

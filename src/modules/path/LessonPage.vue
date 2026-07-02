@@ -102,6 +102,13 @@
             })
           }}
         </p>
+        <p v-if="showVocabReviewNudge" class="vocab-review-nudge-banner">
+          {{
+            t("path.vocabReviewRemainingNudge", {
+              n: vocabReviewNudgeTotal,
+            })
+          }}
+        </p>
         <p v-if="result?.passed && result?.lesson_milestone_reached" class="lesson-milestone-banner">
           {{ t("path.lessonMilestoneReached", { n: result.lesson_milestone_reached }) }}
         </p>
@@ -153,7 +160,9 @@
                   ? t("path.dailyGoalContinue", { remaining: dailyGoalRemaining })
                   : showMistakeReviewNudge
                     ? t("path.mistakeReviewContinue")
-                    : t("path.continuePath")
+                    : showVocabReviewNudge
+                      ? t("path.vocabReviewContinue")
+                      : t("path.continuePath")
                 : t("path.backToPath")
             }}
           </button>
@@ -264,6 +273,8 @@ import { pairStatsKey, recordAnswer } from "@/modules/learn/questionTypeStats.js
 import { recordAccuracyPeak } from "@/modules/profile/accuracyPeakStats.js";
 import { recordComboAttempt } from "./lessonComboStats.js";
 import { countDueForPair, recordLessonMistake } from "./mistakeReviewStore.js";
+import { VOCAB_REVIEW_LIMIT } from "@/modules/learn/vocabReviewCard.js";
+import { getUnknownWords } from "@/shared/api.js";
 import { shareLessonResult, shouldShowLessonShare } from "./lessonShare.js";
 import {
   dailyGoalLessonsRemaining,
@@ -277,6 +288,10 @@ import {
   mistakeReviewNudgeCount,
   shouldShowMistakeReviewNudge,
 } from "./mistakeReviewNudge.js";
+import {
+  shouldShowVocabReviewNudge,
+  vocabReviewNudgeCount,
+} from "./vocabReviewNudge.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -309,6 +324,7 @@ const sharingLesson = ref(false);
 const shareStatus = ref("");
 let shareStatusTimer = null;
 const dueMistakesAtStart = ref(0);
+const dueVocabAtStart = ref(0);
 
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
@@ -437,6 +453,16 @@ const mistakeReviewNudgeTotal = computed(() =>
   mistakeReviewNudgeCount(dueMistakesAtStart.value),
 );
 
+const showVocabReviewNudge = computed(() =>
+  shouldShowVocabReviewNudge(result.value, {
+    dueAtStart: dueVocabAtStart.value,
+    dailyGoalNudgeActive: showDailyGoalNudge.value,
+    mistakeReviewNudgeActive: showMistakeReviewNudge.value,
+  }),
+);
+
+const vocabReviewNudgeTotal = computed(() => vocabReviewNudgeCount(dueVocabAtStart.value));
+
 const summaryEmoji = computed(() => {
   if (!result.value?.passed) return "💪";
   return perfectLesson.value ? "✨" : "🎉";
@@ -535,6 +561,17 @@ async function load() {
     dueMistakesAtStart.value = countDueForPair(
       pairStatsKey(user.native_language, targetLang),
     );
+    try {
+      const words = await getUnknownWords(
+        user.id,
+        cefr,
+        VOCAB_REVIEW_LIMIT,
+        targetLang,
+      );
+      dueVocabAtStart.value = Array.isArray(words) ? words.length : 0;
+    } catch {
+      dueVocabAtStart.value = 0;
+    }
     const data = await getSectionLesson(
       user.native_language,
       targetLang,
@@ -607,6 +644,10 @@ function exitLesson() {
 async function finishLesson() {
   if (showMistakeReviewNudge.value) {
     router.replace({ name: "path-mistake-review" });
+    return;
+  }
+  if (showVocabReviewNudge.value) {
+    router.replace({ name: "vocab-review" });
     return;
   }
   router.replace({ name: "path" });
@@ -1076,6 +1117,17 @@ onMounted(load);
   background: linear-gradient(135deg, #fff0f3 0%, #ffe0e8 100%);
   color: #9e1a3a;
   border: 1px solid #e87e9a;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  animation: goal-pop 0.5s ease;
+}
+
+.vocab-review-nudge-banner {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #eef4ff 0%, #dce8ff 100%);
+  color: #1a4f9c;
+  border: 1px solid #7ba7f7;
   border-radius: var(--radius-md);
   font-weight: 700;
   animation: goal-pop 0.5s ease;
