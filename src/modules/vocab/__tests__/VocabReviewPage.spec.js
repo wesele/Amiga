@@ -1,11 +1,21 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, afterEach } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
+import * as vocabRatingFeedback from "../vocabRatingFeedback.js";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
+
+vi.mock("../vocabRatingFeedback.js", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    waitVocabRatingAck: vi.fn(() => Promise.resolve()),
+    playVocabRatingFeedback: vi.fn(),
+  };
+});
 
 const VocabReviewPage = (await import("@/modules/vocab/VocabReviewPage.vue")).default;
 
@@ -65,6 +75,12 @@ describe("VocabReviewPage", () => {
     setLocale("zh", { persist: false });
     mockInvoke = vi.fn().mockImplementation(defaultInvoke);
     api.__setInvoke(mockInvoke);
+    vi.mocked(vocabRatingFeedback.waitVocabRatingAck).mockImplementation(() => Promise.resolve());
+    vi.mocked(vocabRatingFeedback.playVocabRatingFeedback).mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("shows flashcard with first word and reinforcement badge", async () => {
@@ -96,6 +112,37 @@ describe("VocabReviewPage", () => {
     await flushPromises();
 
     expect(wrapper.find(".progress-fill").attributes("style")).toContain("width: 100%");
+    expect(wrapper.text()).toContain("casa");
+  });
+
+  it("shows positive acknowledgment styling and plays feedback when rated known", async () => {
+    let releaseAck;
+    vi.mocked(vocabRatingFeedback.waitVocabRatingAck).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseAck = resolve;
+        }),
+    );
+
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".flashcard").classes()).toContain("is-ack-positive");
+    expect(vocabRatingFeedback.playVocabRatingFeedback).toHaveBeenCalledWith(2);
+    expect(wrapper.text()).toContain("hola");
+
+    releaseAck();
+    await flushPromises();
+
+    expect(wrapper.find(".flashcard").classes()).not.toContain("is-ack-positive");
     expect(wrapper.text()).toContain("casa");
   });
 

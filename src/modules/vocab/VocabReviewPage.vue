@@ -70,7 +70,11 @@
         <button
           type="button"
           class="flashcard"
-          :class="{ 'is-flipped': flipped }"
+          :class="{
+            'is-flipped': flipped,
+            'is-ack-positive': ratingAck === 'positive',
+            'is-ack-learning': ratingAck === 'learning',
+          }"
           :aria-label="flipped ? t('vocab.reviewTapToHide') : t('vocab.reviewTapToReveal')"
           @click="toggleFlip"
         >
@@ -132,6 +136,11 @@ import {
   vocabDefinition,
 } from "./vocabReviewSession.js";
 import {
+  playVocabRatingFeedback,
+  vocabRatingAckKind,
+  waitVocabRatingAck,
+} from "./vocabRatingFeedback.js";
+import {
   REMAINING_PEEK_LIMIT,
   remainingVocabReviewCount,
   shouldOfferVocabContinuation,
@@ -148,6 +157,7 @@ const words = ref([]);
 const index = ref(0);
 const flipped = ref(false);
 const cardRated = ref(false);
+const ratingAck = ref(null);
 const finished = ref(false);
 const acting = ref(false);
 const masteredCount = ref(0);
@@ -209,6 +219,7 @@ function toggleFlip() {
 function resetCard() {
   flipped.value = false;
   cardRated.value = false;
+  ratingAck.value = null;
 }
 
 async function load() {
@@ -245,9 +256,14 @@ async function load() {
 async function advanceAfterMark(mastery) {
   if (!currentWord.value || acting.value) return;
   cardRated.value = true;
+  ratingAck.value = vocabRatingAckKind(mastery);
+  playVocabRatingFeedback(mastery);
   acting.value = true;
   try {
-    await updateWordMastery(userId.value, currentWord.value.id, mastery, "vocab_flashcard");
+    await Promise.all([
+      waitVocabRatingAck(),
+      updateWordMastery(userId.value, currentWord.value.id, mastery, "vocab_flashcard"),
+    ]);
     if (mastery >= 2) masteredCount.value += 1;
   } catch {
     // Still advance — local session should not block on a single failure.
@@ -486,6 +502,42 @@ onMounted(load);
 
 .flashcard.is-flipped .flashcard-inner {
   transform: rotateY(180deg);
+}
+
+.flashcard.is-ack-positive,
+.flashcard.is-ack-learning {
+  animation: vocab-rating-ack 0.32s ease;
+}
+
+.flashcard.is-ack-positive .flashcard-face {
+  box-shadow:
+    0 0 0 3px var(--green),
+    0 4px 24px rgba(88, 204, 2, 0.28);
+}
+
+.flashcard.is-ack-learning .flashcard-face {
+  box-shadow:
+    0 0 0 3px #f0b429,
+    0 4px 24px rgba(240, 180, 41, 0.22);
+}
+
+@keyframes vocab-rating-ack {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.015);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flashcard.is-ack-positive,
+  .flashcard.is-ack-learning {
+    animation: none;
+  }
 }
 
 .flashcard-face {
