@@ -76,6 +76,16 @@
       </div>
 
       <footer class="lesson-footer">
+        <button
+          v-if="!showResult && hintAvailable"
+          type="button"
+          class="hint-btn"
+          :disabled="hintShown"
+          @click="revealHint"
+        >
+          💡 {{ t("path.getHint") }}
+        </button>
+        <p v-if="hintText" class="hint-text">{{ hintText }}</p>
         <p v-if="showResult" class="feedback" :class="lastCorrect ? 'ok' : 'bad'">
           {{ lastCorrect ? t("path.correct") : t("path.incorrect") }}
         </p>
@@ -109,6 +119,7 @@ import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import { checkAnswer, formatCorrectAnswer, formatQuestionPrompt } from "./checkAnswer.js";
+import { getQuestionHint, hasQuestionHint } from "./questionHint.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -127,6 +138,8 @@ const correctCount = ref(0);
 const finished = ref(false);
 const result = ref(null);
 const mistakes = ref([]);
+const hintText = ref("");
+const hintShown = ref(false);
 
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
@@ -171,6 +184,21 @@ const primaryLabel = computed(() => {
   return t("path.check");
 });
 
+const hintAvailable = computed(() => hasQuestionHint(currentQuestion.value));
+
+function revealHint() {
+  if (hintShown.value || !currentQuestion.value) return;
+  const hint = getQuestionHint(currentQuestion.value, t);
+  if (!hint) return;
+  hintText.value = hint;
+  hintShown.value = true;
+}
+
+function resetHint() {
+  hintText.value = "";
+  hintShown.value = false;
+}
+
 async function load() {
   loading.value = true;
   error.value = "";
@@ -206,6 +234,7 @@ function resetSession() {
   finished.value = false;
   result.value = null;
   mistakes.value = [];
+  resetHint();
 }
 
 function retryLesson() {
@@ -240,6 +269,7 @@ function onPrimaryAction() {
     currentAnswer.value = null;
     showResult.value = false;
     lastCorrect.value = false;
+    resetHint();
     return;
   }
 
@@ -335,6 +365,35 @@ onMounted(load);
   padding: 16px 20px calc(16px + var(--safe-bottom));
   background: var(--white);
   border-top: 1px solid var(--border);
+}
+
+.hint-btn {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hint-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.hint-text {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: var(--orange-bg);
+  border-radius: var(--radius-sm);
+  color: var(--orange-hover);
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .feedback {

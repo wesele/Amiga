@@ -62,6 +62,57 @@ describe("LessonPage mistake review", () => {
   });
 });
 
+describe("LessonPage smart hints", () => {
+  let mockInvoke;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload());
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("wires hint button and reveal flow in the lesson footer", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/getQuestionHint/);
+    expect(source).toMatch(/class="hint-btn"/);
+    expect(source).toMatch(/class="hint-text"/);
+    expect(source).toMatch(/path\.getHint/);
+  });
+
+  it("shows a contextual hint when the learner taps the hint button", async () => {
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const hintBtn = wrapper.find(".hint-btn");
+    expect(hintBtn.exists()).toBe(true);
+
+    await hintBtn.trigger("click");
+    await flushPromises();
+
+    const hint = wrapper.find(".hint-text");
+    expect(hint.exists()).toBe(true);
+    expect(hint.text()).toContain("casa");
+    expect(hintBtn.attributes("disabled")).toBeDefined();
+  });
+});
+
 describe("LessonPage daily goal celebration", () => {
   let mockInvoke;
 
