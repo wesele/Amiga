@@ -389,7 +389,7 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     await wrapper.find(".streak-risk-banner").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "path-focus-practice", params: { typeId: "T06" } });
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
   });
 
   it("shows daily goal progress card with streak", async () => {
@@ -446,7 +446,7 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     await wrapper.find(".daily-goal-card").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "path-focus-practice", params: { typeId: "T06" } });
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
   });
 
   it("shows perfect lesson streak card when learner has an active streak", async () => {
@@ -692,7 +692,7 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     await wrapper.find(".streak-milestone-card").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "path-focus-practice", params: { typeId: "T06" } });
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
   });
 
   it("shows perfect milestone progress card when a personal-best perfect streak exists", async () => {
@@ -760,7 +760,7 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     await wrapper.find(".perfect-milestone-card").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "path-focus-practice", params: { typeId: "T06" } });
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
   });
 
   it("hides accuracy milestone card when practice attempts are insufficient", async () => {
@@ -845,7 +845,10 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     await wrapper.find(".focus-area-card").trigger("click");
-    expect(pushSpy).toHaveBeenCalledWith({ name: "path-focus-practice", params: { typeId: "T06" } });
+    expect(pushSpy).toHaveBeenCalledWith({
+      name: "path-focus-practice",
+      params: { typeId: "T06" },
+    });
   });
 
   it("hides focus area card when no question type is weak enough", async () => {
