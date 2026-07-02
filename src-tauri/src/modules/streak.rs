@@ -1,5 +1,5 @@
 use crate::modules::database::DatabasePool;
-use chrono::{Duration, Local, NaiveDate};
+use chrono::{Datelike, Duration, Local, NaiveDate};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
@@ -25,6 +25,21 @@ pub struct DailyGoalProgress {
     pub goal_met: bool,
     pub streak_current: i32,
     pub practiced_today: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WeeklyActivityDay {
+    pub date: String,
+    /// 0 = Monday … 6 = Sunday (chrono weekday mapping).
+    pub weekday: u8,
+    pub active: bool,
+    pub is_today: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WeeklyActivity {
+    pub days: Vec<WeeklyActivityDay>,
+    pub active_days: i32,
 }
 
 pub fn lesson_goal_from_daily_minutes(daily_minutes: i32) -> i32 {
@@ -181,6 +196,43 @@ fn load_today_activity(
         )
         .ok();
     Ok(row.unwrap_or((0, 0, 0)))
+}
+
+fn weekday_index(date: NaiveDate) -> u8 {
+    use chrono::Weekday;
+    match date.weekday() {
+        Weekday::Mon => 0,
+        Weekday::Tue => 1,
+        Weekday::Wed => 2,
+        Weekday::Thu => 3,
+        Weekday::Fri => 4,
+        Weekday::Sat => 5,
+        Weekday::Sun => 6,
+    }
+}
+
+pub fn get_weekly_activity(pool: &DatabasePool, user_id: &str) -> Result<WeeklyActivity, String> {
+    let conn = pool.conn()?;
+    let today = Local::now().date_naive();
+    let mut days = Vec::with_capacity(7);
+    let mut active_days = 0;
+
+    for offset in (0..7).rev() {
+        let date = today - Duration::days(offset);
+        let date_str = date.format("%Y-%m-%d").to_string();
+        let active = was_active_on_date(&conn, user_id, &date_str)?;
+        if active {
+            active_days += 1;
+        }
+        days.push(WeeklyActivityDay {
+            date: date_str,
+            weekday: weekday_index(date),
+            active,
+            is_today: offset == 0,
+        });
+    }
+
+    Ok(WeeklyActivity { days, active_days })
 }
 
 pub fn get_daily_goal_progress(
@@ -374,5 +426,46 @@ mod tests {
         assert_eq!(progress.lessons_today, 2);
         assert!(progress.goal_met);
         assert_eq!(progress.progress_pct, 100);
+    }
+
+    #[test]
+    fn weekly_activity_returns_last_seven_days() {
+        let pool = test_pool();
+        let user = seed_user(&pool);
+        let today = Local::now().date_naive();
+        let yesterday = today - Duration::days(1);
+        let three_days_ago = today - Duration::days(3);
+
+        insert_active_day(
+            &pool,
+            &user,
+            &yesterday.format("%Y-%m-%d").to_string(),
+            1,
+        );
+        insert_active_day(
+            &pool,
+            &user,
+            &three_days_ago.format("%Y-%m-%d").to_string(),
+            1,
+        );
+        record_lesson_completed(&pool, &user).unwrap();
+
+        let activity = get_weekly_activity(&pool, &user).unwrap();
+        assert_eq!(activity.days.len(), 7);
+        assert_eq!(activity.active_days, 3);
+        assert!(activity.days.last().unwrap().is_today);
+        assert!(activity.days.last().unwrap().active);
+        assert!(activity.days[activity.days.len() - 2].active);
+        assert!(!activity.days[0].is_today);
+    }
+
+    #[test]
+    fn weekly_activity_empty_when_no_practice() {
+        let pool = test_pool();
+        let user = seed_user(&pool);
+        let activity = get_weekly_activity(&pool, &user).unwrap();
+        assert_eq!(activity.days.len(), 7);
+        assert_eq!(activity.active_days, 0);
+        assert!(!activity.days.iter().any(|d| d.active));
     }
 }

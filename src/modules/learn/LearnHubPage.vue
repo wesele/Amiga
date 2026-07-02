@@ -98,6 +98,34 @@
                 : t("learn.dailyGoalStart")
           }}
         </p>
+        <div
+          v-if="showWeeklyActivity"
+          class="week-strip"
+          role="img"
+          :aria-label="t('learn.weeklyActivitySummary', { done: weeklyActivity.active_days })"
+        >
+          <p class="week-strip-label">{{ t("learn.weeklyActivity") }}</p>
+          <div class="week-days">
+            <div
+              v-for="day in weeklyActivity.days"
+              :key="day.date"
+              class="week-day"
+              :class="{ 'is-today': day.is_today }"
+            >
+              <span
+                class="week-dot"
+                :class="{ 'is-active': day.active, 'is-today': day.is_today }"
+                :aria-label="weekdayLabel(day.weekday, t)"
+              >
+                <span v-if="day.active" class="week-dot-icon" aria-hidden="true">🔥</span>
+              </span>
+              <span class="week-day-label">{{ weekdayLabel(day.weekday, t) }}</span>
+            </div>
+          </div>
+          <p class="week-strip-summary">
+            {{ t("learn.weeklyActivitySummary", { done: weeklyActivity.active_days }) }}
+          </p>
+        </div>
       </div>
       <span class="goal-chevron" aria-hidden="true">›</span>
     </button>
@@ -121,7 +149,12 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
-import { getDailyGoalProgress, getPathCurriculum, getUnknownWords } from "@/shared/api.js";
+import {
+  getDailyGoalProgress,
+  getPathCurriculum,
+  getUnknownWords,
+  getWeeklyActivity,
+} from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
@@ -139,12 +172,14 @@ import {
   vocabReviewHasMore,
   vocabReviewPreview,
 } from "./vocabReviewCard.js";
+import { hasWeeklyActivity, weekdayLabel } from "./weeklyActivity.js";
 
 const router = useRouter();
 const { t } = useI18n();
 const targetLangStore = useTargetLangStore();
 const opening = ref(null);
 const dailyGoal = ref(null);
+const weeklyActivity = ref(null);
 const resumeTarget = ref(null);
 const vocabReviewWords = ref([]);
 
@@ -179,6 +214,8 @@ const vocabReviewPreviewText = computed(() => vocabReviewPreview(vocabReviewWord
 
 const vocabReviewTruncated = computed(() => vocabReviewHasMore(vocabReviewWords.value));
 
+const showWeeklyActivity = computed(() => hasWeeklyActivity(weeklyActivity.value));
+
 const modules = [
   { id: "path", labelKey: "learn.path", icon: "🛤️", route: { name: "path" } },
   { id: "news", labelKey: "learn.news", icon: "📰", route: { name: "news" } },
@@ -190,6 +227,14 @@ async function loadDailyGoal(userId, lang) {
     dailyGoal.value = await getDailyGoalProgress(userId, lang);
   } catch {
     dailyGoal.value = null;
+  }
+}
+
+async function loadWeeklyActivity(userId) {
+  try {
+    weeklyActivity.value = await getWeeklyActivity(userId);
+  } catch {
+    weeklyActivity.value = null;
   }
 }
 
@@ -224,11 +269,13 @@ async function loadHubData() {
     });
     await Promise.all([
       loadDailyGoal(user.id, targetLang),
+      loadWeeklyActivity(user.id),
       loadResumeSection(nativeLang, targetLang, cefr),
       loadVocabReview(user.id, targetLang, cefr),
     ]);
   } catch {
     dailyGoal.value = null;
+    weeklyActivity.value = null;
     resumeTarget.value = null;
     vocabReviewWords.value = [];
   }
@@ -599,6 +646,85 @@ onMounted(loadHubData);
   font-size: 22px;
   color: var(--text-light);
   flex-shrink: 0;
+  align-self: center;
+}
+
+.week-strip {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.week-strip-label {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-light);
+}
+
+.week-days {
+  display: flex;
+  justify-content: space-between;
+  gap: 2px;
+}
+
+.week-day {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.week-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f0f2f5;
+  border: 2px solid transparent;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.week-dot.is-active {
+  background: #fff4e6;
+  border-color: #f5a623;
+}
+
+.week-dot.is-today {
+  border-color: var(--green);
+}
+
+.week-dot.is-active.is-today {
+  border-color: #e65a00;
+  box-shadow: 0 0 0 2px rgba(230, 90, 0, 0.15);
+}
+
+.week-dot-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.week-day-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.week-day.is-today .week-day-label {
+  color: var(--green-hover);
+  font-weight: 700;
+}
+
+.week-strip-summary {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-light);
 }
 
 .module-grid {

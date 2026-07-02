@@ -37,6 +37,7 @@ export function createApiClient(invoke) {
     getLearningStreak: (userId) => call("get_learning_streak_cmd", { userId }),
     getDailyGoalProgress: (userId, targetLanguage) =>
       call("get_daily_goal_progress_cmd", { userId, targetLanguage }),
+    getWeeklyActivity: (userId) => call("get_weekly_activity_cmd", { userId }),
 
     // Vocabulary
     importVocabBank: () => call("import_vocab_bank_cmd"),
@@ -198,6 +199,7 @@ export const updateLearningGoalCefr = (...args) =>
 export const getLearningStreak = (...args) => defaultApiClient.getLearningStreak(...args);
 export const getDailyGoalProgress = (...args) =>
   defaultApiClient.getDailyGoalProgress(...args);
+export const getWeeklyActivity = (...args) => defaultApiClient.getWeeklyActivity(...args);
 
 // --- Vocabulary ---
 export const importVocabBank = (...args) => defaultApiClient.importVocabBank(...args);

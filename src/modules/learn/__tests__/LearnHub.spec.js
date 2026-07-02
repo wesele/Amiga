@@ -63,6 +63,20 @@ function defaultInvoke(cmd) {
       practiced_today: true,
     });
   }
+  if (cmd === "get_weekly_activity_cmd") {
+    return Promise.resolve({
+      active_days: 3,
+      days: [
+        { date: "2026-06-26", weekday: 4, active: false, is_today: false },
+        { date: "2026-06-27", weekday: 5, active: true, is_today: false },
+        { date: "2026-06-28", weekday: 6, active: false, is_today: false },
+        { date: "2026-06-29", weekday: 0, active: true, is_today: false },
+        { date: "2026-06-30", weekday: 1, active: false, is_today: false },
+        { date: "2026-07-01", weekday: 2, active: false, is_today: false },
+        { date: "2026-07-02", weekday: 3, active: true, is_today: true },
+      ],
+    });
+  }
   if (cmd === "create_chat_session_cmd") return Promise.resolve("translator-sess");
   if (cmd === "get_unknown_words_cmd") {
     return Promise.resolve([
@@ -318,6 +332,35 @@ describe("LearnHubPage", () => {
     expect(card.text()).toContain("今日目标");
     expect(card.text()).toContain("1/2");
     expect(card.text()).toContain("3 天连胜");
+  });
+
+  it("shows weekly activity strip inside daily goal card", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const strip = wrapper.find(".week-strip");
+    expect(strip.exists()).toBe(true);
+    expect(strip.text()).toContain("近 7 天");
+    expect(strip.text()).toContain("本周已练习 3/7 天");
+    expect(wrapper.findAll(".week-dot.is-active")).toHaveLength(3);
+  });
+
+  it("hides weekly activity strip when activity data is unavailable", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_weekly_activity_cmd") return Promise.resolve(null);
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".week-strip").exists()).toBe(false);
   });
 
   it("navigates to path when daily goal card is clicked", async () => {

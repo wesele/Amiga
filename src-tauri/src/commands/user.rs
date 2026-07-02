@@ -107,3 +107,11 @@ pub async fn get_daily_goal_progress_cmd(
         user_mod::get_daily_minutes_for_target(&db, &user_id, &target_language)?;
     crate::modules::streak::get_daily_goal_progress(&db, &user_id, daily_minutes)
 }
+
+#[tauri::command]
+pub async fn get_weekly_activity_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+) -> Result<crate::modules::streak::WeeklyActivity, String> {
+    crate::modules::streak::get_weekly_activity(&db, &user_id)
+}

@@ -47,6 +47,15 @@ export default {
     vocabReviewHint: "{n} palabras por reforzar",
     vocabReviewMore: "más",
     vocabReviewAction: "Repasar",
+    weeklyActivity: "Últimos 7 días",
+    weeklyActivitySummary: "{done}/7 días practicados esta semana",
+    weekdayMon: "L",
+    weekdayTue: "M",
+    weekdayWed: "X",
+    weekdayThu: "J",
+    weekdayFri: "V",
+    weekdaySat: "S",
+    weekdaySun: "D",
   },
 
   path: {

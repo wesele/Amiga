@@ -50,6 +50,15 @@ export default {
     vocabReviewHint: "{n} 个单词待巩固",
     vocabReviewMore: "等",
     vocabReviewAction: "复习",
+    weeklyActivity: "近 7 天",
+    weeklyActivitySummary: "本周已练习 {done}/7 天",
+    weekdayMon: "一",
+    weekdayTue: "二",
+    weekdayWed: "三",
+    weekdayThu: "四",
+    weekdayFri: "五",
+    weekdaySat: "六",
+    weekdaySun: "日",
   },
 
   path: {
