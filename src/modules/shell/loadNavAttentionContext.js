@@ -19,6 +19,8 @@ import {
   findPendingComprehensionCandidate,
 } from "@/modules/news/newsReadingStatus.js";
 import { peekPendingReadingVocab } from "@/modules/news/pendingReadingVocab.js";
+import { buildPairKey } from "@/modules/path/lessonInFlight.js";
+import { resolveLessonArticleMatch } from "@/modules/path/recentLessonWords.js";
 
 const CACHE_MS = 30_000;
 const FORCE_REFRESH_FROM = new Set([
@@ -78,6 +80,7 @@ export async function loadNavAttentionContext(options = {}, { force = false } = 
   let continueReadingArticle = null;
   let pendingComprehensionCount = 0;
   let pendingComprehensionArticle = null;
+  let lessonArticleMatch = null;
 
   try {
     if (userId) {
@@ -121,6 +124,11 @@ export async function loadNavAttentionContext(options = {}, { force = false } = 
         continueReadingArticle = findContinueReadingCandidate(articles, statusMap);
         pendingComprehensionCount = countRetakeablePendingComprehension(statusMap, articles);
         pendingComprehensionArticle = findPendingComprehensionCandidate(articles, statusMap);
+        lessonArticleMatch = resolveLessonArticleMatch(
+          articles,
+          statusMap,
+          { pairKey: buildPairKey(nativeLang, targetLang, cefr) },
+        );
       }
     }
   } catch {
@@ -128,6 +136,7 @@ export async function loadNavAttentionContext(options = {}, { force = false } = 
     continueReadingArticle = null;
     pendingComprehensionCount = 0;
     pendingComprehensionArticle = null;
+    lessonArticleMatch = null;
   }
 
   const ctx = {
@@ -139,6 +148,7 @@ export async function loadNavAttentionContext(options = {}, { force = false } = 
     continueReadingArticle,
     pendingComprehensionCount,
     pendingComprehensionArticle,
+    lessonArticleMatch,
     pendingVocab: peekPendingReadingVocab(),
     pendingAiPractice: peekPendingAiPractice(),
     localHour: new Date().getHours(),
@@ -159,6 +169,7 @@ export function buildNavAttentionContextFromHub({
   continueReadingArticle = null,
   pendingComprehensionCount = 0,
   pendingComprehensionArticle = null,
+  lessonArticleMatch = null,
   pendingVocabBanner = null,
   localHour = new Date().getHours(),
 } = {}) {
@@ -171,6 +182,7 @@ export function buildNavAttentionContextFromHub({
     continueReadingArticle,
     pendingComprehensionCount,
     pendingComprehensionArticle,
+    lessonArticleMatch,
     pendingVocab: pendingVocabBanner,
     pendingAiPractice: peekPendingAiPractice(),
     localHour,

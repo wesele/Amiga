@@ -1,11 +1,16 @@
 import { focusPracticeRoute } from "@/modules/path/focusPracticeRoute.js";
+import { lessonArticleReaderRoute } from "@/modules/news/lessonArticleMatch.js";
+import { lessonWordsPreview } from "@/modules/news/lessonWordHighlight.js";
 import { isContinueReadingCandidate } from "@/modules/news/readingProgress.js";
+import { isRecentLessonFresh } from "@/modules/path/recentLessonWords.js";
+import { isActiveDaySecured } from "./dailyGoalDisplay.js";
 import { pathSectionRoute, sectionKindIcon } from "./pathResume.js";
 import { isStreakAtRisk } from "./streakAtRisk.js";
 
 export const FOCUS_IDS = {
   STREAK_AT_RISK: "streakAtRisk",
   CONTINUE_SECTION: "continueSection",
+  LESSON_ARTICLE_MATCH: "lessonArticleMatch",
   CONTINUE_READING: "continueReading",
   COMPREHENSION_RETAKE: "comprehensionRetake",
   READ_NEWS: "readNews",
@@ -58,6 +63,42 @@ function isPendingComprehensionCandidate(article) {
   return Boolean(article?.articleId);
 }
 
+function lessonArticleMatchFocus(match) {
+  return {
+    id: FOCUS_IDS.LESSON_ARTICLE_MATCH,
+    route: lessonArticleReaderRoute(match.articleId, match.matchedWords),
+    icon: "📰",
+    articleTitle: match.articleTitle,
+    articleId: match.articleId,
+    matchCount: match.matchCount,
+    matchedWords: match.matchedWords,
+    matchedPreview: lessonWordsPreview(match.matchedWords),
+    sectionTitle: match.sectionTitle ?? "",
+  };
+}
+
+function hasLessonArticleMatch(ctx) {
+  return Boolean(ctx.lessonArticleMatch?.articleId);
+}
+
+export function shouldPromoteLessonArticleHero(ctx, { now = Date.now() } = {}) {
+  const { lessonArticleMatch, dailyGoal } = ctx;
+  if (!lessonArticleMatch?.articleId) return false;
+
+  const goalMet = Boolean(dailyGoal?.goal_met);
+  if (goalMet || isActiveDaySecured(dailyGoal)) return true;
+
+  if (
+    isRecentLessonFresh(lessonArticleMatch.completedAt, { now })
+    && !lessonArticleMatch.readToday
+    && !lessonArticleMatch.completed
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function resolveStreakAtRiskAction(ctx) {
   const {
     dailyGoal,
@@ -66,6 +107,7 @@ function resolveStreakAtRiskAction(ctx) {
     dueVocabWords = [],
     newsUnreadCount = 0,
     continueReadingArticle = null,
+    lessonArticleMatch = null,
   } = ctx;
   const goalMet = Boolean(dailyGoal?.goal_met);
 
@@ -76,6 +118,9 @@ function resolveStreakAtRiskAction(ctx) {
     };
   }
   if (!goalMet) {
+    if (hasLessonArticleMatch({ lessonArticleMatch })) {
+      return lessonArticleMatchFocus(lessonArticleMatch);
+    }
     if (isContinueReadingCandidate(continueReadingArticle)) {
       return {
         id: FOCUS_IDS.CONTINUE_READING,
@@ -142,6 +187,13 @@ export function pickLearningHubFocus(ctx) {
           scrollPct: action.scrollPct,
         }
         : {}),
+      ...(action.id === FOCUS_IDS.LESSON_ARTICLE_MATCH
+        ? {
+          articleTitle: action.articleTitle,
+          matchCount: action.matchCount,
+          matchedPreview: action.matchedPreview,
+        }
+        : {}),
     };
   }
 
@@ -152,6 +204,10 @@ export function pickLearningHubFocus(ctx) {
       icon: sectionKindIcon(resumeTarget.section.kind),
       sectionTitle: resumeTarget.section.title_native ?? "",
     };
+  }
+
+  if (shouldPromoteLessonArticleHero(ctx)) {
+    return lessonArticleMatchFocus(ctx.lessonArticleMatch);
   }
 
   if (isContinueReadingCandidate(ctx.continueReadingArticle)) {
@@ -239,12 +295,22 @@ export function pickSecondarySuggestions(ctx, focus) {
     continueReadingArticle = null,
     pendingComprehensionCount = 0,
     pendingComprehensionArticle = null,
+    lessonArticleMatch = null,
     showAccuracy = false,
     showCombo = false,
     showPerfect = false,
     showPerfectStreak = false,
     showFocusArea = false,
   } = ctx;
+
+  const focusShowsLessonArticleMatch =
+    focusId === FOCUS_IDS.LESSON_ARTICLE_MATCH
+    || (focusId === FOCUS_IDS.STREAK_AT_RISK
+      && focus?.actionId === FOCUS_IDS.LESSON_ARTICLE_MATCH);
+
+  if (hasLessonArticleMatch({ lessonArticleMatch }) && !focusShowsLessonArticleMatch) {
+    suggestions.push({ type: "lessonArticleMatch", ...lessonArticleMatch });
+  }
 
   const focusShowsContinueReading =
     focusId === FOCUS_IDS.CONTINUE_READING

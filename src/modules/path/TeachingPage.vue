@@ -299,6 +299,8 @@ import {
   countUnreadArticles,
 } from "@/modules/news/newsReadingStatus.js";
 import { mergeArticlesWithStatus } from "@/modules/news/lessonArticleMatch.js";
+import { buildPairKey } from "./lessonInFlight.js";
+import { saveRecentLessonWords } from "./recentLessonWords.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 import { countDueForPair } from "./mistakeReviewStore.js";
 import {
@@ -830,6 +832,21 @@ async function finishTeaching() {
       route.params.nodeId,
     );
     await loadPostTeachingContext();
+    if (content.value?.kind === "vocab") {
+      const words = teachingWords.value.map((item) => item.word).filter(Boolean);
+      if (words.length >= 2) {
+        saveRecentLessonWords({
+          words,
+          sectionId: route.params.nodeId,
+          sectionTitle: content.value?.title_native ?? "",
+          pairKey: buildPairKey(
+            userMeta.value.nativeLang,
+            userMeta.value.targetLang,
+            userMeta.value.cefr,
+          ),
+        });
+      }
+    }
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {

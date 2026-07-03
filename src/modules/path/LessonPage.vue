@@ -474,6 +474,7 @@ import {
   countUnreadArticles,
 } from "@/modules/news/newsReadingStatus.js";
 import { mergeArticlesWithStatus } from "@/modules/news/lessonArticleMatch.js";
+import { saveRecentLessonWords } from "./recentLessonWords.js";
 import { shouldAutoCheckOnAnswerChange } from "./practiceAnswerAutoCheck.js";
 import { correctAutoAdvanceDelayMs } from "./practiceFlowTiming.js";
 import {
@@ -1408,6 +1409,18 @@ async function submitLesson() {
     result.value = res;
     finished.value = true;
     await loadPostLessonMatchContext();
+    if (lessonWordsForMatch.value.length >= 2) {
+      saveRecentLessonWords({
+        words: lessonWordsForMatch.value,
+        sectionId: route.params.sectionId,
+        sectionTitle: lesson.value?.section_title_native ?? "",
+        pairKey: buildPairKey(
+          userMeta.value.nativeLang,
+          userMeta.value.targetLang,
+          userMeta.value.cefr,
+        ),
+      });
+    }
     const achievementCtx = buildLessonSettlementAchievementCtx(res);
     settlementUnlockBadges.value = achievementCtx
       ? notifyAchievementUnlocks(achievementCtx)

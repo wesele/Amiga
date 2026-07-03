@@ -121,6 +121,14 @@
             >{{ formatSource(article.source) }}</a>
           </div>
           <button
+            v-if="showLessonWordsMatchChip(article)"
+            type="button"
+            class="card-lesson-words-chip"
+            @click.stop="goToLessonMatchArticle(article.id)"
+          >
+            {{ t("news.lessonWordsMatchChip", { n: lessonArticleMatch.matchCount }) }}
+          </button>
+          <button
             v-if="cardStateFor(article).showContinueChip"
             type="button"
             class="card-continue-chip"
@@ -191,7 +199,10 @@ import {
   buildStatusMap,
   collectUnknownWordsFromStatusMap,
 } from "./newsReadingStatus.js";
+import { lessonArticleReaderRoute } from "./lessonArticleMatch.js";
 import { sortArticlesWithInProgressFirst } from "./readingProgress.js";
+import { buildPairKey } from "@/modules/path/lessonInFlight.js";
+import { resolveLessonArticleMatch } from "@/modules/path/recentLessonWords.js";
 import { buildTitleTranslationMap, titlePreviewState } from "./titleTranslation.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -213,6 +224,8 @@ const titleTranslationMap = ref(new Map());
 const titleTranslationsLoading = ref(false);
 const titleTranslationsFailed = ref(false);
 const userCefr = ref("A1");
+const nativeLang = ref("zh");
+const lessonArticleMatch = ref(null);
 let statusTimer = null;
 let userId = "";
 
@@ -250,6 +263,16 @@ function cardStateFor(article) {
   });
 }
 
+function showLessonWordsMatchChip(article) {
+  return lessonArticleMatch.value?.articleId === article.id;
+}
+
+function goToLessonMatchArticle(articleId) {
+  const match = lessonArticleMatch.value;
+  if (!match) return;
+  router.push(lessonArticleReaderRoute(articleId, match.matchedWords));
+}
+
 function titlePreviewFor(article) {
   return titlePreviewState(article, titleTranslationMap.value, {
     loading: titleTranslationsLoading.value,
@@ -277,6 +300,7 @@ onMounted(async () => {
   try {
     const ctx = await loadLearningContext({ targetLangStore });
     userCefr.value = ctx.cefr;
+    nativeLang.value = ctx.user?.native_language || "zh";
   } catch (e) {
     console.error("Failed to load learning context:", e);
   }
@@ -357,6 +381,7 @@ async function loadReadingStatus(loadedArticles) {
   if (!userId || !loadedArticles?.length) {
     statusMap.value = new Map();
     dueWordKeys.value = new Set();
+    lessonArticleMatch.value = null;
     return;
   }
   try {
@@ -368,14 +393,19 @@ async function loadReadingStatus(loadedArticles) {
     const unknownWords = collectUnknownWordsFromStatusMap(map);
     if (!unknownWords.length) {
       dueWordKeys.value = new Set();
-      return;
+    } else {
+      const masteryEntries = await lookupWordsMastery(userId, unknownWords, targetLang.value);
+      dueWordKeys.value = buildDueWordKeySet(masteryEntries);
     }
-    const masteryEntries = await lookupWordsMastery(userId, unknownWords, targetLang.value);
-    dueWordKeys.value = buildDueWordKeySet(masteryEntries);
+
+    lessonArticleMatch.value = resolveLessonArticleMatch(loadedArticles, map, {
+      pairKey: buildPairKey(nativeLang.value, targetLang.value, userCefr.value),
+    });
   } catch (e) {
     console.error("Failed to load reading status:", e);
     statusMap.value = new Map();
     dueWordKeys.value = new Set();
+    lessonArticleMatch.value = null;
   }
 }
 
@@ -657,6 +687,24 @@ function formatSource(source) {
 
 .card-continue-chip:hover {
   text-decoration: underline;
+}
+
+.card-lesson-words-chip {
+  margin-top: 8px;
+  align-self: flex-end;
+  border: none;
+  border-radius: 999px;
+  background: var(--purple-bg);
+  color: var(--purple);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px 10px;
+}
+
+.card-lesson-words-chip:hover {
+  background: rgba(124, 58, 237, 0.18);
 }
 
 .card-rank {

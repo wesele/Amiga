@@ -326,6 +326,7 @@ import {
   mergeArticlesWithStatus,
   pickBestArticleForLessonWords,
 } from "@/modules/news/lessonArticleMatch.js";
+import { saveRecentLessonWords } from "@/modules/path/recentLessonWords.js";
 import {
   buildPostVocabReviewPlan,
   isAiPracticeStep,
@@ -948,6 +949,11 @@ async function loadPostReviewNewsContext(entries, excludeArticleId) {
       articleMatch.value = null;
       return;
     }
+
+    saveRecentLessonWords({
+      words: wordPool,
+      pairKey: `${nativeLang.value}:${targetLang.value}:${cefr.value}`,
+    });
 
     articleMatch.value = pickBestArticleForLessonWords(merged, wordPool, {
       minOverlap: 1,

@@ -21,6 +21,7 @@ export const NAV_BADGE_MAX = 9;
  * @property {number} [pendingComprehensionCount]
  * @property {object | null} [pendingComprehensionArticle]
  * @property {object | null} [pendingVocab]
+ * @property {object | null} [lessonArticleMatch]
  * @property {PendingAiPractice | null} [pendingAiPractice]
  * @property {number} [localHour]
  */
@@ -131,6 +132,7 @@ export function computeModuleBadges(ctx) {
     pendingVocab = null,
     newsUnreadCount = 0,
     pendingComprehensionCount = 0,
+    lessonArticleMatch = null,
   } = ctx;
 
   let path = { show: false, count: 0, labelKey: "", labelParams: {} };
@@ -172,7 +174,14 @@ export function computeModuleBadges(ctx) {
   }
 
   let news = { show: false, count: 0, labelKey: "", labelParams: {} };
-  if (newsUnreadCount > 0) {
+  if (lessonArticleMatch?.articleId && !lessonArticleMatch.completed) {
+    news = {
+      show: true,
+      count: 0,
+      labelKey: "learn.newsLessonWordsBadge",
+      labelParams: { n: lessonArticleMatch.matchCount ?? 0 },
+    };
+  } else if (newsUnreadCount > 0) {
     news = {
       show: true,
       count: newsUnreadCount,

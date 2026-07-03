@@ -636,6 +636,7 @@ import { useSelectionTranslation } from "./selectionTranslation.js";
 import { buildPhraseVocabEntry, isPhraseMarkable, phraseKey } from "./phraseVocabMark.js";
 import { buildMasteryMap, resolveWordClass as resolveWordMasteryClass, wordKey } from "./wordMastery.js";
 import { saveReadingSessionSummary, saveReadingProgressToast } from "./readingSession.js";
+import { consumeRecentLessonWordsForArticle } from "@/modules/path/recentLessonWords.js";
 import {
   buildMicroReviewQueue,
   microReviewNudgeCopy,
@@ -1154,6 +1155,11 @@ async function persistReadingProgress({
       ...compFields,
     });
     lastPersistedScrollPct = pct;
+    if (done && route.query.lessonWords) {
+      consumeRecentLessonWordsForArticle(Number(props.id), {
+        lessonWordsQuery: route.query.lessonWords,
+      });
+    }
   } catch (e) {
     console.error("Failed to save reading log:", e);
   }

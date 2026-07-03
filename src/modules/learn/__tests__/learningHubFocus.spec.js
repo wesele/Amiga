@@ -282,4 +282,78 @@ describe("learningHubFocus", () => {
     );
     expect(suggestions.some((item) => item.type === "continueReading")).toBe(false);
   });
+
+  const lessonArticleMatch = {
+    articleId: 11,
+    articleTitle: "昨夜科技要闻",
+    matchedWords: ["hola", "gracias", "banco"],
+    matchCount: 3,
+    sectionTitle: "闯关练习",
+    completedAt: Date.now() - 30 * 60 * 1000,
+    readToday: false,
+    completed: false,
+  };
+
+  it("promotes lesson article match when the daily goal is met", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: { goal_met: true, practiced_today: true },
+      lessonArticleMatch,
+      localHour: 10,
+    });
+    expect(focus.id).toBe(FOCUS_IDS.LESSON_ARTICLE_MATCH);
+    expect(focus.route).toEqual({
+      name: "reader",
+      params: { id: "11" },
+      query: { lessonWords: "hola,gracias,banco" },
+    });
+  });
+
+  it("promotes fresh lesson article match before continue reading", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: { goal_met: false, practiced_today: true, streak_current: 3 },
+      lessonArticleMatch,
+      continueReadingArticle,
+      localHour: 10,
+    });
+    expect(focus.id).toBe(FOCUS_IDS.LESSON_ARTICLE_MATCH);
+  });
+
+  it("routes streak-at-risk to lesson article match before generic news", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: {
+        streak_current: 12,
+        practiced_today: false,
+        goal_met: false,
+        lessons_today: 0,
+        target_lessons: 2,
+      },
+      lessonArticleMatch,
+      newsUnreadCount: 4,
+      localHour: 21,
+    });
+    expect(focus.id).toBe(FOCUS_IDS.STREAK_AT_RISK);
+    expect(focus.actionId).toBe(FOCUS_IDS.LESSON_ARTICLE_MATCH);
+    expect(focus.route.query.lessonWords).toContain("hola");
+  });
+
+  it("adds lesson article match to secondary suggestions when hero is elsewhere", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: { goal_met: true, practiced_today: true },
+      dueMistakes: 2,
+      localHour: 10,
+    });
+    const suggestions = pickSecondarySuggestions(
+      {
+        dueMistakes: 2,
+        dueVocabWords: [],
+        lessonArticleMatch,
+      },
+      focus,
+    );
+    expect(suggestions[0]).toMatchObject({
+      type: "lessonArticleMatch",
+      articleId: 11,
+      matchCount: 3,
+    });
+  });
 });

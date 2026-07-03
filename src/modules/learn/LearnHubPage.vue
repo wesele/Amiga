@@ -68,6 +68,14 @@
           {{ focusHeroAction }}
         </button>
         <button
+          v-if="showLessonArticleDismiss"
+          type="button"
+          class="focus-hero-secondary-chip"
+          @click="dismissLessonArticleMatch"
+        >
+          {{ t("learn.focusLessonArticleLater") }}
+        </button>
+        <button
           v-if="showStreakNewsChip"
           type="button"
           class="focus-hero-secondary-chip"
@@ -243,7 +251,24 @@
           :class="secondaryCardClass(item.type)"
           @click="onSecondarySuggestion(item.type, item)"
         >
-          <template v-if="item.type === 'continueReading'">
+          <template v-if="item.type === 'lessonArticleMatch'">
+            <span class="hub-secondary-icon" aria-hidden="true">📰</span>
+            <div class="hub-secondary-copy">
+              <p class="hub-secondary-title">{{ t("learn.focusLessonArticleTitle") }}</p>
+              <p class="hub-secondary-sub">
+                {{
+                  t("path.nextStep.readMatchedArticleHint", {
+                    title: item.articleTitle,
+                    n: item.matchCount,
+                    preview: lessonWordsPreview(item.matchedWords),
+                  })
+                }}
+              </p>
+            </div>
+            <span class="hub-secondary-action">{{ t("learn.focusLessonArticleAction") }}</span>
+          </template>
+
+          <template v-else-if="item.type === 'continueReading'">
             <span class="hub-secondary-icon" aria-hidden="true">📰</span>
             <div class="hub-secondary-copy">
               <p class="hub-secondary-title">
@@ -479,7 +504,13 @@ import {
   countUnreadArticles,
   findPendingComprehensionCandidate,
 } from "@/modules/news/newsReadingStatus.js";
+import { lessonArticleReaderRoute } from "@/modules/news/lessonArticleMatch.js";
+import { lessonWordsPreview } from "@/modules/news/lessonWordHighlight.js";
 import { findContinueReadingCandidate } from "@/modules/news/readingProgress.js";
+import {
+  dismissRecentLessonWords,
+  resolveLessonArticleMatch,
+} from "@/modules/path/recentLessonWords.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
@@ -582,6 +613,7 @@ const newsUnreadCount = ref(0);
 const continueReadingArticle = ref(null);
 const pendingComprehensionCount = ref(0);
 const pendingComprehensionArticle = ref(null);
+const lessonArticleMatch = ref(null);
 const lessonPairKey = ref("");
 const localHour = ref(new Date().getHours());
 
@@ -695,6 +727,7 @@ const hubModuleBadges = computed(() =>
       continueReadingArticle: continueReadingArticle.value,
       pendingComprehensionCount: pendingComprehensionCount.value,
       pendingComprehensionArticle: pendingComprehensionArticle.value,
+      lessonArticleMatch: lessonArticleMatch.value,
       pendingVocabBanner: pendingVocabBanner.value,
       localHour: localHour.value,
     }),
@@ -719,6 +752,7 @@ const hubFocus = computed(() =>
     continueReadingArticle: continueReadingArticle.value,
     pendingComprehensionCount: pendingComprehensionCount.value,
     pendingComprehensionArticle: pendingComprehensionArticle.value,
+    lessonArticleMatch: lessonArticleMatch.value,
   }),
 );
 
@@ -744,8 +778,18 @@ const showStreakNewsChip = computed(() => {
   const focus = hubFocus.value;
   return (
     focus?.id === FOCUS_IDS.STREAK_AT_RISK
-    && focus.actionId === FOCUS_IDS.CONTINUE_SECTION
+    && (focus.actionId === FOCUS_IDS.CONTINUE_SECTION
+      || focus.actionId === FOCUS_IDS.LESSON_ARTICLE_MATCH)
     && newsUnreadCount.value > 0
+  );
+});
+
+const showLessonArticleDismiss = computed(() => {
+  const focus = hubFocus.value;
+  return (
+    focus?.id === FOCUS_IDS.LESSON_ARTICLE_MATCH
+    || (focus?.id === FOCUS_IDS.STREAK_AT_RISK
+      && focus.actionId === FOCUS_IDS.LESSON_ARTICLE_MATCH)
   );
 });
 
@@ -760,6 +804,7 @@ const secondarySuggestions = computed(() =>
       continueReadingArticle: continueReadingArticle.value,
       pendingComprehensionCount: pendingComprehensionCount.value,
       pendingComprehensionArticle: pendingComprehensionArticle.value,
+      lessonArticleMatch: lessonArticleMatch.value,
       showFocusArea: showFocusArea.value,
       showAccuracy: showAccuracyMilestone.value,
       showCombo: showComboMilestone.value,
@@ -786,10 +831,16 @@ const focusHeroTitle = computed(() => {
     if (focus.actionId === FOCUS_IDS.READ_NEWS) {
       return t("learn.streakAtRiskReadNews");
     }
+    if (focus.actionId === FOCUS_IDS.LESSON_ARTICLE_MATCH) {
+      return t("learn.focusLessonArticleTitle");
+    }
     if (focus.actionId === FOCUS_IDS.CONTINUE_READING) {
       return t("learn.focusContinueReadingTitle", { title: focus.articleTitle });
     }
     return t("learn.dailyGoal");
+  }
+  if (focus.id === FOCUS_IDS.LESSON_ARTICLE_MATCH) {
+    return t("learn.focusLessonArticleTitle");
   }
   if (focus.id === FOCUS_IDS.CONTINUE_READING) {
     return t("learn.focusContinueReadingTitle", { title: focus.articleTitle });
@@ -845,12 +896,18 @@ const focusHeroSub = computed(() => {
     if (focus.actionId === FOCUS_IDS.READ_NEWS) {
       return t("learn.streakAtRiskReadNewsSub", { n: focus.newsUnreadCount });
     }
+    if (focus.actionId === FOCUS_IDS.LESSON_ARTICLE_MATCH) {
+      return formatLessonArticleSub(focus);
+    }
     if (focus.actionId === FOCUS_IDS.CONTINUE_READING) {
       return t("learn.focusContinueReadingStreakSub", { n: focus.streakCurrent });
     }
     return t("learn.focusDailyGoalSub", {
       remaining: dailyGoalRemainingLessons(dailyGoal.value),
     });
+  }
+  if (focus.id === FOCUS_IDS.LESSON_ARTICLE_MATCH) {
+    return formatLessonArticleSub(focus);
   }
   if (focus.id === FOCUS_IDS.CONTINUE_READING) {
     return t("learn.focusContinueReadingSub", { remainingPct: focus.remainingPct });
@@ -906,10 +963,16 @@ const focusHeroAction = computed(() => {
     if (focus.actionId === FOCUS_IDS.READ_NEWS) {
       return t("learn.streakAtRiskReadNewsAction");
     }
+    if (focus.actionId === FOCUS_IDS.LESSON_ARTICLE_MATCH) {
+      return t("learn.focusLessonArticleAction");
+    }
     if (focus.actionId === FOCUS_IDS.CONTINUE_READING) {
       return t("learn.focusContinueReadingAction");
     }
     return t("learn.streakAtRiskAction");
+  }
+  if (focus.id === FOCUS_IDS.LESSON_ARTICLE_MATCH) {
+    return t("learn.focusLessonArticleAction");
   }
   if (focus.id === FOCUS_IDS.CONTINUE_READING) {
     return t("learn.focusContinueReadingAction");
@@ -1056,7 +1119,7 @@ function regionForLang(lang) {
   }
 }
 
-async function loadNewsUnread(userId, targetLang) {
+async function loadNewsUnread(userId, targetLang, pairKey = "") {
   try {
     const articles = await getArticles(regionForLang(targetLang));
     if (!articles.length) {
@@ -1064,6 +1127,7 @@ async function loadNewsUnread(userId, targetLang) {
       continueReadingArticle.value = null;
       pendingComprehensionCount.value = 0;
       pendingComprehensionArticle.value = null;
+      lessonArticleMatch.value = null;
       return;
     }
     const ids = articles.map((article) => article.id).filter((id) => id != null);
@@ -1073,11 +1137,13 @@ async function loadNewsUnread(userId, targetLang) {
     continueReadingArticle.value = findContinueReadingCandidate(articles, map);
     pendingComprehensionCount.value = countRetakeablePendingComprehension(map, articles);
     pendingComprehensionArticle.value = findPendingComprehensionCandidate(articles, map);
+    lessonArticleMatch.value = resolveLessonArticleMatch(articles, map, { pairKey });
   } catch {
     newsUnreadCount.value = 0;
     continueReadingArticle.value = null;
     pendingComprehensionCount.value = 0;
     pendingComprehensionArticle.value = null;
+    lessonArticleMatch.value = null;
   }
 }
 
@@ -1105,7 +1171,7 @@ async function loadHubData() {
       loadResumeSection(nativeLang, targetLang, cefr),
       loadPerfectStreak(),
       loadVocabReview(user.id, cefr, targetLang),
-      loadNewsUnread(user.id, targetLang),
+      loadNewsUnread(user.id, targetLang, lessonPairKey.value),
     ]);
   } catch {
     dailyGoal.value = null;
@@ -1123,7 +1189,21 @@ async function loadHubData() {
     continueReadingArticle.value = null;
     pendingComprehensionCount.value = 0;
     pendingComprehensionArticle.value = null;
+    lessonArticleMatch.value = null;
   }
+}
+
+function formatLessonArticleSub(focus) {
+  return t("path.nextStep.readMatchedArticleHint", {
+    title: focus.articleTitle,
+    n: focus.matchCount,
+    preview: focus.matchedPreview ?? lessonWordsPreview(focus.matchedWords),
+  });
+}
+
+function dismissLessonArticleMatch() {
+  dismissRecentLessonWords();
+  lessonArticleMatch.value = null;
 }
 
 function goToPath() {
@@ -1172,6 +1252,7 @@ function goToFocus() {
 }
 
 function secondaryCardClass(type) {
+  if (type === "lessonArticleMatch") return "hub-secondary-card lesson-article-match-card";
   if (type === "continueReading") return "hub-secondary-card continue-reading-card";
   if (type === "comprehensionRetake") return "hub-secondary-card comprehension-retake-card";
   if (type === "mistakeReview") return "mistake-review-card";
@@ -1185,6 +1266,10 @@ function secondaryCardClass(type) {
 }
 
 function onSecondarySuggestion(type, item) {
+  if (type === "lessonArticleMatch" && item?.articleId) {
+    router.push(lessonArticleReaderRoute(item.articleId, item.matchedWords));
+    return;
+  }
   if (type === "continueReading" && item?.articleId) {
     router.push({ name: "reader", params: { id: item.articleId } });
     return;
