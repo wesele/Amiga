@@ -567,7 +567,10 @@ fn normalize_for_substring(s: &str) -> String {
 }
 
 /// Validate LLM comprehension quiz output before caching.
-pub fn validate_comprehension_quiz(body: &str, quiz: &ComprehensionQuizPayload) -> Result<(), String> {
+pub fn validate_comprehension_quiz(
+    body: &str,
+    quiz: &ComprehensionQuizPayload,
+) -> Result<(), String> {
     if quiz.questions.len() != 2 {
         return Err(format!(
             "Expected 2 comprehension questions, got {}",
@@ -583,11 +586,7 @@ pub fn validate_comprehension_quiz(body: &str, quiz: &ComprehensionQuizPayload) 
                 q.options.len()
             ));
         }
-        if !q
-            .options
-            .iter()
-            .any(|o| o.id == q.correct_option_id)
-        {
+        if !q.options.iter().any(|o| o.id == q.correct_option_id) {
             return Err(format!(
                 "Question {} correct_option_id not found in options",
                 idx + 1
