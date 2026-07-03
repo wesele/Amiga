@@ -107,6 +107,7 @@ const ACTIVE_CURRICULUM = {
 
 describe("NewsReader mastery visualization", () => {
   beforeEach(() => {
+    sessionStorage.clear();
     setLocale("zh", { persist: false });
     setActivePinia(createPinia());
     lookupWordsMastery.mockReset();
@@ -604,6 +605,61 @@ describe("NewsReader mastery visualization", () => {
     await wrapper.find(".btn-stale-refresh").trigger("click");
     await flushPromises();
     expect(rewriteArticle).toHaveBeenCalledWith(1, "B1", "u1", "es");
+  });
+
+  it("enters vocab context revisit mode from query and highlights the saved sentence", async () => {
+    sessionStorage.setItem(
+      "amiga:vocabContextRevisitPayload",
+      JSON.stringify({
+        articleId: 1,
+        sentence: "Hola mundo nuevo",
+        word: "mundo",
+      }),
+    );
+    getArticle.mockResolvedValue({
+      id: 1,
+      original_title: "Titulo",
+      rewritten_body: "Hola mundo nuevo",
+      rewrite_level: "A2",
+      source: "sample",
+    });
+
+    const router = makeRouter();
+    await router.push({
+      path: "/news/1",
+      query: { vocabContextRevisit: "1", returnTo: "vocab-review" },
+    });
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("高亮为复习语境句");
+    expect(wrapper.findAll(".evidence-highlight").length).toBeGreaterThan(0);
+  });
+
+  it("returns to vocab review on hardware back when returnTo is set", async () => {
+    const router = makeRouter();
+    const replaceSpy = vi.spyOn(router, "replace");
+    await router.push({
+      path: "/news/1",
+      query: { vocabContextRevisit: "1", returnTo: "vocab-review" },
+    });
+    await router.isReady();
+
+    mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const result = window.__amigaGoBackInPage?.();
+    expect(result).toBe("navigated");
+    expect(replaceSpy).toHaveBeenCalledWith({ name: "vocab-review" });
   });
 
   it("navigates back immediately when reading is too short with no interaction", async () => {

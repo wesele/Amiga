@@ -875,6 +875,32 @@ mod tests {
         );
         assert!(word.has_user_context);
         assert_eq!(word.source.as_deref(), Some("news_reading"));
+        assert_eq!(word.context_article_id, Some(99));
+    }
+
+    #[test]
+    fn test_get_unknown_words_context_article_id_none_without_article() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        let wid = insert_test_word(&conn, "asilo", "A1", "es");
+        drop(conn);
+
+        update_word_mastery(
+            &pool,
+            &uid,
+            wid,
+            1,
+            "news_reading",
+            Some("Pidió asilo político."),
+            None,
+        )
+        .unwrap();
+
+        let words = get_unknown_words(&pool, &uid, "A2", 10, "es").unwrap();
+        let word = words.iter().find(|w| w.word == "asilo").unwrap();
+        assert!(word.has_user_context);
+        assert_eq!(word.context_article_id, None);
     }
 
     #[test]
@@ -926,6 +952,9 @@ pub struct VocabWord {
     /// True when `example` comes from the user's personal reading context.
     #[serde(default)]
     pub has_user_context: bool,
+    /// Article where the user marked this word during news reading.
+    #[serde(default)]
+    pub context_article_id: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1099,7 +1128,8 @@ pub fn get_unknown_words(
                 v.definition_zh, v.definition_es,
                 COALESCE(uv.context_sentence, v.example) AS example,
                 v.frequency, uv.mastery, uv.source,
-                CASE WHEN uv.context_sentence IS NOT NULL AND uv.context_sentence != '' THEN 1 ELSE 0 END AS has_user_context
+                CASE WHEN uv.context_sentence IS NOT NULL AND uv.context_sentence != '' THEN 1 ELSE 0 END AS has_user_context,
+                uv.context_article_id AS context_article_id
          FROM vocab_bank v
          LEFT JOIN user_vocab uv ON v.id = uv.word_id AND uv.user_id = ?1
          WHERE (uv.mastery IS NULL OR uv.mastery < 2)
@@ -1129,6 +1159,7 @@ pub fn get_unknown_words(
                 mastery: row.get(10)?,
                 source: row.get(11)?,
                 has_user_context: row.get::<_, i32>(12)? != 0,
+                context_article_id: row.get(13)?,
             })
         })
         .map_err(|e| format!("Failed to query unknown words: {}", e))?

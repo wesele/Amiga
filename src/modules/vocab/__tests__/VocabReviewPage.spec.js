@@ -53,6 +53,7 @@ function makeRouter() {
     routes: [
       { path: "/learn", name: "learn", component: { template: "<div />" } },
       { path: "/vocab/review", name: "vocab-review", component: VocabReviewPage },
+      { path: "/news/:id", name: "reader", component: { template: "<div />" } },
     ],
   });
 }
@@ -325,6 +326,86 @@ describe("VocabReviewPage", () => {
     expect(wrapper.text()).toContain("Cruzaron la frontera al amanecer.");
     expect(wrapper.find(".flashcard-source-badge").exists()).toBe(true);
     expect(wrapper.text()).toContain("来自新闻阅读");
+  });
+
+  it("shows revisit link when context_article_id is present and navigates to reader", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_unknown_words_cmd") {
+        return Promise.resolve([
+          {
+            id: 10,
+            word: "frontera",
+            mastery: 1,
+            definition_zh: "边境",
+            example: "Cruzaron la frontera al amanecer.",
+            source: "news_reading",
+            has_user_context: true,
+            context_article_id: 42,
+          },
+        ]);
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await flushPromises();
+
+    const link = wrapper.find(".flashcard-revisit-link");
+    expect(link.exists()).toBe(true);
+    expect(link.text()).toContain("回看原文");
+
+    await link.trigger("click");
+    expect(pushSpy).toHaveBeenCalledWith({
+      name: "reader",
+      params: { id: "42" },
+      query: {
+        vocabContextRevisit: "1",
+        returnTo: "vocab-review",
+      },
+    });
+    expect(JSON.parse(sessionStorage.getItem("amiga:vocabReviewResume"))).toMatchObject({
+      index: 0,
+      flipped: true,
+      wordId: 10,
+    });
+  });
+
+  it("hides revisit link when context_article_id is missing", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_unknown_words_cmd") {
+        return Promise.resolve([
+          {
+            id: 10,
+            word: "frontera",
+            mastery: 1,
+            definition_zh: "边境",
+            example: "Cruzaron la frontera al amanecer.",
+            has_user_context: true,
+          },
+        ]);
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".flashcard-revisit-link").exists()).toBe(false);
   });
 
   it("completes session after marking all words", async () => {

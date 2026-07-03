@@ -184,6 +184,14 @@
                     <span v-else>{{ part.text }}</span>
                   </template>
                 </p>
+                <button
+                  v-if="showContextRevisitLink"
+                  type="button"
+                  class="flashcard-revisit-link"
+                  @click.stop="goToContextArticle"
+                >
+                  {{ t("vocab.reviewContextRevisit") }}
+                </button>
               </div>
               <span v-if="currentWord?.pos" class="flashcard-pos">{{ currentWord.pos }}</span>
             </div>
@@ -312,6 +320,15 @@ import {
   pickReviewContext,
 } from "./vocabReviewContext.js";
 import {
+  clearVocabReviewResume,
+  loadVocabReviewResume,
+  resolveVocabReviewResumeIndex,
+  saveVocabContextRevisitPayload,
+  saveVocabReviewResume,
+  shouldShowContextRevisitLink,
+  vocabContextRevisitRoute,
+} from "./vocabContextRevisit.js";
+import {
   vocabDisplayDotStates,
   vocabDisplayStageLabel,
   vocabJustFilledDotIndex,
@@ -414,6 +431,10 @@ const showNewsSourceBadge = computed(() => {
     sessionContextMap.value.has(word.word.toLowerCase())
   );
 });
+
+const showContextRevisitLink = computed(() =>
+  shouldShowContextRevisitLink(currentWord.value),
+);
 
 const streakCelebration = computed(() =>
   reviewStreakCelebration(reviewResult.value, t),
@@ -679,12 +700,39 @@ async function load() {
     planContextReady.value = false;
     openingAiPractice.value = false;
     resetCard();
+    applyVocabReviewResume();
   } catch {
     error.value = t("common.fail");
     words.value = [];
   } finally {
     loading.value = false;
   }
+}
+
+function applyVocabReviewResume() {
+  const resume = loadVocabReviewResume();
+  if (!resume) return;
+  const targetIndex = resolveVocabReviewResumeIndex(words.value, resume);
+  clearVocabReviewResume();
+  if (targetIndex == null) return;
+  index.value = targetIndex;
+  if (resume.flipped) flipped.value = true;
+}
+
+function goToContextArticle() {
+  const word = currentWord.value;
+  if (!word || !shouldShowContextRevisitLink(word)) return;
+  saveVocabReviewResume({
+    index: index.value,
+    flipped: flipped.value,
+    wordId: word.id,
+  });
+  saveVocabContextRevisitPayload({
+    articleId: word.context_article_id,
+    sentence: pickReviewContext(word, sessionContextMap.value),
+    word: word.word,
+  });
+  router.push(vocabContextRevisitRoute(word));
 }
 
 async function resolveCurrentWordId() {
@@ -1297,6 +1345,8 @@ onUnmounted(() => {
 
 .flashcard-back {
   transform: rotateY(180deg);
+  max-height: 100%;
+  overflow-y: auto;
 }
 
 .flashcard-word {
@@ -1341,6 +1391,19 @@ onUnmounted(() => {
   line-height: 1.5;
   color: var(--text-secondary);
   text-align: center;
+}
+
+.flashcard-revisit-link {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .flashcard-context-mark {

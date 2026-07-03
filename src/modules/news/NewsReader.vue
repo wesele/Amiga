@@ -198,6 +198,13 @@
       {{ t("news.comprehensionRevisitStrip") }}
     </div>
 
+    <div
+      v-if="vocabContextRevisitActive && article?.rewritten_body"
+      class="comprehension-revisit-strip"
+    >
+      {{ t("vocab.contextRevisitStrip") }}
+    </div>
+
     <!-- Fixed bottom bar -->
     <div v-if="article?.rewritten_body" class="bottom-bar">
       <button
@@ -597,6 +604,11 @@ import {
   rangesForParagraph,
   scrollToFirstEvidence,
 } from "./comprehensionEvidence.js";
+import {
+  clearVocabContextRevisitPayload,
+  loadVocabContextRevisitPayload,
+  shouldReturnToVocabReview,
+} from "@/modules/vocab/vocabContextRevisit.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -675,6 +687,7 @@ const comprehensionOfferAttempted = ref(false);
 const comprehensionRetakeMode = ref(false);
 const comprehensionQuizAvailable = ref(false);
 const comprehensionRevisitActive = ref(false);
+const vocabContextRevisitActive = ref(false);
 const evidenceRanges = ref([]);
 const summaryMode = ref("complete");
 const dailyGoalSnapshot = ref(null);
@@ -880,6 +893,14 @@ function onMicroReviewCardClick() {
 }
 
 function handleAndroidBackInPage() {
+  if (vocabContextRevisitActive.value) {
+    clearVocabContextRevisit();
+  }
+  if (shouldReturnToVocabReview(route)) {
+    clearVocabContextRevisitPayload();
+    router.replace({ name: "vocab-review" });
+    return "navigated";
+  }
   if (microReviewOpen.value) {
     collapseMicroReview();
     return "navigated";
@@ -1033,6 +1054,9 @@ onMounted(async () => {
       await offerComprehensionRetake();
       router.replace({ name: "reader", params: { id: String(props.id) } });
     }
+    if (route.query.vocabContextRevisit === "1") {
+      await enterVocabContextRevisit();
+    }
   } catch (e) {
     console.error("Failed to load article:", e);
   }
@@ -1142,16 +1166,30 @@ function articleBodyText() {
 }
 
 function clearComprehensionRevisit() {
-  if (!comprehensionRevisitActive.value && !evidenceRanges.value.length) return;
+  if (!comprehensionRevisitActive.value) return;
   comprehensionRevisitActive.value = false;
-  evidenceRanges.value = [];
+  if (!vocabContextRevisitActive.value) {
+    evidenceRanges.value = [];
+  }
+  refreshEvidenceOnTokens();
+}
+
+function clearVocabContextRevisit() {
+  if (!vocabContextRevisitActive.value) return;
+  vocabContextRevisitActive.value = false;
+  if (!comprehensionRevisitActive.value) {
+    evidenceRanges.value = [];
+  }
   refreshEvidenceOnTokens();
 }
 
 function refreshEvidenceOnTokens() {
   const body = articleBodyText();
   if (!body) return;
-  const ranges = comprehensionRevisitActive.value ? evidenceRanges.value : [];
+  const ranges =
+    comprehensionRevisitActive.value || vocabContextRevisitActive.value
+      ? evidenceRanges.value
+      : [];
   const baseTokens = applyMasteryToTokens(tokenizeArticleText(body), masteryMap.value);
   tokens.value = applyEvidenceToTokens(baseTokens, ranges);
 
@@ -1400,13 +1438,22 @@ watch(() => article.value?.original_body, (val) => {
 });
 
 function onArticleBodyClick() {
-  if (!comprehensionRevisitActive.value) return;
-  clearComprehensionRevisit();
+  if (comprehensionRevisitActive.value) {
+    clearComprehensionRevisit();
+    return;
+  }
+  if (vocabContextRevisitActive.value) {
+    clearVocabContextRevisit();
+  }
 }
 
 function onWordTap(token) {
   if (comprehensionRevisitActive.value) {
     clearComprehensionRevisit();
+    return;
+  }
+  if (vocabContextRevisitActive.value) {
+    clearVocabContextRevisit();
     return;
   }
   if (!token.isWord) return;
@@ -1776,7 +1823,42 @@ async function skipComprehensionQuiz() {
   void loadPostReadingContext();
 }
 
+async function enterVocabContextRevisit() {
+  clearComprehensionRevisit();
+  showCompletionSummary.value = false;
+  showComprehensionQuiz.value = false;
+
+  const body = articleBodyText();
+  if (!body) {
+    showWordToast(t("vocab.contextRevisitNoArticle"));
+    return;
+  }
+
+  const payload = loadVocabContextRevisitPayload();
+  const sentence = payload?.sentence?.trim();
+  if (!sentence) {
+    showWordToast(t("vocab.contextRevisitFallback"));
+    return;
+  }
+
+  const ranges = findEvidenceRanges(body, [sentence]);
+  if (!ranges.length) {
+    showWordToast(t("vocab.contextRevisitFallback"));
+    return;
+  }
+
+  vocabContextRevisitActive.value = true;
+  evidenceRanges.value = ranges;
+  refreshEvidenceOnTokens();
+  await nextTick();
+  const scrolled = scrollToFirstEvidence(articleBodyRef.value);
+  showWordToast(
+    t(scrolled ? "vocab.contextRevisitToast" : "vocab.contextRevisitFallback"),
+  );
+}
+
 async function enterComprehensionRevisit(result = comprehensionResult.value) {
+  clearVocabContextRevisit();
   const body = articleBodyText();
   const sentences = collectEvidenceSentences(result);
   showCompletionSummary.value = false;
