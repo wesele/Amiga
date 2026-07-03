@@ -35,6 +35,21 @@ describe("ContextSpeechControls", () => {
     expect(wrapper.find(".context-speech-controls").exists()).toBe(false);
   });
 
+  it("uses custom aria-label keys when provided", () => {
+    const wrapper = mount(ContextSpeechControls, {
+      props: {
+        text: "El banco central subió las tasas.",
+        language: "es",
+        visible: true,
+        playLabelKey: "news.playEvidenceSentence",
+        slowLabelKey: "news.playEvidenceSentenceSlow",
+      },
+    });
+    const buttons = wrapper.findAll(".context-speech-btn");
+    expect(buttons[0].attributes("aria-label")).toBe("听关键句");
+    expect(buttons[1].attributes("aria-label")).toBe("慢速听关键句");
+  });
+
   it("hides controls when not visible", () => {
     const wrapper = mount(ContextSpeechControls, {
       props: {

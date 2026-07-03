@@ -9,7 +9,7 @@
       type="button"
       class="context-speech-btn"
       :class="{ 'is-speaking': speaking }"
-      :aria-label="t('vocab.playContextSentence')"
+      :aria-label="t(playLabelKey)"
       :disabled="speechBusy"
       @click="playNormal"
     >
@@ -19,7 +19,7 @@
       type="button"
       class="context-speech-btn is-slow"
       :class="{ 'is-speaking': slowSpeaking }"
-      :aria-label="t('vocab.playContextSentenceSlow')"
+      :aria-label="t(slowLabelKey)"
       :disabled="speechBusy"
       @click="playSlow"
     >
@@ -43,7 +43,11 @@ const props = defineProps({
   text: { type: String, default: "" },
   language: { type: String, default: "" },
   visible: { type: Boolean, default: true },
+  playLabelKey: { type: String, default: "vocab.playContextSentence" },
+  slowLabelKey: { type: String, default: "vocab.playContextSentenceSlow" },
 });
+
+const emit = defineEmits(["before-play"]);
 
 const { t } = useI18n();
 
@@ -67,6 +71,7 @@ function cancelSpeech() {
 
 async function playSpeech(rate = SPEECH_RATE_NORMAL) {
   if (!showControls.value) return;
+  emit("before-play");
   globalThis.speechSynthesis?.cancel();
   const isSlow = rate !== SPEECH_RATE_NORMAL;
   if (isSlow) slowSpeaking.value = true;

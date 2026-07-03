@@ -7,6 +7,8 @@ import {
   paragraphOffsets,
   rangesForParagraph,
   scrollToFirstEvidence,
+  scrollToEvidenceSentence,
+  findEvidenceRangeForSentence,
   tokenInEvidenceRange,
 } from "../comprehensionEvidence.js";
 import { tokenizeArticleText } from "../articleText.js";
@@ -81,6 +83,20 @@ describe("token evidence helpers", () => {
     expect(
       highlighted.some((token) => token.text.toLowerCase().includes("inflación")),
     ).toBe(true);
+  });
+
+  it("anchors the first token per evidence sentence for DOM lookup", () => {
+    const ranges = findEvidenceRanges(BODY, [
+      "El banco central subió las tasas para frenar la inflación.",
+      "La inflación sigue siendo alta este año.",
+    ]);
+    const tokens = applyEvidenceToTokens(tokenizeArticleText(BODY), ranges);
+    const anchors = tokens.filter((token) => token.evidenceAnchor);
+    expect(anchors).toHaveLength(2);
+    expect(anchors.map((token) => token.evidenceSentence)).toEqual([
+      "El banco central subió las tasas para frenar la inflación.",
+      "La inflación sigue siendo alta este año.",
+    ]);
   });
 
   it("maps paragraph-local ranges from global offsets", () => {

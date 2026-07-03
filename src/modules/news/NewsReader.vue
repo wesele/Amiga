@@ -85,11 +85,16 @@
                 v-if="token.isWord"
                 class="word"
                 :class="[resolveWordClass(token), { 'evidence-highlight': token.inEvidence }]"
+                :data-evidence-sentence="token.evidenceAnchor ? token.evidenceSentence : undefined"
                 @click.stop="onWordTap(token)"
               >
                 {{ token.text }}
               </span>
-              <span v-else :class="{ 'evidence-highlight': token.inEvidence }">{{ token.text }}</span>
+              <span
+                v-else
+                :class="{ 'evidence-highlight': token.inEvidence }"
+                :data-evidence-sentence="token.evidenceAnchor ? token.evidenceSentence : undefined"
+              >{{ token.text }}</span>
             </template>
           </p>
         </template>
@@ -107,9 +112,14 @@
                 v-if="token.isWord"
                 class="word"
                 :class="[resolveWordClass(token), { 'evidence-highlight': token.inEvidence }]"
+                :data-evidence-sentence="token.evidenceAnchor ? token.evidenceSentence : undefined"
                 @click.stop="onWordTap(token)"
               >{{ token.text }}</span>
-              <span v-else :class="{ 'evidence-highlight': token.inEvidence }">{{ token.text }}</span>
+              <span
+                v-else
+                :class="{ 'evidence-highlight': token.inEvidence }"
+                :data-evidence-sentence="token.evidenceAnchor ? token.evidenceSentence : undefined"
+              >{{ token.text }}</span>
             </template>
           </p>
           <p class="para-translation">{{ translations[pidx] || '…' }}</p>
@@ -380,9 +390,26 @@
                 <p v-if="!detail.correct" class="comprehension-result-label">
                   {{ t("news.comprehensionEvidence") }}
                 </p>
-                <p v-if="!detail.correct" class="comprehension-evidence">
-                  {{ detail.question.evidence_sentence }}
-                </p>
+                <div v-if="!detail.correct" class="comprehension-evidence-row">
+                  <p class="comprehension-evidence">
+                    {{ detail.question.evidence_sentence }}
+                  </p>
+                  <ContextSpeechControls
+                    :text="resolveEvidenceSpeechText(detail)"
+                    :language="targetLang"
+                    play-label-key="news.playEvidenceSentence"
+                    slow-label-key="news.playEvidenceSentenceSlow"
+                    @before-play="onEvidenceSpeechBeforePlay"
+                  />
+                </div>
+                <button
+                  v-if="!detail.correct && resolveEvidenceSpeechText(detail)"
+                  type="button"
+                  class="comprehension-evidence-locate"
+                  @click="locateEvidenceInArticle(detail)"
+                >
+                  {{ t("news.locateEvidenceInArticle") }}
+                </button>
                 <p v-if="!detail.correct" class="comprehension-explanation">
                   {{ detail.question.explanation_native }}
                 </p>
@@ -559,6 +586,7 @@ import WordPopup from "@/shared/components/WordPopup.vue";
 import MicroReviewSheet from "@/modules/vocab/MicroReviewSheet.vue";
 import SelectionTranslateOverlay from "@/shared/components/SelectionTranslateOverlay.vue";
 import ArticleListenAlongBar from "./components/ArticleListenAlongBar.vue";
+import ContextSpeechControls from "@/shared/components/ContextSpeechControls.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -634,7 +662,9 @@ import {
   paragraphOffsets,
   rangesForParagraph,
   scrollToFirstEvidence,
+  scrollToEvidenceSentence,
 } from "./comprehensionEvidence.js";
+import { resolveEvidenceSpeechText } from "./comprehensionEvidenceSpeech.js";
 import {
   extractReadableParagraphs,
   shouldPauseListenAlong,
@@ -2008,7 +2038,15 @@ async function enterVocabContextRevisit() {
   );
 }
 
-async function enterComprehensionRevisit(result = comprehensionResult.value) {
+function onEvidenceSpeechBeforePlay() {
+  listenAlongBarRef.value?.resetPlayback?.();
+  globalThis.speechSynthesis?.cancel();
+}
+
+async function enterComprehensionRevisit(
+  result = comprehensionResult.value,
+  targetSentence = null,
+) {
   clearVocabContextRevisit();
   const body = articleBodyText();
   const sentences = collectEvidenceSentences(result);
@@ -2034,10 +2072,24 @@ async function enterComprehensionRevisit(result = comprehensionResult.value) {
   evidenceRanges.value = ranges;
   refreshEvidenceOnTokens();
   await nextTick();
-  const scrolled = scrollToFirstEvidence(articleBodyRef.value);
-  showWordToast(
-    t(scrolled ? "news.comprehensionRevisitToast" : "news.comprehensionRevisitFallback"),
-  );
+  const scrolled = targetSentence
+    ? scrollToEvidenceSentence(articleBodyRef.value, targetSentence)
+    : scrollToFirstEvidence(articleBodyRef.value);
+  const toastKey = targetSentence
+    ? scrolled
+      ? "news.evidenceLocatedToast"
+      : "news.comprehensionRevisitFallback"
+    : scrolled
+      ? "news.comprehensionRevisitToast"
+      : "news.comprehensionRevisitFallback";
+  showWordToast(t(toastKey));
+}
+
+async function locateEvidenceInArticle(detail) {
+  const sentence = resolveEvidenceSpeechText(detail);
+  if (!sentence) return;
+  onEvidenceSpeechBeforePlay();
+  await enterComprehensionRevisit(comprehensionResult.value, sentence);
 }
 
 async function revisitPastComprehension() {
@@ -3077,11 +3129,31 @@ function formatSource(source) {
   color: var(--text-lighter);
 }
 
+.comprehension-evidence-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
 .comprehension-evidence {
+  flex: 1;
   margin: 0;
   font-size: 14px;
   line-height: 1.45;
   color: var(--text);
+}
+
+.comprehension-evidence-locate {
+  margin: 6px 0 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .comprehension-explanation {

@@ -662,6 +662,153 @@ describe("NewsReader mastery visualization", () => {
     expect(replaceSpy).toHaveBeenCalledWith({ name: "vocab-review" });
   });
 
+  it("shows evidence speech controls on wrong comprehension results", async () => {
+    Object.defineProperty(globalThis, "speechSynthesis", {
+      configurable: true,
+      value: { speak: vi.fn(), cancel: vi.fn() },
+    });
+
+    const QUIZ = {
+      questions: [
+        {
+          id: "main-idea",
+          prompt_native: "这篇文章主要讲了什么？",
+          options: [
+            { id: "a", text_native: "央行加息抑制通胀" },
+            { id: "b", text_native: "科技公司发布新手机" },
+          ],
+          correct_option_id: "a",
+          evidence_sentence: "El banco central subió las tasas para frenar la inflación.",
+          explanation_native: "文章重点是央行通过加息应对通胀。",
+        },
+        {
+          id: "detail",
+          prompt_native: "通胀情况如何？",
+          options: [
+            { id: "a", text_native: "仍然偏高" },
+            { id: "b", text_native: "已经消失" },
+          ],
+          correct_option_id: "a",
+          evidence_sentence: "La inflación sigue siendo alta este año.",
+          explanation_native: "文中明确提到通胀仍然偏高。",
+        },
+      ],
+    };
+    getComprehensionQuiz.mockResolvedValue(QUIZ);
+    getArticlesReadingStatus.mockResolvedValue([
+      {
+        article_id: 1,
+        read_at: "2026-07-03 10:00:00",
+        completed: true,
+        comprehension_skipped: true,
+      },
+    ]);
+    getArticle.mockResolvedValue({
+      id: 1,
+      original_title: "Titulo",
+      rewritten_body:
+        "El banco central subió las tasas para frenar la inflación. La inflación sigue siendo alta este año.",
+      rewrite_level: "B1",
+      source: "sample",
+    });
+
+    const router = makeRouter();
+    await router.push({ path: "/news/1", query: { comprehensionRetake: "1" } });
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    await flushPromises();
+
+    await wrapper.findAll(".comprehension-option")[1].trigger("click");
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+    await wrapper.findAll(".comprehension-option")[1].trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".comprehension-result-card.wrong").exists()).toBe(true);
+    expect(wrapper.findAll(".context-speech-controls").length).toBeGreaterThan(0);
+    expect(wrapper.find(".comprehension-evidence-locate").exists()).toBe(true);
+  });
+
+  it("locates a specific evidence sentence in the article from quiz results", async () => {
+    const QUIZ = {
+      questions: [
+        {
+          id: "main-idea",
+          prompt_native: "这篇文章主要讲了什么？",
+          options: [
+            { id: "a", text_native: "央行加息抑制通胀" },
+            { id: "b", text_native: "科技公司发布新手机" },
+          ],
+          correct_option_id: "a",
+          evidence_sentence: "El banco central subió las tasas para frenar la inflación.",
+          explanation_native: "文章重点是央行通过加息应对通胀。",
+        },
+        {
+          id: "detail",
+          prompt_native: "通胀情况如何？",
+          options: [
+            { id: "a", text_native: "仍然偏高" },
+            { id: "b", text_native: "已经消失" },
+          ],
+          correct_option_id: "a",
+          evidence_sentence: "La inflación sigue siendo alta este año.",
+          explanation_native: "文中明确提到通胀仍然偏高。",
+        },
+      ],
+    };
+    getComprehensionQuiz.mockResolvedValue(QUIZ);
+    getArticlesReadingStatus.mockResolvedValue([
+      {
+        article_id: 1,
+        read_at: "2026-07-03 10:00:00",
+        completed: true,
+        comprehension_skipped: true,
+      },
+    ]);
+    getArticle.mockResolvedValue({
+      id: 1,
+      original_title: "Titulo",
+      rewritten_body:
+        "El banco central subió las tasas para frenar la inflación. La inflación sigue siendo alta este año.",
+      rewrite_level: "B1",
+      source: "sample",
+    });
+
+    const router = makeRouter();
+    await router.push({ path: "/news/1", query: { comprehensionRetake: "1" } });
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    await flushPromises();
+
+    await wrapper.findAll(".comprehension-option")[1].trigger("click");
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+    await wrapper.findAll(".comprehension-option")[1].trigger("click");
+    await flushPromises();
+
+    const locateButtons = wrapper.findAll(".comprehension-evidence-locate");
+    expect(locateButtons.length).toBe(2);
+    await locateButtons[1].trigger("click");
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.find(".comprehension-revisit-strip").exists()).toBe(true);
+    expect(wrapper.find(".comprehension-quiz").exists()).toBe(false);
+    expect(
+      wrapper.findAll("[data-evidence-sentence='La inflación sigue siendo alta este año.']").length,
+    ).toBeGreaterThan(0);
+  });
+
   it("navigates back immediately when reading is too short with no interaction", async () => {
     const router = makeRouter();
     const replaceSpy = vi.spyOn(router, "replace");

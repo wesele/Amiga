@@ -2,7 +2,7 @@
  * Visual snapshot for issue #74 reading comprehension quiz.
  * Run: SCREENSHOT=1 npm test -- --run src/modules/news/__tests__/screenshotComprehension.spec.js
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { createMemoryHistory, createRouter } from "vue-router";
@@ -167,6 +167,10 @@ describe.skipIf(!takeScreenshot)("screenshotComprehension", () => {
     vi.useFakeTimers();
     setActivePinia(createPinia());
     setLocale("zh", { persist: false });
+    globalThis.speechSynthesis = {
+      cancel: vi.fn(),
+      speak: vi.fn(),
+    };
     lookupWordsMastery.mockResolvedValue([]);
     getComprehensionQuiz.mockResolvedValue(QUIZ);
     getDailyGoalProgress.mockResolvedValue({
@@ -186,6 +190,10 @@ describe.skipIf(!takeScreenshot)("screenshotComprehension", () => {
         "El banco central subió las tasas para frenar la inflación. La inflación sigue siendo alta este año.",
       source: "sample",
     });
+  });
+
+  afterEach(() => {
+    delete globalThis.speechSynthesis;
   });
 
   it("captures answering, wrong-result, and perfect-summary states", async () => {
@@ -211,6 +219,7 @@ describe.skipIf(!takeScreenshot)("screenshotComprehension", () => {
     await wrapper.findAll(".comprehension-option")[1].trigger("click");
     await flushPromises();
     expect(wrapper.find(".comprehension-result-card.wrong").exists()).toBe(true);
+    expect(wrapper.find(".context-speech-controls").exists()).toBe(true);
     writeScreenshot(wrapper, "comprehension-wrong-result");
 
     await wrapper.find(".action-btn.primary").trigger("click");

@@ -78,30 +78,54 @@ export function rangesForParagraph(allRanges, paraStart, paraLength) {
     }));
 }
 
+function stripEvidenceFields(token) {
+  if (!token.inEvidence && !token.evidenceSentence && !token.evidenceAnchor) return token;
+  const {
+    inEvidence: _inEvidence,
+    evidenceSentence: _evidenceSentence,
+    evidenceAnchor: _evidenceAnchor,
+    ...rest
+  } = token;
+  return rest;
+}
+
 /** Annotate tokens with inEvidence based on char offsets within a paragraph. */
 export function applyEvidenceToTokens(tokens, ranges) {
   if (!Array.isArray(tokens)) return [];
   if (!ranges?.length) {
-    return tokens.map((token) => {
-      if (!token.inEvidence) return token;
-      const { inEvidence: _removed, ...rest } = token;
-      return rest;
-    });
+    return tokens.map(stripEvidenceFields);
   }
 
+  const anchoredSentences = new Set();
   let offset = 0;
   return tokens.map((token) => {
     const charStart = offset;
     const charEnd = offset + token.text.length;
     offset = charEnd;
-    const inEvidence = tokenInEvidenceRange(charStart, charEnd, ranges);
-    if (!inEvidence) {
-      if (!token.inEvidence) return token;
-      const { inEvidence: _removed, ...rest } = token;
-      return rest;
-    }
-    return { ...token, inEvidence: true };
+    const matchingRange = ranges.find((range) =>
+      tokenInEvidenceRange(charStart, charEnd, [range]),
+    );
+    if (!matchingRange) return stripEvidenceFields(token);
+
+    const sentence = matchingRange.sentence;
+    const evidenceAnchor = !anchoredSentences.has(sentence);
+    if (evidenceAnchor) anchoredSentences.add(sentence);
+    return {
+      ...token,
+      inEvidence: true,
+      evidenceSentence: sentence,
+      evidenceAnchor,
+    };
   });
+}
+
+/** Find a single evidence range by sentence text (normalized whitespace). */
+export function findEvidenceRangeForSentence(ranges, sentence) {
+  if (!ranges?.length || !sentence) return null;
+  const normalized = normalizeMatchText(sentence);
+  return (
+    ranges.find((range) => normalizeMatchText(range.sentence) === normalized) ?? null
+  );
 }
 
 /** Build paragraph start offsets for a body split on blank lines. */
@@ -121,16 +145,34 @@ export function paragraphOffsets(bodyText) {
   return offsets;
 }
 
+function scrollElementIntoArticleBody(articleBodyEl, el) {
+  const bodyRect = articleBodyEl.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const targetTop = articleBodyEl.scrollTop + (elRect.top - bodyRect.top) - 24;
+  articleBodyEl.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+}
+
 /** Scroll article body to the first highlighted evidence token. */
 export function scrollToFirstEvidence(articleBodyEl) {
   if (!articleBodyEl) return false;
   const first = articleBodyEl.querySelector(".evidence-highlight");
   if (!first) return false;
-  const bodyRect = articleBodyEl.getBoundingClientRect();
-  const elRect = first.getBoundingClientRect();
-  const targetTop = articleBodyEl.scrollTop + (elRect.top - bodyRect.top) - 24;
-  articleBodyEl.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+  scrollElementIntoArticleBody(articleBodyEl, first);
   return true;
+}
+
+/** Scroll article body to the first anchor for a specific evidence sentence. */
+export function scrollToEvidenceSentence(articleBodyEl, sentence) {
+  if (!articleBodyEl || !sentence) return false;
+  const normalized = normalizeMatchText(sentence);
+  const anchors = articleBodyEl.querySelectorAll("[data-evidence-sentence]");
+  for (const el of anchors) {
+    if (normalizeMatchText(el.dataset.evidenceSentence) === normalized) {
+      scrollElementIntoArticleBody(articleBodyEl, el);
+      return true;
+    }
+  }
+  return false;
 }
 
 /** @deprecated Use scrollToFirstEvidence — kept for tests referencing scroll offset helper. */
