@@ -277,6 +277,68 @@ describe("LearnHubPage", () => {
     expect(card.text()).toContain("今日目标");
     expect(card.text()).toContain("1/2");
     expect(card.text()).toContain("3 天连胜");
+    expect(card.classes()).toContain("has-active-day");
+    expect(wrapper.find(".goal-ring-label.is-active-day").text()).toBe("活跃");
+  });
+
+  it("shows active-day dual-track when reading secured streak without lessons", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 0,
+          articles_read_today: 1,
+          words_reviewed_today: 0,
+          review_sessions_today: 0,
+          target_lessons: 2,
+          progress_pct: 0,
+          goal_met: false,
+          streak_current: 29,
+          practiced_today: true,
+        });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".daily-goal-card");
+    expect(card.classes()).toContain("has-active-day");
+    expect(wrapper.find(".goal-ring-label.is-active-day").text()).toBe("活跃");
+    expect(wrapper.find(".goal-lesson-track-label").text()).toBe("0/2");
+    expect(card.text()).toContain("阅读已保住连胜，还差 2 节课达成目标");
+    expect(card.text()).not.toMatch(/goal-ring-label[^>]*>0\/2/);
+  });
+
+  it("keeps celebration state when daily goal is met", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 2,
+          target_lessons: 2,
+          progress_pct: 100,
+          goal_met: true,
+          streak_current: 5,
+          practiced_today: true,
+        });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".daily-goal-card");
+    expect(card.classes()).toContain("is-complete");
+    expect(card.classes()).not.toContain("has-active-day");
+    expect(wrapper.find(".goal-ring-label").text()).toBe("✓");
+    expect(wrapper.find(".goal-lesson-track").exists()).toBe(false);
   });
 
   it("shows weekly goal strip inside daily goal card", async () => {

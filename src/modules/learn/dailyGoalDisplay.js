@@ -37,3 +37,22 @@ export function dailyGoalSubParams(dailyGoal) {
   }
   return {};
 }
+
+/** 今日是否有活跃行为（续连胜），与课时目标是否达成无关 */
+export function isActiveDaySecured(dailyGoal) {
+  return Boolean(dailyGoal?.practiced_today);
+}
+
+/** 是否「活跃已达成但课时未达标」— 双轨卡片的特殊态 */
+export function isPartialDayProgress(dailyGoal) {
+  if (!dailyGoal || dailyGoal.goal_met) return false;
+  return isActiveDaySecured(dailyGoal) && dailyGoalRemainingLessons(dailyGoal) > 0;
+}
+
+/** 圆环中心文案 i18n key；goal_met 时返回 null（模板用 ✓） */
+export function dailyGoalRingLabelKey(dailyGoal) {
+  if (!dailyGoal) return "learn.dailyGoalStart";
+  if (dailyGoal.goal_met) return null;
+  if (isPartialDayProgress(dailyGoal)) return "learn.dailyGoalActiveDay";
+  return "learn.dailyGoalProgress";
+}

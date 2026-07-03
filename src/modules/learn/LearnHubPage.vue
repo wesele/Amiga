@@ -81,7 +81,11 @@
     <div
       v-if="dailyGoal"
       class="daily-goal-card"
-      :class="{ 'is-complete': dailyGoal.goal_met, 'has-resume': resumeTarget }"
+      :class="{
+        'is-complete': dailyGoal.goal_met,
+        'has-resume': resumeTarget,
+        'has-active-day': isPartialDay,
+      }"
     >
       <button
         v-if="resumeTarget"
@@ -96,23 +100,56 @@
         class="daily-goal-main"
         @click="goToPath"
       >
-      <div class="goal-ring" aria-hidden="true">
-        <svg viewBox="0 0 44 44" class="goal-ring-svg">
-          <circle class="goal-ring-track" cx="22" cy="22" r="18" />
-          <circle
-            class="goal-ring-fill"
-            cx="22"
-            cy="22"
-            r="18"
-            :style="{ strokeDashoffset: ringOffset }"
-          />
-        </svg>
-        <span class="goal-ring-label">
-          {{ dailyGoal.goal_met ? "✓" : t("learn.dailyGoalProgress", {
-            done: dailyGoalRingDone,
-            total: dailyGoal.target_lessons,
-          }) }}
-        </span>
+      <div
+        class="goal-ring-wrap"
+        :aria-label="dailyGoalRingAriaLabel"
+        :aria-hidden="dailyGoalRingAriaHidden"
+      >
+        <div class="goal-ring">
+          <svg viewBox="0 0 44 44" class="goal-ring-svg">
+            <circle
+              v-if="isPartialDay"
+              class="goal-ring-inner"
+              cx="22"
+              cy="22"
+              r="14"
+            />
+            <circle class="goal-ring-track" cx="22" cy="22" r="18" />
+            <circle
+              class="goal-ring-fill"
+              cx="22"
+              cy="22"
+              r="18"
+              :style="{ strokeDashoffset: ringOffset }"
+            />
+          </svg>
+          <span class="goal-ring-label" :class="{ 'is-active-day': isPartialDay }">
+            <template v-if="dailyGoal.goal_met">✓</template>
+            <template v-else-if="isPartialDay">
+              <span aria-hidden="true">{{ t("learn.dailyGoalActiveDay") }}</span>
+            </template>
+            <template v-else>
+              {{ t("learn.dailyGoalProgress", {
+                done: dailyGoalRingDone,
+                total: dailyGoal.target_lessons,
+              }) }}
+            </template>
+          </span>
+        </div>
+        <div v-if="isPartialDay" class="goal-lesson-track" aria-hidden="true">
+          <div class="goal-lesson-track-bar">
+            <div
+              class="goal-lesson-track-fill"
+              :style="{ width: `${dailyGoal.progress_pct}%` }"
+            />
+          </div>
+          <span class="goal-lesson-track-label">
+            {{ t("learn.dailyGoalLessonTrack", {
+              done: dailyGoalRingDone,
+              total: dailyGoal.target_lessons,
+            }) }}
+          </span>
+        </div>
       </div>
       <div class="goal-copy">
         <div class="goal-title-row">
@@ -513,6 +550,7 @@ import { loadDueMistakes } from "@/modules/path/mistakeReviewStore.js";
 import {
   dailyGoalRingDone as ringDone,
   dailyGoalRemainingLessons,
+  isPartialDayProgress,
 } from "./dailyGoalDisplay.js";
 import {
   buildTodayActivityItems,
@@ -557,6 +595,23 @@ const ringOffset = computed(() => {
 });
 
 const dailyGoalRingDone = computed(() => ringDone(dailyGoal.value));
+
+const isPartialDay = computed(() => isPartialDayProgress(dailyGoal.value));
+
+const dailyGoalRingAriaLabel = computed(() => {
+  if (!dailyGoal.value) return undefined;
+  if (dailyGoal.value.goal_met) return t("learn.dailyGoalMet");
+  if (isPartialDay.value) return t("learn.dailyGoalActiveDayAria");
+  return t("learn.dailyGoalProgress", {
+    done: dailyGoalRingDone.value,
+    total: dailyGoal.value.target_lessons,
+  });
+});
+
+const dailyGoalRingAriaHidden = computed(() => {
+  if (!dailyGoal.value) return true;
+  return !dailyGoal.value.goal_met && !isPartialDay.value;
+});
 
 const dailyGoalSubI18nKey = computed(() => dailyGoalSubKeyWithActivity(dailyGoal.value));
 
@@ -2283,6 +2338,11 @@ onMounted(loadHubData);
   background: var(--green-bg);
 }
 
+.daily-goal-card.has-active-day .daily-goal-main {
+  border-color: rgba(245, 166, 35, 0.45);
+  background: var(--orange-bg);
+}
+
 .goal-continue-btn {
   position: absolute;
   top: 10px;
@@ -2309,17 +2369,28 @@ onMounted(loadHubData);
   background: var(--green);
 }
 
+.goal-ring-wrap {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
 .goal-ring {
   position: relative;
   width: 52px;
   height: 52px;
-  flex-shrink: 0;
 }
 
 .goal-ring-svg {
   width: 100%;
   height: 100%;
   transform: rotate(-90deg);
+}
+
+.goal-ring-inner {
+  fill: rgba(245, 166, 35, 0.2);
 }
 
 .goal-ring-track {
@@ -2355,6 +2426,41 @@ onMounted(loadHubData);
 .is-complete .goal-ring-label {
   font-size: 18px;
   color: var(--green-hover);
+}
+
+.goal-ring-label.is-active-day {
+  font-size: 16px;
+  color: var(--orange-hover);
+}
+
+.goal-lesson-track {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 52px;
+}
+
+.goal-lesson-track-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--gray-light);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.goal-lesson-track-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+.goal-lesson-track-label {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-light);
+  white-space: nowrap;
 }
 
 .goal-copy {

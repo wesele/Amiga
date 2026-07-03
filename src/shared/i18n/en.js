@@ -84,6 +84,9 @@ export default {
     dailyGoalWithReview: "Daily goal {done}/{total} (includes {review} review)",
     dailyGoalReadingProgress:
       "Reading kept your streak — {remaining} more lesson(s) to hit today's goal",
+    dailyGoalActiveDay: "Active",
+    dailyGoalActiveDayAria: "Practiced today — streak secured",
+    dailyGoalLessonTrack: "{done}/{total}",
     todayActivity: "Today's activity",
     todayActivityEmpty: "You haven't started learning today",
     todayLessons: "{n} lesson(s)",
