@@ -17,6 +17,8 @@ export const NAV_BADGE_MAX = 9;
  * @property {number} [dueVocabCount]
  * @property {number} [newsUnreadCount]
  * @property {object | null} [continueReadingArticle]
+ * @property {number} [pendingComprehensionCount]
+ * @property {object | null} [pendingComprehensionArticle]
  * @property {object | null} [pendingVocab]
  * @property {PendingAiPractice | null} [pendingAiPractice]
  * @property {number} [localHour]
@@ -35,6 +37,7 @@ function learnAttentionItems(ctx) {
     dueVocabCount = 0,
     pendingVocab = null,
     continueReadingArticle = null,
+    pendingComprehensionCount = 0,
     localHour = new Date().getHours(),
   } = ctx;
   const items = [];
@@ -67,6 +70,10 @@ function learnAttentionItems(ctx) {
 
   if (isContinueReadingCandidate(continueReadingArticle)) {
     items.push({ priority: 5, kind: "continueReading" });
+  }
+
+  if (pendingComprehensionCount > 0) {
+    items.push({ priority: 6, kind: "comprehensionRetake" });
   }
 
   return items;
@@ -116,6 +123,7 @@ export function computeModuleBadges(ctx) {
     dueVocabCount = 0,
     pendingVocab = null,
     newsUnreadCount = 0,
+    pendingComprehensionCount = 0,
   } = ctx;
 
   let path = { show: false, count: 0, labelKey: "", labelParams: {} };
@@ -156,12 +164,22 @@ export function computeModuleBadges(ctx) {
     };
   }
 
-  const news = {
-    show: newsUnreadCount > 0,
-    count: newsUnreadCount,
-    labelKey: "learn.newsUnreadBadge",
-    labelParams: { n: newsUnreadCount },
-  };
+  let news = { show: false, count: 0, labelKey: "", labelParams: {} };
+  if (newsUnreadCount > 0) {
+    news = {
+      show: true,
+      count: newsUnreadCount,
+      labelKey: "learn.newsUnreadBadge",
+      labelParams: { n: newsUnreadCount },
+    };
+  } else if (pendingComprehensionCount > 0) {
+    news = {
+      show: true,
+      count: pendingComprehensionCount,
+      labelKey: "learn.newsComprehensionBadge",
+      labelParams: { n: pendingComprehensionCount },
+    };
+  }
 
   return { path, news, vocab };
 }

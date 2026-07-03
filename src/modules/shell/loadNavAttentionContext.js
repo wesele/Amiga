@@ -14,7 +14,9 @@ import { pairStatsKey } from "@/modules/learn/questionTypeStats.js";
 import { findContinueReadingCandidate } from "@/modules/news/readingProgress.js";
 import {
   buildStatusMap,
+  countRetakeablePendingComprehension,
   countUnreadArticles,
+  findPendingComprehensionCandidate,
 } from "@/modules/news/newsReadingStatus.js";
 import { peekPendingReadingVocab } from "@/modules/news/pendingReadingVocab.js";
 
@@ -74,6 +76,8 @@ export async function loadNavAttentionContext(options = {}, { force = false } = 
   let dueVocabCount = 0;
   let newsUnreadCount = 0;
   let continueReadingArticle = null;
+  let pendingComprehensionCount = 0;
+  let pendingComprehensionArticle = null;
 
   try {
     if (userId) {
@@ -115,11 +119,15 @@ export async function loadNavAttentionContext(options = {}, { force = false } = 
         const statusMap = buildStatusMap(rows);
         newsUnreadCount = countUnreadArticles(statusMap, articles);
         continueReadingArticle = findContinueReadingCandidate(articles, statusMap);
+        pendingComprehensionCount = countRetakeablePendingComprehension(statusMap, articles);
+        pendingComprehensionArticle = findPendingComprehensionCandidate(articles, statusMap);
       }
     }
   } catch {
     newsUnreadCount = 0;
     continueReadingArticle = null;
+    pendingComprehensionCount = 0;
+    pendingComprehensionArticle = null;
   }
 
   const ctx = {
@@ -129,6 +137,8 @@ export async function loadNavAttentionContext(options = {}, { force = false } = 
     dueVocabCount,
     newsUnreadCount,
     continueReadingArticle,
+    pendingComprehensionCount,
+    pendingComprehensionArticle,
     pendingVocab: peekPendingReadingVocab(),
     pendingAiPractice: peekPendingAiPractice(),
     localHour: new Date().getHours(),
@@ -147,6 +157,8 @@ export function buildNavAttentionContextFromHub({
   dueVocabWords = [],
   newsUnreadCount = 0,
   continueReadingArticle = null,
+  pendingComprehensionCount = 0,
+  pendingComprehensionArticle = null,
   pendingVocabBanner = null,
   localHour = new Date().getHours(),
 } = {}) {
@@ -157,6 +169,8 @@ export function buildNavAttentionContextFromHub({
     dueVocabCount: dueVocabWords?.length ?? 0,
     newsUnreadCount,
     continueReadingArticle,
+    pendingComprehensionCount,
+    pendingComprehensionArticle,
     pendingVocab: pendingVocabBanner,
     pendingAiPractice: peekPendingAiPractice(),
     localHour,

@@ -59,6 +59,16 @@ describe("computeLearnNavBadge", () => {
     expect(badge.kind).toBe("streakAtRisk");
   });
 
+  it("includes pending comprehension retake in learn badge count", () => {
+    const badge = computeLearnNavBadge({
+      pendingComprehensionCount: 2,
+      localHour: 10,
+    });
+    expect(badge.show).toBe(true);
+    expect(badge.count).toBe(1);
+    expect(badge.kind).toBe("comprehensionRetake");
+  });
+
   it("includes pending vocab and continue-reading items", () => {
     const badge = computeLearnNavBadge({
       pendingVocab: { entries: [{ word: "hola", context: "Hola" }] },
@@ -132,5 +142,24 @@ describe("computeModuleBadges", () => {
     expect(badges.vocab.labelParams).toEqual({ n: 4 });
     expect(badges.news.labelKey).toBe("learn.newsUnreadBadge");
     expect(badges.news.labelParams).toEqual({ n: 2 });
+  });
+
+  it("shows comprehension badge on news tile when unread is zero", () => {
+    const badges = computeModuleBadges({
+      newsUnreadCount: 0,
+      pendingComprehensionCount: 2,
+    });
+    expect(badges.news.show).toBe(true);
+    expect(badges.news.labelKey).toBe("learn.newsComprehensionBadge");
+    expect(badges.news.labelParams).toEqual({ n: 2 });
+  });
+
+  it("prefers unread badge over comprehension badge on news tile", () => {
+    const badges = computeModuleBadges({
+      newsUnreadCount: 3,
+      pendingComprehensionCount: 2,
+    });
+    expect(badges.news.labelKey).toBe("learn.newsUnreadBadge");
+    expect(badges.news.labelParams).toEqual({ n: 3 });
   });
 });

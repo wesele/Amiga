@@ -109,6 +109,79 @@ describe("learningHubFocus", () => {
     expect(focus.route.name).toBe("news");
   });
 
+  const pendingComprehensionArticle = {
+    articleId: 9,
+    title: "昨夜科技要闻",
+    comprehensionSkipped: true,
+    comprehensionScore: null,
+    total: 2,
+  };
+
+  it("surfaces comprehension retake before mistakes when a pending article exists", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: { goal_met: true, practiced_today: true },
+      dueMistakes: 2,
+      pendingComprehensionArticle,
+      pendingComprehensionCount: 1,
+      localHour: 10,
+    });
+    expect(focus.id).toBe(FOCUS_IDS.COMPREHENSION_RETAKE);
+    expect(focus.route).toEqual({
+      name: "reader",
+      params: { id: 9 },
+      query: { comprehensionRetake: "1" },
+    });
+    expect(focus.articleTitle).toBe("昨夜科技要闻");
+  });
+
+  it("keeps continue reading ahead of comprehension retake", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: { goal_met: true, practiced_today: true },
+      continueReadingArticle,
+      pendingComprehensionArticle,
+      pendingComprehensionCount: 2,
+      localHour: 10,
+    });
+    expect(focus.id).toBe(FOCUS_IDS.CONTINUE_READING);
+  });
+
+  it("adds comprehension retake secondary when hero is elsewhere and count > 1", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: { goal_met: true, practiced_today: true },
+      dueMistakes: 2,
+      localHour: 10,
+    });
+    const suggestions = pickSecondarySuggestions(
+      {
+        dueMistakes: 2,
+        dueVocabWords: [],
+        pendingComprehensionCount: 3,
+        pendingComprehensionArticle,
+      },
+      focus,
+    );
+    expect(suggestions).toContainEqual({ type: "comprehensionRetake", count: 2 });
+  });
+
+  it("omits duplicate comprehension retake from secondary suggestions when it is the hero", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: { goal_met: true, practiced_today: true },
+      pendingComprehensionArticle,
+      pendingComprehensionCount: 2,
+      localHour: 10,
+    });
+    const suggestions = pickSecondarySuggestions(
+      {
+        pendingComprehensionCount: 2,
+        pendingComprehensionArticle,
+        dueMistakes: 0,
+        dueVocabWords: [],
+      },
+      focus,
+    );
+    expect(suggestions.some((item) => item.type === "comprehensionRetake")).toBe(false);
+  });
+
   it("falls back to explore path when everything is complete", () => {
     const focus = pickLearningHubFocus({
       dailyGoal: { goal_met: true, practiced_today: true },

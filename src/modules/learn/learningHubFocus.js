@@ -7,6 +7,7 @@ export const FOCUS_IDS = {
   STREAK_AT_RISK: "streakAtRisk",
   CONTINUE_SECTION: "continueSection",
   CONTINUE_READING: "continueReading",
+  COMPREHENSION_RETAKE: "comprehensionRetake",
   READ_NEWS: "readNews",
   MISTAKE_REVIEW: "mistakeReview",
   VOCAB_REVIEW: "vocabReview",
@@ -29,6 +30,32 @@ function continueReadingFocus(article) {
     scrollPct: article.scrollPct,
     remainingPct: article.remainingPct,
   };
+}
+
+function comprehensionRetakeRoute(article) {
+  return {
+    name: "reader",
+    params: { id: article.articleId },
+    query: { comprehensionRetake: "1" },
+  };
+}
+
+function comprehensionRetakeFocus(article, pendingCount = 1) {
+  return {
+    id: FOCUS_IDS.COMPREHENSION_RETAKE,
+    route: comprehensionRetakeRoute(article),
+    icon: "🧠",
+    articleTitle: article.title,
+    articleId: article.articleId,
+    comprehensionSkipped: article.comprehensionSkipped,
+    comprehensionScore: article.comprehensionScore,
+    total: article.total ?? 2,
+    pendingCount,
+  };
+}
+
+function isPendingComprehensionCandidate(article) {
+  return Boolean(article?.articleId);
 }
 
 function resolveStreakAtRiskAction(ctx) {
@@ -131,6 +158,13 @@ export function pickLearningHubFocus(ctx) {
     return continueReadingFocus(ctx.continueReadingArticle);
   }
 
+  if (isPendingComprehensionCandidate(ctx.pendingComprehensionArticle)) {
+    return comprehensionRetakeFocus(
+      ctx.pendingComprehensionArticle,
+      ctx.pendingComprehensionCount ?? 1,
+    );
+  }
+
   if (dueMistakes > 0) {
     return {
       id: FOCUS_IDS.MISTAKE_REVIEW,
@@ -203,6 +237,8 @@ export function pickSecondarySuggestions(ctx, focus) {
     dueVocabWords = [],
     focusArea = null,
     continueReadingArticle = null,
+    pendingComprehensionCount = 0,
+    pendingComprehensionArticle = null,
     showAccuracy = false,
     showCombo = false,
     showPerfect = false,
@@ -219,6 +255,20 @@ export function pickSecondarySuggestions(ctx, focus) {
     && !focusShowsContinueReading
   ) {
     suggestions.push({ type: "continueReading", ...continueReadingArticle });
+  }
+
+  if (focusId !== FOCUS_IDS.COMPREHENSION_RETAKE && pendingComprehensionCount > 0) {
+    if (pendingComprehensionCount > 1) {
+      suggestions.push({
+        type: "comprehensionRetake",
+        count: pendingComprehensionCount - 1,
+      });
+    } else if (isPendingComprehensionCandidate(pendingComprehensionArticle)) {
+      suggestions.push({
+        type: "comprehensionRetake",
+        ...pendingComprehensionArticle,
+      });
+    }
   }
 
   if (focusId !== FOCUS_IDS.MISTAKE_REVIEW && dueMistakes > 0) {

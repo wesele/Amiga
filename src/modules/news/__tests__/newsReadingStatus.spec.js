@@ -9,7 +9,9 @@ import {
   comprehensionBadge,
   comprehensionRetakeChipKey,
   countPendingComprehension,
+  countRetakeablePendingComprehension,
   countUnreadArticles,
+  findPendingComprehensionCandidate,
   parseUnknownWordEntries,
   parseUnknownWords,
   serializeUnknownWordEntries,
@@ -162,6 +164,83 @@ describe("newsReadingStatus helpers", () => {
     });
     expect(skipped.showComprehensionRetakeChip).toBe(true);
     expect(skipped.comprehensionRetakeChipKey).toBe("cardComprehensionRetake");
+  });
+
+  it("findPendingComprehensionCandidate prefers skipped over partial and latest read_at", () => {
+    const articles = [
+      { id: 1, original_title: "Partial older" },
+      { id: 2, original_title: "Skipped" },
+      { id: 3, original_title: "Partial newer" },
+    ];
+    const map = buildStatusMap([
+      {
+        article_id: 1,
+        completed: true,
+        comprehension_score: 1,
+        comprehension_skipped: false,
+        read_at: "2026-07-02 10:00:00",
+      },
+      {
+        article_id: 2,
+        completed: true,
+        comprehension_skipped: true,
+        read_at: "2026-07-01 10:00:00",
+      },
+      {
+        article_id: 3,
+        completed: true,
+        comprehension_score: 1,
+        comprehension_skipped: false,
+        read_at: "2026-07-03 10:00:00",
+      },
+    ]);
+    expect(findPendingComprehensionCandidate(articles, map)).toEqual({
+      articleId: 2,
+      title: "Skipped",
+      comprehensionSkipped: true,
+      comprehensionScore: null,
+      total: 2,
+    });
+
+    const partialOnly = buildStatusMap([
+      {
+        article_id: 1,
+        completed: true,
+        comprehension_score: 1,
+        comprehension_skipped: false,
+        read_at: "2026-07-02 10:00:00",
+      },
+      {
+        article_id: 3,
+        completed: true,
+        comprehension_score: 1,
+        comprehension_skipped: false,
+        read_at: "2026-07-03 10:00:00",
+      },
+    ]);
+    expect(findPendingComprehensionCandidate(articles, partialOnly)?.articleId).toBe(3);
+  });
+
+  it("countRetakeablePendingComprehension filters by quiz availability when provided", () => {
+    const articles = [{ id: 1 }, { id: 2 }];
+    const map = buildStatusMap([
+      { article_id: 1, completed: true, comprehension_skipped: true },
+      { article_id: 2, completed: true, comprehension_score: 1, comprehension_skipped: false },
+    ]);
+    expect(countRetakeablePendingComprehension(map, articles)).toBe(2);
+    const quizMap = new Map([[1, true], [2, false]]);
+    expect(
+      countRetakeablePendingComprehension(map, articles, { quizAvailableByArticleId: quizMap }),
+    ).toBe(1);
+    expect(
+      findPendingComprehensionCandidate(articles, map, { quizAvailableByArticleId: quizMap }),
+    ).toEqual({
+      articleId: 1,
+      title: "",
+      comprehensionSkipped: true,
+      comprehensionScore: null,
+      total: 2,
+    });
   });
 
   it("comprehensionRetakeChipKey and countPendingComprehension aggregate retakes", () => {

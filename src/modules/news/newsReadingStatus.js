@@ -85,6 +85,66 @@ export function countPendingComprehension(statusMap, articles, total = COMPREHEN
   return pending;
 }
 
+function isQuizRetakeable(articleId, quizAvailableByArticleId) {
+  if (quizAvailableByArticleId == null) return true;
+  return quizAvailableByArticleId.get(articleId) === true;
+}
+
+/** Count retakeable articles, optionally filtered by quiz availability. */
+export function countRetakeablePendingComprehension(
+  statusMap,
+  articles,
+  { total = COMPREHENSION_QUIZ_TOTAL, quizAvailableByArticleId = null } = {},
+) {
+  let pending = 0;
+  for (const article of articles || []) {
+    const status = statusMap.get(article.id);
+    if (!comprehensionNeedsRetake(status, total)) continue;
+    if (!isQuizRetakeable(article.id, quizAvailableByArticleId)) continue;
+    pending += 1;
+  }
+  return pending;
+}
+
+/**
+ * Pick the best completed article that still needs a comprehension retake.
+ * Priority: skipped (pending) > partial score; within a tier, latest read_at wins.
+ * @returns {{ articleId: number, title: string, comprehensionSkipped: boolean, comprehensionScore: number | null, total: number } | null}
+ */
+export function findPendingComprehensionCandidate(
+  articles,
+  statusMap,
+  { total = COMPREHENSION_QUIZ_TOTAL, quizAvailableByArticleId = null } = {},
+) {
+  let best = null;
+  for (const article of articles || []) {
+    const status = statusMap?.get?.(article.id);
+    if (!comprehensionNeedsRetake(status, total)) continue;
+    if (!isQuizRetakeable(article.id, quizAvailableByArticleId)) continue;
+
+    const skipped = Boolean(status.comprehension_skipped);
+    const score = status.comprehension_score ?? null;
+    const readAt = status.read_at || "";
+
+    if (
+      !best
+      || (skipped && !best.skipped)
+      || (skipped === best.skipped && readAt > best.readAt)
+    ) {
+      best = { article, skipped, score, readAt };
+    }
+  }
+
+  if (!best) return null;
+  return {
+    articleId: best.article.id,
+    title: best.article.original_title || "",
+    comprehensionSkipped: best.skipped,
+    comprehensionScore: best.score,
+    total,
+  };
+}
+
 /** Build a Map<articleId, statusRow> from API rows. */
 export function buildStatusMap(rows) {
   const map = new Map();

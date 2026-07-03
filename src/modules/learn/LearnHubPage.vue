@@ -219,6 +219,38 @@
             <span class="hub-secondary-action">{{ t("learn.continueReadingAction") }}</span>
           </template>
 
+          <template v-else-if="item.type === 'comprehensionRetake'">
+            <span class="hub-secondary-icon" aria-hidden="true">🧠</span>
+            <div class="hub-secondary-copy">
+              <p class="hub-secondary-title">
+                {{
+                  item.title
+                    ? t("learn.comprehensionRetakeFocus", { title: item.title })
+                    : t("learn.comprehensionRetakeMore", { n: item.count })
+                }}
+              </p>
+              <p v-if="item.title" class="hub-secondary-sub">
+                {{
+                  item.comprehensionSkipped
+                    ? t("learn.comprehensionRetakeSkippedSub")
+                    : t("learn.comprehensionRetakePartialSub", {
+                      score: item.comprehensionScore ?? 0,
+                      total: item.total ?? 2,
+                    })
+                }}
+              </p>
+            </div>
+            <span class="hub-secondary-action">
+              {{
+                item.title
+                  ? (item.comprehensionSkipped
+                    ? t("learn.comprehensionRetakeAction")
+                    : t("learn.comprehensionRetakeAgainAction"))
+                  : t("learn.comprehensionRetakeBrowseAction")
+              }}
+            </span>
+          </template>
+
           <template v-else-if="item.type === 'mistakeReview'">
             <span class="mistake-review-icon" aria-hidden="true">🔁</span>
             <div class="mistake-review-copy">
@@ -406,7 +438,9 @@ import {
 } from "@/shared/api.js";
 import {
   buildStatusMap,
+  countRetakeablePendingComprehension,
   countUnreadArticles,
+  findPendingComprehensionCandidate,
 } from "@/modules/news/newsReadingStatus.js";
 import { findContinueReadingCandidate } from "@/modules/news/readingProgress.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
@@ -508,6 +542,8 @@ const readingSummary = ref(null);
 const pendingVocabBanner = ref(null);
 const newsUnreadCount = ref(0);
 const continueReadingArticle = ref(null);
+const pendingComprehensionCount = ref(0);
+const pendingComprehensionArticle = ref(null);
 const lessonPairKey = ref("");
 const localHour = ref(new Date().getHours());
 
@@ -602,6 +638,8 @@ const hubModuleBadges = computed(() =>
       dueVocabWords: dueVocabWords.value,
       newsUnreadCount: newsUnreadCount.value,
       continueReadingArticle: continueReadingArticle.value,
+      pendingComprehensionCount: pendingComprehensionCount.value,
+      pendingComprehensionArticle: pendingComprehensionArticle.value,
       pendingVocabBanner: pendingVocabBanner.value,
       localHour: localHour.value,
     }),
@@ -624,6 +662,8 @@ const hubFocus = computed(() =>
     vocabPreview: vocabReviewPreviewText.value,
     newsUnreadCount: newsUnreadCount.value,
     continueReadingArticle: continueReadingArticle.value,
+    pendingComprehensionCount: pendingComprehensionCount.value,
+    pendingComprehensionArticle: pendingComprehensionArticle.value,
   }),
 );
 
@@ -663,6 +703,8 @@ const secondarySuggestions = computed(() =>
       dueVocabWords: dueVocabWords.value,
       focusArea: focusArea.value,
       continueReadingArticle: continueReadingArticle.value,
+      pendingComprehensionCount: pendingComprehensionCount.value,
+      pendingComprehensionArticle: pendingComprehensionArticle.value,
       showFocusArea: showFocusArea.value,
       showAccuracy: showAccuracyMilestone.value,
       showCombo: showComboMilestone.value,
@@ -696,6 +738,9 @@ const focusHeroTitle = computed(() => {
   }
   if (focus.id === FOCUS_IDS.CONTINUE_READING) {
     return t("learn.focusContinueReadingTitle", { title: focus.articleTitle });
+  }
+  if (focus.id === FOCUS_IDS.COMPREHENSION_RETAKE) {
+    return t("learn.comprehensionRetakeFocus", { title: focus.articleTitle });
   }
   if (focus.id === FOCUS_IDS.CONTINUE_SECTION) {
     return focus.sectionTitle || t("learn.continueLearning");
@@ -755,6 +800,18 @@ const focusHeroSub = computed(() => {
   if (focus.id === FOCUS_IDS.CONTINUE_READING) {
     return t("learn.focusContinueReadingSub", { remainingPct: focus.remainingPct });
   }
+  if (focus.id === FOCUS_IDS.COMPREHENSION_RETAKE) {
+    const base = focus.comprehensionSkipped
+      ? t("learn.comprehensionRetakeSkippedSub")
+      : t("learn.comprehensionRetakePartialSub", {
+        score: focus.comprehensionScore ?? 0,
+        total: focus.total,
+      });
+    if (focus.pendingCount > 1) {
+      return `${base} · ${t("learn.comprehensionRetakeMore", { n: focus.pendingCount - 1 })}`;
+    }
+    return base;
+  }
   if (focus.id === FOCUS_IDS.CONTINUE_SECTION) {
     const section = resumeTarget.value?.section;
     if (section?.kind === "practice" && lessonPairKey.value) {
@@ -801,6 +858,11 @@ const focusHeroAction = computed(() => {
   }
   if (focus.id === FOCUS_IDS.CONTINUE_READING) {
     return t("learn.focusContinueReadingAction");
+  }
+  if (focus.id === FOCUS_IDS.COMPREHENSION_RETAKE) {
+    return focus.comprehensionSkipped
+      ? t("learn.comprehensionRetakeAction")
+      : t("learn.comprehensionRetakeAgainAction");
   }
   if (focus.id === FOCUS_IDS.CONTINUE_SECTION) {
     return t("learn.focusContinueAction");
@@ -945,6 +1007,8 @@ async function loadNewsUnread(userId, targetLang) {
     if (!articles.length) {
       newsUnreadCount.value = 0;
       continueReadingArticle.value = null;
+      pendingComprehensionCount.value = 0;
+      pendingComprehensionArticle.value = null;
       return;
     }
     const ids = articles.map((article) => article.id).filter((id) => id != null);
@@ -952,9 +1016,13 @@ async function loadNewsUnread(userId, targetLang) {
     const map = buildStatusMap(rows);
     newsUnreadCount.value = countUnreadArticles(map, articles);
     continueReadingArticle.value = findContinueReadingCandidate(articles, map);
+    pendingComprehensionCount.value = countRetakeablePendingComprehension(map, articles);
+    pendingComprehensionArticle.value = findPendingComprehensionCandidate(articles, map);
   } catch {
     newsUnreadCount.value = 0;
     continueReadingArticle.value = null;
+    pendingComprehensionCount.value = 0;
+    pendingComprehensionArticle.value = null;
   }
 }
 
@@ -998,6 +1066,8 @@ async function loadHubData() {
     comboMilestone.value = null;
     newsUnreadCount.value = 0;
     continueReadingArticle.value = null;
+    pendingComprehensionCount.value = 0;
+    pendingComprehensionArticle.value = null;
   }
 }
 
@@ -1048,6 +1118,7 @@ function goToFocus() {
 
 function secondaryCardClass(type) {
   if (type === "continueReading") return "hub-secondary-card continue-reading-card";
+  if (type === "comprehensionRetake") return "hub-secondary-card comprehension-retake-card";
   if (type === "mistakeReview") return "mistake-review-card";
   if (type === "vocabReview") return "vocab-review-card";
   if (type === "focusArea") return "focus-area-card";
@@ -1061,6 +1132,18 @@ function secondaryCardClass(type) {
 function onSecondarySuggestion(type, item) {
   if (type === "continueReading" && item?.articleId) {
     router.push({ name: "reader", params: { id: item.articleId } });
+    return;
+  }
+  if (type === "comprehensionRetake") {
+    if (item?.articleId) {
+      router.push({
+        name: "reader",
+        params: { id: item.articleId },
+        query: { comprehensionRetake: "1" },
+      });
+      return;
+    }
+    goToNews();
     return;
   }
   if (type === "mistakeReview") {
