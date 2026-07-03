@@ -433,6 +433,13 @@ export default {
       toPractice: "Start practice",
       toPracticeSub: "Reinforce the words you just learned",
     },
+    microReviewTitle: "Quick review: {n} new word(s)",
+    microReviewHint: "Words you just marked — practice now to lock them in",
+    microReviewFromUnit: "From this unit preview",
+    microReviewNudge: "Marked {n} · mark {remaining} more for instant review",
+    microReviewContinue: "Keep previewing",
+    microReviewLater: "Later",
+    microReviewCta: "Review {n} word(s)",
   },
 
   common: {

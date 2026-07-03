@@ -93,6 +93,21 @@ describe("buildPostTeachingPlan", () => {
     expect(plan.secondary.map((s) => s.id)).toContain(TEACHING_STEP_IDS.AI_PRACTICE);
   });
 
+  it("skips AI practice and vocab review nudges after in-flow micro review", () => {
+    const plan = buildPostTeachingPlan({
+      result: {
+        ...COMPLETE,
+        next_section_id: "zh-es/U01-PRACTICE",
+      },
+      sessionUnknownWords: ["hola", "adiós", "gracias"],
+      microReviewCompleted: true,
+      dueVocabAtStart: 4,
+    });
+    expect(plan.primary.id).toBe(TEACHING_STEP_IDS.NEXT_NODE);
+    expect(plan.secondary.map((s) => s.id)).not.toContain(TEACHING_STEP_IDS.AI_PRACTICE);
+    expect(plan.secondary.map((s) => s.id)).not.toContain(TEACHING_STEP_IDS.VOCAB_REVIEW);
+  });
+
   it("adds celebration query when returning to the path map after teaching", () => {
     const plan = buildPostTeachingPlan({
       result: {

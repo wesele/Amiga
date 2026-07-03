@@ -435,6 +435,13 @@ export default {
       toPractice: "开始练习",
       toPracticeSub: "巩固刚学的词",
     },
+    microReviewTitle: "趁热巩固 {n} 个生词",
+    microReviewHint: "刚标「不认识」的词，现在练一遍记得更牢",
+    microReviewFromUnit: "来自本单元预习",
+    microReviewNudge: "已标 {n} 个生词，再标 {remaining} 个可即时巩固",
+    microReviewContinue: "继续预习",
+    microReviewLater: "稍后",
+    microReviewCta: "巩固 {n} 个生词",
   },
 
   common: {

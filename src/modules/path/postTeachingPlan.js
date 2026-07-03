@@ -329,7 +329,11 @@ function buildSecondarySteps(flags, result, primary, ctx, completionCtx) {
   if (flags.dueMistakesAtStart > 0 && primary.id !== TEACHING_STEP_IDS.MISTAKE_REVIEW) {
     push(buildMistakeReviewStep(flags.dueMistakesAtStart));
   }
-  if (flags.dueVocabAtStart > 0 && primary.id !== TEACHING_STEP_IDS.VOCAB_REVIEW) {
+  if (
+    flags.dueVocabAtStart > 0 &&
+    primary.id !== TEACHING_STEP_IDS.VOCAB_REVIEW &&
+    !ctx.microReviewCompleted
+  ) {
     push(buildVocabReviewStep(flags.dueVocabAtStart));
   }
   if (flags.focusArea?.typeId && primary.id !== TEACHING_STEP_IDS.FOCUS_AREA) {
@@ -342,7 +346,7 @@ function buildSecondarySteps(flags, result, primary, ctx, completionCtx) {
   ) {
     push(buildReadNewsStep(ctx.newsUnreadCount));
   }
-  if (ctx.sessionUnknownWords?.length >= 3) {
+  if (ctx.sessionUnknownWords?.length >= 3 && !ctx.microReviewCompleted) {
     push(buildAiPracticeStep(ctx.sessionUnknownWords));
   }
   if (flags.weeklyGoalNudgeActive) {
@@ -371,6 +375,7 @@ export function buildPostTeachingPlan({
   focusArea = null,
   unitTitle = "",
   sessionUnknownWords = [],
+  microReviewCompleted = false,
   newsUnreadCount = 0,
   localHour = new Date().getHours(),
 } = {}) {
@@ -388,6 +393,7 @@ export function buildPostTeachingPlan({
   const ctx = {
     unitTitle,
     sessionUnknownWords,
+    microReviewCompleted,
     newsUnreadCount,
     localHour,
   };

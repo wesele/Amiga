@@ -92,10 +92,15 @@ function writeScreenshot(wrapper, filename) {
   mkdirSync(outDir, { recursive: true });
   const outHtml = join(outDir, `${filename}.html`);
   const outPng = join(outDir, `${filename}.png`);
-  const styles =
+  const readerStyles =
     readFileSync(join(root, "src/modules/news/NewsReader.vue"), "utf8").match(
       /<style scoped>([\s\S]*?)<\/style>/,
     )?.[1] ?? "";
+  const sheetStyles =
+    readFileSync(join(root, "src/modules/vocab/MicroReviewSheet.vue"), "utf8").match(
+      /<style scoped>([\s\S]*?)<\/style>/,
+    )?.[1] ?? "";
+  const styles = `${readerStyles}\n${sheetStyles}`;
 
   const html = `<!DOCTYPE html>
 <html lang="zh"><head><meta charset="utf-8" />

@@ -1,3 +1,5 @@
+import { buildSessionReviewQueue } from "@/modules/vocab/microReviewQueue.js";
+
 const SESSION_KEY = "amiga:news-reading-summary";
 const PROGRESS_TOAST_KEY = "amiga:news-reading-progress-toast";
 
@@ -109,45 +111,9 @@ export function consumeReadingProgressToast() {
  * Session order is preserved; due words fill remaining slots without duplicates.
  */
 export function buildReadingReviewQueue(sessionWords, dueWords, limit) {
-  const safeLimit = Math.max(1, limit || 1);
-  const seen = new Set();
-  const queue = [];
-  const dueByWord = new Map();
-
-  for (const entry of dueWords || []) {
-    if (entry?.word) dueByWord.set(entry.word.toLowerCase(), entry);
-  }
-
-  for (const sessionWord of sessionWords || []) {
-    const key = sessionWord?.word?.toLowerCase();
-    if (!key || seen.has(key)) continue;
-    const match = dueByWord.get(key);
-    const context = String(sessionWord.context || "");
-    if (match) {
-      queue.push({
-        ...match,
-        ...(context ? { example: context } : {}),
-      });
-    } else {
-      queue.push({
-        word: sessionWord.word,
-        example: context,
-        mastery: 1,
-        source: "news_reading",
-        id: null,
-        ...(sessionWord.articleId != null ? { articleId: sessionWord.articleId } : {}),
-      });
-    }
-    seen.add(key);
-  }
-
-  for (const entry of dueWords || []) {
-    if (queue.length >= safeLimit) break;
-    const key = entry?.word?.toLowerCase();
-    if (!key || seen.has(key)) continue;
-    queue.push(entry);
-    seen.add(key);
-  }
-
-  return queue.slice(0, safeLimit);
+  const sessionWithSource = (sessionWords || []).map((entry) => ({
+    ...entry,
+    source: entry?.source || "news_reading",
+  }));
+  return buildSessionReviewQueue(sessionWithSource, dueWords, limit);
 }

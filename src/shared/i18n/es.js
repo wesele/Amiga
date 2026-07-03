@@ -433,6 +433,13 @@ export default {
       toPractice: "Empezar práctica",
       toPracticeSub: "Refuerza las palabras que acabas de aprender",
     },
+    microReviewTitle: "Repaso rápido: {n} palabra(s) nueva(s)",
+    microReviewHint: "Las que acabas de marcar — practícalas ahora",
+    microReviewFromUnit: "De la vista previa de esta unidad",
+    microReviewNudge: "Marcadas {n} · marca {remaining} más para repaso instantáneo",
+    microReviewContinue: "Seguir previsualizando",
+    microReviewLater: "Más tarde",
+    microReviewCta: "Repasar {n} palabra(s)",
   },
 
   common: {

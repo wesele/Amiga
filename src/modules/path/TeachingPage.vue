@@ -197,12 +197,54 @@
         </template>
       </div>
 
+      <button
+        v-if="content.kind === 'vocab' && sessionMarkedUnknown.length > 0 && !microReviewOpen"
+        type="button"
+        class="teaching-review-cta"
+        @click="reopenMicroReview"
+      >
+        {{ t("path.microReviewCta", { n: sessionMarkedUnknown.length }) }}
+      </button>
+
+      <MicroReviewSheet
+        v-if="content.kind === 'vocab'"
+        sheet-class="is-teaching"
+        :open="microReviewOpen"
+        :card="microReviewCard"
+        :session-count="sessionMarkedUnknown.length"
+        :index="microReviewIndex"
+        :queue-length="microReviewQueue.length"
+        :definition="microReviewDefinition"
+        :context-label="t('path.microReviewFromUnit')"
+        :context-text="content.unit_title_native"
+        :flipped="microReviewFlipped"
+        :swipe-enabled="microReviewSwipeEnabled"
+        :swipe-dragging="microReviewSwipeDragging"
+        :swipe-style="microReviewSwipeStyle"
+        :rating-ack="microReviewRatingAck"
+        title-key="path.microReviewTitle"
+        hint-key="path.microReviewHint"
+        continue-key="path.microReviewContinue"
+        later-key="path.microReviewLater"
+        @card-click="onMicroReviewCardClick"
+        @swipe-down="onMicroReviewSwipeDown"
+        @swipe-move="onMicroReviewSwipeMove"
+        @swipe-up="onMicroReviewSwipeUp"
+        @swipe-cancel="onMicroReviewSwipeCancel"
+        @continue="collapseMicroReview"
+        @later="dismissMicroReview"
+      />
+
       <footer class="teach-footer">
         <button class="action-btn primary" :disabled="submitting" @click="finishTeaching">
           {{ t("path.continuePath") }}
         </button>
       </footer>
     </template>
+
+    <Transition name="popup">
+      <div v-if="wordToast" class="word-toast">{{ wordToast }}</div>
+    </Transition>
 
     <Transition name="popup">
       <WordPopup
@@ -222,6 +264,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
+import { getLocale } from "@/shared/i18n";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
@@ -263,6 +306,19 @@ import {
 } from "./postTeachingPlan.js";
 import { promiseWithTimeout } from "@/shared/promiseTimeout.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
+import MicroReviewSheet from "@/modules/vocab/MicroReviewSheet.vue";
+import { buildTeachingMicroReviewQueue } from "@/modules/vocab/microReviewQueue.js";
+import { useMicroReviewCard } from "@/modules/vocab/useMicroReviewCard.js";
+import { vocabDefinition } from "@/modules/vocab/vocabReviewSession.js";
+import {
+  microReviewNudgeCopy,
+  shouldOfferMicroReview,
+} from "@/shared/microReview.js";
+import {
+  playVocabRatingFeedback,
+  vocabRatingAckKind,
+  waitVocabRatingAck,
+} from "@/modules/vocab/vocabRatingFeedback.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -290,6 +346,28 @@ const expandedPoint = ref(null);
 const loadingPoint = ref(null);
 const explanations = ref({});
 const pointErrors = ref({});
+const wordToast = ref("");
+let wordToastTimer = null;
+const microReviewQueue = ref([]);
+const microReviewIndex = ref(0);
+const microReviewOpen = ref(false);
+const microReviewDismissed = ref(false);
+const microReviewCompleted = ref(false);
+const microReviewCollapsed = ref(false);
+const {
+  flipped: microReviewFlipped,
+  acting: microReviewActing,
+  ratingAck: microReviewRatingAck,
+  swipeDragging: microReviewSwipeDragging,
+  swipeEnabled: microReviewSwipeEnabled,
+  swipeStyle: microReviewSwipeStyle,
+  resetCard: resetMicroReviewCard,
+  onCardClick: flipMicroReviewCard,
+  onSwipeDown: onMicroReviewSwipeDown,
+  onSwipeMove: onMicroReviewSwipeMove,
+  onSwipeUp: onMicroReviewSwipeUpRaw,
+  onSwipeCancel: onMicroReviewSwipeCancel,
+} = useMicroReviewCard();
 let explainSeq = 0;
 
 function formatInvokeError(err) {
@@ -337,6 +415,110 @@ const dailyGoalRemaining = computed(() =>
 const showDailyGoalNudge = computed(() =>
   shouldShowDailyGoalNudge(completionResult.value),
 );
+
+const microReviewCard = computed(() => microReviewQueue.value[microReviewIndex.value] ?? null);
+
+const microReviewDefinition = computed(() =>
+  vocabDefinition(microReviewCard.value, getLocale()),
+);
+
+function showWordToast(msg) {
+  if (!msg) return;
+  wordToast.value = msg;
+  if (wordToastTimer) clearTimeout(wordToastTimer);
+  wordToastTimer = setTimeout(() => {
+    wordToast.value = "";
+    wordToastTimer = null;
+  }, 2500);
+}
+
+function onMicroReviewSwipeUp(event) {
+  const mastery = onMicroReviewSwipeUpRaw(event);
+  if (mastery != null) void rateMicroReviewCard(mastery);
+}
+
+function onMicroReviewCardClick() {
+  if (!microReviewCard.value) return;
+  flipMicroReviewCard();
+}
+
+function prepareMicroReviewQueue() {
+  microReviewQueue.value = buildTeachingMicroReviewQueue(
+    sessionMarkedUnknown.value,
+    teachingWords.value,
+  );
+}
+
+function maybeOpenMicroReview() {
+  if (
+    content.value?.kind !== "vocab" ||
+    microReviewOpen.value ||
+    microReviewCollapsed.value ||
+    !shouldOfferMicroReview({
+      sessionWordCount: sessionMarkedUnknown.value.length,
+      sheetDismissed: microReviewDismissed.value,
+      sheetCompleted: microReviewCompleted.value,
+    })
+  ) {
+    return;
+  }
+  prepareMicroReviewQueue();
+  if (!microReviewQueue.value.length) return;
+  microReviewIndex.value = 0;
+  microReviewOpen.value = true;
+  resetMicroReviewCard();
+}
+
+function collapseMicroReview() {
+  microReviewCollapsed.value = true;
+  microReviewOpen.value = false;
+}
+
+function dismissMicroReview() {
+  microReviewDismissed.value = true;
+  microReviewOpen.value = false;
+}
+
+function reopenMicroReview() {
+  microReviewDismissed.value = false;
+  microReviewCollapsed.value = false;
+  prepareMicroReviewQueue();
+  if (!microReviewQueue.value.length) return;
+  microReviewIndex.value = 0;
+  microReviewOpen.value = true;
+  resetMicroReviewCard();
+}
+
+async function rateMicroReviewCard(mastery) {
+  const card = microReviewCard.value;
+  if (!card?.id || microReviewActing.value) return;
+  microReviewActing.value = true;
+  microReviewRatingAck.value = vocabRatingAckKind(mastery);
+  playVocabRatingFeedback(mastery);
+  try {
+    await waitVocabRatingAck();
+    await updateWordMastery(userId.value, card.id, mastery, "path_vocab");
+    const match = teachingWords.value.find(
+      (w) => w.word.toLowerCase() === card.word.toLowerCase(),
+    );
+    if (match) match.mastery = mastery;
+  } catch {
+    /* continue advancing */
+  } finally {
+    microReviewActing.value = false;
+  }
+
+  const reviewedCount = microReviewIndex.value + 1;
+  const nextIndex = reviewedCount;
+  if (nextIndex >= microReviewQueue.value.length) {
+    microReviewCompleted.value = true;
+    microReviewOpen.value = false;
+    showWordToast(t("news.microReviewComplete", { n: reviewedCount }));
+    return;
+  }
+  microReviewIndex.value = nextIndex;
+  resetMicroReviewCard();
+}
 
 async function onGrammarPointClick(idx, point) {
   if (expandedPoint.value === idx && !pointErrors.value[idx]) {
@@ -431,10 +613,18 @@ async function loadTeachingWords(words, targetLang, cefr) {
       word: item.word,
       id: match?.id ?? null,
       mastery,
+      definition_zh: item.definition_zh,
+      definition_es: item.definition_es,
     };
   });
   initialMastery.value = masterySnapshot;
   sessionMarkedUnknown.value = [];
+  microReviewQueue.value = [];
+  microReviewIndex.value = 0;
+  microReviewOpen.value = false;
+  microReviewDismissed.value = false;
+  microReviewCompleted.value = false;
+  microReviewCollapsed.value = false;
 }
 
 async function onKnown() {
@@ -462,6 +652,13 @@ async function onUnknown() {
     if (!sessionMarkedUnknown.value.includes(w.word)) {
       sessionMarkedUnknown.value.push(w.word);
     }
+    const nudge = microReviewNudgeCopy(
+      sessionMarkedUnknown.value.length,
+      t,
+      "path.microReviewNudge",
+    );
+    if (nudge) showWordToast(nudge);
+    maybeOpenMicroReview();
   } catch (_) {}
   selectedWord.value = null;
 }
@@ -581,6 +778,7 @@ async function loadPostTeachingContext() {
     focusArea: focusAreaAtStart.value,
     unitTitle: content.value?.unit_title_native ?? "",
     sessionUnknownWords: sessionMarkedUnknown.value,
+    microReviewCompleted: microReviewCompleted.value,
     newsUnreadCount: newsUnreadCount.value,
     localHour: new Date().getHours(),
   });
@@ -969,6 +1167,39 @@ onMounted(load);
 .popup-leave-to {
   opacity: 0;
   transform: translateY(8px);
+}
+
+.teaching-review-cta {
+  flex-shrink: 0;
+  margin: 0 16px 8px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(28, 176, 246, 0.28);
+}
+
+.word-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(120px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  transform: translateX(-50%);
+  background: var(--text);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 400;
+  max-width: calc(100% - 40px);
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  line-height: 1.4;
 }
 
 .teach-footer {

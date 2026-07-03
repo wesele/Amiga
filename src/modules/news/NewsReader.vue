@@ -129,68 +129,32 @@
       {{ t("news.reviewSessionCta", { n: wordsUnknownSet.size }) }}
     </button>
 
-    <Transition name="popup">
-      <section
-        v-if="microReviewOpen && microReviewCard"
-        class="micro-review-sheet"
-        :aria-label="t('news.microReviewTitle', { n: wordsUnknownSet.size })"
-      >
-        <div class="micro-review-header">
-          <p class="micro-review-title">
-            {{ t("news.microReviewTitle", { n: wordsUnknownSet.size }) }}
-          </p>
-          <p class="micro-review-hint">{{ t("news.microReviewHint") }}</p>
-        </div>
-        <div
-          class="micro-review-card"
-          :class="{
-            'is-flipped': microReviewFlipped,
-            'is-swipe-ready': microReviewSwipeEnabled,
-            'is-swiping': microReviewSwipeDragging,
-            [`is-ack-${microReviewRatingAck}`]: microReviewRatingAck,
-          }"
-          :style="microReviewSwipeStyle"
-          @click="onMicroReviewCardClick"
-          @pointerdown="onMicroReviewSwipeDown"
-          @pointermove="onMicroReviewSwipeMove"
-          @pointerup="onMicroReviewSwipeUp"
-          @pointercancel="onMicroReviewSwipeCancel"
-        >
-          <div class="micro-review-card-inner">
-            <div class="micro-review-face micro-review-front">
-              <span class="micro-review-word">{{ microReviewCard.word }}</span>
-              <span class="micro-review-tap-hint">{{ t("vocab.reviewTapToReveal") }}</span>
-            </div>
-            <div class="micro-review-face micro-review-back">
-              <span v-if="microReviewDefinition" class="micro-review-definition">
-                {{ microReviewDefinition }}
-              </span>
-              <div v-if="microReviewContextParts.length" class="micro-review-context">
-                <p class="micro-review-context-label">{{ t("news.microReviewFromArticle") }}</p>
-                <p class="micro-review-example">
-                  <template v-for="(part, idx) in microReviewContextParts" :key="idx">
-                    <mark v-if="part.highlight" class="micro-review-mark">{{ part.text }}</mark>
-                    <span v-else>{{ part.text }}</span>
-                  </template>
-                </p>
-              </div>
-              <p class="micro-review-swipe-hint">{{ t("vocab.reviewSwipeHint") }}</p>
-            </div>
-          </div>
-        </div>
-        <p class="micro-review-progress">
-          {{ microReviewIndex + 1 }}/{{ microReviewQueue.length }}
-        </p>
-        <div class="micro-review-actions">
-          <button type="button" class="micro-review-continue" @click="collapseMicroReview">
-            {{ t("news.microReviewContinue") }}
-          </button>
-          <button type="button" class="micro-review-later" @click="dismissMicroReview">
-            {{ t("news.microReviewLater") }}
-          </button>
-        </div>
-      </section>
-    </Transition>
+    <MicroReviewSheet
+      :open="microReviewOpen"
+      :card="microReviewCard"
+      :session-count="wordsUnknownSet.size"
+      :index="microReviewIndex"
+      :queue-length="microReviewQueue.length"
+      :definition="microReviewDefinition"
+      :context-label="t('news.microReviewFromArticle')"
+      :context-parts="microReviewContextParts"
+      :flipped="microReviewFlipped"
+      :swipe-enabled="microReviewSwipeEnabled"
+      :swipe-dragging="microReviewSwipeDragging"
+      :swipe-style="microReviewSwipeStyle"
+      :rating-ack="microReviewRatingAck"
+      title-key="news.microReviewTitle"
+      hint-key="news.microReviewHint"
+      continue-key="news.microReviewContinue"
+      later-key="news.microReviewLater"
+      @card-click="onMicroReviewCardClick"
+      @swipe-down="onMicroReviewSwipeDown"
+      @swipe-move="onMicroReviewSwipeMove"
+      @swipe-up="onMicroReviewSwipeUp"
+      @swipe-cancel="onMicroReviewSwipeCancel"
+      @continue="collapseMicroReview"
+      @later="dismissMicroReview"
+    />
 
     <!-- Fixed bottom bar -->
     <div v-if="article?.rewritten_body" class="bottom-bar">
@@ -355,6 +319,7 @@ import {
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 import { findCurrentSection } from "@/modules/learn/pathResume.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
+import MicroReviewSheet from "@/modules/vocab/MicroReviewSheet.vue";
 import SelectionTranslateOverlay from "@/shared/components/SelectionTranslateOverlay.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -378,13 +343,7 @@ import {
 } from "./pendingReadingVocab.js";
 import { vocabDefinition } from "@/modules/vocab/vocabReviewSession.js";
 import { highlightWordInContext } from "@/modules/vocab/vocabReviewContext.js";
-import {
-  canSwipeToRate,
-  isVocabSwipeTap,
-  shouldAbortVocabSwipe,
-  vocabSwipeDragStyle,
-  vocabSwipeRating,
-} from "@/modules/vocab/vocabSwipeRating.js";
+import { useMicroReviewCard } from "@/modules/vocab/useMicroReviewCard.js";
 import {
   playVocabRatingFeedback,
   vocabRatingAckKind,
@@ -462,16 +421,20 @@ const microReviewOpen = ref(false);
 const microReviewDismissed = ref(false);
 const microReviewCompleted = ref(false);
 const microReviewCollapsed = ref(false);
-const microReviewFlipped = ref(false);
-const microReviewActing = ref(false);
-const microReviewRatingAck = ref(null);
-const microReviewSwipeOffsetX = ref(0);
-const microReviewSwipeDragging = ref(false);
-let microReviewSwipeConsumed = false;
-let microReviewSwipeStartX = 0;
-let microReviewSwipeStartY = 0;
-let microReviewSwipeActive = false;
-let microReviewSwipeAborted = false;
+const {
+  flipped: microReviewFlipped,
+  acting: microReviewActing,
+  ratingAck: microReviewRatingAck,
+  swipeDragging: microReviewSwipeDragging,
+  swipeEnabled: microReviewSwipeEnabled,
+  swipeStyle: microReviewSwipeStyle,
+  resetCard: resetMicroReviewCard,
+  onCardClick: flipMicroReviewCard,
+  onSwipeDown: onMicroReviewSwipeDown,
+  onSwipeMove: onMicroReviewSwipeMove,
+  onSwipeUp: onMicroReviewSwipeUpRaw,
+  onSwipeCancel: onMicroReviewSwipeCancel,
+} = useMicroReviewCard();
 
 const showCompletionSummary = ref(false);
 const dailyGoalSnapshot = ref(null);
@@ -590,18 +553,15 @@ const microReviewContextParts = computed(() => {
   return highlightWordInContext(context, card.word);
 });
 
-const microReviewSwipeEnabled = computed(() =>
-  canSwipeToRate({
-    flipped: microReviewFlipped.value,
-    acting: microReviewActing.value,
-    ratingAck: microReviewRatingAck.value,
-  }),
-);
+function onMicroReviewSwipeUp(event) {
+  const mastery = onMicroReviewSwipeUpRaw(event);
+  if (mastery != null) void rateMicroReviewCard(mastery);
+}
 
-const microReviewSwipeStyle = computed(() => {
-  if (!microReviewSwipeDragging.value || microReviewSwipeOffsetX.value === 0) return undefined;
-  return vocabSwipeDragStyle(microReviewSwipeOffsetX.value);
-});
+function onMicroReviewCardClick() {
+  if (!microReviewCard.value) return;
+  flipMicroReviewCard();
+}
 
 function handleAndroidBackInPage() {
   if (microReviewOpen.value) {
@@ -856,20 +816,6 @@ function showWordToast(msg) {
   }, 2500);
 }
 
-function resetMicroReviewSwipeState() {
-  microReviewSwipeOffsetX.value = 0;
-  microReviewSwipeDragging.value = false;
-  microReviewSwipeActive = false;
-  microReviewSwipeAborted = false;
-}
-
-function resetMicroReviewCard() {
-  microReviewFlipped.value = false;
-  microReviewRatingAck.value = null;
-  resetMicroReviewSwipeState();
-  microReviewSwipeConsumed = false;
-}
-
 function savePendingVocabIfNeeded() {
   if (wordsUnknownSet.value.size === 0 || microReviewCompleted.value) return;
   savePendingReadingVocab({
@@ -933,77 +879,6 @@ function dismissMicroReview() {
   savePendingVocabIfNeeded();
   microReviewDismissed.value = true;
   microReviewOpen.value = false;
-}
-
-function onMicroReviewCardClick() {
-  if (microReviewSwipeConsumed) {
-    microReviewSwipeConsumed = false;
-    return;
-  }
-  if (!microReviewCard.value || microReviewActing.value) return;
-  microReviewFlipped.value = !microReviewFlipped.value;
-}
-
-function onMicroReviewSwipeDown(event) {
-  if (!microReviewSwipeEnabled.value) return;
-  microReviewSwipeStartX = event.clientX;
-  microReviewSwipeStartY = event.clientY;
-  microReviewSwipeActive = true;
-  microReviewSwipeAborted = false;
-  microReviewSwipeDragging.value = false;
-  microReviewSwipeOffsetX.value = 0;
-  event.currentTarget.setPointerCapture?.(event.pointerId);
-}
-
-function onMicroReviewSwipeMove(event) {
-  if (!microReviewSwipeActive || microReviewSwipeAborted) return;
-  const deltaX = event.clientX - microReviewSwipeStartX;
-  const deltaY = event.clientY - microReviewSwipeStartY;
-  if (!microReviewSwipeDragging.value && shouldAbortVocabSwipe({ deltaX, deltaY })) {
-    microReviewSwipeAborted = true;
-    resetMicroReviewSwipeState();
-    return;
-  }
-  if (
-    !microReviewSwipeDragging.value &&
-    !isVocabSwipeTap(deltaX, deltaY) &&
-    Math.abs(deltaX) > 6
-  ) {
-    microReviewSwipeDragging.value = true;
-  }
-  if (microReviewSwipeDragging.value) {
-    microReviewSwipeOffsetX.value = deltaX;
-    event.preventDefault();
-  }
-}
-
-function onMicroReviewSwipeUp(event) {
-  if (!microReviewSwipeActive) return;
-  const deltaX = event.clientX - microReviewSwipeStartX;
-  const deltaY = event.clientY - microReviewSwipeStartY;
-  const rating = microReviewSwipeDragging.value ? vocabSwipeRating(deltaX) : null;
-
-  if (rating === "got_it") {
-    microReviewSwipeConsumed = true;
-    resetMicroReviewSwipeState();
-    void rateMicroReviewCard(2);
-    return;
-  }
-  if (rating === "still_learning") {
-    microReviewSwipeConsumed = true;
-    resetMicroReviewSwipeState();
-    void rateMicroReviewCard(1);
-    return;
-  }
-
-  resetMicroReviewSwipeState();
-  if (!isVocabSwipeTap(deltaX, deltaY)) {
-    microReviewSwipeConsumed = true;
-  }
-}
-
-function onMicroReviewSwipeCancel() {
-  resetMicroReviewSwipeState();
 }
 
 async function rateMicroReviewCard(mastery) {
@@ -1671,164 +1546,6 @@ function formatSource(source) {
 
 .legend-new {
   background: var(--purple);
-}
-
-.micro-review-sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(88px + var(--safe-bottom, 0px));
-  z-index: 24;
-  margin: 0 auto;
-  max-width: 480px;
-  padding: 14px 16px 12px;
-  border-top: 1px solid var(--border);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  background: var(--surface);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
-}
-
-.micro-review-header {
-  margin-bottom: 10px;
-}
-
-.micro-review-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.micro-review-hint {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--text-light);
-}
-
-.micro-review-card {
-  position: relative;
-  min-height: 148px;
-  perspective: 900px;
-  cursor: pointer;
-  touch-action: pan-y;
-}
-
-.micro-review-card-inner {
-  position: relative;
-  width: 100%;
-  min-height: 148px;
-  transform-style: preserve-3d;
-  transition: transform 0.35s ease;
-}
-
-.micro-review-card.is-flipped .micro-review-card-inner {
-  transform: rotateY(180deg);
-}
-
-.micro-review-face {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 16px;
-  border-radius: var(--radius-md);
-  background: var(--surface-variant);
-  backface-visibility: hidden;
-}
-
-.micro-review-back {
-  transform: rotateY(180deg);
-}
-
-.micro-review-word {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--text);
-}
-
-.micro-review-tap-hint,
-.micro-review-swipe-hint {
-  font-size: 12px;
-  color: var(--text-lighter);
-}
-
-.micro-review-definition {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
-  text-align: center;
-}
-
-.micro-review-context {
-  width: 100%;
-  text-align: center;
-}
-
-.micro-review-context-label {
-  margin: 0 0 4px;
-  font-size: 11px;
-  color: var(--text-lighter);
-}
-
-.micro-review-example {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--text-light);
-}
-
-.micro-review-mark {
-  background: rgba(28, 176, 246, 0.18);
-  color: var(--text);
-  border-radius: 3px;
-  padding: 0 2px;
-}
-
-.micro-review-card.is-ack-positive .micro-review-face {
-  box-shadow: inset 0 0 0 2px rgba(88, 204, 2, 0.45);
-}
-
-.micro-review-card.is-ack-learning .micro-review-face {
-  box-shadow: inset 0 0 0 2px rgba(28, 176, 246, 0.35);
-}
-
-.micro-review-progress {
-  margin: 10px 0 0;
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-lighter);
-}
-
-.micro-review-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.micro-review-continue,
-.micro-review-later {
-  flex: 1;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.micro-review-continue {
-  border: 1.5px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-}
-
-.micro-review-later {
-  border: none;
-  background: var(--primary);
-  color: #fff;
 }
 
 .reading-review-cta {
