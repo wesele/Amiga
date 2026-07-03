@@ -688,6 +688,13 @@ export default {
     practiceWrapUpHint: "Practicaste {wordCount} palabras · {rounds} rondas de conversación",
     practiceWrapUpWords: "Palabras de esta sesión: {preview}",
     practiceWrapUpLater: "Más tarde",
+    tapToLearnHint: "Selecciona una palabra del mensaje para consultarla",
+    wordSaved: "Añadida a tu lista de palabras",
+    wordKnown: "Marcada como conocida",
+    practiceLearnedWords: "{n} palabras nuevas en esta sesión: {preview}",
+    practiceReviewLearnedWords: "Repasar las {n} palabras que acabas de aprender",
+    practiceReviewLearnedWordsHint: "Refuerza las palabras que marcaste durante el chat",
+    practiceReviewLearnedWordsAction: "Repasar ahora",
   },
 
   profile: {

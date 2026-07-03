@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   computeTranslateButtonPlacement,
   isTranslatableSelectionText,
+  resolveSelectionAction,
   useSelectionTranslation,
 } from "../selectionTranslation.js";
 
@@ -18,6 +19,12 @@ describe("selectionTranslation module", () => {
     expect(isTranslatableSelectionText("hola mundo")).toBe(true);
     expect(isTranslatableSelectionText("hola")).toBe(false);
     expect(isTranslatableSelectionText("")).toBe(false);
+  });
+
+  it("routes selections to word lookup or phrase translation", () => {
+    expect(resolveSelectionAction("mercado")).toBe("word");
+    expect(resolveSelectionAction("ayer fui")).toBe("translate");
+    expect(resolveSelectionAction("")).toBeNull();
   });
 
   it("computes the floating translate button placement below normal selections", () => {
@@ -108,6 +115,41 @@ describe("selectionTranslation module", () => {
     vi.advanceTimersByTime(1);
     await Promise.resolve();
     expect(translateText).toHaveBeenCalledWith("hola mundo", "es", "zh");
+    expect(removeAllRanges).toHaveBeenCalled();
+  });
+
+  it("opens single-word lookup instead of auto-translating on pointerup", async () => {
+    const onSingleWordSelected = vi.fn();
+    const removeAllRanges = vi.fn();
+    const targetWindow = {
+      innerWidth: 480,
+      innerHeight: 800,
+      getSelection: vi.fn(() => makeSelection("mercado", {
+        top: 100,
+        bottom: 120,
+        right: 300,
+        width: 80,
+        height: 20,
+        removeAllRanges,
+      })),
+    };
+    const translateText = vi.fn().mockResolvedValue("market");
+    const selection = useSelectionTranslation({
+      translateText,
+      getTargetLang: () => "es",
+      getNativeLang: () => "zh",
+      t: () => "翻译暂不可用",
+      windowRef: targetWindow,
+      isSelectionAllowed: () => true,
+      onSingleWordSelected,
+    });
+
+    selection.onPointerUp();
+    vi.advanceTimersByTime(50);
+    await Promise.resolve();
+
+    expect(onSingleWordSelected).toHaveBeenCalledWith("mercado");
+    expect(translateText).not.toHaveBeenCalled();
     expect(removeAllRanges).toHaveBeenCalled();
   });
 });

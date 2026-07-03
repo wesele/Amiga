@@ -4,9 +4,35 @@ export function isTranslatableSelectionText(text) {
   return !!text && text.length > 0 && text.split(/\s+/).length > 1;
 }
 
+export function isSingleWordSelectionText(text) {
+  return !!text && text.length > 0 && text.split(/\s+/).length === 1;
+}
+
+/** Route a trimmed selection to phrase translation or single-word lookup. */
+export function resolveSelectionAction(text) {
+  const trimmed = String(text ?? "").trim();
+  if (!trimmed) return null;
+  if (isSingleWordSelectionText(trimmed)) return "word";
+  if (isTranslatableSelectionText(trimmed)) return "translate";
+  return null;
+}
+
+function defaultSelectionAllowed(selection, { articleBody, isSelectionAllowed, getSelectionRoot }) {
+  if (typeof isSelectionAllowed === "function") {
+    return isSelectionAllowed(selection);
+  }
+  if (!selection || selection.rangeCount === 0) return false;
+  const range = selection.getRangeAt(0);
+  const root = getSelectionRoot?.() ?? articleBody;
+  if (!root) return true;
+  return root.contains(range.commonAncestorContainer);
+}
+
 export function computeTranslateButtonPlacement({
   selection,
   articleBody,
+  getSelectionRoot,
+  isSelectionAllowed,
   viewportWidth,
   viewportHeight,
 }) {
@@ -24,7 +50,9 @@ export function computeTranslateButtonPlacement({
   if (rect.width === 0 && rect.height === 0) {
     return { visible: false, x: 0, y: 0 };
   }
-  if (articleBody && !articleBody.contains(range.commonAncestorContainer)) {
+  if (
+    !defaultSelectionAllowed(selection, { articleBody, isSelectionAllowed, getSelectionRoot })
+  ) {
     return { visible: false, x: 0, y: 0 };
   }
 
@@ -47,6 +75,10 @@ export function useSelectionTranslation({
   getTargetLang,
   getNativeLang,
   t,
+  articleBody,
+  getSelectionRoot,
+  isSelectionAllowed,
+  onSingleWordSelected,
   windowRef = typeof window === "undefined" ? null : window,
   documentRef = typeof document === "undefined" ? null : document,
 } = {}) {
@@ -84,7 +116,9 @@ export function useSelectionTranslation({
   function positionTranslateButton(selection) {
     const placement = computeTranslateButtonPlacement({
       selection,
-      articleBody: documentRef?.querySelector?.(".article-body"),
+      articleBody: articleBody ?? documentRef?.querySelector?.(".article-body"),
+      getSelectionRoot,
+      isSelectionAllowed,
       viewportWidth: windowRef?.innerWidth || 0,
       viewportHeight: windowRef?.innerHeight || 0,
     });
@@ -125,16 +159,38 @@ export function useSelectionTranslation({
     }
   }
 
+  function finishSingleWordSelection(text, selection) {
+    onSingleWordSelected?.(text);
+    selection?.removeAllRanges?.();
+    showTranslateButton.value = false;
+    try {
+      windowRef?.__amigaFinishSelectionMode?.();
+    } catch (_) {
+      // Native bridge is best-effort.
+    }
+  }
+
   function onPointerUp() {
     if (selectionTimer) clearTimeout(selectionTimer);
     selectionTimer = setTimeout(() => {
       selectionTimer = null;
-      if (!isSelecting) return;
+      const wasSelecting = isSelecting;
       isSelecting = false;
 
       const selection = windowRef?.getSelection?.();
       if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+      if (
+        !defaultSelectionAllowed(selection, { articleBody, isSelectionAllowed, getSelectionRoot })
+      ) {
+        return;
+      }
       const text = selection.toString().trim();
+      const action = resolveSelectionAction(text);
+      if (action === "word") {
+        finishSingleWordSelection(text, selection);
+        return;
+      }
+      if (!wasSelecting) return;
       if (!translateSelection(text)) return;
       selection.removeAllRanges();
     }, 50);
@@ -142,7 +198,13 @@ export function useSelectionTranslation({
 
   function handleNativeTranslate(text) {
     isSelecting = false;
-    if (!translateSelection(text)) return;
+    const trimmed = String(text ?? "").trim();
+    const action = resolveSelectionAction(trimmed);
+    if (action === "word") {
+      finishSingleWordSelection(trimmed, windowRef?.getSelection?.());
+      return;
+    }
+    if (!translateSelection(trimmed)) return;
     windowRef?.getSelection?.()?.removeAllRanges?.();
   }
 

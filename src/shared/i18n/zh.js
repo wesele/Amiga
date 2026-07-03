@@ -690,6 +690,13 @@ export default {
     practiceWrapUpHint: "刚才练了 {wordCount} 个词 · 对话 {rounds} 轮",
     practiceWrapUpWords: "本次词汇：{preview}",
     practiceWrapUpLater: "稍后再说",
+    tapToLearnHint: "长按或划选消息中的单词即可查义",
+    wordSaved: "已加入生词本",
+    wordKnown: "已标记为认识",
+    practiceLearnedWords: "本次新学 {n} 个词：{preview}",
+    practiceReviewLearnedWords: "复习刚学到的 {n} 个词",
+    practiceReviewLearnedWordsHint: "趁热巩固刚才对话里标记的生词",
+    practiceReviewLearnedWordsAction: "去复习",
   },
 
   profile: {

@@ -80,15 +80,16 @@ function buildNextArticleStep(articleId, newsUnreadCount) {
   };
 }
 
-function buildVocabReviewStep(dueVocabCount) {
+function buildVocabReviewStep(dueVocabCount, { practiceWords = [] } = {}) {
+  const learnedCount = Array.isArray(practiceWords) ? practiceWords.length : 0;
   return {
     id: AI_PRACTICE_STEP_IDS.VOCAB_REVIEW,
     route: { name: "vocab-review" },
     icon: "📚",
-    titleKey: "path.nextStep.vocabReview",
-    titleParams: { n: dueVocabCount },
-    subtitleKey: "vocab.reviewContinueHint",
-    continueKey: "path.vocabReviewContinue",
+    titleKey: learnedCount > 0 ? "chat.practiceReviewLearnedWords" : "path.nextStep.vocabReview",
+    titleParams: learnedCount > 0 ? { n: learnedCount } : { n: dueVocabCount },
+    subtitleKey: learnedCount > 0 ? "chat.practiceReviewLearnedWordsHint" : "vocab.reviewContinueHint",
+    continueKey: learnedCount > 0 ? "chat.practiceReviewLearnedWordsAction" : "path.vocabReviewContinue",
   };
 }
 
@@ -135,6 +136,7 @@ function pickPrimaryStep(ctx) {
     continueReading = null,
     nextUnreadArticleId = null,
     newsUnreadCount = 0,
+    sessionLearnedWords = [],
   } = ctx;
 
   if (isDailyGoalUnmet(dailyGoalSnapshot) && resumeTarget) {
@@ -148,6 +150,9 @@ function pickPrimaryStep(ctx) {
   }
   if (source === "reading" && nextUnreadArticleId) {
     return buildNextArticleStep(nextUnreadArticleId, newsUnreadCount);
+  }
+  if (sessionLearnedWords.length > 0) {
+    return buildVocabReviewStep(dueVocabCount, { practiceWords: sessionLearnedWords });
   }
   if (dueVocabCount > 0) {
     return buildVocabReviewStep(dueVocabCount);
@@ -168,6 +173,7 @@ function buildSecondarySteps(ctx, primary) {
     continueReading = null,
     nextUnreadArticleId = null,
     newsUnreadCount = 0,
+    sessionLearnedWords = [],
   } = ctx;
   const secondary = [];
   const seen = new Set([primary.id]);
@@ -190,7 +196,11 @@ function buildSecondarySteps(ctx, primary) {
     if (nextUnreadArticleId) push(buildNextArticleStep(nextUnreadArticleId, newsUnreadCount));
     push(buildNewsListStep());
   }
-  if (dueVocabCount > 0) push(buildVocabReviewStep(dueVocabCount));
+  if (sessionLearnedWords.length > 0) {
+    push(buildVocabReviewStep(dueVocabCount, { practiceWords: sessionLearnedWords }));
+  } else if (dueVocabCount > 0) {
+    push(buildVocabReviewStep(dueVocabCount));
+  }
   if (dueMistakeCount > 0) push(buildMistakeReviewStep(dueMistakeCount));
   push(buildLearnHubStep());
 

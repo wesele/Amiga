@@ -67,6 +67,18 @@ describe("buildPostAiPracticePlan", () => {
     expect(plan.primary.route).toEqual({ name: "vocab-review" });
   });
 
+  it("prioritizes reviewing words learned in the chat session", () => {
+    const plan = buildPostAiPracticePlan({
+      source: "vocab",
+      dailyGoalSnapshot: { goal_met: true, target_lessons: 2, lessons_today: 2 },
+      dueVocabCount: 0,
+      sessionLearnedWords: ["mercado", "frutas"],
+    });
+    expect(plan.primary.id).toBe(AI_PRACTICE_STEP_IDS.VOCAB_REVIEW);
+    expect(plan.primary.titleKey).toBe("chat.practiceReviewLearnedWords");
+    expect(plan.primary.titleParams).toEqual({ n: 2 });
+  });
+
   it("offers mistake review when vocab backlog is empty", () => {
     const plan = buildPostAiPracticePlan({
       source: "mistake",

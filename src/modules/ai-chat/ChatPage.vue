@@ -43,6 +43,7 @@
             {{ starterLabel(starter) }}
           </button>
         </div>
+        <p v-if="wordLearningEnabled" class="tap-to-learn-hint">{{ t("chat.tapToLearnHint") }}</p>
       </div>
       <div v-if="messages.length === 0 && contactType === 'translator'" class="welcome-box">
         <p>{{ t('chat.welcomeTranslator1') }}</p>
@@ -58,7 +59,10 @@
           <component v-if="isAmiga" :is="amigaIcon" :size="28" />
           <span v-else>{{ contactAvatar }}</span>
         </div>
-        <div class="msg-bubble">
+        <div
+          class="msg-bubble"
+          :class="{ 'chat-learnable': wordLearningEnabled && msg.role !== 'user' }"
+        >
           <MarkdownText v-if="msg.role !== 'user'" class="msg-text" :content="msg.content" />
           <div v-else class="msg-text msg-text-plain">{{ msg.content }}</div>
         </div>
@@ -89,6 +93,38 @@
     <div class="chat-safe-bottom" :class="{ 'keyboard-open': keyboardOpen }" aria-hidden="true" />
 
     <Transition name="popup">
+      <WordPopup
+        v-if="wordLearningEnabled && selectedWord"
+        :word="selectedWord.text"
+        :context="selectedWord.context"
+        :source-lang="targetLang"
+        :native-lang="nativeLangCode"
+        @close="closeWordPopup"
+        @known="handleWordKnown"
+        @unknown="handleWordUnknown"
+      />
+    </Transition>
+
+    <SelectionTranslateOverlay
+      v-if="wordLearningEnabled"
+      :selection-text="selectionText"
+      :selection-result="selectionResult"
+      :selection-loading="selectionLoading"
+      :selection-error="selectionError"
+      :show-translate-button="showTranslateButton && !showPracticeWrapUp"
+      :translate-button-x="translateButtonX"
+      :translate-button-y="translateButtonY"
+      :translate-label="t('news.translate')"
+      :loading-label="t('news.translating')"
+      @clear="clearSelection"
+      @translate="onTranslateButtonClick"
+    />
+
+    <Transition name="popup">
+      <div v-if="wordLearningEnabled && wordToast" class="word-toast">{{ wordToast }}</div>
+    </Transition>
+
+    <Transition name="popup">
       <div v-if="showPracticeWrapUp" class="practice-wrap-overlay">
         <div class="practice-wrap-sheet">
           <div class="summary-emoji" aria-hidden="true">💬</div>
@@ -103,6 +139,14 @@
           </p>
           <p v-if="practiceWordsPreview" class="practice-words-preview">
             {{ t("chat.practiceWrapUpWords", { preview: practiceWordsPreview }) }}
+          </p>
+          <p v-if="learnedWordsPreview" class="practice-words-preview learned-words-preview">
+            {{
+              t("chat.practiceLearnedWords", {
+                n: learnedWordsThisSession.length,
+                preview: learnedWordsPreview,
+              })
+            }}
           </p>
           <section v-if="practicePlan" class="next-steps-panel">
             <p class="next-steps-eyebrow">{{ t("path.nextStep.title") }}</p>
@@ -163,6 +207,7 @@ import {
   deleteChatSession,
   getPathCurriculum,
   getTeachingContent,
+  translateText,
 } from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { findCurrentSection } from "@/modules/learn/pathResume.js";
@@ -174,15 +219,22 @@ import {
 import { buildReviewedWordsStarter, pickChatStarters } from "@/modules/ai-chat/chatStarters.js";
 import {
   defaultExitRouteAfterPractice,
+  formatLearnedWordsPreview,
   isGuidedAiPractice,
+  mergePracticeWords,
   parsePracticeSource,
   parsePracticeWords,
   shouldShowPracticeWrapUp,
+  trackChatLearnedWord,
 } from "@/modules/ai-chat/aiPracticeSession.js";
 import { buildPostAiPracticePlan } from "@/modules/ai-chat/postAiPracticePlan.js";
 import { loadPostAiPracticeContext } from "@/modules/ai-chat/postAiPracticeContext.js";
+import { useSelectionTranslation } from "@/modules/news/selectionTranslation.js";
+import { useWordLearning } from "@/shared/composables/useWordLearning.js";
 import MarkdownText from "@/shared/components/MarkdownText.vue";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
+import WordPopup from "@/shared/components/WordPopup.vue";
+import SelectionTranslateOverlay from "@/shared/components/SelectionTranslateOverlay.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -200,9 +252,15 @@ const practicePlanLoading = ref(false);
 const userMessageCount = ref(0);
 const usedStarter = ref(false);
 const practiceRoundCount = ref(0);
-const practiceWords = computed(() => parsePracticeWords(route));
+const learnedWordsThisSession = ref([]);
+const practiceWords = computed(() =>
+  mergePracticeWords(parsePracticeWords(route), learnedWordsThisSession.value),
+);
 const practiceSource = computed(() => parsePracticeSource(route));
 const practiceWordsPreview = computed(() => practiceWords.value.slice(0, 3).join(", "));
+const learnedWordsPreview = computed(() =>
+  formatLearnedWordsPreview(learnedWordsThisSession.value),
+);
 const isGuidedPractice = computed(() => isGuidedAiPractice(route));
 
 function parseReturnRoute() {
@@ -242,6 +300,7 @@ async function openPracticeWrapUp() {
     practicePlan.value = buildPostAiPracticePlan({
       source: practiceSource.value,
       practiceWords: practiceWords.value,
+      sessionLearnedWords: learnedWordsThisSession.value,
       ...planCtx,
     });
     showPracticeWrapUp.value = true;
@@ -300,8 +359,76 @@ const contactName = ref("Amiga");
 const contactAvatar = ref("🌐");
 const targetLang = ref("es");
 const nativeLangCode = ref("zh");
+const userId = ref("");
 const targetLabel = computed(() => displayLang(targetLang.value, locale.value));
 const isAmiga = computed(() => contactType.value === "amiga");
+const wordLearningEnabled = computed(
+  () => isAmiga.value && !showPracticeWrapUp.value,
+);
+
+const {
+  selectedWord,
+  wordToast,
+  openWordPopup,
+  closeWordPopup,
+  handleWordKnown,
+  handleWordUnknown,
+  cleanup: cleanupWordLearning,
+} = useWordLearning({
+  getTargetLang: () => targetLang.value,
+  getUserId: () => userId.value,
+  source: "ai_chat",
+  t,
+  knownToastKey: "chat.wordKnown",
+  unknownToastKey: "chat.wordSaved",
+  onWordMarkedUnknown: (word) => {
+    learnedWordsThisSession.value = trackChatLearnedWord(learnedWordsThisSession.value, word);
+  },
+});
+
+function isChatSelectionAllowed(selection) {
+  if (!selection || selection.rangeCount === 0) return false;
+  const range = selection.getRangeAt(0);
+  const node = range.commonAncestorContainer;
+  const element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  return Boolean(element?.closest?.(".chat-learnable"));
+}
+
+function selectionContextFromRange(selection) {
+  if (!selection || selection.rangeCount === 0) return "";
+  const range = selection.getRangeAt(0);
+  const node = range.commonAncestorContainer;
+  const element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  return element?.closest?.(".chat-learnable")?.textContent?.trim() ?? "";
+}
+
+function onSingleWordSelected(text) {
+  const selection = window.getSelection?.();
+  openWordPopup(text, selectionContextFromRange(selection));
+}
+
+const {
+  selectionText,
+  selectionResult,
+  selectionLoading,
+  selectionError,
+  showTranslateButton,
+  translateButtonX,
+  translateButtonY,
+  onSelectionChange,
+  onPointerUp,
+  handleNativeTranslate,
+  onTranslateButtonClick,
+  clearSelection,
+  cleanup: cleanupSelectionTranslation,
+} = useSelectionTranslation({
+  translateText,
+  getTargetLang: () => targetLang.value,
+  getNativeLang: () => nativeLangCode.value,
+  t,
+  isSelectionAllowed: isChatSelectionAllowed,
+  onSingleWordSelected,
+});
 const keyboardOpen = ref(false);
 const startersLoading = ref(false);
 const chatStarters = ref([]);
@@ -506,6 +633,13 @@ onUnmounted(() => {
   if (vv) {
     vv.removeEventListener("resize", onViewportResize);
   }
+  document.removeEventListener("selectionchange", onSelectionChange);
+  document.removeEventListener("pointerup", onPointerUp);
+  if (window.__amigaTranslateSelection === handleNativeTranslate) {
+    delete window.__amigaTranslateSelection;
+  }
+  cleanupSelectionTranslation();
+  cleanupWordLearning();
 });
 
 onMounted(async () => {
@@ -515,6 +649,9 @@ onMounted(async () => {
     vv.addEventListener("resize", onViewportResize);
   }
   sessionId.value = route.params.sessionId;
+  document.addEventListener("selectionchange", onSelectionChange);
+  document.addEventListener("pointerup", onPointerUp);
+  window.__amigaTranslateSelection = handleNativeTranslate;
 
   let learningNativeLang = "zh";
   try {
@@ -522,6 +659,7 @@ onMounted(async () => {
     targetLang.value = ctx.targetLang || "es";
     learningNativeLang = ctx.nativeLang || "zh";
     nativeLangCode.value = learningNativeLang;
+    userId.value = ctx.user?.id ?? "";
     await loadChatStarters(ctx.nativeLang, ctx.targetLang, ctx.cefr);
   } catch {
     targetLang.value = (await targetLangStore.load()) || "es";
@@ -761,8 +899,39 @@ onMounted(async () => {
   line-height: 1.5;
   word-break: break-word;
 }
+.chat-learnable,
+.chat-learnable :deep(*) {
+  user-select: text;
+  -webkit-user-select: text;
+}
 .msg-text-plain {
   white-space: pre-wrap;
+}
+.tap-to-learn-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.word-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(88px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  transform: translateX(-50%);
+  background: var(--text);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 400;
+  max-width: calc(100% - 40px);
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  line-height: 1.4;
+}
+.learned-words-preview {
+  color: var(--green);
 }
 
 .typing {

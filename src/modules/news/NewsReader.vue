@@ -101,37 +101,19 @@
       />
     </Transition>
 
-    <!-- Selection translate popup -->
-    <Transition name="popup">
-      <div v-if="selectionText" class="sel-overlay" @click.self="clearSelection">
-        <div class="sel-popup">
-          <div class="sel-source">{{ selectionText }}</div>
-          <div v-if="selectionLoading" class="sel-loading">{{ t('news.translating') }}</div>
-          <div v-else-if="selectionResult" class="sel-result">{{ selectionResult }}</div>
-          <div v-else-if="selectionError" class="sel-error">{{ selectionError }}</div>
-          <button class="sel-close" @click="clearSelection">✕</button>
-        </div>
-      </div>
-    </Transition>
-
-    <!--
-      Custom Android "translate" affordance. The Chromium WebView on
-      API 34+ removed setCustomSelectionActionModeCallback, so we
-      cannot inject a "翻译" item into the system selection toolbar
-      (see MainActivity.kt onActionModeStarted hook — it does fire
-      for some action modes, but the selection action mode the
-      WebView creates is TYPE_FLOATING and the system bypasses the
-      activity hook for it on this build). The fallback below is
-      pure JS: when the user has a multi-word selection in the
-      article body, show a small floating button near the
-      selection. Tapping it triggers translation.
-    -->
-    <button
-      v-if="showTranslateButton"
-      class="translate-fab"
-      :style="{ top: translateButtonY + 'px', left: translateButtonX + 'px' }"
-      @click="onTranslateButtonClick"
-    >{{ t('news.translate') }}</button>
+    <SelectionTranslateOverlay
+      :selection-text="selectionText"
+      :selection-result="selectionResult"
+      :selection-loading="selectionLoading"
+      :selection-error="selectionError"
+      :show-translate-button="showTranslateButton"
+      :translate-button-x="translateButtonX"
+      :translate-button-y="translateButtonY"
+      :translate-label="t('news.translate')"
+      :loading-label="t('news.translating')"
+      @clear="clearSelection"
+      @translate="onTranslateButtonClick"
+    />
 
     <!-- Word mastery toast -->
     <Transition name="popup">
@@ -309,6 +291,7 @@ import {
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 import { findCurrentSection } from "@/modules/learn/pathResume.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
+import SelectionTranslateOverlay from "@/shared/components/SelectionTranslateOverlay.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -395,6 +378,12 @@ const savedReadingStatus = ref(null);
 let scrollSaveTimer = null;
 let lastPersistedScrollPct = -1;
 
+function onSingleWordSelected(text) {
+  const context = articleBodyRef.value?.textContent?.trim() ?? "";
+  selectedWord.value = { text, context };
+  knownWordIds.value.add(text);
+}
+
 const {
   selectionText,
   selectionResult,
@@ -414,6 +403,8 @@ const {
   getTargetLang: () => targetLang,
   getNativeLang: () => getLocale(),
   t,
+  getSelectionRoot: () => articleBodyRef.value,
+  onSingleWordSelected: onSingleWordSelected,
 });
 
 const completionElapsedSec = computed(() =>

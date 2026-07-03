@@ -688,6 +688,13 @@ export default {
     practiceWrapUpHint: "You practiced {wordCount} words · {rounds} conversation rounds",
     practiceWrapUpWords: "Words this session: {preview}",
     practiceWrapUpLater: "Maybe later",
+    tapToLearnHint: "Select a word in the message to look it up",
+    wordSaved: "Added to your word list",
+    wordKnown: "Marked as known",
+    practiceLearnedWords: "{n} new words this session: {preview}",
+    practiceReviewLearnedWords: "Review {n} words you just learned",
+    practiceReviewLearnedWordsHint: "Reinforce the words you marked while chatting",
+    practiceReviewLearnedWordsAction: "Review now",
   },
 
   profile: {
