@@ -30,9 +30,14 @@ export function pickChatStarters(ctx) {
     teachingPreview = null,
     focusArea = null,
     targetLabel = "",
+    pendingWords = null,
   } = ctx ?? {};
 
   const starters = [];
+  const pendingStarter = buildReviewedWordsStarter(pendingWords);
+  if (pendingStarter) {
+    starters.push(pendingStarter);
+  }
 
   if (currentSection) {
     const { unit, section } = currentSection;

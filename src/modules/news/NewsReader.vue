@@ -320,6 +320,11 @@ import {
   isAiPracticeStep,
   isVocabReviewStep,
 } from "./postReadingPlan.js";
+import {
+  planHasAiPracticeStep,
+  PENDING_SOURCES,
+  savePendingAiPractice,
+} from "@/modules/ai-chat/pendingAiPractice.js";
 import { dailyGoalRemainingLessons } from "@/modules/learn/dailyGoalDisplay.js";
 import { formatReadingTime } from "./readingCompletion.js";
 
@@ -989,6 +994,14 @@ function tryShowCompletionSummary() {
 }
 
 function dismissCompletionSummary() {
+  const plan = readingPlan.value;
+  if (planHasAiPracticeStep(plan) && sessionWords.value.length >= 3) {
+    savePendingAiPractice({
+      source: PENDING_SOURCES.READING,
+      words: sessionWords.value,
+      articleTitle: article.value?.original_title || "",
+    });
+  }
   showCompletionSummary.value = false;
   navigateBack();
 }

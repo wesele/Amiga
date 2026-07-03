@@ -4,6 +4,23 @@
       <h2>{{ t("chat.title") }}</h2>
       <button class="manage-btn" :aria-label="t('chat.socialHub')" @click="openSocialHub">⋯</button>
     </header>
+    <section v-if="showPendingHero" class="pending-practice-hero">
+      <p class="pending-practice-eyebrow">{{ t("chat.pendingPracticeTitle") }}</p>
+      <p class="pending-practice-hint">{{ pendingPracticeHint }}</p>
+      <div class="pending-practice-actions">
+        <button
+          type="button"
+          class="pending-practice-start"
+          :disabled="startingPendingPractice"
+          @click="startPendingPractice"
+        >
+          {{ t("chat.pendingPracticeStart") }}
+        </button>
+        <button type="button" class="pending-practice-dismiss" @click="dismissPendingPractice">
+          {{ t("chat.pendingPracticeDismiss") }}
+        </button>
+      </div>
+    </section>
     <div class="contact-list-scroll">
       <div
         v-for="contact in combinedContacts"
@@ -38,6 +55,12 @@ import { getChatSessions, getPathCurriculum } from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { findCurrentSection } from "@/modules/learn/pathResume.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
+import {
+  clearPendingAiPractice,
+  formatPendingPracticePreview,
+  peekPendingAiPractice,
+  shouldShowPendingPracticeHero,
+} from "@/modules/ai-chat/pendingAiPractice.js";
 import { useI18n } from "@/shared/i18n";
 import { displayLang } from "@/shared/constants.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -67,6 +90,8 @@ const friends = ref([]);
 const previewVersion = ref(0);
 const flashingIds = ref(new Set());
 const socialUserId = ref("");
+const pendingPractice = ref(null);
+const startingPendingPractice = ref(false);
 let unsubscribeLang = null;
 let unsubscribePreview = null;
 let stopInbox = null;
@@ -95,6 +120,31 @@ function applySocialPreview(contact) {
   };
 }
 
+const showPendingHero = computed(() => shouldShowPendingPracticeHero(pendingPractice.value));
+
+const pendingPracticeHint = computed(() => {
+  const pending = pendingPractice.value;
+  if (!pending?.words?.length) return "";
+  const preview = formatPendingPracticePreview(pending.words);
+  const hintKey = {
+    reading: "chat.pendingPracticeHintReading",
+    vocab: "chat.pendingPracticeHintVocab",
+    teaching: "chat.pendingPracticeHintTeaching",
+    mistake: "chat.pendingPracticeHintMistake",
+  }[pending.source] ?? "chat.pendingPracticeHintVocab";
+  return t(hintKey, { preview });
+});
+
+const amigaPendingDesc = computed(() => {
+  const pending = pendingPractice.value;
+  if (!shouldShowPendingPracticeHero(pending)) return "";
+  const n = pending.words.length;
+  if (currentUnitTitle.value) {
+    return t("chat.amigaDescPendingWithUnit", { n, unit: currentUnitTitle.value });
+  }
+  return t("chat.amigaDescPendingPractice", { n });
+});
+
 const aiContacts = computed(() => {
   previewVersion.value;
   const targetLabel = displayLang(targetLangStore.code, locale.value);
@@ -112,12 +162,14 @@ const aiContacts = computed(() => {
       name: t("chat.amiga"),
       component: markRaw(AmigaIcon),
       contactType: "amiga",
-      desc: currentUnitTitle.value
-        ? t("chat.amigaDescWithUnit", {
-            target: targetLabel,
-            unit: currentUnitTitle.value,
-          })
-        : t("chat.amigaDesc", { target: targetLabel }),
+      desc:
+        amigaPendingDesc.value
+        || (currentUnitTitle.value
+          ? t("chat.amigaDescWithUnit", {
+              target: targetLabel,
+              unit: currentUnitTitle.value,
+            })
+          : t("chat.amigaDesc", { target: targetLabel })),
     },
     {
       id: "translator",
@@ -239,9 +291,38 @@ function openSocialHub() {
   router.push({ name: "social-hub" });
 }
 
-async function openAiChat(contact) {
+function refreshPendingPractice() {
+  pendingPractice.value = peekPendingAiPractice();
+}
+
+async function openAiChat(contact, options = {}) {
   const lang = targetLangStore.code || (await targetLangStore.load());
-  await openAiContact(router, contact, { targetLang: lang });
+  return openAiContact(router, contact, { targetLang: lang, ...options });
+}
+
+async function startPendingPractice() {
+  const pending = pendingPractice.value;
+  if (!pending?.words?.length || startingPendingPractice.value) return;
+  startingPendingPractice.value = true;
+  try {
+    const amigaContact = aiContacts.value.find((contact) => contact.contactType === "amiga");
+    if (!amigaContact) return;
+    const opened = await openAiChat(amigaContact, {
+      starterId: "reviewed-words",
+      starterParams: {
+        words: pending.words.join(", "),
+        from: pending.source,
+      },
+    });
+    if (opened) refreshPendingPractice();
+  } finally {
+    startingPendingPractice.value = false;
+  }
+}
+
+function dismissPendingPractice() {
+  clearPendingAiPractice();
+  refreshPendingPractice();
 }
 
 function openContact(contact) {
@@ -271,6 +352,7 @@ onUnmounted(() => {
 });
 
 onMounted(async () => {
+  refreshPendingPractice();
   await Promise.all([refreshSessions(), refreshPathContext()]);
   await refreshFriends();
   unsubscribeLang = eventBus.on(TARGET_LANG_CHANGED, () => {
@@ -313,6 +395,63 @@ onMounted(async () => {
   font-size: 22px;
   line-height: 1;
   font-weight: 700;
+}
+
+.pending-practice-hero {
+  margin: 8px 16px 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%);
+  border: 1px solid var(--purple);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.pending-practice-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--purple);
+}
+
+.pending-practice-hint {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.pending-practice-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.pending-practice-start {
+  flex: 1;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  background: var(--purple);
+  color: var(--white);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pending-practice-start:disabled {
+  opacity: 0.6;
+}
+
+.pending-practice-dismiss {
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  background: transparent;
+  color: var(--text-lighter);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .contact-list-scroll {

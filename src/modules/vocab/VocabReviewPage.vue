@@ -289,6 +289,11 @@ import {
   isContinueReviewStep,
 } from "./postVocabReviewPlan.js";
 import {
+  planHasAiPracticeStep,
+  PENDING_SOURCES,
+  savePendingAiPractice,
+} from "@/modules/ai-chat/pendingAiPractice.js";
+import {
   canSwipeToRate,
   isVocabSwipeTap,
   shouldAbortVocabSwipe,
@@ -840,6 +845,13 @@ async function goToVocabStep(step) {
 }
 
 function exitReview() {
+  const plan = vocabReviewPlan.value;
+  if (planHasAiPracticeStep(plan) && reviewedWords.value.length >= 3) {
+    savePendingAiPractice({
+      source: readingSessionMode.value ? PENDING_SOURCES.READING : PENDING_SOURCES.VOCAB,
+      words: reviewedWords.value,
+    });
+  }
   if (window.history.length > 1) {
     router.back();
     return;

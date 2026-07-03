@@ -227,6 +227,7 @@ import {
   shouldShowPracticeWrapUp,
   trackChatLearnedWord,
 } from "@/modules/ai-chat/aiPracticeSession.js";
+import { clearPendingAiPractice, peekPendingAiPractice } from "@/modules/ai-chat/pendingAiPractice.js";
 import { buildPostAiPracticePlan } from "@/modules/ai-chat/postAiPracticePlan.js";
 import { loadPostAiPracticeContext } from "@/modules/ai-chat/postAiPracticeContext.js";
 import { useSelectionTranslation } from "@/modules/news/selectionTranslation.js";
@@ -304,6 +305,7 @@ async function openPracticeWrapUp() {
       ...planCtx,
     });
     showPracticeWrapUp.value = true;
+    clearPendingAiPractice();
   } catch {
     exitAfterPractice();
   } finally {
@@ -601,17 +603,20 @@ async function loadChatStarters(nativeLangCode, langCode, cefr) {
     }
     const stats = loadQuestionTypeStats(pairStatsKey(nativeLangCode, langCode));
     const focusArea = buildFocusArea(stats);
+    const pendingWords = peekPendingAiPractice()?.words ?? null;
     chatStarters.value = applyReviewedWordsStarter(
       pickChatStarters({
         currentSection,
         teachingPreview,
         focusArea,
         targetLabel: targetLabel.value,
+        pendingWords,
       }),
     );
   } catch {
+    const pendingWords = peekPendingAiPractice()?.words ?? null;
     chatStarters.value = applyReviewedWordsStarter(
-      pickChatStarters({ targetLabel: targetLabel.value }),
+      pickChatStarters({ targetLabel: targetLabel.value, pendingWords }),
     );
   } finally {
     startersLoading.value = false;

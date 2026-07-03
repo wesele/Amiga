@@ -83,4 +83,13 @@ describe("pickChatStarters", () => {
     });
     expect(starters.length).toBeLessThanOrEqual(3);
   });
+
+  it("pins pending practice words as the first starter", () => {
+    const starters = pickChatStarters({
+      pendingWords: ["viaje", "hotel", "playa"],
+      targetLabel: "西班牙语",
+    });
+    expect(starters[0].id).toBe("reviewed-words");
+    expect(starters[0].labelParams.preview).toBe("viaje, hotel, playa");
+  });
 });

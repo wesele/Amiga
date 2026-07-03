@@ -4,6 +4,10 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
+import {
+  PENDING_SOURCES,
+  savePendingAiPractice,
+} from "@/modules/ai-chat/pendingAiPractice.js";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
@@ -65,6 +69,7 @@ describe("ContactList", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     setLocale("zh", { persist: false });
+    localStorage.clear();
   });
 
   it("renders public group, Amiga and AI Translator in the top-level list", async () => {
@@ -272,6 +277,93 @@ describe("ContactList", () => {
     const amigaDesc = wrapper.findAll(".contact-item")
       .find((item) => item.find(".contact-name").text() === "Amiga");
     expect(amigaDesc.find(".contact-desc").text()).toBe("Last msg here");
+  });
+
+  it("shows pending practice hero when saved words exist", async () => {
+    setupMocks();
+    savePendingAiPractice({
+      source: PENDING_SOURCES.READING,
+      words: ["viaje", "hotel", "playa"],
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(ContactList, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".pending-practice-hero").exists()).toBe(true);
+    expect(wrapper.text()).toContain("待练口语");
+    expect(wrapper.text()).toContain("viaje, hotel, playa");
+  });
+
+  it("hides pending practice hero when fewer than three words are saved", async () => {
+    setupMocks();
+    savePendingAiPractice({
+      source: PENDING_SOURCES.READING,
+      words: ["viaje", "hotel"],
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(ContactList, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".pending-practice-hero").exists()).toBe(false);
+  });
+
+  it("starts guided practice from pending hero CTA", async () => {
+    const { mockInvoke } = setupMocks();
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", nickname: "Alice" });
+      if (cmd === "create_chat_session_cmd") return Promise.resolve("amiga-session-id");
+      return Promise.resolve(null);
+    });
+    savePendingAiPractice({
+      source: PENDING_SOURCES.VOCAB,
+      words: ["alpha", "beta", "gamma"],
+    });
+
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(ContactList, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".pending-practice-start").trigger("click");
+    await flushPromises();
+
+    expect(pushSpy).toHaveBeenCalledWith({
+      name: "chat-session",
+      params: { sessionId: "amiga-session-id" },
+      query: {
+        starterId: "reviewed-words",
+        words: "alpha, beta, gamma",
+        from: "vocab",
+      },
+    });
+  });
+
+  it("clears pending practice when dismissed", async () => {
+    setupMocks();
+    savePendingAiPractice({
+      source: PENDING_SOURCES.READING,
+      words: ["viaje", "hotel", "playa"],
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(ContactList, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".pending-practice-dismiss").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".pending-practice-hero").exists()).toBe(false);
   });
 
   it("handles social API failure gracefully", async () => {
