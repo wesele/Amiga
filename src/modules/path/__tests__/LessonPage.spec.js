@@ -2240,6 +2240,7 @@ describe("LessonPage answer combo", () => {
   let mockInvoke;
 
   beforeEach(() => {
+    localStorage.clear();
     setActivePinia(createPinia());
     setLocale("zh", { persist: false });
     mockInvoke = vi.fn().mockImplementation((cmd) => {
