@@ -1,3 +1,5 @@
+import { readingCardPhase } from "./readingProgress.js";
+
 /** Parse words_unknown JSON into deduped { word, context } entries (backward compatible). */
 export function parseUnknownWordEntries(json) {
   if (!json) return [];
@@ -67,13 +69,32 @@ export function buildStatusMap(rows) {
 export function articleCardState(article, status, options = {}) {
   void article;
   const { dueWordKeys } = options;
-  if (!status?.read_at) {
+  const phase = readingCardPhase(status);
+
+  if (phase === "unread") {
     return {
       isUnread: true,
+      isInProgress: false,
       readBadge: null,
+      progressLine: null,
       unknownLine: null,
+      showContinueChip: false,
       showReviewChip: false,
       cardClass: "is-unread",
+    };
+  }
+
+  if (phase === "in_progress") {
+    const pct = status.scroll_pct ?? 0;
+    return {
+      isUnread: false,
+      isInProgress: true,
+      readBadge: null,
+      progressLine: { key: "cardInProgress", pct },
+      unknownLine: null,
+      showContinueChip: true,
+      showReviewChip: false,
+      cardClass: "is-in-progress",
     };
   }
 
@@ -90,9 +111,12 @@ export function articleCardState(article, status, options = {}) {
 
   return {
     isUnread: false,
+    isInProgress: false,
     readBadge: status.read_today ? "cardReadToday" : "cardRead",
+    progressLine: null,
     unknownLine:
       unknownCount > 0 ? { key: "cardUnknownWords", n: unknownCount } : null,
+    showContinueChip: false,
     showReviewChip,
     cardClass: "is-read",
   };
@@ -102,16 +126,20 @@ export function articleCardState(article, status, options = {}) {
 export function aggregateListSummary(statusMap, articles) {
   let readToday = 0;
   let unread = 0;
+  let inProgress = 0;
   const total = articles?.length || 0;
   for (const article of articles || []) {
     const status = statusMap.get(article.id);
-    if (!status?.read_at) {
+    const phase = readingCardPhase(status);
+    if (phase === "unread") {
       unread += 1;
+    } else if (phase === "in_progress") {
+      inProgress += 1;
     } else if (status.read_today) {
       readToday += 1;
     }
   }
-  return { readToday, unread, total };
+  return { readToday, unread, inProgress, total };
 }
 
 /** Collect all unknown words across status rows (deduped). */
@@ -155,7 +183,7 @@ export function buildArticleReviewSessionWords(status, articleId) {
 export function countUnreadArticles(statusMap, articles) {
   let unread = 0;
   for (const article of articles || []) {
-    if (!statusMap.get(article.id)?.read_at) unread += 1;
+    if (readingCardPhase(statusMap.get(article.id)) === "unread") unread += 1;
   }
   return unread;
 }
@@ -165,7 +193,7 @@ export function countUnreadArticlesExcluding(statusMap, articles, excludeArticle
   let unread = 0;
   for (const article of articles || []) {
     if (article.id === excludeArticleId) continue;
-    if (!statusMap.get(article.id)?.read_at) unread += 1;
+    if (readingCardPhase(statusMap.get(article.id)) === "unread") unread += 1;
   }
   return unread;
 }
@@ -183,7 +211,7 @@ export function findNextUnreadArticleId(articles, statusMap, currentArticleId) {
       : list;
   for (const article of ordered) {
     if (article.id === currentArticleId) continue;
-    if (!statusMap.get(article.id)?.read_at) return article.id;
+    if (readingCardPhase(statusMap.get(article.id)) === "unread") return article.id;
   }
   return null;
 }

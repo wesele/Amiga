@@ -202,6 +202,9 @@ describe("NewsReader mastery visualization", () => {
 
     expect(wrapper.find(".completion-overlay").exists()).toBe(false);
 
+    await wrapper.find(".mark-complete-btn").trigger("click");
+    await flushPromises();
+
     await wrapper.find(".back-btn").trigger("click");
     await flushPromises();
 
@@ -240,6 +243,9 @@ describe("NewsReader mastery visualization", () => {
     await wrapper.find(".word.word-new").trigger("click");
     await flushPromises();
     await wrapper.findComponent(WordPopup).vm.$emit("known");
+    await flushPromises();
+
+    await wrapper.find(".mark-complete-btn").trigger("click");
     await flushPromises();
 
     await wrapper.find(".back-btn").trigger("click");

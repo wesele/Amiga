@@ -57,6 +57,9 @@
             <span v-if="cardStateFor(article).readBadge" class="badge-read">
               {{ t(`news.${cardStateFor(article).readBadge}`) }}
             </span>
+            <span v-else-if="cardStateFor(article).progressLine" class="badge-in-progress">
+              {{ t(`news.${cardStateFor(article).progressLine.key}`, { pct: cardStateFor(article).progressLine.pct }) }}
+            </span>
           </div>
           <div class="card-meta">
             <span v-if="article.rewritten_body" class="badge-rewritten">{{ t('news.aiRewritten') }}</span>
@@ -78,7 +81,15 @@
             >{{ formatSource(article.source) }}</a>
           </div>
           <button
-            v-if="cardStateFor(article).showReviewChip"
+            v-if="cardStateFor(article).showContinueChip"
+            type="button"
+            class="card-continue-chip"
+            @click.stop="openArticle(article.id)"
+          >
+            {{ t("news.readingContinue") }}
+          </button>
+          <button
+            v-else-if="cardStateFor(article).showReviewChip"
             type="button"
             class="card-review-chip"
             @click.stop="goToArticleReview(article.id)"
@@ -112,7 +123,7 @@ import { useRouter } from "vue-router";
 import { getArticles, fetchNews, getCurrentUser, getArticlesReadingStatus, lookupWordsMastery } from "@/shared/api.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { openSourceUrl } from "./utils.js";
-import { consumeReadingSessionSummary } from "./readingSession.js";
+import { consumeReadingSessionSummary, consumeReadingProgressToast } from "./readingSession.js";
 import {
   aggregateListSummary,
   articleCardState,
@@ -153,7 +164,7 @@ const formattedDate = computed(() => {
 const listProgress = computed(() => {
   if (!articles.value.length || !statusMap.value.size) return null;
   const summary = aggregateListSummary(statusMap.value, articles.value);
-  if (!summary.readToday && summary.unread === summary.total) return null;
+  if (!summary.readToday && !summary.inProgress && summary.unread === summary.total) return null;
   return summary;
 });
 
@@ -165,6 +176,10 @@ function cardStateFor(article) {
 
 onMounted(async () => {
   readingSummary.value = consumeReadingSessionSummary();
+  const progressToast = consumeReadingProgressToast();
+  if (progressToast?.scrollPct != null) {
+    showStatus(t("news.readingProgressSaved", { pct: progressToast.scrollPct }));
+  }
   try {
     const u = await getCurrentUser();
     userId = u?.id || "";
@@ -457,6 +472,38 @@ function formatSource(source) {
 
 .article-card.is-unread {
   border-left: 3px solid rgba(124, 58, 237, 0.35);
+}
+
+.article-card.is-in-progress {
+  border-left: 3px solid rgba(88, 204, 2, 0.45);
+}
+
+.badge-in-progress {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--green-bg);
+  color: var(--green);
+  white-space: nowrap;
+}
+
+.card-continue-chip {
+  margin-top: 8px;
+  align-self: flex-end;
+  border: none;
+  background: transparent;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.card-continue-chip:hover {
+  text-decoration: underline;
 }
 
 .card-rank {

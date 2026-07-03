@@ -22,6 +22,12 @@
       </div>
     </header>
 
+    <div v-if="article?.rewritten_body" class="reading-progress-bar">
+      <div class="progress-track">
+        <div class="progress-fill" :style="{ width: displayScrollPct + '%' }" />
+      </div>
+    </div>
+
     <!-- Loading / Rewrite prompt -->
     <div v-if="!article" class="loading-center">{{ t('news.loading') }}</div>
     <div v-else-if="!article.rewritten_body && !rewriting && !rewriteError" class="rewrite-prompt">
@@ -38,7 +44,7 @@
     </div>
 
     <!-- Article body -->
-    <div v-else class="article-body">
+    <div v-else ref="articleBodyRef" class="article-body" @scroll="onArticleScroll">
       <!-- Original mode -->
       <div v-if="!bilingualMode" class="article-text">
         <template v-for="(token, idx) in tokens" :key="idx">
@@ -172,6 +178,13 @@
           </svg>
         </button>
         <button
+          type="button"
+          class="mode-btn mark-complete-btn"
+          @click="markReadingComplete"
+        >
+          {{ t("news.markComplete") }}
+        </button>
+        <button
           class="mode-btn share-btn"
           :disabled="sharing"
           :title="t('news.shareTitle')"
@@ -274,7 +287,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import {
   getArticle,
@@ -306,7 +319,13 @@ import { extractWordTexts, tokenizeArticleText, applyMasteryToTokens } from "./a
 import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
 import { buildMasteryMap, resolveWordClass as resolveWordMasteryClass, wordKey } from "./wordMastery.js";
-import { saveReadingSessionSummary } from "./readingSession.js";
+import { saveReadingSessionSummary, saveReadingProgressToast } from "./readingSession.js";
+import {
+  computeScrollPct,
+  isReadingComplete,
+  restoreScrollPosition,
+  SCROLL_SAVE_THROTTLE_MS,
+} from "./readingProgress.js";
 import {
   buildStatusMap,
   countUnreadArticlesExcluding,
@@ -319,7 +338,7 @@ import {
   isVocabReviewStep,
 } from "./postReadingPlan.js";
 import { dailyGoalRemainingLessons } from "@/modules/learn/dailyGoalDisplay.js";
-import { formatReadingTime, isValidReading } from "./readingCompletion.js";
+import { formatReadingTime } from "./readingCompletion.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -369,6 +388,12 @@ const resumeTarget = ref(null);
 const newsUnreadCount = ref(0);
 const nextUnreadArticleId = ref(null);
 const openingAiPractice = ref(false);
+const articleBodyRef = ref(null);
+const displayScrollPct = ref(0);
+const userMarkedComplete = ref(false);
+const savedReadingStatus = ref(null);
+let scrollSaveTimer = null;
+let lastPersistedScrollPct = -1;
 
 const {
   selectionText,
@@ -459,6 +484,65 @@ function handleAndroidBackInPage() {
   return undefined;
 }
 
+async function loadSavedReadingStatus() {
+  if (!userId) return;
+  try {
+    const rows = await getArticlesReadingStatus(userId, [Number(props.id)]);
+    savedReadingStatus.value = buildStatusMap(rows).get(Number(props.id)) || null;
+  } catch {
+    savedReadingStatus.value = null;
+  }
+}
+
+async function restoreSavedScrollPosition() {
+  const status = savedReadingStatus.value;
+  if (!status || status.completed || !(status.scroll_pct > 0)) return;
+  await nextTick();
+  restoreScrollPosition(articleBodyRef.value, status.scroll_pct);
+  displayScrollPct.value = computeScrollPct(articleBodyRef.value);
+}
+
+async function persistReadingProgress({ scrollPct, completed, userMarked } = {}) {
+  if (!userId || !article.value) return;
+  const pct = scrollPct ?? computeScrollPct(articleBodyRef.value);
+  const done = completed ?? isReadingComplete(pct, userMarked ?? userMarkedComplete.value);
+  const elapsed = Math.round((Date.now() - startTime.value) / 1000);
+  try {
+    await saveReadingLog({
+      user_id: userId,
+      article_id: Number(props.id),
+      words_looked_up: JSON.stringify(Array.from(knownWordIds.value)),
+      words_known: JSON.stringify(Array.from(wordsKnownSet.value)),
+      words_unknown: serializeUnknownWordEntries(sessionWordsRef.value),
+      reading_time_sec: elapsed,
+      scroll_pct: pct,
+      completed: done,
+    });
+    lastPersistedScrollPct = pct;
+  } catch (e) {
+    console.error("Failed to save reading log:", e);
+  }
+}
+
+function onArticleScroll() {
+  displayScrollPct.value = computeScrollPct(articleBodyRef.value);
+  if (!userId || !article.value?.rewritten_body) return;
+  if (scrollSaveTimer) return;
+  scrollSaveTimer = setTimeout(() => {
+    scrollSaveTimer = null;
+    const pct = displayScrollPct.value;
+    if (pct === lastPersistedScrollPct) return;
+    void persistReadingProgress({ scrollPct: pct, completed: false });
+  }, SCROLL_SAVE_THROTTLE_MS);
+}
+
+async function markReadingComplete() {
+  userMarkedComplete.value = true;
+  displayScrollPct.value = 100;
+  await persistReadingProgress({ scrollPct: 100, completed: true, userMarked: true });
+  tryShowCompletionSummary();
+}
+
 onMounted(async () => {
   startTime.value = Date.now();
   document.addEventListener("selectionchange", onSelectionChange);
@@ -472,6 +556,7 @@ onMounted(async () => {
     userId = ctx.user.id;
     targetLang = ctx.targetLang;
     currentLevel = ctx.cefr;
+    await loadSavedReadingStatus();
     try {
       const goal = await getDailyGoalProgress(userId, targetLang);
       dailyGoalSnapshot.value = goal;
@@ -486,6 +571,7 @@ onMounted(async () => {
       await doRewrite();
     } else {
       processArticleWords();
+      await restoreSavedScrollPosition();
     }
   } catch (e) {
     console.error("Failed to load article:", e);
@@ -521,22 +607,14 @@ onBeforeUnmount(async () => {
     clearTimeout(timer);
   }
   sessionMarkTimers.clear();
+  if (scrollSaveTimer) {
+    clearTimeout(scrollSaveTimer);
+    scrollSaveTimer = null;
+  }
   if (userId && article.value) {
-    const elapsed = Math.round((Date.now() - startTime.value) / 1000);
-    try {
-      await saveReadingLog({
-        user_id: userId,
-        article_id: Number(props.id),
-        words_looked_up: JSON.stringify(Array.from(knownWordIds.value)),
-        words_known: JSON.stringify(Array.from(wordsKnownSet.value)),
-        words_unknown: serializeUnknownWordEntries(sessionWordsRef.value),
-        reading_time_sec: elapsed,
-        completed: true,
-      });
-    } catch (e) {
-      console.error("Failed to save reading log:", e);
-    }
-
+    const pct = computeScrollPct(articleBodyRef.value);
+    const completed = isReadingComplete(pct, userMarkedComplete.value);
+    await persistReadingProgress({ scrollPct: pct, completed });
     // Mark article words as "seen" — if not already processed after rewrite.
     if (!wordsProcessed) {
       try {
@@ -701,8 +779,11 @@ function parseText(text) {
   tokens.value = applyMasteryToTokens(tokenizeArticleText(text), masteryMap.value);
 }
 
-watch(() => article.value?.rewritten_body, (val) => {
-  if (val) parseText(val);
+watch(() => article.value?.rewritten_body, async (val) => {
+  if (val) {
+    parseText(val);
+    await restoreSavedScrollPosition();
+  }
 });
 
 watch(() => article.value?.original_body, (val) => {
@@ -907,13 +988,9 @@ async function goToReadingStep(step) {
 function tryShowCompletionSummary() {
   if (showCompletionSummary.value) return true;
   if (!article.value?.rewritten_body) return false;
-  const valid = isValidReading({
-    elapsedSec: completionElapsedSec.value,
-    unknownCount: wordsUnknownSet.value.size,
-    knownCount: wordsKnownSet.value.size,
-    lookedUpCount: knownWordIds.value.size,
-  });
-  if (!valid) return false;
+  const scrollPct = computeScrollPct(articleBodyRef.value);
+  const completed = isReadingComplete(scrollPct, userMarkedComplete.value);
+  if (!completed) return false;
   showCompletionSummary.value = true;
   void loadPostReadingContext();
   return true;
@@ -929,8 +1006,13 @@ function completeAndReview() {
   goToSessionReview();
 }
 
-function goBack() {
+async function goBack() {
   if (tryShowCompletionSummary()) return;
+  const scrollPct = computeScrollPct(articleBodyRef.value);
+  if (article.value?.rewritten_body && scrollPct > 0) {
+    await persistReadingProgress({ scrollPct, completed: false });
+    saveReadingProgressToast(scrollPct);
+  }
   navigateBack();
 }
 
@@ -958,9 +1040,29 @@ function formatSource(source) {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 8px 12px 4px;
+  padding: 8px 8px 8px 4px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+.reading-progress-bar {
+  flex-shrink: 0;
+  padding: 0 16px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.reading-progress-bar .progress-track {
+  height: 4px;
+  background: var(--gray-light);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.reading-progress-bar .progress-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 999px;
+  transition: width 0.2s ease;
 }
 
 .back-btn {
@@ -1297,6 +1399,17 @@ function formatSource(source) {
 .mode-toggle-icon {
   opacity: 0.7;
   margin-top: 1px;
+}
+
+.mark-complete-btn {
+  color: var(--text-light);
+  border-color: var(--border);
+  background: var(--surface-variant);
+}
+
+.mark-complete-btn:hover {
+  color: var(--green);
+  border-color: var(--green);
 }
 
 .share-btn {

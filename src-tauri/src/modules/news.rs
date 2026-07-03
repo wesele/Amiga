@@ -114,6 +114,7 @@ mod tests {
             words_unknown: Some(r#"["playa"]"#.to_string()),
             reading_time_sec: 120,
             completed: true,
+            scroll_pct: 100,
         };
 
         save_reading_log(&pool, &log_entry).unwrap();
@@ -147,6 +148,7 @@ mod tests {
             words_unknown: None,
             reading_time_sec: 60,
             completed: true,
+            scroll_pct: 100,
         };
         save_reading_log(&pool, &log_entry).unwrap();
 
@@ -240,6 +242,7 @@ mod tests {
                 words_unknown: None,
                 reading_time_sec: 30,
                 completed: true,
+                scroll_pct: 100,
             },
         )
         .unwrap();
@@ -257,6 +260,7 @@ mod tests {
                 words_unknown: None,
                 reading_time_sec: 25,
                 completed: true,
+                scroll_pct: 100,
             },
         )
         .unwrap();
@@ -273,6 +277,7 @@ mod tests {
                 words_unknown: None,
                 reading_time_sec: 60,
                 completed: true,
+                scroll_pct: 100,
             },
         )
         .unwrap();
@@ -289,6 +294,7 @@ mod tests {
                 words_unknown: None,
                 reading_time_sec: 5,
                 completed: false,
+                scroll_pct: 10,
             },
         )
         .unwrap();
@@ -460,10 +466,37 @@ mod tests {
             Some("2026-06-15 12:00:00.000")
         );
         assert!(!statuses[0].read_today);
+        assert!(statuses[0].completed);
+        assert_eq!(statuses[0].scroll_pct, 0);
         assert_eq!(
             statuses[0].words_unknown.as_deref(),
             Some("[\"nuevo\",\"nuevo\"]")
         );
+    }
+
+    #[test]
+    fn test_get_articles_reading_status_returns_in_progress_fields() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES ('user-1', 'Test')",
+            [],
+        )
+        .unwrap();
+        let aid = insert_test_article(&conn, "Partial Read", "world");
+        conn.execute(
+            "INSERT INTO news_reading_log (user_id, article_id, reading_time_sec, completed, scroll_pct, read_at)
+             VALUES ('user-1', ?1, 20, 0, 55, datetime('now'))",
+            params![aid],
+        )
+        .unwrap();
+        drop(conn);
+
+        let statuses = get_articles_reading_status(&pool, "user-1", &[aid]).unwrap();
+        assert_eq!(statuses.len(), 1);
+        assert!(!statuses[0].completed);
+        assert_eq!(statuses[0].scroll_pct, 55);
+        assert!(!statuses[0].read_today);
     }
 
     #[test]
@@ -555,6 +588,8 @@ pub struct ArticleReadingStatus {
     pub known_count: i32,
     pub read_today: bool,
     pub words_unknown: Option<String>,
+    pub completed: bool,
+    pub scroll_pct: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -566,6 +601,8 @@ pub struct ReadingLog {
     pub words_unknown: Option<String>,
     pub reading_time_sec: i32,
     pub completed: bool,
+    #[serde(default)]
+    pub scroll_pct: i32,
 }
 
 /// RSS feed sources by region (target language → news language)
@@ -867,6 +904,21 @@ pub fn save_rewritten_article(
     Ok(())
 }
 
+fn should_count_reading_for_streak(log_entry: &ReadingLog) -> bool {
+    if log_entry.completed {
+        return true;
+    }
+    if log_entry.scroll_pct < 50 {
+        return false;
+    }
+    if log_entry.reading_time_sec >= 30 {
+        return true;
+    }
+    count_unique_json_words(log_entry.words_unknown.as_deref()) > 0
+        || count_unique_json_words(log_entry.words_known.as_deref()) > 0
+        || count_unique_json_words(log_entry.words_looked_up.as_deref()) > 0
+}
+
 /// Save reading log
 pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(), String> {
     let conn = db.conn()?;
@@ -874,8 +926,8 @@ pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(),
         .format("%Y-%m-%d %H:%M:%S%.3f")
         .to_string();
     conn.execute(
-        "INSERT INTO news_reading_log (user_id, article_id, words_looked_up, words_known, words_unknown, reading_time_sec, completed, read_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO news_reading_log (user_id, article_id, words_looked_up, words_known, words_unknown, reading_time_sec, completed, scroll_pct, read_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             log_entry.user_id,
             log_entry.article_id,
@@ -884,13 +936,16 @@ pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(),
             log_entry.words_unknown,
             log_entry.reading_time_sec,
             log_entry.completed as i32,
+            log_entry.scroll_pct,
             read_at,
         ],
     ).map_err(|e| format!("Failed to save reading log: {}", e))?;
 
     drop(conn);
-    if let Err(e) = crate::modules::streak::record_article_read(db, &log_entry.user_id) {
-        log::warn!("Failed to update streak for article read: {}", e);
+    if should_count_reading_for_streak(log_entry) {
+        if let Err(e) = crate::modules::streak::record_article_read(db, &log_entry.user_id) {
+            log::warn!("Failed to update streak for article read: {}", e);
+        }
     }
 
     log::info!(
@@ -1051,7 +1106,8 @@ pub fn get_articles_reading_status(
         .map(|i| format!("?{}", i + 2))
         .collect();
     let sql = format!(
-        "SELECT l.article_id, l.words_unknown, l.words_known, l.reading_time_sec, l.read_at
+        "SELECT l.article_id, l.words_unknown, l.words_known, l.reading_time_sec, l.read_at,
+                l.completed, l.scroll_pct
          FROM news_reading_log l
          INNER JOIN (
              SELECT article_id, MAX(read_at) AS max_read_at
@@ -1079,14 +1135,17 @@ pub fn get_articles_reading_status(
             let words_unknown: Option<String> = row.get(1)?;
             let words_known: Option<String> = row.get(2)?;
             let read_at: String = row.get(4)?;
+            let completed: i32 = row.get(5)?;
             Ok(ArticleReadingStatus {
                 article_id: row.get(0)?,
                 read_at: Some(read_at.clone()),
                 reading_time_sec: row.get(3)?,
                 unknown_count: count_unique_json_words(words_unknown.as_deref()),
                 known_count: count_unique_json_words(words_known.as_deref()),
-                read_today: is_read_today(&read_at),
+                read_today: is_read_today(&read_at) && completed != 0,
                 words_unknown,
+                completed: completed != 0,
+                scroll_pct: row.get(6)?,
             })
         })
         .map_err(|e| format!("Failed to query reading status: {}", e))?

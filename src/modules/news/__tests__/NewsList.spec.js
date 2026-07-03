@@ -292,6 +292,7 @@ describe("NewsList reading status badges", () => {
         article_id: 1,
         read_at: "2026-07-03 10:00:00",
         read_today: true,
+        completed: true,
         unknown_count: 2,
         words_unknown: '["casa","perro"]',
       },
@@ -309,6 +310,24 @@ describe("NewsList reading status badges", () => {
     expect(firstCard.find(".card-review-chip").exists()).toBe(true);
   });
 
+  it("shows in-progress badge and continue chip for partial reads", async () => {
+    const api = await import("@/shared/api.js");
+    api.getArticlesReadingStatus.mockResolvedValue([
+      {
+        article_id: 1,
+        read_at: "2026-07-03 10:00:00",
+        completed: false,
+        scroll_pct: 50,
+      },
+    ]);
+
+    const { wrapper } = await mountList();
+    const firstCard = wrapper.find(".article-card");
+    expect(firstCard.classes()).toContain("is-in-progress");
+    expect(firstCard.text()).toContain("阅读中 · 50%");
+    expect(firstCard.find(".card-continue-chip").exists()).toBe(true);
+  });
+
   it("navigates to vocab review with articleId when review chip is clicked", async () => {
     const api = await import("@/shared/api.js");
     api.getArticlesReadingStatus.mockResolvedValue([
@@ -316,6 +335,7 @@ describe("NewsList reading status badges", () => {
         article_id: 1,
         read_at: "2026-07-03 10:00:00",
         read_today: true,
+        completed: true,
         unknown_count: 1,
         words_unknown: '["casa"]',
       },

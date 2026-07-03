@@ -1,4 +1,5 @@
 const SESSION_KEY = "amiga:news-reading-summary";
+const PROGRESS_TOAST_KEY = "amiga:news-reading-progress-toast";
 
 function readSession() {
   try {
@@ -76,6 +77,31 @@ export function consumeReadingSessionWords() {
   const words = session.words;
   writeSession(null);
   return words;
+}
+
+/** Store a one-time progress-saved toast for the news list. */
+export function saveReadingProgressToast(scrollPct) {
+  const pct = Math.max(0, Math.min(100, Math.round(scrollPct)));
+  if (pct <= 0) return;
+  try {
+    sessionStorage.setItem(PROGRESS_TOAST_KEY, JSON.stringify({ scrollPct: pct, at: Date.now() }));
+  } catch {
+    /* sessionStorage unavailable */
+  }
+}
+
+/** Read and clear the progress-saved toast payload. */
+export function consumeReadingProgressToast() {
+  try {
+    const raw = sessionStorage.getItem(PROGRESS_TOAST_KEY);
+    sessionStorage.removeItem(PROGRESS_TOAST_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.scrollPct == null) return null;
+    return { scrollPct: parsed.scrollPct };
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -60,11 +60,25 @@ describe("newsReadingStatus helpers", () => {
     expect(unread.isUnread).toBe(true);
     expect(unread.readBadge).toBeNull();
 
-    const read = articleCardState(
+    const inProgress = articleCardState(
       { id: 2 },
       {
         read_at: "2026-07-03 10:00:00",
+        completed: false,
+        scroll_pct: 42,
+      },
+    );
+    expect(inProgress.isInProgress).toBe(true);
+    expect(inProgress.progressLine).toEqual({ key: "cardInProgress", pct: 42 });
+    expect(inProgress.showContinueChip).toBe(true);
+    expect(inProgress.cardClass).toBe("is-in-progress");
+
+    const read = articleCardState(
+      { id: 3 },
+      {
+        read_at: "2026-07-03 10:00:00",
         read_today: true,
+        completed: true,
         unknown_count: 2,
         words_unknown: '["casa","perro"]',
       },
@@ -75,10 +89,11 @@ describe("newsReadingStatus helpers", () => {
     expect(read.showReviewChip).toBe(true);
 
     const mastered = articleCardState(
-      { id: 3 },
+      { id: 4 },
       {
         read_at: "2026-07-02 10:00:00",
         read_today: false,
+        completed: true,
         unknown_count: 1,
         words_unknown: '["sol"]',
       },
@@ -91,15 +106,17 @@ describe("newsReadingStatus helpers", () => {
   it("aggregateListSummary and countUnreadArticles tally progress", () => {
     const articles = [{ id: 1 }, { id: 2 }, { id: 3 }];
     const map = buildStatusMap([
-      { article_id: 1, read_at: "2026-07-03", read_today: true },
-      { article_id: 2, read_at: "2026-07-02", read_today: false },
+      { article_id: 1, read_at: "2026-07-03", read_today: true, completed: true },
+      { article_id: 2, read_at: "2026-07-02", read_today: false, completed: true },
+      { article_id: 3, read_at: "2026-07-03", completed: false, scroll_pct: 20 },
     ]);
     expect(aggregateListSummary(map, articles)).toEqual({
       readToday: 1,
-      unread: 1,
+      unread: 0,
+      inProgress: 1,
       total: 3,
     });
-    expect(countUnreadArticles(map, articles)).toBe(1);
+    expect(countUnreadArticles(map, articles)).toBe(0);
   });
 
   it("collectUnknownWordsFromStatusMap and buildDueWordKeySet support review flow", () => {

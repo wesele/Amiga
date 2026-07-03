@@ -76,6 +76,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add review_sessions to streak_records for daily goal review credit",
             MIGRATION_V18,
         ),
+        (
+            19,
+            "Add scroll_pct to news_reading_log for resume reading progress",
+            MIGRATION_V19,
+        ),
     ]
 }
 
@@ -366,4 +371,8 @@ ALTER TABLE streak_records ADD COLUMN lessons_completed INTEGER NOT NULL DEFAULT
 
 const MIGRATION_V18: &str = r#"
 ALTER TABLE streak_records ADD COLUMN review_sessions INTEGER NOT NULL DEFAULT 0;
+"#;
+
+const MIGRATION_V19: &str = r#"
+ALTER TABLE news_reading_log ADD COLUMN scroll_pct INTEGER NOT NULL DEFAULT 0;
 "#;

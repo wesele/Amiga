@@ -168,9 +168,22 @@
           :key="item.type"
           type="button"
           :class="secondaryCardClass(item.type)"
-          @click="onSecondarySuggestion(item.type)"
+          @click="onSecondarySuggestion(item.type, item)"
         >
-          <template v-if="item.type === 'mistakeReview'">
+          <template v-if="item.type === 'continueReading'">
+            <span class="hub-secondary-icon" aria-hidden="true">📰</span>
+            <div class="hub-secondary-copy">
+              <p class="hub-secondary-title">
+                {{ t("learn.continueReading", { title: item.title }) }}
+              </p>
+              <p class="hub-secondary-sub">
+                {{ t("learn.continueReadingSub", { remainingPct: item.remainingPct }) }}
+              </p>
+            </div>
+            <span class="hub-secondary-action">{{ t("learn.continueReadingAction") }}</span>
+          </template>
+
+          <template v-else-if="item.type === 'mistakeReview'">
             <span class="mistake-review-icon" aria-hidden="true">🔁</span>
             <div class="mistake-review-copy">
               <p class="mistake-review-title">{{ t("learn.mistakeReview") }}</p>
@@ -359,6 +372,7 @@ import {
   buildStatusMap,
   countUnreadArticles,
 } from "@/modules/news/newsReadingStatus.js";
+import { findContinueReadingCandidate } from "@/modules/news/readingProgress.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
@@ -440,6 +454,7 @@ const dueMistakeEntries = ref([]);
 const dueVocabWords = ref([]);
 const readingSummary = ref(null);
 const newsUnreadCount = ref(0);
+const continueReadingArticle = ref(null);
 const localHour = ref(new Date().getHours());
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
@@ -551,6 +566,7 @@ const secondarySuggestions = computed(() =>
       dueMistakes: dueMistakeEntries.value.length,
       dueVocabWords: dueVocabWords.value,
       focusArea: focusArea.value,
+      continueReadingArticle: continueReadingArticle.value,
       showFocusArea: showFocusArea.value,
       showAccuracy: showAccuracyMilestone.value,
       showCombo: showComboMilestone.value,
@@ -786,14 +802,17 @@ async function loadNewsUnread(userId, targetLang) {
     const articles = await getArticles(regionForLang(targetLang));
     if (!articles.length) {
       newsUnreadCount.value = 0;
+      continueReadingArticle.value = null;
       return;
     }
     const ids = articles.map((article) => article.id).filter((id) => id != null);
     const rows = await getArticlesReadingStatus(userId, ids);
     const map = buildStatusMap(rows);
     newsUnreadCount.value = countUnreadArticles(map, articles);
+    continueReadingArticle.value = findContinueReadingCandidate(articles, map);
   } catch {
     newsUnreadCount.value = 0;
+    continueReadingArticle.value = null;
   }
 }
 
@@ -828,6 +847,7 @@ async function loadHubData() {
     accuracyMilestone.value = null;
     comboMilestone.value = null;
     newsUnreadCount.value = 0;
+    continueReadingArticle.value = null;
   }
 }
 
@@ -865,6 +885,7 @@ function goToFocus() {
 }
 
 function secondaryCardClass(type) {
+  if (type === "continueReading") return "hub-secondary-card continue-reading-card";
   if (type === "mistakeReview") return "mistake-review-card";
   if (type === "vocabReview") return "vocab-review-card";
   if (type === "focusArea") return "focus-area-card";
@@ -875,7 +896,11 @@ function secondaryCardClass(type) {
   return "hub-secondary-card";
 }
 
-function onSecondarySuggestion(type) {
+function onSecondarySuggestion(type, item) {
+  if (type === "continueReading" && item?.articleId) {
+    router.push({ name: "reader", params: { id: item.articleId } });
+    return;
+  }
   if (type === "mistakeReview") {
     goToMistakeReview();
     return;

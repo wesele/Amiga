@@ -5,6 +5,7 @@ import { isStreakAtRisk } from "./streakAtRisk.js";
 export const FOCUS_IDS = {
   STREAK_AT_RISK: "streakAtRisk",
   CONTINUE_SECTION: "continueSection",
+  CONTINUE_READING: "continueReading",
   READ_NEWS: "readNews",
   MISTAKE_REVIEW: "mistakeReview",
   VOCAB_REVIEW: "vocabReview",
@@ -163,12 +164,17 @@ export function pickSecondarySuggestions(ctx, focus) {
     dueMistakes = 0,
     dueVocabWords = [],
     focusArea = null,
+    continueReadingArticle = null,
     showAccuracy = false,
     showCombo = false,
     showPerfect = false,
     showPerfectStreak = false,
     showFocusArea = false,
   } = ctx;
+
+  if (continueReadingArticle && focusId !== FOCUS_IDS.CONTINUE_READING) {
+    suggestions.push({ type: "continueReading", ...continueReadingArticle });
+  }
 
   if (focusId !== FOCUS_IDS.MISTAKE_REVIEW && dueMistakes > 0) {
     suggestions.push({ type: "mistakeReview" });
