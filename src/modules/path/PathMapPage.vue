@@ -94,10 +94,14 @@
             v-for="(section, idx) in unit.sections"
             :key="section.id"
             class="path-step"
-            :id="section.current ? currentSectionDomId(section) : undefined"
+            :id="currentSectionDomId(section)"
             :class="[
               laneClass(idx),
-              { 'is-current': section.current, 'is-highlighted': highlightedSectionId === section.id },
+              {
+                'is-current': section.current,
+                'is-highlighted': highlightedSectionId === section.id,
+                'is-celebrating': celebratingSectionId === section.id,
+              },
             ]"
           >
             <div class="step-body">
@@ -118,8 +122,12 @@
               <div class="node-caption">
                 <span v-if="showKindLabel(section)" class="caption-kind">{{ kindLabel(section) }}</span>
                 <span class="caption-title">{{ section.title_native }}</span>
-                <span v-if="section.kind === 'practice' && section.stars > 0" class="caption-stars">
-                  {{ "★".repeat(section.stars) }}
+                <span
+                  v-if="celebrationStarsFor(section)"
+                  class="caption-stars"
+                  :class="{ 'star-cascade': celebratingSectionId === section.id }"
+                >
+                  {{ celebrationStarsFor(section) }}
                 </span>
               </div>
             </div>
@@ -246,6 +254,15 @@
     </Teleport>
 
     <Teleport to="body">
+      <Transition name="celebration-toast-fade">
+        <div v-if="showCelebrationToast && celebrationToast" class="celebration-toast">
+          <p class="celebration-toast-main">{{ celebrationToast.main }}</p>
+          <p v-if="celebrationToast.sub" class="celebration-toast-sub">{{ celebrationToast.sub }}</p>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <Teleport to="body">
       <Transition name="jump-fab">
         <div v-if="showJumpFab" class="jump-current-bar">
           <button type="button" class="jump-current-btn" @click="onJumpCurrentClick">
@@ -288,6 +305,14 @@ import {
   shouldShowJumpToCurrent,
 } from "./pathMapScroll.js";
 import {
+  CELEBRATE_QUERY,
+  CELEBRATION_DURATION_MS,
+  celebrationToastCopy,
+  findSectionUnit,
+  isUnitJustCompleted,
+  parseCelebrationQuery,
+} from "./pathCompletionCelebration.js";
+import {
   briefingStarDisplay,
   estimatePracticeMinutes,
   findUnfinishedPrepSections,
@@ -317,6 +342,9 @@ const learningLevels = LEARNING_CEFR_LEVELS;
 const pathScrollEl = ref(null);
 const currentVisible = ref(true);
 const highlightedSectionId = ref(null);
+const celebratingSectionId = ref(null);
+const celebrationContext = ref(null);
+const showCelebrationToast = ref(false);
 const briefingContext = ref(null);
 const briefingPrep = ref(null);
 const briefingPrepLoading = ref(false);
@@ -325,6 +353,8 @@ const briefingStartBtn = ref(null);
 
 let currentObserver = null;
 let highlightTimer = null;
+let celebrationTimer = null;
+let celebrationScrollTimer = null;
 let briefingPrepRequest = 0;
 
 const briefingTitleId = "path-briefing-title";
@@ -343,12 +373,24 @@ const briefingPrepChips = computed(() => prepBriefingChips(briefingPrep.value));
 
 const currentTarget = computed(() => findCurrentSection(curriculum.value));
 
-const showJumpFab = computed(() =>
-  shouldShowJumpToCurrent({
-    hasCurrent: !!currentTarget.value,
-    currentVisible: currentVisible.value,
-    curriculumActive: curriculum.value?.status === "active",
-  }),
+const celebrationToast = computed(() => {
+  const payload = celebrationContext.value;
+  if (!payload) return null;
+  const found = findSectionUnit(curriculum.value, payload.sectionId);
+  return celebrationToastCopy(payload, t, {
+    sectionTitle: found?.section?.title_native ?? "",
+    kindLabel: found?.section ? t(sectionKindKey(found.section.kind)) : "",
+  });
+});
+
+const showJumpFab = computed(
+  () =>
+    !showCelebrationToast.value &&
+    shouldShowJumpToCurrent({
+      hasCurrent: !!currentTarget.value,
+      currentVisible: currentVisible.value,
+      curriculumActive: curriculum.value?.status === "active",
+    }),
 );
 
 const continueCurrentSub = computed(() => {
@@ -406,6 +448,16 @@ function kindLabel(section) {
 
 function showKindLabel(section) {
   return kindLabel(section) !== section.title_native;
+}
+
+function celebrationStarsFor(section) {
+  if (celebratingSectionId.value === section.id && celebrationContext.value?.stars > 0) {
+    return "★".repeat(celebrationContext.value.stars);
+  }
+  if (section.kind === "practice" && section.stars > 0) {
+    return "★".repeat(section.stars);
+  }
+  return "";
 }
 
 function nodeIcon(section) {
@@ -552,6 +604,21 @@ function flashCurrentHighlight(sectionId) {
   }, 300);
 }
 
+async function scrollToSection(sectionId, { smooth = true } = {}) {
+  if (!sectionId || curriculum.value?.status !== "active") return;
+
+  await nextTick();
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  const scrollEl = pathScrollEl.value;
+  const domId = `path-node-${sectionId}`;
+  const el =
+    scrollEl?.querySelector(`#${CSS.escape(domId)}`) ?? document.getElementById(domId);
+  if (!el) return;
+
+  el.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" });
+}
+
 async function scrollToCurrentSection({ smooth = true } = {}) {
   const section = currentTarget.value?.section;
   const domId = currentSectionDomId(section);
@@ -567,6 +634,62 @@ async function scrollToCurrentSection({ smooth = true } = {}) {
 
   el.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" });
   flashCurrentHighlight(section.id);
+}
+
+function clearCelebrationTimers() {
+  if (celebrationTimer) {
+    clearTimeout(celebrationTimer);
+    celebrationTimer = null;
+  }
+  if (celebrationScrollTimer) {
+    clearTimeout(celebrationScrollTimer);
+    celebrationScrollTimer = null;
+  }
+}
+
+function clearCelebrationState() {
+  celebratingSectionId.value = null;
+  celebrationContext.value = null;
+  showCelebrationToast.value = false;
+}
+
+async function runCelebrationIfNeeded() {
+  const payload = parseCelebrationQuery(route.query);
+  if (!payload || curriculum.value?.status !== "active") return false;
+
+  const found = findSectionUnit(curriculum.value, payload.sectionId);
+  if (found && isUnitJustCompleted(curriculum.value, payload.sectionId)) {
+    payload.unitComplete = true;
+    payload.unitTitle = found.unit.title_native;
+  }
+
+  clearCelebrationTimers();
+  celebrationContext.value = payload;
+  celebratingSectionId.value = payload.sectionId;
+  showCelebrationToast.value = true;
+
+  await scrollToSection(payload.sectionId, { smooth: true });
+
+  const currentId = currentTarget.value?.section?.id;
+  if (currentId && currentId !== payload.sectionId) {
+    celebrationScrollTimer = setTimeout(() => {
+      scrollToCurrentSection({ smooth: true });
+      celebrationScrollTimer = null;
+    }, 600);
+  }
+
+  router.replace({ name: "path" });
+
+  celebrationTimer = setTimeout(() => {
+    clearCelebrationState();
+    if (currentId) {
+      flashCurrentHighlight(currentId);
+    }
+    celebrationTimer = null;
+  }, CELEBRATION_DURATION_MS);
+
+  await setupCurrentObserver();
+  return true;
 }
 
 async function focusCurrentOnMap() {
@@ -601,8 +724,14 @@ async function load() {
     loading.value = false;
   }
   await nextTick();
-  if (curriculum.value?.status === "active" && currentTarget.value) {
-    await focusCurrentOnMap();
+  if (curriculum.value?.status === "active") {
+    const celebrated = await runCelebrationIfNeeded();
+    if (!celebrated && currentTarget.value) {
+      await focusCurrentOnMap();
+    } else if (!celebrated) {
+      currentVisible.value = false;
+      disconnectCurrentObserver();
+    }
   } else {
     currentVisible.value = false;
     disconnectCurrentObserver();
@@ -643,20 +772,33 @@ watch(
   () => route.query.focus,
   async (focus) => {
     if (focus !== PATH_FOCUS_QUERY || loading.value || !curriculum.value) return;
+    if (route.query[CELEBRATE_QUERY]) return;
     await focusCurrentOnMap();
     router.replace({ name: "path" });
   },
 );
 
+watch(
+  () => route.query[CELEBRATE_QUERY],
+  async (celebrate) => {
+    if (!celebrate || loading.value || !curriculum.value) return;
+    await runCelebrationIfNeeded();
+  },
+);
+
 onMounted(load);
 onActivated(async () => {
-  if (!loading.value && curriculum.value?.status === "active" && currentTarget.value) {
-    await focusCurrentOnMap();
+  if (!loading.value && curriculum.value?.status === "active") {
+    const celebrated = await runCelebrationIfNeeded();
+    if (!celebrated && currentTarget.value) {
+      await focusCurrentOnMap();
+    }
   }
 });
 onBeforeUnmount(() => {
   disconnectCurrentObserver();
   if (highlightTimer) clearTimeout(highlightTimer);
+  clearCelebrationTimers();
   window.removeEventListener("keydown", onBriefingKeydown);
 });
 </script>
@@ -1091,9 +1233,71 @@ onBeforeUnmount(() => {
   animation: highlight-pop 0.3s ease;
 }
 
+.path-step.is-celebrating .path-node.completed .node-inner {
+  animation: celebrate-pop 1.8s ease;
+  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.35), 0 0 24px rgba(251, 191, 36, 0.45);
+}
+
+.caption-stars.star-cascade {
+  display: inline-block;
+  animation: star-cascade 0.75s ease forwards;
+}
+
+@keyframes celebrate-pop {
+  0% { transform: scale(1); }
+  20% { transform: scale(1.12); }
+  45% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+@keyframes star-cascade {
+  0% { opacity: 0; transform: scale(0.4); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 @keyframes highlight-pop {
   0% { transform: scale(1.12); }
   100% { transform: scale(1.06); }
+}
+
+.celebration-toast {
+  position: fixed;
+  top: calc(var(--safe-top) + 12px);
+  left: 16px;
+  right: 16px;
+  z-index: 950;
+  max-width: 448px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #fff7e6 0%, #fff 55%);
+  box-shadow: 0 6px 24px rgba(217, 119, 6, 0.18);
+  text-align: center;
+}
+
+.celebration-toast-main {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #b45309;
+}
+
+.celebration-toast-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.celebration-toast-fade-enter-active,
+.celebration-toast-fade-leave-active {
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.celebration-toast-fade-enter-from,
+.celebration-toast-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 .jump-current-bar {

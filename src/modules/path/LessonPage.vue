@@ -705,6 +705,8 @@ const postLessonPlan = computed(() => {
   if (!finished.value || !result.value?.passed) return null;
   return buildPostLessonPlan({
     result: result.value,
+    completedSectionId: route.params.sectionId,
+    perfectLesson: perfectLesson.value,
     freshMistakeCount: freshMistakeTotal.value,
     dueMistakesAtStart: dueMistakesAtStart.value,
     dueVocabAtStart: dueVocabAtStart.value,

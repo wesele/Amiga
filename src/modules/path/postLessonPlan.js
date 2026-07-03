@@ -22,6 +22,7 @@ import {
 } from "./vocabReviewNudge.js";
 import { shouldShowFocusAreaNudge } from "./focusAreaNudge.js";
 import { pathRouteWithCurrentFocus } from "./pathMapScroll.js";
+import { pathRouteForCompletion } from "./pathCompletionCelebration.js";
 
 export const STEP_IDS = {
   DAILY_GOAL: "dailyGoal",
@@ -34,9 +35,10 @@ export const STEP_IDS = {
   WEEKLY_GOAL: "weeklyGoal",
 };
 
-function buildDailyGoalStep(result) {
+function buildDailyGoalStep(result, completionCtx) {
   const remaining = dailyGoalLessonsRemaining(result);
-  const route = continueRouteAfterLesson(result) ?? pathRouteWithCurrentFocus();
+  const route =
+    continueRouteAfterLesson(result) ?? pathRouteForCompletion(completionCtx);
   const done = result.daily_goal_lessons_today;
   const total = result.daily_goal_target;
   return {
@@ -125,10 +127,10 @@ function buildNextLessonStep(route) {
   };
 }
 
-function buildPathStep() {
+function buildPathStep(completionCtx) {
   return {
     id: STEP_IDS.PATH,
-    route: pathRouteWithCurrentFocus(),
+    route: pathRouteForCompletion(completionCtx),
     icon: "🛤️",
     titleKey: "path.nextStep.path",
     subtitleKey: "path.nextStep.pathHint",
@@ -203,7 +205,7 @@ function resolveNudgeFlags(ctx) {
 }
 
 /** All actionable steps when the daily goal is already met (queue is not mutually suppressed). */
-function buildVisibleActionSteps(flags, result) {
+function buildVisibleActionSteps(flags, result, completionCtx) {
   const steps = [];
 
   if (flags.freshMistakeVisible) {
@@ -223,15 +225,15 @@ function buildVisibleActionSteps(flags, result) {
   if (nextRoute) {
     steps.push(buildNextLessonStep(nextRoute));
   } else {
-    steps.push(buildPathStep());
+    steps.push(buildPathStep(completionCtx));
   }
 
   return steps;
 }
 
-function pickPrimaryStep(flags, result, freshMistakeCount) {
+function pickPrimaryStep(flags, result, freshMistakeCount, completionCtx) {
   if (flags.dailyGoalNudgeActive) {
-    return buildDailyGoalStep(result);
+    return buildDailyGoalStep(result, completionCtx);
   }
   if (flags.freshMistakePrimary) {
     return buildFreshMistakeStep(freshMistakeCount);
@@ -249,7 +251,7 @@ function pickPrimaryStep(flags, result, freshMistakeCount) {
   if (nextRoute) {
     return buildNextLessonStep(nextRoute);
   }
-  return buildPathStep();
+  return buildPathStep(completionCtx);
 }
 
 /**
@@ -258,6 +260,8 @@ function pickPrimaryStep(flags, result, freshMistakeCount) {
  */
 export function buildPostLessonPlan({
   result,
+  completedSectionId = null,
+  perfectLesson = false,
   freshMistakeCount = 0,
   dueMistakesAtStart = 0,
   dueVocabAtStart = 0,
@@ -265,6 +269,7 @@ export function buildPostLessonPlan({
 } = {}) {
   if (!result?.passed) return null;
 
+  const completionCtx = { completedSectionId, result, perfectLesson };
   const flags = resolveNudgeFlags({
     result,
     freshMistakeCount,
@@ -274,11 +279,11 @@ export function buildPostLessonPlan({
   });
   flags.freshMistakeCount = freshMistakeCount;
 
-  const primary = pickPrimaryStep(flags, result, freshMistakeCount);
+  const primary = pickPrimaryStep(flags, result, freshMistakeCount, completionCtx);
   const secondary = [];
 
   if (!flags.dailyGoalNudgeActive) {
-    const visibleSteps = buildVisibleActionSteps(flags, result);
+    const visibleSteps = buildVisibleActionSteps(flags, result, completionCtx);
     for (const step of visibleSteps) {
       if (step.id !== primary.id) {
         secondary.push(step);

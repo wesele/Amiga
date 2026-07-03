@@ -110,6 +110,16 @@ describe("PathMapPage unit guide layout", () => {
     expect(source).toMatch(/PATH_FOCUS_QUERY/);
   });
 
+  it("plays path completion celebration from celebrate query", () => {
+    const source = readVue("src/modules/path/PathMapPage.vue");
+    expect(source).toMatch(/runCelebrationIfNeeded/);
+    expect(source).toMatch(/parseCelebrationQuery/);
+    expect(source).toMatch(/class="celebration-toast"/);
+    expect(source).toMatch(/is-celebrating/);
+    expect(source).toMatch(/celebrate-pop/);
+    expect(source).toMatch(/celebrationToastCopy/);
+  });
+
   it("opens a node briefing sheet on map clicks while FAB keeps direct launch", () => {
     const source = readVue("src/modules/path/PathMapPage.vue");
     expect(source).toMatch(/openBriefing\(unit, section\)/);
@@ -266,6 +276,89 @@ describe("PathMapPage scroll behavior", () => {
     expect(sheet).toBeTruthy();
     expect(sheet.textContent).toMatch(/8/);
     expect(sheet.textContent).toMatch(/开始/);
+
+    wrapper.unmount();
+    host.remove();
+  });
+
+  it("shows celebration toast and node highlight when celebrate query is present", async () => {
+    const api = await import("@/shared/api.js");
+    api.getPathCurriculum.mockResolvedValue({
+      status: "active",
+      cefr: "A1",
+      completed_sections: 2,
+      total_sections: 4,
+      total_stars: 5,
+      units: [
+        {
+          id: "U01",
+          title_native: "基础问候",
+          title_target: "Saludos",
+          sections: [
+            {
+              id: "zh-es/U01-GRAMMAR",
+              kind: "grammar",
+              title_native: "单元知识",
+              title_target: "Gramática",
+              locked: false,
+              current: false,
+              stars: 1,
+              question_count: 1,
+            },
+            {
+              id: "zh-es/U01-S01",
+              kind: "practice",
+              title_native: "基础问候与回应",
+              title_target: "Saludos básicos",
+              locked: false,
+              current: false,
+              stars: 3,
+              question_count: 8,
+            },
+            {
+              id: "zh-es/U02-GRAMMAR",
+              kind: "grammar",
+              title_native: "自我介绍",
+              title_target: "Presentación",
+              locked: false,
+              current: true,
+              stars: 0,
+              question_count: 1,
+            },
+          ],
+        },
+      ],
+    });
+
+    const PathMapPage = (await import("@/modules/path/PathMapPage.vue")).default;
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn", name: "learn", component: { template: "<div/>" } },
+        { path: "/learn/path", name: "path", component: PathMapPage },
+      ],
+    });
+    await router.push({
+      name: "path",
+      query: {
+        focus: "current",
+        celebrate: "zh-es/U01-S01",
+        stars: "3",
+        kind: "practice",
+      },
+    });
+    await router.isReady();
+
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const wrapper = mount(PathMapPage, { global: { plugins: [router] }, attachTo: host });
+    await flushPromises();
+    await vi.waitUntil(() => wrapper.find(".path-scroll").exists(), { timeout: 2000 });
+    await vi.waitUntil(() => document.body.querySelector(".celebration-toast"), { timeout: 2000 });
+
+    expect(document.body.querySelector(".celebration-toast")?.textContent).toMatch(/练习完成/);
+    expect(wrapper.find(".path-step.is-celebrating").exists()).toBe(true);
+    expect(wrapper.find(".jump-current-bar").exists()).toBe(false);
 
     wrapper.unmount();
     host.remove();

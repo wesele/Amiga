@@ -93,6 +93,23 @@ describe("buildPostTeachingPlan", () => {
     expect(plan.secondary.map((s) => s.id)).toContain(TEACHING_STEP_IDS.AI_PRACTICE);
   });
 
+  it("adds celebration query when returning to the path map after teaching", () => {
+    const plan = buildPostTeachingPlan({
+      result: {
+        ...COMPLETE,
+        daily_goal_just_met: true,
+        daily_goal_lessons_today: 3,
+        daily_goal_target: 3,
+        next_section_id: "",
+        level_upgraded: true,
+      },
+      completedSectionId: "zh-es/U01-GRAMMAR",
+    });
+    expect(plan.primary.id).toBe(TEACHING_STEP_IDS.PATH);
+    expect(plan.primary.route.query.celebrate).toBe("zh-es/U01-GRAMMAR");
+    expect(plan.primary.route.query.kind).toBe("grammar");
+  });
+
   it("includes read news when streak is at risk and unread articles exist", () => {
     const plan = buildPostTeachingPlan({
       result: {

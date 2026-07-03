@@ -575,6 +575,7 @@ async function loadPostTeachingContext() {
   await loadNewsUnread();
   teachingPlan.value = buildPostTeachingPlan({
     result: completionResult.value,
+    completedSectionId: route.params.nodeId,
     dueMistakesAtStart: dueMistakesAtStart.value,
     dueVocabAtStart: dueVocabAtStart.value,
     focusArea: focusAreaAtStart.value,

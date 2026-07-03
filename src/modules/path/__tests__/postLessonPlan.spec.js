@@ -126,6 +126,24 @@ describe("buildPostLessonPlan", () => {
     expect(plan.secondary.map((s) => s.id)).toEqual([STEP_IDS.WEEKLY_GOAL]);
   });
 
+  it("adds celebration query when returning to the path map after completion", () => {
+    const plan = buildPostLessonPlan({
+      result: {
+        ...PASSED,
+        stars: 3,
+        daily_goal_just_met: true,
+        daily_goal_lessons_today: 2,
+        daily_goal_target: 2,
+      },
+      completedSectionId: "zh-es/U01-S01",
+      perfectLesson: true,
+    });
+    expect(plan.primary.id).toBe(STEP_IDS.PATH);
+    expect(plan.primary.route.query.celebrate).toBe("zh-es/U01-S01");
+    expect(plan.primary.route.query.stars).toBe("3");
+    expect(plan.primary.route.query.perfect).toBe("1");
+  });
+
   it("returns null for a failed lesson", () => {
     expect(buildPostLessonPlan({ result: { passed: false } })).toBeNull();
   });

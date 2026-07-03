@@ -26,6 +26,7 @@ import {
 } from "./vocabReviewNudge.js";
 import { shouldShowFocusAreaNudge } from "./focusAreaNudge.js";
 import { pathRouteWithCurrentFocus } from "./pathMapScroll.js";
+import { pathRouteForCompletion } from "./pathCompletionCelebration.js";
 import { isStreakAtRisk } from "@/modules/learn/streakAtRisk.js";
 
 export const TEACHING_STEP_IDS = {
@@ -80,9 +81,9 @@ function buildNextNodeStep(result, unitTitle = "") {
   };
 }
 
-function buildDailyGoalStep(result, continueRoute) {
+function buildDailyGoalStep(result, continueRoute, completionCtx) {
   const remaining = dailyGoalLessonsRemaining(result);
-  const route = continueRoute ?? pathRouteWithCurrentFocus();
+  const route = continueRoute ?? pathRouteForCompletion(completionCtx);
   const done = result.daily_goal_lessons_today;
   const total = result.daily_goal_target;
   return {
@@ -188,10 +189,10 @@ function buildAiPracticeStep(sessionWords) {
   };
 }
 
-function buildPathStep() {
+function buildPathStep(completionCtx) {
   return {
     id: TEACHING_STEP_IDS.PATH,
-    route: pathRouteWithCurrentFocus(),
+    route: pathRouteForCompletion(completionCtx),
     icon: "🛤️",
     titleKey: "path.nextStep.path",
     subtitleKey: "path.nextStep.pathHint",
@@ -277,7 +278,7 @@ function resolveNudgeFlags(ctx) {
   };
 }
 
-function pickPrimaryStep(flags, result, ctx) {
+function pickPrimaryStep(flags, result, ctx, completionCtx) {
   const continueRoute = continueRouteAfterSection(result);
   const nextNode =
     !result.level_upgraded && continueRoute
@@ -286,7 +287,7 @@ function pickPrimaryStep(flags, result, ctx) {
 
   if (nextNode) return nextNode;
   if (flags.dailyGoalNudgeActive) {
-    return buildDailyGoalStep(result, continueRoute);
+    return buildDailyGoalStep(result, continueRoute, completionCtx);
   }
   if (flags.freshMistakePrimary) {
     return buildFreshMistakeStep(flags.freshMistakeCount);
@@ -300,10 +301,10 @@ function pickPrimaryStep(flags, result, ctx) {
   if (flags.focusAreaNudgeActive) {
     return buildFocusAreaStep(flags.focusArea);
   }
-  return buildPathStep();
+  return buildPathStep(completionCtx);
 }
 
-function buildSecondarySteps(flags, result, primary, ctx) {
+function buildSecondarySteps(flags, result, primary, ctx, completionCtx) {
   const secondary = [];
   const seen = new Set([primary.id]);
   const continueRoute = continueRouteAfterSection(result);
@@ -320,7 +321,7 @@ function buildSecondarySteps(flags, result, primary, ctx) {
   }
 
   if (flags.dailyGoalNudgeActive && primary.id !== TEACHING_STEP_IDS.DAILY_GOAL) {
-    push(buildDailyGoalStep(result, continueRoute));
+    push(buildDailyGoalStep(result, continueRoute, completionCtx));
   }
   if (flags.freshMistakeVisible && primary.id !== TEACHING_STEP_IDS.FRESH_MISTAKE) {
     push(buildFreshMistakeStep(flags.freshMistakeCount));
@@ -363,6 +364,7 @@ function buildSecondarySteps(flags, result, primary, ctx) {
  */
 export function buildPostTeachingPlan({
   result,
+  completedSectionId = null,
   freshMistakeCount = 0,
   dueMistakesAtStart = 0,
   dueVocabAtStart = 0,
@@ -374,6 +376,7 @@ export function buildPostTeachingPlan({
 } = {}) {
   if (!result) return null;
 
+  const completionCtx = { completedSectionId, result, perfectLesson: false };
   const flags = resolveNudgeFlags({
     result,
     freshMistakeCount,
@@ -389,8 +392,8 @@ export function buildPostTeachingPlan({
     localHour,
   };
 
-  const primary = pickPrimaryStep(flags, result, ctx);
-  const secondary = buildSecondarySteps(flags, result, primary, ctx);
+  const primary = pickPrimaryStep(flags, result, ctx, completionCtx);
+  const secondary = buildSecondarySteps(flags, result, primary, ctx, completionCtx);
 
   return { primary, secondary };
 }
