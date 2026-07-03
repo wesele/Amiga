@@ -70,6 +70,10 @@ function deferred() {
   return { promise, resolve };
 }
 
+function cardByTitle(wrapper, title) {
+  return wrapper.findAll(".article-card").find((card) => card.text().includes(title));
+}
+
 async function mountList(articles = makeArticles()) {
   const api = await import("@/shared/api.js");
   api.getArticles.mockResolvedValue(articles);
@@ -303,11 +307,12 @@ describe("NewsList reading status badges", () => {
     ]);
 
     const { wrapper } = await mountList();
-    const firstCard = wrapper.find(".article-card");
-    expect(firstCard.classes()).toContain("is-read");
-    expect(firstCard.text()).toContain("今日已读");
-    expect(firstCard.text()).toContain("2 个生词待巩固");
-    expect(firstCard.find(".card-review-chip").exists()).toBe(true);
+    const readCard = cardByTitle(wrapper, "Sample headline one");
+    expect(readCard).toBeTruthy();
+    expect(readCard.classes()).toContain("is-read");
+    expect(readCard.text()).toContain("今日已读");
+    expect(readCard.text()).toContain("2 个生词待巩固");
+    expect(readCard.find(".card-review-chip").exists()).toBe(true);
   });
 
   it("shows in-progress badge and continue chip for partial reads", async () => {
@@ -322,10 +327,34 @@ describe("NewsList reading status badges", () => {
     ]);
 
     const { wrapper } = await mountList();
-    const firstCard = wrapper.find(".article-card");
-    expect(firstCard.classes()).toContain("is-in-progress");
-    expect(firstCard.text()).toContain("阅读中 · 50%");
-    expect(firstCard.find(".card-continue-chip").exists()).toBe(true);
+    const progressCard = cardByTitle(wrapper, "Sample headline one");
+    expect(progressCard).toBeTruthy();
+    expect(progressCard.classes()).toContain("is-in-progress");
+    expect(progressCard.text()).toContain("阅读中 · 50%");
+    expect(progressCard.find(".card-continue-chip").exists()).toBe(true);
+  });
+
+  it("pins in-progress articles above unread and completed cards", async () => {
+    const api = await import("@/shared/api.js");
+    api.getArticlesReadingStatus.mockResolvedValue([
+      {
+        article_id: 1,
+        read_at: "2026-07-03 10:00:00",
+        completed: true,
+        scroll_pct: 100,
+      },
+      {
+        article_id: 2,
+        read_at: "2026-07-03 11:00:00",
+        completed: false,
+        scroll_pct: 40,
+      },
+    ]);
+
+    const { wrapper } = await mountList();
+    const cards = wrapper.findAll(".article-card");
+    expect(cards[0].text()).toContain("Sample headline two");
+    expect(cards[1].text()).toContain("Sample headline one");
   });
 
   it("navigates to vocab review with articleId when review chip is clicked", async () => {
@@ -343,7 +372,8 @@ describe("NewsList reading status badges", () => {
     api.lookupWordsMastery.mockResolvedValue([{ word: "casa", mastery: 1 }]);
 
     const { wrapper, router } = await mountList();
-    await wrapper.find(".card-review-chip").trigger("click");
+    const readCard = cardByTitle(wrapper, "Sample headline one");
+    await readCard.find(".card-review-chip").trigger("click");
     await flushPromises();
 
     expect(router.currentRoute.value.name).toBe("vocab-review");
