@@ -971,6 +971,7 @@ async function goToReadingStep(step) {
           starterId: "reviewed-words",
           starterParams: {
             words: (step.sessionWords ?? sessionWords.value).join(", "),
+            from: "reading",
           },
         },
       );

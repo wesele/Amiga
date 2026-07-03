@@ -31,6 +31,10 @@ export async function openAiContact(
   const query = {};
   if (starterId) query.starterId = starterId;
   if (starterParams?.words) query.words = starterParams.words;
+  if (starterParams?.from) query.from = starterParams.from;
+  if (starterParams?.returnRoute) {
+    query.returnRoute = JSON.stringify(starterParams.returnRoute);
+  }
 
   await router.push({
     name: routeName,

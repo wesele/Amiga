@@ -656,6 +656,10 @@ export default {
     welcomeTranslator1: "¡Hola! Soy el Traductor IA 🌐",
     welcomeTranslator2: "Escribe cualquier palabra u oración — la traduzco y la explico.",
     replyFail: "Lo siento, no puedo responder ahora. Revisa tu conexión y vuelve a intentarlo. 🙇",
+    practiceWrapUpTitle: "Práctica oral completada",
+    practiceWrapUpHint: "Practicaste {wordCount} palabras · {rounds} rondas de conversación",
+    practiceWrapUpWords: "Palabras de esta sesión: {preview}",
+    practiceWrapUpLater: "Más tarde",
   },
 
   profile: {

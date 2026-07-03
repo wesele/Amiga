@@ -656,6 +656,10 @@ export default {
     welcomeTranslator1: "Hi! I'm AI Translator 🌐",
     welcomeTranslator2: "Type any word or sentence — I'll translate and explain it.",
     replyFail: "Sorry, I can't reply right now. Check your connection and try again. 🙇",
+    practiceWrapUpTitle: "Speaking practice complete",
+    practiceWrapUpHint: "You practiced {wordCount} words · {rounds} conversation rounds",
+    practiceWrapUpWords: "Words this session: {preview}",
+    practiceWrapUpLater: "Maybe later",
   },
 
   profile: {

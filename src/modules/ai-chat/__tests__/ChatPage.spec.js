@@ -12,24 +12,28 @@ vi.mock("@tauri-apps/plugin-shell", () => ({}));
 const ROOT = resolve(__dirname, "../../../..");
 const ChatPage = (await import("@/modules/ai-chat/ChatPage.vue")).default;
 
-function makeRouter(sessionId) {
+function makeRouter(sessionId, { query = {} } = {}) {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: "/", component: { template: "<div/>" } },
+      { path: "/", name: "learn", component: { template: "<div/>" } },
+      { path: "/news", name: "news", component: { template: "<div/>" } },
+      { path: "/path", name: "path", component: { template: "<div/>" } },
       {
         path: "/chat/:sessionId",
         name: "chat-session",
         component: ChatPage,
         props: true,
+        meta: { parent: "chat" },
       },
+      { path: "/chat", name: "chat", component: { template: "<div/>" } },
     ],
   });
 }
 
-async function mountPage(sessionId, mockInvoke) {
-  const router = makeRouter(sessionId);
-  await router.push(`/chat/${sessionId}`);
+async function mountPage(sessionId, mockInvoke, { query = {} } = {}) {
+  const router = makeRouter(sessionId, { query });
+  await router.push({ path: `/chat/${sessionId}`, query });
   await router.isReady();
   return mount(ChatPage, {
     global: { plugins: [router] },
@@ -285,6 +289,86 @@ describe("ChatPage", () => {
     const chips = wrapper.findAll(".starter-chip");
     expect(chips.length).toBeGreaterThan(0);
     expect(chips.some((c) => c.text().includes("语法"))).toBe(true);
+  });
+
+  it("shows practice wrap-up overlay after guided practice with interaction", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ id: 1, target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_path_curriculum_cmd") {
+        return Promise.resolve({ status: "active", units: [] });
+      }
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 1,
+          effective_lessons_today: 1,
+          target_lessons: 2,
+          goal_met: false,
+        });
+      }
+      if (cmd === "get_unknown_words_cmd") return Promise.resolve([]);
+      if (cmd === "get_articles_cmd") return Promise.resolve([]);
+      if (cmd === "get_chat_sessions_cmd") {
+        return Promise.resolve([{ id: "amiga-sess", contact_type: "amiga", target_language: "es" }]);
+      }
+      if (cmd === "get_chat_messages_cmd") return Promise.resolve([]);
+      if (cmd === "chat_completion_with_session_cmd") {
+        return Promise.resolve("¡Muy bien!");
+      }
+      return Promise.resolve(null);
+    });
+
+    const { useTargetLangStore } = await import("@/stores/targetLang.js");
+    const store = useTargetLangStore();
+    vi.spyOn(store, "load").mockResolvedValue("es");
+
+    const wrapper = await mountPage("amiga-sess", mockInvoke, {
+      query: { starterId: "reviewed-words", words: "hola, adiós", from: "vocab" },
+    });
+    await flushPromises();
+    await flushPromises();
+
+    await wrapper.find(".chat-input").setValue("hola");
+    await wrapper.find(".send-btn").trigger("click");
+    await flushPromises();
+    await flushPromises();
+
+    await wrapper.find(".back-btn").trigger("click");
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.find(".practice-wrap-overlay").exists()).toBe(true);
+    expect(wrapper.text()).toContain("口语练习完成");
+    expect(wrapper.find(".next-steps-panel").exists()).toBe(true);
+    expect(wrapper.find(".next-steps-primary").text()).toContain("还差");
+  });
+
+  it("returns to chat list for normal Amiga chat without guided practice", async () => {
+    const replaceSpy = vi.fn();
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
+      if (cmd === "get_chat_messages_cmd") return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+
+    const router = makeRouter("sess-1");
+    router.replace = replaceSpy;
+    await router.push("/chat/sess-1");
+    await router.isReady();
+
+    const wrapper = mount(ChatPage, { global: { plugins: [router] } });
+    await flushPromises();
+
+    await wrapper.find(".back-btn").trigger("click");
+    expect(replaceSpy).toHaveBeenCalledWith({ name: "chat" });
+    expect(wrapper.find(".practice-wrap-overlay").exists()).toBe(false);
   });
 
   it("resets the fixed chat viewport styles after the keyboard closes", async () => {

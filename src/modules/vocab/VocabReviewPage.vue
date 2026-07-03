@@ -762,7 +762,10 @@ async function goToVocabStep(step) {
         {
           targetLang: targetLang.value,
           starterId: "reviewed-words",
-          starterParams: { words: (step.reviewedWords ?? reviewedWords.value).join(", ") },
+          starterParams: {
+            words: (step.reviewedWords ?? reviewedWords.value).join(", "),
+            from: readingSessionMode.value ? "reading" : "vocab",
+          },
         },
       );
     } finally {

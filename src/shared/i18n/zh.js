@@ -659,6 +659,10 @@ export default {
     welcomeTranslator1: "你好！我是 AI 翻译 🌐",
     welcomeTranslator2: "输入任何语言的单词或句子，我帮你翻译和解释。",
     replyFail: "抱歉，我暂时无法回复。请检查网络连接或稍后再试。🙇",
+    practiceWrapUpTitle: "口语练习完成",
+    practiceWrapUpHint: "刚才练了 {wordCount} 个词 · 对话 {rounds} 轮",
+    practiceWrapUpWords: "本次词汇：{preview}",
+    practiceWrapUpLater: "稍后再说",
   },
 
   profile: {

@@ -87,6 +87,70 @@
         <div class="send-btn" :class="{ disabled: loading || !inputText.trim() }" @click="sendMessage">{{ t('chat.send') }}</div>
     </div>
     <div class="chat-safe-bottom" :class="{ 'keyboard-open': keyboardOpen }" aria-hidden="true" />
+
+    <Transition name="popup">
+      <div v-if="showPracticeWrapUp" class="practice-wrap-overlay">
+        <div class="practice-wrap-sheet">
+          <div class="summary-emoji" aria-hidden="true">💬</div>
+          <h2>{{ t("chat.practiceWrapUpTitle") }}</h2>
+          <p class="summary-stat">
+            {{
+              t("chat.practiceWrapUpHint", {
+                wordCount: practiceWords.length,
+                rounds: practiceRoundCount,
+              })
+            }}
+          </p>
+          <p v-if="practiceWordsPreview" class="practice-words-preview">
+            {{ t("chat.practiceWrapUpWords", { preview: practiceWordsPreview }) }}
+          </p>
+          <section v-if="practicePlan" class="next-steps-panel">
+            <p class="next-steps-eyebrow">{{ t("path.nextStep.title") }}</p>
+            <div class="next-steps-primary">
+              <span class="next-steps-icon" aria-hidden="true">{{ practicePlan.primary.icon }}</span>
+              <div class="next-steps-copy">
+                <p class="next-steps-primary-title">{{ stepTitle(practicePlan.primary) }}</p>
+                <p
+                  v-if="practicePlan.primary.subtitleKey"
+                  class="next-steps-primary-sub"
+                >
+                  {{ stepSubtitle(practicePlan.primary) }}
+                </p>
+              </div>
+            </div>
+            <div v-if="practicePlan.secondary.length" class="next-steps-queue">
+              <p class="next-steps-queue-title">
+                {{ t("path.nextStep.queueTitle", { n: practicePlan.secondary.length }) }}
+              </p>
+              <button
+                v-for="step in practicePlan.secondary"
+                :key="step.id"
+                type="button"
+                class="next-steps-queue-item"
+                :disabled="!step.route"
+                @click="goToPracticeStep(step)"
+              >
+                <span class="next-steps-queue-icon" aria-hidden="true">{{ step.icon }}</span>
+                <div class="next-steps-queue-copy">
+                  <p class="next-steps-queue-item-title">{{ stepTitle(step) }}</p>
+                  <p v-if="step.subtitleKey" class="next-steps-queue-item-sub">
+                    {{ stepSubtitle(step) }}
+                  </p>
+                </div>
+              </button>
+            </div>
+          </section>
+          <div v-if="practicePlan" class="summary-actions">
+            <button type="button" class="action-btn primary" @click="goToPracticeStep(practicePlan.primary)">
+              {{ stepContinueLabel(practicePlan.primary) }}
+            </button>
+            <button type="button" class="action-btn secondary" @click="exitAfterPractice">
+              {{ t("chat.practiceWrapUpLater") }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -108,6 +172,15 @@ import {
   pairStatsKey,
 } from "@/modules/learn/questionTypeStats.js";
 import { buildReviewedWordsStarter, pickChatStarters } from "@/modules/ai-chat/chatStarters.js";
+import {
+  defaultExitRouteAfterPractice,
+  isGuidedAiPractice,
+  parsePracticeSource,
+  parsePracticeWords,
+  shouldShowPracticeWrapUp,
+} from "@/modules/ai-chat/aiPracticeSession.js";
+import { buildPostAiPracticePlan } from "@/modules/ai-chat/postAiPracticePlan.js";
+import { loadPostAiPracticeContext } from "@/modules/ai-chat/postAiPracticeContext.js";
 import MarkdownText from "@/shared/components/MarkdownText.vue";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
 import { useI18n } from "@/shared/i18n";
@@ -121,13 +194,97 @@ const router = useRouter();
 const targetLangStore = useTargetLangStore();
 const amigaIcon = markRaw(AmigaIcon);
 
-function goBack() {
+const showPracticeWrapUp = ref(false);
+const practicePlan = ref(null);
+const practicePlanLoading = ref(false);
+const userMessageCount = ref(0);
+const usedStarter = ref(false);
+const practiceRoundCount = ref(0);
+const practiceWords = computed(() => parsePracticeWords(route));
+const practiceSource = computed(() => parsePracticeSource(route));
+const practiceWordsPreview = computed(() => practiceWords.value.slice(0, 3).join(", "));
+const isGuidedPractice = computed(() => isGuidedAiPractice(route));
+
+function parseReturnRoute() {
+  const raw = route.query?.returnRoute;
+  if (!raw || typeof raw !== "string") return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.name ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function navigateAway(target) {
+  if (target?.name) {
+    router.replace(target);
+    return;
+  }
   const parent = route?.meta?.parent;
   if (parent) {
     router.replace({ name: parent });
   } else {
     router.back();
   }
+}
+
+function exitAfterPractice() {
+  showPracticeWrapUp.value = false;
+  navigateAway(defaultExitRouteAfterPractice(practiceSource.value, parseReturnRoute()));
+}
+
+async function openPracticeWrapUp() {
+  if (practicePlanLoading.value) return;
+  practicePlanLoading.value = true;
+  try {
+    const planCtx = await loadPostAiPracticeContext({ targetLangStore });
+    practicePlan.value = buildPostAiPracticePlan({
+      source: practiceSource.value,
+      practiceWords: practiceWords.value,
+      ...planCtx,
+    });
+    showPracticeWrapUp.value = true;
+  } catch {
+    exitAfterPractice();
+  } finally {
+    practicePlanLoading.value = false;
+  }
+}
+
+function goBack() {
+  if (
+    isGuidedPractice.value &&
+    shouldShowPracticeWrapUp({
+      userMessageCount: userMessageCount.value,
+      usedStarter: usedStarter.value,
+    })
+  ) {
+    void openPracticeWrapUp();
+    return;
+  }
+  navigateAway(defaultExitRouteAfterPractice(practiceSource.value, parseReturnRoute()));
+}
+
+function stepTitle(step) {
+  if (!step?.titleKey) return "";
+  return t(step.titleKey, step.titleParams ?? {});
+}
+
+function stepSubtitle(step) {
+  if (!step?.subtitleKey) return "";
+  return t(step.subtitleKey, step.subtitleParams ?? {});
+}
+
+function stepContinueLabel(step) {
+  if (!step?.continueKey) return t("chat.practiceWrapUpLater");
+  return t(step.continueKey, step.continueParams ?? {});
+}
+
+function goToPracticeStep(step) {
+  if (!step?.route) return;
+  showPracticeWrapUp.value = false;
+  router.replace(step.route);
 }
 
 const messages = ref([]);
@@ -238,10 +395,12 @@ function starterMessage(starter) {
   return t(starter.messageKey, params);
 }
 
-async function dispatchMessage(text) {
+async function dispatchMessage(text, { fromStarter = false } = {}) {
   if (!text || loading.value || !sessionId.value) return;
 
   messages.value.push({ id: Date.now(), role: "user", content: text });
+  userMessageCount.value += 1;
+  if (fromStarter) usedStarter.value = true;
   scrollToBottom();
 
   loading.value = true;
@@ -253,6 +412,7 @@ async function dispatchMessage(text) {
       targetLang.value,
     );
     messages.value.push({ id: Date.now() + 1, role: "assistant", content: reply });
+    practiceRoundCount.value += 1;
   } catch {
     messages.value.push({ id: Date.now() + 2, role: "assistant", content: t("chat.replyFail") });
   }
@@ -271,7 +431,7 @@ async function sendMessage() {
 
 async function sendStarter(starter) {
   focusInput();
-  await dispatchMessage(starterMessage(starter));
+  await dispatchMessage(starterMessage(starter), { fromStarter: true });
 }
 
 function applyReviewedWordsStarter(starters) {
@@ -683,5 +843,199 @@ onMounted(async () => {
    push the input bar up a second time. */
 .chat-safe-bottom.keyboard-open {
   height: 0;
+}
+
+.popup-enter-active,
+.popup-leave-active {
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+.popup-enter-from,
+.popup-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.practice-wrap-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 700;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 20px;
+  padding-bottom: calc(20px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+}
+
+.practice-wrap-sheet {
+  width: 100%;
+  max-width: 400px;
+  padding: 28px 24px 24px;
+  background: var(--surface, var(--white));
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-md) var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  text-align: center;
+}
+
+.practice-wrap-sheet h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.summary-emoji {
+  font-size: 40px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.summary-stat {
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: var(--text-light);
+  line-height: 1.45;
+}
+
+.practice-words-preview {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-lighter);
+  line-height: 1.4;
+}
+
+.next-steps-panel {
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 14px 16px 16px;
+  background: linear-gradient(135deg, #e8f8ef 0%, #d4f5e0 100%);
+  border: 1px solid var(--green);
+  border-radius: var(--radius-md);
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.next-steps-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--green-hover);
+}
+
+.next-steps-primary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.next-steps-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.next-steps-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-primary-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.next-steps-primary-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-light);
+  line-height: 1.4;
+}
+
+.next-steps-queue {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(88, 204, 2, 0.25);
+}
+
+.next-steps-queue-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+.next-steps-queue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.next-steps-queue-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.next-steps-queue-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.next-steps-queue-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-queue-item-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.next-steps-queue-item-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.summary-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 280px;
+  margin: 16px auto 0;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.action-btn.primary {
+  background: var(--primary, var(--green));
+  color: #fff;
+}
+
+.action-btn.secondary {
+  background: var(--bg);
+  color: var(--text);
 }
 </style>
