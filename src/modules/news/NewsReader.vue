@@ -75,23 +75,33 @@
     >
       <!-- Original mode -->
       <div v-if="!bilingualMode" class="article-text">
-        <template v-for="(token, idx) in tokens" :key="idx">
-          <span
-            v-if="token.isWord"
-            class="word"
-            :class="[resolveWordClass(token), { 'evidence-highlight': token.inEvidence }]"
-            @click.stop="onWordTap(token)"
+        <template v-for="(paraTokenList, pidx) in paraTokens" :key="pidx">
+          <p
+            class="para-original"
+            :class="{ 'is-reading': listenAlongActive && listenAlongIndex === pidx }"
           >
-            {{ token.text }}
-          </span>
-          <span v-else :class="{ 'evidence-highlight': token.inEvidence }">{{ token.text }}</span>
+            <template v-for="(token, idx) in paraTokenList" :key="idx">
+              <span
+                v-if="token.isWord"
+                class="word"
+                :class="[resolveWordClass(token), { 'evidence-highlight': token.inEvidence }]"
+                @click.stop="onWordTap(token)"
+              >
+                {{ token.text }}
+              </span>
+              <span v-else :class="{ 'evidence-highlight': token.inEvidence }">{{ token.text }}</span>
+            </template>
+          </p>
         </template>
       </div>
 
       <!-- Bilingual mode -->
       <div v-else-if="translations.length > 0" class="article-text bilingual">
         <template v-for="(tokens, pidx) in paraTokens" :key="pidx">
-          <p class="para-original">
+          <p
+            class="para-original"
+            :class="{ 'is-reading': listenAlongActive && listenAlongIndex === pidx }"
+          >
             <template v-for="(token, idx) in tokens" :key="idx">
               <span
                 v-if="token.isWord"
@@ -242,6 +252,22 @@
         <span class="legend-item"><span class="legend-dot legend-seen" />{{ t('news.vocabLegendSeen') }}</span>
         <span class="legend-item"><span class="legend-dot legend-new" />{{ t('news.vocabLegendNew') }}</span>
       </div>
+      <ArticleListenAlongBar
+        v-if="listenAlongSpeechAvailable && listenAlongParagraphs.length"
+        ref="listenAlongBarRef"
+        :paragraphs="listenAlongParagraphs"
+        :language="targetLang"
+        :article-body-el="articleBodyRef"
+        :force-pause="listenAlongForcePause"
+        @update:reading-index="listenAlongIndex = $event"
+        @update:active="listenAlongActive = $event"
+      />
+      <p
+        v-else-if="listenAlongParagraphs.length && !listenAlongSpeechAvailable"
+        class="listen-along-unavailable"
+      >
+        {{ t("news.listenAlongUnavailable") }}
+      </p>
       <div class="mode-bar">
         <button
           class="mode-btn mode-toggle"
@@ -532,6 +558,7 @@ import { findCurrentSection } from "@/modules/learn/pathResume.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import MicroReviewSheet from "@/modules/vocab/MicroReviewSheet.vue";
 import SelectionTranslateOverlay from "@/shared/components/SelectionTranslateOverlay.vue";
+import ArticleListenAlongBar from "./components/ArticleListenAlongBar.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -608,6 +635,11 @@ import {
   rangesForParagraph,
   scrollToFirstEvidence,
 } from "./comprehensionEvidence.js";
+import {
+  extractReadableParagraphs,
+  shouldPauseListenAlong,
+} from "./articleListenAlong.js";
+import { isSpeechSynthesisAvailable } from "@/shared/wordSpeech.js";
 import {
   contextReinforcementCopy,
   contextSentenceForHighlight,
@@ -707,6 +739,9 @@ const newsUnreadCount = ref(0);
 const nextUnreadArticleId = ref(null);
 const openingAiPractice = ref(false);
 const articleBodyRef = ref(null);
+const listenAlongBarRef = ref(null);
+const listenAlongIndex = ref(0);
+const listenAlongActive = ref(false);
 const displayScrollPct = ref(0);
 const userMarkedComplete = ref(false);
 const savedReadingStatus = ref(null);
@@ -764,6 +799,21 @@ const phraseActionsVisible = computed(
     !!selectionResult.value &&
     !selectionLoading.value &&
     !selectionError.value,
+);
+
+const listenAlongParagraphs = computed(() =>
+  extractReadableParagraphs(article.value?.rewritten_body || ""),
+);
+
+const listenAlongSpeechAvailable = computed(() => isSpeechSynthesisAvailable());
+
+const listenAlongForcePause = computed(() =>
+  shouldPauseListenAlong({
+    microReviewOpen: microReviewOpen.value,
+    wordPopupOpen: Boolean(selectedWord.value),
+    selectionActive: Boolean(selectionText.value || showTranslateButton.value),
+    overlayOpen: showComprehensionQuiz.value || showCompletionSummary.value,
+  }),
 );
 
 const completionElapsedSec = computed(() =>
@@ -1220,17 +1270,15 @@ function refreshEvidenceOnTokens() {
     comprehensionRevisitActive.value || vocabContextRevisitActive.value
       ? evidenceRanges.value
       : [];
+  const offsets = paragraphOffsets(body);
+  paraTokens.value = offsets.map(({ text, start }) => {
+    const paraRanges = rangesForParagraph(ranges, start, text.length);
+    const paraBase = applyMasteryToTokens(tokenizeArticleText(text), masteryMap.value);
+    return applyEvidenceToTokens(paraBase, paraRanges);
+  });
+
   const baseTokens = applyMasteryToTokens(tokenizeArticleText(body), masteryMap.value);
   tokens.value = applyEvidenceToTokens(baseTokens, ranges);
-
-  if (paragraphs.value.length > 0) {
-    const offsets = paragraphOffsets(body);
-    paraTokens.value = offsets.map(({ text, start }) => {
-      const paraRanges = rangesForParagraph(ranges, start, text.length);
-      const paraBase = applyMasteryToTokens(tokenizeArticleText(text), masteryMap.value);
-      return applyEvidenceToTokens(paraBase, paraRanges);
-    });
-  }
 }
 
 function refreshTokenMastery() {
@@ -1527,8 +1575,13 @@ function parseText(text) {
 watch(() => article.value?.rewritten_body, async (val) => {
   if (val) {
     parseText(val);
+    listenAlongBarRef.value?.resetPlayback?.();
     await restoreSavedScrollPosition();
   }
+});
+
+watch(() => props.id, () => {
+  listenAlongBarRef.value?.resetPlayback?.();
 });
 
 watch(() => article.value?.original_body, (val) => {
@@ -2475,6 +2528,23 @@ function formatSource(source) {
   -webkit-box-decoration-break: clone;
 }
 
+.para-original.is-reading {
+  background: rgba(28, 176, 246, 0.1);
+  border-left: 3px solid var(--blue);
+  padding-left: 10px;
+  margin-left: -10px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  transition: background var(--transition);
+}
+
+.listen-along-unavailable {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-light);
+  text-align: center;
+  line-height: 1.4;
+}
+
 .comprehension-revisit-strip {
   flex-shrink: 0;
   padding: 8px 16px;
@@ -2730,9 +2800,13 @@ function formatSource(source) {
 }
 
 /* Bilingual paragraphs */
+.article-text .para-original {
+  margin-bottom: 12px;
+  overflow-wrap: break-word;
+}
+
 .bilingual .para-original {
   margin-bottom: 4px;
-  overflow-wrap: break-word;
 }
 
 .bilingual .para-translation {
