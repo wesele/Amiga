@@ -381,8 +381,8 @@
         :disabled="opening === mod.id"
         @click="openModule(mod)"
       >
-        <span v-if="mod.id === 'news' && newsUnreadCount > 0" class="module-badge">
-          {{ t("learn.newsUnreadBadge", { n: newsUnreadCount }) }}
+        <span v-if="moduleBadge(mod).show" class="module-badge">
+          {{ t(moduleBadge(mod).labelKey, moduleBadge(mod).labelParams) }}
         </span>
         <span class="module-icon">{{ mod.icon }}</span>
         <span class="module-label">{{ t(mod.labelKey) }}</span>
@@ -439,6 +439,10 @@ import {
   pickLearningHubFocus,
   pickSecondarySuggestions,
 } from "./learningHubFocus.js";
+import {
+  buildNavAttentionContextFromHub,
+} from "@/modules/shell/loadNavAttentionContext.js";
+import { computeModuleBadges } from "@/modules/shell/navAttention.js";
 import {
   mistakeReviewCount,
   mistakeReviewPreview,
@@ -588,6 +592,25 @@ const vocabReviewSubText = computed(() => formatVocabSub(
   vocabReviewTotal.value,
   vocabReviewPreviewText.value,
 ));
+
+const hubModuleBadges = computed(() =>
+  computeModuleBadges(
+    buildNavAttentionContextFromHub({
+      dailyGoal: dailyGoal.value,
+      resumeTarget: resumeTarget.value,
+      dueMistakeEntries: dueMistakeEntries.value,
+      dueVocabWords: dueVocabWords.value,
+      newsUnreadCount: newsUnreadCount.value,
+      continueReadingArticle: continueReadingArticle.value,
+      pendingVocabBanner: pendingVocabBanner.value,
+      localHour: localHour.value,
+    }),
+  ),
+);
+
+function moduleBadge(mod) {
+  return hubModuleBadges.value[mod.id] ?? { show: false, labelKey: "", labelParams: {} };
+}
 
 const hubFocus = computed(() =>
   pickLearningHubFocus({

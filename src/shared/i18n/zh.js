@@ -74,6 +74,9 @@ export default {
     path: "晋级之路",
     news: "新闻",
     newsUnreadBadge: "未读 {n}",
+    pathTodoBadge: "还差 {n} 课",
+    pathResumeBadge: "可续练",
+    vocabDueBadge: "{n} 词待复习",
     dailyGoal: "今日目标",
     dailyGoalLessons: "完成 {n} 节课",
     dailyGoalProgress: "{done}/{total}",
@@ -520,6 +523,8 @@ export default {
 
   shell: {
     appName: "阿米加",
+    navBadgeLearn: "学习 Tab，{n} 项待办",
+    navBadgeChat: "聊天 Tab，有待练口语",
   },
 
   news: {

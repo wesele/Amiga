@@ -5,8 +5,29 @@
     </main>
     <template v-if="showNav">
       <nav class="bottom-nav">
-        <button v-for="tab in tabs" :key="tab.name" class="nav-item" :class="{ active: isTabActive(tab) }" @click="switchTab(tab)">
-          <div class="nav-icon" v-html="tab.icon" />
+        <button
+          v-for="tab in tabs"
+          :key="tab.name"
+          class="nav-item"
+          :class="{ active: isTabActive(tab) }"
+          :aria-label="navItemAria(tab)"
+          @click="switchTab(tab)"
+        >
+          <div class="nav-icon-wrap">
+            <div class="nav-icon" v-html="tab.icon" />
+            <span
+              v-if="badgeFor(tab).show"
+              class="nav-badge"
+              :class="{
+                'is-urgent': badgeFor(tab).urgent,
+                'is-dot': badgeFor(tab).dotOnly || !badgeFor(tab).count,
+              }"
+            >
+              <template v-if="!badgeFor(tab).dotOnly && badgeFor(tab).count">
+                {{ formatBadgeCount(badgeFor(tab).count) }}
+              </template>
+            </span>
+          </div>
           <span class="nav-label">{{ t(tab.label) }}</span>
         </button>
       </nav>
@@ -16,13 +37,23 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
+import { eventBus } from "@/shared/eventBus.js";
+import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
+import {
+  loadNavAttentionContext,
+  shouldForceNavAttentionRefresh,
+} from "./loadNavAttentionContext.js";
+import { computeNavBadges, formatBadgeCount } from "./navAttention.js";
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const targetLangStore = useTargetLangStore();
+const navAttentionCtx = ref(null);
+let unsubscribeLang = null;
 
 const tabs = [
   {
@@ -75,6 +106,65 @@ const showNav = computed(() => {
   const noNavRoutes = ["wizard", "reader", "chat-session", "social-chat", "learn-translator"];
   return !noNavRoutes.includes(route.name);
 });
+
+const activeTabName = computed(() => {
+  for (const tab of tabs) {
+    if (isTabActive(tab)) return tab.name;
+  }
+  return null;
+});
+
+const navBadges = computed(() =>
+  computeNavBadges(navAttentionCtx.value ?? {}, { activeTab: activeTabName.value }),
+);
+
+function badgeFor(tab) {
+  return navBadges.value[tab.name] ?? { show: false, count: 0 };
+}
+
+function navItemAria(tab) {
+  const badge = badgeFor(tab);
+  const label = t(tab.label);
+  if (!badge.show) return label;
+  if (tab.name === "learn" && badge.count) {
+    return `${label} · ${t("shell.navBadgeLearn", { n: badge.count })}`;
+  }
+  if (tab.name === "chat") {
+    return `${label} · ${t("shell.navBadgeChat")}`;
+  }
+  return label;
+}
+
+async function refreshNavAttention({ force = false } = {}) {
+  try {
+    navAttentionCtx.value = await loadNavAttentionContext(
+      { targetLangStore },
+      { force },
+    );
+  } catch {
+    navAttentionCtx.value = null;
+  }
+}
+
+onMounted(() => {
+  refreshNavAttention();
+  unsubscribeLang = eventBus.on(TARGET_LANG_CHANGED, () => {
+    refreshNavAttention({ force: true });
+  });
+});
+
+onUnmounted(() => {
+  unsubscribeLang?.();
+});
+
+watch(
+  () => route.name,
+  (name, previousName) => {
+    refreshNavAttention({
+      force: shouldForceNavAttentionRefresh(previousName),
+    });
+  },
+);
 </script>
 
 <style scoped>
@@ -162,6 +252,15 @@ const showNav = computed(() => {
   transform: translateY(-2px);
 }
 
+.nav-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
 .nav-icon {
   display: flex;
   align-items: center;
@@ -169,6 +268,37 @@ const showNav = computed(() => {
   width: 28px;
   height: 28px;
   transition: transform var(--transition);
+}
+
+.nav-badge {
+  position: absolute;
+  top: -2px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--purple);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  border: 2px solid var(--surface);
+  pointer-events: none;
+}
+
+.nav-badge.is-urgent {
+  background: #e85d04;
+}
+
+.nav-badge.is-dot {
+  width: 8px;
+  min-width: 8px;
+  height: 8px;
+  padding: 0;
+  top: 0;
+  right: -2px;
 }
 
 .nav-label {

@@ -17,7 +17,22 @@ function read(rel) {
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
+vi.mock("@/modules/shell/loadNavAttentionContext.js", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    loadNavAttentionContext: vi.fn().mockResolvedValue({
+      dailyGoal: { target_lessons: 2, lessons_today: 0, streak_current: 5, practiced_today: false },
+      dueVocabCount: 3,
+      pendingAiPractice: { source: "reading", words: ["a", "b", "c"], at: Date.now() },
+      localHour: 20,
+    }),
+    shouldForceNavAttentionRefresh: vi.fn().mockReturnValue(false),
+  };
+});
+
 const AppShell = (await import("@/modules/shell/AppShell.vue")).default;
+const { loadNavAttentionContext } = await import("@/modules/shell/loadNavAttentionContext.js");
 
 function makeRouter() {
   return createRouter({
@@ -262,5 +277,46 @@ describe("AppShell bottom-nav tab switching (L1 isolation)", () => {
     const tabs = wrapper.findAll(".bottom-nav .nav-item");
     // Tab order: learn(0), vocab(1), chat(2), profile(3)
     expect(tabs[3].classes()).toContain("active");
+  });
+});
+
+describe("AppShell nav badges", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    loadNavAttentionContext.mockClear();
+  });
+
+  it("shows learn and chat badges when user is on another tab", async () => {
+    const router = makeRouter();
+    const wrapper = mount(AppShell, {
+      global: {
+        plugins: [router],
+        stubs: { RouterView: { template: "<div />" } },
+      },
+    });
+    await flushPromises();
+    await router.push("/profile");
+    await flushPromises();
+
+    const badges = wrapper.findAll(".nav-badge");
+    expect(badges.length).toBe(2);
+    expect(wrapper.find(".nav-badge.is-urgent").exists()).toBe(true);
+    expect(wrapper.find(".nav-badge.is-dot").exists()).toBe(true);
+  });
+
+  it("hides the learn badge while the learn tab is active", async () => {
+    const router = makeRouter();
+    const wrapper = mount(AppShell, {
+      global: {
+        plugins: [router],
+        stubs: { RouterView: { template: "<div />" } },
+      },
+    });
+    await flushPromises();
+    await router.push("/learn");
+    await flushPromises();
+
+    const learnTab = wrapper.findAll(".bottom-nav .nav-item")[0];
+    expect(learnTab.find(".nav-badge").exists()).toBe(false);
   });
 });

@@ -71,6 +71,9 @@ export default {
     path: "Camino de progreso",
     news: "Noticias",
     newsUnreadBadge: "{n} sin leer",
+    pathTodoBadge: "Faltan {n} lecciones",
+    pathResumeBadge: "Continuar",
+    vocabDueBadge: "{n} por repasar",
     dailyGoal: "Meta diaria",
     dailyGoalLessons: "Completa {n} lecciones",
     dailyGoalProgress: "{done}/{total}",
@@ -518,6 +521,8 @@ export default {
 
   shell: {
     appName: "Amiga",
+    navBadgeLearn: "Aprender, {n} pendientes",
+    navBadgeChat: "Chat, práctica oral pendiente",
   },
 
   news: {
