@@ -122,10 +122,23 @@ export function buildReadingReviewQueue(sessionWords, dueWords, limit) {
     const key = sessionWord?.word?.toLowerCase();
     if (!key || seen.has(key)) continue;
     const match = dueByWord.get(key);
+    const context = String(sessionWord.context || "");
     if (match) {
-      queue.push(match);
-      seen.add(key);
+      queue.push({
+        ...match,
+        ...(context ? { example: context } : {}),
+      });
+    } else {
+      queue.push({
+        word: sessionWord.word,
+        example: context,
+        mastery: 1,
+        source: "news_reading",
+        id: null,
+        ...(sessionWord.articleId != null ? { articleId: sessionWord.articleId } : {}),
+      });
     }
+    seen.add(key);
   }
 
   for (const entry of dueWords || []) {

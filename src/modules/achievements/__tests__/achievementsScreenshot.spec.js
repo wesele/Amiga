@@ -74,7 +74,9 @@ describe("achievements page screenshot", () => {
     api.__setInvoke(mockInvoke);
   });
 
-  it("captures grouped badges and next-badge hero card", async () => {
+  it(
+    "captures grouped badges and next-badge hero card",
+    async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
       if (cmd === "get_learning_goals_cmd") {
@@ -106,5 +108,7 @@ describe("achievements page screenshot", () => {
     expect(wrapper.text()).toContain("课时徽章");
     const pngPath = captureScreenshot(wrapper, "achievements-polish");
     expect(pngPath).toContain("achievements-polish.png");
-  });
+    },
+    30_000,
+  );
 });

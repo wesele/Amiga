@@ -77,6 +77,23 @@ describe("readingSession", () => {
     expect(queue.map((entry) => entry.word)).toEqual(["casa", "perro", "gato"]);
   });
 
+  it("includes session words not present in dueWords as synthetic entries", () => {
+    const sessionWords = [
+      { word: "nuevo", context: "Una palabra nueva" },
+      { word: "casa", context: "Mi casa grande" },
+    ];
+    const dueWords = [{ id: 1, word: "perro", mastery: 1 }];
+    const queue = buildReadingReviewQueue(sessionWords, dueWords, 3);
+    expect(queue.map((entry) => entry.word)).toEqual(["nuevo", "casa", "perro"]);
+    expect(queue[0]).toMatchObject({
+      word: "nuevo",
+      example: "Una palabra nueva",
+      mastery: 1,
+      source: "news_reading",
+      id: null,
+    });
+  });
+
   it("fills remaining slots from due words when session words are fewer than limit", () => {
     const dueWords = [
       { id: 1, word: "uno", mastery: 1 },

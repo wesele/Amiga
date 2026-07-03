@@ -119,6 +119,21 @@ describe("buildPostReadingPlan", () => {
     ]);
   });
 
+  it("downgrades vocab review primary when micro-review already completed", () => {
+    const plan = buildPostReadingPlan({
+      unknownCount: 3,
+      microReviewCompleted: true,
+      dailyGoalSnapshot: { goal_met: true, target_lessons: 2, lessons_today: 2 },
+      resumeTarget: null,
+      nextUnreadArticleId: null,
+      newsUnreadCount: 0,
+      sessionWordCount: 4,
+      sessionWords: ["a", "b", "c", "d"],
+    });
+    expect(plan.primary.id).toBe(READING_STEP_IDS.AI_PRACTICE);
+    expect(isVocabReviewStep(plan.primary)).toBe(false);
+  });
+
   it("caps the secondary queue at three items", () => {
     const plan = buildPostReadingPlan({
       unknownCount: 2,

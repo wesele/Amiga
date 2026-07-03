@@ -26,6 +26,15 @@
       </button>
     </div>
 
+    <div v-else-if="pendingVocabBanner" class="reading-summary-banner">
+      <p class="reading-summary-text">
+        {{ t("news.pendingVocabBanner", { n: pendingVocabBanner.entries.length }) }}
+      </p>
+      <button type="button" class="reading-summary-action" @click="goToPendingVocabReview">
+        {{ t("news.pendingVocabAction") }}
+      </button>
+    </div>
+
     <p v-if="listProgress" class="list-progress-summary">
       {{ t("news.listProgress", listProgress) }}
     </p>
@@ -125,6 +134,11 @@ import PageHeader from "@/shared/components/PageHeader.vue";
 import { openSourceUrl } from "./utils.js";
 import { consumeReadingSessionSummary, consumeReadingProgressToast } from "./readingSession.js";
 import {
+  peekPendingReadingVocab,
+  seedReadingSessionFromPending,
+  shouldShowPendingVocabBanner,
+} from "./pendingReadingVocab.js";
+import {
   aggregateListSummary,
   articleCardState,
   buildDueWordKeySet,
@@ -142,6 +156,7 @@ const articles = ref([]);
 const loading = ref(false);
 const statusText = ref("");
 const readingSummary = ref(null);
+const pendingVocabBanner = ref(null);
 const statusMap = ref(new Map());
 const dueWordKeys = ref(new Set());
 let statusTimer = null;
@@ -176,6 +191,12 @@ function cardStateFor(article) {
 
 onMounted(async () => {
   readingSummary.value = consumeReadingSessionSummary();
+  const pendingVocab = peekPendingReadingVocab();
+  pendingVocabBanner.value = readingSummary.value
+    ? null
+    : shouldShowPendingVocabBanner(pendingVocab)
+      ? pendingVocab
+      : null;
   const progressToast = consumeReadingProgressToast();
   if (progressToast?.scrollPct != null) {
     showStatus(t("news.readingProgressSaved", { pct: progressToast.scrollPct }));
@@ -289,6 +310,18 @@ function openArticle(id) {
 function goToVocabReview() {
   readingSummary.value = null;
   router.push({ name: "vocab-review", query: { from: "reading" } });
+}
+
+function goToPendingVocabReview() {
+  const pending = pendingVocabBanner.value;
+  if (!pending) return;
+  seedReadingSessionFromPending(pending);
+  pendingVocabBanner.value = null;
+  const query = { from: "reading" };
+  if (pending.articleId != null) {
+    query.articleId = String(pending.articleId);
+  }
+  router.push({ name: "vocab-review", query });
 }
 
 function goToArticleReview(articleId) {

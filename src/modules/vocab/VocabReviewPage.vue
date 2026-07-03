@@ -241,9 +241,11 @@ import {
   getPathCurriculum,
   getUnknownWords,
   getUserVocabStats,
+  lookupWordIds,
   lookupWordsMastery,
   updateWordMastery,
 } from "@/shared/api.js";
+import { clearPendingReadingVocab } from "@/modules/news/pendingReadingVocab.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 import { findCurrentSection } from "@/modules/learn/pathResume.js";
 import {
@@ -680,6 +682,14 @@ async function load() {
   }
 }
 
+async function resolveCurrentWordId() {
+  const word = currentWord.value;
+  if (!word) return null;
+  if (word.id != null) return word.id;
+  const ids = await lookupWordIds([word.word], targetLang.value);
+  return ids[0] ?? null;
+}
+
 async function advanceAfterMark(mastery) {
   if (!currentWord.value || acting.value) return;
   cardRated.value = true;
@@ -688,10 +698,11 @@ async function advanceAfterMark(mastery) {
   playVocabRatingFeedback(mastery);
   acting.value = true;
   try {
-    await Promise.all([
-      waitVocabRatingAck(),
-      updateWordMastery(userId.value, currentWord.value.id, mastery, "vocab_flashcard"),
-    ]);
+    const wordId = await resolveCurrentWordId();
+    await waitVocabRatingAck();
+    if (wordId != null) {
+      await updateWordMastery(userId.value, wordId, mastery, "vocab_flashcard");
+    }
     if (mastery >= 2) masteredCount.value += 1;
   } catch {
     // Still advance — local session should not block on a single failure.
@@ -702,6 +713,9 @@ async function advanceAfterMark(mastery) {
   const nextIndex = index.value + 1;
   if (isSessionComplete(nextIndex, words.value.length)) {
     finished.value = true;
+    if (readingSessionMode.value) {
+      clearPendingReadingVocab();
+    }
     reviewResult.value = await applyReviewStreak(userId.value, words.value.length, {
       sessionComplete: true,
       targetLanguage: targetLang.value,

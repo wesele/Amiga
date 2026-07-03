@@ -13,6 +13,15 @@
       </button>
     </div>
 
+    <div v-else-if="pendingVocabBanner" class="reading-summary-banner">
+      <p class="reading-summary-text">
+        {{ t("news.pendingVocabBanner", { n: pendingVocabBanner.entries.length }) }}
+      </p>
+      <button type="button" class="reading-summary-action" @click="goToPendingVocabReview">
+        {{ t("news.pendingVocabAction") }}
+      </button>
+    </div>
+
     <section v-if="hubFocus" class="focus-hero-card">
       <div
         v-if="showStreakUrgency"
@@ -433,6 +442,11 @@ import {
   vocabReviewPreview,
 } from "./vocabReviewCard.js";
 import { consumeReadingSessionSummary } from "@/modules/news/readingSession.js";
+import {
+  peekPendingReadingVocab,
+  seedReadingSessionFromPending,
+  shouldShowPendingVocabBanner,
+} from "@/modules/news/pendingReadingVocab.js";
 import { accuracyMilestoneRingOffset } from "@/modules/profile/accuracyMilestones.js";
 import {
   buildAccuracyMilestoneCard,
@@ -474,6 +488,7 @@ const focusArea = ref(null);
 const dueMistakeEntries = ref([]);
 const dueVocabWords = ref([]);
 const readingSummary = ref(null);
+const pendingVocabBanner = ref(null);
 const newsUnreadCount = ref(0);
 const continueReadingArticle = ref(null);
 const localHour = ref(new Date().getHours());
@@ -843,6 +858,12 @@ async function loadNewsUnread(userId, targetLang) {
 
 async function loadHubData() {
   readingSummary.value = consumeReadingSessionSummary();
+  const pendingVocab = peekPendingReadingVocab();
+  pendingVocabBanner.value = readingSummary.value
+    ? null
+    : shouldShowPendingVocabBanner(pendingVocab)
+      ? pendingVocab
+      : null;
   try {
     const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
       targetLangStore,
@@ -902,6 +923,18 @@ function goToMistakeReview() {
 function goToVocabReview() {
   readingSummary.value = null;
   router.push({ name: "vocab-review", query: { from: "reading" } });
+}
+
+function goToPendingVocabReview() {
+  const pending = pendingVocabBanner.value;
+  if (!pending) return;
+  seedReadingSessionFromPending(pending);
+  pendingVocabBanner.value = null;
+  const query = { from: "reading" };
+  if (pending.articleId != null) {
+    query.articleId = String(pending.articleId);
+  }
+  router.push({ name: "vocab-review", query });
 }
 
 function goToFocus() {

@@ -120,6 +120,7 @@ function buildNewsListStep() {
 function pickPrimaryStep(ctx) {
   const {
     unknownCount,
+    microReviewCompleted = false,
     dailyGoalSnapshot,
     resumeTarget,
     nextUnreadArticleId,
@@ -128,7 +129,7 @@ function pickPrimaryStep(ctx) {
     sessionWords,
   } = ctx;
 
-  if (unknownCount > 0) {
+  if (unknownCount > 0 && !microReviewCompleted) {
     return buildVocabReviewStep(unknownCount);
   }
   if (isDailyGoalUnmet(dailyGoalSnapshot) && resumeTarget) {
