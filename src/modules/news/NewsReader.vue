@@ -22,7 +22,29 @@
       </div>
     </header>
 
-    <div v-if="article?.rewritten_body" class="reading-progress-bar">
+    <div
+      v-if="showStaleRewriteBanner"
+      class="rewrite-stale-banner"
+    >
+      <p class="rewrite-stale-text">
+        {{
+          t("news.rewriteStaleBanner", {
+            articleLevel: article?.rewrite_level?.toUpperCase() || "?",
+            userLevel: currentLevel,
+          })
+        }}
+      </p>
+      <div class="rewrite-stale-actions">
+        <button type="button" class="btn-stale-refresh" @click="onStaleRewriteRefresh">
+          {{ t("news.rewriteStaleAction", { userLevel: currentLevel }) }}
+        </button>
+        <button type="button" class="btn-stale-dismiss" @click="dismissStaleRewriteBanner">
+          {{ t("news.rewriteStaleDismiss") }}
+        </button>
+      </div>
+    </div>
+
+    <div v-if="article?.rewritten_body && !rewriting" class="reading-progress-bar">
       <div class="progress-track">
         <div class="progress-fill" :style="{ width: displayScrollPct + '%' }" />
       </div>
@@ -36,16 +58,16 @@
     </div>
     <div v-else-if="rewriting" class="loading-center">
       <div class="spinner" />
-      <p>{{ t('news.rewriting') }}</p>
+      <p>{{ rewritingMessage }}</p>
     </div>
-    <div v-else-if="rewriteError" class="rewrite-prompt">
+    <div v-else-if="rewriteError && !article.rewritten_body" class="rewrite-prompt">
       <p class="error-text">{{ rewriteError }}</p>
       <button class="btn-rewrite" @click="doRewrite">{{ t('common.retry') }}</button>
     </div>
 
     <!-- Article body -->
     <div
-      v-else
+      v-else-if="article.rewritten_body"
       ref="articleBodyRef"
       class="article-body"
       @scroll="onArticleScroll"
@@ -503,7 +525,8 @@ import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
 import { openSourceUrl } from "./utils.js";
-import { displayLang } from "@/shared/constants.js";
+import { CEFR_LEVEL_CHANGED, displayLang } from "@/shared/constants.js";
+import { shouldOfferRewriteRefresh } from "./rewriteLevelMatch.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { extractWordTexts, tokenizeArticleText, applyMasteryToTokens } from "./articleText.js";
 import { shareArticle } from "./share.js";
@@ -584,6 +607,8 @@ const targetLangStore = useTargetLangStore();
 const article = ref(null);
 const rewriting = ref(false);
 const rewriteError = ref("");
+const rewriteStaleDismissed = ref(false);
+const isStaleRefresh = ref(false);
 const selectedWord = ref(null);
 const knownWordIds = ref(new Set());
 const wordsKnownSet = ref(new Set());
@@ -592,8 +617,9 @@ const sessionWordsRef = ref([]);
 const startTime = ref(Date.now());
 let targetLang = "es";
 let userId = "";
-let currentLevel = "A1";
-let unsubscribe = null;
+const currentLevel = ref("A1");
+let unsubLang = null;
+let unsubCefr = null;
 
 // Bilingual mode state
 const bilingualMode = ref(false);
@@ -663,6 +689,20 @@ const userMarkedComplete = ref(false);
 const savedReadingStatus = ref(null);
 let scrollSaveTimer = null;
 let lastPersistedScrollPct = -1;
+
+const showStaleRewriteBanner = computed(() => {
+  if (!article.value?.rewritten_body || rewriting.value || rewriteStaleDismissed.value) {
+    return false;
+  }
+  return shouldOfferRewriteRefresh(article.value, currentLevel.value);
+});
+
+const rewritingMessage = computed(() => {
+  if (isStaleRefresh.value) {
+    return t("news.rewriteRefreshing", { level: currentLevel.value });
+  }
+  return t("news.rewriting");
+});
 
 function onSingleWordSelected(text) {
   const context = articleBodyRef.value?.textContent?.trim() ?? "";
@@ -967,7 +1007,7 @@ onMounted(async () => {
     const ctx = await loadLearningContext({ targetLangStore });
     userId = ctx.user.id;
     targetLang = ctx.targetLang;
-    currentLevel = ctx.cefr;
+    currentLevel.value = ctx.cefr;
     await loadSavedReadingStatus();
     try {
       const goal = await getDailyGoalProgress(userId, targetLang);
@@ -979,6 +1019,7 @@ onMounted(async () => {
     }
     const art = await getArticle(Number(props.id));
     article.value = art;
+    rewriteStaleDismissed.value = false;
     if (!art.rewritten_body) {
       await doRewrite();
     } else {
@@ -998,15 +1039,21 @@ onMounted(async () => {
   // The reader is bound to a single article; if the user switches target
   // language elsewhere, jump back to the list so NewsList can refetch
   // articles in the new language.
-  unsubscribe = eventBus.on(TARGET_LANG_CHANGED, () => {
+  unsubLang = eventBus.on(TARGET_LANG_CHANGED, () => {
     if (router.currentRoute.value.path.startsWith("/news/")) {
       router.replace("/news");
     }
   });
+  unsubCefr = eventBus.on(CEFR_LEVEL_CHANGED, ({ cefr }) => {
+    if (!cefr) return;
+    currentLevel.value = cefr;
+    rewriteStaleDismissed.value = false;
+  });
 });
 
 onBeforeUnmount(async () => {
-  if (unsubscribe) unsubscribe();
+  if (unsubLang) unsubLang();
+  if (unsubCefr) unsubCefr();
   document.removeEventListener("selectionchange", onSelectionChange);
   document.removeEventListener("pointerup", onPointerUp);
   delete window.__amigaTranslateSelection;
@@ -1173,7 +1220,7 @@ function savePendingVocabIfNeeded() {
 
 async function prepareMicroReviewQueue() {
   try {
-    const dueWords = await getUnknownWords(userId, currentLevel, 50, targetLang);
+    const dueWords = await getUnknownWords(userId, currentLevel.value, 50, targetLang);
     const queue = buildMicroReviewQueue(sessionWordsRef.value, dueWords);
     if (!queue.length) {
       microReviewQueue.value = [];
@@ -1263,18 +1310,39 @@ async function rateMicroReviewCard(mastery) {
   resetMicroReviewCard();
 }
 
-async function doRewrite() {
+function dismissStaleRewriteBanner() {
+  rewriteStaleDismissed.value = true;
+}
+
+async function onStaleRewriteRefresh() {
+  await doRewrite({ staleRefresh: true });
+}
+
+async function doRewrite({ staleRefresh = false } = {}) {
+  isStaleRefresh.value = staleRefresh;
   rewriting.value = true;
   rewriteError.value = "";
   try {
-    const result = await rewriteArticle(Number(props.id), currentLevel, userId, targetLang);
+    const result = await rewriteArticle(Number(props.id), currentLevel.value, userId, targetLang);
     article.value = result;
+    rewriteStaleDismissed.value = false;
+    clearComprehensionRevisit();
+    comprehensionOfferAttempted.value = false;
+    comprehensionQuizAvailable.value = false;
     processArticleWords();
+    if (staleRefresh) {
+      displayScrollPct.value = 0;
+      lastPersistedScrollPct = -1;
+      await nextTick();
+      if (articleBodyRef.value) articleBodyRef.value.scrollTop = 0;
+    }
   } catch (e) {
     console.error("Failed to rewrite article:", e);
     rewriteError.value = typeof e === "string" ? e : (e?.message || t("news.rewriteFail"));
+    if (staleRefresh) showWordToast(rewriteError.value);
   } finally {
     rewriting.value = false;
+    isStaleRefresh.value = false;
   }
 }
 
@@ -1547,7 +1615,7 @@ function regionForLang(lang) {
 async function loadPostReadingContext() {
   const currentArticleId = Number(props.id);
   try {
-    const curriculum = await getPathCurriculum(getLocale(), targetLang, currentLevel);
+    const curriculum = await getPathCurriculum(getLocale(), targetLang, currentLevel.value);
     resumeTarget.value = findCurrentSection(curriculum);
 
     const articles = await getArticles(regionForLang(targetLang));
@@ -1730,7 +1798,7 @@ async function revisitPastComprehension() {
   try {
     const quiz = await getComprehensionQuiz(
       Number(props.id),
-      currentLevel,
+      currentLevel.value,
       getLocale(),
       targetLang,
     );
@@ -1752,7 +1820,7 @@ async function revisitPastComprehension() {
 async function fetchComprehensionQuizQuestions() {
   const quiz = await getComprehensionQuiz(
     Number(props.id),
-    currentLevel,
+    currentLevel.value,
     getLocale(),
     targetLang,
   );
@@ -1967,6 +2035,53 @@ function formatSource(source) {
   padding: 8px 8px 8px 4px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+.rewrite-stale-banner {
+  flex-shrink: 0;
+  margin: 0 16px 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 152, 0, 0.1);
+  border: 1px solid rgba(255, 152, 0, 0.35);
+}
+
+.rewrite-stale-text {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.rewrite-stale-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-stale-refresh {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btn-stale-dismiss {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 .reading-progress-bar {

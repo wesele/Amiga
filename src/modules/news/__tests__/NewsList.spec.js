@@ -15,6 +15,14 @@ vi.mock("@/shared/api.js", () => ({
   fetchNews: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock("@/shared/learningContext.js", () => ({
+  loadLearningContext: vi.fn().mockResolvedValue({
+    user: { id: "u1" },
+    targetLang: "es",
+    cefr: "B1",
+  }),
+}));
+
 const ROOT = resolve(__dirname, "../../../..");
 function read(rel) {
   return readFileSync(resolve(ROOT, rel), "utf8");
@@ -51,6 +59,7 @@ function makeArticles() {
       original_title: "Sample headline one",
       source: "https://www.bbc.com/news/article-1",
       rewritten_body: "Rewritten body",
+      rewrite_level: "A2",
     },
     {
       id: 2,
@@ -441,6 +450,20 @@ describe("NewsList reading status badges", () => {
       from: "reading",
       articleId: "1",
     });
+  });
+});
+
+describe("NewsList rewrite level badges", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders CEFR level badge and stale hint when rewrite level mismatches user", async () => {
+    const { wrapper } = await mountList();
+    const staleCard = cardByTitle(wrapper, "Sample headline one");
+    expect(staleCard.find(".badge-level").text()).toBe("A2");
+    expect(staleCard.find(".badge-level").classes()).toContain("is-stale");
+    expect(staleCard.find(".badge-level-stale-hint").exists()).toBe(true);
   });
 });
 

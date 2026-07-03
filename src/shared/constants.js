@@ -22,6 +22,9 @@ export const CEFR_LEVELS = ["A0", "A1", "A2", "B1", "B2", "C1"];
 // Levels with path curriculum content for zh-es (wizard + profile picker).
 export const LEARNING_CEFR_LEVELS = ["A1", "A2"];
 
+/** Emitted after Profile / Path updates the user's CEFR goal. */
+export const CEFR_LEVEL_CHANGED = "learning:cefrChanged";
+
 // Map a language code to a display name in the given UI locale.
 // This is a non-i18n escape hatch used by the Rust system prompts (which
 // are generated server-side and need a plain string) and by the news

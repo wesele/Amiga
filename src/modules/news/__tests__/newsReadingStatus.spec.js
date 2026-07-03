@@ -64,6 +64,7 @@ describe("newsReadingStatus helpers", () => {
     const unread = articleCardState({ id: 1 }, undefined);
     expect(unread.isUnread).toBe(true);
     expect(unread.readBadge).toBeNull();
+    expect(unread.rewriteLevelBadge).toEqual({ show: false });
 
     const inProgress = articleCardState(
       { id: 2 },
@@ -106,6 +107,30 @@ describe("newsReadingStatus helpers", () => {
     );
     expect(mastered.readBadge).toBe("cardRead");
     expect(mastered.showReviewChip).toBe(false);
+  });
+
+  it("articleCardState exposes rewrite level badge with stale state", () => {
+    const matched = articleCardState(
+      { id: 7, rewritten_body: "body", rewrite_level: "A2" },
+      { read_at: "2026-07-03", completed: true },
+      { userCefr: "A2" },
+    );
+    expect(matched.rewriteLevelBadge).toEqual({
+      show: true,
+      level: "A2",
+      stale: false,
+    });
+
+    const stale = articleCardState(
+      { id: 8, rewritten_body: "body", rewrite_level: "A2" },
+      undefined,
+      { userCefr: "B1" },
+    );
+    expect(stale.rewriteLevelBadge).toEqual({
+      show: true,
+      level: "A2",
+      stale: true,
+    });
   });
 
   it("comprehensionBadge and articleCardState expose understanding badges", () => {

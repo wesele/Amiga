@@ -215,7 +215,8 @@ import { canAutoInstallUpdate, pickPreferredUpdateAsset, startAppUpdate } from "
 import SettingsItem from "./components/SettingsItem.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
-import { AVAILABLE_LANGUAGES, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
+import { AVAILABLE_LANGUAGES, CEFR_LEVEL_CHANGED, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
+import { eventBus } from "@/shared/eventBus.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
 import { shareLearningProgress } from "./shareProgress.js";
@@ -303,6 +304,7 @@ async function onSwitchLevel(level) {
   try {
     await updateLearningGoalCefr(lang, level);
     currentLevel.value = level;
+    eventBus.emit(CEFR_LEVEL_CHANGED, { cefr: level });
     goals.value = await getLearningGoals(u.id);
   } catch (e) {
     console.error("Failed to update learning level:", e);

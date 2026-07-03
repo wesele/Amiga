@@ -320,7 +320,8 @@
 
 <script setup>
 import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { CEFR_LEVELS, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
+import { CEFR_LEVELS, CEFR_LEVEL_CHANGED, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
+import { eventBus } from "@/shared/eventBus.js";
 import { useRoute, useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
@@ -824,6 +825,7 @@ async function onSwitchLevel(level) {
   try {
     await updateLearningGoalCefr(targetLang, level);
     currentCefr.value = level;
+    eventBus.emit(CEFR_LEVEL_CHANGED, { cefr: level });
     const user = await getCurrentUser();
     curriculum.value = await getPathCurriculum(user.native_language, targetLang, level);
   } catch (e) {

@@ -10,6 +10,7 @@ const {
   lookupWordsMastery,
   ensureWordsSeen,
   getArticle,
+  rewriteArticle,
   saveReadingLog,
   getDailyGoalProgress,
   getArticles,
@@ -20,6 +21,7 @@ const {
   lookupWordsMastery: vi.fn(),
   ensureWordsSeen: vi.fn().mockResolvedValue(undefined),
   getArticle: vi.fn(),
+  rewriteArticle: vi.fn(),
   saveReadingLog: vi.fn().mockResolvedValue(undefined),
   getDailyGoalProgress: vi.fn(),
   getArticles: vi.fn(),
@@ -30,7 +32,7 @@ const {
 
 vi.mock("@/shared/api.js", () => ({
   getArticle,
-  rewriteArticle: vi.fn(),
+  rewriteArticle,
   saveReadingLog,
   updateWordMastery: vi.fn().mockResolvedValue(undefined),
   getBilingual: vi.fn(),
@@ -55,7 +57,7 @@ vi.mock("@/shared/learningContext.js", () => ({
   loadLearningContext: vi.fn().mockResolvedValue({
     user: { id: "u1" },
     targetLang: "es",
-    cefr: "A2",
+    cefr: "B1",
   }),
 }));
 
@@ -133,10 +135,12 @@ describe("NewsReader mastery visualization", () => {
       { word: "mundo", word_id: 2, mastery: 0 },
       { word: "nuevo", word_id: 3, mastery: 1 },
     ]);
+    rewriteArticle.mockReset();
     getArticle.mockResolvedValue({
       id: 1,
       original_title: "Titulo",
       rewritten_body: "Hola mundo nuevo",
+      rewrite_level: "A2",
       source: "sample",
     });
   });
@@ -515,6 +519,62 @@ describe("NewsReader mastery visualization", () => {
     expect(lastCall.comprehension_score).toBe(2);
     expect(lastCall.comprehension_skipped).toBe(false);
     expect(lastCall.comprehension_answers_json).toBeTruthy();
+  });
+
+  it("shows stale rewrite banner when article level differs from user CEFR", async () => {
+    const router = makeRouter();
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".rewrite-stale-banner").exists()).toBe(true);
+    expect(wrapper.find(".rewrite-stale-text").text()).toContain("A2");
+    expect(wrapper.find(".rewrite-stale-text").text()).toContain("B1");
+  });
+
+  it("dismisses stale rewrite banner", async () => {
+    const router = makeRouter();
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".btn-stale-dismiss").trigger("click");
+    await flushPromises();
+    expect(wrapper.find(".rewrite-stale-banner").exists()).toBe(false);
+  });
+
+  it("triggers rewrite refresh from stale banner", async () => {
+    rewriteArticle.mockResolvedValue({
+      id: 1,
+      original_title: "Titulo",
+      rewritten_body: "Texto nuevo para B1",
+      rewrite_level: "B1",
+      source: "sample",
+    });
+
+    const router = makeRouter();
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".btn-stale-refresh").trigger("click");
+    await flushPromises();
+    expect(rewriteArticle).toHaveBeenCalledWith(1, "B1", "u1", "es");
   });
 
   it("navigates back immediately when reading is too short with no interaction", async () => {

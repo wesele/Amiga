@@ -77,6 +77,19 @@
             <span v-if="article.rewritten_body" class="badge-rewritten">{{ t('news.aiRewritten') }}</span>
             <span v-else class="badge-raw">{{ t('news.raw') }}</span>
             <span
+              v-if="cardStateFor(article).rewriteLevelBadge?.show"
+              class="badge-level"
+              :class="{ 'is-stale': cardStateFor(article).rewriteLevelBadge.stale }"
+            >
+              {{ cardStateFor(article).rewriteLevelBadge.level || '?' }}
+            </span>
+            <span
+              v-if="cardStateFor(article).rewriteLevelBadge?.stale"
+              class="badge-level-stale-hint"
+            >
+              {{ t('news.rewriteLevelStale') }}
+            </span>
+            <span
               v-if="cardStateFor(article).unknownLine"
               class="badge-unknown-words"
             >
@@ -171,6 +184,8 @@ import { sortArticlesWithInProgressFirst } from "./readingProgress.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
+import { CEFR_LEVEL_CHANGED } from "@/shared/constants.js";
+import { loadLearningContext } from "@/shared/learningContext.js";
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -182,11 +197,13 @@ const readingSummary = ref(null);
 const pendingVocabBanner = ref(null);
 const statusMap = ref(new Map());
 const dueWordKeys = ref(new Set());
+const userCefr = ref("A1");
 let statusTimer = null;
 let userId = "";
 
 const targetLang = computed(() => targetLangStore.code || "es");
-let unsubscribe = null;
+let unsubLang = null;
+let unsubCefr = null;
 
 const LOCALE_TAGS = { zh: "zh-CN", en: "en-US", es: "es-ES" };
 
@@ -214,6 +231,7 @@ const pendingComprehensionCount = computed(() => {
 function cardStateFor(article) {
   return articleCardState(article, statusMap.value.get(article.id), {
     dueWordKeys: dueWordKeys.value,
+    userCefr: userCefr.value,
   });
 }
 
@@ -234,23 +252,39 @@ onMounted(async () => {
     userId = u?.id || "";
   } catch (e) { /* dev mode without tauri */ }
   await targetLangStore.load();
+  try {
+    const ctx = await loadLearningContext({ targetLangStore });
+    userCefr.value = ctx.cefr;
+  } catch (e) {
+    console.error("Failed to load learning context:", e);
+  }
   await loadArticles();
   // Auto-fetch if no articles
   if (articles.value.length === 0) {
     await onRefresh();
   }
   // React to language switches from any other page (Profile).
-  unsubscribe = eventBus.on(TARGET_LANG_CHANGED, async () => {
+  unsubLang = eventBus.on(TARGET_LANG_CHANGED, async () => {
     articles.value = [];
+    try {
+      const ctx = await loadLearningContext({ targetLangStore });
+      userCefr.value = ctx.cefr;
+    } catch (e) {
+      console.error("Failed to reload learning context:", e);
+    }
     await loadArticles();
     if (articles.value.length === 0) {
       await onRefresh();
     }
   });
+  unsubCefr = eventBus.on(CEFR_LEVEL_CHANGED, ({ cefr }) => {
+    if (cefr) userCefr.value = cefr;
+  });
 });
 
 onBeforeUnmount(() => {
-  if (unsubscribe) unsubscribe();
+  if (unsubLang) unsubLang();
+  if (unsubCefr) unsubCefr();
 });
 
 async function loadArticles() {
@@ -656,6 +690,28 @@ function formatSource(source) {
   border-radius: 10px;
   background: var(--surface-variant);
   color: var(--text-lighter);
+}
+
+.badge-level {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--blue-bg, rgba(28, 176, 246, 0.12));
+  color: var(--blue);
+  border: 1px solid transparent;
+}
+
+.badge-level.is-stale {
+  background: transparent;
+  color: var(--orange);
+  border-color: var(--orange);
+}
+
+.badge-level-stale-hint {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--orange);
 }
 
 .badge-read {

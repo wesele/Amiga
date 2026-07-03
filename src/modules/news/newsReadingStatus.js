@@ -1,5 +1,6 @@
 import { readingCardPhase } from "./readingProgress.js";
 import { comprehensionNeedsRetake } from "./readingComprehension.js";
+import { rewriteLevelBadge } from "./rewriteLevelMatch.js";
 
 /** Parse words_unknown JSON into deduped { word, context } entries (backward compatible). */
 export function parseUnknownWordEntries(json) {
@@ -160,11 +161,11 @@ export function buildStatusMap(rows) {
  * Derive card-level reading state for one article.
  * @param {object} article
  * @param {object|undefined} status
- * @param {{ dueWordKeys?: Set<string> }} [options]
+ * @param {{ dueWordKeys?: Set<string>, userCefr?: string }} [options]
  */
 export function articleCardState(article, status, options = {}) {
-  void article;
-  const { dueWordKeys } = options;
+  const { dueWordKeys, userCefr } = options;
+  const levelBadge = rewriteLevelBadge(article, userCefr);
   const phase = readingCardPhase(status);
 
   if (phase === "unread") {
@@ -179,6 +180,7 @@ export function articleCardState(article, status, options = {}) {
       showReviewChip: false,
       showComprehensionRetakeChip: false,
       comprehensionRetakeChipKey: null,
+      rewriteLevelBadge: levelBadge,
       cardClass: "is-unread",
     };
   }
@@ -196,6 +198,7 @@ export function articleCardState(article, status, options = {}) {
       showReviewChip: false,
       showComprehensionRetakeChip: false,
       comprehensionRetakeChipKey: null,
+      rewriteLevelBadge: levelBadge,
       cardClass: "is-in-progress",
     };
   }
@@ -223,6 +226,7 @@ export function articleCardState(article, status, options = {}) {
     showReviewChip,
     showComprehensionRetakeChip: comprehensionNeedsRetake(status),
     comprehensionRetakeChipKey: comprehensionRetakeChipKey(status),
+    rewriteLevelBadge: levelBadge,
     cardClass: "is-read",
   };
 }
