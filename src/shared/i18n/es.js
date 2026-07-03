@@ -643,6 +643,7 @@ export default {
     comprehensionRevisitChip: "Ver frases clave del último quiz",
     comprehensionRetakeChip: "Hacer quiz de comprensión",
     comprehensionRetakeAgain: "Intentar de nuevo",
+    comprehensionAiPracticeAction: "Practicar esto con Amiga",
     comprehensionRetakeDone: "Listo",
     comprehensionRetakePerfect: "¡Perfecto! Lo entendiste",
     cardComprehensionPending: "🧠 Pendiente",
@@ -665,6 +666,9 @@ export default {
       nextArticleHint: "Quedan {n} artículo(s) del día",
       aiPractice: "Practica estas palabras con Amiga",
       aiPracticeHint: "Charla con {preview} y más",
+      comprehensionAiPractice: "Practica lo que no entendiste con Amiga",
+      comprehensionAiPracticeHint: "{n} laguna(s) en «{title}»",
+      comprehensionAiPracticeContinue: "Empezar diálogo guiado",
     },
   },
 
@@ -813,6 +817,11 @@ export default {
     starterReviewedWords: "Examinar palabras repasadas ({{preview}})",
     starterReviewedWordsMsg:
       "Examíname con estas palabras que acabo de repasar: {{words}}. Una por vez con una oración simple; espera mi respuesta antes de dar feedback breve.",
+    starterComprehensionPractice: "Practicar errores de «{{title}}» ({{n}})",
+    starterComprehensionPracticeMsg:
+      "Acabo de leer «{{title}}» y fallé {{n}} pregunta(s) de comprensión. Hazme 2–3 preguntas cortas en {{target}} simple sobre lo siguiente, y al final déjame explicar la idea o el detalle en {{target}}.\n\n{{itemsBrief}}",
+    pendingComprehensionPractice: "«{{title}}»: {{n}} laguna(s) de comprensión",
+    pendingComprehensionPracticeHint: "«{{title}}» tiene {{n}} error(es) del quiz por practicar",
     pendingPracticeTitle: "Práctica oral pendiente",
     pendingPracticeHintReading: "Palabras del artículo de ayer: {{preview}}",
     pendingPracticeHintVocab: "Palabras que acabas de repasar: {{preview}}",

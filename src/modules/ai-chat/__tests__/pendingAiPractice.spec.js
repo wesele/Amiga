@@ -113,4 +113,38 @@ describe("pendingAiPractice", () => {
     expect(shouldShowPendingPracticeHero({ words: ["a", "b", "c"] })).toBe(true);
     expect(shouldShowPendingPracticeHero(null)).toBe(false);
   });
+
+  it("saves and shows comprehension pending practice without a word list", () => {
+    const practiceContext = {
+      articleId: 9,
+      articleTitle: "通胀新闻",
+      wrongCount: 1,
+      targetLang: "es",
+      items: [
+        {
+          kind: "main_idea",
+          promptNative: "主旨？",
+          evidenceSentence: "Frase.",
+          explanationNative: "解释",
+        },
+      ],
+    };
+    savePendingAiPractice(
+      { source: PENDING_SOURCES.COMPREHENSION, practiceContext },
+      { now: NOW },
+    );
+    const pending = peekPendingAiPractice({ now: NOW });
+    expect(pending).toMatchObject({
+      source: PENDING_SOURCES.COMPREHENSION,
+      practiceContext,
+      articleTitle: "通胀新闻",
+    });
+    expect(shouldShowPendingPracticeHero(pending)).toBe(true);
+    expect(
+      planHasAiPracticeStep({
+        primary: { id: "comprehensionAiPractice" },
+        secondary: [],
+      }),
+    ).toBe(true);
+  });
 });

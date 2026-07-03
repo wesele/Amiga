@@ -23,6 +23,10 @@ describe("aiPracticeSession", () => {
     expect(isGuidedAiPractice({})).toBe(false);
   });
 
+  it("detects guided practice from comprehension-practice starter", () => {
+    expect(isGuidedAiPractice({ query: { starterId: "comprehension-practice" } })).toBe(true);
+  });
+
   it("parses practice words from comma-separated query", () => {
     expect(parsePracticeWords({ query: { words: " alpha , beta,  gamma " } })).toEqual([
       "alpha",
@@ -39,6 +43,9 @@ describe("aiPracticeSession", () => {
     expect(parsePracticeSource({ query: { from: "vocab" } })).toBe(AI_PRACTICE_SOURCES.VOCAB);
     expect(parsePracticeSource({ query: { from: "mistake" } })).toBe(
       AI_PRACTICE_SOURCES.MISTAKE,
+    );
+    expect(parsePracticeSource({ query: { from: "comprehension" } })).toBe(
+      AI_PRACTICE_SOURCES.COMPREHENSION,
     );
     expect(parsePracticeSource({ query: { from: "chat" } })).toBeNull();
   });
@@ -60,6 +67,7 @@ describe("aiPracticeSession", () => {
     expect(defaultExitRouteAfterPractice("reading")).toEqual({ name: "news" });
     expect(defaultExitRouteAfterPractice("vocab")).toEqual({ name: "learn" });
     expect(defaultExitRouteAfterPractice("mistake")).toEqual({ name: "path" });
+    expect(defaultExitRouteAfterPractice("comprehension")).toEqual({ name: "news" });
     expect(defaultExitRouteAfterPractice(null)).toEqual({ name: "chat" });
     expect(
       defaultExitRouteAfterPractice("reading", { name: "reader", params: { id: 9 } }),

@@ -168,6 +168,44 @@ describe("buildPostReadingPlan", () => {
     expect(plan.secondary.map((s) => s.id)).not.toContain(READING_STEP_IDS.CONTINUE_ARTICLE);
   });
 
+  it("prioritizes comprehension AI practice when quiz was partially wrong with few session words", () => {
+    const comprehensionResult = {
+      score: 1,
+      total: 2,
+      skipped: false,
+      details: [
+        {
+          correct: false,
+          question: {
+            kind: "main_idea",
+            prompt_native: "主旨？",
+            evidence_sentence: "Frase.",
+            explanation_native: "解释",
+          },
+        },
+        { correct: true, question: { kind: "detail", prompt_native: "细节？" } },
+      ],
+    };
+    const plan = buildPostReadingPlan({
+      mode: "complete",
+      unknownCount: 0,
+      comprehensionResult,
+      articleTitle: "通胀新闻",
+      articleId: 7,
+      targetLang: "es",
+      dailyGoalSnapshot: { goal_met: true, target_lessons: 2, lessons_today: 2 },
+      resumeTarget: null,
+      nextUnreadArticleId: 42,
+      newsUnreadCount: 2,
+      sessionWordCount: 1,
+      sessionWords: ["hola"],
+    });
+    expect(plan.primary.id).toBe(READING_STEP_IDS.COMPREHENSION_AI_PRACTICE);
+    expect(plan.primary.practiceContext.articleTitle).toBe("通胀新闻");
+    expect(plan.secondary.map((s) => s.id)).toContain(READING_STEP_IDS.REVISIT_ARTICLE);
+    expect(plan.secondary.map((s) => s.id)).toContain(READING_STEP_IDS.NEXT_ARTICLE);
+  });
+
   it("inserts revisit article when comprehension was partially wrong", () => {
     const plan = buildPostReadingPlan({
       mode: "complete",

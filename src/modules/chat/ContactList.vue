@@ -58,9 +58,11 @@ import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 import {
   clearPendingAiPractice,
   formatPendingPracticePreview,
+  PENDING_SOURCES,
   peekPendingAiPractice,
   shouldShowPendingPracticeHero,
 } from "@/modules/ai-chat/pendingAiPractice.js";
+import { saveComprehensionPracticePayload } from "@/modules/news/comprehensionAiPractice.js";
 import { useI18n } from "@/shared/i18n";
 import { displayLang } from "@/shared/constants.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -124,7 +126,14 @@ const showPendingHero = computed(() => shouldShowPendingPracticeHero(pendingPrac
 
 const pendingPracticeHint = computed(() => {
   const pending = pendingPractice.value;
-  if (!pending?.words?.length) return "";
+  if (!pending) return "";
+  if (pending.source === PENDING_SOURCES.COMPREHENSION) {
+    return t("chat.pendingComprehensionPracticeHint", {
+      title: pending.practiceContext?.articleTitle ?? pending.articleTitle ?? "",
+      n: pending.practiceContext?.wrongCount ?? 0,
+    });
+  }
+  if (!pending.words?.length) return "";
   const preview = formatPendingPracticePreview(pending.words);
   const hintKey = {
     reading: "chat.pendingPracticeHintReading",
@@ -138,6 +147,12 @@ const pendingPracticeHint = computed(() => {
 const amigaPendingDesc = computed(() => {
   const pending = pendingPractice.value;
   if (!shouldShowPendingPracticeHero(pending)) return "";
+  if (pending.source === PENDING_SOURCES.COMPREHENSION) {
+    return t("chat.pendingComprehensionPractice", {
+      title: pending.practiceContext?.articleTitle ?? pending.articleTitle ?? "",
+      n: pending.practiceContext?.wrongCount ?? 0,
+    });
+  }
   const n = pending.words.length;
   if (currentUnitTitle.value) {
     return t("chat.amigaDescPendingWithUnit", { n, unit: currentUnitTitle.value });
@@ -302,18 +317,27 @@ async function openAiChat(contact, options = {}) {
 
 async function startPendingPractice() {
   const pending = pendingPractice.value;
-  if (!pending?.words?.length || startingPendingPractice.value) return;
+  if (!shouldShowPendingPracticeHero(pending) || startingPendingPractice.value) return;
   startingPendingPractice.value = true;
   try {
     const amigaContact = aiContacts.value.find((contact) => contact.contactType === "amiga");
     if (!amigaContact) return;
-    const opened = await openAiChat(amigaContact, {
-      starterId: "reviewed-words",
-      starterParams: {
-        words: pending.words.join(", "),
-        from: pending.source,
-      },
-    });
+    let opened = false;
+    if (pending.source === PENDING_SOURCES.COMPREHENSION) {
+      saveComprehensionPracticePayload(pending.practiceContext);
+      opened = await openAiChat(amigaContact, {
+        starterId: "comprehension-practice",
+        starterParams: { from: "comprehension" },
+      });
+    } else {
+      opened = await openAiChat(amigaContact, {
+        starterId: "reviewed-words",
+        starterParams: {
+          words: pending.words.join(", "),
+          from: pending.source,
+        },
+      });
+    }
     if (opened) refreshPendingPractice();
   } finally {
     startingPendingPractice.value = false;

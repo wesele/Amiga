@@ -643,6 +643,7 @@ export default {
     comprehensionRevisitChip: "Review last quiz key sentences",
     comprehensionRetakeChip: "Take comprehension quiz",
     comprehensionRetakeAgain: "Try again",
+    comprehensionAiPracticeAction: "Practice this with Amiga",
     comprehensionRetakeDone: "Done",
     comprehensionRetakePerfect: "Perfect! You understood it",
     cardComprehensionPending: "🧠 Pending",
@@ -665,6 +666,9 @@ export default {
       nextArticleHint: "{n} trending article(s) left today",
       aiPractice: "Practice these words with Amiga",
       aiPracticeHint: "Chat using {preview} and more",
+      comprehensionAiPractice: "Practice what you missed with Amiga",
+      comprehensionAiPracticeHint: "{n} gap(s) in “{title}”",
+      comprehensionAiPracticeContinue: "Start guided chat",
     },
   },
 
@@ -813,6 +817,11 @@ export default {
     starterReviewedWords: "Quiz my reviewed words ({{preview}})",
     starterReviewedWordsMsg:
       "Quiz me on these words I just reviewed: {{words}}. One word at a time with a simple scenario sentence; wait for my answer before brief feedback.",
+    starterComprehensionPractice: "Practice “{{title}}” mistakes ({{n}})",
+    starterComprehensionPracticeMsg:
+      "I just read “{{title}}” and missed {{n}} comprehension question(s). Please ask me 2–3 short follow-ups in simple {{target}} about the items below, then let me explain the main idea or detail in {{target}}.\n\n{{itemsBrief}}",
+    pendingComprehensionPractice: "“{{title}}”: {{n}} comprehension gap(s) left",
+    pendingComprehensionPracticeHint: "“{{title}}” has {{n}} quiz mistake(s) to practice",
     pendingPracticeTitle: "Speaking practice waiting",
     pendingPracticeHintReading: "Words from yesterday's reading: {{preview}}",
     pendingPracticeHintVocab: "Words you just reviewed: {{preview}}",

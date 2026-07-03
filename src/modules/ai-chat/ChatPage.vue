@@ -220,6 +220,10 @@ import {
 } from "@/modules/learn/questionTypeStats.js";
 import { buildReviewedWordsStarter, pickChatStarters } from "@/modules/ai-chat/chatStarters.js";
 import {
+  buildComprehensionPracticeStarter,
+  loadComprehensionPracticePayload,
+} from "@/modules/news/comprehensionAiPractice.js";
+import {
   defaultExitRouteAfterPractice,
   formatLearnedWordsPreview,
   isGuidedAiPractice,
@@ -581,6 +585,27 @@ function applyReviewedWordsStarter(starters) {
   );
 }
 
+function applyComprehensionPracticeStarter(starters) {
+  if (route.query.starterId !== "comprehension-practice") {
+    return starters;
+  }
+  const context = loadComprehensionPracticePayload();
+  if (!context) return starters;
+  const comprehensionStarter = buildComprehensionPracticeStarter({
+    ...context,
+    targetLabel: targetLabel.value,
+  });
+  if (!comprehensionStarter) return starters;
+  return [
+    comprehensionStarter,
+    ...starters.filter((starter) => starter.id !== "comprehension-practice"),
+  ].slice(0, 3);
+}
+
+function applyRouteStarters(starters) {
+  return applyComprehensionPracticeStarter(applyReviewedWordsStarter(starters));
+}
+
 async function loadChatStarters(nativeLangCode, langCode, cefr) {
   startersLoading.value = true;
   chatStarters.value = [];
@@ -606,7 +631,7 @@ async function loadChatStarters(nativeLangCode, langCode, cefr) {
     const stats = loadQuestionTypeStats(pairStatsKey(nativeLangCode, langCode));
     const focusArea = buildFocusArea(stats);
     const pendingWords = peekPendingAiPractice()?.words ?? null;
-    chatStarters.value = applyReviewedWordsStarter(
+    chatStarters.value = applyRouteStarters(
       pickChatStarters({
         currentSection,
         teachingPreview,
@@ -617,7 +642,7 @@ async function loadChatStarters(nativeLangCode, langCode, cefr) {
     );
   } catch {
     const pendingWords = peekPendingAiPractice()?.words ?? null;
-    chatStarters.value = applyReviewedWordsStarter(
+    chatStarters.value = applyRouteStarters(
       pickChatStarters({ targetLabel: targetLabel.value, pendingWords }),
     );
   } finally {

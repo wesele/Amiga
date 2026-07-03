@@ -435,6 +435,15 @@
                 v-if="hasWrongComprehensionAnswers"
                 type="button"
                 class="action-btn secondary"
+                :disabled="openingAiPractice"
+                @click="openComprehensionAiPracticeFromQuiz()"
+              >
+                {{ t("news.comprehensionAiPracticeAction") }}
+              </button>
+              <button
+                v-if="hasWrongComprehensionAnswers"
+                type="button"
+                class="action-btn secondary"
                 @click="enterComprehensionRevisit()"
               >
                 {{ t("news.nextStep.revisitArticle") }}
@@ -632,10 +641,15 @@ import {
 import {
   buildPostReadingPlan,
   isAiPracticeStep,
+  isComprehensionAiPracticeStep,
   isContinueReadingStep,
   isRevisitArticleStep,
   isVocabReviewStep,
 } from "./postReadingPlan.js";
+import {
+  buildComprehensionPracticeContext,
+  saveComprehensionPracticePayload,
+} from "./comprehensionAiPractice.js";
 import {
   planHasAiPracticeStep,
   PENDING_SOURCES,
@@ -939,6 +953,9 @@ const readingPlan = computed(() => {
     unknownCount: wordsUnknownSet.value.size,
     microReviewCompleted: microReviewCompleted.value,
     comprehensionResult: comprehensionResult.value,
+    articleTitle: article.value?.original_title ?? "",
+    articleId: article.value?.id ?? 0,
+    targetLang,
     dailyGoalSnapshot: dailyGoalSnapshot.value,
     resumeTarget: resumeTarget.value,
     nextUnreadArticleId: nextUnreadArticleId.value,
@@ -1940,6 +1957,10 @@ async function goToReadingStep(step) {
     }
     return;
   }
+  if (isComprehensionAiPracticeStep(step)) {
+    await openComprehensionAiPractice(step.practiceContext);
+    return;
+  }
   if (step.route) {
     showCompletionSummary.value = false;
     router.replace(step.route);
@@ -2259,9 +2280,53 @@ async function tryShowCheckpointSummary() {
   return true;
 }
 
+function comprehensionPracticeContext() {
+  return buildComprehensionPracticeContext({
+    articleTitle: article.value?.original_title ?? "",
+    articleId: article.value?.id ?? 0,
+    comprehensionResult: comprehensionResult.value,
+    targetLang,
+  });
+}
+
+async function openComprehensionAiPractice(practiceContext, { returnToReader = false } = {}) {
+  if (!practiceContext) return;
+  openingAiPractice.value = true;
+  try {
+    saveComprehensionPracticePayload(practiceContext);
+    const returnRoute = returnToReader && article.value?.id
+      ? { name: "reader", params: { id: String(article.value.id) } }
+      : null;
+    await openAiContact(
+      router,
+      { name: t("chat.amiga"), contactType: "amiga" },
+      {
+        targetLang,
+        starterId: "comprehension-practice",
+        starterParams: {
+          from: "comprehension",
+          ...(returnRoute ? { returnRoute } : {}),
+        },
+      },
+    );
+  } finally {
+    openingAiPractice.value = false;
+  }
+}
+
+async function openComprehensionAiPracticeFromQuiz() {
+  await openComprehensionAiPractice(comprehensionPracticeContext(), { returnToReader: true });
+}
+
 function dismissCompletionSummary() {
   const plan = readingPlan.value;
-  if (planHasAiPracticeStep(plan) && sessionWords.value.length >= 3) {
+  const comprehensionContext = comprehensionPracticeContext();
+  if (comprehensionContext && plan?.primary?.id === "comprehensionAiPractice") {
+    savePendingAiPractice({
+      source: PENDING_SOURCES.COMPREHENSION,
+      practiceContext: comprehensionContext,
+    });
+  } else if (planHasAiPracticeStep(plan) && sessionWords.value.length >= 3) {
     savePendingAiPractice({
       source: PENDING_SOURCES.READING,
       words: sessionWords.value,

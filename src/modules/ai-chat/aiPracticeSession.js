@@ -2,11 +2,15 @@ export const AI_PRACTICE_SOURCES = {
   READING: "reading",
   VOCAB: "vocab",
   MISTAKE: "mistake",
+  COMPREHENSION: "comprehension",
 };
 
 /** Whether this chat session was opened from a learning-loop AI practice entry. */
 export function isGuidedAiPractice(route) {
-  return route?.query?.starterId === "reviewed-words" && Boolean(route?.query?.words);
+  if (route?.query?.starterId === "reviewed-words" && Boolean(route?.query?.words)) {
+    return true;
+  }
+  return route?.query?.starterId === "comprehension-practice";
 }
 
 export function parsePracticeWords(route) {
@@ -21,6 +25,7 @@ export function parsePracticeSource(route) {
   if (from === AI_PRACTICE_SOURCES.READING) return AI_PRACTICE_SOURCES.READING;
   if (from === AI_PRACTICE_SOURCES.VOCAB) return AI_PRACTICE_SOURCES.VOCAB;
   if (from === AI_PRACTICE_SOURCES.MISTAKE) return AI_PRACTICE_SOURCES.MISTAKE;
+  if (from === AI_PRACTICE_SOURCES.COMPREHENSION) return AI_PRACTICE_SOURCES.COMPREHENSION;
   return null;
 }
 
@@ -79,6 +84,8 @@ export function defaultExitRouteAfterPractice(source, returnRoute) {
       return { name: "learn" };
     case AI_PRACTICE_SOURCES.MISTAKE:
       return { name: "path" };
+    case AI_PRACTICE_SOURCES.COMPREHENSION:
+      return { name: "news" };
     default:
       return { name: "chat" };
   }

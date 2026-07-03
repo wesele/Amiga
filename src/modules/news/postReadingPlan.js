@@ -1,5 +1,9 @@
 import { pathSectionRoute, sectionKindIcon } from "@/modules/learn/pathResume.js";
 import { dailyGoalRemainingLessons } from "@/modules/learn/dailyGoalDisplay.js";
+import {
+  buildComprehensionPracticeContext,
+  shouldOfferComprehensionAiPractice,
+} from "./comprehensionAiPractice.js";
 
 export const READING_STEP_IDS = {
   VOCAB_REVIEW: "vocabReview",
@@ -9,6 +13,7 @@ export const READING_STEP_IDS = {
   DAILY_GOAL: "dailyGoal",
   NEXT_ARTICLE: "nextArticle",
   AI_PRACTICE: "aiPractice",
+  COMPREHENSION_AI_PRACTICE: "comprehensionAiPractice",
   LEARN_HUB: "learnHub",
   NEWS_LIST: "newsList",
 };
@@ -82,6 +87,22 @@ function buildNextArticleStep(articleId, newsUnreadCount) {
   };
 }
 
+function buildComprehensionAiPracticeStep(practiceContext) {
+  return {
+    id: READING_STEP_IDS.COMPREHENSION_AI_PRACTICE,
+    route: null,
+    contactAction: "comprehensionAiPractice",
+    practiceContext,
+    icon: "💬",
+    titleKey: "news.nextStep.comprehensionAiPractice",
+    titleParams: { n: practiceContext.wrongCount },
+    subtitleKey: "news.nextStep.comprehensionAiPracticeHint",
+    subtitleParams: { title: practiceContext.articleTitle, n: practiceContext.wrongCount },
+    continueKey: "news.nextStep.comprehensionAiPracticeContinue",
+    continueParams: { n: practiceContext.wrongCount },
+  };
+}
+
 function buildAiPracticeStep(sessionWords) {
   const words = (sessionWords || []).filter(Boolean);
   const preview = words.slice(0, 3).join(", ");
@@ -145,6 +166,18 @@ function buildRevisitArticleStep() {
   };
 }
 
+function resolveComprehensionPracticeStep(ctx) {
+  const { comprehensionResult, articleTitle, articleId, targetLang } = ctx;
+  if (!shouldOfferComprehensionAiPractice({ comprehensionResult })) return null;
+  const practiceContext = buildComprehensionPracticeContext({
+    articleTitle,
+    articleId,
+    comprehensionResult,
+    targetLang,
+  });
+  return practiceContext ? buildComprehensionAiPracticeStep(practiceContext) : null;
+}
+
 function pickPrimaryStep(ctx) {
   const {
     mode = "complete",
@@ -168,6 +201,10 @@ function pickPrimaryStep(ctx) {
 
   if (unknownCount > 0 && !microReviewCompleted) {
     return buildVocabReviewStep(unknownCount);
+  }
+  const comprehensionPracticeStep = resolveComprehensionPracticeStep(ctx);
+  if (comprehensionPracticeStep) {
+    return comprehensionPracticeStep;
   }
   if (isDailyGoalUnmet(dailyGoalSnapshot) && resumeTarget) {
     return buildResumeLessonStep(resumeTarget, dailyGoalSnapshot);
@@ -196,6 +233,9 @@ function buildSecondarySteps(ctx, primary) {
     newsUnreadCount,
     sessionWordCount,
     sessionWords,
+    articleTitle,
+    articleId,
+    targetLang,
   } = ctx;
   const secondary = [];
   const seen = new Set([primary.id]);
@@ -213,6 +253,27 @@ function buildSecondarySteps(ctx, primary) {
     comprehensionResult.score < comprehensionResult.total
   ) {
     push(buildRevisitArticleStep());
+  }
+
+  if (
+    primary.id === READING_STEP_IDS.COMPREHENSION_AI_PRACTICE &&
+    isDailyGoalUnmet(dailyGoalSnapshot)
+  ) {
+    push(
+      resumeTarget
+        ? buildResumeLessonStep(resumeTarget, dailyGoalSnapshot)
+        : buildDailyGoalPathStep(dailyGoalSnapshot),
+    );
+  }
+
+  if (primary.id !== READING_STEP_IDS.COMPREHENSION_AI_PRACTICE) {
+    const comprehensionPracticeStep = resolveComprehensionPracticeStep({
+      comprehensionResult,
+      articleTitle,
+      articleId,
+      targetLang,
+    });
+    push(comprehensionPracticeStep);
   }
 
   if (mode === "checkpoint" && primary.id !== READING_STEP_IDS.CONTINUE_ARTICLE) {
@@ -254,6 +315,11 @@ export function isVocabReviewStep(step) {
 /** Whether the step opens Amiga chat with session words. */
 export function isAiPracticeStep(step) {
   return step?.id === READING_STEP_IDS.AI_PRACTICE;
+}
+
+/** Whether the step opens Amiga chat to practice comprehension mistakes. */
+export function isComprehensionAiPracticeStep(step) {
+  return step?.id === READING_STEP_IDS.COMPREHENSION_AI_PRACTICE;
 }
 
 /** Whether the step dismisses the overlay and resumes reading in place. */
