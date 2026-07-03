@@ -39,23 +39,57 @@
       <p v-else-if="dailyGoalNudge" class="daily-goal-banner is-nudge">{{ dailyGoalNudge }}</p>
       <p v-else-if="dailyGoalContributed" class="daily-goal-banner">{{ dailyGoalContributed }}</p>
       <p v-if="mistakeMilestoneBanner" class="mistake-milestone-banner">{{ mistakeMilestoneBanner }}</p>
-      <p v-if="showContinueReview" class="continue-hint">{{ t("path.mistakeReviewContinueHint") }}</p>
-      <div class="summary-actions">
+      <section v-if="mistakeReviewPlan" class="next-steps-panel">
+        <p class="next-steps-eyebrow">{{ t("path.nextStep.title") }}</p>
+        <div class="next-steps-primary">
+          <span class="next-steps-icon" aria-hidden="true">{{ mistakeReviewPlan.primary.icon }}</span>
+          <div class="next-steps-copy">
+            <p class="next-steps-primary-title">{{ stepTitle(mistakeReviewPlan.primary) }}</p>
+            <p
+              v-if="mistakeReviewPlan.primary.subtitleKey"
+              class="next-steps-primary-sub"
+            >
+              {{ stepSubtitle(mistakeReviewPlan.primary) }}
+            </p>
+          </div>
+        </div>
+        <div v-if="mistakeReviewPlan.secondary.length" class="next-steps-queue">
+          <p class="next-steps-queue-title">
+            {{ t("path.nextStep.queueTitle", { n: mistakeReviewPlan.secondary.length }) }}
+          </p>
+          <button
+            v-for="step in mistakeReviewPlan.secondary"
+            :key="step.id"
+            type="button"
+            class="next-steps-queue-item"
+            :disabled="!step.route && !step.contactAction && !isContinueReviewStep(step)"
+            @click="goToMistakeStep(step)"
+          >
+            <span class="next-steps-queue-icon" aria-hidden="true">{{ step.icon }}</span>
+            <div class="next-steps-queue-copy">
+              <p class="next-steps-queue-item-title">{{ stepTitle(step) }}</p>
+              <p v-if="step.subtitleKey" class="next-steps-queue-item-sub">
+                {{ stepSubtitle(step) }}
+              </p>
+            </div>
+          </button>
+        </div>
+      </section>
+      <div v-if="mistakeReviewPlan" class="summary-actions">
         <button
-          v-if="showContinueReview"
           type="button"
           class="action-btn primary"
-          :disabled="continuing"
-          @click="continueReview"
+          :disabled="continuing || openingAiPractice"
+          @click="goToMistakeStep(mistakeReviewPlan.primary)"
         >
-          {{ continueReviewLabel }}
+          {{ stepContinueLabel(mistakeReviewPlan.primary) }}
         </button>
-        <button
-          type="button"
-          class="action-btn"
-          :class="showContinueReview ? 'secondary' : 'primary'"
-          @click="exitReview"
-        >
+        <button type="button" class="action-btn secondary" @click="exitReview">
+          {{ t("path.mistakeReviewLater") }}
+        </button>
+      </div>
+      <div v-else class="summary-actions">
+        <button type="button" class="action-btn primary" @click="exitReview">
           {{ t("path.mistakeReviewBack") }}
         </button>
       </div>
@@ -152,7 +186,23 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
+import {
+  getArticles,
+  getArticlesReadingStatus,
+  getPathCurriculum,
+  getUnknownWords,
+} from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
+import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
+import { findCurrentSection } from "@/modules/learn/pathResume.js";
+import {
+  buildFocusArea,
+  loadQuestionTypeStats,
+} from "@/modules/learn/questionTypeStats.js";
+import {
+  buildStatusMap,
+  countUnreadArticles,
+} from "@/modules/news/newsReadingStatus.js";
 import {
   applyReviewStreak,
   reviewDailyGoalCelebration,
@@ -191,10 +241,13 @@ import {
 } from "./mistakeReviewStore.js";
 import {
   REMAINING_PEEK_LIMIT,
-  mistakeContinueLabelKey,
   remainingMistakeReviewCount,
-  shouldOfferMistakeContinuation,
 } from "./mistakeReviewContinuation.js";
+import {
+  buildPostMistakeReviewPlan,
+  isAiPracticeStep,
+  isContinueReviewStep,
+} from "./postMistakeReviewPlan.js";
 import { shouldAutoCheckOnAnswerChange } from "./practiceAnswerAutoCheck.js";
 import { correctAutoAdvanceDelayMs } from "./practiceFlowTiming.js";
 import { sessionProgressPct } from "./focusPracticeSession.js";
@@ -215,11 +268,19 @@ const masteredCount = ref(0);
 const sessionTotal = ref(0);
 const pairKey = ref("");
 const userId = ref("");
+const nativeLang = ref("zh");
+const cefr = ref("A1");
 const reviewResult = ref(null);
 const targetLang = ref("es");
 const remainingDue = ref(0);
 const checkingRemaining = ref(false);
 const continuing = ref(false);
+const resumeTarget = ref(null);
+const dueVocabCount = ref(0);
+const focusArea = ref(null);
+const newsUnreadCount = ref(0);
+const planContextReady = ref(false);
+const openingAiPractice = ref(false);
 const hintText = ref("");
 const hintShown = ref(false);
 const hintAutoRevealed = ref(false);
@@ -270,17 +331,34 @@ const mistakeMilestoneBanner = computed(() => {
   return t(MISTAKE_MILESTONE_CELEBRATION_KEY, { n: milestone });
 });
 
-const showContinueReview = computed(
-  () => !checkingRemaining.value && shouldOfferMistakeContinuation(remainingDue.value),
-);
+const weakTypeIds = computed(() => {
+  const ids = new Set();
+  for (const entry of queue.value) {
+    if (entry?.question?.type) ids.add(entry.question.type);
+  }
+  return [...ids];
+});
 
-const continueReviewLabel = computed(() => {
-  const key = mistakeContinueLabelKey(remainingDue.value);
-  const n =
-    remainingDue.value >= REMAINING_PEEK_LIMIT
-      ? REMAINING_PEEK_LIMIT
-      : remainingDue.value;
-  return t(key, { n });
+const mistakeReviewPlan = computed(() => {
+  if (
+    !finished.value ||
+    checkingRemaining.value ||
+    !planContextReady.value ||
+    !reviewResult.value
+  ) {
+    return null;
+  }
+  return buildPostMistakeReviewPlan({
+    reviewResult: reviewResult.value,
+    remainingDue: remainingDue.value,
+    sessionTotal: sessionTotal.value,
+    masteredCount: masteredCount.value,
+    dueVocabCount: dueVocabCount.value,
+    focusArea: focusArea.value,
+    newsUnreadCount: newsUnreadCount.value,
+    resumeTarget: resumeTarget.value,
+    weakTypeIds: weakTypeIds.value,
+  });
 });
 
 const correctAnswerText = computed(() =>
@@ -465,6 +543,8 @@ async function load() {
   try {
     const ctx = await loadLearningContext();
     userId.value = ctx.user?.id ?? "";
+    nativeLang.value = ctx.nativeLang ?? "zh";
+    cefr.value = ctx.cefr ?? "A1";
     targetLang.value = ctx.targetLang;
     pairKey.value = pairStatsKey(ctx.nativeLang, ctx.targetLang);
     queue.value = loadDueMistakes(pairKey.value);
@@ -478,6 +558,12 @@ async function load() {
     remainingDue.value = 0;
     checkingRemaining.value = false;
     continuing.value = false;
+    resumeTarget.value = null;
+    dueVocabCount.value = 0;
+    focusArea.value = null;
+    newsUnreadCount.value = 0;
+    planContextReady.value = false;
+    openingAiPractice.value = false;
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {
@@ -545,7 +631,7 @@ async function advanceAfterResult() {
     sessionComplete: true,
     targetLanguage: targetLang.value,
   });
-  await refreshRemainingDue();
+  await Promise.all([refreshRemainingDue(), loadPostReviewContext()]);
 }
 
 async function onPrimaryAction() {
@@ -598,12 +684,112 @@ function refreshRemainingDue() {
   }
 }
 
+function regionForLang(lang) {
+  switch (lang) {
+    case "zh":
+      return "CN";
+    case "en":
+      return "US";
+    case "es":
+      return "ES";
+    default:
+      return "CN";
+  }
+}
+
+async function loadNewsUnread() {
+  try {
+    const articles = await getArticles(regionForLang(targetLang.value));
+    if (!articles.length) {
+      newsUnreadCount.value = 0;
+      return;
+    }
+    const ids = articles.map((article) => article.id).filter((id) => id != null);
+    const rows = await getArticlesReadingStatus(userId.value, ids);
+    const map = buildStatusMap(rows);
+    newsUnreadCount.value = countUnreadArticles(map, articles);
+  } catch {
+    newsUnreadCount.value = 0;
+  }
+}
+
+async function loadPostReviewContext() {
+  planContextReady.value = false;
+  try {
+    const curriculum = await getPathCurriculum(
+      nativeLang.value,
+      targetLang.value,
+      cefr.value,
+    );
+    resumeTarget.value = findCurrentSection(curriculum);
+    focusArea.value = buildFocusArea(loadQuestionTypeStats(pairKey.value));
+    if (userId.value) {
+      const words = await getUnknownWords(
+        userId.value,
+        cefr.value,
+        REMAINING_PEEK_LIMIT,
+        targetLang.value,
+      );
+      dueVocabCount.value = Array.isArray(words) ? words.length : 0;
+    } else {
+      dueVocabCount.value = 0;
+    }
+    await loadNewsUnread();
+  } catch {
+    resumeTarget.value = null;
+    dueVocabCount.value = 0;
+    focusArea.value = null;
+    newsUnreadCount.value = 0;
+  } finally {
+    planContextReady.value = true;
+  }
+}
+
 async function continueReview() {
   continuing.value = true;
   try {
     await load();
   } finally {
     continuing.value = false;
+  }
+}
+
+function stepTitle(step) {
+  if (!step?.titleKey) return "";
+  return t(step.titleKey, step.titleParams ?? {});
+}
+
+function stepSubtitle(step) {
+  if (!step?.subtitleKey) return "";
+  return t(step.subtitleKey, step.subtitleParams ?? {});
+}
+
+function stepContinueLabel(step) {
+  if (!step?.continueKey) return t("path.mistakeReviewBack");
+  return t(step.continueKey, step.continueParams ?? {});
+}
+
+async function goToMistakeStep(step) {
+  if (!step) return;
+  if (isContinueReviewStep(step)) {
+    await continueReview();
+    return;
+  }
+  if (isAiPracticeStep(step)) {
+    openingAiPractice.value = true;
+    try {
+      await openAiContact(
+        router,
+        { name: t("chat.amiga"), contactType: "amiga" },
+        { targetLang: targetLang.value },
+      );
+    } finally {
+      openingAiPractice.value = false;
+    }
+    return;
+  }
+  if (step.route) {
+    router.replace(step.route);
   }
 }
 
@@ -976,11 +1162,120 @@ onMounted(load);
   font-weight: 700;
 }
 
-.continue-hint {
+.next-steps-panel {
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 14px 16px 16px;
+  background: linear-gradient(135deg, #e8f8ef 0%, #d4f5e0 100%);
+  border: 1px solid var(--green);
+  border-radius: var(--radius-md);
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.next-steps-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--green-hover);
+}
+
+.next-steps-primary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.next-steps-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.next-steps-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-primary-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.next-steps-primary-sub {
   margin: 4px 0 0;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-light);
-  line-height: 1.45;
+  line-height: 1.4;
+}
+
+.next-steps-queue {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(88, 204, 2, 0.25);
+}
+
+.next-steps-queue-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+.next-steps-queue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.next-steps-queue-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.next-steps-queue-item:disabled {
+  cursor: default;
+}
+
+.next-steps-queue-icon {
+  font-size: 18px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.next-steps-queue-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-queue-item-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.next-steps-queue-item-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-light);
+  line-height: 1.35;
 }
 
 .summary-actions {
