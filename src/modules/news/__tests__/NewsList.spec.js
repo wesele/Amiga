@@ -9,6 +9,8 @@ import { setLocale } from "@/shared/i18n";
 vi.mock("@tauri-apps/plugin-shell", () => ({ open: vi.fn() }));
 vi.mock("@/shared/api.js", () => ({
   getArticles: vi.fn().mockResolvedValue([]),
+  getArticlesReadingStatus: vi.fn().mockResolvedValue([]),
+  lookupWordsMastery: vi.fn().mockResolvedValue([]),
   getCurrentUser: vi.fn().mockResolvedValue({ id: "u1", native_language: "zh" }),
   fetchNews: vi.fn().mockResolvedValue([]),
 }));
@@ -32,6 +34,11 @@ function makeRouter() {
         meta: { parent: "learn" },
       },
       { path: "/news/:id", name: "reader", component: { template: "<div>reader</div>" } },
+      {
+        path: "/vocab/review",
+        name: "vocab-review",
+        component: { template: "<div>review</div>" },
+      },
     ],
   });
 }
@@ -270,6 +277,60 @@ describe("NewsList localized date", () => {
       day: "numeric",
     }).format(new Date());
     expect(label).toBe(expected);
+  });
+});
+
+describe("NewsList reading status badges", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows read badge, unknown count, and review chip from status API", async () => {
+    const api = await import("@/shared/api.js");
+    api.getArticlesReadingStatus.mockResolvedValue([
+      {
+        article_id: 1,
+        read_at: "2026-07-03 10:00:00",
+        read_today: true,
+        unknown_count: 2,
+        words_unknown: '["casa","perro"]',
+      },
+    ]);
+    api.lookupWordsMastery.mockResolvedValue([
+      { word: "casa", mastery: 1 },
+      { word: "perro", mastery: 1 },
+    ]);
+
+    const { wrapper } = await mountList();
+    const firstCard = wrapper.find(".article-card");
+    expect(firstCard.classes()).toContain("is-read");
+    expect(firstCard.text()).toContain("今日已读");
+    expect(firstCard.text()).toContain("2 个生词待巩固");
+    expect(firstCard.find(".card-review-chip").exists()).toBe(true);
+  });
+
+  it("navigates to vocab review with articleId when review chip is clicked", async () => {
+    const api = await import("@/shared/api.js");
+    api.getArticlesReadingStatus.mockResolvedValue([
+      {
+        article_id: 1,
+        read_at: "2026-07-03 10:00:00",
+        read_today: true,
+        unknown_count: 1,
+        words_unknown: '["casa"]',
+      },
+    ]);
+    api.lookupWordsMastery.mockResolvedValue([{ word: "casa", mastery: 1 }]);
+
+    const { wrapper, router } = await mountList();
+    await wrapper.find(".card-review-chip").trigger("click");
+    await flushPromises();
+
+    expect(router.currentRoute.value.name).toBe("vocab-review");
+    expect(router.currentRoute.value.query).toEqual({
+      from: "reading",
+      articleId: "1",
+    });
   });
 });
 

@@ -176,7 +176,17 @@ import {
   peekReadingSessionWords,
 } from "@/modules/news/readingSession.js";
 import { useI18n } from "@/shared/i18n";
-import { getUnknownWords, getUserVocabStats, updateWordMastery } from "@/shared/api.js";
+import {
+  getArticlesReadingStatus,
+  getUnknownWords,
+  getUserVocabStats,
+  lookupWordsMastery,
+  updateWordMastery,
+} from "@/shared/api.js";
+import {
+  buildArticleReviewSessionWords,
+  buildDueWordKeySet,
+} from "@/modules/news/newsReadingStatus.js";
 import {
   VOCAB_MILESTONE_CELEBRATION_KEY,
   vocabMilestoneReached,
@@ -484,9 +494,31 @@ async function load() {
         sessionContextMap.value = buildSessionContextMap(sessionWords);
         consumeReadingSessionWords();
       } else {
-        readingSessionMode.value = false;
-        sessionWordCount.value = 0;
-        sessionContextMap.value = new Map();
+        const articleId = Number(route.query.articleId);
+        if (Number.isFinite(articleId) && articleId > 0) {
+          const [statusRow] = await getArticlesReadingStatus(ctx.user.id, [articleId]);
+          const candidateWords = buildArticleReviewSessionWords(statusRow, articleId);
+          if (candidateWords.length) {
+            const masteryEntries = await lookupWordsMastery(
+              ctx.user.id,
+              candidateWords.map((entry) => entry.word),
+              ctx.targetLang,
+            );
+            const dueKeys = buildDueWordKeySet(masteryEntries);
+            sessionWords = candidateWords.filter((entry) =>
+              dueKeys.has(entry.word.toLowerCase()),
+            );
+          }
+        }
+        if (sessionWords.length) {
+          readingSessionMode.value = true;
+          sessionWordCount.value = sessionWords.length;
+          sessionContextMap.value = buildSessionContextMap(sessionWords);
+        } else {
+          readingSessionMode.value = false;
+          sessionWordCount.value = 0;
+          sessionContextMap.value = new Map();
+        }
       }
     } else {
       readingSessionMode.value = false;

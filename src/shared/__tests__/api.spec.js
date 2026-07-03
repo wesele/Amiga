@@ -207,6 +207,14 @@ describe("API module", () => {
       api.getReadArticleCount("u1");
       expect(mockInvoke).toHaveBeenCalledWith("get_read_article_count_cmd", { userId: "u1" });
     });
+
+    it("getArticlesReadingStatus calls invoke with userId and articleIds", () => {
+      api.getArticlesReadingStatus("u1", [1, 2]);
+      expect(mockInvoke).toHaveBeenCalledWith("get_articles_reading_status_cmd", {
+        userId: "u1",
+        articleIds: [1, 2],
+      });
+    });
   });
 
   describe("LLM API", () => {

@@ -302,6 +302,9 @@
         :disabled="opening === mod.id"
         @click="openModule(mod)"
       >
+        <span v-if="mod.id === 'news' && newsUnreadCount > 0" class="module-badge">
+          {{ t("learn.newsUnreadBadge", { n: newsUnreadCount }) }}
+        </span>
         <span class="module-icon">{{ mod.icon }}</span>
         <span class="module-label">{{ t(mod.labelKey) }}</span>
       </button>
@@ -314,12 +317,18 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
+  getArticles,
+  getArticlesReadingStatus,
   getDailyGoalProgress,
   getPathCurriculum,
   getPerfectLessonStreak,
   getUnknownWords,
   getWeeklyActivity,
 } from "@/shared/api.js";
+import {
+  buildStatusMap,
+  countUnreadArticles,
+} from "@/modules/news/newsReadingStatus.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
@@ -399,6 +408,7 @@ const focusArea = ref(null);
 const dueMistakeEntries = ref([]);
 const dueVocabWords = ref([]);
 const readingSummary = ref(null);
+const newsUnreadCount = ref(0);
 const localHour = ref(new Date().getHours());
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
@@ -695,6 +705,35 @@ function loadComboMilestone(nativeLang, targetLang) {
   comboMilestone.value = buildComboMilestoneCard(pairStatsKey(nativeLang, targetLang));
 }
 
+function regionForLang(lang) {
+  switch (lang) {
+    case "zh":
+      return "CN";
+    case "en":
+      return "US";
+    case "es":
+      return "ES";
+    default:
+      return "CN";
+  }
+}
+
+async function loadNewsUnread(userId, targetLang) {
+  try {
+    const articles = await getArticles(regionForLang(targetLang));
+    if (!articles.length) {
+      newsUnreadCount.value = 0;
+      return;
+    }
+    const ids = articles.map((article) => article.id).filter((id) => id != null);
+    const rows = await getArticlesReadingStatus(userId, ids);
+    const map = buildStatusMap(rows);
+    newsUnreadCount.value = countUnreadArticles(map, articles);
+  } catch {
+    newsUnreadCount.value = 0;
+  }
+}
+
 async function loadHubData() {
   readingSummary.value = consumeReadingSessionSummary();
   try {
@@ -712,6 +751,7 @@ async function loadHubData() {
       loadResumeSection(nativeLang, targetLang, cefr),
       loadPerfectStreak(),
       loadVocabReview(user.id, cefr, targetLang),
+      loadNewsUnread(user.id, targetLang),
     ]);
   } catch {
     dailyGoal.value = null;
@@ -724,6 +764,7 @@ async function loadHubData() {
     dueVocabWords.value = [];
     accuracyMilestone.value = null;
     comboMilestone.value = null;
+    newsUnreadCount.value = 0;
   }
 }
 
@@ -2079,6 +2120,7 @@ onMounted(loadHubData);
 }
 
 .module-tile {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2094,6 +2136,20 @@ onMounted(loadHubData);
   font-family: inherit;
   transition: background var(--transition), box-shadow var(--transition);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.module-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 18px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--purple);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .module-tile:hover:not(:disabled) {

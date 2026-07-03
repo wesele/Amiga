@@ -47,6 +47,7 @@ export default {
     title: "学习",
     path: "晋级之路",
     news: "新闻",
+    newsUnreadBadge: "未读 {n}",
     dailyGoal: "今日目标",
     dailyGoalLessons: "完成 {n} 节课",
     dailyGoalProgress: "{done}/{total}",
@@ -422,6 +423,11 @@ export default {
     readingSummary: "本次阅读新标记 {n} 个生词",
     readingSummaryAction: "去复习",
     reviewSessionCta: "复习本次 {n} 个生词",
+    cardRead: "已读",
+    cardReadToday: "今日已读",
+    cardUnknownWords: "{n} 个生词待巩固",
+    cardReviewWords: "复习生词",
+    listProgress: "今日已读 {readToday}/{total} · 未读 {unread} 篇",
   },
 
   vocab: {

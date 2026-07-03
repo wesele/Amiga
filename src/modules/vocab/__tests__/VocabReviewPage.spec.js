@@ -344,6 +344,41 @@ describe("VocabReviewPage", () => {
     expect(wrapper.text()).toContain("1/2");
   });
 
+  it("loads article review words from reading log when articleId query is set", async () => {
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "get_articles_reading_status_cmd") {
+        return Promise.resolve([
+          {
+            article_id: Number(args.articleIds[0]),
+            words_unknown: '["casa"]',
+            unknown_count: 1,
+            read_at: "2026-07-03 10:00:00",
+            read_today: true,
+          },
+        ]);
+      }
+      if (cmd === "lookup_words_mastery_cmd") {
+        return Promise.resolve([{ word: "casa", mastery: 1, word_id: 2 }]);
+      }
+      if (cmd === "get_unknown_words_cmd") {
+        return Promise.resolve([
+          { id: 2, word: "casa", mastery: 1, definition_zh: "房子", source: "news_reading" },
+        ]);
+      }
+      return defaultInvoke(cmd, args);
+    });
+
+    const router = makeRouter();
+    await router.push({ path: "/vocab/review", query: { from: "reading", articleId: "12" } });
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("casa");
+    expect(wrapper.text()).toContain("1/1");
+  });
+
   it("prioritizes reading-session words and shows highlighted context on flip", async () => {
     saveReadingSessionSummary({
       unknownCount: 1,

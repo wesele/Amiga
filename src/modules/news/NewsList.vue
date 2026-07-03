@@ -26,6 +26,10 @@
       </button>
     </div>
 
+    <p v-if="listProgress" class="list-progress-summary">
+      {{ t("news.listProgress", listProgress) }}
+    </p>
+
     <!-- Loading skeleton -->
     <div v-if="loading && articles.length === 0" class="skeleton-list">
       <div v-for="i in 3" :key="i" class="skeleton-card" />
@@ -37,6 +41,7 @@
         v-for="article in articles"
         :key="article.id"
         class="article-card"
+        :class="cardStateFor(article).cardClass"
         role="button"
         tabindex="0"
         @click="openArticle(article.id)"
@@ -47,10 +52,21 @@
           {{ article.hot_rank }}
         </div>
         <div class="card-body">
-          <h3 class="card-title">{{ article.original_title }}</h3>
+          <div class="card-title-row">
+            <h3 class="card-title">{{ article.original_title }}</h3>
+            <span v-if="cardStateFor(article).readBadge" class="badge-read">
+              {{ t(`news.${cardStateFor(article).readBadge}`) }}
+            </span>
+          </div>
           <div class="card-meta">
             <span v-if="article.rewritten_body" class="badge-rewritten">{{ t('news.aiRewritten') }}</span>
             <span v-else class="badge-raw">{{ t('news.raw') }}</span>
+            <span
+              v-if="cardStateFor(article).unknownLine"
+              class="badge-unknown-words"
+            >
+              {{ t(`news.${cardStateFor(article).unknownLine.key}`, { n: cardStateFor(article).unknownLine.n }) }}
+            </span>
             <a
               v-if="article.source"
               class="card-source clickable"
@@ -61,6 +77,14 @@
               @click.stop.prevent="openSourceUrl(article.source)"
             >{{ formatSource(article.source) }}</a>
           </div>
+          <button
+            v-if="cardStateFor(article).showReviewChip"
+            type="button"
+            class="card-review-chip"
+            @click.stop="goToArticleReview(article.id)"
+          >
+            {{ t("news.cardReviewWords") }}
+          </button>
         </div>
       </div>
     </div>
@@ -85,10 +109,17 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { useRouter } from "vue-router";
-import { getArticles, fetchNews, getCurrentUser } from "@/shared/api.js";
+import { getArticles, fetchNews, getCurrentUser, getArticlesReadingStatus, lookupWordsMastery } from "@/shared/api.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { openSourceUrl } from "./utils.js";
 import { consumeReadingSessionSummary } from "./readingSession.js";
+import {
+  aggregateListSummary,
+  articleCardState,
+  buildDueWordKeySet,
+  buildStatusMap,
+  collectUnknownWordsFromStatusMap,
+} from "./newsReadingStatus.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -100,6 +131,8 @@ const articles = ref([]);
 const loading = ref(false);
 const statusText = ref("");
 const readingSummary = ref(null);
+const statusMap = ref(new Map());
+const dueWordKeys = ref(new Set());
 let statusTimer = null;
 let userId = "";
 
@@ -116,6 +149,19 @@ const formattedDate = computed(() => {
     day: "numeric",
   }).format(new Date());
 });
+
+const listProgress = computed(() => {
+  if (!articles.value.length || !statusMap.value.size) return null;
+  const summary = aggregateListSummary(statusMap.value, articles.value);
+  if (!summary.readToday && summary.unread === summary.total) return null;
+  return summary;
+});
+
+function cardStateFor(article) {
+  return articleCardState(article, statusMap.value.get(article.id), {
+    dueWordKeys: dueWordKeys.value,
+  });
+}
 
 onMounted(async () => {
   readingSummary.value = consumeReadingSessionSummary();
@@ -148,10 +194,40 @@ async function loadArticles() {
     // Region is derived from the target language (CN→zh, US/WORLD→en,
     // ES→es) so the user gets the right feed.
     const region = regionForLang(targetLang.value);
-    articles.value = await getArticles(region);
+    const loadedArticles = await getArticles(region);
+    articles.value = loadedArticles;
+    await loadReadingStatus(loadedArticles);
   } catch (e) {
     console.error("Failed to load articles:", e);
     articles.value = [];
+    statusMap.value = new Map();
+    dueWordKeys.value = new Set();
+  }
+}
+
+async function loadReadingStatus(loadedArticles) {
+  if (!userId || !loadedArticles?.length) {
+    statusMap.value = new Map();
+    dueWordKeys.value = new Set();
+    return;
+  }
+  try {
+    const ids = loadedArticles.map((article) => article.id).filter((id) => id != null);
+    const rows = await getArticlesReadingStatus(userId, ids);
+    const map = buildStatusMap(rows);
+    statusMap.value = map;
+
+    const unknownWords = collectUnknownWordsFromStatusMap(map);
+    if (!unknownWords.length) {
+      dueWordKeys.value = new Set();
+      return;
+    }
+    const masteryEntries = await lookupWordsMastery(userId, unknownWords, targetLang.value);
+    dueWordKeys.value = buildDueWordKeySet(masteryEntries);
+  } catch (e) {
+    console.error("Failed to load reading status:", e);
+    statusMap.value = new Map();
+    dueWordKeys.value = new Set();
   }
 }
 
@@ -176,6 +252,7 @@ async function onRefresh() {
   try {
     const result = await fetchNews(regionForLang(targetLang.value), targetLang.value);
     articles.value = result;
+    await loadReadingStatus(result);
     if (result.length > 0) {
       showStatus(t("news.refreshed", { n: result.length }));
     } else {
@@ -197,6 +274,13 @@ function openArticle(id) {
 function goToVocabReview() {
   readingSummary.value = null;
   router.push({ name: "vocab-review", query: { from: "reading" } });
+}
+
+function goToArticleReview(articleId) {
+  router.push({
+    name: "vocab-review",
+    query: { from: "reading", articleId: String(articleId) },
+  });
 }
 
 function formatSource(source) {
@@ -255,6 +339,13 @@ function formatSource(source) {
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
+}
+
+.list-progress-summary {
+  margin: 0 16px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-lighter);
 }
 
 .today-label {
@@ -364,6 +455,10 @@ function formatSource(source) {
   transform: scale(0.98);
 }
 
+.article-card.is-unread {
+  border-left: 3px solid rgba(124, 58, 237, 0.35);
+}
+
 .card-rank {
   width: 32px;
   height: 32px;
@@ -396,11 +491,19 @@ function formatSource(source) {
   min-width: 0;
 }
 
+.card-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
 .card-title {
   font-size: 15px;
   font-weight: 600;
   line-height: 1.4;
-  margin-bottom: 8px;
+  margin: 0;
   color: var(--text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -408,6 +511,10 @@ function formatSource(source) {
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
+}
+
+.article-card.is-read .card-title {
+  color: var(--text-light);
 }
 
 .card-meta {
@@ -433,6 +540,40 @@ function formatSource(source) {
   border-radius: 10px;
   background: var(--surface-variant);
   color: var(--text-lighter);
+}
+
+.badge-read {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-lighter);
+  white-space: nowrap;
+}
+
+.badge-unknown-words {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--purple-bg);
+  color: var(--purple);
+}
+
+.card-review-chip {
+  margin-top: 8px;
+  align-self: flex-end;
+  border: none;
+  background: transparent;
+  color: var(--purple);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.card-review-chip:hover {
+  text-decoration: underline;
 }
 
 .card-source {

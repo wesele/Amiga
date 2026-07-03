@@ -45,3 +45,12 @@ pub async fn get_read_article_count_cmd(
 ) -> Result<i32, String> {
     news_mod::get_read_article_count(&db, &user_id)
 }
+
+#[tauri::command]
+pub async fn get_articles_reading_status_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+    article_ids: Vec<i32>,
+) -> Result<Vec<news_mod::ArticleReadingStatus>, String> {
+    news_mod::get_articles_reading_status(&db, &user_id, &article_ids)
+}

@@ -403,6 +403,90 @@ mod tests {
     }
 
     #[test]
+    fn test_get_articles_reading_status_empty_ids() {
+        let pool = test_pool();
+        let statuses = get_articles_reading_status(&pool, "user-1", &[]).unwrap();
+        assert!(statuses.is_empty());
+    }
+
+    #[test]
+    fn test_get_articles_reading_status_no_records() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES ('user-1', 'Test')",
+            [],
+        )
+        .unwrap();
+        let aid = insert_test_article(&conn, "Unread Article", "world");
+        drop(conn);
+
+        let statuses = get_articles_reading_status(&pool, "user-1", &[aid]).unwrap();
+        assert!(statuses.is_empty());
+    }
+
+    #[test]
+    fn test_get_articles_reading_status_uses_latest_log() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES ('user-1', 'Test')",
+            [],
+        )
+        .unwrap();
+        let aid = insert_test_article(&conn, "Re-read Article", "world");
+        conn.execute(
+            "INSERT INTO news_reading_log (user_id, article_id, words_unknown, reading_time_sec, completed, read_at)
+             VALUES ('user-1', ?1, '[\"viejo\"]', 30, 1, '2026-01-01 10:00:00.000')",
+            params![aid],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO news_reading_log (user_id, article_id, words_unknown, words_known, reading_time_sec, completed, read_at)
+             VALUES ('user-1', ?1, '[\"nuevo\",\"nuevo\"]', '[\"sol\"]', 45, 1, '2026-06-15 12:00:00.000')",
+            params![aid],
+        )
+        .unwrap();
+        drop(conn);
+
+        let statuses = get_articles_reading_status(&pool, "user-1", &[aid]).unwrap();
+        assert_eq!(statuses.len(), 1);
+        assert_eq!(statuses[0].article_id, aid);
+        assert_eq!(statuses[0].unknown_count, 1);
+        assert_eq!(statuses[0].known_count, 1);
+        assert_eq!(statuses[0].reading_time_sec, Some(45));
+        assert_eq!(
+            statuses[0].read_at.as_deref(),
+            Some("2026-06-15 12:00:00.000")
+        );
+        assert!(!statuses[0].read_today);
+        assert_eq!(statuses[0].words_unknown.as_deref(), Some("[\"nuevo\",\"nuevo\"]"));
+    }
+
+    #[test]
+    fn test_get_articles_reading_status_invalid_json_counts_zero() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES ('user-1', 'Test')",
+            [],
+        )
+        .unwrap();
+        let aid = insert_test_article(&conn, "Bad JSON Article", "world");
+        conn.execute(
+            "INSERT INTO news_reading_log (user_id, article_id, words_unknown, reading_time_sec, completed, read_at)
+             VALUES ('user-1', ?1, 'not-json', 10, 1, datetime('now'))",
+            params![aid],
+        )
+        .unwrap();
+        drop(conn);
+
+        let statuses = get_articles_reading_status(&pool, "user-1", &[aid]).unwrap();
+        assert_eq!(statuses.len(), 1);
+        assert_eq!(statuses[0].unknown_count, 0);
+    }
+
+    #[test]
     fn test_sync_refresh_clears_visible_batch_when_feed_returns_empty() {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
@@ -445,6 +529,17 @@ pub struct Article {
     pub hot_rank: Option<i32>,
     pub new_words: Option<String>,
     pub fetched_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ArticleReadingStatus {
+    pub article_id: i32,
+    pub read_at: Option<String>,
+    pub reading_time_sec: Option<i32>,
+    pub unknown_count: i32,
+    pub known_count: i32,
+    pub read_today: bool,
+    pub words_unknown: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -877,6 +972,108 @@ pub async fn rewrite_article_for_user(
     )?;
 
     get_article(db, article_id)
+}
+
+fn count_unique_json_words(json: Option<&str>) -> i32 {
+    count_unique_json_word_list(json).len() as i32
+}
+
+fn count_unique_json_word_list(json: Option<&str>) -> Vec<String> {
+    let Some(raw) = json else {
+        return Vec::new();
+    };
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed) else {
+        return Vec::new();
+    };
+    let Some(items) = value.as_array() else {
+        return Vec::new();
+    };
+    let mut seen = std::collections::HashSet::new();
+    let mut words = Vec::new();
+    for item in items {
+        let Some(word) = item.as_str() else {
+            continue;
+        };
+        let word = word.trim();
+        if word.is_empty() {
+            continue;
+        }
+        let key = word.to_lowercase();
+        if seen.insert(key) {
+            words.push(word.to_string());
+        }
+    }
+    words
+}
+
+fn is_read_today(read_at: &str) -> bool {
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    read_at.starts_with(&today)
+}
+
+/// Batch reading status for a list of articles (latest log per article).
+pub fn get_articles_reading_status(
+    db: &DatabasePool,
+    user_id: &str,
+    article_ids: &[i32],
+) -> Result<Vec<ArticleReadingStatus>, String> {
+    if article_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let conn = db.conn()?;
+    let placeholders: Vec<String> = (0..article_ids.len())
+        .map(|i| format!("?{}", i + 2))
+        .collect();
+    let sql = format!(
+        "SELECT l.article_id, l.words_unknown, l.words_known, l.reading_time_sec, l.read_at
+         FROM news_reading_log l
+         INNER JOIN (
+             SELECT article_id, MAX(read_at) AS max_read_at
+             FROM news_reading_log
+             WHERE user_id = ?1 AND article_id IN ({})
+             GROUP BY article_id
+         ) latest ON l.article_id = latest.article_id AND l.read_at = latest.max_read_at
+         WHERE l.user_id = ?1",
+        placeholders.join(", ")
+    );
+
+    let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> =
+        vec![Box::new(user_id.to_string())];
+    for id in article_ids {
+        params_vec.push(Box::new(*id));
+    }
+    let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+        params_vec.iter().map(|p| p.as_ref()).collect();
+
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|e| format!("Query error: {}", e))?;
+
+    let statuses: Vec<ArticleReadingStatus> = stmt
+        .query_map(param_refs.as_slice(), |row| {
+            let words_unknown: Option<String> = row.get(1)?;
+            let words_known: Option<String> = row.get(2)?;
+            let read_at: String = row.get(4)?;
+            Ok(ArticleReadingStatus {
+                article_id: row.get(0)?,
+                read_at: Some(read_at.clone()),
+                reading_time_sec: row.get(3)?,
+                unknown_count: count_unique_json_words(words_unknown.as_deref()),
+                known_count: count_unique_json_words(words_known.as_deref()),
+                read_today: is_read_today(&read_at),
+                words_unknown,
+            })
+        })
+        .map_err(|e| format!("Failed to query reading status: {}", e))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(statuses)
 }
 
 /// Count distinct articles a user has completed reading.
