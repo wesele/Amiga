@@ -38,6 +38,14 @@
         <button type="button" class="focus-hero-action" @click="goToFocus">
           {{ focusHeroAction }}
         </button>
+        <button
+          v-if="showStreakNewsChip"
+          type="button"
+          class="focus-hero-secondary-chip"
+          @click="goToNews"
+        >
+          {{ t("learn.streakAtRiskReadNewsAlt", { n: newsUnreadCount }) }}
+        </button>
       </div>
     </section>
 
@@ -486,8 +494,18 @@ const hubFocus = computed(() =>
     localHour: localHour.value,
     mistakePreview: mistakeReviewPreviewText.value,
     vocabPreview: vocabReviewPreviewText.value,
+    newsUnreadCount: newsUnreadCount.value,
   }),
 );
+
+const showStreakNewsChip = computed(() => {
+  const focus = hubFocus.value;
+  return (
+    focus?.id === FOCUS_IDS.STREAK_AT_RISK
+    && focus.actionId === FOCUS_IDS.CONTINUE_SECTION
+    && newsUnreadCount.value > 0
+  );
+});
 
 const showStreakUrgency = computed(() => hubFocus.value?.id === FOCUS_IDS.STREAK_AT_RISK);
 
@@ -519,6 +537,9 @@ const focusHeroTitle = computed(() => {
     }
     if (focus.actionId === FOCUS_IDS.CONTINUE_SECTION) {
       return resumeTarget.value?.section?.title_native || t("learn.continueLearning");
+    }
+    if (focus.actionId === FOCUS_IDS.READ_NEWS) {
+      return t("learn.streakAtRiskReadNews");
     }
     return t("learn.dailyGoal");
   }
@@ -553,6 +574,9 @@ const focusHeroSub = computed(() => {
     if (focus.actionId === FOCUS_IDS.CONTINUE_SECTION) {
       return t("learn.focusContinueSub");
     }
+    if (focus.actionId === FOCUS_IDS.READ_NEWS) {
+      return t("learn.streakAtRiskReadNewsSub", { n: focus.newsUnreadCount });
+    }
     return t("learn.focusDailyGoalSub", {
       remaining: dailyGoalRemainingLessons(dailyGoal.value),
     });
@@ -579,6 +603,9 @@ const focusHeroAction = computed(() => {
   const focus = hubFocus.value;
   if (!focus) return "";
   if (focus.id === FOCUS_IDS.STREAK_AT_RISK) {
+    if (focus.actionId === FOCUS_IDS.READ_NEWS) {
+      return t("learn.streakAtRiskReadNewsAction");
+    }
     return t("learn.streakAtRiskAction");
   }
   if (focus.id === FOCUS_IDS.CONTINUE_SECTION) {
@@ -770,6 +797,10 @@ async function loadHubData() {
 
 function goToPath() {
   router.push({ name: "path" });
+}
+
+function goToNews() {
+  router.push({ name: "news" });
 }
 
 function continueLearning() {
@@ -982,6 +1013,27 @@ onMounted(loadHubData);
 .focus-hero-action:hover {
   background: var(--green);
   transform: translateY(-1px);
+}
+
+.focus-hero-secondary-chip {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-light);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.focus-hero-secondary-chip:hover {
+  background: var(--surface-variant);
+  border-color: var(--green);
+  color: var(--text);
 }
 
 .hub-more-suggestions {

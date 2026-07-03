@@ -92,6 +92,23 @@ describe("learningHubFocus", () => {
     expect(focus.remaining).toBe(1);
   });
 
+  it("routes streak-at-risk to news when the daily goal is unfinished and articles are unread", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: {
+        streak_current: 12,
+        practiced_today: false,
+        goal_met: false,
+        lessons_today: 0,
+        target_lessons: 2,
+      },
+      newsUnreadCount: 3,
+      localHour: 21,
+    });
+    expect(focus.id).toBe(FOCUS_IDS.STREAK_AT_RISK);
+    expect(focus.actionId).toBe(FOCUS_IDS.READ_NEWS);
+    expect(focus.route.name).toBe("news");
+  });
+
   it("falls back to explore path when everything is complete", () => {
     const focus = pickLearningHubFocus({
       dailyGoal: { goal_met: true, practiced_today: true },

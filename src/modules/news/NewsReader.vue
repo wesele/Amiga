@@ -189,13 +189,59 @@
     <Transition name="popup">
       <div v-if="shareStatus" class="share-toast">{{ shareStatus }}</div>
     </Transition>
+
+    <!-- Reading completion summary -->
+    <Transition name="popup">
+      <div v-if="showCompletionSummary" class="completion-overlay">
+        <div class="completion-sheet summary">
+          <div class="summary-emoji">📰</div>
+          <h2>{{ t("news.readingCompleteTitle") }}</h2>
+          <p v-if="article?.original_title" class="completion-article-title">
+            {{ article.original_title }}
+          </p>
+          <p class="summary-stat">
+            {{
+              t("news.readingCompleteStats", {
+                time: completionTime,
+                unknown: wordsUnknownSet.size,
+                lookedUp: knownWordIds.size,
+              })
+            }}
+          </p>
+          <p v-if="showStreakSaved" class="streak-banner">
+            {{ t("news.readingStreakSaved", { n: dailyGoalSnapshot?.streak_current ?? 0 }) }}
+          </p>
+          <p v-if="showDailyGoalHint" class="daily-goal-hint">
+            {{ t("news.readingDailyGoalHint", { remaining: dailyGoalRemaining }) }}
+          </p>
+          <div class="summary-actions">
+            <button
+              v-if="wordsUnknownSet.size > 0"
+              type="button"
+              class="action-btn primary"
+              @click="completeAndReview"
+            >
+              {{ t("news.readingCompleteReview", { n: wordsUnknownSet.size }) }}
+            </button>
+            <button
+              type="button"
+              class="action-btn"
+              :class="wordsUnknownSet.size > 0 ? 'secondary' : 'primary'"
+              @click="dismissCompletionSummary"
+            >
+              {{ t("news.readingCompleteNext") }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, saveReadingLog, updateWordMastery, getBilingual, translateText, lookupWordIds, lookupWordsMastery, ensureWordsSeen, addDiscoveredWord, shareText as nativeShareText } from "@/shared/api.js";
+import { getArticle, rewriteArticle, saveReadingLog, updateWordMastery, getBilingual, translateText, lookupWordIds, lookupWordsMastery, ensureWordsSeen, addDiscoveredWord, shareText as nativeShareText, getDailyGoalProgress } from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -209,6 +255,8 @@ import { useSelectionTranslation } from "./selectionTranslation.js";
 import { buildMasteryMap, resolveWordClass as resolveWordMasteryClass, wordKey } from "./wordMastery.js";
 import { saveReadingSessionSummary } from "./readingSession.js";
 import { serializeUnknownWordEntries } from "./newsReadingStatus.js";
+import { dailyGoalRemainingLessons } from "@/modules/learn/dailyGoalDisplay.js";
+import { formatReadingTime, isValidReading } from "./readingCompletion.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -251,6 +299,10 @@ const wordToast = ref("");
 let wordToastTimer = null;
 const sessionMarkTimers = new Map();
 
+const showCompletionSummary = ref(false);
+const dailyGoalSnapshot = ref(null);
+const practicedTodayBefore = ref(false);
+
 const {
   selectionText,
   selectionResult,
@@ -272,6 +324,35 @@ const {
   t,
 });
 
+const completionElapsedSec = computed(() =>
+  Math.round((Date.now() - startTime.value) / 1000),
+);
+
+const completionTime = computed(() => formatReadingTime(completionElapsedSec.value));
+
+const showStreakSaved = computed(
+  () => !practicedTodayBefore.value && Boolean(dailyGoalSnapshot.value),
+);
+
+const dailyGoalRemaining = computed(() =>
+  dailyGoalRemainingLessons(dailyGoalSnapshot.value),
+);
+
+const showDailyGoalHint = computed(
+  () => dailyGoalSnapshot.value && !dailyGoalSnapshot.value.goal_met && dailyGoalRemaining.value > 0,
+);
+
+function handleAndroidBackInPage() {
+  if (showCompletionSummary.value) {
+    dismissCompletionSummary();
+    return "navigated";
+  }
+  if (tryShowCompletionSummary()) {
+    return "navigated";
+  }
+  return undefined;
+}
+
 onMounted(async () => {
   startTime.value = Date.now();
   document.addEventListener("selectionchange", onSelectionChange);
@@ -279,11 +360,20 @@ onMounted(async () => {
   // Android: the system text-selection toolbar calls this global function
   // when the user taps the "翻译" menu item (see MainActivity.kt).
   window.__amigaTranslateSelection = handleNativeTranslate;
+  window.__amigaGoBackInPage = handleAndroidBackInPage;
   try {
     const ctx = await loadLearningContext({ targetLangStore });
     userId = ctx.user.id;
     targetLang = ctx.targetLang;
     currentLevel = ctx.cefr;
+    try {
+      const goal = await getDailyGoalProgress(userId, targetLang);
+      dailyGoalSnapshot.value = goal;
+      practicedTodayBefore.value = Boolean(goal?.practiced_today);
+    } catch {
+      dailyGoalSnapshot.value = null;
+      practicedTodayBefore.value = false;
+    }
     const art = await getArticle(Number(props.id));
     article.value = art;
     if (!art.rewritten_body) {
@@ -309,6 +399,9 @@ onBeforeUnmount(async () => {
   document.removeEventListener("selectionchange", onSelectionChange);
   document.removeEventListener("pointerup", onPointerUp);
   delete window.__amigaTranslateSelection;
+  if (window.__amigaGoBackInPage === handleAndroidBackInPage) {
+    delete window.__amigaGoBackInPage;
+  }
   cleanupSelectionTranslation();
   if (shareStatusTimer) {
     clearTimeout(shareStatusTimer);
@@ -613,16 +706,42 @@ function goToSessionReview() {
   router.push({ name: "vocab-review", query: { from: "reading" } });
 }
 
-function goBack() {
-  if (wordsUnknownSet.value.size > 0) {
-    saveReadingSessionSummary(buildSessionPayload());
-  }
+function navigateBack() {
   const parent = router.currentRoute.value?.meta?.parent;
   if (parent) {
     router.replace({ name: parent });
   } else {
     router.replace("/news");
   }
+}
+
+function tryShowCompletionSummary() {
+  if (showCompletionSummary.value) return true;
+  if (!article.value?.rewritten_body) return false;
+  const valid = isValidReading({
+    elapsedSec: completionElapsedSec.value,
+    unknownCount: wordsUnknownSet.value.size,
+    knownCount: wordsKnownSet.value.size,
+    lookedUpCount: knownWordIds.value.size,
+  });
+  if (!valid) return false;
+  showCompletionSummary.value = true;
+  return true;
+}
+
+function dismissCompletionSummary() {
+  showCompletionSummary.value = false;
+  navigateBack();
+}
+
+function completeAndReview() {
+  showCompletionSummary.value = false;
+  goToSessionReview();
+}
+
+function goBack() {
+  if (tryShowCompletionSummary()) return;
+  navigateBack();
 }
 
 function formatSource(source) {
@@ -1158,5 +1277,99 @@ function formatSource(source) {
 .popup-leave-to {
   opacity: 0;
   transform: translateY(8px);
+}
+
+.completion-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 700;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 20px;
+  padding-bottom: calc(20px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+}
+
+.completion-sheet {
+  width: 100%;
+  max-width: 400px;
+  padding: 28px 24px 24px;
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-md) var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+
+.completion-sheet h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.completion-article-title {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-lighter);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.summary-stat {
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: var(--text-light);
+  line-height: 1.45;
+}
+
+.streak-banner {
+  margin: 12px 0 0;
+  padding: 12px 16px;
+  background: var(--orange-bg);
+  color: var(--orange-hover);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.daily-goal-hint {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--text-lighter);
+  line-height: 1.4;
+}
+
+.summary-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 18px;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.action-btn.primary {
+  background: var(--green);
+  color: #fff;
+  box-shadow: 0 4px 0 var(--green-hover);
+}
+
+.action-btn.secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid var(--border);
+  box-shadow: none;
 }
 </style>

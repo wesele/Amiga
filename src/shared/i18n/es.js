@@ -82,6 +82,10 @@ export default {
     streakAtRisk: "¡Tu racha de {n} días termina esta noche!",
     streakAtRiskHint: "Completa una lección o lee un artículo para mantenerla",
     streakAtRiskAction: "Practicar",
+    streakAtRiskReadNews: "Lee un artículo para salvar tu racha",
+    streakAtRiskReadNewsSub: "{n} sin leer — unos 5 minutos",
+    streakAtRiskReadNewsAction: "Ir a leer",
+    streakAtRiskReadNewsAlt: "O: lee un artículo (~5 min)",
     todayFocus: "Enfoque de hoy",
     moreSuggestions: "Más sugerencias ({n})",
     focusContinueSub: "Retoma donde lo dejaste",
@@ -462,6 +466,12 @@ export default {
     cardReviewWords: "Repasar palabras",
     listProgress: "Leídos hoy {readToday}/{total} · {unread} sin leer",
     reviewSessionCta: "Repasar {n} palabra(s) de este artículo",
+    readingCompleteTitle: "Lectura completada",
+    readingCompleteStats: "Leído {time} · {unknown} nueva(s) · consultaste {lookedUp}",
+    readingStreakSaved: "🔥 ¡Racha de {n} días! Práctica de hoy registrada",
+    readingDailyGoalHint: "La lectura cuenta para la racha; completa {remaining} lección(es) para la meta de hoy",
+    readingCompleteReview: "Repasar {n} palabra(s) de esta sesión",
+    readingCompleteNext: "Volver a la lista",
   },
 
   vocab: {

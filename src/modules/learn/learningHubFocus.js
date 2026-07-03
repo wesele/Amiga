@@ -5,6 +5,7 @@ import { isStreakAtRisk } from "./streakAtRisk.js";
 export const FOCUS_IDS = {
   STREAK_AT_RISK: "streakAtRisk",
   CONTINUE_SECTION: "continueSection",
+  READ_NEWS: "readNews",
   MISTAKE_REVIEW: "mistakeReview",
   VOCAB_REVIEW: "vocabReview",
   FOCUS_PRACTICE: "focusPractice",
@@ -13,7 +14,13 @@ export const FOCUS_IDS = {
 };
 
 function resolveStreakAtRiskAction(ctx) {
-  const { dailyGoal, resumeTarget, dueMistakes = 0, dueVocabWords = [] } = ctx;
+  const {
+    dailyGoal,
+    resumeTarget,
+    dueMistakes = 0,
+    dueVocabWords = [],
+    newsUnreadCount = 0,
+  } = ctx;
   const goalMet = Boolean(dailyGoal?.goal_met);
 
   if (!goalMet && resumeTarget) {
@@ -23,6 +30,9 @@ function resolveStreakAtRiskAction(ctx) {
     };
   }
   if (!goalMet) {
+    if (newsUnreadCount > 0) {
+      return { id: FOCUS_IDS.READ_NEWS, route: { name: "news" } };
+    }
     return { id: FOCUS_IDS.DAILY_GOAL, route: { name: "path" } };
   }
   if (dueMistakes > 0) {
@@ -69,6 +79,7 @@ export function pickLearningHubFocus(ctx) {
       vocabPreview,
       dueMistakes,
       vocabCount: dueVocabWords.length,
+      newsUnreadCount: ctx.newsUnreadCount ?? 0,
     };
   }
 

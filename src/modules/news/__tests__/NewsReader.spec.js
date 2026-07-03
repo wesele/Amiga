@@ -11,11 +11,13 @@ const {
   ensureWordsSeen,
   getArticle,
   saveReadingLog,
+  getDailyGoalProgress,
 } = vi.hoisted(() => ({
   lookupWordsMastery: vi.fn(),
   ensureWordsSeen: vi.fn().mockResolvedValue(undefined),
   getArticle: vi.fn(),
   saveReadingLog: vi.fn().mockResolvedValue(undefined),
+  getDailyGoalProgress: vi.fn(),
 }));
 
 vi.mock("@/shared/api.js", () => ({
@@ -30,6 +32,7 @@ vi.mock("@/shared/api.js", () => ({
   ensureWordsSeen,
   addDiscoveredWord: vi.fn().mockResolvedValue(100),
   shareText: vi.fn(),
+  getDailyGoalProgress,
 }));
 
 vi.mock("@/shared/learningContext.js", () => ({
@@ -67,6 +70,14 @@ describe("NewsReader mastery visualization", () => {
     lookupWordsMastery.mockReset();
     ensureWordsSeen.mockClear();
     getArticle.mockReset();
+    getDailyGoalProgress.mockReset();
+    getDailyGoalProgress.mockResolvedValue({
+      streak_current: 5,
+      practiced_today: false,
+      goal_met: false,
+      target_lessons: 2,
+      lessons_today: 0,
+    });
     lookupWordsMastery.mockResolvedValue([
       { word: "hola", word_id: 1, mastery: 2 },
       { word: "mundo", word_id: 2, mastery: 0 },
@@ -128,5 +139,56 @@ describe("NewsReader mastery visualization", () => {
       name: "vocab-review",
       query: { from: "reading" },
     });
+  });
+
+  it("shows completion summary on back after marking unknown words", async () => {
+    const router = makeRouter();
+    const replaceSpy = vi.spyOn(router, "replace");
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".word.word-new").trigger("click");
+    await flushPromises();
+    await wrapper.findComponent(WordPopup).vm.$emit("unknown");
+    await flushPromises();
+
+    expect(wrapper.find(".completion-overlay").exists()).toBe(false);
+
+    await wrapper.find(".back-btn").trigger("click");
+    await flushPromises();
+
+    const overlay = wrapper.find(".completion-overlay");
+    expect(overlay.exists()).toBe(true);
+    expect(overlay.text()).toContain("阅读完成");
+    expect(overlay.text()).toContain("今日练习已记录");
+    expect(replaceSpy).not.toHaveBeenCalled();
+
+    await overlay.find(".action-btn.primary").trigger("click");
+    expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
+  it("navigates back immediately when reading is too short with no interaction", async () => {
+    const router = makeRouter();
+    const replaceSpy = vi.spyOn(router, "replace");
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".back-btn").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".completion-overlay").exists()).toBe(false);
+    expect(replaceSpy).toHaveBeenCalledWith({ name: "news" });
   });
 });
