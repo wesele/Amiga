@@ -32,8 +32,7 @@ pub async fn get_bilingual_article_translation(
         return Ok(vec![]);
     }
 
-    let translations =
-        translate_paragraphs(llm, db, &paragraphs, source_lang, native_lang).await?;
+    let translations = translate_paragraphs(llm, db, &paragraphs, source_lang, native_lang).await?;
 
     let cache_json = serde_json::to_string(&translations).unwrap_or_default();
     news_mod::save_bilingual_cache(db, article_id, native_lang, &cache_json)?;
@@ -53,8 +52,7 @@ pub async fn translate_text(
         return Ok(String::new());
     }
     let paragraphs = vec![text.trim().to_string()];
-    let results =
-        translate_paragraphs(llm, db, &paragraphs, source_lang, native_lang).await?;
+    let results = translate_paragraphs(llm, db, &paragraphs, source_lang, native_lang).await?;
     Ok(results.into_iter().next().unwrap_or_default())
 }
 
