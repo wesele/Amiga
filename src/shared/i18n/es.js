@@ -845,6 +845,12 @@ export default {
     practiceReviewLearnedWords: "Repasar las {n} palabras que acabas de aprender",
     practiceReviewLearnedWordsHint: "Refuerza las palabras que marcaste durante el chat",
     practiceReviewLearnedWordsAction: "Repasar ahora",
+    practiceWrapUpComprehensionHint: "Terminaste de practicar — comprueba si lo entendiste de verdad",
+    nextStep: {
+      comprehensionRetake: "Evaluar comprensión de «{title}»",
+      comprehensionRetakeHint: "Acabas de repasar {n} pregunta(s) fallada(s) — confírmalo con el quiz",
+      comprehensionRetakeContinue: "Empezar quiz",
+    },
   },
 
   profile: {

@@ -101,4 +101,35 @@ describe("buildPostAiPracticePlan", () => {
     expect(plan.primary.route).toEqual({ name: "learn" });
     expect(plan.secondary).toEqual([]);
   });
+
+  it("prioritizes comprehension retake verify over daily goal for comprehension source", () => {
+    const plan = buildPostAiPracticePlan({
+      source: "comprehension",
+      dailyGoalSnapshot: GOAL_UNMET,
+      resumeTarget: RESUME_TARGET,
+      comprehensionContext: {
+        articleId: 9,
+        articleTitle: "央行加息",
+        wrongCount: 2,
+        targetLang: "es",
+        items: [{ kind: "main_idea", promptNative: "主旨", evidenceSentence: "", explanationNative: "" }],
+      },
+    });
+    expect(plan.primary.id).toBe(AI_PRACTICE_STEP_IDS.COMPREHENSION_RETAKE);
+    expect(plan.primary.route).toEqual({
+      name: "reader",
+      params: { id: "9" },
+      query: { comprehensionRetake: "1" },
+    });
+    expect(plan.secondary.map((step) => step.id)).toContain(AI_PRACTICE_STEP_IDS.NEWS_LIST);
+  });
+
+  it("falls back when comprehension payload is missing", () => {
+    const plan = buildPostAiPracticePlan({
+      source: "comprehension",
+      dailyGoalSnapshot: { goal_met: true, target_lessons: 2, lessons_today: 2 },
+      comprehensionContext: null,
+    });
+    expect(plan.primary.id).toBe(AI_PRACTICE_STEP_IDS.LEARN_HUB);
+  });
 });

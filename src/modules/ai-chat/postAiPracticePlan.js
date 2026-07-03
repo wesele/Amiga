@@ -1,5 +1,10 @@
 import { pathSectionRoute, sectionKindIcon } from "@/modules/learn/pathResume.js";
 import { dailyGoalRemainingLessons } from "@/modules/learn/dailyGoalDisplay.js";
+import {
+  buildComprehensionRetakeVerifyStep,
+  COMPREHENSION_VERIFY_STEP_ID,
+  shouldOfferComprehensionRetakeVerify,
+} from "./postComprehensionVerifyPlan.js";
 
 export const AI_PRACTICE_STEP_IDS = {
   DAILY_GOAL: "dailyGoal",
@@ -8,6 +13,7 @@ export const AI_PRACTICE_STEP_IDS = {
   NEXT_ARTICLE: "nextArticle",
   VOCAB_REVIEW: "vocabReview",
   MISTAKE_REVIEW: "mistakeReview",
+  COMPREHENSION_RETAKE: COMPREHENSION_VERIFY_STEP_ID,
   LEARN_HUB: "learnHub",
   NEWS_LIST: "newsList",
 };
@@ -129,6 +135,7 @@ function buildNewsListStep() {
 function pickPrimaryStep(ctx) {
   const {
     source,
+    comprehensionContext = null,
     dailyGoalSnapshot,
     resumeTarget,
     dueVocabCount = 0,
@@ -138,6 +145,19 @@ function pickPrimaryStep(ctx) {
     newsUnreadCount = 0,
     sessionLearnedWords = [],
   } = ctx;
+
+  if (
+    shouldOfferComprehensionRetakeVerify({
+      source,
+      articleId: comprehensionContext?.articleId,
+    })
+  ) {
+    return buildComprehensionRetakeVerifyStep({
+      articleId: comprehensionContext.articleId,
+      articleTitle: comprehensionContext.articleTitle,
+      wrongCount: comprehensionContext.wrongCount,
+    });
+  }
 
   if (isDailyGoalUnmet(dailyGoalSnapshot) && resumeTarget) {
     return buildResumeLessonStep(resumeTarget, dailyGoalSnapshot);
@@ -194,6 +214,9 @@ function buildSecondarySteps(ctx, primary) {
   if (source === "reading") {
     if (continueReading) push(buildContinueReadingStep(continueReading));
     if (nextUnreadArticleId) push(buildNextArticleStep(nextUnreadArticleId, newsUnreadCount));
+    push(buildNewsListStep());
+  }
+  if (source === "comprehension") {
     push(buildNewsListStep());
   }
   if (sessionLearnedWords.length > 0) {

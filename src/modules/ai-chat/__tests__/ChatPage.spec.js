@@ -18,6 +18,7 @@ function makeRouter(sessionId, { query = {} } = {}) {
     routes: [
       { path: "/", name: "learn", component: { template: "<div/>" } },
       { path: "/news", name: "news", component: { template: "<div/>" } },
+      { path: "/news/:id", name: "reader", component: { template: "<div/>" } },
       { path: "/path", name: "path", component: { template: "<div/>" } },
       {
         path: "/chat/:sessionId",
@@ -345,6 +346,98 @@ describe("ChatPage", () => {
     expect(wrapper.text()).toContain("口语练习完成");
     expect(wrapper.find(".next-steps-panel").exists()).toBe(true);
     expect(wrapper.find(".next-steps-primary").text()).toContain("还差");
+  });
+
+  it("shows comprehension retake as primary wrap-up step after comprehension AI practice", async () => {
+    const { COMPREHENSION_PRACTICE_PAYLOAD_KEY } = await import(
+      "@/modules/news/comprehensionAiPractice.js"
+    );
+    sessionStorage.setItem(
+      COMPREHENSION_PRACTICE_PAYLOAD_KEY,
+      JSON.stringify({
+        articleId: 9,
+        articleTitle: "央行加息",
+        wrongCount: 2,
+        targetLang: "es",
+        items: [
+          {
+            kind: "main_idea",
+            promptNative: "主旨",
+            evidenceSentence: "El banco central subió las tasas.",
+            explanationNative: "加息控通胀",
+          },
+        ],
+      }),
+    );
+
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ id: 1, target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_path_curriculum_cmd") {
+        return Promise.resolve({ status: "active", units: [] });
+      }
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 1,
+          effective_lessons_today: 1,
+          target_lessons: 2,
+          goal_met: false,
+        });
+      }
+      if (cmd === "get_unknown_words_cmd") return Promise.resolve([]);
+      if (cmd === "get_articles_cmd") return Promise.resolve([]);
+      if (cmd === "get_chat_sessions_cmd") {
+        return Promise.resolve([{ id: "amiga-sess", contact_type: "amiga", target_language: "es" }]);
+      }
+      if (cmd === "get_chat_messages_cmd") return Promise.resolve([]);
+      if (cmd === "chat_completion_with_session_cmd") {
+        return Promise.resolve("¡Muy bien!");
+      }
+      return Promise.resolve(null);
+    });
+
+    const { useTargetLangStore } = await import("@/stores/targetLang.js");
+    const store = useTargetLangStore();
+    vi.spyOn(store, "load").mockResolvedValue("es");
+
+    const router = makeRouter("amiga-sess");
+    const replaceSpy = vi.fn();
+    router.replace = replaceSpy;
+    await router.push({
+      path: "/chat/amiga-sess",
+      query: { starterId: "comprehension-practice", from: "comprehension" },
+    });
+    await router.isReady();
+
+    const wrapper = mount(ChatPage, { global: { plugins: [router] } });
+    await flushPromises();
+    await flushPromises();
+
+    await wrapper.find(".chat-input").setValue("Creo que el banco subió las tasas.");
+    await wrapper.find(".send-btn").trigger("click");
+    await flushPromises();
+    await flushPromises();
+
+    await wrapper.find(".back-btn").trigger("click");
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.find(".practice-wrap-overlay").exists()).toBe(true);
+    expect(wrapper.text()).toContain("聊完了，测一下是否真懂");
+    expect(wrapper.find(".next-steps-primary-title").text()).toContain("央行加息");
+
+    await wrapper.find(".action-btn.primary").trigger("click");
+    expect(replaceSpy).toHaveBeenCalledWith({
+      name: "reader",
+      params: { id: "9" },
+      query: { comprehensionRetake: "1" },
+    });
+
+    sessionStorage.removeItem(COMPREHENSION_PRACTICE_PAYLOAD_KEY);
   });
 
   it("returns to chat list for normal Amiga chat without guided practice", async () => {

@@ -847,6 +847,12 @@ export default {
     practiceReviewLearnedWords: "复习刚学到的 {n} 个词",
     practiceReviewLearnedWordsHint: "趁热巩固刚才对话里标记的生词",
     practiceReviewLearnedWordsAction: "去复习",
+    practiceWrapUpComprehensionHint: "聊完了，测一下是否真懂",
+    nextStep: {
+      comprehensionRetake: "再测「{title}」的理解",
+      comprehensionRetakeHint: "刚练了 {n} 道错题，用快检验证一下",
+      comprehensionRetakeContinue: "开始再测",
+    },
   },
 
   profile: {

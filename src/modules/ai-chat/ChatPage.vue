@@ -133,10 +133,12 @@
           <h2>{{ t("chat.practiceWrapUpTitle") }}</h2>
           <p class="summary-stat">
             {{
-              t("chat.practiceWrapUpHint", {
-                wordCount: practiceWords.length,
-                rounds: practiceRoundCount,
-              })
+              practiceSource === "comprehension"
+                ? t("chat.practiceWrapUpComprehensionHint")
+                : t("chat.practiceWrapUpHint", {
+                    wordCount: practiceWords.length,
+                    rounds: practiceRoundCount,
+                  })
             }}
           </p>
           <p v-if="practiceWordsPreview" class="practice-words-preview">
@@ -308,6 +310,7 @@ async function openPracticeWrapUp() {
       source: practiceSource.value,
       practiceWords: practiceWords.value,
       sessionLearnedWords: learnedWordsThisSession.value,
+      comprehensionContext: loadComprehensionPracticePayload(),
       ...planCtx,
     });
     showPracticeWrapUp.value = true;

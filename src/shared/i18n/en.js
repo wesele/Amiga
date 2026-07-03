@@ -845,6 +845,12 @@ export default {
     practiceReviewLearnedWords: "Review {n} words you just learned",
     practiceReviewLearnedWordsHint: "Reinforce the words you marked while chatting",
     practiceReviewLearnedWordsAction: "Review now",
+    practiceWrapUpComprehensionHint: "You practiced — now verify you really got it",
+    nextStep: {
+      comprehensionRetake: "Quiz comprehension of “{title}”",
+      comprehensionRetakeHint: "You just worked on {n} missed question(s) — quick check to confirm",
+      comprehensionRetakeContinue: "Start quiz",
+    },
   },
 
   profile: {
