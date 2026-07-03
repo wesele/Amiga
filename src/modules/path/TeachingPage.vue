@@ -51,19 +51,59 @@
         </p>
         <section v-if="content?.kind === 'vocab' && summaryWords.length" class="summary-words">
           <p class="summary-words-hint">{{ t("path.teachingComplete.vocabWordsHint") }}</p>
+          <p v-if="vocabMasterySummary" class="vocab-mastery-summary">{{ vocabMasterySummary }}</p>
           <div class="summary-word-chips">
             <span v-for="w in summaryWords" :key="w.word" class="summary-word-chip">{{ w.word }}</span>
           </div>
         </section>
+        <section v-if="teachingPlan" class="next-steps-panel">
+          <p class="next-steps-eyebrow">{{ t("path.nextStep.title") }}</p>
+          <div class="next-steps-primary">
+            <span class="next-steps-icon" aria-hidden="true">{{ teachingPlan.primary.icon }}</span>
+            <div class="next-steps-copy">
+              <p class="next-steps-primary-title">{{ stepTitle(teachingPlan.primary) }}</p>
+              <p
+                v-if="teachingPlan.primary.subtitleKey"
+                class="next-steps-primary-sub"
+              >
+                {{ stepSubtitle(teachingPlan.primary) }}
+              </p>
+            </div>
+          </div>
+          <div v-if="teachingPlan.secondary.length" class="next-steps-queue">
+            <p class="next-steps-queue-title">
+              {{ t("path.nextStep.queueTitle", { n: teachingPlan.secondary.length }) }}
+            </p>
+            <button
+              v-for="step in teachingPlan.secondary"
+              :key="step.id"
+              type="button"
+              class="next-steps-queue-item"
+              :disabled="!step.route && !step.contactAction"
+              @click="goToTeachingStep(step)"
+            >
+              <span class="next-steps-queue-icon" aria-hidden="true">{{ step.icon }}</span>
+              <div class="next-steps-queue-copy">
+                <p class="next-steps-queue-item-title">{{ stepTitle(step) }}</p>
+                <p v-if="step.subtitleKey" class="next-steps-queue-item-sub">
+                  {{ stepSubtitle(step) }}
+                </p>
+              </div>
+            </button>
+          </div>
+        </section>
       </div>
       <footer class="teach-footer">
-        <template v-if="continueRoute">
-          <button class="action-btn primary" @click="goToContinue">
-            {{ continueCtaLabel }}
+        <template v-if="teachingPlan">
+          <button
+            class="action-btn primary"
+            :disabled="openingAiPractice"
+            @click="goToTeachingStep(teachingPlan.primary)"
+          >
+            {{ stepContinueLabel(teachingPlan.primary) }}
           </button>
-          <p v-if="continueCtaSubtitle" class="continue-sub">{{ continueCtaSubtitle }}</p>
           <button class="action-btn secondary" @click="exitTeaching">
-            {{ t("path.backToPath") }}
+            {{ t("path.teachingComplete.later") }}
           </button>
         </template>
         <button v-else class="action-btn primary" @click="exitTeaching">
@@ -187,8 +227,11 @@ import { useI18n } from "@/shared/i18n";
 import {
   completeTeachingNode,
   explainGrammarPoint,
+  getArticles,
+  getArticlesReadingStatus,
   getGrammarExplanationCached,
   getTeachingContent,
+  getUnknownWords,
   getUserVocabByLevel,
   updateWordMastery,
 } from "@/shared/api.js";
@@ -196,13 +239,28 @@ import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { pathRouteWithCurrentFocus } from "./pathMapScroll.js";
 import {
-  continueRouteAfterSection,
-  teachingContinueCtaKeys,
-} from "./lessonContinue.js";
-import {
   dailyGoalLessonsRemaining,
   shouldShowDailyGoalNudge,
 } from "./dailyGoalNudge.js";
+import {
+  buildFocusArea,
+  focusAreaTypeKey,
+  loadQuestionTypeStats,
+  pairStatsKey,
+} from "@/modules/learn/questionTypeStats.js";
+import { VOCAB_REVIEW_LIMIT } from "@/modules/learn/vocabReviewCard.js";
+import {
+  buildStatusMap,
+  countUnreadArticles,
+} from "@/modules/news/newsReadingStatus.js";
+import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
+import { countDueForPair } from "./mistakeReviewStore.js";
+import {
+  buildPostTeachingPlan,
+  isAiPracticeStep,
+  primaryTeachingStepRoute,
+  TEACHING_STEP_IDS,
+} from "./postTeachingPlan.js";
 import { promiseWithTimeout } from "@/shared/promiseTimeout.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 
@@ -216,7 +274,15 @@ const error = ref("");
 const submitting = ref(false);
 const content = ref(null);
 const completionResult = ref(null);
+const teachingPlan = ref(null);
 const teachingWords = ref([]);
+const initialMastery = ref(new Map());
+const sessionMarkedUnknown = ref([]);
+const dueMistakesAtStart = ref(0);
+const dueVocabAtStart = ref(0);
+const focusAreaAtStart = ref(null);
+const newsUnreadCount = ref(0);
+const openingAiPractice = ref(false);
 const selectedWord = ref(null);
 const userId = ref("");
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
@@ -245,26 +311,23 @@ const summaryTitle = computed(() => {
 
 const summaryWords = computed(() => teachingWords.value.slice(0, 5));
 
-const continueRoute = computed(() =>
-  completionResult.value ? continueRouteAfterSection(completionResult.value) : null,
-);
-
-const continueCtaKeys = computed(() =>
-  completionResult.value ? teachingContinueCtaKeys(completionResult.value) : null,
-);
-
-const continueCtaLabel = computed(() => {
-  const keys = continueCtaKeys.value;
-  return keys ? t(keys.labelKey) : t("path.backToPath");
-});
-
-const continueCtaSubtitle = computed(() => {
-  const keys = continueCtaKeys.value;
-  if (!keys?.subtitleKey) return "";
-  if (keys.subtitleKey === "path.teachingContinue.toVocabSub") {
-    return t(keys.subtitleKey, { unit: content.value?.unit_title_native ?? "" });
+const vocabMasterySummary = computed(() => {
+  if (content.value?.kind !== "vocab" || !completionResult.value) return "";
+  let newlySeen = 0;
+  let newlyMastered = 0;
+  for (const w of teachingWords.value) {
+    const initial = initialMastery.value.get(w.word.toLowerCase());
+    if (w.mastery === 1 && (initial === null || initial === undefined)) newlySeen += 1;
+    if (w.mastery === 2 && initial !== 2) newlyMastered += 1;
   }
-  return t(keys.subtitleKey);
+  const parts = [];
+  if (newlySeen > 0) {
+    parts.push(t("path.teachingComplete.vocabNewlySeen", { n: newlySeen }));
+  }
+  if (newlyMastered > 0) {
+    parts.push(t("path.teachingComplete.vocabNewlyMastered", { n: newlyMastered }));
+  }
+  return parts.join(" · ");
 });
 
 const dailyGoalRemaining = computed(() =>
@@ -359,14 +422,19 @@ async function loadTeachingWords(words, targetLang, cefr) {
       vocab.map((v) => [v.word.toLowerCase(), { id: v.id, mastery: v.mastery }]),
     );
   } catch (_) {}
+  const masterySnapshot = new Map();
   teachingWords.value = words.map((item) => {
     const match = masteryByWord.get(item.word.toLowerCase());
+    const mastery = match?.mastery ?? null;
+    masterySnapshot.set(item.word.toLowerCase(), mastery);
     return {
       word: item.word,
       id: match?.id ?? null,
-      mastery: match?.mastery ?? null,
+      mastery,
     };
   });
+  initialMastery.value = masterySnapshot;
+  sessionMarkedUnknown.value = [];
 }
 
 async function onKnown() {
@@ -391,6 +459,9 @@ async function onUnknown() {
   try {
     await updateWordMastery(userId.value, w.id, 1, "path_vocab");
     w.mastery = 1;
+    if (!sessionMarkedUnknown.value.includes(w.word)) {
+      sessionMarkedUnknown.value.push(w.word);
+    }
   } catch (_) {}
   selectedWord.value = null;
 }
@@ -399,10 +470,119 @@ function exitTeaching() {
   router.replace(pathRouteWithCurrentFocus());
 }
 
-function goToContinue() {
-  const route = continueRoute.value;
-  if (route) router.replace(route);
-  else exitTeaching();
+function stepTitle(step) {
+  if (!step) return "";
+  const params = { ...(step.titleParams ?? {}) };
+  if (step.id === TEACHING_STEP_IDS.NEXT_NODE && params.kindKey) {
+    params.kind = t(params.kindKey);
+    delete params.kindKey;
+  }
+  if (step.id === TEACHING_STEP_IDS.FOCUS_AREA && params.typeId) {
+    params.type = t(focusAreaTypeKey(params.typeId));
+    delete params.typeId;
+  }
+  return t(step.titleKey, params);
+}
+
+function stepSubtitle(step) {
+  if (!step?.subtitleKey) return "";
+  const params = { ...(step.subtitleParams ?? {}) };
+  if (step.id === TEACHING_STEP_IDS.FOCUS_AREA && params.typeId) {
+    params.type = t(focusAreaTypeKey(params.typeId));
+    delete params.typeId;
+  }
+  return t(step.subtitleKey, params);
+}
+
+function stepContinueLabel(step) {
+  if (!step?.continueKey) return t("path.backToPath");
+  return t(step.continueKey, step.continueParams ?? {});
+}
+
+async function goToTeachingStep(step) {
+  if (!step) return;
+  if (isAiPracticeStep(step)) {
+    openingAiPractice.value = true;
+    try {
+      await openAiContact(
+        router,
+        { name: t("chat.amiga"), contactType: "amiga" },
+        {
+          targetLang: userMeta.value.targetLang,
+          starterId: "reviewed-words",
+          starterParams: {
+            words: (step.sessionWords ?? sessionMarkedUnknown.value).join(", "),
+            from: "vocab",
+          },
+        },
+      );
+    } finally {
+      openingAiPractice.value = false;
+    }
+    return;
+  }
+  if (step.route) {
+    router.replace(step.route);
+  } else {
+    router.replace(primaryTeachingStepRoute(teachingPlan.value));
+  }
+}
+
+function regionForLang(lang) {
+  switch (lang) {
+    case "zh":
+      return "CN";
+    case "en":
+      return "US";
+    case "es":
+      return "ES";
+    default:
+      return "CN";
+  }
+}
+
+async function loadNewsUnread() {
+  try {
+    const articles = await getArticles(regionForLang(userMeta.value.targetLang));
+    if (!articles.length) {
+      newsUnreadCount.value = 0;
+      return;
+    }
+    const ids = articles.map((article) => article.id).filter((id) => id != null);
+    const rows = await getArticlesReadingStatus(userId.value, ids);
+    const map = buildStatusMap(rows);
+    newsUnreadCount.value = countUnreadArticles(map, articles);
+  } catch {
+    newsUnreadCount.value = 0;
+  }
+}
+
+async function loadPostTeachingContext() {
+  const pairKey = pairStatsKey(userMeta.value.nativeLang, userMeta.value.targetLang);
+  dueMistakesAtStart.value = countDueForPair(pairKey);
+  focusAreaAtStart.value = buildFocusArea(loadQuestionTypeStats(pairKey));
+  try {
+    const words = await getUnknownWords(
+      userId.value,
+      userMeta.value.cefr,
+      VOCAB_REVIEW_LIMIT,
+      userMeta.value.targetLang,
+    );
+    dueVocabAtStart.value = Array.isArray(words) ? words.length : 0;
+  } catch {
+    dueVocabAtStart.value = 0;
+  }
+  await loadNewsUnread();
+  teachingPlan.value = buildPostTeachingPlan({
+    result: completionResult.value,
+    dueMistakesAtStart: dueMistakesAtStart.value,
+    dueVocabAtStart: dueVocabAtStart.value,
+    focusArea: focusAreaAtStart.value,
+    unitTitle: content.value?.unit_title_native ?? "",
+    sessionUnknownWords: sessionMarkedUnknown.value,
+    newsUnreadCount: newsUnreadCount.value,
+    localHour: new Date().getHours(),
+  });
 }
 
 async function load() {
@@ -440,6 +620,7 @@ async function finishTeaching() {
       userMeta.value.cefr,
       route.params.nodeId,
     );
+    await loadPostTeachingContext();
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {
@@ -936,12 +1117,126 @@ onMounted(load);
   font-weight: 600;
 }
 
-.continue-sub {
-  margin: 8px 0 12px;
+.vocab-mastery-summary {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--blue-hover);
+  font-weight: 600;
+}
+
+.next-steps-panel {
+  width: 100%;
+  max-width: 360px;
+  margin: 20px 0 0;
+  padding: 14px 16px 16px;
+  background: linear-gradient(135deg, #e8f8ef 0%, #d4f5e0 100%);
+  border: 1px solid var(--green);
+  border-radius: var(--radius-md);
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.next-steps-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--green-hover);
+}
+
+.next-steps-primary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.next-steps-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.next-steps-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-primary-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.next-steps-primary-sub {
+  margin: 4px 0 0;
   font-size: 13px;
   color: var(--text-light);
-  font-weight: 600;
-  text-align: center;
+  line-height: 1.4;
+}
+
+.next-steps-queue {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(88, 204, 2, 0.25);
+}
+
+.next-steps-queue-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+.next-steps-queue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.next-steps-queue-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.next-steps-queue-item + .next-steps-queue-item {
+  border-top: 1px solid rgba(88, 204, 2, 0.15);
+}
+
+.next-steps-queue-icon {
+  font-size: 20px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.next-steps-queue-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-queue-item-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.next-steps-queue-item-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-light);
+  line-height: 1.4;
 }
 
 .teach-footer .action-btn.secondary {

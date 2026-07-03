@@ -282,8 +282,30 @@ function completeTeachingResult(overrides = {}) {
     daily_goal_just_met: false,
     daily_goal_lessons_today: 1,
     daily_goal_target: 3,
+    weekly_goal_active_days: 2,
+    weekly_goal_target_days: 5,
     ...overrides,
   };
+}
+
+function postTeachingInvoke(cmd, extra = {}) {
+  if (cmd === "get_current_user") {
+    return Promise.resolve({ id: "u1", native_language: "zh" });
+  }
+  if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+  if (cmd === "get_learning_goals_cmd") {
+    return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+  }
+  if (cmd === "get_unknown_words_cmd") {
+    return Promise.resolve(extra.unknownWords ?? []);
+  }
+  if (cmd === "get_articles_cmd") {
+    return Promise.resolve(extra.articles ?? []);
+  }
+  if (cmd === "get_articles_reading_status_cmd") {
+    return Promise.resolve([]);
+  }
+  return null;
 }
 
 describe("TeachingPage completion flow", () => {
@@ -298,15 +320,10 @@ describe("TeachingPage completion flow", () => {
     router = makeRouter();
   });
 
-  async function finishGrammarTeaching(resultOverrides = {}) {
+  async function finishGrammarTeaching(resultOverrides = {}, ctx = {}) {
     mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_current_user") {
-        return Promise.resolve({ id: "u1", native_language: "zh" });
-      }
-      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
-      if (cmd === "get_learning_goals_cmd") {
-        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
-      }
+      const handled = postTeachingInvoke(cmd, ctx);
+      if (handled) return handled;
       if (cmd === "get_teaching_content_cmd") {
         return Promise.resolve(teachingContent());
       }
@@ -325,15 +342,10 @@ describe("TeachingPage completion flow", () => {
     return { wrapper, router };
   }
 
-  async function finishVocabTeaching(resultOverrides = {}) {
+  async function finishVocabTeaching(resultOverrides = {}, ctx = {}) {
     mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_current_user") {
-        return Promise.resolve({ id: "u1", native_language: "zh" });
-      }
-      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
-      if (cmd === "get_learning_goals_cmd") {
-        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
-      }
+      const handled = postTeachingInvoke(cmd, ctx);
+      if (handled) return handled;
       if (cmd === "get_teaching_content_cmd") {
         return Promise.resolve(vocabTeachingContent());
       }
@@ -363,11 +375,11 @@ describe("TeachingPage completion flow", () => {
   it("shows grammar summary and routes to vocab on continue", async () => {
     const { wrapper, router } = await finishGrammarTeaching();
     expect(wrapper.find(".summary-title").text()).toContain("语法预习完成");
+    expect(wrapper.find(".next-steps-panel").exists()).toBe(true);
     expect(wrapper.text()).toContain("继续学词汇");
     expect(wrapper.text()).toContain("基础问候与自我介绍");
 
-    const buttons = wrapper.findAll(".action-btn.primary");
-    await buttons[0].trigger("click");
+    await wrapper.find(".action-btn.primary").trigger("click");
     await flushPromises();
     expect(router.currentRoute.value.name).toBe("path-teaching");
     expect(router.currentRoute.value.params.nodeId).toBe("zh-es/U01-VOCAB");
@@ -376,6 +388,7 @@ describe("TeachingPage completion flow", () => {
   it("shows vocab summary with word chips and routes to practice", async () => {
     const { wrapper, router } = await finishVocabTeaching();
     expect(wrapper.find(".summary-title").text()).toContain("词汇预习完成");
+    expect(wrapper.find(".next-steps-panel").exists()).toBe(true);
     expect(wrapper.text()).toContain("开始练习");
     expect(wrapper.text()).toContain("接下来练习会用到这些词");
     expect(wrapper.findAll(".summary-word-chip")).toHaveLength(3);
@@ -386,14 +399,15 @@ describe("TeachingPage completion flow", () => {
     expect(router.currentRoute.value.params.sectionId).toBe("zh-es/U01-PRACTICE");
   });
 
-  it("returns to path map via secondary CTA", async () => {
+  it("returns to path map via later CTA", async () => {
     const { wrapper, router } = await finishGrammarTeaching();
+    expect(wrapper.text()).toContain("稍后再说");
     await wrapper.find(".action-btn.secondary").trigger("click");
     await flushPromises();
     expect(router.currentRoute.value.name).toBe("path");
   });
 
-  it("shows level-up celebration without auto-continue route", async () => {
+  it("shows level-up celebration with daily goal primary instead of next node", async () => {
     const { wrapper, router } = await finishGrammarTeaching({
       next_section_id: "zh-es/U02-GRAMMAR",
       level_upgraded: true,
@@ -401,9 +415,21 @@ describe("TeachingPage completion flow", () => {
     });
     expect(wrapper.text()).toContain("已升级到 A2");
     expect(wrapper.text()).not.toContain("继续学词汇");
+    expect(wrapper.text()).toContain("还差");
     await wrapper.find(".action-btn.primary").trigger("click");
     await flushPromises();
     expect(router.currentRoute.value.name).toBe("path");
+  });
+
+  it("lists due todos in the next-steps queue while next node stays primary", async () => {
+    const { wrapper } = await finishGrammarTeaching(
+      {},
+      {
+        unknownWords: [{ id: 1, word: "hola" }],
+      },
+    );
+    expect(wrapper.text()).toContain("待办");
+    expect(wrapper.text()).toContain("复习");
   });
 
   it("shows streak and daily goal celebration banners", async () => {
