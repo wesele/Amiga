@@ -706,6 +706,63 @@ describe("LearnHubPage", () => {
     expect(wrapper.find(".focus-area-card").exists()).toBe(false);
   });
 
+  it("shows article activity chip and reading progress subtitle when only reading today", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 0,
+          articles_read_today: 1,
+          words_reviewed_today: 0,
+          review_sessions_today: 0,
+          target_lessons: 2,
+          progress_pct: 0,
+          goal_met: false,
+          streak_current: 3,
+          practiced_today: true,
+        });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".today-activity-chip").text()).toContain("1 篇文章");
+    expect(wrapper.find(".goal-sub").text()).toContain("阅读已保住连胜");
+    expect(wrapper.find(".today-activity-empty").exists()).toBe(false);
+  });
+
+  it("shows empty activity hint when nothing practiced today", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 0,
+          articles_read_today: 0,
+          words_reviewed_today: 0,
+          review_sessions_today: 0,
+          target_lessons: 2,
+          progress_pct: 0,
+          goal_met: false,
+          streak_current: 0,
+          practiced_today: false,
+        });
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".today-activity-empty").text()).toContain("今天还没开始学习");
+    expect(wrapper.find(".today-activity-strip").exists()).toBe(false);
+  });
+
   it("opens translator session via learn-translator route", async () => {
     const router = makeRouter();
     const pushSpy = vi.spyOn(router, "push");

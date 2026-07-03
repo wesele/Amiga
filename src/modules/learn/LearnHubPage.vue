@@ -107,6 +107,24 @@
           {{ t(dailyGoalSubI18nKey, dailyGoalSubI18nParams) }}
         </p>
         <div
+          v-if="todayActivityItems.length"
+          class="today-activity-strip"
+          role="list"
+        >
+          <span
+            v-for="item in todayActivityItems"
+            :key="item.kind"
+            class="today-activity-chip"
+            role="listitem"
+          >
+            <span aria-hidden="true">{{ item.icon }}</span>
+            {{ t(item.labelKey, item.params) }}
+          </span>
+        </div>
+        <p v-else-if="!dailyGoal.practiced_today" class="today-activity-empty">
+          {{ t("learn.todayActivityEmpty") }}
+        </p>
+        <div
           v-if="showWeeklyGoal"
           class="week-strip"
           :class="{ 'is-goal-met': weeklyGoal.goal_met }"
@@ -434,9 +452,12 @@ import { loadDueMistakes } from "@/modules/path/mistakeReviewStore.js";
 import {
   dailyGoalRingDone as ringDone,
   dailyGoalRemainingLessons,
-  dailyGoalSubKey,
-  dailyGoalSubParams,
 } from "./dailyGoalDisplay.js";
+import {
+  buildTodayActivityItems,
+  dailyGoalSubKeyWithActivity,
+  dailyGoalSubParamsWithActivity,
+} from "./todayActivityDisplay.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -468,9 +489,13 @@ const ringOffset = computed(() => {
 
 const dailyGoalRingDone = computed(() => ringDone(dailyGoal.value));
 
-const dailyGoalSubI18nKey = computed(() => dailyGoalSubKey(dailyGoal.value));
+const dailyGoalSubI18nKey = computed(() => dailyGoalSubKeyWithActivity(dailyGoal.value));
 
-const dailyGoalSubI18nParams = computed(() => dailyGoalSubParams(dailyGoal.value));
+const dailyGoalSubI18nParams = computed(() =>
+  dailyGoalSubParamsWithActivity(dailyGoal.value),
+);
+
+const todayActivityItems = computed(() => buildTodayActivityItems(dailyGoal.value));
 
 const weeklyGoal = computed(() => {
   if (!weeklyActivity.value || !dailyGoal.value) return null;
@@ -2113,6 +2138,37 @@ onMounted(loadHubData);
 .goal-sub {
   margin: 4px 0 0;
   font-size: 13px;
+  color: var(--text-light);
+  line-height: 1.35;
+}
+
+.today-activity-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.today-activity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+}
+
+.daily-goal-card.is-complete .today-activity-chip {
+  border-color: #b8e6c8;
+}
+
+.today-activity-empty {
+  margin: 8px 0 0;
+  font-size: 12px;
   color: var(--text-light);
   line-height: 1.35;
 }

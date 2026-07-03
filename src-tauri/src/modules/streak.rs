@@ -27,6 +27,10 @@ pub struct DailyGoalProgress {
     pub review_sessions_today: i32,
     #[serde(default)]
     pub effective_lessons_today: i32,
+    #[serde(default)]
+    pub articles_read_today: i32,
+    #[serde(default)]
+    pub words_reviewed_today: i32,
     pub target_lessons: i32,
     pub progress_pct: i32,
     pub goal_met: bool,
@@ -282,10 +286,11 @@ pub fn get_daily_goal_progress(
     daily_minutes: i32,
 ) -> Result<DailyGoalProgress, String> {
     let today = today_local();
-    let (lessons_today, review_sessions_today) = {
+    let (articles_read_today, words_reviewed_today, lessons_today, review_sessions_today) = {
         let conn = pool.conn()?;
-        let (_, _, lessons, review_sessions) = load_today_activity(&conn, user_id, &today)?;
-        (lessons, review_sessions)
+        let (articles, words, lessons, review_sessions) =
+            load_today_activity(&conn, user_id, &today)?;
+        (articles, words, lessons, review_sessions)
     };
     let target_lessons = lesson_goal_from_daily_minutes(daily_minutes);
     let effective = effective_lessons_today(lessons_today, review_sessions_today, target_lessons);
@@ -300,6 +305,8 @@ pub fn get_daily_goal_progress(
         lessons_today,
         review_sessions_today,
         effective_lessons_today: effective,
+        articles_read_today,
+        words_reviewed_today,
         target_lessons,
         progress_pct,
         goal_met,
@@ -657,5 +664,31 @@ mod tests {
         assert_eq!(activity.days.len(), 7);
         assert_eq!(activity.active_days, 0);
         assert!(!activity.days.iter().any(|d| d.active));
+    }
+
+    #[test]
+    fn daily_goal_progress_includes_articles_read_today() {
+        let pool = test_pool();
+        let user = seed_user(&pool);
+        record_article_read(&pool, &user).unwrap();
+        record_article_read(&pool, &user).unwrap();
+
+        let progress = get_daily_goal_progress(&pool, &user, 15).unwrap();
+        assert_eq!(progress.articles_read_today, 2);
+        assert_eq!(progress.lessons_today, 0);
+        assert!(!progress.goal_met);
+        assert!(progress.practiced_today);
+    }
+
+    #[test]
+    fn daily_goal_progress_includes_words_reviewed_today() {
+        let pool = test_pool();
+        let user = seed_user(&pool);
+        record_review_practice(&pool, &user, 8, false, 15).unwrap();
+
+        let progress = get_daily_goal_progress(&pool, &user, 15).unwrap();
+        assert_eq!(progress.words_reviewed_today, 8);
+        assert_eq!(progress.review_sessions_today, 0);
+        assert!(progress.practiced_today);
     }
 }
