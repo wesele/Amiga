@@ -460,7 +460,10 @@ mod tests {
             Some("2026-06-15 12:00:00.000")
         );
         assert!(!statuses[0].read_today);
-        assert_eq!(statuses[0].words_unknown.as_deref(), Some("[\"nuevo\",\"nuevo\"]"));
+        assert_eq!(
+            statuses[0].words_unknown.as_deref(),
+            Some("[\"nuevo\",\"nuevo\"]")
+        );
     }
 
     #[test]
@@ -1060,8 +1063,7 @@ pub fn get_articles_reading_status(
         placeholders.join(", ")
     );
 
-    let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> =
-        vec![Box::new(user_id.to_string())];
+    let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(user_id.to_string())];
     for id in article_ids {
         params_vec.push(Box::new(*id));
     }

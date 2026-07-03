@@ -226,6 +226,67 @@ describe("ChatPage", () => {
     expect(safeStrip.classes()).not.toContain("keyboard-open");
   });
 
+  it("shows contextual starter chips on an empty Amiga session", async () => {
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([
+          { id: 1, target_language: "es", cefr_level: "A1" },
+        ]);
+      }
+      if (cmd === "get_path_curriculum_cmd") {
+        return Promise.resolve({
+          status: "active",
+          units: [
+            {
+              title_native: "日常活动",
+              title_target: "Rutinas",
+              sections: [
+                {
+                  id: "grammar-1",
+                  kind: "grammar",
+                  title_native: "单元知识",
+                  current: true,
+                },
+              ],
+            },
+          ],
+        });
+      }
+      if (cmd === "get_teaching_content_cmd") {
+        return Promise.resolve({
+          grammar_points: ["过去时 -ar"],
+          words: [],
+        });
+      }
+      if (cmd === "get_chat_sessions_cmd") {
+        return Promise.resolve([
+          {
+            id: "amiga-sess",
+            contact_type: "amiga",
+            target_language: "es",
+          },
+        ]);
+      }
+      if (cmd === "get_chat_messages_cmd") return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+
+    const { useTargetLangStore } = await import("@/stores/targetLang.js");
+    const store = useTargetLangStore();
+    vi.spyOn(store, "load").mockResolvedValue("es");
+
+    const wrapper = await mountPage("amiga-sess", mockInvoke);
+    await flushPromises();
+    await flushPromises();
+
+    const chips = wrapper.findAll(".starter-chip");
+    expect(chips.length).toBeGreaterThan(0);
+    expect(chips.some((c) => c.text().includes("语法"))).toBe(true);
+  });
+
   it("resets the fixed chat viewport styles after the keyboard closes", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_current_user") {

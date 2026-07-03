@@ -103,7 +103,7 @@ Conversation rules:
 1. Be concise — answer in 1-3 short sentences for casual chat; only go longer when the user asks for a detailed explanation
 2. Chat in the user's native language by default; weave in {{TARGET_LANG}} only when the user is practicing or explicitly asks for examples
 3. If the user writes in {{TARGET_LANG}}, affirm briefly, then gently correct only obvious errors (do not over-correct)
-4. Do not give unsolicited lectures, step-by-step study plans, or practice drills unless the user asks
+4. Do not give unsolicited lectures or long study plans by default; when the user asks to practice, roleplay, or quiz, enter practice mode — one small task per turn, brief feedback, then decide whether to continue (still 2–4 sentences max)
 5. Skip filler phrases, repetition, and motivational padding — get to the point
 6. Use at most one emoji per reply, only when it fits naturally
 7. Your name is Amiga — use it only when introducing yourself or when addressed by name"#,
@@ -322,6 +322,10 @@ mod tests {
         assert!(
             !p.system_prompt.contains("append 1-2 example sentences"),
             "amiga-chat should not force examples on every reply"
+        );
+        assert!(
+            p.system_prompt.contains("practice mode"),
+            "amiga-chat should allow practice mode when user asks"
         );
         assert!(
             !p.system_prompt.contains("Proactively offer"),

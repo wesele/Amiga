@@ -1,6 +1,8 @@
 use crate::modules::database::DatabasePool;
 use crate::modules::llm::{ChatMessage, LlmClient};
+use crate::modules::path::{self, PathCurriculum, PathSectionNode, PathUnitNode};
 use crate::modules::prompts;
+use crate::modules::user;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -237,7 +239,10 @@ pub async fn chat_completion(
     native_lang: &str,
     target_lang: &str,
 ) -> Result<String, String> {
-    let system = build_amiga_system_prompt(db, native_lang, target_lang, "{}", "");
+    let user_id = user::get_or_create_user(db)
+        .map(|u| u.id)
+        .unwrap_or_default();
+    let system = build_amiga_system_prompt(db, &user_id, native_lang, target_lang, "{}", "");
 
     let mut full_messages = vec![ChatMessage {
         role: "system".to_string(),
@@ -259,10 +264,18 @@ pub async fn chat_completion_with_session(
     save_message(db, session_id, "user", message)?;
 
     let (profile_json, summary, msg_count, contact_type) = get_session_profile(db, session_id)?;
+    let (user_id, _) = get_session_user_and_lang(db, session_id)?;
 
     let system = match contact_type.as_str() {
         "translator" => build_translator_system_prompt(db, target_lang, native_lang),
-        _ => build_amiga_system_prompt(db, native_lang, target_lang, &profile_json, &summary),
+        _ => build_amiga_system_prompt(
+            db,
+            &user_id,
+            native_lang,
+            target_lang,
+            &profile_json,
+            &summary,
+        ),
     };
 
     let recent = get_messages(db, session_id, MAX_CONTEXT_MESSAGES)?;
@@ -293,8 +306,153 @@ pub async fn chat_completion_with_session(
     Ok(reply)
 }
 
+fn get_session_user_and_lang(
+    db: &DatabasePool,
+    session_id: &str,
+) -> Result<(String, String), String> {
+    let conn = db.conn()?;
+    conn.query_row(
+        "SELECT user_id, target_language FROM chat_sessions WHERE id = ?1",
+        params![session_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+    .map_err(|e| format!("Session not found: {}", e))
+}
+
+fn resolve_cefr_for_target(db: &DatabasePool, user_id: &str, target_lang: &str) -> String {
+    let Ok(goals) = user::get_learning_goals(db, user_id) else {
+        return "A1".to_string();
+    };
+    let mut best: Option<&user::LearningGoal> = None;
+    for goal in &goals {
+        if goal.target_language != target_lang {
+            continue;
+        }
+        let replace = match best {
+            None => true,
+            Some(prev) => goal.id.unwrap_or(0) > prev.id.unwrap_or(0),
+        };
+        if replace {
+            best = Some(goal);
+        }
+    }
+    best.map(|g| g.cefr_level.clone())
+        .unwrap_or_else(|| "A1".to_string())
+}
+
+fn find_current_section<'a>(
+    curriculum: &'a PathCurriculum,
+) -> Option<(&'a PathUnitNode, &'a PathSectionNode)> {
+    for unit in &curriculum.units {
+        for section in &unit.sections {
+            if section.current {
+                return Some((unit, section));
+            }
+        }
+    }
+    None
+}
+
+fn section_kind_label(kind: &str) -> &'static str {
+    match kind {
+        "grammar" => "语法预习",
+        "vocab" => "词汇预习",
+        _ => "练习",
+    }
+}
+
+/// Real-time course snapshot for Amiga system prompt (~300 Chinese chars max).
+pub fn build_learning_snapshot(
+    db: &DatabasePool,
+    user_id: &str,
+    native_lang: &str,
+    target_lang: &str,
+) -> String {
+    let cefr = resolve_cefr_for_target(db, user_id, target_lang);
+    let Ok(curriculum) = path::get_path_curriculum(db, user_id, native_lang, target_lang, &cefr)
+    else {
+        return String::new();
+    };
+    if curriculum.status != "active" {
+        return String::new();
+    }
+
+    let Some((unit, section)) = find_current_section(&curriculum) else {
+        return String::new();
+    };
+
+    let mut lines = vec![
+        "当前课程进度（实时，优先于对话画像）：".to_string(),
+        format!("- CEFR：{}", curriculum.cefr),
+        format!("- 单元：{} · {}", unit.title_native, unit.title_target),
+        format!(
+            "- 当前节点：{}（{}）",
+            section.title_native,
+            section_kind_label(&section.kind)
+        ),
+        format!(
+            "- 进度：{}/{}",
+            curriculum.completed_sections, curriculum.total_sections
+        ),
+    ];
+
+    if !unit.goal_native.is_empty() {
+        lines.push(format!("- 单元目标：{}", unit.goal_native));
+    }
+
+    match section.kind.as_str() {
+        "grammar" | "vocab" => {
+            if let Ok(teaching) = path::get_teaching_content(
+                db,
+                user_id,
+                native_lang,
+                target_lang,
+                &cefr,
+                &section.id,
+            ) {
+                if section.kind == "grammar" {
+                    let points: Vec<&str> = teaching
+                        .grammar_points
+                        .iter()
+                        .take(3)
+                        .map(|s| s.as_str())
+                        .collect();
+                    if !points.is_empty() {
+                        lines.push(format!("- 本课语法点：{}", points.join(" / ")));
+                    }
+                    if !teaching.scenarios.is_empty() {
+                        lines.push(format!("- 场景：{}", teaching.scenarios.join("、")));
+                    }
+                } else {
+                    let words: Vec<&str> = teaching
+                        .words
+                        .iter()
+                        .take(8)
+                        .map(|w| w.word.as_str())
+                        .collect();
+                    if !words.is_empty() {
+                        lines.push(format!("- 本课词汇：{}", words.join("、")));
+                    }
+                }
+            }
+        }
+        "practice" => {
+            lines.push("- 建议：可围绕本单元主题做口语练习".to_string());
+        }
+        _ => {}
+    }
+
+    let snapshot: String = lines.join("\n");
+    if snapshot.chars().count() > 300 {
+        snapshot.chars().take(300).collect()
+    } else {
+        snapshot
+    }
+}
+
 fn build_amiga_system_prompt(
     db: &DatabasePool,
+    user_id: &str,
     native_lang: &str,
     target_lang: &str,
     profile_json: &str,
@@ -317,7 +475,7 @@ fn build_amiga_system_prompt(
                  1. Be concise — answer in 1-3 short sentences for casual chat; only go longer when the user asks for a detailed explanation\n\
                  2. Chat in the user's native language by default; weave in {target_label} only when the user is practicing or explicitly asks for examples\n\
                  3. If the user writes in {target_label}, affirm briefly, then gently correct only obvious errors (do not over-correct)\n\
-                 4. Do not give unsolicited lectures, step-by-step study plans, or practice drills unless the user asks\n\
+                 4. Do not give unsolicited lectures or long study plans by default; when the user asks to practice, roleplay, or quiz, enter practice mode — one small task per turn, brief feedback, then decide whether to continue (still 2–4 sentences max)\n\
                  5. Skip filler phrases, repetition, and motivational padding — get to the point\n\
                  6. Use at most one emoji per reply, only when it fits naturally\n\
                  7. Your name is Amiga — use it only when introducing yourself or when addressed by name"
@@ -358,6 +516,14 @@ fn build_amiga_system_prompt(
         system.push_str(&format!(
             "\n\n上一轮对话总结：{}\n据此调整难度；仅在用户想练习时再针对薄弱环节。",
             summary
+        ));
+    }
+
+    let snapshot = build_learning_snapshot(db, user_id, native_lang, target_lang);
+    if !snapshot.is_empty() {
+        system.push_str(&format!(
+            "\n\n{}\n\n上方「当前课程进度」为权威上下文；用户练习时优先围绕当前单元语法/词汇，难度匹配 CEFR。",
+            snapshot
         ));
     }
 
@@ -643,6 +809,51 @@ mod tests {
 
         let zh_sessions = get_sessions(&db, "zh").unwrap();
         assert_eq!(zh_sessions.len(), 0);
+    }
+
+    #[test]
+    fn test_build_learning_snapshot_active_curriculum() {
+        use crate::modules::prompts;
+        use crate::modules::user::{save_learning_goal, LearningGoal};
+
+        let db = setup_db();
+        prompts::ensure_default_prompts(&db);
+        save_learning_goal(
+            &db,
+            LearningGoal {
+                id: None,
+                user_id: "test-user".to_string(),
+                target_language: "es".to_string(),
+                cefr_level: "A1".to_string(),
+                daily_minutes: 10,
+                objective: "daily_conversation".to_string(),
+            },
+        )
+        .unwrap();
+
+        let snapshot = build_learning_snapshot(&db, "test-user", "zh", "es");
+        assert!(
+            !snapshot.is_empty(),
+            "active zh-es curriculum should produce a snapshot"
+        );
+        assert!(snapshot.contains("当前课程进度"));
+        assert!(snapshot.contains("CEFR：A1"));
+        let curriculum = path::get_path_curriculum(&db, "test-user", "zh", "es", "A1").unwrap();
+        let unit_title = &curriculum.units[0].title_native;
+        assert!(
+            snapshot.contains(unit_title),
+            "snapshot should include current unit title: {unit_title}"
+        );
+    }
+
+    #[test]
+    fn test_build_learning_snapshot_unsupported_pair() {
+        let db = setup_db();
+        let snapshot = build_learning_snapshot(&db, "test-user", "en", "fr");
+        assert!(
+            snapshot.is_empty(),
+            "unsupported curriculum should not append snapshot"
+        );
     }
 
     #[test]

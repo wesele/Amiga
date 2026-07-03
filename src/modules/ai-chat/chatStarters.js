@@ -1,0 +1,67 @@
+/**
+ * Pick contextual quick-start chips for an empty Amiga chat session.
+ *
+ * @param {object} ctx
+ * @param {{ unit: object, section: object } | null} ctx.currentSection
+ * @param {object} [ctx.teachingPreview]
+ * @param {{ typeId: string } | null} [ctx.focusArea]
+ * @param {string} [ctx.targetLabel]
+ * @returns {Array<{ id: string, labelKey: string, messageKey: string, messageParams?: object, labelParams?: object }>}
+ */
+export function pickChatStarters(ctx) {
+  const {
+    currentSection = null,
+    teachingPreview = null,
+    focusArea = null,
+    targetLabel = "",
+  } = ctx ?? {};
+
+  const starters = [];
+
+  if (currentSection) {
+    const { unit, section } = currentSection;
+    if (section.kind === "grammar" && teachingPreview?.grammar_points?.length) {
+      starters.push({
+        id: "practice-grammar",
+        labelKey: "chat.starterPracticeGrammar",
+        messageKey: "chat.starterPracticeGrammarMsg",
+        messageParams: { unit: unit.title_native ?? "" },
+      });
+    } else if (section.kind === "vocab" && teachingPreview?.words?.length) {
+      starters.push({
+        id: "practice-vocab",
+        labelKey: "chat.starterPracticeVocab",
+        messageKey: "chat.starterPracticeVocabMsg",
+      });
+    } else if (section.kind === "practice") {
+      starters.push({
+        id: "practice-unit",
+        labelKey: "chat.starterPracticeUnit",
+        messageKey: "chat.starterPracticeUnitMsg",
+        messageParams: { unit: unit.title_native ?? "" },
+      });
+    }
+  }
+
+  if (starters.length < 3 && focusArea?.typeId) {
+    starters.push({
+      id: "weak-type",
+      labelKey: "chat.starterWeakType",
+      labelParams: { typeKey: `learn.focusType${focusArea.typeId}` },
+      messageKey: "chat.starterWeakTypeMsg",
+      messageParams: { typeKey: `learn.focusType${focusArea.typeId}` },
+    });
+  }
+
+  if (starters.length === 0) {
+    starters.push({
+      id: "free-chat",
+      labelKey: "chat.starterFreeChat",
+      labelParams: { target: targetLabel },
+      messageKey: "chat.starterFreeChatMsg",
+      messageParams: { target: targetLabel },
+    });
+  }
+
+  return starters.slice(0, 3);
+}

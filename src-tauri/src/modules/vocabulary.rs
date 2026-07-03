@@ -593,8 +593,7 @@ mod tests {
         drop(conn);
 
         let wid = add_discovered_word(&pool, &uid, "mariposa", "es", None).unwrap();
-        let entries =
-            lookup_words_mastery(&pool, &uid, &["mariposa".to_string()], "es").unwrap();
+        let entries = lookup_words_mastery(&pool, &uid, &["mariposa".to_string()], "es").unwrap();
 
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].word_id, wid);

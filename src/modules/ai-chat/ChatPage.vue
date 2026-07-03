@@ -23,9 +23,26 @@
     </transition>
 
     <div class="chat-messages" ref="msgList">
-      <div v-if="messages.length === 0 && contactType === 'amiga'" class="welcome-box">
-        <p>{{ t('chat.welcomeAmiga1') }}</p>
-        <p>{{ t('chat.welcomeAmiga2', { target: targetLabel }) }}</p>
+      <div v-if="messages.length === 0 && contactType === 'amiga'" class="welcome-area">
+        <div class="welcome-box">
+          <p>{{ t('chat.welcomeAmiga1') }}</p>
+          <p>{{ t('chat.welcomeAmiga2', { target: targetLabel }) }}</p>
+        </div>
+        <div v-if="startersLoading" class="starter-chips">
+          <span v-for="n in 2" :key="n" class="starter-chip skeleton" />
+        </div>
+        <div v-else-if="chatStarters.length" class="starter-chips">
+          <button
+            v-for="starter in chatStarters"
+            :key="starter.id"
+            type="button"
+            class="starter-chip"
+            :disabled="loading"
+            @click="sendStarter(starter)"
+          >
+            {{ starterLabel(starter) }}
+          </button>
+        </div>
       </div>
       <div v-if="messages.length === 0 && contactType === 'translator'" class="welcome-box">
         <p>{{ t('chat.welcomeTranslator1') }}</p>
@@ -77,11 +94,20 @@
 import { ref, nextTick, onMounted, onUnmounted, computed, markRaw } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
-  getCurrentUser,
   chatCompletionWithSession,
   getChatMessages,
   deleteChatSession,
+  getPathCurriculum,
+  getTeachingContent,
 } from "@/shared/api.js";
+import { loadLearningContext } from "@/shared/learningContext.js";
+import { findCurrentSection } from "@/modules/learn/pathResume.js";
+import {
+  buildFocusArea,
+  loadQuestionTypeStats,
+  pairStatsKey,
+} from "@/modules/learn/questionTypeStats.js";
+import { pickChatStarters } from "@/modules/ai-chat/chatStarters.js";
 import MarkdownText from "@/shared/components/MarkdownText.vue";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
 import { useI18n } from "@/shared/i18n";
@@ -116,10 +142,12 @@ const contactType = ref("amiga");
 const contactName = ref("Amiga");
 const contactAvatar = ref("🌐");
 const targetLang = ref("es");
-const nativeLang = computed(() => locale.value);
+const nativeLangCode = ref("zh");
 const targetLabel = computed(() => displayLang(targetLang.value, locale.value));
 const isAmiga = computed(() => contactType.value === "amiga");
 const keyboardOpen = ref(false);
+const startersLoading = ref(false);
+const chatStarters = ref([]);
 let cachedViewportHeight = 0;
 let syncRaf = null;
 let unsubscribe = null;
@@ -192,11 +220,26 @@ async function loadMessages() {
   } catch { /* empty */ }
 }
 
-async function sendMessage() {
-  focusInput();
-  const text = inputText.value.trim();
+function starterLabel(starter) {
+  const params = { ...(starter.labelParams ?? {}) };
+  if (params.typeKey) {
+    params.type = t(params.typeKey);
+    delete params.typeKey;
+  }
+  return t(starter.labelKey, params);
+}
+
+function starterMessage(starter) {
+  const params = { ...(starter.messageParams ?? {}) };
+  if (params.typeKey) {
+    params.type = t(params.typeKey);
+    delete params.typeKey;
+  }
+  return t(starter.messageKey, params);
+}
+
+async function dispatchMessage(text) {
   if (!text || loading.value || !sessionId.value) return;
-  inputText.value = "";
 
   messages.value.push({ id: Date.now(), role: "user", content: text });
   scrollToBottom();
@@ -206,7 +249,7 @@ async function sendMessage() {
     const reply = await chatCompletionWithSession(
       sessionId.value,
       text,
-      nativeLang.value,
+      nativeLangCode.value,
       targetLang.value,
     );
     messages.value.push({ id: Date.now() + 1, role: "assistant", content: reply });
@@ -216,6 +259,56 @@ async function sendMessage() {
   loading.value = false;
   scrollToBottom();
   focusInput();
+}
+
+async function sendMessage() {
+  focusInput();
+  const text = inputText.value.trim();
+  if (!text) return;
+  inputText.value = "";
+  await dispatchMessage(text);
+}
+
+async function sendStarter(starter) {
+  focusInput();
+  await dispatchMessage(starterMessage(starter));
+}
+
+async function loadChatStarters(nativeLangCode, langCode, cefr) {
+  startersLoading.value = true;
+  chatStarters.value = [];
+  try {
+    const curriculum = await getPathCurriculum(nativeLangCode, langCode, cefr);
+    const currentSection = findCurrentSection(curriculum);
+    let teachingPreview = null;
+    if (
+      currentSection &&
+      (currentSection.section.kind === "grammar" || currentSection.section.kind === "vocab")
+    ) {
+      try {
+        teachingPreview = await getTeachingContent(
+          nativeLangCode,
+          langCode,
+          cefr,
+          currentSection.section.id,
+        );
+      } catch {
+        teachingPreview = null;
+      }
+    }
+    const stats = loadQuestionTypeStats(pairStatsKey(nativeLangCode, langCode));
+    const focusArea = buildFocusArea(stats);
+    chatStarters.value = pickChatStarters({
+      currentSection,
+      teachingPreview,
+      focusArea,
+      targetLabel: targetLabel.value,
+    });
+  } catch {
+    chatStarters.value = pickChatStarters({ targetLabel: targetLabel.value });
+  } finally {
+    startersLoading.value = false;
+  }
 }
 
 async function deleteCurrentSession() {
@@ -243,10 +336,17 @@ onMounted(async () => {
   }
   sessionId.value = route.params.sessionId;
 
+  let learningNativeLang = "zh";
   try {
-    const user = await getCurrentUser();
+    const ctx = await loadLearningContext({ targetLangStore });
+    targetLang.value = ctx.targetLang || "es";
+    learningNativeLang = ctx.nativeLang || "zh";
+    nativeLangCode.value = learningNativeLang;
+    await loadChatStarters(ctx.nativeLang, ctx.targetLang, ctx.cefr);
+  } catch {
     targetLang.value = (await targetLangStore.load()) || "es";
-  } catch { /* use defaults */ }
+    await loadChatStarters(learningNativeLang, targetLang.value, "A1");
+  }
 
   // Determine contact type from session list. Sessions are isolated by
   // (user, target_language, contact_type) (see chat.rs::get_sessions),
@@ -269,8 +369,14 @@ onMounted(async () => {
 
   // The ongoing conversation keeps its history; subsequent messages use
   // the freshly selected target language.
-  unsubscribe = eventBus.on(TARGET_LANG_CHANGED, (newCode) => {
+  unsubscribe = eventBus.on(TARGET_LANG_CHANGED, async (newCode) => {
     targetLang.value = newCode || "es";
+    try {
+      const ctx = await loadLearningContext({ targetLangStore });
+      await loadChatStarters(ctx.nativeLang, ctx.targetLang, ctx.cefr);
+    } catch {
+      await loadChatStarters(learningNativeLang, targetLang.value, "A1");
+    }
   });
 
   await loadMessages();
@@ -379,6 +485,12 @@ onMounted(async () => {
   gap: 12px;
 }
 
+.welcome-area {
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 .welcome-box {
   background: var(--green-bg);
   border-radius: var(--radius);
@@ -387,10 +499,46 @@ onMounted(async () => {
   line-height: 1.7;
   color: var(--text);
   text-align: center;
-  margin: auto 0;
 }
 .welcome-box p + p {
   margin-top: 8px;
+}
+.starter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.starter-chip {
+  border: 1px solid var(--green);
+  background: var(--white);
+  color: var(--green);
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.starter-chip:hover:not(:disabled) {
+  background: var(--green-bg);
+}
+.starter-chip:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.starter-chip.skeleton {
+  width: 120px;
+  height: 34px;
+  border-color: var(--border);
+  background: linear-gradient(90deg, var(--bg) 25%, var(--white) 50%, var(--bg) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+  cursor: default;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .msg-row {

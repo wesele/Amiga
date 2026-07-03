@@ -34,7 +34,9 @@
 <script setup>
 import { computed, markRaw, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { getChatSessions } from "@/shared/api.js";
+import { getChatSessions, getPathCurriculum } from "@/shared/api.js";
+import { loadLearningContext } from "@/shared/learningContext.js";
+import { findCurrentSection } from "@/modules/learn/pathResume.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 import { useI18n } from "@/shared/i18n";
 import { displayLang } from "@/shared/constants.js";
@@ -60,6 +62,7 @@ const router = useRouter();
 const { t, locale } = useI18n();
 const targetLangStore = useTargetLangStore();
 const sessions = ref([]);
+const currentUnitTitle = ref("");
 const friends = ref([]);
 const previewVersion = ref(0);
 const flashingIds = ref(new Set());
@@ -109,7 +112,12 @@ const aiContacts = computed(() => {
       name: t("chat.amiga"),
       component: markRaw(AmigaIcon),
       contactType: "amiga",
-      desc: t("chat.amigaDesc", { target: targetLabel }),
+      desc: currentUnitTitle.value
+        ? t("chat.amigaDescWithUnit", {
+            target: targetLabel,
+            unit: currentUnitTitle.value,
+          })
+        : t("chat.amigaDesc", { target: targetLabel }),
     },
     {
       id: "translator",
@@ -179,6 +187,17 @@ function handlePreviewUpdated(payload) {
   if (!payload?.unread) return;
   const contactId = resolveContactId(payload.contactKey);
   if (contactId) flashContact(contactId);
+}
+
+async function refreshPathContext() {
+  try {
+    const ctx = await loadLearningContext({ targetLangStore });
+    const curriculum = await getPathCurriculum(ctx.nativeLang, ctx.targetLang, ctx.cefr);
+    const current = findCurrentSection(curriculum);
+    currentUnitTitle.value = current?.unit?.title_native ?? "";
+  } catch {
+    currentUnitTitle.value = "";
+  }
 }
 
 async function refreshSessions() {
@@ -252,10 +271,11 @@ onUnmounted(() => {
 });
 
 onMounted(async () => {
-  await refreshSessions();
+  await Promise.all([refreshSessions(), refreshPathContext()]);
   await refreshFriends();
   unsubscribeLang = eventBus.on(TARGET_LANG_CHANGED, () => {
     refreshSessions();
+    refreshPathContext();
   });
   unsubscribePreview = eventBus.on(SOCIAL_PREVIEW_UPDATED, handlePreviewUpdated);
 });
