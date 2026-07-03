@@ -354,6 +354,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
   completeSection,
+  getPathCurriculum,
   getSectionLesson,
   shareText as nativeShareText,
 } from "@/shared/api.js";
@@ -447,6 +448,7 @@ import {
   shouldShowFreshMistakeInMistakeSection,
   STEP_IDS,
 } from "./postLessonPlan.js";
+import { findUnfinishedPrepSections } from "./pathNodeBriefing.js";
 import { pathRouteWithCurrentFocus } from "./pathMapScroll.js";
 import {
   RECOVERY_STEP_IDS,
@@ -510,6 +512,7 @@ const dueMistakesAtStart = ref(0);
 const sessionMistakeIds = ref(new Set());
 const dueVocabAtStart = ref(0);
 const focusAreaAtStart = ref(null);
+const unfinishedPrep = ref([]);
 const expandedMistakeKeys = ref(new Set());
 const listenReplayBusy = ref(false);
 const resumeToast = ref("");
@@ -736,6 +739,9 @@ const failedLessonPlan = computed(() => {
   return buildFailedLessonPlan({
     mistakeCount: mistakes.value.length,
     freshMistakeCount: freshMistakeTotal.value,
+    mistakes: mistakes.value,
+    unfinishedPrep: unfinishedPrep.value,
+    focusArea: focusAreaAtStart.value,
   });
 });
 
@@ -1021,6 +1027,15 @@ async function load() {
     } catch {
       dueVocabAtStart.value = 0;
     }
+    try {
+      const curriculum = await getPathCurriculum(user.native_language, targetLang, cefr);
+      const unit = curriculum?.units?.find((item) =>
+        item.sections?.some((section) => section.id === route.params.sectionId),
+      );
+      unfinishedPrep.value = findUnfinishedPrepSections(unit, { kind: "practice" });
+    } catch {
+      unfinishedPrep.value = [];
+    }
     const data = await getSectionLesson(
       user.native_language,
       targetLang,
@@ -1112,10 +1127,14 @@ function goToMistakeReview() {
   router.replace({ name: "path-mistake-review" });
 }
 
+function isFocusAreaStep(step) {
+  return step?.id === STEP_IDS.FOCUS_AREA || step?.id === RECOVERY_STEP_IDS.FOCUS_AREA;
+}
+
 function stepTitle(step) {
   if (!step) return "";
   const params = { ...(step.titleParams ?? {}) };
-  if (step.id === STEP_IDS.FOCUS_AREA && params.typeId) {
+  if (isFocusAreaStep(step) && params.typeId) {
     params.type = t(focusAreaTypeKey(params.typeId));
     delete params.typeId;
   }
@@ -1125,7 +1144,7 @@ function stepTitle(step) {
 function stepSubtitle(step) {
   if (!step?.subtitleKey) return "";
   const params = { ...(step.subtitleParams ?? {}) };
-  if (step.id === STEP_IDS.FOCUS_AREA && params.typeId) {
+  if (isFocusAreaStep(step) && params.typeId) {
     params.type = t(focusAreaTypeKey(params.typeId));
     delete params.typeId;
   }
@@ -1148,7 +1167,7 @@ function goToRecoveryStep(step) {
 
 async function finishLesson() {
   if (!result.value?.passed) {
-    retryLesson();
+    goToRecoveryStep(failedLessonPlan.value?.primary);
     return;
   }
   router.replace(primaryStepRoute(postLessonPlan.value));
