@@ -48,11 +48,21 @@ export function scoreArticleMatch(article, lessonWords) {
  * Pick the best article for lesson-word context.
  * @returns {{ articleId: number, articleTitle: string, matchedWords: string[], matchCount: number } | null}
  */
-export function pickBestArticleForLessonWords(articles, lessonWords, { minOverlap = 1 } = {}) {
+export function pickBestArticleForLessonWords(
+  articles,
+  lessonWords,
+  { minOverlap = 1, excludeArticleId = null } = {},
+) {
   if (!articles?.length || !lessonWords?.length) return null;
+
+  const excludedId =
+    excludeArticleId != null && Number.isFinite(Number(excludeArticleId))
+      ? Number(excludeArticleId)
+      : null;
 
   let best = null;
   for (const article of articles) {
+    if (excludedId != null && article.id === excludedId) continue;
     const candidate = scoreArticleMatch(article, lessonWords);
     if (!candidate || candidate.matchCount < minOverlap) continue;
     if (!best || candidate.score > best.score) {

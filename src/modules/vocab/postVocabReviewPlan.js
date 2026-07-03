@@ -1,5 +1,9 @@
 import { pathSectionRoute, sectionKindIcon } from "@/modules/learn/pathResume.js";
 import {
+  lessonArticleReaderRoute,
+} from "@/modules/news/lessonArticleMatch.js";
+import { lessonWordsPreview } from "@/modules/news/lessonWordHighlight.js";
+import {
   REMAINING_PEEK_LIMIT,
   vocabContinueLabelKey,
 } from "./vocabReviewContinuation.js";
@@ -7,6 +11,7 @@ import {
 export const VOCAB_STEP_IDS = {
   CONTINUE_REVIEW: "continueReview",
   BACK_TO_NEWS: "backToNews",
+  READ_MATCHED_ARTICLE: "readMatchedArticle",
   NEXT_ARTICLE: "nextArticle",
   DAILY_GOAL: "dailyGoal",
   NEXT_LESSON: "nextLesson",
@@ -14,6 +19,24 @@ export const VOCAB_STEP_IDS = {
   LEARN_HUB: "learnHub",
   PATH: "path",
 };
+
+/** Pick word pool for post-review article matching (mastery 1 preferred). */
+export function pickWordsForArticleMatch({
+  reviewedWordEntries = [],
+  reviewedWords = [],
+} = {}) {
+  const stillLearning = reviewedWordEntries
+    .filter((entry) => entry.mastery === 1)
+    .map((entry) => entry.word)
+    .filter(Boolean);
+  const pool = stillLearning.length >= 2 ? stillLearning : reviewedWords;
+  return pool.filter(Boolean);
+}
+
+function hasArticleMatch(ctx) {
+  const { articleMatch, reviewedWords } = ctx;
+  return Boolean(articleMatch) && reviewedWords.length >= 2;
+}
 
 function dailyGoalRemainingFromReview(reviewResult) {
   const goal = reviewResult?.daily_goal;
@@ -61,6 +84,25 @@ function buildBackToNewsStep(newsUnreadCount) {
     subtitleKey: "vocab.nextStep.backToNewsHint",
     subtitleParams: { n: newsUnreadCount },
     continueKey: "vocab.nextStep.backToNewsContinue",
+  };
+}
+
+function buildReadMatchedArticleStep(match) {
+  const preview = lessonWordsPreview(match.matchedWords);
+  return {
+    id: VOCAB_STEP_IDS.READ_MATCHED_ARTICLE,
+    route: lessonArticleReaderRoute(match.articleId, match.matchedWords),
+    icon: "📰",
+    titleKey: "vocab.nextStep.readMatchedArticle",
+    subtitleKey: "vocab.nextStep.readMatchedArticleHint",
+    subtitleParams: {
+      title: match.articleTitle,
+      n: match.matchCount,
+      preview,
+    },
+    continueKey: "vocab.nextStep.readMatchedArticleContinue",
+    matchedWords: match.matchedWords,
+    matchCount: match.matchCount,
   };
 }
 
@@ -136,10 +178,14 @@ function pickPrimaryStep(ctx) {
     reviewedWords,
     newsUnreadCount,
     resumeTarget,
+    articleMatch,
   } = ctx;
 
   if (shouldContinueReviewPrimary(remainingDue, sessionWordCount)) {
     return buildContinueReviewStep(remainingDue);
+  }
+  if (fromReading && hasArticleMatch(ctx)) {
+    return buildReadMatchedArticleStep(articleMatch);
   }
   if (fromReading && newsUnreadCount > 0) {
     return buildBackToNewsStep(newsUnreadCount);
@@ -149,6 +195,9 @@ function pickPrimaryStep(ctx) {
   }
   if (isDailyGoalUnmet(reviewResult)) {
     return buildDailyGoalPathStep(reviewResult);
+  }
+  if (hasArticleMatch(ctx)) {
+    return buildReadMatchedArticleStep(articleMatch);
   }
   if (fromReading && masteredCount >= 3 && reviewedWords.length > 0) {
     return buildAiPracticeStep(reviewedWords);
@@ -165,6 +214,7 @@ function buildSecondarySteps(ctx, primary) {
     reviewedWords,
     newsUnreadCount,
     resumeTarget,
+    articleMatch,
   } = ctx;
   const secondary = [];
   const seen = new Set([primary.id]);
@@ -185,7 +235,10 @@ function buildSecondarySteps(ctx, primary) {
         : buildDailyGoalPathStep(reviewResult),
     );
   }
-  if (fromReading && newsUnreadCount > 0) {
+  if (hasArticleMatch(ctx) && primary.id !== VOCAB_STEP_IDS.READ_MATCHED_ARTICLE) {
+    push(buildReadMatchedArticleStep(articleMatch));
+  }
+  if (fromReading && newsUnreadCount > 0 && primary.id !== VOCAB_STEP_IDS.BACK_TO_NEWS) {
     push(buildBackToNewsStep(newsUnreadCount));
   }
   if (masteredCount >= 3 && reviewedWords.length > 0) {

@@ -4,7 +4,15 @@ import {
   buildPostVocabReviewPlan,
   isAiPracticeStep,
   isContinueReviewStep,
+  pickWordsForArticleMatch,
 } from "../postVocabReviewPlan.js";
+
+const ARTICLE_MATCH = {
+  articleId: 9,
+  articleTitle: "Economía diaria",
+  matchedWords: ["banco", "cuenta"],
+  matchCount: 2,
+};
 
 const GOAL_UNMET = {
   daily_goal: {
@@ -19,6 +27,31 @@ const RESUME_TARGET = {
   unit: { title_native: "Unit 1" },
   section: { id: "zh-es/U01-GRAMMAR", kind: "grammar", title_native: "语法" },
 };
+
+describe("pickWordsForArticleMatch", () => {
+  it("prefers mastery-1 words when at least two are still learning", () => {
+    const pool = pickWordsForArticleMatch({
+      reviewedWordEntries: [
+        { word: "banco", mastery: 1 },
+        { word: "cuenta", mastery: 1 },
+        { word: "tarjeta", mastery: 2 },
+      ],
+      reviewedWords: ["banco", "cuenta", "tarjeta"],
+    });
+    expect(pool).toEqual(["banco", "cuenta"]);
+  });
+
+  it("falls back to all reviewed words when fewer than two are still learning", () => {
+    const pool = pickWordsForArticleMatch({
+      reviewedWordEntries: [
+        { word: "banco", mastery: 1 },
+        { word: "cuenta", mastery: 2 },
+      ],
+      reviewedWords: ["banco", "cuenta"],
+    });
+    expect(pool).toEqual(["banco", "cuenta"]);
+  });
+});
 
 describe("buildPostVocabReviewPlan", () => {
   it("prioritizes continue review when backlog is larger than the reading session", () => {
@@ -36,6 +69,28 @@ describe("buildPostVocabReviewPlan", () => {
     expect(isContinueReviewStep(plan.primary)).toBe(true);
     expect(plan.secondary.map((s) => s.id)).toContain(VOCAB_STEP_IDS.BACK_TO_NEWS);
     expect(plan.secondary.map((s) => s.id)).not.toContain(VOCAB_STEP_IDS.CONTINUE_REVIEW);
+  });
+
+  it("prioritizes matched article over generic news when reading review has overlap", () => {
+    const plan = buildPostVocabReviewPlan({
+      reviewResult: GOAL_UNMET,
+      remainingDue: 2,
+      fromReading: true,
+      sessionWordCount: 4,
+      masteredCount: 4,
+      reviewedWords: ["banco", "cuenta", "tarjeta", "caja"],
+      newsUnreadCount: 2,
+      resumeTarget: RESUME_TARGET,
+      articleMatch: ARTICLE_MATCH,
+    });
+    expect(plan.primary.id).toBe(VOCAB_STEP_IDS.READ_MATCHED_ARTICLE);
+    expect(plan.primary.route).toEqual({
+      name: "reader",
+      params: { id: "9" },
+      query: { lessonWords: "banco,cuenta" },
+    });
+    expect(plan.secondary.map((s) => s.id)).toContain(VOCAB_STEP_IDS.BACK_TO_NEWS);
+    expect(plan.secondary.map((s) => s.id)).not.toContain(VOCAB_STEP_IDS.READ_MATCHED_ARTICLE);
   });
 
   it("prioritizes news when reading session is done and unread articles remain", () => {
@@ -57,6 +112,38 @@ describe("buildPostVocabReviewPlan", () => {
       VOCAB_STEP_IDS.AI_PRACTICE,
       VOCAB_STEP_IDS.LEARN_HUB,
     ]);
+  });
+
+  it("puts matched article in secondary when continue review stays primary", () => {
+    const plan = buildPostVocabReviewPlan({
+      reviewResult: GOAL_UNMET,
+      remainingDue: 12,
+      fromReading: true,
+      sessionWordCount: 4,
+      masteredCount: 4,
+      reviewedWords: ["banco", "cuenta", "tarjeta", "caja"],
+      newsUnreadCount: 3,
+      resumeTarget: RESUME_TARGET,
+      articleMatch: ARTICLE_MATCH,
+    });
+    expect(plan.primary.id).toBe(VOCAB_STEP_IDS.CONTINUE_REVIEW);
+    expect(plan.secondary.map((s) => s.id)).toContain(VOCAB_STEP_IDS.READ_MATCHED_ARTICLE);
+  });
+
+  it("prioritizes matched article over learn hub when SRS review meets daily goal", () => {
+    const plan = buildPostVocabReviewPlan({
+      reviewResult: { daily_goal: { goal_met: true, target_lessons: 2, lessons_today: 2 } },
+      remainingDue: 0,
+      fromReading: false,
+      sessionWordCount: 0,
+      masteredCount: 1,
+      reviewedWords: ["banco", "cuenta"],
+      newsUnreadCount: 0,
+      resumeTarget: null,
+      articleMatch: ARTICLE_MATCH,
+    });
+    expect(plan.primary.id).toBe(VOCAB_STEP_IDS.READ_MATCHED_ARTICLE);
+    expect(plan.secondary.map((s) => s.id)).toEqual([VOCAB_STEP_IDS.LEARN_HUB]);
   });
 
   it("routes to the current path section when daily goal is unmet", () => {

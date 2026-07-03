@@ -76,6 +76,49 @@ describe("lessonArticleMatch", () => {
     });
   });
 
+  it("skips excluded source article and picks the next best match", () => {
+    const match = pickBestArticleForLessonWords(
+      [
+        {
+          id: 1,
+          original_title: "Source",
+          original_body: "El banco y la cuenta crecieron.",
+          hot_rank: 1,
+          completed: false,
+          read_today: false,
+        },
+        {
+          id: 2,
+          original_title: "Other",
+          original_body: "La cuenta bancaria subió.",
+          hot_rank: 5,
+          completed: false,
+          read_today: false,
+        },
+      ],
+      ["banco", "cuenta"],
+      { excludeArticleId: 1 },
+    );
+    expect(match?.articleId).toBe(2);
+    expect(match?.articleTitle).toBe("Other");
+  });
+
+  it("returns null when every overlapping article is excluded", () => {
+    const match = pickBestArticleForLessonWords(
+      [
+        {
+          id: 1,
+          original_title: "Only",
+          original_body: "El banco central subió.",
+          hot_rank: 1,
+        },
+      ],
+      ["banco", "cuenta"],
+      { excludeArticleId: 1 },
+    );
+    expect(match).toBeNull();
+  });
+
   it("merges reading status into article candidates", () => {
     const statusMap = new Map([
       [1, { article_id: 1, read_at: "2026-07-03", completed: true, read_today: true }],

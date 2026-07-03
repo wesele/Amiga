@@ -555,6 +555,74 @@ describe("VocabReviewPage", () => {
     expect(wrapper.text()).toContain("Mi casa es grande.");
   });
 
+  it("recommends a matched article after reading-session vocab review completes", async () => {
+    saveReadingSessionSummary({
+      unknownCount: 2,
+      words: [
+        { word: "hola", context: "Hola mundo.", articleId: 12 },
+        { word: "casa", context: "Mi casa.", articleId: 12 },
+      ],
+    });
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "get_articles_cmd") {
+        return Promise.resolve([
+          {
+            id: 12,
+            original_title: "Origen",
+            original_body: "Hola desde la casa origen.",
+            hot_rank: 1,
+          },
+          {
+            id: 99,
+            original_title: "Otra noticia",
+            original_body: "Hola y casa en otra historia.",
+            hot_rank: 2,
+          },
+        ]);
+      }
+      if (cmd === "get_articles_reading_status_cmd") {
+        return Promise.resolve([]);
+      }
+      if (cmd === "get_unknown_words_cmd") {
+        const limit = args?.limit ?? 5;
+        if (limit === 50) return Promise.resolve([]);
+        return Promise.resolve(MOCK_WORDS);
+      }
+      if (cmd === "record_review_practice_cmd") {
+        return Promise.resolve({
+          streak: { extended: false, current: 1 },
+          daily_goal_just_met: false,
+          daily_goal: {
+            lessons_today: 2,
+            effective_lessons_today: 2,
+            target_lessons: 2,
+            goal_met: true,
+          },
+        });
+      }
+      return defaultInvoke(cmd, args);
+    });
+
+    const router = makeRouter();
+    await router.push({ path: "/vocab/review", query: { from: "reading" } });
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("在另一篇新闻里再遇这些词");
+    expect(wrapper.text()).toContain("Otra noticia");
+    expect(wrapper.text()).toContain("去读这篇");
+  });
+
   it("prioritizes reading-session words and shows highlighted context on flip", async () => {
     saveReadingSessionSummary({
       unknownCount: 1,

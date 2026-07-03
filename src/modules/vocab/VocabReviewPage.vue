@@ -323,9 +323,14 @@ import {
   remainingVocabReviewCount,
 } from "./vocabReviewContinuation.js";
 import {
+  mergeArticlesWithStatus,
+  pickBestArticleForLessonWords,
+} from "@/modules/news/lessonArticleMatch.js";
+import {
   buildPostVocabReviewPlan,
   isAiPracticeStep,
   isContinueReviewStep,
+  pickWordsForArticleMatch,
 } from "./postVocabReviewPlan.js";
 import {
   planHasAiPracticeStep,
@@ -401,6 +406,10 @@ const sessionWordCount = ref(0);
 const sessionContextMap = ref(new Map());
 const resumeTarget = ref(null);
 const newsUnreadCount = ref(0);
+const articleMatch = ref(null);
+const sourceArticleId = ref(null);
+const reviewedWordEntries = ref([]);
+const sessionRatings = ref(new Map());
 const planContextReady = ref(false);
 const openingAiPractice = ref(false);
 
@@ -511,6 +520,8 @@ const vocabReviewPlan = computed(() => {
     reviewedWords: reviewedWords.value,
     newsUnreadCount: newsUnreadCount.value,
     resumeTarget: resumeTarget.value,
+    articleMatch: articleMatch.value,
+    sourceArticleId: sourceArticleId.value,
   });
 });
 
@@ -677,6 +688,7 @@ async function load() {
         readingSessionMode.value = true;
         sessionWordCount.value = sessionWords.length;
         sessionContextMap.value = buildSessionContextMap(sessionWords);
+        sourceArticleId.value = resolveSourceArticleId(sessionWords);
         consumeReadingSessionWords();
       } else {
         const articleId = Number(route.query.articleId);
@@ -699,16 +711,19 @@ async function load() {
           readingSessionMode.value = true;
           sessionWordCount.value = sessionWords.length;
           sessionContextMap.value = buildSessionContextMap(sessionWords);
+          sourceArticleId.value = resolveSourceArticleId(sessionWords);
         } else {
           readingSessionMode.value = false;
           sessionWordCount.value = 0;
           sessionContextMap.value = new Map();
+          sourceArticleId.value = null;
         }
       }
     } else {
       readingSessionMode.value = false;
       sessionWordCount.value = 0;
       sessionContextMap.value = new Map();
+      sourceArticleId.value = null;
     }
 
     const fetchLimit = sessionWords.length
@@ -733,6 +748,9 @@ async function load() {
     continuing.value = false;
     resumeTarget.value = null;
     newsUnreadCount.value = 0;
+    articleMatch.value = null;
+    reviewedWordEntries.value = [];
+    sessionRatings.value = new Map();
     planContextReady.value = false;
     openingAiPractice.value = false;
     resetCard();
@@ -799,6 +817,9 @@ async function advanceAfterMark(mastery) {
       await updateWordMastery(userId.value, wordId, mastery, "vocab_flashcard");
     }
     if (mastery >= 2) masteredCount.value += 1;
+    if (currentWord.value?.word) {
+      sessionRatings.value.set(String(currentWord.value.word).toLowerCase(), mastery);
+    }
   } catch {
     // Still advance — local session should not block on a single failure.
   } finally {
@@ -828,6 +849,7 @@ async function finishReviewSession() {
   if (readingSessionMode.value) {
     clearPendingReadingVocab();
   }
+  reviewedWordEntries.value = snapshotReviewedWordEntries();
   reviewResult.value = await applyReviewStreak(userId.value, words.value.length, {
     sessionComplete: true,
     targetLanguage: targetLang.value,
@@ -880,19 +902,60 @@ function regionForLang(lang) {
   }
 }
 
-async function loadNewsUnread() {
+function resolveSourceArticleId(sessionWords = []) {
+  const fromQuery = Number(route.query.articleId);
+  if (Number.isFinite(fromQuery) && fromQuery > 0) return fromQuery;
+  for (const entry of sessionWords) {
+    if (entry?.articleId != null) return entry.articleId;
+  }
+  for (const entry of words.value) {
+    if (entry?.articleId != null) return entry.articleId;
+  }
+  return null;
+}
+
+function snapshotReviewedWordEntries() {
+  return words.value.map((entry) => ({
+    word: entry.word,
+    mastery:
+      sessionRatings.value.get(String(entry.word).toLowerCase()) ??
+      entry.mastery ??
+      null,
+    articleId: entry.articleId ?? null,
+  }));
+}
+
+async function loadPostReviewNewsContext(entries, excludeArticleId) {
   try {
     const articles = await getArticles(regionForLang(targetLang.value));
     if (!articles.length) {
       newsUnreadCount.value = 0;
+      articleMatch.value = null;
       return;
     }
     const ids = articles.map((article) => article.id).filter((id) => id != null);
     const rows = await getArticlesReadingStatus(userId.value, ids);
     const map = buildStatusMap(rows);
+    const merged = mergeArticlesWithStatus(articles, map);
     newsUnreadCount.value = countUnreadArticles(map, articles);
+
+    const reviewedWords = entries.map((entry) => entry.word).filter(Boolean);
+    const wordPool = pickWordsForArticleMatch({
+      reviewedWordEntries: entries,
+      reviewedWords,
+    });
+    if (wordPool.length < 2) {
+      articleMatch.value = null;
+      return;
+    }
+
+    articleMatch.value = pickBestArticleForLessonWords(merged, wordPool, {
+      minOverlap: 1,
+      excludeArticleId,
+    });
   } catch {
     newsUnreadCount.value = 0;
+    articleMatch.value = null;
   }
 }
 
@@ -905,10 +968,14 @@ async function loadPostReviewContext() {
       cefr.value,
     );
     resumeTarget.value = findCurrentSection(curriculum);
-    await loadNewsUnread();
+    await loadPostReviewNewsContext(
+      reviewedWordEntries.value,
+      sourceArticleId.value,
+    );
   } catch {
     resumeTarget.value = null;
     newsUnreadCount.value = 0;
+    articleMatch.value = null;
   } finally {
     planContextReady.value = true;
   }
