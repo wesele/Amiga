@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  SPEECH_RATE_NORMAL,
+  SPEECH_RATE_SLOW,
   WORD_SPEECH_AUTO_PLAY_MS,
   isSpeechSynthesisAvailable,
   shouldAutoPlayWordSpeech,
@@ -120,5 +122,32 @@ describe("wordSpeech", () => {
 
   it("exports a positive auto-play delay", () => {
     expect(WORD_SPEECH_AUTO_PLAY_MS).toBe(320);
+  });
+
+  it("assigns speech rate on utterances", async () => {
+    class MockUtterance {
+      constructor(text) {
+        this.text = text;
+        this.lang = "";
+        this.rate = 1;
+        this.onend = null;
+        this.onerror = null;
+      }
+    }
+    globalThis.SpeechSynthesisUtterance = MockUtterance;
+
+    const speechSynthesis = {
+      cancel: vi.fn(),
+      speak: vi.fn((utter) => utter.onend?.()),
+    };
+
+    await speakText(
+      { text: "hola", language: "es", rate: SPEECH_RATE_SLOW },
+      { speechSynthesis },
+    );
+    expect(speechSynthesis.speak.mock.calls[0][0].rate).toBe(SPEECH_RATE_SLOW);
+
+    await speakText({ text: "hola", language: "es" }, { speechSynthesis });
+    expect(speechSynthesis.speak.mock.calls[1][0].rate).toBe(SPEECH_RATE_NORMAL);
   });
 });

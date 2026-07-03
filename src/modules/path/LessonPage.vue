@@ -215,15 +215,12 @@
                 >
                   {{ line.text }}
                 </p>
-                <button
-                  v-if="canPlayMistakeAudio(item)"
-                  type="button"
-                  class="mistake-audio-btn"
-                  :disabled="mistakeAudioBusyKey === mistakeItemKey(item, idx)"
-                  @click.stop="playMistakeAudio(item, idx)"
-                >
-                  🔊 {{ t("path.playAudio") }}
-                </button>
+                <div v-if="canPlayMistakeAudio(item)" @click.stop>
+                  <QuestionAudioPanel
+                    :question="item.question"
+                    :auto-play="false"
+                  />
+                </div>
               </div>
             </li>
           </ul>
@@ -329,6 +326,15 @@
           {{ t("path.correctAnswer", { answer: correctAnswerText }) }}
         </p>
         <button
+          v-if="showListenReplay"
+          type="button"
+          class="listen-replay-btn"
+          :disabled="listenReplayBusy"
+          @click="replayListenAudio"
+        >
+          🔊 {{ t("path.replayAudioHint") }}
+        </button>
+        <button
           class="action-btn primary"
           :disabled="!canCheck"
           @click="onPrimaryAction"
@@ -351,6 +357,7 @@ import {
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
+import QuestionAudioPanel from "./components/QuestionAudioPanel.vue";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import PracticeQuestionTransition from "./components/PracticeQuestionTransition.vue";
 import { practiceQuestionKey } from "./practiceQuestionKey.js";
@@ -389,6 +396,7 @@ import {
   mistakeItemKey,
   mistakeSummaryLines,
 } from "./mistakeSummaryFeedback.js";
+import { shouldShowListenReplay } from "./listenReplayNudge.js";
 import { hasQuestionAudio, speakQuestionAudio } from "./questionAudio.js";
 import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 import {
@@ -490,7 +498,7 @@ const sessionMistakeIds = ref(new Set());
 const dueVocabAtStart = ref(0);
 const focusAreaAtStart = ref(null);
 const expandedMistakeKeys = ref(new Set());
-const mistakeAudioBusyKey = ref(null);
+const listenReplayBusy = ref(false);
 
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
@@ -935,7 +943,7 @@ function resetSession() {
   mistakes.value = [];
   sessionMistakeIds.value = new Set();
   expandedMistakeKeys.value = new Set();
-  mistakeAudioBusyKey.value = null;
+  listenReplayBusy.value = false;
   phase.value = LESSON_PHASE_MAIN;
   reinforcementQueue.value = [];
   reinforcementIndex.value = 0;
@@ -1217,16 +1225,21 @@ function canPlayMistakeAudio(item) {
   return hasQuestionAudio(item?.question);
 }
 
-async function playMistakeAudio(item, idx) {
-  const key = mistakeItemKey(item, idx);
-  if (!canPlayMistakeAudio(item) || mistakeAudioBusyKey.value === key) return;
-  mistakeAudioBusyKey.value = key;
+const showListenReplay = computed(() =>
+  shouldShowListenReplay({
+    showResult: showResult.value,
+    lastCorrect: lastCorrect.value,
+    question: currentQuestion.value,
+  }),
+);
+
+async function replayListenAudio() {
+  if (!currentQuestion.value || listenReplayBusy.value) return;
+  listenReplayBusy.value = true;
   try {
-    await speakQuestionAudio(item.question);
+    await speakQuestionAudio(currentQuestion.value);
   } finally {
-    if (mistakeAudioBusyKey.value === key) {
-      mistakeAudioBusyKey.value = null;
-    }
+    listenReplayBusy.value = false;
   }
 }
 
@@ -1967,22 +1980,25 @@ onMounted(load);
   line-height: 1.4;
 }
 
-.mistake-audio-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--white);
-  color: var(--text);
-  font-size: 13px;
+.mistake-body :deep(.audio-panel) {
+  margin-top: 8px;
+}
+
+.listen-replay-btn {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  border: 2px solid var(--blue);
+  border-radius: var(--radius-md);
+  background: var(--blue-bg);
+  color: var(--blue-hover);
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
 }
 
-.mistake-audio-btn:disabled {
-  opacity: 0.6;
+.listen-replay-btn:disabled {
+  opacity: 0.55;
   cursor: default;
 }
 

@@ -170,6 +170,15 @@
           {{ t("path.correctAnswer", { answer: correctAnswerText }) }}
         </p>
         <button
+          v-if="showListenReplay"
+          type="button"
+          class="listen-replay-btn"
+          :disabled="listenReplayBusy"
+          @click="replayListenAudio"
+        >
+          🔊 {{ t("path.replayAudioHint") }}
+        </button>
+        <button
           type="button"
           class="action-btn primary"
           :disabled="!canCheck"
@@ -225,6 +234,8 @@ import {
 } from "./mistakeReviewSrs.js";
 import { HINT_IDLE_MS, shouldScheduleAutoHint } from "./questionHintTimer.js";
 import { recordMistakesMastered } from "./mistakeMasteryStats.js";
+import { shouldShowListenReplay } from "./listenReplayNudge.js";
+import { speakQuestionAudio } from "./questionAudio.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import PracticeQuestionTransition from "./components/PracticeQuestionTransition.vue";
 import { practiceQuestionKey } from "./practiceQuestionKey.js";
@@ -284,6 +295,7 @@ const openingAiPractice = ref(false);
 const hintText = ref("");
 const hintShown = ref(false);
 const hintAutoRevealed = ref(false);
+const listenReplayBusy = ref(false);
 let hintIdleTimer = null;
 let autoAdvanceTimer = null;
 
@@ -364,6 +376,24 @@ const mistakeReviewPlan = computed(() => {
 const correctAnswerText = computed(() =>
   currentQuestion.value ? formatCorrectAnswer(currentQuestion.value) : "",
 );
+
+const showListenReplay = computed(() =>
+  shouldShowListenReplay({
+    showResult: showResult.value,
+    lastCorrect: lastCorrect.value,
+    question: currentQuestion.value,
+  }),
+);
+
+async function replayListenAudio() {
+  if (!currentQuestion.value || listenReplayBusy.value) return;
+  listenReplayBusy.value = true;
+  try {
+    await speakQuestionAudio(currentQuestion.value);
+  } finally {
+    listenReplayBusy.value = false;
+  }
+}
 
 const commonMistakeFeedback = computed(() => {
   if (!showResult.value || lastCorrect.value || !currentQuestion.value) return "";
@@ -918,6 +948,24 @@ onMounted(load);
 }
 
 .hint-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.listen-replay-btn {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  border: 2px solid var(--blue);
+  border-radius: var(--radius-md);
+  background: var(--blue-bg);
+  color: var(--blue-hover);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.listen-replay-btn:disabled {
   opacity: 0.55;
   cursor: default;
 }

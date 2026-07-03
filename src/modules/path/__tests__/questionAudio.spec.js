@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
+import { SPEECH_RATE_SLOW } from "@/shared/wordSpeech.js";
 import {
   AUDIO_QUESTION_TYPES,
   hasQuestionAudio,
+  isListenFirstQuestion,
   QUESTION_AUDIO_AUTO_PLAY_MS,
   shouldAutoPlayQuestionAudio,
   speakQuestionAudio,
@@ -74,5 +76,37 @@ describe("questionAudio", () => {
     expect(AUDIO_QUESTION_TYPES).toContain("T02");
     expect(AUDIO_QUESTION_TYPES).toContain("T08");
     expect(QUESTION_AUDIO_AUTO_PLAY_MS).toBeGreaterThan(0);
+  });
+
+  it("identifies listen-first question types", () => {
+    expect(isListenFirstQuestion({ type: "T02" })).toBe(true);
+    expect(isListenFirstQuestion({ type: "T08" })).toBe(true);
+    expect(isListenFirstQuestion({ type: "T09" })).toBe(false);
+    expect(isListenFirstQuestion(null)).toBe(false);
+  });
+
+  it("speaks question audio at a slower rate when requested", async () => {
+    class MockUtterance {
+      constructor(text) {
+        this.text = text;
+        this.lang = "";
+        this.rate = 1;
+        this.onend = null;
+        this.onerror = null;
+      }
+    }
+    globalThis.SpeechSynthesisUtterance = MockUtterance;
+
+    const speechSynthesis = {
+      cancel: vi.fn(),
+      speak: vi.fn((utter) => utter.onend?.()),
+    };
+
+    await speakQuestionAudio(
+      { type: "T08", language: "es", audioText: "Hola" },
+      { rate: SPEECH_RATE_SLOW, speechSynthesis },
+    );
+
+    expect(speechSynthesis.speak.mock.calls[0][0].rate).toBe(SPEECH_RATE_SLOW);
   });
 });

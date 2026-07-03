@@ -1,4 +1,10 @@
-import { speakText, speechLanguageCode } from "@/shared/wordSpeech.js";
+import {
+  SPEECH_RATE_NORMAL,
+  speakText,
+  speechLanguageCode,
+} from "@/shared/wordSpeech.js";
+
+export { SPEECH_RATE_NORMAL, SPEECH_RATE_SLOW } from "@/shared/wordSpeech.js";
 
 export { speechLanguageCode };
 
@@ -27,12 +33,16 @@ export function shouldAutoPlayQuestionAudio(question, { showResult = false } = {
  * Speak question audio via the Web Speech API.
  * Resolves to false when synthesis is unavailable or text is empty.
  */
+export function isListenFirstQuestion(question) {
+  return ["T02", "T08"].includes(question?.type);
+}
+
 export function speakQuestionAudio(
   question,
-  { speechSynthesis = globalThis.speechSynthesis } = {},
+  { rate = SPEECH_RATE_NORMAL, speechSynthesis = globalThis.speechSynthesis } = {},
 ) {
   return speakText(
-    { text: question?.audioText, language: question?.language },
+    { text: question?.audioText, language: question?.language, rate },
     { speechSynthesis },
   );
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="question-renderer">
+  <div class="question-renderer" :class="{ 'listen-first': listenFirst }">
     <p v-if="promptText" class="prompt">{{ promptText }}</p>
 
     <QuestionImage
@@ -10,15 +10,11 @@
       :alt="question.typeName"
     />
 
-    <button
+    <QuestionAudioPanel
       v-if="hasAudio"
-      type="button"
-      class="audio-btn"
-      :disabled="audioBusy"
-      @click="playAudio"
-    >
-      🔊 {{ t("path.playAudio") }}
-    </button>
+      :question="question"
+      :auto-play="shouldAutoPlayQuestionAudio(question, { showResult })"
+    />
 
     <div
       v-if="isChoiceType"
@@ -139,8 +135,9 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "@/shared/i18n";
+import QuestionAudioPanel from "./QuestionAudioPanel.vue";
 import QuestionImage from "./QuestionImage.vue";
 import {
   isCorrectReveal,
@@ -154,9 +151,8 @@ import {
 } from "../matchingRevealFeedback.js";
 import {
   hasQuestionAudio,
-  QUESTION_AUDIO_AUTO_PLAY_MS,
+  isListenFirstQuestion,
   shouldAutoPlayQuestionAudio,
-  speakQuestionAudio,
 } from "../questionAudio.js";
 import {
   isTextInputQuestionType,
@@ -172,7 +168,6 @@ const props = defineProps({
 
 const emit = defineEmits(["update:answer", "submit"]);
 const { t } = useI18n();
-const audioBusy = ref(false);
 const textInputEl = ref(null);
 const selectedLeft = ref(null);
 const selectedRight = ref(null);
@@ -214,6 +209,7 @@ const builtSentenceClass = computed(() =>
 );
 
 const hasAudio = computed(() => hasQuestionAudio(props.question));
+const listenFirst = computed(() => isListenFirstQuestion(props.question));
 
 const showMainImage = computed(() =>
   props.question.type === "T01" &&
@@ -224,7 +220,7 @@ const promptText = computed(() => {
   const q = props.question;
   if (q.type === "T05") return q.sentence?.replace(/_{2,}/, "______") || q.sentence;
   if (q.type === "T07") return q.sourceText;
-  if (q.type === "T08") return q.question || t("path.listenChoose");
+  if (q.type === "T08") return t("path.listenChoose");
   if (q.type === "T12") return q.scenario;
   if (q.type === "T09") return q.hint;
   if (q.type === "T10") return q.sourceText;
@@ -391,39 +387,6 @@ function focusTextInput() {
   nextTick(() => textInputEl.value?.focus());
 }
 
-let autoPlayTimer = null;
-
-function clearAutoPlayTimer() {
-  if (autoPlayTimer != null) {
-    clearTimeout(autoPlayTimer);
-    autoPlayTimer = null;
-  }
-}
-
-async function playAudio() {
-  if (!hasQuestionAudio(props.question)) return;
-  audioBusy.value = true;
-  try {
-    await speakQuestionAudio(props.question);
-  } finally {
-    audioBusy.value = false;
-  }
-}
-
-function scheduleAutoPlayAudio() {
-  clearAutoPlayTimer();
-  if (!shouldAutoPlayQuestionAudio(props.question, { showResult: props.showResult })) {
-    return;
-  }
-  autoPlayTimer = setTimeout(() => {
-    autoPlayTimer = null;
-    if (!shouldAutoPlayQuestionAudio(props.question, { showResult: props.showResult })) {
-      return;
-    }
-    void playAudio();
-  }, QUESTION_AUDIO_AUTO_PLAY_MS);
-}
-
 watch(
   () => props.question?.id,
   () => {
@@ -433,24 +396,9 @@ watch(
     textAnswer.value = "";
     emit("update:answer", isChoiceType.value ? null : props.question.type === "T03" ? [] : "");
     focusTextInput();
-    scheduleAutoPlayAudio();
   },
   { immediate: true },
 );
-
-watch(
-  () => props.showResult,
-  (showResult) => {
-    if (showResult) clearAutoPlayTimer();
-  },
-);
-
-onUnmounted(() => {
-  clearAutoPlayTimer();
-  if (typeof window !== "undefined" && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-  }
-});
 </script>
 
 <style scoped>
@@ -467,15 +415,11 @@ onUnmounted(() => {
   line-height: 1.45;
 }
 
-.audio-btn {
-  align-self: flex-start;
-  padding: 10px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--blue-bg);
-  color: var(--blue-hover);
+.question-renderer.listen-first .prompt {
+  text-align: center;
+  color: var(--text-light);
+  font-size: 15px;
   font-weight: 600;
-  cursor: pointer;
 }
 
 .options {
