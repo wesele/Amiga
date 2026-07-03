@@ -178,12 +178,19 @@
                 <span v-if="showNewsSourceBadge" class="flashcard-source-badge">
                   {{ t("vocab.reviewFromNews") }}
                 </span>
-                <p class="flashcard-example">
-                  <template v-for="(part, partIndex) in reviewContextParts" :key="partIndex">
-                    <mark v-if="part.highlight" class="flashcard-context-mark">{{ part.text }}</mark>
-                    <span v-else>{{ part.text }}</span>
-                  </template>
-                </p>
+                <div class="flashcard-example-row">
+                  <p class="flashcard-example">
+                    <template v-for="(part, partIndex) in reviewContextParts" :key="partIndex">
+                      <mark v-if="part.highlight" class="flashcard-context-mark">{{ part.text }}</mark>
+                      <span v-else>{{ part.text }}</span>
+                    </template>
+                  </p>
+                  <ContextSpeechControls
+                    :text="reviewContextText"
+                    :language="speechLanguage"
+                    :visible="flipped"
+                  />
+                </div>
                 <button
                   v-if="showContextRevisitLink"
                   type="button"
@@ -249,6 +256,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import ContextSpeechControls from "@/shared/components/ContextSpeechControls.vue";
 import WordSpeechButton from "@/shared/components/WordSpeechButton.vue";
 import {
   WORD_SPEECH_AUTO_PLAY_MS,
@@ -1432,8 +1440,17 @@ onUnmounted(() => {
   color: var(--blue);
 }
 
+.flashcard-example-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
 .flashcard-example {
   margin: 0;
+  flex: 1;
   font-size: 14px;
   line-height: 1.5;
   color: var(--text-secondary);

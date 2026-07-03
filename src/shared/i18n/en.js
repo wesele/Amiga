@@ -725,6 +725,9 @@ export default {
     reviewSessionComplete: "Reinforced {n} word(s) marked while reading",
     vocabMilestoneReached: "📚 {n} words mastered! Vocabulary milestone unlocked",
     playPronunciation: "Play pronunciation",
+    playContextSentence: "Play full example sentence",
+    playContextSentenceSlow: "Play example sentence slowly",
+    contextSpeechHint: "Listen to the full sentence to remember how the word sounds in context",
     pronunciationUnavailable: "Speech playback is not available on this device",
   },
 

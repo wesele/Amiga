@@ -92,13 +92,21 @@
             </div>
             <div v-if="contextLabel || contextText" class="micro-review-context">
               <p v-if="contextLabel" class="micro-review-context-label">{{ contextLabel }}</p>
-              <p v-if="contextParts.length" class="micro-review-example">
-                <template v-for="(part, idx) in contextParts" :key="idx">
-                  <mark v-if="part.highlight" class="micro-review-mark">{{ part.text }}</mark>
-                  <span v-else>{{ part.text }}</span>
-                </template>
-              </p>
-              <p v-else-if="contextText" class="micro-review-example">{{ contextText }}</p>
+              <div class="micro-review-example-row">
+                <p v-if="contextParts.length" class="micro-review-example">
+                  <template v-for="(part, idx) in contextParts" :key="idx">
+                    <mark v-if="part.highlight" class="micro-review-mark">{{ part.text }}</mark>
+                    <span v-else>{{ part.text }}</span>
+                  </template>
+                </p>
+                <p v-else-if="contextText" class="micro-review-example">{{ contextText }}</p>
+                <ContextSpeechControls
+                  ref="contextSpeechRef"
+                  :text="contextSpeechText"
+                  :language="speechLanguage"
+                  :visible="flipped"
+                />
+              </div>
             </div>
             <p class="micro-review-swipe-hint">{{ t("vocab.reviewSwipeHint") }}</p>
           </div>
@@ -138,10 +146,12 @@
 <script setup>
 import { computed, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "@/shared/i18n";
+import { contextSpeechTextFromParts } from "./contextSentenceSpeech.js";
 import {
   isMicroReviewSpeechTarget,
   shouldAutoPlayMicroReviewSpeech,
 } from "./microReviewSpeech.js";
+import ContextSpeechControls from "@/shared/components/ContextSpeechControls.vue";
 import {
   isSpeechSynthesisAvailable,
   SPEECH_RATE_NORMAL,
@@ -190,6 +200,11 @@ defineEmits([
 
 const { t } = useI18n();
 
+const contextSpeechRef = ref(null);
+const contextSpeechText = computed(() =>
+  contextSpeechTextFromParts(props.contextParts, props.contextText),
+);
+
 const speaking = ref(false);
 const slowSpeaking = ref(false);
 const speechBusy = computed(() => speaking.value || slowSpeaking.value);
@@ -211,6 +226,7 @@ function clearAutoPlayTimer() {
 
 function cancelSpeech() {
   clearAutoPlayTimer();
+  contextSpeechRef.value?.cancelSpeech?.();
   globalThis.speechSynthesis?.cancel();
   speaking.value = false;
   slowSpeaking.value = false;
@@ -462,8 +478,16 @@ onUnmounted(() => {
   color: var(--text-lighter);
 }
 
+.micro-review-example-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+}
+
 .micro-review-example {
   margin: 0;
+  flex: 1;
   font-size: 13px;
   line-height: 1.45;
   color: var(--text-light);

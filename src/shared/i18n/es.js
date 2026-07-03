@@ -725,6 +725,9 @@ export default {
     reviewSessionComplete: "Reforzaste {n} palabra(s) marcadas al leer",
     vocabMilestoneReached: "📚 ¡{n} palabras dominadas! Hito de vocabulario desbloqueado",
     playPronunciation: "Reproducir pronunciación",
+    playContextSentence: "Escuchar la oración completa",
+    playContextSentenceSlow: "Escuchar la oración despacio",
+    contextSpeechHint: "Escucha la oración completa para recordar cómo suena la palabra en contexto",
     pronunciationUnavailable: "La reproducción de voz no está disponible en este dispositivo",
   },
 

@@ -727,6 +727,9 @@ export default {
     reviewSessionComplete: "已巩固阅读中标记的 {n} 个词",
     vocabMilestoneReached: "📚 已掌握 {n} 个单词！词汇里程碑达成",
     playPronunciation: "播放发音",
+    playContextSentence: "听整句例句",
+    playContextSentenceSlow: "慢速听例句",
+    contextSpeechHint: "听整句，记住词在语境中的读法",
     pronunciationUnavailable: "当前设备不支持语音播放",
   },
 
