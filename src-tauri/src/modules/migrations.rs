@@ -91,6 +91,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add personal reading context columns to user_vocab",
             MIGRATION_V21,
         ),
+        (
+            22,
+            "Add news_title_translation_cache for native-language headline previews",
+            MIGRATION_V22,
+        ),
     ]
 }
 
@@ -404,4 +409,14 @@ ALTER TABLE news_reading_log ADD COLUMN comprehension_answers_json TEXT;
 const MIGRATION_V21: &str = r#"
 ALTER TABLE user_vocab ADD COLUMN context_sentence TEXT;
 ALTER TABLE user_vocab ADD COLUMN context_article_id INTEGER;
+"#;
+
+const MIGRATION_V22: &str = r#"
+CREATE TABLE IF NOT EXISTS news_title_translation_cache (
+    article_id INTEGER NOT NULL REFERENCES news_articles(id) ON DELETE CASCADE,
+    native_lang TEXT NOT NULL,
+    title_translation TEXT NOT NULL,
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (article_id, native_lang)
+);
 "#;

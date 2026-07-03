@@ -133,6 +133,8 @@ export function createApiClient(invoke) {
     getReadArticleCount: (userId) => call("get_read_article_count_cmd", { userId }),
     getArticlesReadingStatus: (userId, articleIds) =>
       call("get_articles_reading_status_cmd", { userId, articleIds }),
+    getArticleTitleTranslations: (articleIds, sourceLang, nativeLang) =>
+      call("get_article_title_translations_cmd", { articleIds, sourceLang, nativeLang }),
     getComprehensionQuiz: (articleId, cefrLevel, nativeLang, targetLang) =>
       call("get_comprehension_quiz_cmd", { articleId, cefrLevel, nativeLang, targetLang }),
 
@@ -278,6 +280,8 @@ export const saveReadingLog = (...args) => defaultApiClient.saveReadingLog(...ar
 export const getReadArticleCount = (...args) => defaultApiClient.getReadArticleCount(...args);
 export const getArticlesReadingStatus = (...args) =>
   defaultApiClient.getArticlesReadingStatus(...args);
+export const getArticleTitleTranslations = (...args) =>
+  defaultApiClient.getArticleTitleTranslations(...args);
 export const getComprehensionQuiz = (...args) =>
   defaultApiClient.getComprehensionQuiz(...args);
 

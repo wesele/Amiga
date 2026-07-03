@@ -64,16 +64,20 @@
           {{ article.hot_rank }}
         </div>
         <div class="card-body">
-          <div class="card-title-row">
+          <div class="card-title-block">
             <h3 class="card-title">{{ article.original_title }}</h3>
+            <p v-if="titlePreviewFor(article).show" class="card-title-native">
+              {{ titlePreviewFor(article).text }}
+            </p>
+            <div v-else-if="titlePreviewFor(article).loading" class="card-title-native skeleton-bar" />
+          </div>
+          <div class="card-meta">
             <span v-if="cardStateFor(article).readBadge" class="badge-read">
               {{ t(`news.${cardStateFor(article).readBadge}`) }}
             </span>
             <span v-else-if="cardStateFor(article).progressLine" class="badge-in-progress">
               {{ t(`news.${cardStateFor(article).progressLine.key}`, { pct: cardStateFor(article).progressLine.pct }) }}
             </span>
-          </div>
-          <div class="card-meta">
             <span v-if="article.rewritten_body" class="badge-rewritten">{{ t('news.aiRewritten') }}</span>
             <span v-else class="badge-raw">{{ t('news.raw') }}</span>
             <span
@@ -162,9 +166,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed } from "vue";
+import { ref, onMounted, onBeforeUnmount, computed, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticles, fetchNews, getCurrentUser, getArticlesReadingStatus, lookupWordsMastery } from "@/shared/api.js";
+import {
+  getArticles,
+  fetchNews,
+  getCurrentUser,
+  getArticlesReadingStatus,
+  getArticleTitleTranslations,
+  lookupWordsMastery,
+} from "@/shared/api.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { openSourceUrl } from "./utils.js";
 import { consumeReadingSessionSummary, consumeReadingProgressToast } from "./readingSession.js";
@@ -181,6 +192,7 @@ import {
   collectUnknownWordsFromStatusMap,
 } from "./newsReadingStatus.js";
 import { sortArticlesWithInProgressFirst } from "./readingProgress.js";
+import { buildTitleTranslationMap, titlePreviewState } from "./titleTranslation.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -197,6 +209,9 @@ const readingSummary = ref(null);
 const pendingVocabBanner = ref(null);
 const statusMap = ref(new Map());
 const dueWordKeys = ref(new Set());
+const titleTranslationMap = ref(new Map());
+const titleTranslationsLoading = ref(false);
+const titleTranslationsFailed = ref(false);
 const userCefr = ref("A1");
 let statusTimer = null;
 let userId = "";
@@ -235,6 +250,13 @@ function cardStateFor(article) {
   });
 }
 
+function titlePreviewFor(article) {
+  return titlePreviewState(article, titleTranslationMap.value, {
+    loading: titleTranslationsLoading.value,
+    failed: titleTranslationsFailed.value,
+  });
+}
+
 onMounted(async () => {
   readingSummary.value = consumeReadingSessionSummary();
   const pendingVocab = peekPendingReadingVocab();
@@ -266,6 +288,7 @@ onMounted(async () => {
   // React to language switches from any other page (Profile).
   unsubLang = eventBus.on(TARGET_LANG_CHANGED, async () => {
     articles.value = [];
+    titleTranslationMap.value = new Map();
     try {
       const ctx = await loadLearningContext({ targetLangStore });
       userCefr.value = ctx.cefr;
@@ -279,6 +302,12 @@ onMounted(async () => {
   });
   unsubCefr = eventBus.on(CEFR_LEVEL_CHANGED, ({ cefr }) => {
     if (cefr) userCefr.value = cefr;
+  });
+  watch(locale, async () => {
+    titleTranslationMap.value = new Map();
+    if (articles.value.length) {
+      await loadTitleTranslations(articles.value);
+    }
   });
 });
 
@@ -295,11 +324,32 @@ async function loadArticles() {
     const loadedArticles = await getArticles(region);
     await loadReadingStatus(loadedArticles);
     articles.value = sortArticlesWithInProgressFirst(loadedArticles, statusMap.value);
+    void loadTitleTranslations(loadedArticles);
   } catch (e) {
     console.error("Failed to load articles:", e);
     articles.value = [];
     statusMap.value = new Map();
     dueWordKeys.value = new Set();
+    titleTranslationMap.value = new Map();
+  }
+}
+
+async function loadTitleTranslations(loadedArticles) {
+  const ids = loadedArticles.map((article) => article.id).filter((id) => id != null);
+  if (!ids.length) {
+    titleTranslationMap.value = new Map();
+    return;
+  }
+  titleTranslationsLoading.value = true;
+  titleTranslationsFailed.value = false;
+  try {
+    const rows = await getArticleTitleTranslations(ids, targetLang.value, locale.value);
+    titleTranslationMap.value = buildTitleTranslationMap(rows);
+  } catch (e) {
+    console.error("Failed to load title translations:", e);
+    titleTranslationsFailed.value = true;
+  } finally {
+    titleTranslationsLoading.value = false;
   }
 }
 
@@ -641,11 +691,7 @@ function formatSource(source) {
   min-width: 0;
 }
 
-.card-title-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
+.card-title-block {
   margin-bottom: 8px;
 }
 
@@ -665,6 +711,36 @@ function formatSource(source) {
 
 .article-card.is-read .card-title {
   color: var(--text-light);
+}
+
+.card-title-native {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--text-light);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.article-card.is-read .card-title-native {
+  color: var(--text-lighter);
+}
+
+.card-title-native.skeleton-bar {
+  height: 14px;
+  width: 72%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--surface-variant) 25%, var(--surface) 50%, var(--surface-variant) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .card-meta {

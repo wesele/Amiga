@@ -256,6 +256,15 @@ describe("API module", () => {
       expect(mockInvoke).toHaveBeenCalledWith("get_bilingual_cmd", { articleId: 1, sourceLang: "es", nativeLang: "zh" });
     });
 
+    it("getArticleTitleTranslations calls invoke with articleIds, sourceLang and nativeLang", () => {
+      api.getArticleTitleTranslations([1, 2], "es", "zh");
+      expect(mockInvoke).toHaveBeenCalledWith("get_article_title_translations_cmd", {
+        articleIds: [1, 2],
+        sourceLang: "es",
+        nativeLang: "zh",
+      });
+    });
+
     it("translateText calls invoke with text, sourceLang and nativeLang", () => {
       api.translateText("Hola mundo", "es", "zh");
       expect(mockInvoke).toHaveBeenCalledWith("translate_text_cmd", { text: "Hola mundo", sourceLang: "es", nativeLang: "zh" });

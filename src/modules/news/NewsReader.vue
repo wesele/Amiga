@@ -522,6 +522,7 @@ import {
   getArticlesReadingStatus,
   getPathCurriculum,
   getComprehensionQuiz,
+  getArticleTitleTranslations,
 } from "@/shared/api.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 import { findCurrentSection } from "@/modules/learn/pathResume.js";
@@ -1402,11 +1403,18 @@ async function loadBilingual() {
     refreshEvidenceOnTokens();
     const result = await getBilingual(Number(props.id), targetLang, getLocale());
     translations.value = result;
-    // Translate title
     const title = article.value?.original_title || "";
     if (title) {
       try {
-        titleTranslation.value = await translateText(title, targetLang, getLocale());
+        const rows = await getArticleTitleTranslations(
+          [Number(props.id)],
+          targetLang,
+          getLocale(),
+        );
+        titleTranslation.value = rows?.[0]?.title_translation || "";
+        if (!titleTranslation.value) {
+          titleTranslation.value = await translateText(title, targetLang, getLocale());
+        }
       } catch (_) {
         titleTranslation.value = "";
       }

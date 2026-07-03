@@ -211,6 +211,49 @@ mod tests {
     }
 
     #[test]
+    fn test_title_translation_cache_roundtrip() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let aid = insert_test_article(&conn, "Titulo en espanol", "world");
+        drop(conn);
+
+        assert!(get_title_translation_cache(&pool, aid, "zh")
+            .unwrap()
+            .is_none());
+
+        save_title_translation_cache(&pool, aid, "zh", "西班牙语标题").unwrap();
+        let cached = get_title_translation_cache(&pool, aid, "zh").unwrap();
+        assert_eq!(cached, Some("西班牙语标题".to_string()));
+
+        assert!(get_title_translation_cache(&pool, aid, "en")
+            .unwrap()
+            .is_none());
+        save_title_translation_cache(&pool, aid, "en", "Spanish headline").unwrap();
+        assert_eq!(
+            get_title_translation_cache(&pool, aid, "zh").unwrap(),
+            Some("西班牙语标题".to_string())
+        );
+    }
+
+    #[test]
+    fn test_get_title_translations_batch_partial_hit() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let a1 = insert_test_article(&conn, "Article One", "world");
+        let a2 = insert_test_article(&conn, "Article Two", "world");
+        drop(conn);
+
+        save_title_translation_cache(&pool, a1, "zh", "文章一").unwrap();
+
+        let rows = get_title_translations_batch(&pool, &[a1, a2], "zh").unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].article_id, a1);
+        assert_eq!(rows[0].title_translation, "文章一");
+
+        assert!(get_title_translations_batch(&pool, &[], "zh").unwrap().is_empty());
+    }
+
+    #[test]
     fn test_bilingual_cache_roundtrip() {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
@@ -1044,6 +1087,150 @@ pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(),
         log_entry.article_id
     );
     Ok(())
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TitleTranslationRow {
+    pub article_id: i32,
+    pub title_translation: String,
+}
+
+/// Get cached native-language title translation for one article.
+pub fn get_title_translation_cache(
+    db: &DatabasePool,
+    article_id: i32,
+    native_lang: &str,
+) -> Result<Option<String>, String> {
+    let conn = db.conn()?;
+    let result = conn
+        .query_row(
+            "SELECT title_translation FROM news_title_translation_cache
+             WHERE article_id = ?1 AND native_lang = ?2",
+            params![article_id, native_lang],
+            |row| row.get(0),
+        )
+        .ok()
+        .flatten();
+    Ok(result)
+}
+
+/// Save native-language title translation for one article.
+pub fn save_title_translation_cache(
+    db: &DatabasePool,
+    article_id: i32,
+    native_lang: &str,
+    title_translation: &str,
+) -> Result<(), String> {
+    let conn = db.conn()?;
+    conn.execute(
+        "INSERT INTO news_title_translation_cache (article_id, native_lang, title_translation, fetched_at)
+         VALUES (?1, ?2, ?3, datetime('now'))
+         ON CONFLICT(article_id, native_lang) DO UPDATE SET
+         title_translation = excluded.title_translation,
+         fetched_at = datetime('now')",
+        params![article_id, native_lang, title_translation],
+    )
+    .map_err(|e| format!("Failed to save title translation cache: {}", e))?;
+    Ok(())
+}
+
+/// Read cached title translations for a batch of articles.
+pub fn get_title_translations_batch(
+    db: &DatabasePool,
+    article_ids: &[i32],
+    native_lang: &str,
+) -> Result<Vec<TitleTranslationRow>, String> {
+    if article_ids.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let conn = db.conn()?;
+    let placeholders = std::iter::repeat("?")
+        .take(article_ids.len())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT article_id, title_translation FROM news_title_translation_cache
+         WHERE native_lang = ?1 AND article_id IN ({})",
+        placeholders
+    );
+
+    let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(native_lang.to_string())];
+    for id in article_ids {
+        params.push(Box::new(*id));
+    }
+
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|e| format!("Failed to prepare title translation batch query: {}", e))?;
+    let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    let rows = stmt
+        .query_map(param_refs.as_slice(), |row| {
+            Ok(TitleTranslationRow {
+                article_id: row.get(0)?,
+                title_translation: row.get(1)?,
+            })
+        })
+        .map_err(|e| format!("Failed to query title translation batch: {}", e))?;
+
+    let mut results = Vec::new();
+    for row in rows {
+        results.push(row.map_err(|e| format!("Failed to read title translation row: {}", e))?);
+    }
+    Ok(results)
+}
+
+/// Return native-language title translations, using cache and translating misses.
+pub async fn fetch_article_title_translations(
+    llm: &crate::modules::llm::LlmClient,
+    db: &DatabasePool,
+    article_ids: &[i32],
+    source_lang: &str,
+    native_lang: &str,
+) -> Result<Vec<TitleTranslationRow>, String> {
+    use crate::modules::translation as translation_mod;
+
+    if article_ids.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let cached = get_title_translations_batch(db, article_ids, native_lang)?;
+    let mut cached_by_id: std::collections::HashMap<i32, String> = cached
+        .into_iter()
+        .map(|row| (row.article_id, row.title_translation))
+        .collect();
+
+    let mut results = Vec::new();
+    for &article_id in article_ids {
+        if let Some(title_translation) = cached_by_id.get(&article_id) {
+            results.push(TitleTranslationRow {
+                article_id,
+                title_translation: title_translation.clone(),
+            });
+            continue;
+        }
+
+        let article = get_article(db, article_id)?;
+        let title = article.original_title.trim();
+        if title.is_empty() {
+            continue;
+        }
+
+        let title_translation =
+            translation_mod::translate_text(llm, db, title, source_lang, native_lang).await?;
+        if title_translation.trim().is_empty() {
+            continue;
+        }
+
+        save_title_translation_cache(db, article_id, native_lang, &title_translation)?;
+        cached_by_id.insert(article_id, title_translation.clone());
+        results.push(TitleTranslationRow {
+            article_id,
+            title_translation,
+        });
+    }
+
+    Ok(results)
 }
 
 /// Get bilingual cache for an article, scoped to the user's native language.

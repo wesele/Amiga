@@ -10,6 +10,7 @@ vi.mock("@tauri-apps/plugin-shell", () => ({ open: vi.fn() }));
 vi.mock("@/shared/api.js", () => ({
   getArticles: vi.fn().mockResolvedValue([]),
   getArticlesReadingStatus: vi.fn().mockResolvedValue([]),
+  getArticleTitleTranslations: vi.fn().mockResolvedValue([]),
   lookupWordsMastery: vi.fn().mockResolvedValue([]),
   getCurrentUser: vi.fn().mockResolvedValue({ id: "u1", native_language: "zh" }),
   fetchNews: vi.fn().mockResolvedValue([]),
@@ -450,6 +451,51 @@ describe("NewsList reading status badges", () => {
       from: "reading",
       articleId: "1",
     });
+  });
+});
+
+describe("NewsList native title preview", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders card-title-native when translations are available", async () => {
+    const api = await import("@/shared/api.js");
+    api.getArticleTitleTranslations.mockResolvedValue([
+      { article_id: 1, title_translation: "示例标题一" },
+      { article_id: 2, title_translation: "示例标题二" },
+    ]);
+
+    const { wrapper } = await mountList();
+    const cardOne = cardByTitle(wrapper, "Sample headline one");
+    const cardTwo = cardByTitle(wrapper, "Sample headline two");
+    expect(cardOne.find(".card-title-native").text()).toBe("示例标题一");
+    expect(cardTwo.find(".card-title-native").text()).toBe("示例标题二");
+    expect(api.getArticleTitleTranslations).toHaveBeenCalledWith([1, 2], "es", "zh");
+  });
+
+  it("shows skeleton bar while title translations are loading", async () => {
+    const api = await import("@/shared/api.js");
+    const wait = deferred();
+    api.getArticleTitleTranslations.mockImplementationOnce(() => wait.promise);
+
+    const { wrapper } = await mountList();
+    await flushPromises();
+    expect(wrapper.findAll(".card-title-native.skeleton-bar").length).toBeGreaterThan(0);
+
+    wait.resolve([]);
+    await flushPromises();
+    expect(wrapper.find(".card-title-native.skeleton-bar").exists()).toBe(false);
+  });
+
+  it("moves read/progress badges into card-meta instead of title row", () => {
+    const vue = read("src/modules/news/NewsList.vue");
+    expect(vue).toMatch(/class="card-title-block"/);
+    expect(vue).toMatch(/class="card-title-native"/);
+    const metaBlock = vue.match(/<div class="card-meta">[\s\S]*?<\/div>/);
+    expect(metaBlock[0]).toMatch(/badge-read/);
+    expect(metaBlock[0]).toMatch(/badge-in-progress/);
+    expect(vue).not.toMatch(/card-title-row/);
   });
 });
 

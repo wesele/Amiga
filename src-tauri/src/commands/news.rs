@@ -57,6 +57,24 @@ pub async fn get_articles_reading_status_cmd(
 }
 
 #[tauri::command]
+pub async fn get_article_title_translations_cmd(
+    db: State<'_, DatabasePool>,
+    llm: State<'_, LlmState>,
+    article_ids: Vec<i32>,
+    source_lang: String,
+    native_lang: String,
+) -> Result<Vec<news_mod::TitleTranslationRow>, String> {
+    news_mod::fetch_article_title_translations(
+        &llm.client,
+        &db,
+        &article_ids,
+        &source_lang,
+        &native_lang,
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn get_comprehension_quiz_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,
