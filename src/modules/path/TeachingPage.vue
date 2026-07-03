@@ -120,14 +120,37 @@
           <section class="teach-section">
             <h3>{{ t("path.vocabIntro") }}</h3>
             <p class="vocab-hint">{{ t("path.tapToReveal") }}</p>
-            <div class="word-paragraph" v-if="teachingWords.length > 0">
-              <template v-for="(w, idx) in teachingWords" :key="w.word + idx">
-                <span
-                  class="word-chip"
-                  :class="chipClass(w.mastery)"
-                  @click="onWordTap(w)"
-                >{{ w.word }}</span><template v-if="idx < teachingWords.length - 1">, </template>
-              </template>
+            <div
+              class="mastery-legend"
+              role="note"
+              :aria-label="t('path.vocabMasteryLegend')"
+            >
+              <span class="legend-item">
+                <span class="legend-dot unseen" aria-hidden="true" />
+                {{ t("path.masteryUnseen") }}
+              </span>
+              <span class="legend-item">
+                <span class="legend-dot seen" aria-hidden="true" />
+                {{ t("path.masterySeen") }}
+              </span>
+              <span class="legend-item">
+                <span class="legend-dot mastered" aria-hidden="true" />
+                {{ t("path.masteryMastered") }}
+              </span>
+            </div>
+            <div v-if="teachingWords.length > 0" class="word-grid">
+              <button
+                v-for="(w, idx) in teachingWords"
+                :key="w.word + idx"
+                type="button"
+                class="word-chip"
+                :class="chipClass(w.mastery)"
+                :aria-label="`${w.word}, ${masteryLabel(w.mastery)}`"
+                @click="onWordTap(w)"
+              >
+                {{ w.word }}
+                <span v-if="w.mastery >= 2" class="chip-check" aria-hidden="true">✓</span>
+              </button>
             </div>
             <div v-else class="empty-vocab">{{ t("path.noVocabWords") }}</div>
           </section>
@@ -311,6 +334,13 @@ function chipClass(mastery) {
   if (mastery >= 2) return "chip-mastered";
   if (mastery === 1) return "chip-seen";
   return "chip-unseen";
+}
+
+function masteryLabel(mastery) {
+  if (mastery === undefined || mastery === null) return t("path.masteryUnseen");
+  if (mastery >= 2) return t("path.masteryMastered");
+  if (mastery === 1) return t("path.masterySeen");
+  return t("path.masteryUnseen");
 }
 
 function onWordTap(w) {
@@ -653,32 +683,94 @@ onMounted(load);
 }
 
 .vocab-hint {
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   font-size: 13px;
   color: var(--text-light);
 }
 
-.word-paragraph {
-  font-size: 17px;
-  line-height: 2.4;
-  color: var(--text);
-  user-select: text;
+.mastery-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-dot.unseen {
+  background: var(--text-light);
+}
+
+.legend-dot.seen {
+  background: var(--blue);
+}
+
+.legend-dot.mastered {
+  background: var(--green);
+}
+
+.word-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .word-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: var(--white);
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  padding: 2px 1px;
-  border-radius: 3px;
-  transition: background 0.1s;
+  transition: background 0.1s, border-color 0.1s;
 }
 
-.word-chip:hover {
-  background: var(--purple-bg);
+.word-chip:active {
+  transform: scale(0.98);
 }
 
-.chip-unseen { color: var(--text); }
-.chip-seen { color: var(--blue); font-weight: 600; }
-.chip-mastered { color: var(--green); font-weight: 700; }
+.chip-unseen {
+  color: var(--text);
+  border-color: var(--border);
+  background: var(--white);
+}
+
+.chip-seen {
+  color: var(--blue);
+  border-color: var(--blue);
+  background: var(--blue-bg);
+}
+
+.chip-mastered {
+  color: var(--green);
+  border-color: var(--green);
+  background: var(--green-bg);
+}
+
+.chip-check {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
 
 .empty-vocab {
   font-size: 14px;
@@ -834,7 +926,9 @@ onMounted(load);
 }
 
 .summary-word-chip {
-  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 14px;
   border-radius: 999px;
   background: var(--white);
   border: 2px solid var(--border);

@@ -242,13 +242,18 @@ describe("TeachingPage vocab list", () => {
     });
   });
 
-  it("renders words as colored chips in paragraph layout", async () => {
+  it("renders words as colored chips in grid layout with mastery legend", async () => {
     const wrapper = await mountVocabTeachingPage(mockInvoke);
-    expect(wrapper.find(".word-paragraph").exists()).toBe(true);
+    expect(wrapper.find(".word-grid").exists()).toBe(true);
+    expect(wrapper.find(".word-paragraph").exists()).toBe(false);
+    expect(wrapper.find(".mastery-legend").exists()).toBe(true);
+    expect(wrapper.text()).toContain("新词");
+    expect(wrapper.text()).toContain("见过");
+    expect(wrapper.text()).toContain("已掌握");
     expect(wrapper.findAll(".word-chip")).toHaveLength(3);
-    expect(wrapper.find(".chip-unseen").text()).toBe("hola");
-    expect(wrapper.find(".chip-seen").text()).toBe("adiós");
-    expect(wrapper.find(".chip-mastered").text()).toBe("gracias");
+    expect(wrapper.find(".chip-unseen").text()).toContain("hola");
+    expect(wrapper.find(".chip-seen").text()).toContain("adiós");
+    expect(wrapper.find(".chip-mastered").text()).toContain("gracias");
   });
 
   it("opens WordPopup when a word chip is tapped", async () => {
