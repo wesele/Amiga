@@ -271,6 +271,8 @@ export const saveReadingLog = (...args) => defaultApiClient.saveReadingLog(...ar
 export const getReadArticleCount = (...args) => defaultApiClient.getReadArticleCount(...args);
 export const getArticlesReadingStatus = (...args) =>
   defaultApiClient.getArticlesReadingStatus(...args);
+export const getComprehensionQuiz = (...args) =>
+  defaultApiClient.getComprehensionQuiz(...args);
 
 // --- LLM ---
 export const rewriteArticle = (...args) => defaultApiClient.rewriteArticle(...args);
