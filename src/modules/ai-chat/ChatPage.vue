@@ -116,6 +116,8 @@
       :translate-button-y="translateButtonY"
       :translate-label="t('news.translate')"
       :loading-label="t('news.translating')"
+      :known-label="t('popup.known')"
+      :unknown-label="t('popup.unknown')"
       @clear="clearSelection"
       @translate="onTranslateButtonClick"
     />

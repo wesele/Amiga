@@ -563,6 +563,8 @@ export default {
     vocabLegendNew: "生词",
     wordMarkedUnknown: "已加入生词本，将在单词复习中出现",
     wordMarkedKnown: "已标记为掌握",
+    phraseMarkedUnknown: "已加入复习，这个搭配会在词汇复习中出现",
+    phraseMarkedKnown: "已标记为掌握",
     readingSummary: "本次阅读新标记 {n} 个生词",
     readingSummaryAction: "去复习",
     reviewSessionCta: "复习本次 {n} 个生词",

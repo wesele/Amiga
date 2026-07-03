@@ -38,4 +38,24 @@ describe("vocabReviewContext", () => {
       { text: " cambió la frontera.", highlight: false },
     ]);
   });
+
+  it("highlights multi-word phrases as a substring", () => {
+    const parts = highlightWordInContext(
+      "La tasa de interés subió ayer en España.",
+      "tasa de interés",
+    );
+    expect(parts).toEqual([
+      { text: "La ", highlight: false },
+      { text: "tasa de interés", highlight: true },
+      { text: " subió ayer en España.", highlight: false },
+    ]);
+  });
+
+  it("highlights phrases with accented characters", () => {
+    const parts = highlightWordInContext(
+      "Pidió asilo político en la frontera.",
+      "asilo político",
+    );
+    expect(parts.some((part) => part.highlight && part.text === "asilo político")).toBe(true);
+  });
 });

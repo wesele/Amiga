@@ -106,13 +106,18 @@
       :selection-result="selectionResult"
       :selection-loading="selectionLoading"
       :selection-error="selectionError"
+      :show-actions="phraseActionsVisible"
       :show-translate-button="showTranslateButton"
       :translate-button-x="translateButtonX"
       :translate-button-y="translateButtonY"
       :translate-label="t('news.translate')"
       :loading-label="t('news.translating')"
+      :known-label="t('popup.known')"
+      :unknown-label="t('popup.unknown')"
       @clear="clearSelection"
       @translate="onTranslateButtonClick"
+      @known="onPhraseKnown"
+      @unknown="onPhraseUnknown"
     />
 
     <!-- Word mastery toast -->
@@ -350,6 +355,7 @@ import { loadLearningContext } from "@/shared/learningContext.js";
 import { extractWordTexts, tokenizeArticleText, applyMasteryToTokens } from "./articleText.js";
 import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
+import { buildPhraseVocabEntry, isPhraseMarkable, phraseKey } from "./phraseVocabMark.js";
 import { buildMasteryMap, resolveWordClass as resolveWordMasteryClass, wordKey } from "./wordMastery.js";
 import { saveReadingSessionSummary, saveReadingProgressToast } from "./readingSession.js";
 import {
@@ -484,6 +490,7 @@ function onSingleWordSelected(text) {
 
 const {
   selectionText,
+  selectionContext,
   selectionResult,
   selectionLoading,
   selectionError,
@@ -500,10 +507,19 @@ const {
   translateText,
   getTargetLang: () => targetLang,
   getNativeLang: () => getLocale(),
+  getArticleText: () => article.value?.rewritten_body || article.value?.original_body || "",
   t,
   getSelectionRoot: () => articleBodyRef.value,
   onSingleWordSelected: onSingleWordSelected,
 });
+
+const phraseActionsVisible = computed(
+  () =>
+    isPhraseMarkable(selectionText.value) &&
+    !!selectionResult.value &&
+    !selectionLoading.value &&
+    !selectionError.value,
+);
 
 const completionElapsedSec = computed(() =>
   Math.round((Date.now() - startTime.value) / 1000),
@@ -567,15 +583,23 @@ const readingPlan = computed(() => {
 
 const microReviewCard = computed(() => microReviewQueue.value[microReviewIndex.value] ?? null);
 
-const microReviewDefinition = computed(() =>
-  vocabDefinition(microReviewCard.value, getLocale()),
-);
+const microReviewDefinition = computed(() => {
+  const card = microReviewCard.value;
+  if (!card?.word) return "";
+  const sessionEntry = sessionWordsRef.value.find(
+    (entry) => phraseKey(entry.word) === phraseKey(card.word),
+  );
+  return (
+    sessionEntry?.translation ||
+    vocabDefinition(card, getLocale())
+  );
+});
 
 const microReviewContextParts = computed(() => {
   const card = microReviewCard.value;
   if (!card?.word) return [];
   const sessionEntry = sessionWordsRef.value.find(
-    (entry) => entry.word.toLowerCase() === card.word.toLowerCase(),
+    (entry) => phraseKey(entry.word) === phraseKey(card.word),
   );
   const context = sessionEntry?.context || card.example || "";
   return highlightWordInContext(context, card.word);
@@ -1047,18 +1071,30 @@ async function onWordKnown() {
   selectedWord.value = null;
 }
 
-function upsertSessionWord(wordText, context) {
-  const articleId = article.value?.id;
-  const key = wordText.toLowerCase();
-  const entry = { word: wordText, context, articleId };
+function upsertSessionWord(wordText, context, translation = "") {
+  const entry = buildPhraseVocabEntry({
+    phrase: wordText,
+    translation,
+    articleId: article.value?.id,
+    contextSentence: context,
+  });
+  const key = phraseKey(wordText);
   const existingIndex = sessionWordsRef.value.findIndex(
-    (item) => item.word.toLowerCase() === key,
+    (item) => phraseKey(item.word) === key,
   );
   if (existingIndex >= 0) {
     sessionWordsRef.value[existingIndex] = entry;
   } else {
     sessionWordsRef.value.push(entry);
   }
+}
+
+function isInUnknownSet(wordText) {
+  const key = phraseKey(wordText);
+  for (const word of wordsUnknownSet.value) {
+    if (phraseKey(word) === key) return true;
+  }
+  return false;
 }
 
 function buildSessionPayload() {
@@ -1068,11 +1104,74 @@ function buildSessionPayload() {
   };
 }
 
+async function onPhraseKnown() {
+  if (!isPhraseMarkable(selectionText.value)) return;
+  await markPhraseVocab({
+    phrase: selectionText.value,
+    context: selectionContext.value,
+    translation: selectionResult.value,
+    known: true,
+  });
+}
+
+async function onPhraseUnknown() {
+  if (!isPhraseMarkable(selectionText.value)) return;
+  await markPhraseVocab({
+    phrase: selectionText.value,
+    context: selectionContext.value,
+    translation: selectionResult.value,
+    known: false,
+  });
+}
+
+async function markPhraseVocab({ phrase, context, translation, known }) {
+  const phraseText = String(phrase || "").trim();
+  if (!phraseText || !isPhraseMarkable(phraseText)) return;
+
+  knownWordIds.value.add(phraseText);
+
+  if (known) {
+    wordsKnownSet.value.add(phraseText);
+    try {
+      const ids = await lookupWordIds([phraseText], targetLang);
+      if (ids.length > 0) {
+        await updateWordMastery(userId, ids[0], 2, "news_reading");
+      } else {
+        const newId = await addDiscoveredWord(userId, phraseText, targetLang, context);
+        await updateWordMastery(userId, newId, 2, "news_reading");
+      }
+      setLocalMastery(phraseText, 2);
+      showWordToast(t("news.phraseMarkedKnown"));
+    } catch (_) {}
+    return;
+  }
+
+  if (!isInUnknownSet(phraseText)) {
+    wordsUnknownSet.value.add(phraseText);
+  }
+  upsertSessionWord(phraseText, context, translation);
+  try {
+    const ids = await lookupWordIds([phraseText], targetLang);
+    if (ids.length > 0) {
+      await updateWordMastery(userId, ids[0], 1, "news_reading");
+    } else {
+      await addDiscoveredWord(userId, phraseText, targetLang, context);
+    }
+    setLocalMastery(phraseText, 1);
+    markSessionUnknown(phraseText);
+    const nudge = microReviewNudgeCopy(wordsUnknownSet.value.size, t);
+    showWordToast(nudge || t("news.phraseMarkedUnknown"));
+    await maybeOpenMicroReview();
+  } catch (_) {}
+}
+
 async function onWordUnknown() {
   if (selectedWord.value) {
     const wordText = selectedWord.value.text;
     knownWordIds.value.add(wordText);
-    wordsUnknownSet.value.add(wordText);
+    if (!isInUnknownSet(wordText)) {
+      wordsUnknownSet.value.add(wordText);
+    }
     upsertSessionWord(wordText, selectedWord.value.context);
     try {
       const ids = await lookupWordIds([wordText], targetLang);

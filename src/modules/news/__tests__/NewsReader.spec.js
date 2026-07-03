@@ -58,6 +58,11 @@ vi.mock("@/shared/learningContext.js", () => ({
 
 const NewsReader = (await import("@/modules/news/NewsReader.vue")).default;
 const WordPopup = (await import("@/shared/components/WordPopup.vue")).default;
+const SelectionTranslateOverlay = (
+  await import("@/shared/components/SelectionTranslateOverlay.vue")
+).default;
+const { translateText, addDiscoveredWord, lookupWordIds } = await import("@/shared/api.js");
+const { peekReadingSessionWords } = await import("../readingSession.js");
 
 function makeRouter() {
   return createRouter({
@@ -346,6 +351,56 @@ describe("NewsReader mastery visualization", () => {
     expect(wrapper.find(".completion-overlay").text()).toContain("阅读完成");
     expect(wrapper.find(".completion-overlay").text()).not.toContain("本次阅读小结");
     vi.useRealTimers();
+  });
+
+  it("marks translated phrases for review and includes them in session summary", async () => {
+    translateText.mockResolvedValue("利率");
+    lookupWordIds.mockResolvedValue([]);
+    getArticle.mockResolvedValue({
+      id: 1,
+      original_title: "Titulo",
+      rewritten_body: "La tasa de interés subió ayer en España.",
+      source: "sample",
+    });
+
+    const router = makeRouter();
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    window.__amigaTranslateSelection("tasa de interés");
+    await flushPromises();
+    await flushPromises();
+
+    const overlay = wrapper.findComponent(SelectionTranslateOverlay);
+    expect(overlay.props("showActions")).toBe(true);
+    await overlay.vm.$emit("unknown");
+    await flushPromises();
+
+    expect(addDiscoveredWord).toHaveBeenCalledWith(
+      "u1",
+      "tasa de interés",
+      "es",
+      "La tasa de interés subió ayer en España.",
+    );
+
+    const cta = wrapper.find(".reading-review-cta");
+    expect(cta.exists()).toBe(true);
+    expect(cta.text()).toContain("复习本次 1 个生词");
+
+    await cta.trigger("click");
+    await flushPromises();
+
+    const sessionWords = peekReadingSessionWords();
+    expect(sessionWords).toHaveLength(1);
+    expect(sessionWords[0].word).toBe("tasa de interés");
+    expect(sessionWords[0].translation).toBe("利率");
+    expect(sessionWords[0].context).toContain("tasa de interés");
   });
 
   it("navigates back immediately when reading is too short with no interaction", async () => {

@@ -7,6 +7,7 @@ export const REVIEW_SESSION_LIMIT = 5;
  */
 export function vocabDefinition(word, nativeLang) {
   if (!word) return "";
+  if (word.translation) return word.translation;
   if (nativeLang === "zh") {
     return word.definition_zh || word.definition_es || "";
   }

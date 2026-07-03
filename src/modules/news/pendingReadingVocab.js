@@ -29,6 +29,7 @@ function normalizeEntries(entries) {
     byWord.set(key, {
       word: String(entry.word),
       context: String(entry.context || ""),
+      ...(entry.translation ? { translation: String(entry.translation) } : {}),
       ...(entry.articleId != null ? { articleId: entry.articleId } : {}),
     });
   }

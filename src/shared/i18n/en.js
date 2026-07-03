@@ -561,6 +561,8 @@ export default {
     vocabLegendNew: "New",
     wordMarkedUnknown: "Added to vocab list — will appear in review",
     wordMarkedKnown: "Marked as mastered",
+    phraseMarkedUnknown: "Added for review — this phrase will appear in vocab review",
+    phraseMarkedKnown: "Marked as mastered",
     readingSummary: "Marked {n} new word(s) while reading",
     readingSummaryAction: "Review",
     cardRead: "Read",

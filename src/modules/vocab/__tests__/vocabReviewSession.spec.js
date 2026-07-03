@@ -27,6 +27,15 @@ describe("vocabReviewSession", () => {
     expect(vocabDefinition(null, "zh")).toBe("");
   });
 
+  it("vocabDefinition prefers cached phrase translation over bank definitions", () => {
+    expect(
+      vocabDefinition(
+        { word: "tasa de interés", translation: "利率", definition_zh: "费率" },
+        "zh",
+      ),
+    ).toBe("利率");
+  });
+
   it("sessionProgress reports 1-based current index", () => {
     expect(sessionProgress(0, 5)).toEqual({ current: 1, total: 5 });
     expect(sessionProgress(4, 5)).toEqual({ current: 5, total: 5 });

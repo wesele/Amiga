@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { getContextForSelection } from "./phraseVocabMark.js";
 
 export function isTranslatableSelectionText(text) {
   return !!text && text.length > 0 && text.split(/\s+/).length > 1;
@@ -74,6 +75,7 @@ export function useSelectionTranslation({
   translateText,
   getTargetLang,
   getNativeLang,
+  getArticleText,
   t,
   articleBody,
   getSelectionRoot,
@@ -83,6 +85,7 @@ export function useSelectionTranslation({
   documentRef = typeof document === "undefined" ? null : document,
 } = {}) {
   const selectionText = ref("");
+  const selectionContext = ref("");
   const selectionResult = ref("");
   const selectionLoading = ref(false);
   const selectionError = ref("");
@@ -92,10 +95,16 @@ export function useSelectionTranslation({
   let selectionTimer = null;
   let isSelecting = false;
 
+  function resolveSelectionContext(text) {
+    const articleText = getArticleText?.() ?? articleBody?.textContent ?? "";
+    return getContextForSelection(articleText, text);
+  }
+
   function translateSelection(text) {
     if (!isTranslatableSelectionText(text)) return false;
 
     selectionText.value = text;
+    selectionContext.value = resolveSelectionContext(text);
     selectionLoading.value = true;
     selectionResult.value = "";
     selectionError.value = "";
@@ -214,6 +223,7 @@ export function useSelectionTranslation({
       selectionTimer = null;
     }
     selectionText.value = "";
+    selectionContext.value = "";
     selectionResult.value = "";
     selectionError.value = "";
     selectionLoading.value = false;
@@ -228,6 +238,7 @@ export function useSelectionTranslation({
 
   return {
     selectionText,
+    selectionContext,
     selectionResult,
     selectionLoading,
     selectionError,

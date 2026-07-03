@@ -23,6 +23,7 @@ export function buildSessionReviewQueue(sessionWords, dueWords, limit = MICRO_RE
       queue.push({
         ...match,
         ...(context ? { example: context } : {}),
+        ...(sessionWord.translation ? { translation: sessionWord.translation } : {}),
       });
     } else {
       queue.push({
@@ -31,6 +32,7 @@ export function buildSessionReviewQueue(sessionWords, dueWords, limit = MICRO_RE
         mastery: 1,
         source: sessionWord.source || "session",
         id: sessionWord.id ?? null,
+        ...(sessionWord.translation ? { translation: sessionWord.translation } : {}),
         ...(sessionWord.definition_zh ? { definition_zh: sessionWord.definition_zh } : {}),
         ...(sessionWord.definition_es ? { definition_es: sessionWord.definition_es } : {}),
         ...(sessionWord.articleId != null ? { articleId: sessionWord.articleId } : {}),

@@ -6,6 +6,10 @@
         <div v-if="selectionLoading" class="sel-loading">{{ loadingLabel }}</div>
         <div v-else-if="selectionResult" class="sel-result">{{ selectionResult }}</div>
         <div v-else-if="selectionError" class="sel-error">{{ selectionError }}</div>
+        <div v-if="showActions" class="sel-actions">
+          <button type="button" class="act-known" @click="emitKnown">✅ {{ knownLabel }}</button>
+          <button type="button" class="act-unknown" @click="emitUnknown">❌ {{ unknownLabel }}</button>
+        </div>
         <button type="button" class="sel-close" @click="$emit('clear')">✕</button>
       </div>
     </div>
@@ -28,14 +32,27 @@ defineProps({
   selectionResult: { type: String, default: "" },
   selectionLoading: { type: Boolean, default: false },
   selectionError: { type: String, default: "" },
+  showActions: { type: Boolean, default: false },
   showTranslateButton: { type: Boolean, default: false },
   translateButtonX: { type: Number, default: 0 },
   translateButtonY: { type: Number, default: 0 },
   translateLabel: { type: String, required: true },
   loadingLabel: { type: String, required: true },
+  knownLabel: { type: String, required: true },
+  unknownLabel: { type: String, required: true },
 });
 
-defineEmits(["clear", "translate"]);
+const emit = defineEmits(["clear", "translate", "known", "unknown"]);
+
+function emitKnown() {
+  emit("known");
+  setTimeout(() => emit("clear"), 200);
+}
+
+function emitUnknown() {
+  emit("unknown");
+  setTimeout(() => emit("clear"), 200);
+}
 </script>
 
 <style scoped>
@@ -107,6 +124,38 @@ defineEmits(["clear", "translate"]);
 
 .sel-error {
   color: var(--red, #f44336);
+}
+
+.sel-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.act-known {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--green);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.act-unknown {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--orange, #ff9800);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .sel-close {

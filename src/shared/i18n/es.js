@@ -561,6 +561,8 @@ export default {
     vocabLegendNew: "Nuevas",
     wordMarkedUnknown: "Añadida a la lista — aparecerá en el repaso",
     wordMarkedKnown: "Marcada como dominada",
+    phraseMarkedUnknown: "Añadida al repaso — esta frase aparecerá en el repaso de vocabulario",
+    phraseMarkedKnown: "Marcada como dominada",
     readingSummary: "Marcaste {n} palabra(s) nueva(s) al leer",
     readingSummaryAction: "Repasar",
     cardRead: "Leído",
