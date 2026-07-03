@@ -406,6 +406,117 @@ describe("NewsReader mastery visualization", () => {
     expect(sessionWords[0].context).toContain("tasa de interés");
   });
 
+  it("opens comprehension retake sheet from deep link query", async () => {
+    const QUIZ = {
+      questions: [
+        {
+          id: "main-idea",
+          prompt_native: "主旨？",
+          options: [
+            { id: "a", text_native: "A" },
+            { id: "b", text_native: "B" },
+          ],
+          correct_option_id: "a",
+        },
+        {
+          id: "detail",
+          prompt_native: "细节？",
+          options: [
+            { id: "a", text_native: "A" },
+            { id: "b", text_native: "B" },
+          ],
+          correct_option_id: "a",
+        },
+      ],
+    };
+    getComprehensionQuiz.mockResolvedValue(QUIZ);
+    getArticlesReadingStatus.mockResolvedValue([
+      {
+        article_id: 1,
+        read_at: "2026-07-03 10:00:00",
+        completed: true,
+        comprehension_skipped: true,
+      },
+    ]);
+
+    const router = makeRouter();
+    const replaceSpy = vi.spyOn(router, "replace");
+    await router.push({ path: "/news/1", query: { comprehensionRetake: "1" } });
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.find(".comprehension-quiz").exists()).toBe(true);
+    expect(replaceSpy).toHaveBeenCalledWith({
+      name: "reader",
+      params: { id: "1" },
+    });
+  });
+
+  it("persists comprehension fields after retake and clears skipped flag", async () => {
+    const QUIZ = {
+      questions: [
+        {
+          id: "main-idea",
+          prompt_native: "主旨？",
+          options: [
+            { id: "a", text_native: "A" },
+            { id: "b", text_native: "B" },
+          ],
+          correct_option_id: "a",
+        },
+        {
+          id: "detail",
+          prompt_native: "细节？",
+          options: [
+            { id: "a", text_native: "A" },
+            { id: "b", text_native: "B" },
+          ],
+          correct_option_id: "a",
+        },
+      ],
+    };
+    getComprehensionQuiz.mockResolvedValue(QUIZ);
+    getArticlesReadingStatus.mockResolvedValue([
+      {
+        article_id: 1,
+        read_at: "2026-07-03 10:00:00",
+        completed: true,
+        comprehension_skipped: true,
+      },
+    ]);
+
+    const router = makeRouter();
+    await router.push({ path: "/news/1", query: { comprehensionRetake: "1" } });
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    await flushPromises();
+
+    await wrapper.findAll(".comprehension-option")[0].trigger("click");
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+    await wrapper.findAll(".comprehension-option")[0].trigger("click");
+    await flushPromises();
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(saveReadingLog).toHaveBeenCalled();
+    const lastCall = saveReadingLog.mock.calls.at(-1)[0];
+    expect(lastCall.comprehension_score).toBe(2);
+    expect(lastCall.comprehension_skipped).toBe(false);
+    expect(lastCall.comprehension_answers_json).toBeTruthy();
+  });
+
   it("navigates back immediately when reading is too short with no interaction", async () => {
     const router = makeRouter();
     const replaceSpy = vi.spyOn(router, "replace");

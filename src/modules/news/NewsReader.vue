@@ -179,6 +179,14 @@
     <!-- Fixed bottom bar -->
     <div v-if="article?.rewritten_body" class="bottom-bar">
       <button
+        v-if="showComprehensionRetakeChip"
+        type="button"
+        class="comprehension-retake-chip"
+        @click="offerComprehensionRetake"
+      >
+        {{ t(`news.${comprehensionRetakeChipLabel}`) }}
+      </button>
+      <button
         v-if="showComprehensionRevisitChip"
         type="button"
         class="comprehension-revisit-chip"
@@ -290,9 +298,13 @@
               <button
                 type="button"
                 class="action-btn secondary"
-                @click="skipComprehensionQuiz"
+                @click="comprehensionRetakeMode ? dismissComprehensionRetake() : skipComprehensionQuiz()"
               >
-                {{ t("news.comprehensionSkip") }}
+                {{
+                  comprehensionRetakeMode
+                    ? t("common.cancel")
+                    : t("news.comprehensionSkip")
+                }}
               </button>
             </div>
           </template>
@@ -322,9 +334,17 @@
               <button
                 type="button"
                 class="action-btn primary"
-                @click="enterCompletionSummaryFromQuiz"
+                @click="
+                  comprehensionRetakeMode
+                    ? finishComprehensionRetake()
+                    : enterCompletionSummaryFromQuiz()
+                "
               >
-                {{ t("news.comprehensionViewSummary") }}
+                {{
+                  comprehensionRetakeMode
+                    ? t("news.comprehensionRetakeDone")
+                    : t("news.comprehensionViewSummary")
+                }}
               </button>
               <button
                 v-if="hasWrongComprehensionAnswers"
@@ -454,7 +474,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import {
   getArticle,
   rewriteArticle,
@@ -540,9 +560,12 @@ import {
 } from "./readingCompletion.js";
 import {
   comprehensionCelebration,
+  comprehensionNeedsRetake,
   scoreComprehension,
   shouldOfferComprehensionQuiz,
+  shouldOfferComprehensionRetake,
 } from "./readingComprehension.js";
+import { comprehensionRetakeChipKey } from "./newsReadingStatus.js";
 import {
   applyEvidenceToTokens,
   collectEvidenceSentences,
@@ -554,6 +577,7 @@ import {
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
+const route = useRoute();
 const router = useRouter();
 const targetLangStore = useTargetLangStore();
 
@@ -622,6 +646,8 @@ const comprehensionCurrentIndex = ref(0);
 const comprehensionQuizPhase = ref("answering");
 const comprehensionResult = ref(null);
 const comprehensionOfferAttempted = ref(false);
+const comprehensionRetakeMode = ref(false);
+const comprehensionQuizAvailable = ref(false);
 const comprehensionRevisitActive = ref(false);
 const evidenceRanges = ref([]);
 const summaryMode = ref("complete");
@@ -744,6 +770,17 @@ const hasWrongComprehensionAnswers = computed(
   () => comprehensionResult.value?.details?.some((detail) => !detail.correct) ?? false,
 );
 
+const showComprehensionRetakeChip = computed(() =>
+  shouldOfferComprehensionRetake({
+    status: savedReadingStatus.value,
+    quizAvailable: comprehensionQuizAvailable.value,
+  }),
+);
+
+const comprehensionRetakeChipLabel = computed(
+  () => comprehensionRetakeChipKey(savedReadingStatus.value) || "comprehensionRetakeChip",
+);
+
 const showComprehensionRevisitChip = computed(() => {
   const status = savedReadingStatus.value;
   if (!status?.completed || status.comprehension_skipped) return false;
@@ -808,7 +845,11 @@ function handleAndroidBackInPage() {
     return "navigated";
   }
   if (showComprehensionQuiz.value) {
-    void skipComprehensionQuiz();
+    if (comprehensionRetakeMode.value) {
+      dismissComprehensionRetake();
+    } else {
+      void skipComprehensionQuiz();
+    }
     return "navigated";
   }
   if (showCompletionSummary.value) {
@@ -943,6 +984,13 @@ onMounted(async () => {
     } else {
       processArticleWords();
       await restoreSavedScrollPosition();
+    }
+    if (comprehensionNeedsRetake(savedReadingStatus.value)) {
+      await refreshComprehensionQuizAvailability();
+    }
+    if (route.query.comprehensionRetake === "1") {
+      await offerComprehensionRetake();
+      router.replace({ name: "reader", params: { id: String(props.id) } });
     }
   } catch (e) {
     console.error("Failed to load article:", e);
@@ -1701,6 +1749,39 @@ async function revisitPastComprehension() {
   }
 }
 
+async function fetchComprehensionQuizQuestions() {
+  const quiz = await getComprehensionQuiz(
+    Number(props.id),
+    currentLevel,
+    getLocale(),
+    targetLang,
+  );
+  if (!quiz?.questions?.length) return null;
+  return quiz.questions;
+}
+
+async function refreshComprehensionQuizAvailability() {
+  try {
+    const questions = await fetchComprehensionQuizQuestions();
+    comprehensionQuizAvailable.value = Boolean(questions?.length);
+    return questions;
+  } catch (e) {
+    console.error("Failed to probe comprehension quiz:", e);
+    comprehensionQuizAvailable.value = false;
+    return null;
+  }
+}
+
+function openComprehensionQuizSheet(questions, { retake = false } = {}) {
+  comprehensionRetakeMode.value = retake;
+  comprehensionQuiz.value = questions;
+  comprehensionAnswers.value = {};
+  comprehensionCurrentIndex.value = 0;
+  comprehensionQuizPhase.value = "answering";
+  comprehensionResult.value = null;
+  showComprehensionQuiz.value = true;
+}
+
 async function offerComprehensionQuiz() {
   clearComprehensionRevisit();
   if (comprehensionOfferAttempted.value) return false;
@@ -1715,23 +1796,62 @@ async function offerComprehensionQuiz() {
     return false;
   }
   try {
-    const quiz = await getComprehensionQuiz(
-      Number(props.id),
-      currentLevel,
-      getLocale(),
-      targetLang,
-    );
-    if (!quiz?.questions?.length) return false;
-    comprehensionQuiz.value = quiz.questions;
-    comprehensionAnswers.value = {};
-    comprehensionCurrentIndex.value = 0;
-    comprehensionQuizPhase.value = "answering";
-    comprehensionResult.value = null;
-    showComprehensionQuiz.value = true;
+    const questions = await fetchComprehensionQuizQuestions();
+    if (!questions) return false;
+    comprehensionQuizAvailable.value = true;
+    openComprehensionQuizSheet(questions);
     return true;
   } catch (e) {
     console.error("Failed to load comprehension quiz:", e);
     return false;
+  }
+}
+
+async function offerComprehensionRetake() {
+  clearComprehensionRevisit();
+  let questions = null;
+  if (comprehensionQuizAvailable.value) {
+    try {
+      questions = await fetchComprehensionQuizQuestions();
+    } catch (e) {
+      console.error("Failed to load comprehension quiz:", e);
+    }
+  } else {
+    questions = await refreshComprehensionQuizAvailability();
+  }
+  if (
+    !shouldOfferComprehensionRetake({
+      status: savedReadingStatus.value,
+      quizAvailable: Boolean(questions?.length),
+    })
+  ) {
+    return false;
+  }
+  openComprehensionQuizSheet(questions, { retake: true });
+  return true;
+}
+
+function dismissComprehensionRetake() {
+  showComprehensionQuiz.value = false;
+  comprehensionRetakeMode.value = false;
+  comprehensionAnswers.value = {};
+  comprehensionCurrentIndex.value = 0;
+  comprehensionQuizPhase.value = "answering";
+  comprehensionResult.value = null;
+}
+
+async function finishComprehensionRetake() {
+  showComprehensionQuiz.value = false;
+  comprehensionRetakeMode.value = false;
+  await persistReadingProgress({
+    scrollPct: computeScrollPct(articleBodyRef.value),
+    completed: true,
+    comprehension: comprehensionResult.value,
+  });
+  await loadSavedReadingStatus();
+  const result = comprehensionResult.value;
+  if (result && !result.skipped && result.score === result.total && result.total > 0) {
+    showWordToast(t("news.comprehensionRetakePerfect"));
   }
 }
 
@@ -1794,7 +1914,11 @@ async function goBack() {
     return;
   }
   if (showComprehensionQuiz.value) {
-    await skipComprehensionQuiz();
+    if (comprehensionRetakeMode.value) {
+      dismissComprehensionRetake();
+    } else {
+      await skipComprehensionQuiz();
+    }
     return;
   }
   if (showCompletionSummary.value) {
@@ -2048,19 +2172,29 @@ function formatSource(source) {
   text-align: center;
 }
 
+.comprehension-retake-chip,
 .comprehension-revisit-chip {
   display: block;
   width: 100%;
   margin-bottom: 8px;
   padding: 8px 12px;
-  border: 1px solid rgba(255, 193, 7, 0.45);
   border-radius: var(--radius-sm);
-  background: rgba(255, 193, 7, 0.12);
-  color: #9a6700;
   font-size: 12px;
   font-weight: 600;
   text-align: center;
   cursor: pointer;
+}
+
+.comprehension-retake-chip {
+  border: 1px solid rgba(124, 58, 237, 0.35);
+  background: var(--purple-bg);
+  color: var(--purple);
+}
+
+.comprehension-revisit-chip {
+  border: 1px solid rgba(255, 193, 7, 0.45);
+  background: rgba(255, 193, 7, 0.12);
+  color: #9a6700;
 }
 
 .word-new {

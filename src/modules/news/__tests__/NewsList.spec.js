@@ -357,6 +357,66 @@ describe("NewsList reading status badges", () => {
     expect(cards[1].text()).toContain("Sample headline one");
   });
 
+  it("shows pending comprehension badge and retake chip for skipped reads", async () => {
+    const api = await import("@/shared/api.js");
+    api.getArticlesReadingStatus.mockResolvedValue([
+      {
+        article_id: 1,
+        read_at: "2026-07-03 10:00:00",
+        read_today: true,
+        completed: true,
+        comprehension_skipped: true,
+        unknown_count: 0,
+      },
+    ]);
+
+    const { wrapper } = await mountList();
+    const readCard = cardByTitle(wrapper, "Sample headline one");
+    expect(readCard.text()).toContain("🧠 待测");
+    expect(readCard.find(".card-comprehension-retake-chip").text()).toContain("补测理解");
+  });
+
+  it("shows partial badge and retake-again chip for incomplete comprehension", async () => {
+    const api = await import("@/shared/api.js");
+    api.getArticlesReadingStatus.mockResolvedValue([
+      {
+        article_id: 1,
+        read_at: "2026-07-03 10:00:00",
+        completed: true,
+        comprehension_score: 1,
+        comprehension_skipped: false,
+        unknown_count: 0,
+      },
+    ]);
+
+    const { wrapper } = await mountList();
+    const readCard = cardByTitle(wrapper, "Sample headline one");
+    expect(readCard.text()).toContain("🧠 1/2");
+    expect(readCard.find(".card-comprehension-retake-chip").text()).toContain("再测一次");
+  });
+
+  it("navigates to reader with comprehensionRetake query when retake chip is clicked", async () => {
+    const api = await import("@/shared/api.js");
+    api.getArticlesReadingStatus.mockResolvedValue([
+      {
+        article_id: 1,
+        read_at: "2026-07-03 10:00:00",
+        completed: true,
+        comprehension_skipped: true,
+        unknown_count: 0,
+      },
+    ]);
+
+    const { wrapper, router } = await mountList();
+    const readCard = cardByTitle(wrapper, "Sample headline one");
+    await readCard.find(".card-comprehension-retake-chip").trigger("click");
+    await flushPromises();
+
+    expect(router.currentRoute.value.name).toBe("reader");
+    expect(router.currentRoute.value.params.id).toBe("1");
+    expect(router.currentRoute.value.query.comprehensionRetake).toBe("1");
+  });
+
   it("navigates to vocab review with articleId when review chip is clicked", async () => {
     const api = await import("@/shared/api.js");
     api.getArticlesReadingStatus.mockResolvedValue([

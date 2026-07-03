@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   comprehensionCelebration,
+  comprehensionNeedsRetake,
   scoreComprehension,
   shouldOfferComprehensionQuiz,
+  shouldOfferComprehensionRetake,
   shouldRevisitAfterComprehension,
 } from "../readingComprehension.js";
 
@@ -94,5 +96,66 @@ describe("shouldRevisitAfterComprehension", () => {
     expect(shouldRevisitAfterComprehension({ score: 1, total: 2, skipped: false })).toBe(true);
     expect(shouldRevisitAfterComprehension({ score: 2, total: 2, skipped: false })).toBe(false);
     expect(shouldRevisitAfterComprehension({ score: 0, total: 2, skipped: true })).toBe(false);
+  });
+});
+
+describe("comprehensionNeedsRetake", () => {
+  it("flags skipped or partial completed reads", () => {
+    expect(
+      comprehensionNeedsRetake({
+        completed: true,
+        comprehension_skipped: true,
+      }),
+    ).toBe(true);
+    expect(
+      comprehensionNeedsRetake({
+        completed: true,
+        comprehension_score: 1,
+        comprehension_skipped: false,
+      }),
+    ).toBe(true);
+    expect(
+      comprehensionNeedsRetake({
+        completed: true,
+        comprehension_score: 2,
+        comprehension_skipped: false,
+      }),
+    ).toBe(false);
+    expect(comprehensionNeedsRetake({ completed: false, comprehension_skipped: true })).toBe(
+      false,
+    );
+  });
+});
+
+describe("shouldOfferComprehensionRetake", () => {
+  it("requires cached quiz and incomplete comprehension", () => {
+    expect(
+      shouldOfferComprehensionRetake({
+        status: {
+          completed: true,
+          comprehension_skipped: true,
+        },
+        quizAvailable: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldOfferComprehensionRetake({
+        status: {
+          completed: true,
+          comprehension_skipped: true,
+        },
+        quizAvailable: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOfferComprehensionRetake({
+        status: {
+          completed: true,
+          comprehension_score: 2,
+          comprehension_skipped: false,
+        },
+        quizAvailable: true,
+      }),
+    ).toBe(false);
   });
 });

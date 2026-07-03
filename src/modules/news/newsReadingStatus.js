@@ -1,4 +1,5 @@
 import { readingCardPhase } from "./readingProgress.js";
+import { comprehensionNeedsRetake } from "./readingComprehension.js";
 
 /** Parse words_unknown JSON into deduped { word, context } entries (backward compatible). */
 export function parseUnknownWordEntries(json) {
@@ -53,7 +54,10 @@ const COMPREHENSION_QUIZ_TOTAL = 2;
 
 /** Derive list-card comprehension badge from latest reading status. */
 export function comprehensionBadge(status) {
-  if (!status?.completed || status.comprehension_skipped) return null;
+  if (!status?.completed) return null;
+  if (status.comprehension_skipped) {
+    return { key: "cardComprehensionPending", params: {} };
+  }
   if (status.comprehension_score == null) return null;
   if (status.comprehension_score >= COMPREHENSION_QUIZ_TOTAL) {
     return { key: "cardComprehensionPerfect", params: {} };
@@ -62,6 +66,23 @@ export function comprehensionBadge(status) {
     key: "cardComprehensionPartial",
     params: { n: status.comprehension_score, total: COMPREHENSION_QUIZ_TOTAL },
   };
+}
+
+/** i18n key for the list-card comprehension retake chip. */
+export function comprehensionRetakeChipKey(status, total = COMPREHENSION_QUIZ_TOTAL) {
+  if (!comprehensionNeedsRetake(status, total)) return null;
+  if (status.comprehension_skipped) return "cardComprehensionRetake";
+  return "comprehensionRetakeAgain";
+}
+
+/** Count completed articles that still need a comprehension retake. */
+export function countPendingComprehension(statusMap, articles, total = COMPREHENSION_QUIZ_TOTAL) {
+  let pending = 0;
+  for (const article of articles || []) {
+    const status = statusMap.get(article.id);
+    if (comprehensionNeedsRetake(status, total)) pending += 1;
+  }
+  return pending;
 }
 
 /** Build a Map<articleId, statusRow> from API rows. */
@@ -96,6 +117,8 @@ export function articleCardState(article, status, options = {}) {
       comprehensionBadge: null,
       showContinueChip: false,
       showReviewChip: false,
+      showComprehensionRetakeChip: false,
+      comprehensionRetakeChipKey: null,
       cardClass: "is-unread",
     };
   }
@@ -111,6 +134,8 @@ export function articleCardState(article, status, options = {}) {
       comprehensionBadge: null,
       showContinueChip: true,
       showReviewChip: false,
+      showComprehensionRetakeChip: false,
+      comprehensionRetakeChipKey: null,
       cardClass: "is-in-progress",
     };
   }
@@ -136,6 +161,8 @@ export function articleCardState(article, status, options = {}) {
     comprehensionBadge: comprehensionBadge(status),
     showContinueChip: false,
     showReviewChip,
+    showComprehensionRetakeChip: comprehensionNeedsRetake(status),
+    comprehensionRetakeChipKey: comprehensionRetakeChipKey(status),
     cardClass: "is-read",
   };
 }
@@ -157,7 +184,8 @@ export function aggregateListSummary(statusMap, articles) {
       readToday += 1;
     }
   }
-  return { readToday, unread, inProgress, total };
+  const pendingComprehension = countPendingComprehension(statusMap, articles);
+  return { readToday, unread, inProgress, total, pendingComprehension };
 }
 
 /** Collect all unknown words across status rows (deduped). */

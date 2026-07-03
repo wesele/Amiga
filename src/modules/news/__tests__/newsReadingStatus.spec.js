@@ -7,6 +7,8 @@ import {
   buildStatusMap,
   collectUnknownWordsFromStatusMap,
   comprehensionBadge,
+  comprehensionRetakeChipKey,
+  countPendingComprehension,
   countUnreadArticles,
   parseUnknownWordEntries,
   parseUnknownWords,
@@ -125,7 +127,7 @@ describe("newsReadingStatus helpers", () => {
         comprehension_score: null,
         comprehension_skipped: true,
       }),
-    ).toBeNull();
+    ).toEqual({ key: "cardComprehensionPending", params: {} });
 
     const partial = articleCardState(
       { id: 5 },
@@ -142,6 +144,37 @@ describe("newsReadingStatus helpers", () => {
       key: "cardComprehensionPartial",
       params: { n: 1, total: 2 },
     });
+    expect(partial.showComprehensionRetakeChip).toBe(true);
+    expect(partial.comprehensionRetakeChipKey).toBe("comprehensionRetakeAgain");
+
+    const skipped = articleCardState(
+      { id: 6 },
+      {
+        read_at: "2026-07-02 10:00:00",
+        completed: true,
+        comprehension_skipped: true,
+        unknown_count: 0,
+      },
+    );
+    expect(skipped.comprehensionBadge).toEqual({
+      key: "cardComprehensionPending",
+      params: {},
+    });
+    expect(skipped.showComprehensionRetakeChip).toBe(true);
+    expect(skipped.comprehensionRetakeChipKey).toBe("cardComprehensionRetake");
+  });
+
+  it("comprehensionRetakeChipKey and countPendingComprehension aggregate retakes", () => {
+    const articles = [{ id: 1 }, { id: 2 }, { id: 3 }];
+    const map = buildStatusMap([
+      { article_id: 1, completed: true, comprehension_skipped: true },
+      { article_id: 2, completed: true, comprehension_score: 1, comprehension_skipped: false },
+      { article_id: 3, completed: true, comprehension_score: 2, comprehension_skipped: false },
+    ]);
+    expect(countPendingComprehension(map, articles)).toBe(2);
+    expect(comprehensionRetakeChipKey(map.get(1))).toBe("cardComprehensionRetake");
+    expect(comprehensionRetakeChipKey(map.get(2))).toBe("comprehensionRetakeAgain");
+    expect(comprehensionRetakeChipKey(map.get(3))).toBeNull();
   });
 
   it("aggregateListSummary and countUnreadArticles tally progress", () => {
@@ -156,6 +189,7 @@ describe("newsReadingStatus helpers", () => {
       unread: 0,
       inProgress: 1,
       total: 3,
+      pendingComprehension: 0,
     });
     expect(countUnreadArticles(map, articles)).toBe(0);
   });

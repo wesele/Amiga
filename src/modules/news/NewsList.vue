@@ -38,6 +38,9 @@
     <p v-if="listProgress" class="list-progress-summary">
       {{ t("news.listProgress", listProgress) }}
     </p>
+    <p v-if="pendingComprehensionCount" class="list-pending-comprehension">
+      {{ t("news.listPendingComprehension", { n: pendingComprehensionCount }) }}
+    </p>
 
     <!-- Loading skeleton -->
     <div v-if="loading && articles.length === 0" class="skeleton-list">
@@ -109,7 +112,15 @@
             {{ t("news.readingContinue") }}
           </button>
           <button
-            v-else-if="cardStateFor(article).showReviewChip"
+            v-if="cardStateFor(article).showComprehensionRetakeChip"
+            type="button"
+            class="card-comprehension-retake-chip"
+            @click.stop="goToComprehensionRetake(article.id)"
+          >
+            {{ t(`news.${cardStateFor(article).comprehensionRetakeChipKey}`) }}
+          </button>
+          <button
+            v-if="cardStateFor(article).showReviewChip"
             type="button"
             class="card-review-chip"
             @click.stop="goToArticleReview(article.id)"
@@ -193,6 +204,11 @@ const listProgress = computed(() => {
   const summary = aggregateListSummary(statusMap.value, articles.value);
   if (!summary.readToday && !summary.inProgress && summary.unread === summary.total) return null;
   return summary;
+});
+
+const pendingComprehensionCount = computed(() => {
+  if (!articles.value.length || !statusMap.value.size) return 0;
+  return aggregateListSummary(statusMap.value, articles.value).pendingComprehension || 0;
 });
 
 function cardStateFor(article) {
@@ -340,6 +356,14 @@ function goToArticleReview(articleId) {
   router.push({
     name: "vocab-review",
     query: { from: "reading", articleId: String(articleId) },
+  });
+}
+
+function goToComprehensionRetake(articleId) {
+  router.push({
+    name: "reader",
+    params: { id: String(articleId) },
+    query: { comprehensionRetake: "1" },
   });
 }
 
@@ -660,12 +684,12 @@ function formatSource(source) {
   color: #9a6700;
 }
 
+.card-comprehension-retake-chip,
 .card-review-chip {
   margin-top: 8px;
   align-self: flex-end;
   border: none;
   background: transparent;
-  color: var(--purple);
   font-size: 12px;
   font-weight: 700;
   font-family: inherit;
@@ -673,8 +697,23 @@ function formatSource(source) {
   padding: 0;
 }
 
+.card-comprehension-retake-chip {
+  color: #9a6700;
+}
+
+.card-review-chip {
+  color: var(--purple);
+}
+
+.card-comprehension-retake-chip:hover,
 .card-review-chip:hover {
   text-decoration: underline;
+}
+
+.list-pending-comprehension {
+  margin: 0 16px 8px;
+  font-size: 12px;
+  color: #9a6700;
 }
 
 .card-source {

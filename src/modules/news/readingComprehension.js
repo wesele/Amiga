@@ -40,3 +40,21 @@ export function shouldRevisitAfterComprehension(result) {
   if (!result || result.skipped) return false;
   return result.score < result.total;
 }
+
+/** Completed read whose comprehension check was skipped or not fully correct. */
+export function comprehensionNeedsRetake(status, total = 2) {
+  if (!status?.completed) return false;
+  if (status.comprehension_skipped) return true;
+  if (status.comprehension_score == null) return false;
+  return status.comprehension_score < total;
+}
+
+/** Whether a retake entry should be shown (caller supplies quiz availability). */
+export function shouldOfferComprehensionRetake({
+  status,
+  quizAvailable = false,
+  total = 2,
+} = {}) {
+  if (!quizAvailable) return false;
+  return comprehensionNeedsRetake(status, total);
+}
