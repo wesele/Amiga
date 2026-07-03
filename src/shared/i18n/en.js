@@ -64,6 +64,8 @@ export default {
     actionPath: "Keep learning",
     actionVocab: "Review vocabulary",
     actionMistakes: "Review mistakes",
+    unlockBanner: "Achievement unlocked: {label}",
+    unlockBannerAction: "View achievements",
   },
 
   learn: {
@@ -534,6 +536,7 @@ export default {
     appName: "Amiga",
     navBadgeLearn: "Learn tab, {n} to-dos",
     navBadgeChat: "Chat tab, oral practice pending",
+    navBadgeAchievements: "Achievements tab, {n} new badge(s)",
   },
 
   news: {

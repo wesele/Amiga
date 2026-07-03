@@ -1971,6 +1971,7 @@ describe("LessonPage lesson milestone celebration", () => {
   let mockInvoke;
 
   beforeEach(() => {
+    localStorage.clear();
     setActivePinia(createPinia());
     setLocale("zh", { persist: false });
     mockInvoke = vi.fn().mockImplementation((cmd) => {
@@ -2021,6 +2022,10 @@ describe("LessonPage lesson milestone celebration", () => {
     const banner = wrapper.find(".lesson-milestone-banner");
     expect(banner.exists()).toBe(true);
     expect(banner.text()).toContain("10 节课");
+    const unlockBanner = wrapper.find(".achievement-unlock-banner");
+    expect(unlockBanner.exists()).toBe(true);
+    expect(unlockBanner.text()).toContain("成就解锁");
+    expect(unlockBanner.text()).toContain("查看成就");
   });
 });
 

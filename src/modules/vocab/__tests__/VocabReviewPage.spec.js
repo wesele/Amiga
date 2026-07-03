@@ -468,6 +468,7 @@ describe("VocabReviewPage", () => {
   });
 
   it("celebrates vocabulary milestone when session crosses a threshold", async () => {
+    localStorage.clear();
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_user_vocab_stats_cmd") {
         return Promise.resolve({ total_known: 99, total_learning: 5, total: 1000 });
@@ -491,5 +492,8 @@ describe("VocabReviewPage", () => {
     await flushPromises();
 
     expect(wrapper.find(".vocab-milestone-banner").text()).toContain("100 个单词");
+    const unlockBanner = wrapper.find(".achievement-unlock-banner");
+    expect(unlockBanner.exists()).toBe(true);
+    expect(unlockBanner.text()).toContain("成就解锁");
   });
 });

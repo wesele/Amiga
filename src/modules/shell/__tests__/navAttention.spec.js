@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { markUnseenUnlocks, clearUnseenUnlocks } from "@/modules/achievements/achievementUnlockDetect.js";
 import {
   computeLearnNavBadge,
   computeModuleBadges,
@@ -85,6 +86,10 @@ describe("computeLearnNavBadge", () => {
 });
 
 describe("computeNavBadges", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it("hides learn badge when learn tab is active", () => {
     const badges = computeNavBadges(
       {
@@ -112,6 +117,35 @@ describe("computeNavBadges", () => {
       { activeTab: "chat" },
     );
     expect(badges.chat.show).toBe(false);
+  });
+
+  it("shows achievements dot for a single unseen unlock", () => {
+    markUnseenUnlocks(["lessons-10"]);
+    const badges = computeNavBadges({});
+    expect(badges.achievements.show).toBe(true);
+    expect(badges.achievements.count).toBe(1);
+    expect(badges.achievements.dotOnly).toBe(true);
+  });
+
+  it("shows achievements count for multiple unseen unlocks", () => {
+    markUnseenUnlocks(["lessons-10", "vocab-100"]);
+    const badges = computeNavBadges({});
+    expect(badges.achievements.show).toBe(true);
+    expect(badges.achievements.count).toBe(2);
+    expect(badges.achievements.dotOnly).toBe(false);
+  });
+
+  it("hides achievements badge on the achievements tab", () => {
+    markUnseenUnlocks(["lessons-10"]);
+    const badges = computeNavBadges({}, { activeTab: "achievements" });
+    expect(badges.achievements.show).toBe(false);
+  });
+
+  it("clears achievements badge after unseen is consumed", () => {
+    markUnseenUnlocks(["lessons-10"]);
+    clearUnseenUnlocks();
+    const badges = computeNavBadges({});
+    expect(badges.achievements.show).toBe(false);
   });
 });
 

@@ -41,6 +41,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { eventBus } from "@/shared/eventBus.js";
+import { ACHIEVEMENT_ATTENTION_CHANGED } from "@/modules/achievements/achievementUnlockDetect.js";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import {
   loadNavAttentionContext,
@@ -53,7 +54,9 @@ const route = useRoute();
 const router = useRouter();
 const targetLangStore = useTargetLangStore();
 const navAttentionCtx = ref(null);
+const achievementAttentionTick = ref(0);
 let unsubscribeLang = null;
+let unsubscribeAchievementAttention = null;
 
 const tabs = [
   {
@@ -114,9 +117,10 @@ const activeTabName = computed(() => {
   return null;
 });
 
-const navBadges = computed(() =>
-  computeNavBadges(navAttentionCtx.value ?? {}, { activeTab: activeTabName.value }),
-);
+const navBadges = computed(() => {
+  achievementAttentionTick.value;
+  return computeNavBadges(navAttentionCtx.value ?? {}, { activeTab: activeTabName.value });
+});
 
 function badgeFor(tab) {
   return navBadges.value[tab.name] ?? { show: false, count: 0 };
@@ -131,6 +135,9 @@ function navItemAria(tab) {
   }
   if (tab.name === "chat") {
     return `${label} · ${t("shell.navBadgeChat")}`;
+  }
+  if (tab.name === "achievements" && badge.count) {
+    return `${label} · ${t("shell.navBadgeAchievements", { n: badge.count })}`;
   }
   return label;
 }
@@ -151,10 +158,14 @@ onMounted(() => {
   unsubscribeLang = eventBus.on(TARGET_LANG_CHANGED, () => {
     refreshNavAttention({ force: true });
   });
+  unsubscribeAchievementAttention = eventBus.on(ACHIEVEMENT_ATTENTION_CHANGED, () => {
+    achievementAttentionTick.value += 1;
+  });
 });
 
 onUnmounted(() => {
   unsubscribeLang?.();
+  unsubscribeAchievementAttention?.();
 });
 
 watch(

@@ -46,6 +46,7 @@
       <p v-else-if="dailyGoalNudge" class="daily-goal-banner is-nudge">{{ dailyGoalNudge }}</p>
       <p v-else-if="dailyGoalContributed" class="daily-goal-banner">{{ dailyGoalContributed }}</p>
       <p v-if="vocabMilestoneBanner" class="vocab-milestone-banner">{{ vocabMilestoneBanner }}</p>
+      <AchievementUnlockBanner :badges="settlementUnlockBadges" />
       <section v-if="vocabReviewPlan" class="next-steps-panel">
         <p class="next-steps-eyebrow">{{ t("path.nextStep.title") }}</p>
         <div class="next-steps-primary">
@@ -256,6 +257,8 @@ import {
   buildArticleReviewSessionWords,
   buildDueWordKeySet,
 } from "@/modules/news/newsReadingStatus.js";
+import AchievementUnlockBanner from "@/modules/achievements/AchievementUnlockBanner.vue";
+import { notifyAchievementUnlocks } from "@/modules/achievements/achievementUnlockDetect.js";
 import {
   VOCAB_MILESTONE_CELEBRATION_KEY,
   vocabMilestoneReached,
@@ -339,6 +342,7 @@ const finished = ref(false);
 const acting = ref(false);
 const masteredCount = ref(0);
 const knownBefore = ref(0);
+const settlementUnlockBadges = ref([]);
 const reviewResult = ref(null);
 const remainingDue = ref(0);
 const checkingRemaining = ref(false);
@@ -719,6 +723,9 @@ async function advanceAfterMark(mastery) {
     reviewResult.value = await applyReviewStreak(userId.value, words.value.length, {
       sessionComplete: true,
       targetLanguage: targetLang.value,
+    });
+    settlementUnlockBadges.value = notifyAchievementUnlocks({
+      vocabStats: { total_known: knownBefore.value + masteredCount.value },
     });
     await Promise.all([refreshRemainingDue(), loadPostReviewContext()]);
     return;

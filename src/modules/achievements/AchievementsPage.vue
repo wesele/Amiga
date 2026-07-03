@@ -161,6 +161,11 @@ import {
   achievementUnlockHint,
 } from "./achievementHints.js";
 import { syncRecentUnlocks } from "./achievementRecent.js";
+import {
+  ACHIEVEMENT_ATTENTION_CHANGED,
+  clearUnseenUnlocks,
+} from "./achievementUnlockDetect.js";
+import { eventBus } from "@/shared/eventBus.js";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -312,6 +317,8 @@ async function loadProgress(nativeLang, targetLang, userId, cefr) {
 }
 
 onMounted(async () => {
+  clearUnseenUnlocks();
+  eventBus.emit(ACHIEVEMENT_ATTENTION_CHANGED);
   try {
     const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
       targetLangStore,

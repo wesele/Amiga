@@ -64,6 +64,8 @@ export default {
     actionPath: "Seguir aprendiendo",
     actionVocab: "Repasar vocabulario",
     actionMistakes: "Repasar errores",
+    unlockBanner: "Logro desbloqueado: {label}",
+    unlockBannerAction: "Ver logros",
   },
 
   learn: {
@@ -534,6 +536,7 @@ export default {
     appName: "Amiga",
     navBadgeLearn: "Aprender, {n} pendientes",
     navBadgeChat: "Chat, práctica oral pendiente",
+    navBadgeAchievements: "Logros, {n} insignia(s) nueva(s)",
   },
 
   news: {

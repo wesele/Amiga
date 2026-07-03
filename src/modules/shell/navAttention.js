@@ -1,3 +1,4 @@
+import { unseenAchievementUnlockCount } from "@/modules/achievements/achievementUnlockDetect.js";
 import { shouldShowPendingPracticeHero } from "@/modules/ai-chat/pendingAiPractice.js";
 import { dailyGoalRemainingLessons } from "@/modules/learn/dailyGoalDisplay.js";
 import { canResumeSection } from "@/modules/learn/pathResume.js";
@@ -102,6 +103,7 @@ export function computeLearnNavBadge(ctx) {
 export function computeNavBadges(ctx, { activeTab = null } = {}) {
   const learn = computeLearnNavBadge(ctx);
   const chatShow = shouldShowPendingPracticeHero(ctx.pendingAiPractice);
+  const unseenAchievements = unseenAchievementUnlockCount();
 
   return {
     learn: activeTab === "learn" ? { ...learn, show: false } : learn,
@@ -110,7 +112,12 @@ export function computeNavBadges(ctx, { activeTab = null } = {}) {
       count: 0,
       dotOnly: true,
     },
-    achievements: { show: false, count: 0 },
+    achievements: {
+      show: activeTab !== "achievements" && unseenAchievements > 0,
+      count: unseenAchievements,
+      dotOnly: unseenAchievements === 1,
+      urgent: false,
+    },
     profile: { show: false, count: 0 },
   };
 }

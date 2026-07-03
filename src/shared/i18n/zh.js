@@ -67,6 +67,8 @@ export default {
     actionPath: "继续学习",
     actionVocab: "去复习词汇",
     actionMistakes: "去巩固错题",
+    unlockBanner: "成就解锁：{label}",
+    unlockBannerAction: "查看成就",
   },
 
   learn: {
@@ -536,6 +538,7 @@ export default {
     appName: "阿米加",
     navBadgeLearn: "学习 Tab，{n} 项待办",
     navBadgeChat: "聊天 Tab，有待练口语",
+    navBadgeAchievements: "成就 Tab，{n} 枚新勋章",
   },
 
   news: {

@@ -39,6 +39,7 @@
       <p v-else-if="dailyGoalNudge" class="daily-goal-banner is-nudge">{{ dailyGoalNudge }}</p>
       <p v-else-if="dailyGoalContributed" class="daily-goal-banner">{{ dailyGoalContributed }}</p>
       <p v-if="mistakeMilestoneBanner" class="mistake-milestone-banner">{{ mistakeMilestoneBanner }}</p>
+      <AchievementUnlockBanner :badges="settlementUnlockBadges" />
       <section v-if="mistakeReviewPlan" class="next-steps-panel">
         <p class="next-steps-eyebrow">{{ t("path.nextStep.title") }}</p>
         <div class="next-steps-primary">
@@ -201,6 +202,8 @@ import {
   getPathCurriculum,
   getUnknownWords,
 } from "@/shared/api.js";
+import AchievementUnlockBanner from "@/modules/achievements/AchievementUnlockBanner.vue";
+import { notifyAchievementUnlocks } from "@/modules/achievements/achievementUnlockDetect.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 import { findCurrentSection } from "@/modules/learn/pathResume.js";
@@ -276,6 +279,7 @@ const showResult = ref(false);
 const lastCorrect = ref(false);
 const finished = ref(false);
 const masteredCount = ref(0);
+const settlementUnlockBadges = ref([]);
 const sessionTotal = ref(0);
 const pairKey = ref("");
 const userId = ref("");
@@ -656,6 +660,11 @@ async function advanceAfterResult() {
   if (masteredCount.value > 0) {
     const { prev } = recordMistakesMastered(pairKey.value, masteredCount.value);
     masteredBefore.value = prev;
+    settlementUnlockBadges.value = notifyAchievementUnlocks({
+      mistakeMastery: { mastered: prev + masteredCount.value },
+    });
+  } else {
+    settlementUnlockBadges.value = [];
   }
   reviewResult.value = await applyReviewStreak(userId.value, sessionTotal.value, {
     sessionComplete: true,

@@ -157,6 +157,7 @@
         <p v-if="result?.passed && result?.lesson_milestone_reached" class="lesson-milestone-banner">
           {{ t("path.lessonMilestoneReached", { n: result.lesson_milestone_reached }) }}
         </p>
+        <AchievementUnlockBanner :badges="settlementUnlockBadges" />
         <p v-if="result?.level_upgraded" class="level-up-banner">
           🎓 {{ t("path.levelUp", { level: result.new_cefr_level }) }}
         </p>
@@ -358,6 +359,11 @@ import {
   getSectionLesson,
   shareText as nativeShareText,
 } from "@/shared/api.js";
+import AchievementUnlockBanner from "@/modules/achievements/AchievementUnlockBanner.vue";
+import {
+  buildLessonSettlementAchievementCtx,
+  notifyAchievementUnlocks,
+} from "@/modules/achievements/achievementUnlockDetect.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionAudioPanel from "./components/QuestionAudioPanel.vue";
@@ -517,6 +523,7 @@ const expandedMistakeKeys = ref(new Set());
 const listenReplayBusy = ref(false);
 const resumeToast = ref("");
 const lessonPairKey = ref("");
+const settlementUnlockBadges = ref([]);
 
 let resumeToastTimer = null;
 
@@ -1327,6 +1334,10 @@ async function submitLesson() {
     );
     result.value = res;
     finished.value = true;
+    const achievementCtx = buildLessonSettlementAchievementCtx(res);
+    settlementUnlockBadges.value = achievementCtx
+      ? notifyAchievementUnlocks(achievementCtx)
+      : [];
     clearLessonSnapshot();
     initExpandedMistakes();
   } catch (e) {
