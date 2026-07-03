@@ -495,6 +495,15 @@ export default {
     readingDailyGoalHint: "Reading counts toward your streak; complete {remaining} lesson(s) for today's goal",
     readingCompleteReview: "Review {n} word(s) from this session",
     readingCompleteNext: "Back to list",
+    readingCompleteLater: "Maybe later",
+    nextStep: {
+      vocabReview: "Review {n} word(s) from this session",
+      vocabReviewHint: "Strike while it's fresh — examples from the article you just read",
+      nextArticle: "Read the next unread article",
+      nextArticleHint: "{n} trending article(s) left today",
+      aiPractice: "Practice these words with Amiga",
+      aiPracticeHint: "Chat using {preview} and more",
+    },
   },
 
   vocab: {

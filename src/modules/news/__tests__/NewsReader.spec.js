@@ -12,12 +12,18 @@ const {
   getArticle,
   saveReadingLog,
   getDailyGoalProgress,
+  getArticles,
+  getArticlesReadingStatus,
+  getPathCurriculum,
 } = vi.hoisted(() => ({
   lookupWordsMastery: vi.fn(),
   ensureWordsSeen: vi.fn().mockResolvedValue(undefined),
   getArticle: vi.fn(),
   saveReadingLog: vi.fn().mockResolvedValue(undefined),
   getDailyGoalProgress: vi.fn(),
+  getArticles: vi.fn(),
+  getArticlesReadingStatus: vi.fn(),
+  getPathCurriculum: vi.fn(),
 }));
 
 vi.mock("@/shared/api.js", () => ({
@@ -33,6 +39,13 @@ vi.mock("@/shared/api.js", () => ({
   addDiscoveredWord: vi.fn().mockResolvedValue(100),
   shareText: vi.fn(),
   getDailyGoalProgress,
+  getArticles,
+  getArticlesReadingStatus,
+  getPathCurriculum,
+}));
+
+vi.mock("@/modules/ai-chat/openAiContact.js", () => ({
+  openAiContact: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@/shared/learningContext.js", () => ({
@@ -59,9 +72,26 @@ function makeRouter() {
         meta: { parent: "news" },
       },
       { path: "/vocab/review", name: "vocab-review", component: { template: "<div/>" } },
+      { path: "/path", name: "path", component: { template: "<div/>" } },
     ],
   });
 }
+
+const ACTIVE_CURRICULUM = {
+  status: "active",
+  units: [
+    {
+      sections: [
+        {
+          id: "zh-es/U01-GRAMMAR",
+          kind: "grammar",
+          current: true,
+          locked: false,
+        },
+      ],
+    },
+  ],
+};
 
 describe("NewsReader mastery visualization", () => {
   beforeEach(() => {
@@ -71,6 +101,9 @@ describe("NewsReader mastery visualization", () => {
     ensureWordsSeen.mockClear();
     getArticle.mockReset();
     getDailyGoalProgress.mockReset();
+    getArticles.mockReset();
+    getArticlesReadingStatus.mockReset();
+    getPathCurriculum.mockReset();
     getDailyGoalProgress.mockResolvedValue({
       streak_current: 5,
       practiced_today: false,
@@ -78,6 +111,15 @@ describe("NewsReader mastery visualization", () => {
       target_lessons: 2,
       lessons_today: 0,
     });
+    getPathCurriculum.mockResolvedValue(ACTIVE_CURRICULUM);
+    getArticles.mockResolvedValue([
+      { id: 1, original_title: "Current" },
+      { id: 2, original_title: "Next unread" },
+    ]);
+    getArticlesReadingStatus.mockResolvedValue([
+      { article_id: 1, read_at: null },
+      { article_id: 2, read_at: null },
+    ]);
     lookupWordsMastery.mockResolvedValue([
       { word: "hola", word_id: 1, mastery: 2 },
       { word: "mundo", word_id: 2, mastery: 0 },
@@ -167,10 +209,50 @@ describe("NewsReader mastery visualization", () => {
     expect(overlay.exists()).toBe(true);
     expect(overlay.text()).toContain("阅读完成");
     expect(overlay.text()).toContain("今日练习已记录");
+    expect(wrapper.find(".next-steps-panel").exists()).toBe(true);
+    expect(wrapper.find(".next-steps-primary").text()).toContain("复习本次 1 个生词");
     expect(replaceSpy).not.toHaveBeenCalled();
 
     await overlay.find(".action-btn.primary").trigger("click");
     expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
+  it("shows next-steps panel without unknown words and routes to the next unread article", async () => {
+    getDailyGoalProgress.mockResolvedValue({
+      streak_current: 5,
+      practiced_today: true,
+      goal_met: true,
+      target_lessons: 2,
+      lessons_today: 2,
+    });
+
+    const router = makeRouter();
+    const replaceSpy = vi.spyOn(router, "replace");
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".word.word-new").trigger("click");
+    await flushPromises();
+    await wrapper.findComponent(WordPopup).vm.$emit("known");
+    await flushPromises();
+
+    await wrapper.find(".back-btn").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".next-steps-panel").exists()).toBe(true);
+    expect(wrapper.find(".next-steps-primary").text()).toContain("读下一篇未读");
+
+    await wrapper.find(".action-btn.primary").trigger("click");
+    expect(replaceSpy).toHaveBeenCalledWith({
+      name: "reader",
+      params: { id: 2 },
+    });
   });
 
   it("navigates back immediately when reading is too short with no interaction", async () => {

@@ -214,22 +214,57 @@
           <p v-if="showDailyGoalHint" class="daily-goal-hint">
             {{ t("news.readingDailyGoalHint", { remaining: dailyGoalRemaining }) }}
           </p>
-          <div class="summary-actions">
+          <section v-if="readingPlan" class="next-steps-panel">
+            <p class="next-steps-eyebrow">{{ t("path.nextStep.title") }}</p>
+            <div class="next-steps-primary">
+              <span class="next-steps-icon" aria-hidden="true">{{ readingPlan.primary.icon }}</span>
+              <div class="next-steps-copy">
+                <p class="next-steps-primary-title">{{ stepTitle(readingPlan.primary) }}</p>
+                <p
+                  v-if="readingPlan.primary.subtitleKey"
+                  class="next-steps-primary-sub"
+                >
+                  {{ stepSubtitle(readingPlan.primary) }}
+                </p>
+              </div>
+            </div>
+            <div v-if="readingPlan.secondary.length" class="next-steps-queue">
+              <p class="next-steps-queue-title">
+                {{ t("path.nextStep.queueTitle", { n: readingPlan.secondary.length }) }}
+              </p>
+              <button
+                v-for="step in readingPlan.secondary"
+                :key="step.id"
+                type="button"
+                class="next-steps-queue-item"
+                :disabled="!step.route && !step.contactAction && !isVocabReviewStep(step)"
+                @click="goToReadingStep(step)"
+              >
+                <span class="next-steps-queue-icon" aria-hidden="true">{{ step.icon }}</span>
+                <div class="next-steps-queue-copy">
+                  <p class="next-steps-queue-item-title">{{ stepTitle(step) }}</p>
+                  <p v-if="step.subtitleKey" class="next-steps-queue-item-sub">
+                    {{ stepSubtitle(step) }}
+                  </p>
+                </div>
+              </button>
+            </div>
+          </section>
+          <div v-if="readingPlan" class="summary-actions">
             <button
-              v-if="wordsUnknownSet.size > 0"
               type="button"
               class="action-btn primary"
-              @click="completeAndReview"
+              :disabled="openingAiPractice"
+              @click="goToReadingStep(readingPlan.primary)"
             >
-              {{ t("news.readingCompleteReview", { n: wordsUnknownSet.size }) }}
+              {{ stepContinueLabel(readingPlan.primary) }}
             </button>
             <button
               type="button"
-              class="action-btn"
-              :class="wordsUnknownSet.size > 0 ? 'secondary' : 'primary'"
+              class="action-btn secondary"
               @click="dismissCompletionSummary"
             >
-              {{ t("news.readingCompleteNext") }}
+              {{ t("news.readingCompleteLater") }}
             </button>
           </div>
         </div>
@@ -241,7 +276,25 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, saveReadingLog, updateWordMastery, getBilingual, translateText, lookupWordIds, lookupWordsMastery, ensureWordsSeen, addDiscoveredWord, shareText as nativeShareText, getDailyGoalProgress } from "@/shared/api.js";
+import {
+  getArticle,
+  rewriteArticle,
+  saveReadingLog,
+  updateWordMastery,
+  getBilingual,
+  translateText,
+  lookupWordIds,
+  lookupWordsMastery,
+  ensureWordsSeen,
+  addDiscoveredWord,
+  shareText as nativeShareText,
+  getDailyGoalProgress,
+  getArticles,
+  getArticlesReadingStatus,
+  getPathCurriculum,
+} from "@/shared/api.js";
+import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
+import { findCurrentSection } from "@/modules/learn/pathResume.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -254,7 +307,17 @@ import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
 import { buildMasteryMap, resolveWordClass as resolveWordMasteryClass, wordKey } from "./wordMastery.js";
 import { saveReadingSessionSummary } from "./readingSession.js";
-import { serializeUnknownWordEntries } from "./newsReadingStatus.js";
+import {
+  buildStatusMap,
+  countUnreadArticlesExcluding,
+  findNextUnreadArticleId,
+  serializeUnknownWordEntries,
+} from "./newsReadingStatus.js";
+import {
+  buildPostReadingPlan,
+  isAiPracticeStep,
+  isVocabReviewStep,
+} from "./postReadingPlan.js";
 import { dailyGoalRemainingLessons } from "@/modules/learn/dailyGoalDisplay.js";
 import { formatReadingTime, isValidReading } from "./readingCompletion.js";
 
@@ -302,6 +365,10 @@ const sessionMarkTimers = new Map();
 const showCompletionSummary = ref(false);
 const dailyGoalSnapshot = ref(null);
 const practicedTodayBefore = ref(false);
+const resumeTarget = ref(null);
+const newsUnreadCount = ref(0);
+const nextUnreadArticleId = ref(null);
+const openingAiPractice = ref(false);
 
 const {
   selectionText,
@@ -341,6 +408,45 @@ const dailyGoalRemaining = computed(() =>
 const showDailyGoalHint = computed(
   () => dailyGoalSnapshot.value && !dailyGoalSnapshot.value.goal_met && dailyGoalRemaining.value > 0,
 );
+
+const sessionWords = computed(() => {
+  const seen = new Set();
+  const words = [];
+  for (const word of wordsUnknownSet.value) {
+    const key = word.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    words.push(word);
+  }
+  for (const word of wordsKnownSet.value) {
+    const key = word.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    words.push(word);
+  }
+  for (const word of knownWordIds.value) {
+    const key = word.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    words.push(word);
+  }
+  return words;
+});
+
+const sessionWordCount = computed(() => sessionWords.value.length);
+
+const readingPlan = computed(() => {
+  if (!showCompletionSummary.value) return null;
+  return buildPostReadingPlan({
+    unknownCount: wordsUnknownSet.value.size,
+    dailyGoalSnapshot: dailyGoalSnapshot.value,
+    resumeTarget: resumeTarget.value,
+    nextUnreadArticleId: nextUnreadArticleId.value,
+    newsUnreadCount: newsUnreadCount.value,
+    sessionWordCount: sessionWordCount.value,
+    sessionWords: sessionWords.value,
+  });
+});
 
 function handleAndroidBackInPage() {
   if (showCompletionSummary.value) {
@@ -715,6 +821,89 @@ function navigateBack() {
   }
 }
 
+function regionForLang(lang) {
+  switch (lang) {
+    case "zh":
+      return "CN";
+    case "en":
+      return "US";
+    case "es":
+      return "ES";
+    default:
+      return "CN";
+  }
+}
+
+async function loadPostReadingContext() {
+  const currentArticleId = Number(props.id);
+  try {
+    const curriculum = await getPathCurriculum(getLocale(), targetLang, currentLevel);
+    resumeTarget.value = findCurrentSection(curriculum);
+
+    const articles = await getArticles(regionForLang(targetLang));
+    if (!articles.length) {
+      newsUnreadCount.value = 0;
+      nextUnreadArticleId.value = null;
+      return;
+    }
+    const ids = articles.map((article) => article.id).filter((id) => id != null);
+    const rows = await getArticlesReadingStatus(userId, ids);
+    const statusMap = buildStatusMap(rows);
+    newsUnreadCount.value = countUnreadArticlesExcluding(statusMap, articles, currentArticleId);
+    nextUnreadArticleId.value = findNextUnreadArticleId(articles, statusMap, currentArticleId);
+  } catch {
+    resumeTarget.value = null;
+    newsUnreadCount.value = 0;
+    nextUnreadArticleId.value = null;
+  }
+}
+
+function stepTitle(step) {
+  if (!step?.titleKey) return "";
+  return t(step.titleKey, step.titleParams ?? {});
+}
+
+function stepSubtitle(step) {
+  if (!step?.subtitleKey) return "";
+  return t(step.subtitleKey, step.subtitleParams ?? {});
+}
+
+function stepContinueLabel(step) {
+  if (!step?.continueKey) return t("news.readingCompleteNext");
+  return t(step.continueKey, step.continueParams ?? {});
+}
+
+async function goToReadingStep(step) {
+  if (!step) return;
+  if (isVocabReviewStep(step)) {
+    completeAndReview();
+    return;
+  }
+  if (isAiPracticeStep(step)) {
+    openingAiPractice.value = true;
+    try {
+      await openAiContact(
+        router,
+        { name: t("chat.amiga"), contactType: "amiga" },
+        {
+          targetLang,
+          starterId: "reviewed-words",
+          starterParams: {
+            words: (step.sessionWords ?? sessionWords.value).join(", "),
+          },
+        },
+      );
+    } finally {
+      openingAiPractice.value = false;
+    }
+    return;
+  }
+  if (step.route) {
+    showCompletionSummary.value = false;
+    router.replace(step.route);
+  }
+}
+
 function tryShowCompletionSummary() {
   if (showCompletionSummary.value) return true;
   if (!article.value?.rewritten_body) return false;
@@ -726,6 +915,7 @@ function tryShowCompletionSummary() {
   });
   if (!valid) return false;
   showCompletionSummary.value = true;
+  void loadPostReadingContext();
   return true;
 }
 
@@ -1339,6 +1529,122 @@ function formatSource(source) {
   font-size: 13px;
   color: var(--text-lighter);
   line-height: 1.4;
+}
+
+.next-steps-panel {
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 14px 16px 16px;
+  background: linear-gradient(135deg, #e8f8ef 0%, #d4f5e0 100%);
+  border: 1px solid var(--green);
+  border-radius: var(--radius-md);
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.next-steps-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--green-hover);
+}
+
+.next-steps-primary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.next-steps-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.next-steps-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-primary-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.next-steps-primary-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-light);
+  line-height: 1.4;
+}
+
+.next-steps-queue {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(88, 204, 2, 0.25);
+}
+
+.next-steps-queue-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+.next-steps-queue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.next-steps-queue-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.next-steps-queue-item:disabled {
+  cursor: default;
+}
+
+.next-steps-queue-icon {
+  font-size: 18px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.next-steps-queue-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-queue-item-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.next-steps-queue-item-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-lighter);
+  line-height: 1.35;
 }
 
 .summary-actions {

@@ -1,5 +1,5 @@
 /**
- * Visual snapshot for issue #48 reading completion overlay.
+ * Visual snapshot for reading completion overlay with next-steps panel (#48 / #52).
  * Run: SCREENSHOT=1 npm test -- --run src/modules/news/__tests__/screenshotCompletion.spec.js
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -21,11 +21,17 @@ const {
   ensureWordsSeen,
   getArticle,
   getDailyGoalProgress,
+  getArticles,
+  getArticlesReadingStatus,
+  getPathCurriculum,
 } = vi.hoisted(() => ({
   lookupWordsMastery: vi.fn(),
   ensureWordsSeen: vi.fn().mockResolvedValue(undefined),
   getArticle: vi.fn(),
   getDailyGoalProgress: vi.fn(),
+  getArticles: vi.fn(),
+  getArticlesReadingStatus: vi.fn(),
+  getPathCurriculum: vi.fn(),
 }));
 
 vi.mock("@/shared/api.js", () => ({
@@ -41,6 +47,13 @@ vi.mock("@/shared/api.js", () => ({
   addDiscoveredWord: vi.fn().mockResolvedValue(100),
   shareText: vi.fn(),
   getDailyGoalProgress,
+  getArticles,
+  getArticlesReadingStatus,
+  getPathCurriculum,
+}));
+
+vi.mock("@/modules/ai-chat/openAiContact.js", () => ({
+  openAiContact: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@/shared/learningContext.js", () => ({
@@ -87,6 +100,29 @@ describe.skipIf(!takeScreenshot)("screenshotCompletion", () => {
       target_lessons: 2,
       lessons_today: 0,
     });
+    getPathCurriculum.mockResolvedValue({
+      status: "active",
+      units: [
+        {
+          sections: [
+            {
+              id: "zh-es/U01-GRAMMAR",
+              kind: "grammar",
+              current: true,
+              locked: false,
+            },
+          ],
+        },
+      ],
+    });
+    getArticles.mockResolvedValue([
+      { id: 1, original_title: "La economía global en 2026" },
+      { id: 2, original_title: "Siguiente artículo" },
+    ]);
+    getArticlesReadingStatus.mockResolvedValue([
+      { article_id: 1, read_at: null },
+      { article_id: 2, read_at: null },
+    ]);
     lookupWordsMastery.mockResolvedValue([
       { word: "hola", word_id: 1, mastery: 2 },
       { word: "mundo", word_id: 2, mastery: 0 },
@@ -113,12 +149,13 @@ describe.skipIf(!takeScreenshot)("screenshotCompletion", () => {
     await flushPromises();
 
     expect(wrapper.find(".completion-overlay").exists()).toBe(true);
+    expect(wrapper.find(".next-steps-panel").exists()).toBe(true);
 
     const root = join(dirname(fileURLToPath(import.meta.url)), "../../../..");
     const outDir = join(root, "screenshots");
     mkdirSync(outDir, { recursive: true });
-    const outHtml = join(outDir, "issue48-reading-completion.html");
-    const outPng = join(outDir, "issue48-reading-completion.png");
+    const outHtml = join(outDir, "issue52-reading-completion.html");
+    const outPng = join(outDir, "issue52-reading-completion.png");
 
     const html = `<!DOCTYPE html>
 <html lang="zh"><head><meta charset="utf-8" />

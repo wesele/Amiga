@@ -159,3 +159,31 @@ export function countUnreadArticles(statusMap, articles) {
   }
   return unread;
 }
+
+/** Count unread articles excluding one article (e.g. the one just finished). */
+export function countUnreadArticlesExcluding(statusMap, articles, excludeArticleId) {
+  let unread = 0;
+  for (const article of articles || []) {
+    if (article.id === excludeArticleId) continue;
+    if (!statusMap.get(article.id)?.read_at) unread += 1;
+  }
+  return unread;
+}
+
+/**
+ * Find the next unread article after the current one in list order.
+ * Scans forward from the current index, then wraps to the start.
+ */
+export function findNextUnreadArticleId(articles, statusMap, currentArticleId) {
+  const list = articles || [];
+  const currentIdx = list.findIndex((article) => article.id === currentArticleId);
+  const ordered =
+    currentIdx >= 0
+      ? [...list.slice(currentIdx + 1), ...list.slice(0, currentIdx)]
+      : list;
+  for (const article of ordered) {
+    if (article.id === currentArticleId) continue;
+    if (!statusMap.get(article.id)?.read_at) return article.id;
+  }
+  return null;
+}

@@ -495,6 +495,15 @@ export default {
     readingDailyGoalHint: "La lectura cuenta para la racha; completa {remaining} lección(es) para la meta de hoy",
     readingCompleteReview: "Repasar {n} palabra(s) de esta sesión",
     readingCompleteNext: "Volver a la lista",
+    readingCompleteLater: "Más tarde",
+    nextStep: {
+      vocabReview: "Repasar {n} palabra(s) de esta sesión",
+      vocabReviewHint: "Aprovecha el momento: ejemplos del artículo que acabas de leer",
+      nextArticle: "Leer el siguiente sin leer",
+      nextArticleHint: "Quedan {n} artículo(s) del día",
+      aiPractice: "Practica estas palabras con Amiga",
+      aiPracticeHint: "Charla con {preview} y más",
+    },
   },
 
   vocab: {
