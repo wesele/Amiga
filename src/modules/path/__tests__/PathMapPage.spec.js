@@ -10,6 +10,10 @@ vi.mock("@/shared/api.js", () => ({
   getCurrentUser: vi.fn().mockResolvedValue({ id: "u1", native_language: "zh" }),
   getLearningGoals: vi.fn().mockResolvedValue([{ target_language: "es", cefr_level: "A1" }]),
   getLearningStreak: vi.fn().mockResolvedValue({ current: 3 }),
+  getTeachingContent: vi.fn().mockResolvedValue({
+    grammar_points: ["ser 和 estar 的区别", "定冠词用法"],
+    words: [{ word: "hola" }, { word: "gracias" }],
+  }),
   updateLearningGoalCefr: vi.fn(),
 }));
 
@@ -105,6 +109,17 @@ describe("PathMapPage unit guide layout", () => {
     expect(source).toMatch(/path\.continueCurrent/);
     expect(source).toMatch(/PATH_FOCUS_QUERY/);
   });
+
+  it("opens a node briefing sheet on map clicks while FAB keeps direct launch", () => {
+    const source = readVue("src/modules/path/PathMapPage.vue");
+    expect(source).toMatch(/openBriefing\(unit, section\)/);
+    expect(source).toMatch(/class="briefing-sheet"/);
+    expect(source).toMatch(/path\.briefingStart/);
+    expect(source).toMatch(/shouldShowNodeBriefing/);
+    const jumpFn = source.match(/function onJumpCurrentClick\(\)\s*\{[\s\S]*?\n\}/);
+    expect(jumpFn?.[0]).toMatch(/pathSectionRoute\(section\)/);
+    expect(jumpFn?.[0]).not.toMatch(/openBriefing/);
+  });
 });
 
 function makeCurriculum() {
@@ -172,5 +187,87 @@ describe("PathMapPage scroll behavior", () => {
     const currentStep = wrapper.find(".path-step.is-current");
     expect(currentStep.exists()).toBe(true);
     expect(currentStep.attributes("id")).toBe("path-node-zh-es-U03-GRAMMAR");
+  });
+
+  it("opens a briefing sheet when clicking an unlocked map node", async () => {
+    const api = await import("@/shared/api.js");
+    api.getPathCurriculum.mockResolvedValue({
+      status: "active",
+      cefr: "A1",
+      completed_sections: 2,
+      total_sections: 4,
+      total_stars: 2,
+      units: [
+        {
+          id: "U01",
+          title_native: "基础问候",
+          title_target: "Saludos",
+          sections: [
+            {
+              id: "zh-es/U01-GRAMMAR",
+              kind: "grammar",
+              title_native: "单元知识",
+              title_target: "Gramática",
+              locked: false,
+              current: false,
+              stars: 1,
+              question_count: 1,
+            },
+            {
+              id: "zh-es/U01-VOCAB",
+              kind: "vocab",
+              title_native: "单词学习",
+              title_target: "Vocabulario",
+              locked: false,
+              current: false,
+              stars: 0,
+              question_count: 12,
+            },
+            {
+              id: "zh-es/U01-S01",
+              kind: "practice",
+              title_native: "基础问候与回应",
+              title_target: "Saludos básicos",
+              locked: false,
+              current: true,
+              stars: 0,
+              question_count: 8,
+            },
+          ],
+        },
+      ],
+    });
+
+    const PathMapPage = (await import("@/modules/path/PathMapPage.vue")).default;
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn", name: "learn", component: { template: "<div/>" } },
+        { path: "/learn/path", name: "path", component: PathMapPage },
+        { path: "/learn/path/:sectionId", name: "path-lesson", component: { template: "<div/>" } },
+      ],
+    });
+    await router.push("/learn/path");
+    await router.isReady();
+
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+
+    const wrapper = mount(PathMapPage, { global: { plugins: [router] }, attachTo: host });
+    await flushPromises();
+    await vi.waitUntil(() => wrapper.find(".path-scroll").exists(), { timeout: 2000 });
+
+    const practiceNode = wrapper.find(".path-node.practice:not([disabled])");
+    expect(practiceNode.exists()).toBe(true);
+    await practiceNode.trigger("click");
+    await flushPromises();
+
+    const sheet = document.body.querySelector(".briefing-sheet");
+    expect(sheet).toBeTruthy();
+    expect(sheet.textContent).toMatch(/8/);
+    expect(sheet.textContent).toMatch(/开始/);
+
+    wrapper.unmount();
+    host.remove();
   });
 });

@@ -107,7 +107,7 @@
                 :class="nodeClass(section)"
                 :disabled="isNodeDisabled(section)"
                 :aria-label="nodeLabel(section)"
-                @click="startNode(section)"
+                @click="openBriefing(unit, section)"
               >
                 <span class="node-inner">
                   <span class="node-icon">{{ nodeIcon(section) }}</span>
@@ -140,6 +140,112 @@
     </div>
 
     <Teleport to="body">
+      <div
+        v-if="briefingContext"
+        class="briefing-overlay"
+        @click.self="closeBriefing"
+      >
+        <div
+          ref="briefingSheetEl"
+          class="briefing-sheet"
+          role="dialog"
+          aria-modal="true"
+          :aria-labelledby="briefingTitleId"
+        >
+          <div class="briefing-handle" aria-hidden="true" />
+
+          <header class="briefing-header">
+            <span class="briefing-kind">{{ t(sectionKindKey(briefingContext.section.kind)) }}</span>
+            <h2 :id="briefingTitleId" class="briefing-title">{{ briefingContext.section.title_native }}</h2>
+            <p v-if="briefingContext.section.title_target" class="briefing-subtitle">
+              {{ briefingContext.section.title_target }}
+            </p>
+            <p class="briefing-unit">{{ briefingContext.unit.title_native }}</p>
+          </header>
+
+          <div class="briefing-body">
+            <template v-if="briefingContext.section.kind === 'practice'">
+              <p class="briefing-stat">
+                {{
+                  t("path.briefingPracticeStats", {
+                    n: briefingContext.section.question_count,
+                    min: estimatePracticeMinutes(briefingContext.section.question_count),
+                  })
+                }}
+              </p>
+              <div class="briefing-stars">
+                <template v-if="briefingStar.mode === 'unpassed'">
+                  <p>{{ t("path.briefingPassLine") }}</p>
+                </template>
+                <template v-else>
+                  <p class="briefing-star-row">
+                    <span class="briefing-star-icons">{{ "★".repeat(briefingStar.stars) }}</span>
+                    <span>{{ t("path.briefingStars", { stars: briefingStar.stars }) }}</span>
+                  </p>
+                  <p v-if="briefingStar.bestScore > 0">
+                    {{ t("path.briefingBestScore", { score: briefingStar.bestScore }) }}
+                  </p>
+                </template>
+              </div>
+              <p class="briefing-trust">{{ t("path.briefingTrustHint") }}</p>
+
+              <section v-if="briefingPrepLoading" class="briefing-prep">
+                <p class="briefing-prep-title">{{ t("path.briefingPrepTitle") }}</p>
+                <div class="briefing-skeleton" />
+                <div class="briefing-skeleton short" />
+              </section>
+
+              <section
+                v-else-if="briefingPrepChips.grammarPoints.length || briefingPrepChips.words.length"
+                class="briefing-prep"
+              >
+                <p class="briefing-prep-title">{{ t("path.briefingPrepTitle") }}</p>
+                <ul v-if="briefingPrepChips.grammarPoints.length" class="briefing-point-list">
+                  <li v-for="(point, idx) in briefingPrepChips.grammarPoints" :key="idx">{{ point }}</li>
+                </ul>
+                <div v-if="briefingPrepChips.words.length" class="briefing-chip-row">
+                  <span v-for="word in briefingPrepChips.words" :key="word" class="briefing-chip">{{ word }}</span>
+                </div>
+              </section>
+
+              <section v-for="prep in unfinishedPrep" :key="prep.id" class="briefing-suggest">
+                <p>{{ t("path.briefingPrepSuggest", { kind: t(sectionKindKey(prep.kind)) }) }}</p>
+                <button type="button" class="briefing-prep-btn" @click="goToPrep(prep)">
+                  {{ t("path.briefingPrepAction") }}
+                </button>
+              </section>
+            </template>
+
+            <template v-else-if="briefingContext.section.kind === 'grammar'">
+              <p>{{ t("path.briefingGrammarHint") }}</p>
+              <p class="briefing-stat">{{ t("path.briefingGrammarDuration") }}</p>
+              <p v-if="briefingContext.section.stars > 0" class="briefing-done">✓ {{ t("path.briefingStars", { stars: briefingContext.section.stars }) }}</p>
+            </template>
+
+            <template v-else-if="briefingContext.section.kind === 'vocab'">
+              <p>{{ t("path.briefingVocabHint", { n: briefingContext.section.question_count }) }}</p>
+              <p v-if="briefingContext.section.stars > 0" class="briefing-done">✓ {{ t("path.briefingStars", { stars: briefingContext.section.stars }) }}</p>
+            </template>
+          </div>
+
+          <footer class="briefing-footer">
+            <button
+              ref="briefingStartBtn"
+              type="button"
+              class="briefing-start-btn"
+              @click="confirmBriefing"
+            >
+              {{ t("path.briefingStart") }}
+            </button>
+            <button type="button" class="briefing-cancel-btn" @click="closeBriefing">
+              {{ t("path.briefingCancel") }}
+            </button>
+          </footer>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
       <Transition name="jump-fab">
         <div v-if="showJumpFab" class="jump-current-bar">
           <button type="button" class="jump-current-btn" @click="onJumpCurrentClick">
@@ -165,6 +271,7 @@ import {
   getPathCurriculum,
   getCurrentUser,
   getLearningStreak,
+  getTeachingContent,
   updateLearningGoalCefr,
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
@@ -180,6 +287,15 @@ import {
   PATH_FOCUS_QUERY,
   shouldShowJumpToCurrent,
 } from "./pathMapScroll.js";
+import {
+  briefingStarDisplay,
+  estimatePracticeMinutes,
+  findUnfinishedPrepSections,
+  isBriefingEligible,
+  prepBriefingChips,
+  prepTeachingNodeId,
+  shouldShowNodeBriefing,
+} from "./pathNodeBriefing.js";
 
 const UNIT_HUES = [145, 198, 262, 32, 12, 210];
 const LANE_X = { left: 22, center: 50, right: 78 };
@@ -201,9 +317,29 @@ const learningLevels = LEARNING_CEFR_LEVELS;
 const pathScrollEl = ref(null);
 const currentVisible = ref(true);
 const highlightedSectionId = ref(null);
+const briefingContext = ref(null);
+const briefingPrep = ref(null);
+const briefingPrepLoading = ref(false);
+const briefingSheetEl = ref(null);
+const briefingStartBtn = ref(null);
 
 let currentObserver = null;
 let highlightTimer = null;
+let briefingPrepRequest = 0;
+
+const briefingTitleId = "path-briefing-title";
+
+const briefingStar = computed(() =>
+  briefingStarDisplay(briefingContext.value?.section),
+);
+
+const unfinishedPrep = computed(() => {
+  const ctx = briefingContext.value;
+  if (!ctx) return [];
+  return findUnfinishedPrepSections(ctx.unit, ctx.section);
+});
+
+const briefingPrepChips = computed(() => prepBriefingChips(briefingPrep.value));
 
 const currentTarget = computed(() => findCurrentSection(curriculum.value));
 
@@ -294,13 +430,80 @@ function goBack() {
   router.replace({ name: "learn" });
 }
 
-function startNode(section) {
-  if (isNodeDisabled(section)) return;
-  if (section.kind === "grammar" || section.kind === "vocab") {
-    router.push({ name: "path-teaching", params: { nodeId: section.id } });
-    return;
+function launchSection(section) {
+  router.push(pathSectionRoute(section));
+}
+
+function openBriefing(unit, section) {
+  if (!shouldShowNodeBriefing() || !isBriefingEligible(section)) return;
+  briefingContext.value = { unit, section };
+  briefingPrep.value = null;
+  window.addEventListener("keydown", onBriefingKeydown);
+  if (section.kind === "practice") {
+    loadBriefingPrep(section);
   }
-  router.push({ name: "path-lesson", params: { sectionId: section.id } });
+  nextTick(() => briefingStartBtn.value?.focus());
+}
+
+function closeBriefing() {
+  briefingContext.value = null;
+  briefingPrep.value = null;
+  briefingPrepLoading.value = false;
+  briefingPrepRequest += 1;
+  window.removeEventListener("keydown", onBriefingKeydown);
+}
+
+function confirmBriefing() {
+  const section = briefingContext.value?.section;
+  if (!section) return;
+  closeBriefing();
+  launchSection(section);
+}
+
+function goToPrep(prepSection) {
+  closeBriefing();
+  launchSection(prepSection);
+}
+
+function onBriefingKeydown(event) {
+  if (event.key !== "Escape") return;
+  event.preventDefault();
+  closeBriefing();
+}
+
+async function loadBriefingPrep(section) {
+  const requestId = ++briefingPrepRequest;
+  briefingPrepLoading.value = true;
+  briefingPrep.value = null;
+  try {
+    const grammarId = prepTeachingNodeId(section.id, "GRAMMAR");
+    const vocabId = prepTeachingNodeId(section.id, "VOCAB");
+    const { user, targetLang, cefr } = await loadLearningContext({
+      targetLangStore,
+      cefrFallback: currentCefr.value || "A1",
+    });
+    const [grammarContent, vocabContent] = await Promise.all([
+      grammarId
+        ? getTeachingContent(user.native_language, targetLang, cefr, grammarId).catch(() => null)
+        : null,
+      vocabId
+        ? getTeachingContent(user.native_language, targetLang, cefr, vocabId).catch(() => null)
+        : null,
+    ]);
+    if (requestId !== briefingPrepRequest) return;
+    briefingPrep.value = {
+      grammar_points: grammarContent?.grammar_points ?? [],
+      words: vocabContent?.words ?? [],
+      goal_native: grammarContent?.goal_native ?? null,
+    };
+  } catch {
+    if (requestId !== briefingPrepRequest) return;
+    briefingPrep.value = null;
+  } finally {
+    if (requestId === briefingPrepRequest) {
+      briefingPrepLoading.value = false;
+    }
+  }
 }
 
 function disconnectCurrentObserver() {
@@ -454,6 +657,7 @@ onActivated(async () => {
 onBeforeUnmount(() => {
   disconnectCurrentObserver();
   if (highlightTimer) clearTimeout(highlightTimer);
+  window.removeEventListener("keydown", onBriefingKeydown);
 });
 </script>
 
@@ -967,5 +1171,242 @@ onBeforeUnmount(() => {
 .jump-fab-leave-to {
   opacity: 0;
   transform: translateY(8px);
+}
+
+.briefing-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+  padding: 0 16px calc(16px + var(--safe-bottom));
+}
+
+.briefing-sheet {
+  width: 100%;
+  max-width: 400px;
+  max-height: min(78vh, 640px);
+  overflow-y: auto;
+  background: var(--white);
+  border-radius: 20px 20px 16px 16px;
+  padding: 12px 16px calc(12px + var(--safe-bottom));
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+}
+
+.briefing-handle {
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 12px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.briefing-header {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.briefing-kind {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--green-bg);
+  color: var(--green-hover);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.briefing-title {
+  margin: 10px 0 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.briefing-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.briefing-unit {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.briefing-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.briefing-stat {
+  margin: 0;
+  font-weight: 700;
+  color: var(--green-hover);
+}
+
+.briefing-stars {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--green-bg);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.briefing-star-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+}
+
+.briefing-star-icons {
+  color: #d97706;
+  letter-spacing: 1px;
+}
+
+.briefing-trust {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.briefing-prep {
+  padding: 10px 0 4px;
+  border-top: 1px solid var(--border);
+}
+
+.briefing-prep-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+
+.briefing-point-list {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.briefing-point-list li + li {
+  margin-top: 4px;
+}
+
+.briefing-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.briefing-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.briefing-skeleton {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: briefing-shimmer 1.2s ease infinite;
+}
+
+.briefing-skeleton.short {
+  width: 65%;
+  margin-top: 8px;
+}
+
+@keyframes briefing-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.briefing-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: #fff7ed;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.briefing-prep-btn {
+  align-self: flex-start;
+  padding: 8px 14px;
+  border: 2px solid #f97316;
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  color: #c2410c;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.briefing-done {
+  margin: 0;
+  font-weight: 700;
+  color: var(--green-hover);
+}
+
+.briefing-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.briefing-start-btn {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--green);
+  color: var(--white);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 0 var(--green-hover);
+}
+
+.briefing-start-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--green-hover);
+}
+
+.briefing-cancel-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-light);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
 }
 </style>
