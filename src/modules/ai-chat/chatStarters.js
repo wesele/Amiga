@@ -1,4 +1,20 @@
 /**
+ * Build a starter that quizzes words the learner just reviewed.
+ * @param {string[]} words
+ */
+export function buildReviewedWordsStarter(words) {
+  const list = Array.isArray(words) ? words.map((word) => String(word).trim()).filter(Boolean) : [];
+  if (!list.length) return null;
+  return {
+    id: "reviewed-words",
+    labelKey: "chat.starterReviewedWords",
+    labelParams: { preview: list.slice(0, 3).join(", ") },
+    messageKey: "chat.starterReviewedWordsMsg",
+    messageParams: { words: list.join(", ") },
+  };
+}
+
+/**
  * Pick contextual quick-start chips for an empty Amiga chat session.
  *
  * @param {object} ctx

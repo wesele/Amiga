@@ -83,6 +83,11 @@ function defaultInvoke(cmd) {
   if (cmd === "get_user_vocab_stats_cmd") {
     return Promise.resolve({ total_known: 0, total_learning: 2, total: 1000 });
   }
+  if (cmd === "get_path_curriculum_cmd") {
+    return Promise.resolve({ status: "active", units: [] });
+  }
+  if (cmd === "get_articles_cmd") return Promise.resolve([]);
+  if (cmd === "get_articles_reading_status_cmd") return Promise.resolve([]);
   return Promise.resolve(null);
 }
 
@@ -270,7 +275,9 @@ describe("VocabReviewPage", () => {
       targetLanguage: "es",
     });
     expect(wrapper.find(".streak-banner").text()).toContain("3 天连胜");
+    expect(wrapper.find(".next-steps-panel").exists()).toBe(true);
     expect(wrapper.text()).toContain("继续复习（还有 2 个）");
+    expect(wrapper.text()).toContain("稍后再说");
     expect(
       mockInvoke.mock.calls.filter(([cmd]) => cmd === "get_unknown_words_cmd").length,
     ).toBeGreaterThanOrEqual(2);

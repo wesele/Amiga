@@ -107,7 +107,7 @@ import {
   loadQuestionTypeStats,
   pairStatsKey,
 } from "@/modules/learn/questionTypeStats.js";
-import { pickChatStarters } from "@/modules/ai-chat/chatStarters.js";
+import { buildReviewedWordsStarter, pickChatStarters } from "@/modules/ai-chat/chatStarters.js";
 import MarkdownText from "@/shared/components/MarkdownText.vue";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
 import { useI18n } from "@/shared/i18n";
@@ -274,6 +274,22 @@ async function sendStarter(starter) {
   await dispatchMessage(starterMessage(starter));
 }
 
+function applyReviewedWordsStarter(starters) {
+  if (route.query.starterId !== "reviewed-words" || !route.query.words) {
+    return starters;
+  }
+  const words = String(route.query.words)
+    .split(",")
+    .map((word) => word.trim())
+    .filter(Boolean);
+  const reviewedStarter = buildReviewedWordsStarter(words);
+  if (!reviewedStarter) return starters;
+  return [reviewedStarter, ...starters.filter((starter) => starter.id !== "reviewed-words")].slice(
+    0,
+    3,
+  );
+}
+
 async function loadChatStarters(nativeLangCode, langCode, cefr) {
   startersLoading.value = true;
   chatStarters.value = [];
@@ -298,14 +314,18 @@ async function loadChatStarters(nativeLangCode, langCode, cefr) {
     }
     const stats = loadQuestionTypeStats(pairStatsKey(nativeLangCode, langCode));
     const focusArea = buildFocusArea(stats);
-    chatStarters.value = pickChatStarters({
-      currentSection,
-      teachingPreview,
-      focusArea,
-      targetLabel: targetLabel.value,
-    });
+    chatStarters.value = applyReviewedWordsStarter(
+      pickChatStarters({
+        currentSection,
+        teachingPreview,
+        focusArea,
+        targetLabel: targetLabel.value,
+      }),
+    );
   } catch {
-    chatStarters.value = pickChatStarters({ targetLabel: targetLabel.value });
+    chatStarters.value = applyReviewedWordsStarter(
+      pickChatStarters({ targetLabel: targetLabel.value }),
+    );
   } finally {
     startersLoading.value = false;
   }

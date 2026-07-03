@@ -1,7 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { pickChatStarters } from "@/modules/ai-chat/chatStarters.js";
+import { buildReviewedWordsStarter, pickChatStarters } from "@/modules/ai-chat/chatStarters.js";
 
 const unit = { title_native: "日常活动", title_target: "Daily routines" };
+
+describe("buildReviewedWordsStarter", () => {
+  it("builds a reviewed-words starter with preview and full word list", () => {
+    const starter = buildReviewedWordsStarter(["alpha", "beta", "gamma", "delta"]);
+    expect(starter.id).toBe("reviewed-words");
+    expect(starter.labelParams.preview).toBe("alpha, beta, gamma");
+    expect(starter.messageParams.words).toBe("alpha, beta, gamma, delta");
+  });
+
+  it("returns null when no words are provided", () => {
+    expect(buildReviewedWordsStarter([])).toBeNull();
+  });
+});
 
 describe("pickChatStarters", () => {
   it("prefers grammar practice when current node is grammar with points", () => {

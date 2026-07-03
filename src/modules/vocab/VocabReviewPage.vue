@@ -46,23 +46,57 @@
       <p v-else-if="dailyGoalNudge" class="daily-goal-banner is-nudge">{{ dailyGoalNudge }}</p>
       <p v-else-if="dailyGoalContributed" class="daily-goal-banner">{{ dailyGoalContributed }}</p>
       <p v-if="vocabMilestoneBanner" class="vocab-milestone-banner">{{ vocabMilestoneBanner }}</p>
-      <p v-if="showContinueReview" class="continue-hint">{{ t("vocab.reviewContinueHint") }}</p>
-      <div class="summary-actions">
+      <section v-if="vocabReviewPlan" class="next-steps-panel">
+        <p class="next-steps-eyebrow">{{ t("path.nextStep.title") }}</p>
+        <div class="next-steps-primary">
+          <span class="next-steps-icon" aria-hidden="true">{{ vocabReviewPlan.primary.icon }}</span>
+          <div class="next-steps-copy">
+            <p class="next-steps-primary-title">{{ stepTitle(vocabReviewPlan.primary) }}</p>
+            <p
+              v-if="vocabReviewPlan.primary.subtitleKey"
+              class="next-steps-primary-sub"
+            >
+              {{ stepSubtitle(vocabReviewPlan.primary) }}
+            </p>
+          </div>
+        </div>
+        <div v-if="vocabReviewPlan.secondary.length" class="next-steps-queue">
+          <p class="next-steps-queue-title">
+            {{ t("path.nextStep.queueTitle", { n: vocabReviewPlan.secondary.length }) }}
+          </p>
+          <button
+            v-for="step in vocabReviewPlan.secondary"
+            :key="step.id"
+            type="button"
+            class="next-steps-queue-item"
+            :disabled="!step.route && !step.contactAction && !isContinueReviewStep(step)"
+            @click="goToVocabStep(step)"
+          >
+            <span class="next-steps-queue-icon" aria-hidden="true">{{ step.icon }}</span>
+            <div class="next-steps-queue-copy">
+              <p class="next-steps-queue-item-title">{{ stepTitle(step) }}</p>
+              <p v-if="step.subtitleKey" class="next-steps-queue-item-sub">
+                {{ stepSubtitle(step) }}
+              </p>
+            </div>
+          </button>
+        </div>
+      </section>
+      <div v-if="vocabReviewPlan" class="summary-actions">
         <button
-          v-if="showContinueReview"
           type="button"
           class="action-btn primary"
-          :disabled="continuing"
-          @click="continueReview"
+          :disabled="continuing || openingAiPractice"
+          @click="goToVocabStep(vocabReviewPlan.primary)"
         >
-          {{ continueReviewLabel }}
+          {{ stepContinueLabel(vocabReviewPlan.primary) }}
         </button>
-        <button
-          type="button"
-          class="action-btn"
-          :class="showContinueReview ? 'secondary' : 'primary'"
-          @click="exitReview"
-        >
+        <button type="button" class="action-btn secondary" @click="exitReview">
+          {{ t("vocab.reviewLater") }}
+        </button>
+      </div>
+      <div v-else class="summary-actions">
+        <button type="button" class="action-btn primary" @click="exitReview">
           {{ t("vocab.reviewBack") }}
         </button>
       </div>
@@ -177,12 +211,20 @@ import {
 } from "@/modules/news/readingSession.js";
 import { useI18n } from "@/shared/i18n";
 import {
+  getArticles,
   getArticlesReadingStatus,
+  getPathCurriculum,
   getUnknownWords,
   getUserVocabStats,
   lookupWordsMastery,
   updateWordMastery,
 } from "@/shared/api.js";
+import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
+import { findCurrentSection } from "@/modules/learn/pathResume.js";
+import {
+  buildStatusMap,
+  countUnreadArticles,
+} from "@/modules/news/newsReadingStatus.js";
 import {
   buildArticleReviewSessionWords,
   buildDueWordKeySet,
@@ -215,9 +257,12 @@ import {
 import {
   REMAINING_PEEK_LIMIT,
   remainingVocabReviewCount,
-  shouldOfferVocabContinuation,
-  vocabContinueLabelKey,
 } from "./vocabReviewContinuation.js";
+import {
+  buildPostVocabReviewPlan,
+  isAiPracticeStep,
+  isContinueReviewStep,
+} from "./postVocabReviewPlan.js";
 import {
   canSwipeToRate,
   isVocabSwipeTap,
@@ -266,6 +311,10 @@ const targetLang = ref("es");
 const readingSessionMode = ref(false);
 const sessionWordCount = ref(0);
 const sessionContextMap = ref(new Map());
+const resumeTarget = ref(null);
+const newsUnreadCount = ref(0);
+const planContextReady = ref(false);
+const openingAiPractice = ref(false);
 
 const currentWord = computed(() => words.value[index.value] || null);
 
@@ -345,17 +394,24 @@ const vocabMilestoneBanner = computed(() => {
   return t(VOCAB_MILESTONE_CELEBRATION_KEY, { n: milestone });
 });
 
-const showContinueReview = computed(
-  () => !checkingRemaining.value && shouldOfferVocabContinuation(remainingDue.value),
+const reviewedWords = computed(() =>
+  words.value.map((entry) => entry.word).filter(Boolean),
 );
 
-const continueReviewLabel = computed(() => {
-  const key = vocabContinueLabelKey(remainingDue.value);
-  const n =
-    remainingDue.value >= REMAINING_PEEK_LIMIT
-      ? REMAINING_PEEK_LIMIT
-      : remainingDue.value;
-  return t(key, { n });
+const vocabReviewPlan = computed(() => {
+  if (!finished.value || checkingRemaining.value || !planContextReady.value) {
+    return null;
+  }
+  return buildPostVocabReviewPlan({
+    reviewResult: reviewResult.value,
+    remainingDue: remainingDue.value,
+    fromReading: readingSessionMode.value,
+    sessionWordCount: sessionWordCount.value,
+    masteredCount: masteredCount.value,
+    reviewedWords: reviewedWords.value,
+    newsUnreadCount: newsUnreadCount.value,
+    resumeTarget: resumeTarget.value,
+  });
 });
 
 const swipeEnabled = computed(() =>
@@ -546,6 +602,10 @@ async function load() {
     remainingDue.value = 0;
     checkingRemaining.value = false;
     continuing.value = false;
+    resumeTarget.value = null;
+    newsUnreadCount.value = 0;
+    planContextReady.value = false;
+    openingAiPractice.value = false;
     resetCard();
   } catch {
     error.value = t("common.fail");
@@ -580,7 +640,7 @@ async function advanceAfterMark(mastery) {
       sessionComplete: true,
       targetLanguage: targetLang.value,
     });
-    await refreshRemainingDue();
+    await Promise.all([refreshRemainingDue(), loadPostReviewContext()]);
     return;
   }
   index.value = nextIndex;
@@ -616,12 +676,102 @@ async function refreshRemainingDue() {
   }
 }
 
+function regionForLang(lang) {
+  switch (lang) {
+    case "zh":
+      return "CN";
+    case "en":
+      return "US";
+    case "es":
+      return "ES";
+    default:
+      return "CN";
+  }
+}
+
+async function loadNewsUnread() {
+  try {
+    const articles = await getArticles(regionForLang(targetLang.value));
+    if (!articles.length) {
+      newsUnreadCount.value = 0;
+      return;
+    }
+    const ids = articles.map((article) => article.id).filter((id) => id != null);
+    const rows = await getArticlesReadingStatus(userId.value, ids);
+    const map = buildStatusMap(rows);
+    newsUnreadCount.value = countUnreadArticles(map, articles);
+  } catch {
+    newsUnreadCount.value = 0;
+  }
+}
+
+async function loadPostReviewContext() {
+  planContextReady.value = false;
+  try {
+    const curriculum = await getPathCurriculum(
+      nativeLang.value,
+      targetLang.value,
+      cefr.value,
+    );
+    resumeTarget.value = findCurrentSection(curriculum);
+    await loadNewsUnread();
+  } catch {
+    resumeTarget.value = null;
+    newsUnreadCount.value = 0;
+  } finally {
+    planContextReady.value = true;
+  }
+}
+
 async function continueReview() {
   continuing.value = true;
   try {
     await load();
   } finally {
     continuing.value = false;
+  }
+}
+
+function stepTitle(step) {
+  if (!step?.titleKey) return "";
+  return t(step.titleKey, step.titleParams ?? {});
+}
+
+function stepSubtitle(step) {
+  if (!step?.subtitleKey) return "";
+  return t(step.subtitleKey, step.subtitleParams ?? {});
+}
+
+function stepContinueLabel(step) {
+  if (!step?.continueKey) return t("vocab.reviewBack");
+  return t(step.continueKey, step.continueParams ?? {});
+}
+
+async function goToVocabStep(step) {
+  if (!step) return;
+  if (isContinueReviewStep(step)) {
+    await continueReview();
+    return;
+  }
+  if (isAiPracticeStep(step)) {
+    openingAiPractice.value = true;
+    try {
+      await openAiContact(
+        router,
+        { name: t("chat.amiga"), contactType: "amiga" },
+        {
+          targetLang: targetLang.value,
+          starterId: "reviewed-words",
+          starterParams: { words: (step.reviewedWords ?? reviewedWords.value).join(", ") },
+        },
+      );
+    } finally {
+      openingAiPractice.value = false;
+    }
+    return;
+  }
+  if (step.route) {
+    router.replace(step.route);
   }
 }
 
@@ -755,11 +905,120 @@ onUnmounted(() => {
   font-weight: 700;
 }
 
-.continue-hint {
+.next-steps-panel {
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 14px 16px 16px;
+  background: linear-gradient(135deg, #e8f8ef 0%, #d4f5e0 100%);
+  border: 1px solid var(--green);
+  border-radius: var(--radius-md);
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.next-steps-eyebrow {
   margin: 0;
-  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--green-hover);
+}
+
+.next-steps-primary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.next-steps-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.next-steps-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-primary-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.next-steps-primary-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-light);
+  line-height: 1.4;
+}
+
+.next-steps-queue {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(88, 204, 2, 0.25);
+}
+
+.next-steps-queue-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+.next-steps-queue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.next-steps-queue-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.next-steps-queue-item:disabled {
+  cursor: default;
+}
+
+.next-steps-queue-icon {
+  font-size: 18px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.next-steps-queue-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-queue-item-title {
+  margin: 0;
   font-size: 14px;
-  line-height: 1.5;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.next-steps-queue-item-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-lighter);
+  line-height: 1.35;
 }
 
 .summary-actions {
