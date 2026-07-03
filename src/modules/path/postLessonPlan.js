@@ -23,6 +23,12 @@ import {
 import { shouldShowFocusAreaNudge } from "./focusAreaNudge.js";
 import { pathRouteWithCurrentFocus } from "./pathMapScroll.js";
 import { pathRouteForCompletion } from "./pathCompletionCelebration.js";
+import {
+  lessonArticleReaderRoute,
+  pickBestArticleForLessonWords,
+} from "@/modules/news/lessonArticleMatch.js";
+import { lessonWordsPreview } from "@/modules/news/lessonWordHighlight.js";
+import { isStreakAtRisk } from "@/modules/learn/streakAtRisk.js";
 
 export const STEP_IDS = {
   DAILY_GOAL: "dailyGoal",
@@ -31,6 +37,7 @@ export const STEP_IDS = {
   VOCAB_REVIEW: "vocabReview",
   FOCUS_AREA: "focusArea",
   NEXT_LESSON: "nextLesson",
+  READ_MATCHED_ARTICLE: "readMatchedArticle",
   PATH: "path",
   WEEKLY_GOAL: "weeklyGoal",
 };
@@ -135,6 +142,26 @@ function buildPathStep(completionCtx) {
     titleKey: "path.nextStep.path",
     subtitleKey: "path.nextStep.pathHint",
     continueKey: "path.continuePath",
+  };
+}
+
+function buildReadMatchedArticleStep(match) {
+  const preview = lessonWordsPreview(match.matchedWords);
+  return {
+    id: STEP_IDS.READ_MATCHED_ARTICLE,
+    route: lessonArticleReaderRoute(match.articleId, match.matchedWords),
+    icon: "📰",
+    titleKey: "path.nextStep.readMatchedArticle",
+    subtitleKey: "path.nextStep.readMatchedArticleHint",
+    subtitleParams: {
+      title: match.articleTitle,
+      n: match.matchCount,
+      preview,
+    },
+    continueKey: "path.nextStep.readMatchedArticleContinue",
+    articleId: match.articleId,
+    matchedWords: match.matchedWords,
+    matchCount: match.matchCount,
   };
 }
 
@@ -266,6 +293,11 @@ export function buildPostLessonPlan({
   dueMistakesAtStart = 0,
   dueVocabAtStart = 0,
   focusArea = null,
+  isVocabLesson = false,
+  lessonWords = [],
+  articles = [],
+  newsUnreadCount = 0,
+  localHour = new Date().getHours(),
 } = {}) {
   if (!result?.passed) return null;
 
@@ -279,6 +311,11 @@ export function buildPostLessonPlan({
   });
   flags.freshMistakeCount = freshMistakeCount;
 
+  const articleMatch =
+    isVocabLesson && lessonWords.length >= 2
+      ? pickBestArticleForLessonWords(articles, lessonWords)
+      : null;
+
   const primary = pickPrimaryStep(flags, result, freshMistakeCount, completionCtx);
   const secondary = [];
 
@@ -291,6 +328,26 @@ export function buildPostLessonPlan({
     }
     if (flags.weeklyGoalNudgeActive) {
       secondary.push(buildWeeklyGoalStep(result));
+    }
+  }
+
+  if (articleMatch && primary.id !== STEP_IDS.READ_MATCHED_ARTICLE) {
+    const matchedStep = buildReadMatchedArticleStep(articleMatch);
+    const streakAtRisk = isStreakAtRisk({
+      streakCurrent: result.streak_current,
+      practicedToday: Boolean(result.streak_extended || result.daily_goal_just_met),
+      localHour,
+    });
+    if (
+      streakAtRisk &&
+      newsUnreadCount > 0 &&
+      !secondary.some((step) => step.id === STEP_IDS.READ_MATCHED_ARTICLE)
+    ) {
+      secondary.unshift(matchedStep);
+    } else if (
+      !secondary.some((step) => step.id === STEP_IDS.READ_MATCHED_ARTICLE)
+    ) {
+      secondary.push(matchedStep);
     }
   }
 

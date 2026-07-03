@@ -1,5 +1,14 @@
 import { pathSectionRoute } from "@/modules/learn/pathResume.js";
 
+/** Map a practice or vocab section id to its vocab teaching node id. */
+export function vocabTeachingNodeId(sectionId) {
+  const id = String(sectionId ?? "").trim();
+  if (!id) return null;
+  if (id.endsWith("-VOCAB")) return id;
+  if (id.endsWith("-PRACTICE")) return id.replace(/-PRACTICE$/, "-VOCAB");
+  return null;
+}
+
 /** Infer section kind from the canonical path node id. */
 export function sectionKindFromId(sectionId) {
   const id = String(sectionId ?? "").trim();

@@ -355,8 +355,11 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
   completeSection,
+  getArticles,
+  getArticlesReadingStatus,
   getPathCurriculum,
   getSectionLesson,
+  getTeachingContent,
   shareText as nativeShareText,
 } from "@/shared/api.js";
 import AchievementUnlockBanner from "@/modules/achievements/AchievementUnlockBanner.vue";
@@ -462,8 +465,15 @@ import {
 } from "./failedLessonPlan.js";
 import {
   continueRouteAfterLesson,
+  sectionKindFromId,
   shouldContinueToNextLesson,
+  vocabTeachingNodeId,
 } from "./lessonContinue.js";
+import {
+  buildStatusMap,
+  countUnreadArticles,
+} from "@/modules/news/newsReadingStatus.js";
+import { mergeArticlesWithStatus } from "@/modules/news/lessonArticleMatch.js";
 import { shouldAutoCheckOnAnswerChange } from "./practiceAnswerAutoCheck.js";
 import { correctAutoAdvanceDelayMs } from "./practiceFlowTiming.js";
 import {
@@ -519,6 +529,10 @@ const sessionMistakeIds = ref(new Set());
 const dueVocabAtStart = ref(0);
 const focusAreaAtStart = ref(null);
 const unfinishedPrep = ref([]);
+const lessonWordsForMatch = ref([]);
+const articlesForMatch = ref([]);
+const newsUnreadCount = ref(0);
+const userId = ref("");
 const expandedMistakeKeys = ref(new Set());
 const listenReplayBusy = ref(false);
 const resumeToast = ref("");
@@ -738,6 +752,11 @@ const postLessonPlan = computed(() => {
     dueMistakesAtStart: dueMistakesAtStart.value,
     dueVocabAtStart: dueVocabAtStart.value,
     focusArea: focusAreaAtStart.value,
+    isVocabLesson: sectionKindFromId(route.params.sectionId) === "practice",
+    lessonWords: lessonWordsForMatch.value,
+    articles: articlesForMatch.value,
+    newsUnreadCount: newsUnreadCount.value,
+    localHour: new Date().getHours(),
   });
 });
 
@@ -1010,11 +1029,65 @@ onBeforeUnmount(() => {
   persistLessonInFlight();
 });
 
+function regionForLang(lang) {
+  switch (lang) {
+    case "zh":
+      return "CN";
+    case "en":
+      return "US";
+    case "es":
+      return "ES";
+    default:
+      return "CN";
+  }
+}
+
+async function loadPostLessonMatchContext() {
+  lessonWordsForMatch.value = [];
+  articlesForMatch.value = [];
+  newsUnreadCount.value = 0;
+
+  if (sectionKindFromId(route.params.sectionId) !== "practice") return;
+
+  const vocabNodeId = vocabTeachingNodeId(route.params.sectionId);
+  if (!vocabNodeId) return;
+
+  try {
+    const teaching = await getTeachingContent(
+      userMeta.value.nativeLang,
+      userMeta.value.targetLang,
+      userMeta.value.cefr,
+      vocabNodeId,
+    );
+    lessonWordsForMatch.value = (teaching?.words ?? [])
+      .map((item) => item.word)
+      .filter(Boolean);
+  } catch {
+    lessonWordsForMatch.value = [];
+  }
+
+  if (lessonWordsForMatch.value.length < 2) return;
+
+  try {
+    const articles = await getArticles(regionForLang(userMeta.value.targetLang));
+    if (!articles.length) return;
+    const ids = articles.map((article) => article.id).filter((id) => id != null);
+    const rows = await getArticlesReadingStatus(userId.value, ids);
+    const map = buildStatusMap(rows);
+    newsUnreadCount.value = countUnreadArticles(map, articles);
+    articlesForMatch.value = mergeArticlesWithStatus(articles, map);
+  } catch {
+    articlesForMatch.value = [];
+    newsUnreadCount.value = 0;
+  }
+}
+
 async function load() {
   loading.value = true;
   error.value = "";
   try {
     const { user, targetLang, cefr } = await loadLearningContext({ targetLangStore });
+    userId.value = user.id;
     userMeta.value = {
       nativeLang: user.native_language,
       targetLang,
@@ -1334,6 +1407,7 @@ async function submitLesson() {
     );
     result.value = res;
     finished.value = true;
+    await loadPostLessonMatchContext();
     const achievementCtx = buildLessonSettlementAchievementCtx(res);
     settlementUnlockBadges.value = achievementCtx
       ? notifyAchievementUnlocks(achievementCtx)

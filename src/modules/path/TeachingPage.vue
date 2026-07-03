@@ -298,6 +298,7 @@ import {
   buildStatusMap,
   countUnreadArticles,
 } from "@/modules/news/newsReadingStatus.js";
+import { mergeArticlesWithStatus } from "@/modules/news/lessonArticleMatch.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 import { countDueForPair } from "./mistakeReviewStore.js";
 import {
@@ -340,6 +341,7 @@ const dueMistakesAtStart = ref(0);
 const dueVocabAtStart = ref(0);
 const focusAreaAtStart = ref(null);
 const newsUnreadCount = ref(0);
+const articlesForMatch = ref([]);
 const openingAiPractice = ref(false);
 const selectedWord = ref(null);
 const userId = ref("");
@@ -745,14 +747,17 @@ async function loadNewsUnread() {
     const articles = await getArticles(regionForLang(userMeta.value.targetLang));
     if (!articles.length) {
       newsUnreadCount.value = 0;
+      articlesForMatch.value = [];
       return;
     }
     const ids = articles.map((article) => article.id).filter((id) => id != null);
     const rows = await getArticlesReadingStatus(userId.value, ids);
     const map = buildStatusMap(rows);
     newsUnreadCount.value = countUnreadArticles(map, articles);
+    articlesForMatch.value = mergeArticlesWithStatus(articles, map);
   } catch {
     newsUnreadCount.value = 0;
+    articlesForMatch.value = [];
   }
 }
 
@@ -783,6 +788,9 @@ async function loadPostTeachingContext() {
     microReviewCompleted: microReviewCompleted.value,
     newsUnreadCount: newsUnreadCount.value,
     localHour: new Date().getHours(),
+    isVocabLesson: content.value?.kind === "vocab",
+    lessonWords: teachingWords.value.map((item) => item.word).filter(Boolean),
+    articles: articlesForMatch.value,
   });
 }
 

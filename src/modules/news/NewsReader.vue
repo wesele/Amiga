@@ -84,7 +84,10 @@
               <span
                 v-if="token.isWord"
                 class="word"
-                :class="[resolveWordClass(token), { 'evidence-highlight': token.inEvidence }]"
+                :class="[
+                  resolveWordClass(token),
+                  { 'evidence-highlight': token.inEvidence, 'lesson-word-highlight': token.isLessonWord },
+                ]"
                 :data-evidence-sentence="token.evidenceAnchor ? token.evidenceSentence : undefined"
                 @click.stop="onWordTap(token)"
               >
@@ -92,7 +95,10 @@
               </span>
               <span
                 v-else
-                :class="{ 'evidence-highlight': token.inEvidence }"
+                :class="{
+                  'evidence-highlight': token.inEvidence,
+                  'lesson-word-highlight': token.isLessonWord,
+                }"
                 :data-evidence-sentence="token.evidenceAnchor ? token.evidenceSentence : undefined"
               >{{ token.text }}</span>
             </template>
@@ -111,13 +117,19 @@
               <span
                 v-if="token.isWord"
                 class="word"
-                :class="[resolveWordClass(token), { 'evidence-highlight': token.inEvidence }]"
+                :class="[
+                  resolveWordClass(token),
+                  { 'evidence-highlight': token.inEvidence, 'lesson-word-highlight': token.isLessonWord },
+                ]"
                 :data-evidence-sentence="token.evidenceAnchor ? token.evidenceSentence : undefined"
                 @click.stop="onWordTap(token)"
               >{{ token.text }}</span>
               <span
                 v-else
-                :class="{ 'evidence-highlight': token.inEvidence }"
+                :class="{
+                  'evidence-highlight': token.inEvidence,
+                  'lesson-word-highlight': token.isLessonWord,
+                }"
                 :data-evidence-sentence="token.evidenceAnchor ? token.evidenceSentence : undefined"
               >{{ token.text }}</span>
             </template>
@@ -226,6 +238,16 @@
       class="comprehension-revisit-strip"
     >
       {{ t("vocab.contextRevisitStrip") }}
+    </div>
+
+    <div
+      v-if="lessonWordsStripVisible && article?.rewritten_body"
+      class="lesson-words-strip"
+    >
+      {{ t("news.lessonWordsStrip", {
+        n: lessonWordsCount,
+        preview: lessonWordsStripPreview,
+      }) }}
     </div>
 
     <!-- Fixed bottom bar -->
@@ -604,6 +626,11 @@ import { CEFR_LEVEL_CHANGED, displayLang } from "@/shared/constants.js";
 import { shouldOfferRewriteRefresh } from "./rewriteLevelMatch.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { extractWordTexts, tokenizeArticleText, applyMasteryToTokens } from "./articleText.js";
+import {
+  applyLessonWordFlags,
+  lessonWordsPreview,
+  parseLessonWordsQuery,
+} from "./lessonWordHighlight.js";
 import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
 import { buildPhraseVocabEntry, isPhraseMarkable, phraseKey } from "./phraseVocabMark.js";
@@ -774,6 +801,8 @@ const comprehensionRetakeMode = ref(false);
 const comprehensionQuizAvailable = ref(false);
 const comprehensionRevisitActive = ref(false);
 const vocabContextRevisitActive = ref(false);
+const lessonWordsSet = ref(new Set());
+const lessonWordsStripVisible = ref(false);
 const evidenceRanges = ref([]);
 const summaryMode = ref("complete");
 const dailyGoalSnapshot = ref(null);
@@ -805,6 +834,12 @@ const rewritingMessage = computed(() => {
   }
   return t("news.rewriting");
 });
+
+const lessonWordsCount = computed(() => lessonWordsSet.value.size);
+
+const lessonWordsStripPreview = computed(() =>
+  lessonWordsPreview([...lessonWordsSet.value]),
+);
 
 function onSingleWordSelected(text) {
   const context = articleBodyRef.value?.textContent?.trim() ?? "";
@@ -1184,6 +1219,14 @@ onMounted(async () => {
     if (route.query.vocabContextRevisit === "1") {
       await enterVocabContextRevisit();
     }
+    if (route.query.lessonWords) {
+      lessonWordsSet.value = parseLessonWordsQuery(route.query.lessonWords);
+      if (lessonWordsSet.value.size) {
+        lessonWordsStripVisible.value = true;
+        refreshEvidenceOnTokens();
+        router.replace({ name: "reader", params: { id: String(props.id) } });
+      }
+    }
   } catch (e) {
     console.error("Failed to load article:", e);
   }
@@ -1320,12 +1363,23 @@ function refreshEvidenceOnTokens() {
   const offsets = paragraphOffsets(body);
   paraTokens.value = offsets.map(({ text, start }) => {
     const paraRanges = rangesForParagraph(ranges, start, text.length);
-    const paraBase = applyMasteryToTokens(tokenizeArticleText(text), masteryMap.value);
+    const paraBase = applyLessonWordFlags(
+      applyMasteryToTokens(tokenizeArticleText(text), masteryMap.value),
+      lessonWordsSet.value,
+    );
     return applyEvidenceToTokens(paraBase, paraRanges);
   });
 
-  const baseTokens = applyMasteryToTokens(tokenizeArticleText(body), masteryMap.value);
+  const baseTokens = applyLessonWordFlags(
+    applyMasteryToTokens(tokenizeArticleText(body), masteryMap.value),
+    lessonWordsSet.value,
+  );
   tokens.value = applyEvidenceToTokens(baseTokens, ranges);
+}
+
+function clearLessonWordsStrip() {
+  if (!lessonWordsStripVisible.value) return;
+  lessonWordsStripVisible.value = false;
 }
 
 function refreshTokenMastery() {
@@ -1642,7 +1696,9 @@ function onArticleBodyClick() {
   }
   if (vocabContextRevisitActive.value) {
     clearVocabContextRevisit();
+    return;
   }
+  clearLessonWordsStrip();
 }
 
 function onWordTap(token) {
@@ -2670,6 +2726,23 @@ function formatSource(source) {
   background: rgba(255, 193, 7, 0.12);
   border-top: 1px solid rgba(255, 193, 7, 0.25);
   text-align: center;
+}
+
+.lesson-words-strip {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: rgba(88, 204, 2, 0.1);
+  border-top: 1px solid rgba(88, 204, 2, 0.25);
+  text-align: center;
+}
+
+.lesson-word-highlight {
+  background: rgba(88, 204, 2, 0.22);
+  border-radius: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .comprehension-retake-chip,

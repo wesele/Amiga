@@ -28,6 +28,12 @@ import { shouldShowFocusAreaNudge } from "./focusAreaNudge.js";
 import { pathRouteWithCurrentFocus } from "./pathMapScroll.js";
 import { pathRouteForCompletion } from "./pathCompletionCelebration.js";
 import { isStreakAtRisk } from "@/modules/learn/streakAtRisk.js";
+import {
+  lessonArticleReaderRoute,
+  pickBestArticleForLessonWords,
+} from "@/modules/news/lessonArticleMatch.js";
+import { lessonWordsPreview } from "@/modules/news/lessonWordHighlight.js";
+import { sectionKindFromId } from "./lessonContinue.js";
 
 export const TEACHING_STEP_IDS = {
   NEXT_NODE: "nextNode",
@@ -37,6 +43,7 @@ export const TEACHING_STEP_IDS = {
   VOCAB_REVIEW: "vocabReview",
   FOCUS_AREA: "focusArea",
   READ_NEWS: "readNews",
+  READ_MATCHED_ARTICLE: "readMatchedArticle",
   AI_PRACTICE: "aiPractice",
   PATH: "path",
   LEARN_HUB: "learnHub",
@@ -170,6 +177,26 @@ function buildReadNewsStep(newsUnreadCount) {
     subtitleKey: "path.nextStep.readNewsHint",
     subtitleParams: { n: newsUnreadCount },
     continueKey: "path.nextStep.readNews",
+  };
+}
+
+function buildReadMatchedArticleStep(match) {
+  const preview = lessonWordsPreview(match.matchedWords);
+  return {
+    id: TEACHING_STEP_IDS.READ_MATCHED_ARTICLE,
+    route: lessonArticleReaderRoute(match.articleId, match.matchedWords),
+    icon: "📰",
+    titleKey: "path.nextStep.readMatchedArticle",
+    subtitleKey: "path.nextStep.readMatchedArticleHint",
+    subtitleParams: {
+      title: match.articleTitle,
+      n: match.matchCount,
+      preview,
+    },
+    continueKey: "path.nextStep.readMatchedArticleContinue",
+    articleId: match.articleId,
+    matchedWords: match.matchedWords,
+    matchCount: match.matchCount,
   };
 }
 
@@ -339,12 +366,31 @@ function buildSecondarySteps(flags, result, primary, ctx, completionCtx) {
   if (flags.focusArea?.typeId && primary.id !== TEACHING_STEP_IDS.FOCUS_AREA) {
     push(buildFocusAreaStep(flags.focusArea));
   }
+  if (streakAtRisk && ctx.newsUnreadCount > 0) {
+    if (
+      ctx.articleMatch &&
+      primary.id !== TEACHING_STEP_IDS.READ_MATCHED_ARTICLE
+    ) {
+      push(buildReadMatchedArticleStep(ctx.articleMatch));
+    } else if (primary.id !== TEACHING_STEP_IDS.READ_NEWS) {
+      push(buildReadNewsStep(ctx.newsUnreadCount));
+    }
+  }
+  const nextKind = sectionKindFromId(result.next_section_id);
   if (
-    streakAtRisk &&
-    ctx.newsUnreadCount > 0 &&
-    primary.id !== TEACHING_STEP_IDS.READ_NEWS
+    ctx.articleMatch &&
+    ctx.isVocabLesson &&
+    nextKind === "practice" &&
+    primary.id !== TEACHING_STEP_IDS.READ_MATCHED_ARTICLE
   ) {
-    push(buildReadNewsStep(ctx.newsUnreadCount));
+    push(buildReadMatchedArticleStep(ctx.articleMatch));
+  }
+  if (
+    ctx.articleMatch &&
+    result.daily_goal_just_met &&
+    primary.id === TEACHING_STEP_IDS.PATH
+  ) {
+    push(buildReadMatchedArticleStep(ctx.articleMatch));
   }
   if (ctx.sessionUnknownWords?.length >= 3 && !ctx.microReviewCompleted) {
     push(buildAiPracticeStep(ctx.sessionUnknownWords));
@@ -378,6 +424,9 @@ export function buildPostTeachingPlan({
   microReviewCompleted = false,
   newsUnreadCount = 0,
   localHour = new Date().getHours(),
+  isVocabLesson = false,
+  lessonWords = [],
+  articles = [],
 } = {}) {
   if (!result) return null;
 
@@ -390,12 +439,19 @@ export function buildPostTeachingPlan({
     focusArea,
   });
 
+  const articleMatch =
+    isVocabLesson && lessonWords.length >= 2
+      ? pickBestArticleForLessonWords(articles, lessonWords)
+      : null;
+
   const ctx = {
     unitTitle,
     sessionUnknownWords,
     microReviewCompleted,
     newsUnreadCount,
     localHour,
+    isVocabLesson,
+    articleMatch,
   };
 
   const primary = pickPrimaryStep(flags, result, ctx, completionCtx);

@@ -644,6 +644,38 @@ describe("NewsReader mastery visualization", () => {
     expect(wrapper.findAll(".evidence-highlight").length).toBeGreaterThan(0);
   });
 
+  it("highlights lesson words from lessonWords query", async () => {
+    getArticle.mockResolvedValue({
+      id: 1,
+      original_title: "Titulo",
+      rewritten_body: "Hola mundo, gracias por leer.",
+      rewrite_level: "A2",
+      source: "sample",
+    });
+
+    const router = makeRouter();
+    const replaceSpy = vi.spyOn(router, "replace");
+    await router.push({
+      path: "/news/1",
+      query: { lessonWords: "hola,gracias" },
+    });
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.find(".lesson-words-strip").exists()).toBe(true);
+    expect(wrapper.findAll(".lesson-word-highlight").length).toBeGreaterThan(0);
+    expect(replaceSpy).toHaveBeenCalledWith({
+      name: "reader",
+      params: { id: "1" },
+    });
+  });
+
   it("returns to vocab review on hardware back when returnTo is set", async () => {
     const router = makeRouter();
     const replaceSpy = vi.spyOn(router, "replace");

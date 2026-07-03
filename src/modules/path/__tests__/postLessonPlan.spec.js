@@ -144,6 +144,29 @@ describe("buildPostLessonPlan", () => {
     expect(plan.primary.route.query.perfect).toBe("1");
   });
 
+  it("adds matched article step for vocab practice lessons with overlap", () => {
+    const plan = buildPostLessonPlan({
+      result: {
+        ...PASSED,
+        daily_goal_just_met: true,
+        daily_goal_lessons_today: 2,
+        daily_goal_target: 2,
+      },
+      isVocabLesson: true,
+      lessonWords: ["hola", "gracias", "banco"],
+      articles: [
+        {
+          id: 4,
+          original_title: "Banco Central",
+          original_body: "Hola, gracias por leer sobre el banco.",
+          completed: false,
+          read_today: false,
+        },
+      ],
+    });
+    expect(plan.secondary.map((s) => s.id)).toContain(STEP_IDS.READ_MATCHED_ARTICLE);
+  });
+
   it("returns null for a failed lesson", () => {
     expect(buildPostLessonPlan({ result: { passed: false } })).toBeNull();
   });

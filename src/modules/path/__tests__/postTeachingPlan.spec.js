@@ -140,6 +140,59 @@ describe("buildPostTeachingPlan", () => {
     expect(plan.secondary.map((s) => s.id)).toContain(TEACHING_STEP_IDS.READ_NEWS);
   });
 
+  it("replaces read news with matched article when vocab lesson has overlap", () => {
+    const plan = buildPostTeachingPlan({
+      result: {
+        ...COMPLETE,
+        next_section_id: "zh-es/U01-PRACTICE",
+        streak_current: 5,
+        streak_extended: false,
+        daily_goal_just_met: false,
+      },
+      isVocabLesson: true,
+      lessonWords: ["hola", "gracias", "banco"],
+      articles: [
+        {
+          id: 9,
+          original_title: "Saludos",
+          original_body: "Hola y gracias por visitar el banco.",
+          completed: false,
+          read_today: false,
+        },
+      ],
+      newsUnreadCount: 2,
+      localHour: 20,
+    });
+    expect(plan.secondary.map((s) => s.id)).toContain(
+      TEACHING_STEP_IDS.READ_MATCHED_ARTICLE,
+    );
+    expect(plan.secondary.map((s) => s.id)).not.toContain(TEACHING_STEP_IDS.READ_NEWS);
+    const matched = plan.secondary.find(
+      (step) => step.id === TEACHING_STEP_IDS.READ_MATCHED_ARTICLE,
+    );
+    expect(matched.route.query.lessonWords).toContain("hola");
+  });
+
+  it("falls back without matched article step when overlap is missing", () => {
+    const plan = buildPostTeachingPlan({
+      result: {
+        ...COMPLETE,
+        next_section_id: "zh-es/U01-PRACTICE",
+        streak_current: 5,
+        streak_extended: false,
+      },
+      isVocabLesson: true,
+      lessonWords: ["hola", "gracias"],
+      articles: [{ id: 1, original_body: "La inflación sube." }],
+      newsUnreadCount: 2,
+      localHour: 20,
+    });
+    expect(plan.secondary.map((s) => s.id)).not.toContain(
+      TEACHING_STEP_IDS.READ_MATCHED_ARTICLE,
+    );
+    expect(plan.secondary.map((s) => s.id)).toContain(TEACHING_STEP_IDS.READ_NEWS);
+  });
+
   it("returns null when result is missing", () => {
     expect(buildPostTeachingPlan({ result: null })).toBeNull();
   });
