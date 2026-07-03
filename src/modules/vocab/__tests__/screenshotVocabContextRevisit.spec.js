@@ -17,6 +17,15 @@ const takeScreenshot = process.env.SCREENSHOT === "1";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
+vi.mock("../vocabRatingFeedback.js", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    waitVocabRatingAck: vi.fn(() => Promise.resolve()),
+    playVocabRatingFeedback: vi.fn(),
+  };
+});
+
 const {
   lookupWordsMastery,
   ensureWordsSeen,
@@ -197,5 +206,22 @@ describe.skipIf(!takeScreenshot)("screenshotVocabContextRevisit", () => {
 
     expect(wrapper.text()).toContain("高亮为复习语境句");
     writeScreenshot(wrapper, "issue82-vocab-context-revisit-reader");
+  });
+
+  it("writes context reinforcement nudge after still learning", async () => {
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await flushPromises();
+    await wrapper.find(".review-footer .action-btn.secondary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".context-reinforce-nudge").exists()).toBe(true);
+    writeScreenshot(wrapper, "issue84-vocab-context-reinforce-nudge");
   });
 });

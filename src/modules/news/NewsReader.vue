@@ -182,6 +182,7 @@
       hint-key="news.microReviewHint"
       continue-key="news.microReviewContinue"
       later-key="news.microReviewLater"
+      :context-nudge="microReviewContextNudgeCopy"
       @card-click="onMicroReviewCardClick"
       @swipe-down="onMicroReviewSwipeDown"
       @swipe-move="onMicroReviewSwipeMove"
@@ -189,6 +190,8 @@
       @swipe-cancel="onMicroReviewSwipeCancel"
       @continue="collapseMicroReview"
       @later="dismissMicroReview"
+      @context-revisit="onMicroReviewContextRevisit"
+      @context-skip="onMicroReviewContextSkip"
     />
 
     <div
@@ -606,6 +609,11 @@ import {
   scrollToFirstEvidence,
 } from "./comprehensionEvidence.js";
 import {
+  contextReinforcementCopy,
+  contextSentenceForHighlight,
+  shouldOfferContextReinforcement,
+} from "@/modules/vocab/contextReinforcementNudge.js";
+import {
   clearVocabContextRevisitPayload,
   loadVocabContextRevisitPayload,
   shouldReturnToVocabReview,
@@ -662,6 +670,7 @@ const microReviewOpen = ref(false);
 const microReviewDismissed = ref(false);
 const microReviewCompleted = ref(false);
 const microReviewCollapsed = ref(false);
+const microReviewContextNudge = ref(false);
 const {
   flipped: microReviewFlipped,
   acting: microReviewActing,
@@ -881,6 +890,26 @@ const microReviewContextParts = computed(() => {
   );
   const context = sessionEntry?.context || card.example || "";
   return highlightWordInContext(context, card.word);
+});
+
+const microReviewSessionContextMap = computed(() => {
+  const map = new Map();
+  for (const entry of sessionWordsRef.value) {
+    if (entry?.word && entry?.context) {
+      map.set(entry.word.toLowerCase(), entry.context);
+    }
+  }
+  return map;
+});
+
+const microReviewContextNudgeCopy = computed(() => {
+  if (!microReviewContextNudge.value || !microReviewCard.value) return null;
+  return contextReinforcementCopy(
+    microReviewCard.value,
+    t,
+    microReviewSessionContextMap.value,
+    { articleId: article.value?.id, fromSession: true },
+  );
 });
 
 function onMicroReviewSwipeUp(event) {
@@ -1299,6 +1328,7 @@ async function maybeOpenMicroReview() {
   if (!microReviewQueue.value.length) return;
   microReviewIndex.value = 0;
   microReviewOpen.value = true;
+  microReviewContextNudge.value = false;
   resetMicroReviewCard();
 }
 
@@ -1336,6 +1366,20 @@ async function rateMicroReviewCard(mastery) {
     microReviewActing.value = false;
   }
 
+  if (
+    shouldOfferContextReinforcement(card, mastery, {
+      articleId: article.value?.id,
+      fromSession: true,
+    })
+  ) {
+    microReviewContextNudge.value = true;
+    return;
+  }
+  proceedMicroReviewNext();
+}
+
+function proceedMicroReviewNext() {
+  microReviewContextNudge.value = false;
   const reviewedCount = microReviewIndex.value + 1;
   const nextIndex = reviewedCount;
   if (nextIndex >= microReviewQueue.value.length) {
@@ -1347,6 +1391,52 @@ async function rateMicroReviewCard(mastery) {
   }
   microReviewIndex.value = nextIndex;
   resetMicroReviewCard();
+}
+
+async function highlightSentenceInArticle(sentence) {
+  clearComprehensionRevisit();
+  const body = articleBodyText();
+  if (!body) {
+    showWordToast(t("vocab.contextRevisitNoArticle"));
+    return;
+  }
+
+  const ranges = findEvidenceRanges(body, [sentence]);
+  if (!ranges.length) {
+    showWordToast(t("vocab.contextRevisitFallback"));
+    return;
+  }
+
+  vocabContextRevisitActive.value = true;
+  evidenceRanges.value = ranges;
+  refreshEvidenceOnTokens();
+  await nextTick();
+  const scrolled = scrollToFirstEvidence(articleBodyRef.value);
+  showWordToast(
+    t(scrolled ? "vocab.contextRevisitToast" : "vocab.contextRevisitFallback"),
+  );
+}
+
+async function onMicroReviewContextRevisit() {
+  const card = microReviewCard.value;
+  if (!card) return;
+  const sentence = contextSentenceForHighlight(card, microReviewSessionContextMap.value, {
+    articleId: article.value?.id,
+    fromSession: true,
+  });
+  microReviewContextNudge.value = false;
+  microReviewOpen.value = false;
+  microReviewCollapsed.value = true;
+  if (!sentence) {
+    showWordToast(t("vocab.contextRevisitFallback"));
+    proceedMicroReviewNext();
+    return;
+  }
+  await highlightSentenceInArticle(sentence);
+}
+
+function onMicroReviewContextSkip() {
+  proceedMicroReviewNext();
 }
 
 function dismissStaleRewriteBanner() {

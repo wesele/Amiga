@@ -105,7 +105,25 @@
         </div>
       </div>
       <p class="micro-review-progress">{{ index + 1 }}/{{ queueLength }}</p>
-      <div class="micro-review-actions">
+      <section
+        v-if="contextNudge"
+        class="micro-review-context-nudge"
+      >
+        <p class="micro-review-context-nudge-title">{{ contextNudge.title }}</p>
+        <p v-if="contextNudge.snippet" class="micro-review-context-nudge-snippet">
+          "{{ contextNudge.snippet }}"
+        </p>
+        <p class="micro-review-context-nudge-hint">{{ contextNudge.hint }}</p>
+        <div class="micro-review-context-nudge-actions">
+          <button type="button" class="micro-review-context-revisit" @click="$emit('context-revisit')">
+            {{ contextNudge.actionLabel }}
+          </button>
+          <button type="button" class="micro-review-context-skip" @click="$emit('context-skip')">
+            {{ contextNudge.skipLabel }}
+          </button>
+        </div>
+      </section>
+      <div v-else class="micro-review-actions">
         <button type="button" class="micro-review-continue" @click="$emit('continue')">
           {{ t(continueKey) }}
         </button>
@@ -155,6 +173,7 @@ const props = defineProps({
   continueKey: { type: String, required: true },
   laterKey: { type: String, required: true },
   sheetClass: { type: String, default: "" },
+  contextNudge: { type: Object, default: null },
 });
 
 defineEmits([
@@ -165,6 +184,8 @@ defineEmits([
   "swipe-cancel",
   "continue",
   "later",
+  "context-revisit",
+  "context-skip",
 ]);
 
 const { t } = useI18n();
@@ -497,5 +518,63 @@ onUnmounted(() => {
   border: none;
   background: var(--primary);
   color: #fff;
+}
+
+.micro-review-context-nudge {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(28, 176, 246, 0.08);
+  border: 1px solid rgba(28, 176, 246, 0.2);
+}
+
+.micro-review-context-nudge-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.micro-review-context-nudge-snippet {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+.micro-review-context-nudge-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--text-lighter);
+}
+
+.micro-review-context-nudge-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.micro-review-context-revisit,
+.micro-review-context-skip {
+  flex: 1;
+  padding: 9px 10px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.micro-review-context-revisit {
+  border: none;
+  background: var(--primary);
+  color: #fff;
+}
+
+.micro-review-context-skip {
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
 }
 </style>

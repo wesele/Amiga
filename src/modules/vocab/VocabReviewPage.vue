@@ -206,7 +206,25 @@
         >
           {{ vocabScheduleText }}
         </p>
-        <div class="review-footer-actions">
+        <section
+          v-if="pendingContextNudge && contextNudgeCopy"
+          class="context-reinforce-nudge"
+        >
+          <p class="context-reinforce-title">{{ contextNudgeCopy.title }}</p>
+          <p v-if="contextNudgeCopy.snippet" class="context-reinforce-snippet">
+            "{{ contextNudgeCopy.snippet }}"
+          </p>
+          <p class="context-reinforce-hint">{{ contextNudgeCopy.hint }}</p>
+          <div class="context-reinforce-actions">
+            <button type="button" class="action-btn primary" @click="acceptContextNudge">
+              {{ contextNudgeCopy.actionLabel }}
+            </button>
+            <button type="button" class="action-btn secondary" @click="skipContextNudge">
+              {{ contextNudgeCopy.skipLabel }}
+            </button>
+          </div>
+        </section>
+        <div v-else class="review-footer-actions">
           <button
             type="button"
             class="action-btn secondary"
@@ -320,13 +338,15 @@ import {
   pickReviewContext,
 } from "./vocabReviewContext.js";
 import {
+  buildContextRevisitAction,
+  contextReinforcementCopy,
+  shouldOfferContextReinforcement,
+} from "./contextReinforcementNudge.js";
+import {
   clearVocabReviewResume,
   loadVocabReviewResume,
   resolveVocabReviewResumeIndex,
-  saveVocabContextRevisitPayload,
-  saveVocabReviewResume,
   shouldShowContextRevisitLink,
-  vocabContextRevisitRoute,
 } from "./vocabContextRevisit.js";
 import {
   vocabDisplayDotStates,
@@ -435,6 +455,13 @@ const showNewsSourceBadge = computed(() => {
 const showContextRevisitLink = computed(() =>
   shouldShowContextRevisitLink(currentWord.value),
 );
+
+const pendingContextNudge = ref(false);
+
+const contextNudgeCopy = computed(() => {
+  if (!pendingContextNudge.value || !currentWord.value) return null;
+  return contextReinforcementCopy(currentWord.value, t, sessionContextMap.value);
+});
 
 const streakCelebration = computed(() =>
   reviewStreakCelebration(reviewResult.value, t),
@@ -614,6 +641,7 @@ function resetCard() {
   cardRated.value = false;
   ratingAck.value = null;
   pendingRatedMastery.value = null;
+  pendingContextNudge.value = false;
   resetSwipeState();
   swipeConsumed.value = false;
 }
@@ -720,19 +748,25 @@ function applyVocabReviewResume() {
 }
 
 function goToContextArticle() {
-  const word = currentWord.value;
-  if (!word || !shouldShowContextRevisitLink(word)) return;
-  saveVocabReviewResume({
-    index: index.value,
-    flipped: flipped.value,
-    wordId: word.id,
+  const route = buildContextRevisitAction({
+    word: currentWord.value,
+    sessionContextMap: sessionContextMap.value,
+    resume: {
+      index: index.value,
+      flipped: flipped.value,
+      wordId: currentWord.value?.id,
+    },
   });
-  saveVocabContextRevisitPayload({
-    articleId: word.context_article_id,
-    sentence: pickReviewContext(word, sessionContextMap.value),
-    word: word.word,
-  });
-  router.push(vocabContextRevisitRoute(word));
+  if (route) router.push(route);
+}
+
+function acceptContextNudge() {
+  pendingContextNudge.value = false;
+  goToContextArticle();
+}
+
+function skipContextNudge() {
+  proceedToNextCard();
 }
 
 async function resolveCurrentWordId() {
@@ -763,24 +797,37 @@ async function advanceAfterMark(mastery) {
     acting.value = false;
   }
 
+  if (shouldOfferContextReinforcement(currentWord.value, mastery)) {
+    pendingContextNudge.value = true;
+    return;
+  }
+  proceedToNextCard();
+}
+
+function proceedToNextCard() {
+  pendingContextNudge.value = false;
   const nextIndex = index.value + 1;
   if (isSessionComplete(nextIndex, words.value.length)) {
-    finished.value = true;
-    if (readingSessionMode.value) {
-      clearPendingReadingVocab();
-    }
-    reviewResult.value = await applyReviewStreak(userId.value, words.value.length, {
-      sessionComplete: true,
-      targetLanguage: targetLang.value,
-    });
-    settlementUnlockBadges.value = notifyAchievementUnlocks({
-      vocabStats: { total_known: knownBefore.value + masteredCount.value },
-    });
-    await Promise.all([refreshRemainingDue(), loadPostReviewContext()]);
+    void finishReviewSession();
     return;
   }
   index.value = nextIndex;
   resetCard();
+}
+
+async function finishReviewSession() {
+  finished.value = true;
+  if (readingSessionMode.value) {
+    clearPendingReadingVocab();
+  }
+  reviewResult.value = await applyReviewStreak(userId.value, words.value.length, {
+    sessionComplete: true,
+    targetLanguage: targetLang.value,
+  });
+  settlementUnlockBadges.value = notifyAchievementUnlocks({
+    vocabStats: { total_known: knownBefore.value + masteredCount.value },
+  });
+  await Promise.all([refreshRemainingDue(), loadPostReviewContext()]);
 }
 
 function markGotIt() {
@@ -1465,5 +1512,42 @@ onUnmounted(() => {
 .action-btn.secondary {
   background: var(--bg);
   color: var(--text);
+}
+
+.context-reinforce-nudge {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(28, 176, 246, 0.08);
+  border: 1px solid rgba(28, 176, 246, 0.2);
+}
+
+.context-reinforce-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.context-reinforce-snippet {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.context-reinforce-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-lighter);
+}
+
+.context-reinforce-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
 }
 </style>

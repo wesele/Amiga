@@ -616,4 +616,50 @@ describe("VocabReviewPage", () => {
     expect(unlockBanner.exists()).toBe(true);
     expect(unlockBanner.text()).toContain("成就解锁");
   });
+
+  it("shows context reinforcement nudge after still learning on news-context word", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_unknown_words_cmd") {
+        return Promise.resolve([
+          {
+            id: 10,
+            word: "frontera",
+            mastery: 1,
+            definition_zh: "边境",
+            example: "Cruzaron la frontera al amanecer.",
+            has_user_context: true,
+            context_article_id: 42,
+          },
+          {
+            id: 11,
+            word: "mercado",
+            mastery: null,
+            definition_zh: "市场",
+          },
+        ]);
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await wrapper.find(".review-footer .action-btn.secondary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".context-reinforce-nudge").exists()).toBe(true);
+    expect(wrapper.text()).toContain("这个词来自你读过的文章");
+    expect(wrapper.text()).toContain("frontera");
+
+    await wrapper.find(".context-reinforce-actions .action-btn.secondary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".context-reinforce-nudge").exists()).toBe(false);
+    expect(wrapper.text()).toContain("mercado");
+  });
 });
