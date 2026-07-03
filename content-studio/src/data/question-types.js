@@ -42,7 +42,7 @@ export const QUESTION_TYPES = {
     cognitive: '理解',
     tier: 2,
     extendedFields: ['sentence', 'blank', 'options', 'answerIdx'],
-    promptHint: '空位只能是一个词或短语；3~4 个选项含且仅含 1 个正确答案；干扰项须为合理语法变体'
+    promptHint: '空位只能是一个词或短语；3~4 个选项含且仅含 1 个正确答案；干扰项须为合理语法变体；建议填写 hint 作为答错后讲解'
   },
   T06: {
     id: 'T06',
@@ -62,7 +62,7 @@ export const QUESTION_TYPES = {
     cognitive: '理解',
     tier: 2,
     extendedFields: ['sourceText', 'sourceLang', 'options', 'answerIdx'],
-    promptHint: '源语句子须自然地道；干扰项与正确答案语义相关但错误；不可使用逐字翻译作为正确答案'
+    promptHint: '源语句子须自然地道；干扰项与正确答案语义相关但错误；不可使用逐字翻译作为正确答案；建议填写 hint 作为答错后讲解'
   },
   T08: {
     id: 'T08',
@@ -112,7 +112,7 @@ export const QUESTION_TYPES = {
     cognitive: '应用',
     tier: 3,
     extendedFields: ['scenario', 'options', 'answerIdx', 'pragmaticsNote'],
-    promptHint: '场景描述须简洁清晰；3 个选项中 1 正确 2 干扰；干扰项须在语境中看似合理但有语用缺陷'
+    promptHint: '场景描述须简洁清晰；3 个选项中 1 正确 2 干扰；干扰项须在语境中看似合理但有语用缺陷；必须填写 pragmaticsNote（1-2 句，说明为何其他选项语用不当）'
   }
 }
 
