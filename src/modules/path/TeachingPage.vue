@@ -222,6 +222,8 @@
         :swipe-dragging="microReviewSwipeDragging"
         :swipe-style="microReviewSwipeStyle"
         :rating-ack="microReviewRatingAck"
+        :acting="microReviewActing"
+        :speech-language="userMeta.targetLang"
         title-key="path.microReviewTitle"
         hint-key="path.microReviewHint"
         continue-key="path.microReviewContinue"

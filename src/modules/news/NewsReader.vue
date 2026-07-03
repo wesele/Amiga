@@ -148,6 +148,8 @@
       :swipe-dragging="microReviewSwipeDragging"
       :swipe-style="microReviewSwipeStyle"
       :rating-ack="microReviewRatingAck"
+      :acting="microReviewActing"
+      :speech-language="targetLang"
       title-key="news.microReviewTitle"
       hint-key="news.microReviewHint"
       continue-key="news.microReviewContinue"

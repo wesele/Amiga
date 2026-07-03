@@ -48,6 +48,6 @@ describe("WordSpeechButton", () => {
     });
 
     await wrapper.find(".word-speech-btn").trigger("click");
-    expect(speakWord).toHaveBeenCalledWith("hospital", "es");
+    expect(speakWord).toHaveBeenCalledWith("hospital", "es", { rate: 1 });
   });
 });

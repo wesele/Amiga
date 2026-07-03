@@ -2,7 +2,7 @@
  * Visual snapshot for issue #66 teaching vocab micro-review bottom sheet.
  * Run: SCREENSHOT=1 npm test -- --run src/modules/path/__tests__/screenshotTeachingMicroReview.spec.js
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { createRouter, createMemoryHistory } from "vue-router";
@@ -80,6 +80,20 @@ describe.skipIf(!takeScreenshot)("screenshotTeachingMicroReview", () => {
     mockInvoke = vi.fn();
     api.__setInvoke(mockInvoke);
     setLocale("zh", { persist: false });
+    class MockUtterance {
+      constructor(text) {
+        this.text = text;
+        this.lang = "";
+        this.rate = 1;
+        this.onend = null;
+        this.onerror = null;
+      }
+    }
+    globalThis.SpeechSynthesisUtterance = MockUtterance;
+    globalThis.speechSynthesis = {
+      cancel: vi.fn(),
+      speak: vi.fn(),
+    };
 
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_current_user") {
@@ -118,6 +132,11 @@ describe.skipIf(!takeScreenshot)("screenshotTeachingMicroReview", () => {
       }
       return Promise.reject(new Error(`unexpected invoke: ${cmd}`));
     });
+  });
+
+  afterEach(() => {
+    delete globalThis.SpeechSynthesisUtterance;
+    delete globalThis.speechSynthesis;
   });
 
   it("captures micro-review sheet after marking three unknown words in vocab preview", async () => {

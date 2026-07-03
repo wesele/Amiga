@@ -14,12 +14,17 @@
 
 <script setup>
 import { computed, onUnmounted, ref } from "vue";
-import { isSpeechSynthesisAvailable, speakWord } from "@/shared/wordSpeech.js";
+import {
+  isSpeechSynthesisAvailable,
+  SPEECH_RATE_NORMAL,
+  speakWord,
+} from "@/shared/wordSpeech.js";
 
 const props = defineProps({
   word: { type: String, required: true },
   language: { type: String, required: true },
   ariaLabel: { type: String, required: true },
+  rate: { type: Number, default: SPEECH_RATE_NORMAL },
 });
 
 const speechAvailable = computed(() => isSpeechSynthesisAvailable());
@@ -29,7 +34,7 @@ async function play() {
   if (speaking.value || !props.word) return;
   speaking.value = true;
   try {
-    await speakWord(props.word, props.language);
+    await speakWord(props.word, props.language, { rate: props.rate });
   } finally {
     speaking.value = false;
   }

@@ -42,9 +42,13 @@ export function speakText(
 }
 
 /** @param {string | { word?: string }} word */
-export function speakWord(word, language, opts) {
+export function speakWord(
+  word,
+  language,
+  { rate = SPEECH_RATE_NORMAL, speechSynthesis = globalThis.speechSynthesis } = {},
+) {
   const text = typeof word === "object" && word !== null ? word?.word : word;
-  return speakText({ text, language }, opts);
+  return speakText({ text, language, rate }, { speechSynthesis });
 }
 
 export function shouldAutoPlayWordSpeech({ showResult, enabled = true } = {}) {

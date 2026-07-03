@@ -2,7 +2,7 @@
  * Visual snapshot for issue #65 in-reader micro-review bottom sheet.
  * Run: SCREENSHOT=1 npm test -- --run src/modules/news/__tests__/screenshotMicroReview.spec.js
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { createMemoryHistory, createRouter } from "vue-router";
@@ -128,6 +128,20 @@ describe.skipIf(!takeScreenshot)("screenshotMicroReview", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     setLocale("zh", { persist: false });
+    class MockUtterance {
+      constructor(text) {
+        this.text = text;
+        this.lang = "";
+        this.rate = 1;
+        this.onend = null;
+        this.onerror = null;
+      }
+    }
+    globalThis.SpeechSynthesisUtterance = MockUtterance;
+    globalThis.speechSynthesis = {
+      cancel: vi.fn(),
+      speak: vi.fn(),
+    };
     lookupWordsMastery.mockResolvedValue([
       { word: "hola", word_id: 1, mastery: 2, definition_zh: "你好" },
       { word: "mundo", word_id: 2, mastery: 0, definition_zh: "世界" },
@@ -147,6 +161,11 @@ describe.skipIf(!takeScreenshot)("screenshotMicroReview", () => {
       rewritten_body: "Hola mundo nuevo viaje",
       source: "sample",
     });
+  });
+
+  afterEach(() => {
+    delete globalThis.SpeechSynthesisUtterance;
+    delete globalThis.speechSynthesis;
   });
 
   it("captures micro-review sheet after marking three unknown words", async () => {

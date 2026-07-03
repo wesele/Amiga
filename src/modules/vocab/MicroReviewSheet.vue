@@ -29,11 +29,67 @@
       >
         <div class="micro-review-card-inner">
           <div class="micro-review-face micro-review-front">
-            <span class="micro-review-word">{{ card.word }}</span>
+            <div class="micro-review-word-row">
+              <span class="micro-review-word">{{ card.word }}</span>
+              <div
+                v-if="showSpeech"
+                class="micro-review-speech"
+                @click.stop
+                @pointerdown.stop
+              >
+                <button
+                  type="button"
+                  class="micro-review-speech-btn"
+                  :class="{ 'is-speaking': speaking }"
+                  :aria-label="t('vocab.playPronunciation')"
+                  :disabled="speechBusy"
+                  @click="playNormal"
+                >
+                  🔊
+                </button>
+                <button
+                  type="button"
+                  class="micro-review-speech-btn is-slow"
+                  :class="{ 'is-speaking': slowSpeaking }"
+                  :aria-label="t('path.playAudioSlow')"
+                  :disabled="speechBusy"
+                  @click="playSlow"
+                >
+                  🐢
+                </button>
+              </div>
+            </div>
             <span class="micro-review-tap-hint">{{ t("vocab.reviewTapToReveal") }}</span>
           </div>
           <div class="micro-review-face micro-review-back">
             <span v-if="definition" class="micro-review-definition">{{ definition }}</span>
+            <div
+              v-if="showSpeech"
+              class="micro-review-speech micro-review-speech-back"
+              @click.stop
+              @pointerdown.stop
+            >
+              <button
+                type="button"
+                class="micro-review-speech-btn"
+                :class="{ 'is-speaking': speaking }"
+                :aria-label="t('vocab.playPronunciation')"
+                :disabled="speechBusy"
+                @click="playNormal"
+              >
+                🔊
+              </button>
+              <button
+                type="button"
+                class="micro-review-speech-btn is-slow"
+                :class="{ 'is-speaking': slowSpeaking }"
+                :aria-label="t('path.playAudioSlow')"
+                :disabled="speechBusy"
+                @click="playSlow"
+              >
+                🐢
+              </button>
+            </div>
             <div v-if="contextLabel || contextText" class="micro-review-context">
               <p v-if="contextLabel" class="micro-review-context-label">{{ contextLabel }}</p>
               <p v-if="contextParts.length" class="micro-review-example">
@@ -62,9 +118,21 @@
 </template>
 
 <script setup>
+import { computed, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "@/shared/i18n";
+import {
+  isMicroReviewSpeechTarget,
+  shouldAutoPlayMicroReviewSpeech,
+} from "./microReviewSpeech.js";
+import {
+  isSpeechSynthesisAvailable,
+  SPEECH_RATE_NORMAL,
+  SPEECH_RATE_SLOW,
+  speakWord,
+  WORD_SPEECH_AUTO_PLAY_MS,
+} from "@/shared/wordSpeech.js";
 
-defineProps({
+const props = defineProps({
   open: { type: Boolean, default: false },
   card: { type: Object, default: null },
   sessionCount: { type: Number, default: 0 },
@@ -79,6 +147,9 @@ defineProps({
   swipeDragging: { type: Boolean, default: false },
   swipeStyle: { type: Object, default: undefined },
   ratingAck: { type: String, default: null },
+  acting: { type: Boolean, default: false },
+  speechLanguage: { type: String, default: "" },
+  enableAutoPlay: { type: Boolean, default: true },
   titleKey: { type: String, required: true },
   hintKey: { type: String, required: true },
   continueKey: { type: String, required: true },
@@ -97,6 +168,107 @@ defineEmits([
 ]);
 
 const { t } = useI18n();
+
+const speaking = ref(false);
+const slowSpeaking = ref(false);
+const speechBusy = computed(() => speaking.value || slowSpeaking.value);
+const showSpeech = computed(
+  () =>
+    isMicroReviewSpeechTarget(props.card?.word) &&
+    Boolean(props.speechLanguage) &&
+    isSpeechSynthesisAvailable(),
+);
+
+let autoPlayTimer = null;
+
+function clearAutoPlayTimer() {
+  if (autoPlayTimer) {
+    clearTimeout(autoPlayTimer);
+    autoPlayTimer = null;
+  }
+}
+
+function cancelSpeech() {
+  clearAutoPlayTimer();
+  globalThis.speechSynthesis?.cancel();
+  speaking.value = false;
+  slowSpeaking.value = false;
+}
+
+async function playSpeech(rate = SPEECH_RATE_NORMAL) {
+  if (!showSpeech.value) return;
+  globalThis.speechSynthesis?.cancel();
+  clearAutoPlayTimer();
+  const isSlow = rate !== SPEECH_RATE_NORMAL;
+  if (isSlow) slowSpeaking.value = true;
+  else speaking.value = true;
+  try {
+    await speakWord(props.card.word, props.speechLanguage, { rate });
+  } finally {
+    speaking.value = false;
+    slowSpeaking.value = false;
+  }
+}
+
+function playNormal() {
+  void playSpeech(SPEECH_RATE_NORMAL);
+}
+
+function playSlow() {
+  void playSpeech(SPEECH_RATE_SLOW);
+}
+
+function scheduleAutoPlay() {
+  clearAutoPlayTimer();
+  if (
+    !shouldAutoPlayMicroReviewSpeech({
+      word: props.card?.word,
+      acting: props.acting,
+      ratingAck: props.ratingAck,
+      open: props.open,
+      enableAutoPlay: props.enableAutoPlay,
+    })
+  ) {
+    return;
+  }
+  autoPlayTimer = setTimeout(() => {
+    autoPlayTimer = null;
+    if (
+      !shouldAutoPlayMicroReviewSpeech({
+        word: props.card?.word,
+        acting: props.acting,
+        ratingAck: props.ratingAck,
+        open: props.open,
+        enableAutoPlay: props.enableAutoPlay,
+      })
+    ) {
+      return;
+    }
+    void playSpeech();
+  }, WORD_SPEECH_AUTO_PLAY_MS);
+}
+
+watch(
+  () => [
+    props.open,
+    props.card?.word,
+    props.index,
+    props.acting,
+    props.ratingAck,
+    props.enableAutoPlay,
+  ],
+  ([open]) => {
+    if (!open) {
+      cancelSpeech();
+      return;
+    }
+    scheduleAutoPlay();
+  },
+);
+
+onUnmounted(() => {
+  cancelSpeech();
+});
 </script>
 
 <style scoped>
@@ -174,10 +346,75 @@ const { t } = useI18n();
   transform: rotateY(180deg);
 }
 
+.micro-review-word-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .micro-review-word {
   font-size: 28px;
   font-weight: 800;
   color: var(--text);
+}
+
+.micro-review-speech {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.micro-review-speech-back {
+  margin-top: 4px;
+}
+
+.micro-review-speech-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--blue-bg, rgba(28, 176, 246, 0.12));
+  color: var(--blue-hover, #1cb0f6);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background var(--transition, 0.2s ease),
+    transform 0.2s ease;
+}
+
+.micro-review-speech-btn:hover:not(:disabled) {
+  background: var(--green-bg, rgba(88, 204, 2, 0.12));
+}
+
+.micro-review-speech-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.micro-review-speech-btn.is-speaking {
+  animation: micro-review-speech-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes micro-review-speech-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .micro-review-speech-btn.is-speaking {
+    animation: none;
+  }
 }
 
 .micro-review-tap-hint,
