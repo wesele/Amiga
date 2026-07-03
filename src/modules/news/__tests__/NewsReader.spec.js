@@ -15,6 +15,7 @@ const {
   getArticles,
   getArticlesReadingStatus,
   getPathCurriculum,
+  getComprehensionQuiz,
 } = vi.hoisted(() => ({
   lookupWordsMastery: vi.fn(),
   ensureWordsSeen: vi.fn().mockResolvedValue(undefined),
@@ -24,6 +25,7 @@ const {
   getArticles: vi.fn(),
   getArticlesReadingStatus: vi.fn(),
   getPathCurriculum: vi.fn(),
+  getComprehensionQuiz: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("@/shared/api.js", () => ({
@@ -42,6 +44,7 @@ vi.mock("@/shared/api.js", () => ({
   getArticles,
   getArticlesReadingStatus,
   getPathCurriculum,
+  getComprehensionQuiz,
 }));
 
 vi.mock("@/modules/ai-chat/openAiContact.js", () => ({

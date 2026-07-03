@@ -4,6 +4,7 @@ import { dailyGoalRemainingLessons } from "@/modules/learn/dailyGoalDisplay.js";
 export const READING_STEP_IDS = {
   VOCAB_REVIEW: "vocabReview",
   CONTINUE_ARTICLE: "continueArticle",
+  REVISIT_ARTICLE: "revisitArticle",
   NEXT_LESSON: "nextLesson",
   DAILY_GOAL: "dailyGoal",
   NEXT_ARTICLE: "nextArticle",
@@ -132,6 +133,18 @@ function buildContinueArticleStep(scrollPct) {
   };
 }
 
+function buildRevisitArticleStep() {
+  return {
+    id: READING_STEP_IDS.REVISIT_ARTICLE,
+    route: null,
+    inPageAction: "revisitArticle",
+    icon: "🔍",
+    titleKey: "news.nextStep.revisitArticle",
+    subtitleKey: "news.nextStep.revisitArticleHint",
+    continueKey: "news.nextStep.revisitArticle",
+  };
+}
+
 function pickPrimaryStep(ctx) {
   const {
     mode = "complete",
@@ -176,6 +189,7 @@ function buildSecondarySteps(ctx, primary) {
     mode = "complete",
     scrollPct = 0,
     unknownCount,
+    comprehensionResult,
     dailyGoalSnapshot,
     resumeTarget,
     nextUnreadArticleId,
@@ -190,6 +204,15 @@ function buildSecondarySteps(ctx, primary) {
     if (!step || seen.has(step.id)) return;
     seen.add(step.id);
     secondary.push(step);
+  }
+
+  if (
+    mode === "complete" &&
+    comprehensionResult &&
+    !comprehensionResult.skipped &&
+    comprehensionResult.score < comprehensionResult.total
+  ) {
+    push(buildRevisitArticleStep());
   }
 
   if (mode === "checkpoint" && primary.id !== READING_STEP_IDS.CONTINUE_ARTICLE) {
@@ -236,4 +259,9 @@ export function isAiPracticeStep(step) {
 /** Whether the step dismisses the overlay and resumes reading in place. */
 export function isContinueReadingStep(step) {
   return step?.id === READING_STEP_IDS.CONTINUE_ARTICLE;
+}
+
+/** Whether the step dismisses overlays and scrolls back into the article. */
+export function isRevisitArticleStep(step) {
+  return step?.id === READING_STEP_IDS.REVISIT_ARTICLE;
 }

@@ -93,6 +93,22 @@ mod tests {
     }
 
     #[test]
+    fn test_comprehension_cache_round_trip() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let aid = insert_test_article(&conn, "Quiz Article", "world");
+        drop(conn);
+
+        let quiz_json = r#"{"questions":[{"id":"main-idea","kind":"main_idea","prompt_native":"主题？","options":[{"id":"a","text_native":"A"},{"id":"b","text_native":"B"},{"id":"c","text_native":"C"}],"correct_option_id":"b","evidence_sentence":"Test body content for","explanation_native":"解释"},{"id":"detail","kind":"detail","prompt_native":"细节？","options":[{"id":"a","text_native":"A"},{"id":"b","text_native":"B"},{"id":"c","text_native":"C"}],"correct_option_id":"a","evidence_sentence":"Test body content for","explanation_native":"解释2"}]}"#;
+        save_comprehension_cache(&pool, aid, "A2", quiz_json).unwrap();
+        let cached = get_comprehension_cache(&pool, aid, "A2").unwrap();
+        assert_eq!(cached.as_deref(), Some(quiz_json));
+        let quiz = parse_comprehension_quiz(quiz_json, true).unwrap();
+        assert_eq!(quiz.questions.len(), 2);
+        assert!(quiz.from_cache);
+    }
+
+    #[test]
     fn test_save_and_get_reading_log() {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
@@ -115,6 +131,9 @@ mod tests {
             reading_time_sec: 120,
             completed: true,
             scroll_pct: 100,
+            comprehension_score: None,
+            comprehension_skipped: false,
+            comprehension_answers_json: None,
         };
 
         save_reading_log(&pool, &log_entry).unwrap();
@@ -149,6 +168,9 @@ mod tests {
             reading_time_sec: 60,
             completed: true,
             scroll_pct: 100,
+            comprehension_score: None,
+            comprehension_skipped: false,
+            comprehension_answers_json: None,
         };
         save_reading_log(&pool, &log_entry).unwrap();
 
@@ -243,6 +265,9 @@ mod tests {
                 reading_time_sec: 30,
                 completed: true,
                 scroll_pct: 100,
+                comprehension_score: None,
+                comprehension_skipped: false,
+                comprehension_answers_json: None,
             },
         )
         .unwrap();
@@ -261,6 +286,9 @@ mod tests {
                 reading_time_sec: 25,
                 completed: true,
                 scroll_pct: 100,
+                comprehension_score: None,
+                comprehension_skipped: false,
+                comprehension_answers_json: None,
             },
         )
         .unwrap();
@@ -278,6 +306,9 @@ mod tests {
                 reading_time_sec: 60,
                 completed: true,
                 scroll_pct: 100,
+                comprehension_score: None,
+                comprehension_skipped: false,
+                comprehension_answers_json: None,
             },
         )
         .unwrap();
@@ -295,6 +326,9 @@ mod tests {
                 reading_time_sec: 5,
                 completed: false,
                 scroll_pct: 10,
+                comprehension_score: None,
+                comprehension_skipped: false,
+                comprehension_answers_json: None,
             },
         )
         .unwrap();
@@ -603,6 +637,19 @@ pub struct ReadingLog {
     pub completed: bool,
     #[serde(default)]
     pub scroll_pct: i32,
+    #[serde(default)]
+    pub comprehension_score: Option<i32>,
+    #[serde(default)]
+    pub comprehension_skipped: bool,
+    #[serde(default)]
+    pub comprehension_answers_json: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ComprehensionQuiz {
+    pub questions: Vec<crate::modules::llm::ComprehensionQuestion>,
+    #[serde(default)]
+    pub from_cache: bool,
 }
 
 /// RSS feed sources by region (target language → news language)
@@ -926,8 +973,8 @@ pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(),
         .format("%Y-%m-%d %H:%M:%S%.3f")
         .to_string();
     conn.execute(
-        "INSERT INTO news_reading_log (user_id, article_id, words_looked_up, words_known, words_unknown, reading_time_sec, completed, scroll_pct, read_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO news_reading_log (user_id, article_id, words_looked_up, words_known, words_unknown, reading_time_sec, completed, scroll_pct, comprehension_score, comprehension_skipped, comprehension_answers_json, read_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         params![
             log_entry.user_id,
             log_entry.article_id,
@@ -937,6 +984,9 @@ pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(),
             log_entry.reading_time_sec,
             log_entry.completed as i32,
             log_entry.scroll_pct,
+            log_entry.comprehension_score,
+            log_entry.comprehension_skipped as i32,
+            log_entry.comprehension_answers_json,
             read_at,
         ],
     ).map_err(|e| format!("Failed to save reading log: {}", e))?;
@@ -1153,6 +1203,103 @@ pub fn get_articles_reading_status(
         .collect();
 
     Ok(statuses)
+}
+
+pub fn get_comprehension_cache(
+    db: &DatabasePool,
+    article_id: i32,
+    cefr_level: &str,
+) -> Result<Option<String>, String> {
+    let conn = db.conn()?;
+    let row: Option<String> = conn
+        .query_row(
+            "SELECT questions_json FROM news_comprehension_cache
+             WHERE article_id = ?1 AND cefr_level = ?2",
+            params![article_id, cefr_level],
+            |row| row.get(0),
+        )
+        .ok();
+    Ok(row)
+}
+
+pub fn save_comprehension_cache(
+    db: &DatabasePool,
+    article_id: i32,
+    cefr_level: &str,
+    questions_json: &str,
+) -> Result<(), String> {
+    let conn = db.conn()?;
+    conn.execute(
+        "INSERT INTO news_comprehension_cache (article_id, cefr_level, questions_json, generated_at)
+         VALUES (?1, ?2, ?3, datetime('now'))
+         ON CONFLICT(article_id, cefr_level) DO UPDATE SET
+             questions_json = excluded.questions_json,
+             generated_at = datetime('now')",
+        params![article_id, cefr_level, questions_json],
+    )
+    .map_err(|e| format!("Failed to save comprehension cache: {}", e))?;
+    Ok(())
+}
+
+fn parse_comprehension_quiz(json: &str, from_cache: bool) -> Result<ComprehensionQuiz, String> {
+    let payload: crate::modules::llm::ComprehensionQuizPayload =
+        serde_json::from_str(json).map_err(|e| format!("Invalid comprehension cache: {}", e))?;
+    Ok(ComprehensionQuiz {
+        questions: payload.questions,
+        from_cache,
+    })
+}
+
+/// Fetch cached comprehension quiz or generate via LLM. Returns None when unavailable.
+pub async fn get_or_generate_comprehension_quiz(
+    llm: &crate::modules::llm::LlmClient,
+    db: &DatabasePool,
+    article_id: i32,
+    cefr_level: &str,
+    native_lang: &str,
+    target_lang: &str,
+) -> Result<Option<ComprehensionQuiz>, String> {
+    if let Some(cached) = get_comprehension_cache(db, article_id, cefr_level)? {
+        return parse_comprehension_quiz(&cached, true).map(Some);
+    }
+
+    let article = get_article(db, article_id)?;
+    let body = article
+        .rewritten_body
+        .as_deref()
+        .or(article.original_body.as_deref())
+        .unwrap_or("")
+        .trim();
+    if body.is_empty() {
+        return Ok(None);
+    }
+
+    match crate::modules::llm::generate_reading_comprehension(
+        llm,
+        db,
+        body,
+        &article.original_title,
+        cefr_level,
+        native_lang,
+        target_lang,
+    )
+    .await
+    {
+        Ok(payload) => {
+            let json = serde_json::to_string(&payload)
+                .map_err(|e| format!("Failed to serialize comprehension quiz: {}", e))?;
+            save_comprehension_cache(db, article_id, cefr_level, &json)?;
+            parse_comprehension_quiz(&json, false).map(Some)
+        }
+        Err(e) => {
+            log::warn!(
+                "Comprehension quiz generation failed for article {}: {}",
+                article_id,
+                e
+            );
+            Ok(None)
+        }
+    }
 }
 
 /// Count distinct articles a user has completed reading.

@@ -168,6 +168,21 @@ describe("buildPostReadingPlan", () => {
     expect(plan.secondary.map((s) => s.id)).not.toContain(READING_STEP_IDS.CONTINUE_ARTICLE);
   });
 
+  it("inserts revisit article when comprehension was partially wrong", () => {
+    const plan = buildPostReadingPlan({
+      mode: "complete",
+      unknownCount: 0,
+      comprehensionResult: { score: 1, total: 2, skipped: false },
+      dailyGoalSnapshot: { goal_met: true, target_lessons: 2, lessons_today: 2 },
+      resumeTarget: null,
+      nextUnreadArticleId: 42,
+      newsUnreadCount: 2,
+      sessionWordCount: 0,
+      sessionWords: [],
+    });
+    expect(plan.secondary[0].id).toBe(READING_STEP_IDS.REVISIT_ARTICLE);
+  });
+
   it("caps the secondary queue at three items", () => {
     const plan = buildPostReadingPlan({
       unknownCount: 2,

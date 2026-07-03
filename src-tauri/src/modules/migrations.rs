@@ -81,6 +81,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add scroll_pct to news_reading_log for resume reading progress",
             MIGRATION_V19,
         ),
+        (
+            20,
+            "Add news comprehension quiz cache and reading log comprehension fields",
+            MIGRATION_V20,
+        ),
     ]
 }
 
@@ -375,4 +380,18 @@ ALTER TABLE streak_records ADD COLUMN review_sessions INTEGER NOT NULL DEFAULT 0
 
 const MIGRATION_V19: &str = r#"
 ALTER TABLE news_reading_log ADD COLUMN scroll_pct INTEGER NOT NULL DEFAULT 0;
+"#;
+
+const MIGRATION_V20: &str = r#"
+CREATE TABLE IF NOT EXISTS news_comprehension_cache (
+    article_id INTEGER NOT NULL REFERENCES news_articles(id) ON DELETE CASCADE,
+    cefr_level TEXT NOT NULL,
+    questions_json TEXT NOT NULL,
+    generated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (article_id, cefr_level)
+);
+
+ALTER TABLE news_reading_log ADD COLUMN comprehension_score INTEGER;
+ALTER TABLE news_reading_log ADD COLUMN comprehension_skipped INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE news_reading_log ADD COLUMN comprehension_answers_json TEXT;
 "#;

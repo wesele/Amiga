@@ -150,6 +150,12 @@ pub struct SyncReadingLogRow {
     pub completed: bool,
     #[serde(default)]
     pub scroll_pct: i32,
+    #[serde(default)]
+    pub comprehension_score: Option<i32>,
+    #[serde(default)]
+    pub comprehension_skipped: bool,
+    #[serde(default)]
+    pub comprehension_answers_json: Option<String>,
     pub read_at: String,
 }
 
@@ -410,7 +416,9 @@ pub fn export_sync_payload(db: &DatabasePool) -> Result<SyncPayload, String> {
     let mut stmt = conn
         .prepare(
             "SELECT a.source, l.words_looked_up, l.words_known, l.words_unknown,
-                    l.reading_time_sec, l.completed, l.scroll_pct, l.read_at
+                    l.reading_time_sec, l.completed, l.scroll_pct,
+                    l.comprehension_score, l.comprehension_skipped, l.comprehension_answers_json,
+                    l.read_at
              FROM news_reading_log l
              LEFT JOIN news_articles a ON a.id = l.article_id
              WHERE l.user_id = ?1",
@@ -426,7 +434,10 @@ pub fn export_sync_payload(db: &DatabasePool) -> Result<SyncPayload, String> {
                 reading_time_sec: row.get(4)?,
                 completed: row.get::<_, i32>(5)? != 0,
                 scroll_pct: row.get(6)?,
-                read_at: row.get(7)?,
+                comprehension_score: row.get(7)?,
+                comprehension_skipped: row.get::<_, i32>(8)? != 0,
+                comprehension_answers_json: row.get(9)?,
+                read_at: row.get(10)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -678,8 +689,9 @@ fn import_sync_payload_tx(tx: &Transaction<'_>, payload: &SyncPayload) -> Result
         };
         tx.execute(
             "INSERT INTO news_reading_log (user_id, article_id, words_looked_up, words_known,
-             words_unknown, reading_time_sec, completed, scroll_pct, read_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+             words_unknown, reading_time_sec, completed, scroll_pct,
+             comprehension_score, comprehension_skipped, comprehension_answers_json, read_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
              ON CONFLICT(user_id, article_id, read_at) DO NOTHING",
             params![
                 local_user_id,
@@ -690,6 +702,9 @@ fn import_sync_payload_tx(tx: &Transaction<'_>, payload: &SyncPayload) -> Result
                 row.reading_time_sec,
                 if row.completed { 1 } else { 0 },
                 row.scroll_pct,
+                row.comprehension_score,
+                if row.comprehension_skipped { 1 } else { 0 },
+                row.comprehension_answers_json,
                 row.read_at,
             ],
         )
@@ -1300,6 +1315,9 @@ mod tests {
             reading_time_sec: 42,
             completed: true,
             scroll_pct: 100,
+            comprehension_score: None,
+            comprehension_skipped: false,
+            comprehension_answers_json: None,
             read_at: "2026-06-29T12:00:00Z".to_string(),
         }];
 

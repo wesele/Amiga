@@ -126,6 +126,8 @@ export function createApiClient(invoke) {
     getReadArticleCount: (userId) => call("get_read_article_count_cmd", { userId }),
     getArticlesReadingStatus: (userId, articleIds) =>
       call("get_articles_reading_status_cmd", { userId, articleIds }),
+    getComprehensionQuiz: (articleId, cefrLevel, nativeLang, targetLang) =>
+      call("get_comprehension_quiz_cmd", { articleId, cefrLevel, nativeLang, targetLang }),
 
     // LLM
     rewriteArticle: (articleId, cefrLevel, userId, targetLang) =>

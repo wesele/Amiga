@@ -540,6 +540,134 @@ pub async fn rewrite_article(
     Ok(result)
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ComprehensionOption {
+    pub id: String,
+    pub text_native: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ComprehensionQuestion {
+    pub id: String,
+    pub kind: String,
+    pub prompt_native: String,
+    pub options: Vec<ComprehensionOption>,
+    pub correct_option_id: String,
+    pub evidence_sentence: String,
+    pub explanation_native: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ComprehensionQuizPayload {
+    pub questions: Vec<ComprehensionQuestion>,
+}
+
+fn normalize_for_substring(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Validate LLM comprehension quiz output before caching.
+pub fn validate_comprehension_quiz(body: &str, quiz: &ComprehensionQuizPayload) -> Result<(), String> {
+    if quiz.questions.len() != 2 {
+        return Err(format!(
+            "Expected 2 comprehension questions, got {}",
+            quiz.questions.len()
+        ));
+    }
+    let body_norm = normalize_for_substring(body);
+    for (idx, q) in quiz.questions.iter().enumerate() {
+        if q.options.len() != 3 {
+            return Err(format!(
+                "Question {} must have 3 options, got {}",
+                idx + 1,
+                q.options.len()
+            ));
+        }
+        if !q
+            .options
+            .iter()
+            .any(|o| o.id == q.correct_option_id)
+        {
+            return Err(format!(
+                "Question {} correct_option_id not found in options",
+                idx + 1
+            ));
+        }
+        let evidence_norm = normalize_for_substring(&q.evidence_sentence);
+        if evidence_norm.is_empty() || !body_norm.contains(&evidence_norm) {
+            return Err(format!(
+                "Question {} evidence_sentence is not a substring of the article body",
+                idx + 1
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub async fn generate_reading_comprehension(
+    client: &LlmClient,
+    db: &DatabasePool,
+    article_body: &str,
+    article_title: &str,
+    cefr_level: &str,
+    native_lang: &str,
+    target_lang: &str,
+) -> Result<ComprehensionQuizPayload, String> {
+    let native_label = lang_name(native_lang);
+    let target_label = lang_name(target_lang);
+    let vars = [
+        ("CEFR_LEVEL", cefr_level),
+        ("NATIVE_LANG", native_label),
+        ("TARGET_LANG", target_label),
+        ("TITLE", article_title),
+        ("TEXT", article_body),
+    ];
+
+    let messages = build_chat_messages(db, "reading-comprehension", &vars);
+    let messages = if messages.is_empty() {
+        let prompt = format!(
+            "Generate exactly 2 multiple-choice reading-comprehension questions for the article below.\n\n\
+             CEFR level: {cefr_level}\n\
+             Target language (article): {target_label}\n\
+             Native language (stems/options): {native_label}\n\n\
+             Rules:\n\
+             1. Question 1: main idea (kind: main_idea)\n\
+             2. Question 2: specific detail (kind: detail)\n\
+             3. Each question: 3 options in {native_label}, ≤ 12 words\n\
+             4. evidence_sentence MUST be copied verbatim from the article body\n\
+             5. Output ONLY JSON: {{\"questions\":[...]}}\n\n\
+             Title: {article_title}\n\
+             Body: {article_body}"
+        );
+        build_chat_messages_fallback(
+            "You are a reading-comprehension question writer. Output ONLY JSON, no markdown.",
+            &prompt,
+        )
+    } else {
+        messages
+    };
+
+    let response = client.chat(db, messages).await?;
+    let cleaned = response
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+
+    let result: ComprehensionQuizPayload = serde_json::from_str(cleaned).map_err(|e| {
+        log::error!(
+            "Failed to parse comprehension quiz response: {}. Raw: {}",
+            e,
+            response
+        );
+        format!("AI response format error: {}", e)
+    })?;
+
+    validate_comprehension_quiz(article_body, &result)?;
+    Ok(result)
+}
+
 /// Reject truncated or obviously broken rewrites so the frontend can prompt retry.
 pub fn validate_rewrite_output(original: &str, rewritten: &str) -> Result<(), String> {
     let original = original.trim();
@@ -1018,6 +1146,117 @@ mod tests {
         let rewritten =
             "Los inmigrantes llegaron a la ciudad ayer por la tarde. Fue un día tranquilo.";
         assert!(validate_rewrite_output(original, rewritten).is_ok());
+    }
+
+    #[test]
+    fn validate_comprehension_quiz_rejects_hallucinated_evidence() {
+        let body = "Los inmigrantes llegaron a la ciudad ayer por la tarde.";
+        let quiz = ComprehensionQuizPayload {
+            questions: vec![
+                ComprehensionQuestion {
+                    id: "main-idea".to_string(),
+                    kind: "main_idea".to_string(),
+                    prompt_native: "¿De qué trata?".to_string(),
+                    options: vec![
+                        ComprehensionOption {
+                            id: "a".to_string(),
+                            text_native: "A".to_string(),
+                        },
+                        ComprehensionOption {
+                            id: "b".to_string(),
+                            text_native: "B".to_string(),
+                        },
+                        ComprehensionOption {
+                            id: "c".to_string(),
+                            text_native: "C".to_string(),
+                        },
+                    ],
+                    correct_option_id: "b".to_string(),
+                    evidence_sentence: "Esta frase no está en el artículo.".to_string(),
+                    explanation_native: "x".to_string(),
+                },
+                ComprehensionQuestion {
+                    id: "detail".to_string(),
+                    kind: "detail".to_string(),
+                    prompt_native: "¿Cuándo?".to_string(),
+                    options: vec![
+                        ComprehensionOption {
+                            id: "a".to_string(),
+                            text_native: "A".to_string(),
+                        },
+                        ComprehensionOption {
+                            id: "b".to_string(),
+                            text_native: "B".to_string(),
+                        },
+                        ComprehensionOption {
+                            id: "c".to_string(),
+                            text_native: "C".to_string(),
+                        },
+                    ],
+                    correct_option_id: "a".to_string(),
+                    evidence_sentence: "Los inmigrantes llegaron a la ciudad ayer por la tarde."
+                        .to_string(),
+                    explanation_native: "y".to_string(),
+                },
+            ],
+        };
+        let err = validate_comprehension_quiz(body, &quiz).unwrap_err();
+        assert!(err.contains("evidence_sentence"));
+    }
+
+    #[test]
+    fn validate_comprehension_quiz_accepts_valid_payload() {
+        let body = "Los inmigrantes llegaron a la ciudad ayer por la tarde.";
+        let quiz = ComprehensionQuizPayload {
+            questions: vec![
+                ComprehensionQuestion {
+                    id: "main-idea".to_string(),
+                    kind: "main_idea".to_string(),
+                    prompt_native: "¿De qué trata?".to_string(),
+                    options: vec![
+                        ComprehensionOption {
+                            id: "a".to_string(),
+                            text_native: "A".to_string(),
+                        },
+                        ComprehensionOption {
+                            id: "b".to_string(),
+                            text_native: "B".to_string(),
+                        },
+                        ComprehensionOption {
+                            id: "c".to_string(),
+                            text_native: "C".to_string(),
+                        },
+                    ],
+                    correct_option_id: "b".to_string(),
+                    evidence_sentence: "Los inmigrantes llegaron a la ciudad ayer por la tarde."
+                        .to_string(),
+                    explanation_native: "x".to_string(),
+                },
+                ComprehensionQuestion {
+                    id: "detail".to_string(),
+                    kind: "detail".to_string(),
+                    prompt_native: "¿Cuándo?".to_string(),
+                    options: vec![
+                        ComprehensionOption {
+                            id: "a".to_string(),
+                            text_native: "A".to_string(),
+                        },
+                        ComprehensionOption {
+                            id: "b".to_string(),
+                            text_native: "B".to_string(),
+                        },
+                        ComprehensionOption {
+                            id: "c".to_string(),
+                            text_native: "C".to_string(),
+                        },
+                    ],
+                    correct_option_id: "a".to_string(),
+                    evidence_sentence: "ayer por la tarde".to_string(),
+                    explanation_native: "y".to_string(),
+                },
+            ],
+        };
+        assert!(validate_comprehension_quiz(body, &quiz).is_ok());
     }
 
     #[test]

@@ -219,6 +219,98 @@
       <div v-if="shareStatus" class="share-toast">{{ shareStatus }}</div>
     </Transition>
 
+    <!-- Post-reading comprehension quiz -->
+    <Transition name="popup">
+      <div v-if="showComprehensionQuiz" class="completion-overlay">
+        <div class="completion-sheet comprehension-quiz">
+          <template v-if="comprehensionQuizPhase === 'answering'">
+            <div class="summary-emoji">🧠</div>
+            <h2>{{ t("news.comprehensionTitle") }}</h2>
+            <p class="comprehension-subtitle">{{ t("news.comprehensionSubtitle") }}</p>
+            <p class="comprehension-progress">
+              {{
+                t("news.comprehensionQuestionProgress", {
+                  current: comprehensionCurrentIndex + 1,
+                  total: comprehensionQuiz.length,
+                })
+              }}
+            </p>
+            <p v-if="currentComprehensionQuestion" class="comprehension-prompt">
+              {{ currentComprehensionQuestion.prompt_native }}
+            </p>
+            <div v-if="currentComprehensionQuestion" class="comprehension-options">
+              <button
+                v-for="option in currentComprehensionQuestion.options"
+                :key="option.id"
+                type="button"
+                class="comprehension-option"
+                :class="{
+                  selected:
+                    comprehensionAnswers[currentComprehensionQuestion.id] === option.id,
+                }"
+                @click="selectComprehensionOption(option.id)"
+              >
+                {{ option.text_native }}
+              </button>
+            </div>
+            <div class="summary-actions">
+              <button
+                v-if="canAdvanceComprehension"
+                type="button"
+                class="action-btn primary"
+                @click="advanceComprehension"
+              >
+                {{
+                  comprehensionCurrentIndex < comprehensionQuiz.length - 1
+                    ? t("news.comprehensionNext")
+                    : t("news.comprehensionViewSummary")
+                }}
+              </button>
+              <button
+                type="button"
+                class="action-btn secondary"
+                @click="skipComprehensionQuiz"
+              >
+                {{ t("news.comprehensionSkip") }}
+              </button>
+            </div>
+          </template>
+          <template v-else>
+            <div class="summary-emoji">🧠</div>
+            <h2>{{ t("news.comprehensionTitle") }}</h2>
+            <div class="comprehension-results">
+              <div
+                v-for="detail in comprehensionResult?.details ?? []"
+                :key="detail.question.id"
+                class="comprehension-result-card"
+                :class="{ wrong: !detail.correct }"
+              >
+                <p class="comprehension-result-prompt">{{ detail.question.prompt_native }}</p>
+                <p v-if="!detail.correct" class="comprehension-result-label">
+                  {{ t("news.comprehensionEvidence") }}
+                </p>
+                <p v-if="!detail.correct" class="comprehension-evidence">
+                  {{ detail.question.evidence_sentence }}
+                </p>
+                <p v-if="!detail.correct" class="comprehension-explanation">
+                  {{ detail.question.explanation_native }}
+                </p>
+              </div>
+            </div>
+            <div class="summary-actions">
+              <button
+                type="button"
+                class="action-btn primary"
+                @click="enterCompletionSummaryFromQuiz"
+              >
+                {{ t("news.comprehensionViewSummary") }}
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Reading completion summary -->
     <Transition name="popup">
       <div v-if="showCompletionSummary" class="completion-overlay">
@@ -246,6 +338,14 @@
                     unknown: wordsUnknownSet.size,
                     lookedUp: knownWordIds.size,
                   })
+            }}
+          </p>
+          <p v-if="comprehensionCelebrationBanner" class="comprehension-banner">
+            {{
+              t(
+                comprehensionCelebrationBanner.key,
+                comprehensionCelebrationBanner.params,
+              )
             }}
           </p>
           <p v-if="showStreakSaved" class="streak-banner">
@@ -282,6 +382,7 @@
                     && !step.contactAction
                     && !isVocabReviewStep(step)
                     && !isContinueReadingStep(step)
+                    && !isRevisitArticleStep(step)
                 "
                 @click="goToReadingStep(step)"
               >
@@ -342,6 +443,7 @@ import {
   getArticles,
   getArticlesReadingStatus,
   getPathCurriculum,
+  getComprehensionQuiz,
 } from "@/shared/api.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 import { findCurrentSection } from "@/modules/learn/pathResume.js";
@@ -393,6 +495,7 @@ import {
   buildPostReadingPlan,
   isAiPracticeStep,
   isContinueReadingStep,
+  isRevisitArticleStep,
   isVocabReviewStep,
 } from "./postReadingPlan.js";
 import {
@@ -406,6 +509,11 @@ import {
   isValidReading,
   shouldShowCheckpointSummary,
 } from "./readingCompletion.js";
+import {
+  comprehensionCelebration,
+  scoreComprehension,
+  shouldOfferComprehensionQuiz,
+} from "./readingComprehension.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -470,6 +578,13 @@ const {
 } = useMicroReviewCard();
 
 const showCompletionSummary = ref(false);
+const showComprehensionQuiz = ref(false);
+const comprehensionQuiz = ref([]);
+const comprehensionAnswers = ref({});
+const comprehensionCurrentIndex = ref(0);
+const comprehensionQuizPhase = ref("answering");
+const comprehensionResult = ref(null);
+const comprehensionOfferAttempted = ref(false);
 const summaryMode = ref("complete");
 const dailyGoalSnapshot = ref(null);
 const practicedTodayBefore = ref(false);
@@ -567,6 +682,25 @@ const sessionWords = computed(() => {
 
 const sessionWordCount = computed(() => sessionWords.value.length);
 
+const currentComprehensionQuestion = computed(
+  () => comprehensionQuiz.value[comprehensionCurrentIndex.value] ?? null,
+);
+
+const canAdvanceComprehension = computed(() => {
+  const question = currentComprehensionQuestion.value;
+  if (!question) return false;
+  return Boolean(comprehensionAnswers.value[question.id]);
+});
+
+const comprehensionCelebrationBanner = computed(() => {
+  if (summaryMode.value !== "complete" || !comprehensionResult.value) return null;
+  return comprehensionCelebration(
+    comprehensionResult.value.score,
+    comprehensionResult.value.total,
+    comprehensionResult.value.skipped,
+  );
+});
+
 const readingPlan = computed(() => {
   if (!showCompletionSummary.value) return null;
   return buildPostReadingPlan({
@@ -574,6 +708,7 @@ const readingPlan = computed(() => {
     scrollPct: displayScrollPct.value,
     unknownCount: wordsUnknownSet.value.size,
     microReviewCompleted: microReviewCompleted.value,
+    comprehensionResult: comprehensionResult.value,
     dailyGoalSnapshot: dailyGoalSnapshot.value,
     resumeTarget: resumeTarget.value,
     nextUnreadArticleId: nextUnreadArticleId.value,
@@ -622,14 +757,20 @@ function handleAndroidBackInPage() {
     collapseMicroReview();
     return "navigated";
   }
+  if (showComprehensionQuiz.value) {
+    void skipComprehensionQuiz();
+    return "navigated";
+  }
   if (showCompletionSummary.value) {
     dismissCompletionSummary();
     return "navigated";
   }
-  if (tryShowCompletionSummary()) {
+  void tryShowCompletionSummary();
+  if (showCompletionSummary.value || showComprehensionQuiz.value) {
     return "navigated";
   }
-  if (tryShowCheckpointSummary()) {
+  void tryShowCheckpointSummary();
+  if (showCompletionSummary.value) {
     return "navigated";
   }
   return undefined;
@@ -653,11 +794,39 @@ async function restoreSavedScrollPosition() {
   displayScrollPct.value = computeScrollPct(articleBodyRef.value);
 }
 
-async function persistReadingProgress({ scrollPct, completed, userMarked } = {}) {
+function comprehensionLogFields(comprehension = comprehensionResult.value) {
+  if (!comprehension) {
+    return {
+      comprehension_score: null,
+      comprehension_skipped: false,
+      comprehension_answers_json: null,
+    };
+  }
+  if (comprehension.skipped) {
+    return {
+      comprehension_score: null,
+      comprehension_skipped: true,
+      comprehension_answers_json: null,
+    };
+  }
+  return {
+    comprehension_score: comprehension.score,
+    comprehension_skipped: false,
+    comprehension_answers_json: JSON.stringify(comprehensionAnswers.value),
+  };
+}
+
+async function persistReadingProgress({
+  scrollPct,
+  completed,
+  userMarked,
+  comprehension,
+} = {}) {
   if (!userId || !article.value) return;
   const pct = scrollPct ?? computeScrollPct(articleBodyRef.value);
   const done = completed ?? isReadingComplete(pct, userMarked ?? userMarkedComplete.value);
   const elapsed = Math.round((Date.now() - startTime.value) / 1000);
+  const compFields = comprehensionLogFields(comprehension);
   try {
     await saveReadingLog({
       user_id: userId,
@@ -668,6 +837,7 @@ async function persistReadingProgress({ scrollPct, completed, userMarked } = {})
       reading_time_sec: elapsed,
       scroll_pct: pct,
       completed: done,
+      ...compFields,
     });
     lastPersistedScrollPct = pct;
   } catch (e) {
@@ -691,7 +861,7 @@ async function markReadingComplete() {
   userMarkedComplete.value = true;
   displayScrollPct.value = 100;
   await persistReadingProgress({ scrollPct: 100, completed: true, userMarked: true });
-  tryShowCompletionSummary();
+  await tryShowCompletionSummary();
 }
 
 onMounted(async () => {
@@ -1300,6 +1470,13 @@ async function goToReadingStep(step) {
     showCompletionSummary.value = false;
     return;
   }
+  if (isRevisitArticleStep(step)) {
+    showCompletionSummary.value = false;
+    await nextTick();
+    articleBodyRef.value?.scrollTo({ top: 0, behavior: "smooth" });
+    showWordToast(t("news.comprehensionRevisitToast"));
+    return;
+  }
   if (isVocabReviewStep(step)) {
     completeAndReview();
     return;
@@ -1330,13 +1507,105 @@ async function goToReadingStep(step) {
   }
 }
 
-function tryShowCompletionSummary() {
-  if (showCompletionSummary.value) return true;
+function selectComprehensionOption(optionId) {
+  const question = currentComprehensionQuestion.value;
+  if (!question) return;
+  const nextAnswers = {
+    ...comprehensionAnswers.value,
+    [question.id]: optionId,
+  };
+  comprehensionAnswers.value = nextAnswers;
+  if (comprehensionCurrentIndex.value === comprehensionQuiz.value.length - 1) {
+    comprehensionResult.value = scoreComprehension(
+      comprehensionQuiz.value,
+      nextAnswers,
+    );
+    comprehensionQuizPhase.value = "results";
+  }
+}
+
+function advanceComprehension() {
+  if (!canAdvanceComprehension.value) return;
+  if (comprehensionCurrentIndex.value < comprehensionQuiz.value.length - 1) {
+    comprehensionCurrentIndex.value += 1;
+    return;
+  }
+  comprehensionResult.value = scoreComprehension(
+    comprehensionQuiz.value,
+    comprehensionAnswers.value,
+  );
+  comprehensionQuizPhase.value = "results";
+}
+
+async function enterCompletionSummaryFromQuiz() {
+  showComprehensionQuiz.value = false;
+  showCompletionSummary.value = true;
+  await persistReadingProgress({
+    scrollPct: computeScrollPct(articleBodyRef.value),
+    completed: true,
+    comprehension: comprehensionResult.value,
+  });
+  void loadPostReadingContext();
+}
+
+async function skipComprehensionQuiz() {
+  comprehensionResult.value = {
+    score: 0,
+    total: comprehensionQuiz.value.length || 2,
+    skipped: true,
+    details: [],
+  };
+  showComprehensionQuiz.value = false;
+  showCompletionSummary.value = true;
+  await persistReadingProgress({
+    scrollPct: computeScrollPct(articleBodyRef.value),
+    completed: true,
+    comprehension: comprehensionResult.value,
+  });
+  void loadPostReadingContext();
+}
+
+async function offerComprehensionQuiz() {
+  if (comprehensionOfferAttempted.value) return false;
+  comprehensionOfferAttempted.value = true;
+  if (
+    !shouldOfferComprehensionQuiz({
+      summaryMode: "complete",
+      isValidReading: isValidReading(readingSessionStats()),
+      quizAvailable: true,
+    })
+  ) {
+    return false;
+  }
+  try {
+    const quiz = await getComprehensionQuiz(
+      Number(props.id),
+      currentLevel,
+      getLocale(),
+      targetLang,
+    );
+    if (!quiz?.questions?.length) return false;
+    comprehensionQuiz.value = quiz.questions;
+    comprehensionAnswers.value = {};
+    comprehensionCurrentIndex.value = 0;
+    comprehensionQuizPhase.value = "answering";
+    comprehensionResult.value = null;
+    showComprehensionQuiz.value = true;
+    return true;
+  } catch (e) {
+    console.error("Failed to load comprehension quiz:", e);
+    return false;
+  }
+}
+
+async function tryShowCompletionSummary() {
+  if (showCompletionSummary.value || showComprehensionQuiz.value) return true;
   if (!article.value?.rewritten_body) return false;
   const scrollPct = computeScrollPct(articleBodyRef.value);
   const completed = isReadingComplete(scrollPct, userMarkedComplete.value);
   if (!completed) return false;
   summaryMode.value = "complete";
+  if (await offerComprehensionQuiz()) return true;
   showCompletionSummary.value = true;
   void loadPostReadingContext();
   return true;
@@ -1386,11 +1655,15 @@ async function goBack() {
     collapseMicroReview();
     return;
   }
+  if (showComprehensionQuiz.value) {
+    await skipComprehensionQuiz();
+    return;
+  }
   if (showCompletionSummary.value) {
     dismissCompletionSummary();
     return;
   }
-  if (tryShowCompletionSummary()) return;
+  if (await tryShowCompletionSummary()) return;
   if (await tryShowCheckpointSummary()) return;
   const scrollPct = computeScrollPct(articleBodyRef.value);
   if (wordsUnknownSet.value.size > 0 && !microReviewCompleted.value) {
@@ -2024,6 +2297,107 @@ function formatSource(source) {
   border-radius: var(--radius-md);
   font-weight: 700;
   font-size: 14px;
+}
+
+.comprehension-banner {
+  margin: 12px 0 0;
+  padding: 12px 16px;
+  background: var(--green-bg, #e8f8ef);
+  color: var(--green-hover, #1f8a4c);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.comprehension-quiz {
+  text-align: left;
+}
+
+.comprehension-subtitle,
+.comprehension-progress {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-lighter);
+}
+
+.comprehension-prompt {
+  margin: 16px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.comprehension-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.comprehension-option {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.comprehension-option.selected {
+  border-color: var(--green);
+  background: var(--green-bg, #e8f8ef);
+}
+
+.comprehension-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.comprehension-result-card {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface-alt, #f7f7f8);
+}
+
+.comprehension-result-card.wrong {
+  background: #fff4f4;
+  border: 1px solid #f5c2c2;
+}
+
+.comprehension-result-prompt {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.comprehension-result-label {
+  margin: 10px 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-lighter);
+}
+
+.comprehension-evidence {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.comprehension-explanation {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-light);
 }
 
 .daily-goal-hint {

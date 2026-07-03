@@ -16,6 +16,32 @@ pub struct Prompt {
 /// Default prompt definitions (key → (name, category, system_prompt, user_prompt_template))
 const DEFAULTS: &[(&str, &str, &str, &str, &str)] = &[
     (
+        "reading-comprehension",
+        "阅读理解快检",
+        "学习功能",
+        "You are a reading-comprehension question writer for language learners. Output ONLY JSON, no markdown.",
+        r#"Generate exactly 2 multiple-choice reading-comprehension questions for the article below.
+
+CEFR level: {{CEFR_LEVEL}}
+Target language (article): {{TARGET_LANG}}
+Native language (question stems and options): {{NATIVE_LANG}}
+
+Rules:
+1. Question 1: main idea / gist (kind: "main_idea").
+2. Question 2: specific detail from the text (kind: "detail").
+3. Each question has exactly 3 options; all option text in {{NATIVE_LANG}}, ≤ 12 words each.
+4. Distractors must be plausible but clearly wrong based on the text.
+5. evidence_sentence MUST be copied verbatim from the article body.
+6. Do not ask about vocabulary definitions — focus on comprehension.
+7. Match {{CEFR_LEVEL}} difficulty.
+
+Return strict JSON:
+{"questions":[{"id":"main-idea","kind":"main_idea","prompt_native":"...","options":[{"id":"a","text_native":"..."},{"id":"b","text_native":"..."},{"id":"c","text_native":"..."}],"correct_option_id":"b","evidence_sentence":"verbatim sentence from article","explanation_native":"one sentence in {{NATIVE_LANG}}"},{"id":"detail","kind":"detail","prompt_native":"...","options":[...],"correct_option_id":"...","evidence_sentence":"...","explanation_native":"..."}]}
+
+Title: {{TITLE}}
+Body: {{TEXT}}"#,
+    ),
+    (
         "rewrite-article",
         "新闻文章改写",
         "学习功能",

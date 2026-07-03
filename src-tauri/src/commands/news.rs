@@ -1,3 +1,4 @@
+use crate::commands::llm::LlmState;
 use crate::modules::database::DatabasePool;
 use crate::modules::news as news_mod;
 use crate::modules::sync;
@@ -53,4 +54,24 @@ pub async fn get_articles_reading_status_cmd(
     article_ids: Vec<i32>,
 ) -> Result<Vec<news_mod::ArticleReadingStatus>, String> {
     news_mod::get_articles_reading_status(&db, &user_id, &article_ids)
+}
+
+#[tauri::command]
+pub async fn get_comprehension_quiz_cmd(
+    db: State<'_, DatabasePool>,
+    llm: State<'_, LlmState>,
+    article_id: i32,
+    cefr_level: String,
+    native_lang: String,
+    target_lang: String,
+) -> Result<Option<news_mod::ComprehensionQuiz>, String> {
+    news_mod::get_or_generate_comprehension_quiz(
+        &llm.client,
+        &db,
+        article_id,
+        &cefr_level,
+        &native_lang,
+        &target_lang,
+    )
+    .await
 }
