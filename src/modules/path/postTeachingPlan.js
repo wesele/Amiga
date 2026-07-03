@@ -33,7 +33,6 @@ import {
   pickBestArticleForLessonWords,
 } from "@/modules/news/lessonArticleMatch.js";
 import { lessonWordsPreview } from "@/modules/news/lessonWordHighlight.js";
-import { sectionKindFromId } from "./lessonContinue.js";
 
 export const TEACHING_STEP_IDS = {
   NEXT_NODE: "nextNode",
