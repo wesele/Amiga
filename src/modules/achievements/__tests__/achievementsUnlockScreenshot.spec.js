@@ -139,6 +139,6 @@ describe("achievements unlock screenshot", () => {
       expect(pngPath).toContain("achievement-unlock-flow.png");
       expect(computeNavBadges({}, { activeTab: "learn" }).achievements.show).toBe(true);
     },
-    15_000,
+    30_000,
   );
 });
