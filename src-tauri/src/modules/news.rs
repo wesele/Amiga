@@ -759,23 +759,41 @@ pub fn save_rewritten_article(
 /// Save reading log
 pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(), String> {
     let conn = db.conn()?;
-    let read_at = chrono::Local::now()
-        .format("%Y-%m-%d %H:%M:%S%.3f")
-        .to_string();
-    conn.execute(
-        "INSERT INTO news_reading_log (user_id, article_id, words_looked_up, words_known, words_unknown, reading_time_sec, completed, read_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        params![
-            log_entry.user_id,
-            log_entry.article_id,
-            log_entry.words_looked_up,
-            log_entry.words_known,
-            log_entry.words_unknown,
-            log_entry.reading_time_sec,
-            log_entry.completed as i32,
-            read_at,
-        ],
-    ).map_err(|e| format!("Failed to save reading log: {}", e))?;
+    let mut read_at = chrono::Local::now();
+    let mut inserted = false;
+    for _ in 0..10 {
+        let read_at_str = read_at.format("%Y-%m-%d %H:%M:%S%.3f").to_string();
+        match conn.execute(
+            "INSERT INTO news_reading_log (user_id, article_id, words_looked_up, words_known, words_unknown, reading_time_sec, completed, read_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                log_entry.user_id,
+                log_entry.article_id,
+                log_entry.words_looked_up,
+                log_entry.words_known,
+                log_entry.words_unknown,
+                log_entry.reading_time_sec,
+                log_entry.completed as i32,
+                read_at_str,
+            ],
+        ) {
+            Ok(_) => {
+                inserted = true;
+                break;
+            }
+            Err(rusqlite::Error::SqliteFailure(err, _))
+                if err.code == rusqlite::ErrorCode::ConstraintViolation =>
+            {
+                read_at += chrono::Duration::milliseconds(1);
+            }
+            Err(e) => return Err(format!("Failed to save reading log: {}", e)),
+        }
+    }
+    if !inserted {
+        return Err(
+            "Failed to save reading log: could not allocate unique read_at timestamp".to_string(),
+        );
+    }
 
     // Update streak record
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
