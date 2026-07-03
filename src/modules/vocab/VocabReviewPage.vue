@@ -407,6 +407,7 @@ const reviewContextParts = computed(() =>
 const showNewsSourceBadge = computed(() => {
   const word = currentWord.value;
   if (!word?.word) return false;
+  if (word.has_user_context) return true;
   if (word.source === "news_reading") return true;
   return (
     readingSessionMode.value &&

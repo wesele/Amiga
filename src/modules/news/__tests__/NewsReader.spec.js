@@ -17,6 +17,7 @@ const {
   getArticlesReadingStatus,
   getPathCurriculum,
   getComprehensionQuiz,
+  updateWordMastery,
 } = vi.hoisted(() => ({
   lookupWordsMastery: vi.fn(),
   ensureWordsSeen: vi.fn().mockResolvedValue(undefined),
@@ -28,13 +29,14 @@ const {
   getArticlesReadingStatus: vi.fn(),
   getPathCurriculum: vi.fn(),
   getComprehensionQuiz: vi.fn().mockResolvedValue(null),
+  updateWordMastery: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/shared/api.js", () => ({
   getArticle,
   rewriteArticle,
   saveReadingLog,
-  updateWordMastery: vi.fn().mockResolvedValue(undefined),
+  updateWordMastery,
   getBilingual: vi.fn(),
   translateText: vi.fn(),
   lookupWordIds: vi.fn().mockResolvedValue([99]),
@@ -109,6 +111,7 @@ describe("NewsReader mastery visualization", () => {
     setActivePinia(createPinia());
     lookupWordsMastery.mockReset();
     ensureWordsSeen.mockClear();
+    updateWordMastery.mockClear();
     getArticle.mockReset();
     getDailyGoalProgress.mockReset();
     getArticles.mockReset();
@@ -163,6 +166,32 @@ describe("NewsReader mastery visualization", () => {
     expect(words.some((w) => w.classes().includes("word-mastered"))).toBe(true);
     expect(words.some((w) => w.classes().includes("word-new"))).toBe(true);
     expect(words.some((w) => w.classes().includes("word-seen"))).toBe(true);
+  });
+
+  it("passes reading context when marking a syllabus word unknown", async () => {
+    const router = makeRouter();
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".word.word-new").trigger("click");
+    await flushPromises();
+    await wrapper.findComponent(WordPopup).vm.$emit("unknown");
+    await flushPromises();
+
+    expect(updateWordMastery).toHaveBeenCalledWith(
+      "u1",
+      99,
+      1,
+      "news_reading",
+      expect.any(String),
+      1,
+    );
   });
 
   it("shows review CTA after marking unknown words and navigates with from=reading", async () => {

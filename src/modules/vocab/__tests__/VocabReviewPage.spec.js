@@ -288,6 +288,45 @@ describe("VocabReviewPage", () => {
     expect(wrapper.find(".action-btn.primary").attributes("disabled")).toBeUndefined();
   });
 
+  it("shows persisted reading context and source badge outside reading session", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_unknown_words_cmd") {
+        return Promise.resolve([
+          {
+            id: 10,
+            word: "frontera",
+            mastery: 1,
+            definition_zh: "边境",
+            example: "Cruzaron la frontera al amanecer.",
+            source: "vocab_flashcard",
+            has_user_context: true,
+          },
+          {
+            id: 11,
+            word: "mercado",
+            mastery: null,
+            definition_zh: "市场",
+          },
+        ]);
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Cruzaron la frontera al amanecer.");
+    expect(wrapper.find(".flashcard-source-badge").exists()).toBe(true);
+    expect(wrapper.text()).toContain("来自新闻阅读");
+  });
+
   it("completes session after marking all words", async () => {
     const router = makeRouter();
     await router.push("/vocab/review");

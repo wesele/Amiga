@@ -26,6 +26,8 @@ describe("API module", () => {
         wordId: 42,
         mastery: 2,
         source: "exercise",
+        context: null,
+        articleId: null,
       });
       expect(mockInvoke).not.toHaveBeenCalled();
     });
@@ -122,7 +124,7 @@ describe("API module", () => {
     it("updateWordMastery calls invoke with all params", () => {
       api.updateWordMastery("u1", 42, 2, "exercise");
       expect(mockInvoke).toHaveBeenCalledWith("update_word_mastery_cmd", {
-        userId: "u1", wordId: 42, mastery: 2, source: "exercise",
+        userId: "u1", wordId: 42, mastery: 2, source: "exercise", context: null, articleId: null,
       });
     });
 

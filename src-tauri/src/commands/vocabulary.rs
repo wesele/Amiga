@@ -35,8 +35,18 @@ pub async fn update_word_mastery_cmd(
     word_id: i32,
     mastery: i32,
     source: String,
+    context: Option<String>,
+    article_id: Option<i32>,
 ) -> Result<(), String> {
-    vocab_mod::update_word_mastery(&db, &user_id, word_id, mastery, &source)?;
+    vocab_mod::update_word_mastery(
+        &db,
+        &user_id,
+        word_id,
+        mastery,
+        &source,
+        context.as_deref(),
+        article_id,
+    )?;
     after_syncable_write(&db);
     Ok(())
 }

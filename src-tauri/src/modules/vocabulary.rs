@@ -209,7 +209,7 @@ mod tests {
         let wid = insert_test_word(&conn, "adios", "A1", "es");
         drop(conn);
 
-        update_word_mastery(&pool, &uid, wid, 1, "test").unwrap();
+        update_word_mastery(&pool, &uid, wid, 1, "test", None, None).unwrap();
 
         let conn = pool.conn().unwrap();
         let mastery: i32 = conn
@@ -230,8 +230,8 @@ mod tests {
         let wid = insert_test_word(&conn, "gracias", "A1", "es");
         drop(conn);
 
-        update_word_mastery(&pool, &uid, wid, 1, "test").unwrap();
-        update_word_mastery(&pool, &uid, wid, 2, "exercise").unwrap();
+        update_word_mastery(&pool, &uid, wid, 1, "test", None, None).unwrap();
+        update_word_mastery(&pool, &uid, wid, 2, "exercise", None, None).unwrap();
 
         let conn = pool.conn().unwrap();
         let mastery: i32 = conn
@@ -785,6 +785,127 @@ mod tests {
             .unwrap();
         assert_eq!(seen_count, 1, "Discovered word should also be marked seen");
     }
+
+    #[test]
+    fn test_update_word_mastery_persists_reading_context() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        let wid = insert_test_word(&conn, "frontera", "A1", "es");
+        drop(conn);
+
+        update_word_mastery(
+            &pool,
+            &uid,
+            wid,
+            1,
+            "news_reading",
+            Some("La frontera está cerrada."),
+            Some(42),
+        )
+        .unwrap();
+
+        let conn = pool.conn().unwrap();
+        let (ctx, article_id): (String, Option<i32>) = conn
+            .query_row(
+                "SELECT context_sentence, context_article_id FROM user_vocab WHERE user_id = ?1 AND word_id = ?2",
+                params![uid, wid],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(ctx, "La frontera está cerrada.");
+        assert_eq!(article_id, Some(42));
+    }
+
+    #[test]
+    fn test_update_word_mastery_empty_context_does_not_overwrite() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        let wid = insert_test_word(&conn, "asilo", "A1", "es");
+        drop(conn);
+
+        update_word_mastery(
+            &pool,
+            &uid,
+            wid,
+            1,
+            "news_reading",
+            Some("Pidió asilo político."),
+            Some(7),
+        )
+        .unwrap();
+        update_word_mastery(&pool, &uid, wid, 2, "vocab_flashcard", None, None).unwrap();
+
+        let conn = pool.conn().unwrap();
+        let ctx: String = conn
+            .query_row(
+                "SELECT context_sentence FROM user_vocab WHERE user_id = ?1 AND word_id = ?2",
+                params![uid, wid],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(ctx, "Pidió asilo político.");
+    }
+
+    #[test]
+    fn test_get_unknown_words_returns_user_context_as_example() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        let wid = insert_test_word(&conn, "frontera", "A1", "es");
+        drop(conn);
+
+        update_word_mastery(
+            &pool,
+            &uid,
+            wid,
+            1,
+            "news_reading",
+            Some("Cruzaron la frontera al amanecer."),
+            Some(99),
+        )
+        .unwrap();
+
+        let words = get_unknown_words(&pool, &uid, "A2", 10, "es").unwrap();
+        let word = words.iter().find(|w| w.word == "frontera").unwrap();
+        assert_eq!(
+            word.example.as_deref(),
+            Some("Cruzaron la frontera al amanecer.")
+        );
+        assert!(word.has_user_context);
+        assert_eq!(word.source.as_deref(), Some("news_reading"));
+    }
+
+    #[test]
+    fn test_get_unknown_words_prefers_user_context_over_vocab_bank_example() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        let wid = insert_test_word(&conn, "mercado", "A1", "es");
+        conn.execute(
+            "UPDATE vocab_bank SET example = 'Ejemplo del banco.' WHERE id = ?1",
+            params![wid],
+        )
+        .unwrap();
+        drop(conn);
+
+        update_word_mastery(
+            &pool,
+            &uid,
+            wid,
+            1,
+            "news_reading",
+            Some("El mercado abre temprano."),
+            None,
+        )
+        .unwrap();
+
+        let words = get_unknown_words(&pool, &uid, "A2", 10, "es").unwrap();
+        let word = words.iter().find(|w| w.word == "mercado").unwrap();
+        assert_eq!(word.example.as_deref(), Some("El mercado abre temprano."));
+        assert!(word.has_user_context);
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -802,6 +923,9 @@ pub struct VocabWord {
     /// `None` = unseen; `1` = seen but not mastered; `2` = mastered (filtered out).
     pub mastery: Option<i32>,
     pub source: Option<String>,
+    /// True when `example` comes from the user's personal reading context.
+    #[serde(default)]
+    pub has_user_context: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -909,24 +1033,45 @@ pub fn init_user_vocab(
     Ok(())
 }
 
-/// Update word mastery level
+/// Update word mastery level. When `source` is `news_reading` and `context` is
+/// non-empty, the personal reading sentence is persisted on `user_vocab`.
 pub fn update_word_mastery(
     db: &DatabasePool,
     user_id: &str,
     word_id: i32,
     mastery: i32,
     source: &str,
+    context: Option<&str>,
+    article_id: Option<i32>,
 ) -> Result<(), String> {
     let conn = db.conn()?;
 
-    conn.execute(
-        "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
-         VALUES (?1, ?2, ?3, ?4, datetime('now'))
-         ON CONFLICT(user_id, word_id) DO UPDATE SET
-         mastery = ?3, source = ?4, updated_at = datetime('now')",
-        params![user_id, word_id, mastery, source],
-    )
-    .map_err(|e| format!("Failed to update word mastery: {}", e))?;
+    let context_to_store = if source == "news_reading" {
+        context.filter(|c| !c.is_empty())
+    } else {
+        None
+    };
+
+    if let Some(ctx) = context_to_store {
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at, context_sentence, context_article_id)
+             VALUES (?1, ?2, ?3, ?4, datetime('now'), ?5, ?6)
+             ON CONFLICT(user_id, word_id) DO UPDATE SET
+             mastery = ?3, source = ?4, updated_at = datetime('now'),
+             context_sentence = ?5, context_article_id = ?6",
+            params![user_id, word_id, mastery, source, ctx, article_id],
+        )
+        .map_err(|e| format!("Failed to update word mastery: {}", e))?;
+    } else {
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
+             VALUES (?1, ?2, ?3, ?4, datetime('now'))
+             ON CONFLICT(user_id, word_id) DO UPDATE SET
+             mastery = ?3, source = ?4, updated_at = datetime('now')",
+            params![user_id, word_id, mastery, source],
+        )
+        .map_err(|e| format!("Failed to update word mastery: {}", e))?;
+    }
 
     log::debug!(
         "Word mastery updated: user={} word={} mastery={} source={}",
@@ -951,7 +1096,10 @@ pub fn get_unknown_words(
     let mut stmt = conn
         .prepare(
             "SELECT v.id, v.word, v.lemma, v.pos, v.cefr_level, v.language,
-                v.definition_zh, v.definition_es, v.example, v.frequency, uv.mastery, uv.source
+                v.definition_zh, v.definition_es,
+                COALESCE(uv.context_sentence, v.example) AS example,
+                v.frequency, uv.mastery, uv.source,
+                CASE WHEN uv.context_sentence IS NOT NULL AND uv.context_sentence != '' THEN 1 ELSE 0 END AS has_user_context
          FROM vocab_bank v
          LEFT JOIN user_vocab uv ON v.id = uv.word_id AND uv.user_id = ?1
          WHERE (uv.mastery IS NULL OR uv.mastery < 2)
@@ -980,6 +1128,7 @@ pub fn get_unknown_words(
                 frequency: row.get(9)?,
                 mastery: row.get(10)?,
                 source: row.get(11)?,
+                has_user_context: row.get::<_, i32>(12)? != 0,
             })
         })
         .map_err(|e| format!("Failed to query unknown words: {}", e))?

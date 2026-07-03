@@ -1426,11 +1426,19 @@ async function onWordKnown() {
     wordsKnownSet.value.add(wordText);
     try {
       const ids = await lookupWordIds([wordText], targetLang);
+      const articleId = article.value?.id ?? null;
       if (ids.length > 0) {
-        await updateWordMastery(userId, ids[0], 2, "news_reading");
+        await updateWordMastery(
+          userId,
+          ids[0],
+          2,
+          "news_reading",
+          selectedWord.value.context,
+          articleId,
+        );
       } else {
         const newId = await addDiscoveredWord(userId, wordText, targetLang, selectedWord.value.context);
-        await updateWordMastery(userId, newId, 2, "news_reading");
+        await updateWordMastery(userId, newId, 2, "news_reading", selectedWord.value.context, articleId);
       }
       setLocalMastery(wordText, 2);
       showWordToast(t("news.wordMarkedKnown"));
@@ -1502,11 +1510,12 @@ async function markPhraseVocab({ phrase, context, translation, known }) {
     wordsKnownSet.value.add(phraseText);
     try {
       const ids = await lookupWordIds([phraseText], targetLang);
+      const articleId = article.value?.id ?? null;
       if (ids.length > 0) {
-        await updateWordMastery(userId, ids[0], 2, "news_reading");
+        await updateWordMastery(userId, ids[0], 2, "news_reading", context, articleId);
       } else {
         const newId = await addDiscoveredWord(userId, phraseText, targetLang, context);
-        await updateWordMastery(userId, newId, 2, "news_reading");
+        await updateWordMastery(userId, newId, 2, "news_reading", context, articleId);
       }
       setLocalMastery(phraseText, 2);
       showWordToast(t("news.phraseMarkedKnown"));
@@ -1520,8 +1529,9 @@ async function markPhraseVocab({ phrase, context, translation, known }) {
   upsertSessionWord(phraseText, context, translation);
   try {
     const ids = await lookupWordIds([phraseText], targetLang);
+    const articleId = article.value?.id ?? null;
     if (ids.length > 0) {
-      await updateWordMastery(userId, ids[0], 1, "news_reading");
+      await updateWordMastery(userId, ids[0], 1, "news_reading", context, articleId);
     } else {
       await addDiscoveredWord(userId, phraseText, targetLang, context);
     }
@@ -1543,8 +1553,16 @@ async function onWordUnknown() {
     upsertSessionWord(wordText, selectedWord.value.context);
     try {
       const ids = await lookupWordIds([wordText], targetLang);
+      const articleId = article.value?.id ?? null;
       if (ids.length > 0) {
-        await updateWordMastery(userId, ids[0], 1, "news_reading");
+        await updateWordMastery(
+          userId,
+          ids[0],
+          1,
+          "news_reading",
+          selectedWord.value.context,
+          articleId,
+        );
       } else {
         await addDiscoveredWord(userId, wordText, targetLang, selectedWord.value.context);
       }

@@ -138,6 +138,10 @@ pub struct SyncUserVocabRow {
     pub mastery: i32,
     pub source: Option<String>,
     pub updated_at: String,
+    #[serde(default)]
+    pub context_sentence: Option<String>,
+    #[serde(default)]
+    pub context_article_id: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -396,7 +400,7 @@ pub fn export_sync_payload(db: &DatabasePool) -> Result<SyncPayload, String> {
 
     let mut stmt = conn
         .prepare(
-            "SELECT word_id, mastery, source, updated_at
+            "SELECT word_id, mastery, source, updated_at, context_sentence, context_article_id
              FROM user_vocab WHERE user_id = ?1",
         )
         .map_err(|e| e.to_string())?;
@@ -407,6 +411,8 @@ pub fn export_sync_payload(db: &DatabasePool) -> Result<SyncPayload, String> {
                 mastery: row.get(1)?,
                 source: row.get(2)?,
                 updated_at: row.get(3)?,
+                context_sentence: row.get(4)?,
+                context_article_id: row.get(5)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -655,12 +661,22 @@ fn import_sync_payload_tx(tx: &Transaction<'_>, payload: &SyncPayload) -> Result
 
     for row in &payload.user_vocab {
         tx.execute(
-            "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at, context_sentence, context_article_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
              ON CONFLICT(user_id, word_id) DO UPDATE SET
                mastery = excluded.mastery,
                source = excluded.source,
-               updated_at = excluded.updated_at
+               updated_at = excluded.updated_at,
+               context_sentence = CASE
+                 WHEN excluded.context_sentence IS NOT NULL AND excluded.context_sentence != ''
+                 THEN excluded.context_sentence
+                 ELSE user_vocab.context_sentence
+               END,
+               context_article_id = CASE
+                 WHEN excluded.context_sentence IS NOT NULL AND excluded.context_sentence != ''
+                 THEN excluded.context_article_id
+                 ELSE user_vocab.context_article_id
+               END
              WHERE excluded.updated_at >= user_vocab.updated_at",
             params![
                 local_user_id,
@@ -668,6 +684,8 @@ fn import_sync_payload_tx(tx: &Transaction<'_>, payload: &SyncPayload) -> Result
                 row.mastery,
                 row.source,
                 row.updated_at,
+                row.context_sentence,
+                row.context_article_id,
             ],
         )
         .map_err(|e| format!("Failed to import user_vocab: {}", e))?;

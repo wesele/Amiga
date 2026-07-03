@@ -86,6 +86,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add news comprehension quiz cache and reading log comprehension fields",
             MIGRATION_V20,
         ),
+        (
+            21,
+            "Add personal reading context columns to user_vocab",
+            MIGRATION_V21,
+        ),
     ]
 }
 
@@ -394,4 +399,9 @@ CREATE TABLE IF NOT EXISTS news_comprehension_cache (
 ALTER TABLE news_reading_log ADD COLUMN comprehension_score INTEGER;
 ALTER TABLE news_reading_log ADD COLUMN comprehension_skipped INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE news_reading_log ADD COLUMN comprehension_answers_json TEXT;
+"#;
+
+const MIGRATION_V21: &str = r#"
+ALTER TABLE user_vocab ADD COLUMN context_sentence TEXT;
+ALTER TABLE user_vocab ADD COLUMN context_article_id INTEGER;
 "#;

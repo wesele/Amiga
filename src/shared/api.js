@@ -51,8 +51,15 @@ export function createApiClient(invoke) {
     reimportVocabBank: () => call("reimport_vocab_bank_cmd"),
     initUserVocab: (userId, cefrLevel) =>
       call("init_user_vocab_cmd", { userId, cefrLevel }),
-    updateWordMastery: (userId, wordId, mastery, source) =>
-      call("update_word_mastery_cmd", { userId, wordId, mastery, source }),
+    updateWordMastery: (userId, wordId, mastery, source, context = null, articleId = null) =>
+      call("update_word_mastery_cmd", {
+        userId,
+        wordId,
+        mastery,
+        source,
+        context,
+        articleId,
+      }),
     getUnknownWords: (userId, cefrLevel, limit, targetLang) =>
       call("get_unknown_words_cmd", { userId, cefrLevel, limit, targetLang }),
     getUserVocabStats: (userId, targetLang) =>

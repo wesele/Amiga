@@ -47,10 +47,10 @@ export function useWordLearning({
       if (userId && targetLang) {
         const ids = await lookupWordIds([wordText], targetLang);
         if (ids.length > 0) {
-          await updateWordMastery(userId, ids[0], 2, source);
+          await updateWordMastery(userId, ids[0], 2, source, context || null);
         } else {
           const newId = await addDiscoveredWord(userId, wordText, targetLang, context);
-          await updateWordMastery(userId, newId, 2, source);
+          await updateWordMastery(userId, newId, 2, source, context || null);
         }
       }
       showWordToast(t(knownToastKey));
@@ -71,7 +71,7 @@ export function useWordLearning({
       if (userId && targetLang) {
         const ids = await lookupWordIds([wordText], targetLang);
         if (ids.length > 0) {
-          await updateWordMastery(userId, ids[0], 1, source);
+          await updateWordMastery(userId, ids[0], 1, source, context || null);
         } else {
           await addDiscoveredWord(userId, wordText, targetLang, context);
         }
