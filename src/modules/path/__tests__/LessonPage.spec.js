@@ -434,6 +434,83 @@ describe("LessonPage session progress", () => {
   });
 });
 
+describe("LessonPage in-flight resume", () => {
+  it("wires lesson in-flight persistence and resume helpers", () => {
+    const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");
+    expect(source).toMatch(/lessonInFlight\.js/);
+    expect(source).toMatch(/persistLessonInFlight/);
+    expect(source).toMatch(/restoreFromSnapshot/);
+    expect(source).toMatch(/clearLessonSnapshot/);
+    expect(source).toMatch(/path\.lessonResumed/);
+    expect(source).toMatch(/class="resume-toast"/);
+  });
+
+  let mockInvoke;
+
+  beforeEach(() => {
+    localStorage.clear();
+    setActivePinia(createPinia());
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload(4));
+      if (cmd === "get_unknown_words_cmd") return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+    api.__setInvoke(mockInvoke);
+  });
+
+  it("clears in-flight snapshot after lesson submission", async () => {
+    vi.useFakeTimers();
+    const router = makeRouter();
+    await router.push({ name: "path-lesson", params: { sectionId: SECTION_ID } });
+    await router.isReady();
+
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "complete_section_cmd") {
+        return Promise.resolve({
+          passed: true,
+          stars: 3,
+          streak_current: 1,
+          streak_extended: true,
+        });
+      }
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_section_lesson_cmd") return Promise.resolve(lessonPayload(1));
+      if (cmd === "get_unknown_words_cmd") return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+
+    const wrapper = mount(LessonPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    wrapper.vm.currentAnswer = 0;
+    await flushPromises();
+    vi.advanceTimersByTime(700);
+    await flushPromises();
+    await vi.waitUntil(() => wrapper.vm.finished, { timeout: 2000 });
+
+    const { peekLessonInFlight, buildPairKey } = await import("../lessonInFlight.js");
+    expect(peekLessonInFlight(buildPairKey("zh", "es", "A1"), SECTION_ID)).toBeNull();
+
+    vi.useRealTimers();
+  });
+});
+
 describe("LessonPage lesson share", () => {
   it("includes share-win button markup on the summary screen", () => {
     const source = readFileSync(resolve(ROOT, "src/modules/path/LessonPage.vue"), "utf8");

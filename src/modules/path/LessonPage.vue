@@ -20,6 +20,8 @@
       </span>
     </header>
 
+    <div v-if="resumeToast" class="resume-toast" aria-live="polite">{{ resumeToast }}</div>
+
     <div v-if="loading" class="center-state">{{ t("path.loading") }}</div>
     <div v-else-if="error" class="center-state">
       <p>{{ error }}</p>
@@ -347,7 +349,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
@@ -461,6 +463,17 @@ import {
   lessonSessionProgressPct,
 } from "./lessonProgress.js";
 import { usePracticeEnterKey } from "./usePracticeEnterKey.js";
+import {
+  buildLessonInFlightSnapshot,
+  buildPairKey,
+  clearLessonInFlight,
+  peekLessonInFlight,
+  rebuildMistakesFromSnapshot,
+  rebuildReinforcementQueue,
+  saveLessonInFlight,
+  shouldPersistLessonInFlight,
+  validateLessonInFlight,
+} from "./lessonInFlight.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -499,6 +512,10 @@ const dueVocabAtStart = ref(0);
 const focusAreaAtStart = ref(null);
 const expandedMistakeKeys = ref(new Set());
 const listenReplayBusy = ref(false);
+const resumeToast = ref("");
+const lessonPairKey = ref("");
+
+let resumeToastTimer = null;
 
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
@@ -888,10 +905,96 @@ function scheduleAutoAdvance() {
   }, delay);
 }
 
+function clearResumeToastTimer() {
+  if (resumeToastTimer != null) {
+    clearTimeout(resumeToastTimer);
+    resumeToastTimer = null;
+  }
+}
+
+function showResumeToastMessage(snapshot) {
+  clearResumeToastTimer();
+  const questionNumber =
+    snapshot.phase === LESSON_PHASE_REINFORCEMENT
+      ? snapshot.reinforcementIndex + 1
+      : snapshot.index + 1;
+  resumeToast.value = t("path.lessonResumed", { n: questionNumber });
+  resumeToastTimer = setTimeout(() => {
+    resumeToast.value = "";
+    resumeToastTimer = null;
+  }, 2000);
+}
+
+function clearLessonSnapshot() {
+  if (!lessonPairKey.value || !route.params.sectionId) return;
+  clearLessonInFlight(lessonPairKey.value, route.params.sectionId);
+}
+
+function persistLessonInFlight() {
+  if (
+    !lessonPairKey.value ||
+    !route.params.sectionId ||
+    !shouldPersistLessonInFlight({
+      finished: finished.value,
+      index: index.value,
+      correctCount: correctCount.value,
+      phase: phase.value,
+    })
+  ) {
+    return;
+  }
+  saveLessonInFlight(
+    buildLessonInFlightSnapshot({
+      pairKey: lessonPairKey.value,
+      sectionId: route.params.sectionId,
+      questions: questions.value,
+      index: index.value,
+      correctCount: correctCount.value,
+      comboCount: comboCount.value,
+      phase: phase.value,
+      reinforcementIndex: reinforcementIndex.value,
+      mistakes: mistakes.value,
+    }),
+  );
+}
+
+function restoreFromSnapshot(snapshot) {
+  index.value = snapshot.index ?? 0;
+  correctCount.value = snapshot.correctCount ?? 0;
+  comboCount.value = snapshot.comboCount ?? 0;
+  phase.value = snapshot.phase ?? LESSON_PHASE_MAIN;
+  reinforcementIndex.value = snapshot.reinforcementIndex ?? 0;
+  mistakes.value = rebuildMistakesFromSnapshot(questions.value, snapshot);
+  sessionMistakeIds.value = new Set(snapshot.mistakeQuestionIds ?? []);
+  if (phase.value === LESSON_PHASE_REINFORCEMENT) {
+    reinforcementQueue.value = rebuildReinforcementQueue(
+      questions.value,
+      snapshot.mistakeQuestionIds,
+    );
+  } else {
+    reinforcementQueue.value = [];
+  }
+  currentAnswer.value = null;
+  showResult.value = false;
+  lastCorrect.value = false;
+  finished.value = false;
+  result.value = null;
+  expandedMistakeKeys.value = new Set();
+  listenReplayBusy.value = false;
+  resetHint();
+  comboToast.value = "";
+  comboPersonalBestToast.value = "";
+}
+
 onUnmounted(() => {
   clearHintIdleTimer();
   clearAutoAdvanceTimer();
+  clearResumeToastTimer();
   if (shareStatusTimer) clearTimeout(shareStatusTimer);
+});
+
+onBeforeUnmount(() => {
+  persistLessonInFlight();
 });
 
 async function load() {
@@ -926,7 +1029,17 @@ async function load() {
     );
     lesson.value = data;
     questions.value = data.questions || [];
-    resetSession();
+    lessonPairKey.value = buildPairKey(user.native_language, targetLang, cefr);
+    const sectionId = route.params.sectionId;
+    const questionIds = questions.value.map((q) => q.id);
+    const snapshot = peekLessonInFlight(lessonPairKey.value, sectionId);
+    if (validateLessonInFlight(snapshot, questionIds)) {
+      restoreFromSnapshot(snapshot);
+      showResumeToastMessage(snapshot);
+    } else {
+      if (snapshot) clearLessonInFlight(lessonPairKey.value, sectionId);
+      resetSession();
+    }
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {
@@ -962,6 +1075,7 @@ function startReinforcement() {
   lastCorrect.value = false;
   resetHint();
   resetCombo();
+  persistLessonInFlight();
 }
 
 function advanceQuestion() {
@@ -978,16 +1092,19 @@ function advanceReinforcement() {
   if (reinforcementIndex.value < reinforcementQueue.value.length - 1) {
     reinforcementIndex.value += 1;
     advanceQuestion();
+    persistLessonInFlight();
     return false;
   }
   return true;
 }
 
 function retryLesson() {
+  clearLessonSnapshot();
   resetSession();
 }
 
 function exitLesson() {
+  persistLessonInFlight();
   router.replace(pathRouteWithCurrentFocus());
 }
 
@@ -1126,6 +1243,7 @@ function advanceAfterResult() {
   if (index.value < questions.value.length - 1) {
     index.value += 1;
     advanceQuestion();
+    persistLessonInFlight();
     return;
   }
 
@@ -1190,6 +1308,7 @@ async function submitLesson() {
     );
     result.value = res;
     finished.value = true;
+    clearLessonSnapshot();
     initExpandedMistakes();
   } catch (e) {
     error.value = e?.message || String(e);
@@ -1254,6 +1373,17 @@ onMounted(load);
   display: flex;
   flex-direction: column;
   background: var(--bg);
+}
+
+.resume-toast {
+  margin: 0 16px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .lesson-header {

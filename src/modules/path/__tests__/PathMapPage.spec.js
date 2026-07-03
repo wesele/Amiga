@@ -130,6 +130,16 @@ describe("PathMapPage unit guide layout", () => {
     expect(jumpFn?.[0]).toMatch(/pathSectionRoute\(section\)/);
     expect(jumpFn?.[0]).not.toMatch(/openBriefing/);
   });
+
+  it("shows in-flight practice progress and dual CTAs in the briefing sheet", () => {
+    const source = readVue("src/modules/path/PathMapPage.vue");
+    expect(source).toMatch(/briefingInFlight/);
+    expect(source).toMatch(/path\.briefingInFlightProgress/);
+    expect(source).toMatch(/path\.briefingResume/);
+    expect(source).toMatch(/path\.briefingRestart/);
+    expect(source).toMatch(/confirmRestartBriefing/);
+    expect(source).toMatch(/practiceInFlightSummary/);
+  });
 });
 
 function makeCurriculum() {

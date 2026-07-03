@@ -11,6 +11,7 @@ import { ACCURACY_PEAK_KEY } from "@/modules/profile/accuracyPeakStats.js";
 import { COMBO_STATS_KEY } from "@/modules/path/lessonComboStats.js";
 import { recordLessonMistake } from "@/modules/path/mistakeReviewStore.js";
 import { recordMistakesMastered } from "@/modules/path/mistakeMasteryStats.js";
+import { saveLessonInFlight, buildLessonInFlightSnapshot, buildPairKey } from "@/modules/path/lessonInFlight.js";
 
 const ROOT = resolve(__dirname, "../../../..");
 function readVue(rel) {
@@ -761,6 +762,28 @@ describe("LearnHubPage", () => {
 
     expect(wrapper.find(".today-activity-empty").text()).toContain("今天还没开始学习");
     expect(wrapper.find(".today-activity-strip").exists()).toBe(false);
+  });
+
+  it("shows lesson in-flight progress on continue-learning focus when practice was interrupted", async () => {
+    localStorage.clear();
+    saveLessonInFlight(
+      buildLessonInFlightSnapshot({
+        pairKey: buildPairKey("zh", "es", "A1"),
+        sectionId: "zh-es/U01-PRACTICE",
+        questions: Array.from({ length: 6 }, (_, idx) => ({ id: `q${idx + 1}` })),
+        index: 4,
+        correctCount: 4,
+        comboCount: 3,
+      }),
+    );
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".focus-hero-sub").text()).toContain("5/6");
   });
 
   it("opens translator session via learn-translator route", async () => {

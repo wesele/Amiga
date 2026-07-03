@@ -472,6 +472,10 @@ import {
   dailyGoalSubKeyWithActivity,
   dailyGoalSubParamsWithActivity,
 } from "./todayActivityDisplay.js";
+import {
+  buildPairKey,
+  practiceInFlightSummary,
+} from "@/modules/path/lessonInFlight.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -491,6 +495,7 @@ const readingSummary = ref(null);
 const pendingVocabBanner = ref(null);
 const newsUnreadCount = ref(0);
 const continueReadingArticle = ref(null);
+const lessonPairKey = ref("");
 const localHour = ref(new Date().getHours());
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
@@ -664,6 +669,20 @@ const focusHeroSub = computed(() => {
       return formatVocabSub(focus.vocabCount, vocabReviewPreviewText.value);
     }
     if (focus.actionId === FOCUS_IDS.CONTINUE_SECTION) {
+      const section = resumeTarget.value?.section;
+      if (section?.kind === "practice" && lessonPairKey.value) {
+        const progress = practiceInFlightSummary(
+          lessonPairKey.value,
+          section.id,
+          section.question_count,
+        );
+        if (progress) {
+          return t("learn.continueLessonProgress", {
+            current: progress.current,
+            total: progress.total,
+          });
+        }
+      }
       return t("learn.focusContinueSub");
     }
     if (focus.actionId === FOCUS_IDS.READ_NEWS) {
@@ -674,6 +693,20 @@ const focusHeroSub = computed(() => {
     });
   }
   if (focus.id === FOCUS_IDS.CONTINUE_SECTION) {
+    const section = resumeTarget.value?.section;
+    if (section?.kind === "practice" && lessonPairKey.value) {
+      const progress = practiceInFlightSummary(
+        lessonPairKey.value,
+        section.id,
+        section.question_count,
+      );
+      if (progress) {
+        return t("learn.continueLessonProgress", {
+          current: progress.current,
+          total: progress.total,
+        });
+      }
+    }
     return t("learn.focusContinueSub");
   }
   if (focus.id === FOCUS_IDS.MISTAKE_REVIEW) {
@@ -868,6 +901,7 @@ async function loadHubData() {
     const { user, targetLang, nativeLang, cefr } = await loadLearningContext({
       targetLangStore,
     });
+    lessonPairKey.value = buildPairKey(nativeLang, targetLang, cefr);
     loadFocusArea(nativeLang, targetLang);
     loadMistakeReview(nativeLang, targetLang);
     loadAccuracyMilestone(nativeLang, targetLang);
@@ -885,6 +919,7 @@ async function loadHubData() {
     dailyGoal.value = null;
     weeklyActivity.value = null;
     resumeTarget.value = null;
+    lessonPairKey.value = "";
     perfectStreak.value = null;
     perfectMilestone.value = null;
     focusArea.value = null;

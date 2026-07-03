@@ -197,6 +197,31 @@
               </div>
               <p class="briefing-trust">{{ t("path.briefingTrustHint") }}</p>
 
+              <section v-if="briefingInFlight" class="briefing-in-flight">
+                <p class="briefing-in-flight-title">{{ t("path.briefingInFlightTitle") }}</p>
+                <p class="briefing-in-flight-progress">
+                  {{
+                    t("path.briefingInFlightProgress", {
+                      current: briefingInFlight.current,
+                      total: briefingInFlight.total,
+                    })
+                  }}
+                </p>
+                <p v-if="briefingInFlight.comboCount > 0" class="briefing-in-flight-combo">
+                  {{ t("path.briefingInFlightCombo", { n: briefingInFlight.comboCount }) }}
+                </p>
+                <div class="briefing-in-flight-bar" aria-hidden="true">
+                  <div
+                    class="briefing-in-flight-fill"
+                    :style="{
+                      width:
+                        Math.round((briefingInFlight.current / briefingInFlight.total) * 100) +
+                        '%',
+                    }"
+                  />
+                </div>
+              </section>
+
               <section v-if="briefingPrepLoading" class="briefing-prep">
                 <p class="briefing-prep-title">{{ t("path.briefingPrepTitle") }}</p>
                 <div class="briefing-skeleton" />
@@ -243,7 +268,15 @@
               class="briefing-start-btn"
               @click="confirmBriefing"
             >
-              {{ t("path.briefingStart") }}
+              {{ briefingPrimaryLabel }}
+            </button>
+            <button
+              v-if="briefingInFlight"
+              type="button"
+              class="briefing-restart-btn"
+              @click="requestRestartBriefing"
+            >
+              {{ t("path.briefingRestart") }}
             </button>
             <button type="button" class="briefing-cancel-btn" @click="closeBriefing">
               {{ t("path.briefingCancel") }}
@@ -252,6 +285,13 @@
         </div>
       </div>
     </Teleport>
+
+    <ConfirmDialog
+      :show="showRestartConfirm"
+      :message="t('path.lessonRestartConfirm')"
+      @confirm="confirmRestartBriefing"
+      @cancel="showRestartConfirm = false"
+    />
 
     <Teleport to="body">
       <Transition name="celebration-toast-fade">
@@ -283,6 +323,7 @@ import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch
 import { CEFR_LEVELS, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
 import { useRoute, useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
+import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import { useI18n } from "@/shared/i18n";
 import {
   getPathCurriculum,
@@ -321,6 +362,11 @@ import {
   prepTeachingNodeId,
   shouldShowNodeBriefing,
 } from "./pathNodeBriefing.js";
+import {
+  buildPairKey,
+  clearLessonInFlight,
+  practiceInFlightSummary,
+} from "./lessonInFlight.js";
 
 const UNIT_HUES = [145, 198, 262, 32, 12, 210];
 const LANE_X = { left: 22, center: 50, right: 78 };
@@ -350,6 +396,8 @@ const briefingPrep = ref(null);
 const briefingPrepLoading = ref(false);
 const briefingSheetEl = ref(null);
 const briefingStartBtn = ref(null);
+const lessonPairKey = ref("");
+const showRestartConfirm = ref(false);
 
 let currentObserver = null;
 let highlightTimer = null;
@@ -370,6 +418,20 @@ const unfinishedPrep = computed(() => {
 });
 
 const briefingPrepChips = computed(() => prepBriefingChips(briefingPrep.value));
+
+const briefingInFlight = computed(() => {
+  const section = briefingContext.value?.section;
+  if (!section || section.kind !== "practice" || !lessonPairKey.value) return null;
+  return practiceInFlightSummary(
+    lessonPairKey.value,
+    section.id,
+    section.question_count,
+  );
+});
+
+const briefingPrimaryLabel = computed(() =>
+  briefingInFlight.value ? t("path.briefingResume") : t("path.briefingStart"),
+);
 
 const currentTarget = computed(() => findCurrentSection(curriculum.value));
 
@@ -508,6 +570,20 @@ function closeBriefing() {
 function confirmBriefing() {
   const section = briefingContext.value?.section;
   if (!section) return;
+  closeBriefing();
+  launchSection(section);
+}
+
+function requestRestartBriefing() {
+  if (!briefingInFlight.value) return;
+  showRestartConfirm.value = true;
+}
+
+function confirmRestartBriefing() {
+  const section = briefingContext.value?.section;
+  showRestartConfirm.value = false;
+  if (!section || !lessonPairKey.value) return;
+  clearLessonInFlight(lessonPairKey.value, section.id);
   closeBriefing();
   launchSection(section);
 }
@@ -716,6 +792,7 @@ async function load() {
       cefrFallback: currentCefr.value || "A1",
     });
     currentCefr.value = cefr;
+    lessonPairKey.value = buildPairKey(user.native_language, targetLang, cefr);
     curriculum.value = await getPathCurriculum(user.native_language, targetLang, cefr);
     learningStreak.value = await getLearningStreak(user.id);
   } catch (e) {
@@ -1575,6 +1652,52 @@ onBeforeUnmount(() => {
   color: var(--green-hover);
 }
 
+.briefing-in-flight {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: #ecfdf5;
+}
+
+.briefing-in-flight-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #047857;
+}
+
+.briefing-in-flight-progress {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #065f46;
+}
+
+.briefing-in-flight-combo {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.briefing-in-flight-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: #d1fae5;
+  overflow: hidden;
+}
+
+.briefing-in-flight-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+  transition: width 0.2s ease;
+}
+
 .briefing-footer {
   display: flex;
   flex-direction: column;
@@ -1599,6 +1722,19 @@ onBeforeUnmount(() => {
 .briefing-start-btn:active {
   transform: translateY(2px);
   box-shadow: 0 2px 0 var(--green-hover);
+}
+
+.briefing-restart-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .briefing-cancel-btn {
