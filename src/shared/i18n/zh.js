@@ -571,6 +571,12 @@ export default {
     readingCompleteReview: "复习本次 {n} 个生词",
     readingCompleteNext: "返回列表",
     readingCompleteLater: "稍后再说",
+    checkpointTitle: "本次阅读小结",
+    checkpointStats: "阅读 {time} · 进度 {pct}% · 新标记 {unknown} 个生词 · 查阅 {lookedUp} 个词",
+    checkpointContinueArticle: "继续阅读本篇",
+    checkpointContinueArticleHint: "还剩 {remainingPct}%",
+    checkpointSaveExit: "保存进度，稍后继续",
+    checkpointContinueAction: "继续阅读",
     nextStep: {
       vocabReview: "复习本次 {n} 个生词",
       vocabReviewHint: "趁热巩固，例句来自刚读的文章",

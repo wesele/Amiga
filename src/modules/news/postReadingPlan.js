@@ -3,6 +3,7 @@ import { dailyGoalRemainingLessons } from "@/modules/learn/dailyGoalDisplay.js";
 
 export const READING_STEP_IDS = {
   VOCAB_REVIEW: "vocabReview",
+  CONTINUE_ARTICLE: "continueArticle",
   NEXT_LESSON: "nextLesson",
   DAILY_GOAL: "dailyGoal",
   NEXT_ARTICLE: "nextArticle",
@@ -117,8 +118,24 @@ function buildNewsListStep() {
   };
 }
 
+function buildContinueArticleStep(scrollPct) {
+  const remainingPct = Math.max(0, 100 - Math.round(scrollPct));
+  return {
+    id: READING_STEP_IDS.CONTINUE_ARTICLE,
+    route: null,
+    inPageAction: "continueReading",
+    icon: "📰",
+    titleKey: "news.checkpointContinueArticle",
+    subtitleKey: "news.checkpointContinueArticleHint",
+    subtitleParams: { remainingPct },
+    continueKey: "news.checkpointContinueAction",
+  };
+}
+
 function pickPrimaryStep(ctx) {
   const {
+    mode = "complete",
+    scrollPct = 0,
     unknownCount,
     microReviewCompleted = false,
     dailyGoalSnapshot,
@@ -128,6 +145,13 @@ function pickPrimaryStep(ctx) {
     sessionWordCount,
     sessionWords,
   } = ctx;
+
+  if (mode === "checkpoint") {
+    if (unknownCount > 0 && !microReviewCompleted) {
+      return buildVocabReviewStep(unknownCount);
+    }
+    return buildContinueArticleStep(scrollPct);
+  }
 
   if (unknownCount > 0 && !microReviewCompleted) {
     return buildVocabReviewStep(unknownCount);
@@ -149,6 +173,8 @@ function pickPrimaryStep(ctx) {
 
 function buildSecondarySteps(ctx, primary) {
   const {
+    mode = "complete",
+    scrollPct = 0,
     unknownCount,
     dailyGoalSnapshot,
     resumeTarget,
@@ -164,6 +190,10 @@ function buildSecondarySteps(ctx, primary) {
     if (!step || seen.has(step.id)) return;
     seen.add(step.id);
     secondary.push(step);
+  }
+
+  if (mode === "checkpoint" && primary.id !== READING_STEP_IDS.CONTINUE_ARTICLE) {
+    push(buildContinueArticleStep(scrollPct));
   }
 
   if (unknownCount > 0 && isDailyGoalUnmet(dailyGoalSnapshot)) {
@@ -201,4 +231,9 @@ export function isVocabReviewStep(step) {
 /** Whether the step opens Amiga chat with session words. */
 export function isAiPracticeStep(step) {
   return step?.id === READING_STEP_IDS.AI_PRACTICE;
+}
+
+/** Whether the step dismisses the overlay and resumes reading in place. */
+export function isContinueReadingStep(step) {
+  return step?.id === READING_STEP_IDS.CONTINUE_ARTICLE;
 }

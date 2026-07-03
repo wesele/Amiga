@@ -581,6 +581,12 @@ export default {
     readingCompleteReview: "Repasar {n} palabra(s) de esta sesión",
     readingCompleteNext: "Volver a la lista",
     readingCompleteLater: "Más tarde",
+    checkpointTitle: "Resumen de lectura",
+    checkpointStats: "Leído {time} · {pct}% · {unknown} nueva(s) · consultaste {lookedUp}",
+    checkpointContinueArticle: "Seguir leyendo este artículo",
+    checkpointContinueArticleHint: "Queda {remainingPct}%",
+    checkpointSaveExit: "Guardar y continuar después",
+    checkpointContinueAction: "Seguir leyendo",
     nextStep: {
       vocabReview: "Repasar {n} palabra(s) de esta sesión",
       vocabReviewHint: "Aprovecha el momento: ejemplos del artículo que acabas de leer",

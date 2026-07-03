@@ -205,9 +205,6 @@ describe("NewsReader mastery visualization", () => {
     await wrapper.find(".mark-complete-btn").trigger("click");
     await flushPromises();
 
-    await wrapper.find(".back-btn").trigger("click");
-    await flushPromises();
-
     const overlay = wrapper.find(".completion-overlay");
     expect(overlay.exists()).toBe(true);
     expect(overlay.text()).toContain("阅读完成");
@@ -248,9 +245,6 @@ describe("NewsReader mastery visualization", () => {
     await wrapper.find(".mark-complete-btn").trigger("click");
     await flushPromises();
 
-    await wrapper.find(".back-btn").trigger("click");
-    await flushPromises();
-
     expect(wrapper.find(".next-steps-panel").exists()).toBe(true);
     expect(wrapper.find(".next-steps-primary").text()).toContain("读下一篇未读");
 
@@ -259,6 +253,99 @@ describe("NewsReader mastery visualization", () => {
       name: "reader",
       params: { id: 2 },
     });
+  });
+
+  it("shows checkpoint summary on back with marked unknown words before completion", async () => {
+    const router = makeRouter();
+    const replaceSpy = vi.spyOn(router, "replace");
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".word.word-new").trigger("click");
+    await flushPromises();
+    await wrapper.findComponent(WordPopup).vm.$emit("unknown");
+    await flushPromises();
+
+    await wrapper.find(".back-btn").trigger("click");
+    await flushPromises();
+
+    const overlay = wrapper.find(".completion-overlay");
+    expect(overlay.exists()).toBe(true);
+    expect(overlay.text()).toContain("本次阅读小结");
+    expect(wrapper.find(".next-steps-primary").text()).toContain("复习本次 1 个生词");
+    expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
+  it("shows checkpoint with continue reading when session is long enough without marked words", async () => {
+    vi.useFakeTimers();
+    const router = makeRouter();
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const body = wrapper.find(".article-body").element;
+    Object.defineProperty(body, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(body, "clientHeight", { value: 200, configurable: true });
+    Object.defineProperty(body, "scrollTop", {
+      value: 400,
+      configurable: true,
+      writable: true,
+    });
+    await body.dispatchEvent(new Event("scroll"));
+    await flushPromises();
+
+    vi.advanceTimersByTime(31_000);
+    await wrapper.find(".back-btn").trigger("click");
+    await flushPromises();
+
+    const overlay = wrapper.find(".completion-overlay");
+    expect(overlay.exists()).toBe(true);
+    expect(overlay.text()).toContain("本次阅读小结");
+    expect(wrapper.find(".action-btn.primary").text()).toContain("继续阅读");
+    vi.useRealTimers();
+  });
+
+  it("shows complete summary instead of checkpoint when scroll reaches 90%", async () => {
+    vi.useFakeTimers();
+    const router = makeRouter();
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = mount(NewsReader, {
+      props: { id: "1" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const body = wrapper.find(".article-body").element;
+    Object.defineProperty(body, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(body, "clientHeight", { value: 200, configurable: true });
+    Object.defineProperty(body, "scrollTop", {
+      value: 720,
+      configurable: true,
+      writable: true,
+    });
+    await body.dispatchEvent(new Event("scroll"));
+    await flushPromises();
+
+    vi.advanceTimersByTime(31_000);
+    await wrapper.find(".back-btn").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".completion-overlay").text()).toContain("阅读完成");
+    expect(wrapper.find(".completion-overlay").text()).not.toContain("本次阅读小结");
+    vi.useRealTimers();
   });
 
   it("navigates back immediately when reading is too short with no interaction", async () => {

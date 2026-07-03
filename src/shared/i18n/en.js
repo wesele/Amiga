@@ -581,6 +581,12 @@ export default {
     readingCompleteReview: "Review {n} word(s) from this session",
     readingCompleteNext: "Back to list",
     readingCompleteLater: "Maybe later",
+    checkpointTitle: "Reading checkpoint",
+    checkpointStats: "Read {time} · {pct}% done · {unknown} new · looked up {lookedUp}",
+    checkpointContinueArticle: "Continue this article",
+    checkpointContinueArticleHint: "{remainingPct}% left",
+    checkpointSaveExit: "Save and continue later",
+    checkpointContinueAction: "Keep reading",
     nextStep: {
       vocabReview: "Review {n} word(s) from this session",
       vocabReviewHint: "Strike while it's fresh — examples from the article you just read",

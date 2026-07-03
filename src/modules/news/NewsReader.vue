@@ -216,18 +216,29 @@
     <Transition name="popup">
       <div v-if="showCompletionSummary" class="completion-overlay">
         <div class="completion-sheet summary">
-          <div class="summary-emoji">📰</div>
-          <h2>{{ t("news.readingCompleteTitle") }}</h2>
+          <div class="summary-emoji">{{ summaryMode === "checkpoint" ? "📝" : "📰" }}</div>
+          <h2>{{
+            summaryMode === "checkpoint"
+              ? t("news.checkpointTitle")
+              : t("news.readingCompleteTitle")
+          }}</h2>
           <p v-if="article?.original_title" class="completion-article-title">
             {{ article.original_title }}
           </p>
           <p class="summary-stat">
             {{
-              t("news.readingCompleteStats", {
-                time: completionTime,
-                unknown: wordsUnknownSet.size,
-                lookedUp: knownWordIds.size,
-              })
+              summaryMode === "checkpoint"
+                ? t("news.checkpointStats", {
+                    time: completionTime,
+                    pct: displayScrollPct,
+                    unknown: wordsUnknownSet.size,
+                    lookedUp: knownWordIds.size,
+                  })
+                : t("news.readingCompleteStats", {
+                    time: completionTime,
+                    unknown: wordsUnknownSet.size,
+                    lookedUp: knownWordIds.size,
+                  })
             }}
           </p>
           <p v-if="showStreakSaved" class="streak-banner">
@@ -259,7 +270,12 @@
                 :key="step.id"
                 type="button"
                 class="next-steps-queue-item"
-                :disabled="!step.route && !step.contactAction && !isVocabReviewStep(step)"
+                :disabled="
+                  !step.route
+                    && !step.contactAction
+                    && !isVocabReviewStep(step)
+                    && !isContinueReadingStep(step)
+                "
                 @click="goToReadingStep(step)"
               >
                 <span class="next-steps-queue-icon" aria-hidden="true">{{ step.icon }}</span>
@@ -286,7 +302,11 @@
               class="action-btn secondary"
               @click="dismissCompletionSummary"
             >
-              {{ t("news.readingCompleteLater") }}
+              {{
+                summaryMode === "checkpoint"
+                  ? t("news.checkpointSaveExit")
+                  : t("news.readingCompleteLater")
+              }}
             </button>
           </div>
         </div>
@@ -364,6 +384,7 @@ import {
 import {
   buildPostReadingPlan,
   isAiPracticeStep,
+  isContinueReadingStep,
   isVocabReviewStep,
 } from "./postReadingPlan.js";
 import {
@@ -372,7 +393,11 @@ import {
   savePendingAiPractice,
 } from "@/modules/ai-chat/pendingAiPractice.js";
 import { dailyGoalRemainingLessons } from "@/modules/learn/dailyGoalDisplay.js";
-import { formatReadingTime } from "./readingCompletion.js";
+import {
+  formatReadingTime,
+  isValidReading,
+  shouldShowCheckpointSummary,
+} from "./readingCompletion.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -437,6 +462,7 @@ const {
 } = useMicroReviewCard();
 
 const showCompletionSummary = ref(false);
+const summaryMode = ref("complete");
 const dailyGoalSnapshot = ref(null);
 const practicedTodayBefore = ref(false);
 const resumeTarget = ref(null);
@@ -526,6 +552,8 @@ const sessionWordCount = computed(() => sessionWords.value.length);
 const readingPlan = computed(() => {
   if (!showCompletionSummary.value) return null;
   return buildPostReadingPlan({
+    mode: summaryMode.value,
+    scrollPct: displayScrollPct.value,
     unknownCount: wordsUnknownSet.value.size,
     microReviewCompleted: microReviewCompleted.value,
     dailyGoalSnapshot: dailyGoalSnapshot.value,
@@ -573,6 +601,9 @@ function handleAndroidBackInPage() {
     return "navigated";
   }
   if (tryShowCompletionSummary()) {
+    return "navigated";
+  }
+  if (tryShowCheckpointSummary()) {
     return "navigated";
   }
   return undefined;
@@ -1153,8 +1184,21 @@ function stepContinueLabel(step) {
   return t(step.continueKey, step.continueParams ?? {});
 }
 
+function readingSessionStats() {
+  return {
+    elapsedSec: Math.round((Date.now() - startTime.value) / 1000),
+    unknownCount: wordsUnknownSet.value.size,
+    knownCount: wordsKnownSet.value.size,
+    lookedUpCount: knownWordIds.value.size,
+  };
+}
+
 async function goToReadingStep(step) {
   if (!step) return;
+  if (isContinueReadingStep(step)) {
+    showCompletionSummary.value = false;
+    return;
+  }
   if (isVocabReviewStep(step)) {
     completeAndReview();
     return;
@@ -1191,6 +1235,27 @@ function tryShowCompletionSummary() {
   const scrollPct = computeScrollPct(articleBodyRef.value);
   const completed = isReadingComplete(scrollPct, userMarkedComplete.value);
   if (!completed) return false;
+  summaryMode.value = "complete";
+  showCompletionSummary.value = true;
+  void loadPostReadingContext();
+  return true;
+}
+
+async function tryShowCheckpointSummary() {
+  if (showCompletionSummary.value) return true;
+  if (!article.value?.rewritten_body) return false;
+  const scrollPct = computeScrollPct(articleBodyRef.value);
+  if (
+    !shouldShowCheckpointSummary(
+      scrollPct,
+      readingSessionStats(),
+      userMarkedComplete.value,
+    )
+  ) {
+    return false;
+  }
+  await persistReadingProgress({ scrollPct, completed: false });
+  summaryMode.value = "checkpoint";
   showCompletionSummary.value = true;
   void loadPostReadingContext();
   return true;
@@ -1220,14 +1285,21 @@ async function goBack() {
     collapseMicroReview();
     return;
   }
+  if (showCompletionSummary.value) {
+    dismissCompletionSummary();
+    return;
+  }
   if (tryShowCompletionSummary()) return;
+  if (await tryShowCheckpointSummary()) return;
   const scrollPct = computeScrollPct(articleBodyRef.value);
   if (wordsUnknownSet.value.size > 0 && !microReviewCompleted.value) {
     savePendingVocabIfNeeded();
   }
   if (article.value?.rewritten_body && scrollPct > 0) {
     await persistReadingProgress({ scrollPct, completed: false });
-    saveReadingProgressToast(scrollPct);
+    if (!isValidReading(readingSessionStats())) {
+      saveReadingProgressToast(scrollPct);
+    }
   }
   navigateBack();
 }

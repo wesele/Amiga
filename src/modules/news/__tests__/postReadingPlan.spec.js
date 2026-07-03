@@ -134,6 +134,40 @@ describe("buildPostReadingPlan", () => {
     expect(isVocabReviewStep(plan.primary)).toBe(false);
   });
 
+  it("prioritizes vocab review in checkpoint mode and adds continue-article to the queue", () => {
+    const plan = buildPostReadingPlan({
+      mode: "checkpoint",
+      scrollPct: 42,
+      unknownCount: 3,
+      dailyGoalSnapshot: GOAL_UNMET,
+      resumeTarget: RESUME_TARGET,
+      nextUnreadArticleId: 42,
+      newsUnreadCount: 2,
+      sessionWordCount: 3,
+      sessionWords: ["a", "b", "c"],
+    });
+    expect(plan.primary.id).toBe(READING_STEP_IDS.VOCAB_REVIEW);
+    expect(plan.secondary[0].id).toBe(READING_STEP_IDS.CONTINUE_ARTICLE);
+    expect(plan.secondary[0].subtitleParams).toEqual({ remainingPct: 58 });
+  });
+
+  it("defaults checkpoint primary to continue reading when there are no unknown words", () => {
+    const plan = buildPostReadingPlan({
+      mode: "checkpoint",
+      scrollPct: 40,
+      unknownCount: 0,
+      dailyGoalSnapshot: GOAL_UNMET,
+      resumeTarget: RESUME_TARGET,
+      nextUnreadArticleId: null,
+      newsUnreadCount: 0,
+      sessionWordCount: 0,
+      sessionWords: [],
+    });
+    expect(plan.primary.id).toBe(READING_STEP_IDS.CONTINUE_ARTICLE);
+    expect(plan.primary.continueKey).toBe("news.checkpointContinueAction");
+    expect(plan.secondary.map((s) => s.id)).not.toContain(READING_STEP_IDS.CONTINUE_ARTICLE);
+  });
+
   it("caps the secondary queue at three items", () => {
     const plan = buildPostReadingPlan({
       unknownCount: 2,

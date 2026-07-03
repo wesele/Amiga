@@ -130,32 +130,25 @@ describe.skipIf(!takeScreenshot)("screenshotCompletion", () => {
     ]);
   });
 
-  it("writes reading completion overlay screenshot", async () => {
-    const router = makeRouter();
-    await router.push("/news/1");
-    await router.isReady();
-
+  async function mountReaderWithUnknownWord(router) {
     const wrapper = mount(NewsReader, {
       props: { id: "1" },
       global: { plugins: [router] },
     });
     await flushPromises();
-
     await wrapper.find(".word.word-new").trigger("click");
     await flushPromises();
     await wrapper.findComponent(WordPopup).vm.$emit("unknown");
     await flushPromises();
-    await wrapper.find(".back-btn").trigger("click");
-    await flushPromises();
+    return wrapper;
+  }
 
-    expect(wrapper.find(".completion-overlay").exists()).toBe(true);
-    expect(wrapper.find(".next-steps-panel").exists()).toBe(true);
-
+  async function writeOverlayScreenshot(wrapper, baseName) {
     const root = join(dirname(fileURLToPath(import.meta.url)), "../../../..");
     const outDir = join(root, "screenshots");
     mkdirSync(outDir, { recursive: true });
-    const outHtml = join(outDir, "issue52-reading-completion.html");
-    const outPng = join(outDir, "issue52-reading-completion.png");
+    const outHtml = join(outDir, `${baseName}.html`);
+    const outPng = join(outDir, `${baseName}.png`);
 
     const html = `<!DOCTYPE html>
 <html lang="zh"><head><meta charset="utf-8" />
@@ -177,5 +170,36 @@ describe.skipIf(!takeScreenshot)("screenshotCompletion", () => {
       `google-chrome --headless=new --disable-gpu --window-size=480,800 --screenshot=${outPng} file://${outHtml}`,
       { stdio: "inherit" },
     );
+  }
+
+  it("writes reading completion overlay screenshot", async () => {
+    const router = makeRouter();
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = await mountReaderWithUnknownWord(router);
+    await wrapper.find(".mark-complete-btn").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".completion-overlay").exists()).toBe(true);
+    expect(wrapper.find(".next-steps-panel").exists()).toBe(true);
+    expect(wrapper.find(".completion-overlay").text()).toContain("阅读完成");
+
+    await writeOverlayScreenshot(wrapper, "issue69-reading-completion");
+  });
+
+  it("writes reading checkpoint overlay screenshot", async () => {
+    const router = makeRouter();
+    await router.push("/news/1");
+    await router.isReady();
+
+    const wrapper = await mountReaderWithUnknownWord(router);
+    await wrapper.find(".back-btn").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".completion-overlay").exists()).toBe(true);
+    expect(wrapper.find(".completion-overlay").text()).toContain("本次阅读小结");
+
+    await writeOverlayScreenshot(wrapper, "issue69-reading-checkpoint");
   });
 });

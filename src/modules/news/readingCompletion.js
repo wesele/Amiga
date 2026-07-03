@@ -1,3 +1,5 @@
+import { isReadingComplete } from "./readingProgress.js";
+
 export const MIN_READING_SEC = 30;
 
 /** Whether the session counts as meaningful reading (show completion summary). */
@@ -12,6 +14,16 @@ export function isValidReading({
   if (knownCount > 0) return true;
   if (lookedUpCount > 0) return true;
   return false;
+}
+
+/** Whether a partial session should show the checkpoint summary on exit. */
+export function shouldShowCheckpointSummary(
+  scrollPct,
+  stats,
+  userMarkedComplete = false,
+) {
+  if (isReadingComplete(scrollPct, userMarkedComplete)) return false;
+  return isValidReading(stats);
 }
 
 /** Format seconds as mm:ss for the reading summary. */
