@@ -250,7 +250,9 @@ mod tests {
         assert_eq!(rows[0].article_id, a1);
         assert_eq!(rows[0].title_translation, "文章一");
 
-        assert!(get_title_translations_batch(&pool, &[], "zh").unwrap().is_empty());
+        assert!(get_title_translations_batch(&pool, &[], "zh")
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
