@@ -27,7 +27,8 @@ describe("pickChatStarters", () => {
       targetLabel: "西班牙语",
     });
     expect(starters).toHaveLength(1);
-    expect(starters[0].id).toBe("practice-grammar");
+    expect(starters[0].id).toBe("grammar-practice");
+    expect(starters[0].messageParams.points).toContain("过去时 -ar");
   });
 
   it("prefers vocab quiz when current node is vocab with words", () => {

@@ -33,6 +33,10 @@ import {
   pickBestArticleForLessonWords,
 } from "@/modules/news/lessonArticleMatch.js";
 import { lessonWordsPreview } from "@/modules/news/lessonWordHighlight.js";
+import {
+  buildGrammarPracticeContext,
+  shouldOfferGrammarAiPractice,
+} from "./grammarAiPractice.js";
 
 export const TEACHING_STEP_IDS = {
   NEXT_NODE: "nextNode",
@@ -44,6 +48,7 @@ export const TEACHING_STEP_IDS = {
   READ_NEWS: "readNews",
   READ_MATCHED_ARTICLE: "readMatchedArticle",
   AI_PRACTICE: "aiPractice",
+  GRAMMAR_AI_PRACTICE: "grammarAiPractice",
   PATH: "path",
   LEARN_HUB: "learnHub",
   WEEKLY_GOAL: "weeklyGoal",
@@ -215,6 +220,24 @@ function buildAiPracticeStep(sessionWords) {
   };
 }
 
+function buildGrammarAiPracticeStep(context) {
+  const preview = context.grammarPoints.slice(0, 2).join("、");
+  return {
+    id: TEACHING_STEP_IDS.GRAMMAR_AI_PRACTICE,
+    route: null,
+    contactAction: "grammarAiPractice",
+    practiceContext: context,
+    icon: "💬",
+    titleKey: "path.nextStep.grammarAiPractice",
+    subtitleKey: "path.nextStep.grammarAiPracticeHint",
+    subtitleParams: {
+      unit: context.unitTitleNative,
+      preview,
+    },
+    continueKey: "path.nextStep.grammarAiPracticeContinue",
+  };
+}
+
 function buildPathStep(completionCtx) {
   return {
     id: TEACHING_STEP_IDS.PATH,
@@ -311,6 +334,14 @@ function pickPrimaryStep(flags, result, ctx, completionCtx) {
       ? buildNextNodeStep(result, ctx.unitTitle ?? "")
       : null;
 
+  const grammarStep = ctx.grammarPracticeContext
+    ? buildGrammarAiPracticeStep(ctx.grammarPracticeContext)
+    : null;
+
+  if (grammarStep && !flags.dailyGoalNudgeActive) {
+    return grammarStep;
+  }
+
   if (nextNode) return nextNode;
   if (flags.dailyGoalNudgeActive) {
     return buildDailyGoalStep(result, continueRoute, completionCtx);
@@ -346,11 +377,25 @@ function buildSecondarySteps(flags, result, primary, ctx, completionCtx) {
     secondary.push(step);
   }
 
+  if (primary.id === TEACHING_STEP_IDS.GRAMMAR_AI_PRACTICE) {
+    const nextNode =
+      !result.level_upgraded && continueRoute
+        ? buildNextNodeStep(result, ctx.unitTitle ?? "")
+        : null;
+    if (nextNode) push(nextNode);
+  }
+
   if (flags.dailyGoalNudgeActive && primary.id !== TEACHING_STEP_IDS.DAILY_GOAL) {
     push(buildDailyGoalStep(result, continueRoute, completionCtx));
   }
   if (flags.freshMistakeVisible && primary.id !== TEACHING_STEP_IDS.FRESH_MISTAKE) {
     push(buildFreshMistakeStep(flags.freshMistakeCount));
+  }
+  if (
+    ctx.grammarPracticeContext &&
+    primary.id !== TEACHING_STEP_IDS.GRAMMAR_AI_PRACTICE
+  ) {
+    push(buildGrammarAiPracticeStep(ctx.grammarPracticeContext));
   }
   if (flags.dueMistakesAtStart > 0 && primary.id !== TEACHING_STEP_IDS.MISTAKE_REVIEW) {
     push(buildMistakeReviewStep(flags.dueMistakesAtStart));
@@ -426,6 +471,10 @@ export function buildPostTeachingPlan({
   isVocabLesson = false,
   lessonWords = [],
   articles = [],
+  kind = null,
+  grammarPoints = [],
+  scenarios = [],
+  targetLang = "es",
 } = {}) {
   if (!result) return null;
 
@@ -443,6 +492,16 @@ export function buildPostTeachingPlan({
       ? pickBestArticleForLessonWords(articles, lessonWords)
       : null;
 
+  const grammarPracticeContext = shouldOfferGrammarAiPractice({ kind, grammarPoints })
+    ? buildGrammarPracticeContext({
+        sectionId: completedSectionId,
+        unitTitleNative: unitTitle,
+        grammarPoints,
+        scenarios,
+        targetLang,
+      })
+    : null;
+
   const ctx = {
     unitTitle,
     sessionUnknownWords,
@@ -451,6 +510,7 @@ export function buildPostTeachingPlan({
     localHour,
     isVocabLesson,
     articleMatch,
+    grammarPracticeContext,
   };
 
   const primary = pickPrimaryStep(flags, result, ctx, completionCtx);
@@ -466,4 +526,8 @@ export function primaryTeachingStepRoute(plan) {
 
 export function isAiPracticeStep(step) {
   return step?.id === TEACHING_STEP_IDS.AI_PRACTICE;
+}
+
+export function isGrammarAiPracticeStep(step) {
+  return step?.id === TEACHING_STEP_IDS.GRAMMAR_AI_PRACTICE;
 }

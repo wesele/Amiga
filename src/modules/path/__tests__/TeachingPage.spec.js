@@ -26,6 +26,11 @@ function makeRouter() {
         name: "path-lesson",
         component: { template: "<div class='lesson-page'/>" },
       },
+      {
+        path: "/chat/:sessionId",
+        name: "chat-session",
+        component: { template: "<div class='chat-page'/>" },
+      },
     ],
   });
 }
@@ -371,6 +376,30 @@ describe("TeachingPage completion flow", () => {
     await flushPromises();
     return { wrapper, router };
   }
+
+  it("shows grammar AI practice in next-steps and opens chat on click", async () => {
+    const { wrapper, router } = await finishGrammarTeaching();
+    expect(wrapper.text()).toContain("和 Amiga 练刚学的语法");
+
+    const grammarStep = wrapper
+      .findAll(".next-steps-queue-item")
+      .find((item) => item.text().includes("和 Amiga 练刚学的语法"));
+    expect(grammarStep).toBeTruthy();
+
+    mockInvoke.mockImplementation((cmd) => {
+      const handled = postTeachingInvoke(cmd);
+      if (handled) return handled;
+      if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
+      if (cmd === "create_chat_session_cmd") return Promise.resolve("session-1");
+      return Promise.reject(new Error(`unexpected invoke: ${cmd}`));
+    });
+
+    await grammarStep.trigger("click");
+    await flushPromises();
+    expect(router.currentRoute.value.name).toBe("chat-session");
+    expect(router.currentRoute.value.query.starterId).toBe("grammar-practice");
+    expect(router.currentRoute.value.query.from).toBe("grammar");
+  });
 
   it("shows grammar summary and routes to vocab on continue", async () => {
     const { wrapper, router } = await finishGrammarTeaching();

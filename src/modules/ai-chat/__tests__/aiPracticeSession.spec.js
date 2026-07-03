@@ -27,6 +27,11 @@ describe("aiPracticeSession", () => {
     expect(isGuidedAiPractice({ query: { starterId: "comprehension-practice" } })).toBe(true);
   });
 
+  it("detects guided practice from grammar-practice starter", () => {
+    expect(isGuidedAiPractice({ query: { starterId: "grammar-practice" } })).toBe(true);
+    expect(parsePracticeSource({ query: { from: "grammar" } })).toBe(AI_PRACTICE_SOURCES.GRAMMAR);
+  });
+
   it("parses practice words from comma-separated query", () => {
     expect(parsePracticeWords({ query: { words: " alpha , beta,  gamma " } })).toEqual([
       "alpha",
@@ -68,6 +73,7 @@ describe("aiPracticeSession", () => {
     expect(defaultExitRouteAfterPractice("vocab")).toEqual({ name: "learn" });
     expect(defaultExitRouteAfterPractice("mistake")).toEqual({ name: "path" });
     expect(defaultExitRouteAfterPractice("comprehension")).toEqual({ name: "news" });
+    expect(defaultExitRouteAfterPractice("grammar")).toEqual({ name: "path" });
     expect(defaultExitRouteAfterPractice(null)).toEqual({ name: "chat" });
     expect(
       defaultExitRouteAfterPractice("reading", { name: "reader", params: { id: 9 } }),

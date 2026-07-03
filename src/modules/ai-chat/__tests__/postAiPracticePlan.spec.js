@@ -14,6 +14,15 @@ const RESUME_TARGET = {
 };
 
 describe("buildPostAiPracticePlan", () => {
+  it("routes grammar practice wrap-up to the current path section", () => {
+    const plan = buildPostAiPracticePlan({
+      source: "grammar",
+      dailyGoalSnapshot: { goal_met: true, target_lessons: 2, lessons_today: 2 },
+      resumeTarget: RESUME_TARGET,
+    });
+    expect(plan.primary.id).toBe(AI_PRACTICE_STEP_IDS.NEXT_LESSON);
+  });
+
   it("routes to the current path section when daily goal is unmet", () => {
     const plan = buildPostAiPracticePlan({
       source: "vocab",

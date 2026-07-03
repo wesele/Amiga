@@ -1,3 +1,8 @@
+import {
+  buildGrammarPracticeContext,
+  buildGrammarPracticeStarter,
+} from "@/modules/path/grammarAiPractice.js";
+
 /**
  * Build a starter that quizzes words the learner just reviewed.
  * @param {string[]} words
@@ -42,12 +47,16 @@ export function pickChatStarters(ctx) {
   if (currentSection) {
     const { unit, section } = currentSection;
     if (section.kind === "grammar" && teachingPreview?.grammar_points?.length) {
-      starters.push({
-        id: "practice-grammar",
-        labelKey: "chat.starterPracticeGrammar",
-        messageKey: "chat.starterPracticeGrammarMsg",
-        messageParams: { unit: unit.title_native ?? "" },
-      });
+      const grammarStarter = buildGrammarPracticeStarter(
+        buildGrammarPracticeContext({
+          sectionId: section.id ?? "",
+          unitTitleNative: unit.title_native ?? "",
+          grammarPoints: teachingPreview.grammar_points,
+          scenarios: teachingPreview.scenarios ?? [],
+          targetLang: targetLabel,
+        }),
+      );
+      if (grammarStarter) starters.push(grammarStarter);
     } else if (section.kind === "vocab" && teachingPreview?.words?.length) {
       starters.push({
         id: "practice-vocab",

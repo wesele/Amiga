@@ -306,9 +306,12 @@ import { countDueForPair } from "./mistakeReviewStore.js";
 import {
   buildPostTeachingPlan,
   isAiPracticeStep,
+  isGrammarAiPracticeStep,
   primaryTeachingStepRoute,
   TEACHING_STEP_IDS,
 } from "./postTeachingPlan.js";
+import { saveGrammarPracticePayload } from "./grammarAiPractice.js";
+import { continueRouteAfterSection } from "./lessonContinue.js";
 import { promiseWithTimeout } from "@/shared/promiseTimeout.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import MicroReviewSheet from "@/modules/vocab/MicroReviewSheet.vue";
@@ -704,6 +707,30 @@ function stepContinueLabel(step) {
 
 async function goToTeachingStep(step) {
   if (!step) return;
+  if (isGrammarAiPracticeStep(step)) {
+    openingAiPractice.value = true;
+    try {
+      const practiceContext = step.practiceContext;
+      if (!practiceContext) return;
+      saveGrammarPracticePayload(practiceContext);
+      const continueRoute = continueRouteAfterSection(completionResult.value);
+      await openAiContact(
+        router,
+        { name: t("chat.amiga"), contactType: "amiga" },
+        {
+          targetLang: userMeta.value.targetLang,
+          starterId: "grammar-practice",
+          starterParams: {
+            from: "grammar",
+            ...(continueRoute ? { returnRoute: continueRoute } : {}),
+          },
+        },
+      );
+    } finally {
+      openingAiPractice.value = false;
+    }
+    return;
+  }
   if (isAiPracticeStep(step)) {
     openingAiPractice.value = true;
     try {
@@ -793,6 +820,10 @@ async function loadPostTeachingContext() {
     isVocabLesson: content.value?.kind === "vocab",
     lessonWords: teachingWords.value.map((item) => item.word).filter(Boolean),
     articles: articlesForMatch.value,
+    kind: content.value?.kind ?? null,
+    grammarPoints: content.value?.grammar_points ?? [],
+    scenarios: content.value?.scenarios ?? [],
+    targetLang: userMeta.value.targetLang,
   });
 }
 

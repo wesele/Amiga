@@ -81,6 +81,54 @@ describe("buildPostTeachingPlan", () => {
     ]);
   });
 
+  it("includes grammar AI practice in secondary for grammar teaching", () => {
+    const plan = buildPostTeachingPlan({
+      result: {
+        ...COMPLETE,
+        next_section_id: "zh-es/U01-VOCAB",
+      },
+      unitTitle: "基础问候",
+      kind: "grammar",
+      grammarPoints: ["ser 和 estar 的区别"],
+      scenarios: ["初次见面"],
+    });
+    expect(plan.primary.id).toBe(TEACHING_STEP_IDS.NEXT_NODE);
+    expect(plan.secondary.map((s) => s.id)).toContain(
+      TEACHING_STEP_IDS.GRAMMAR_AI_PRACTICE,
+    );
+  });
+
+  it("promotes grammar AI practice to primary when daily goal is met", () => {
+    const plan = buildPostTeachingPlan({
+      result: {
+        ...COMPLETE,
+        daily_goal_just_met: true,
+        daily_goal_lessons_today: 3,
+        daily_goal_target: 3,
+        next_section_id: "zh-es/U01-VOCAB",
+      },
+      unitTitle: "基础问候",
+      kind: "grammar",
+      grammarPoints: ["ser 和 estar 的区别"],
+    });
+    expect(plan.primary.id).toBe(TEACHING_STEP_IDS.GRAMMAR_AI_PRACTICE);
+    expect(plan.secondary.map((s) => s.id)).toContain(TEACHING_STEP_IDS.NEXT_NODE);
+  });
+
+  it("skips grammar AI practice for vocab teaching", () => {
+    const plan = buildPostTeachingPlan({
+      result: {
+        ...COMPLETE,
+        next_section_id: "zh-es/U01-PRACTICE",
+      },
+      kind: "vocab",
+      grammarPoints: ["ignored"],
+    });
+    expect(plan.secondary.map((s) => s.id)).not.toContain(
+      TEACHING_STEP_IDS.GRAMMAR_AI_PRACTICE,
+    );
+  });
+
   it("includes AI practice in secondary when session unknown words reach threshold", () => {
     const plan = buildPostTeachingPlan({
       result: {

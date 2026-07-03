@@ -159,6 +159,10 @@ function pickPrimaryStep(ctx) {
     });
   }
 
+  if (source === "grammar" && resumeTarget) {
+    return buildResumeLessonStep(resumeTarget, dailyGoalSnapshot);
+  }
+
   if (isDailyGoalUnmet(dailyGoalSnapshot) && resumeTarget) {
     return buildResumeLessonStep(resumeTarget, dailyGoalSnapshot);
   }

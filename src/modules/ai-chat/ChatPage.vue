@@ -226,6 +226,10 @@ import {
   loadComprehensionPracticePayload,
 } from "@/modules/news/comprehensionAiPractice.js";
 import {
+  buildGrammarPracticeStarter,
+  loadGrammarPracticePayload,
+} from "@/modules/path/grammarAiPractice.js";
+import {
   defaultExitRouteAfterPractice,
   formatLearnedWordsPreview,
   isGuidedAiPractice,
@@ -530,6 +534,12 @@ function starterMessage(starter) {
     params.type = t(params.typeKey);
     delete params.typeKey;
   }
+  if (starter.messageKey === "chat.starterPracticeGrammarMsg") {
+    const scenarioList = String(params.scenarios ?? "").trim();
+    params.scenarios = scenarioList
+      ? t("chat.starterPracticeGrammarScenarios", { scenarios: scenarioList })
+      : "";
+  }
   return t(starter.messageKey, params);
 }
 
@@ -605,8 +615,29 @@ function applyComprehensionPracticeStarter(starters) {
   ].slice(0, 3);
 }
 
+function applyGrammarPracticeStarter(starters) {
+  if (route.query.starterId !== "grammar-practice") {
+    return starters;
+  }
+  const context = loadGrammarPracticePayload();
+  if (!context) return starters;
+  const grammarStarter = buildGrammarPracticeStarter({
+    ...context,
+    targetLabel: targetLabel.value,
+  });
+  if (!grammarStarter) return starters;
+  return [
+    grammarStarter,
+    ...starters.filter(
+      (starter) => starter.id !== "grammar-practice" && starter.id !== "practice-grammar",
+    ),
+  ].slice(0, 3);
+}
+
 function applyRouteStarters(starters) {
-  return applyComprehensionPracticeStarter(applyReviewedWordsStarter(starters));
+  return applyGrammarPracticeStarter(
+    applyComprehensionPracticeStarter(applyReviewedWordsStarter(starters)),
+  );
 }
 
 async function loadChatStarters(nativeLangCode, langCode, cefr) {

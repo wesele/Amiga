@@ -160,7 +160,8 @@ describe.skipIf(!takeScreenshot)("screenshotTeachingPlan", () => {
 
     expect(wrapper.find(".next-steps-panel").exists()).toBe(true);
     expect(wrapper.text()).toContain("继续学词汇");
-    writeScreenshot(wrapper, "issue60-teaching-grammar-next-node");
+    expect(wrapper.text()).toContain("和 Amiga 练刚学的语法");
+    writeScreenshot(wrapper, "issue93-teaching-grammar-ai-practice");
   });
 
   it("writes vocab completion with practice next step", async () => {
