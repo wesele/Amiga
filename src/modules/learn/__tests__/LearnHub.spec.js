@@ -134,6 +134,11 @@ function makeRouter() {
       },
       { path: "/news", name: "news", component: { template: "<div/>" } },
       {
+        path: "/news/:id",
+        name: "reader",
+        component: { template: "<div/>" },
+      },
+      {
         path: "/learn/translator/:sessionId",
         name: "learn-translator",
         component: { template: "<div/>" },
@@ -784,6 +789,102 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     expect(wrapper.find(".focus-hero-sub").text()).toContain("5/6");
+  });
+
+  it("shows continue reading as focus hero when an in-progress article exists", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_path_curriculum_cmd") {
+        return Promise.resolve({ ...MOCK_CURRICULUM, status: "level_complete" });
+      }
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 2,
+          target_lessons: 2,
+          progress_pct: 100,
+          goal_met: true,
+          streak_current: 3,
+          practiced_today: true,
+        });
+      }
+      if (cmd === "get_unknown_words_cmd") {
+        return Promise.resolve([]);
+      }
+      if (cmd === "get_articles_cmd") {
+        return Promise.resolve([
+          { id: 7, original_title: "今日科技要闻", hot_rank: 1 },
+        ]);
+      }
+      if (cmd === "get_articles_reading_status_cmd") {
+        return Promise.resolve([
+          {
+            article_id: 7,
+            read_at: "2026-07-03 10:00:00",
+            completed: false,
+            scroll_pct: 65,
+          },
+        ]);
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("继续读《今日科技要闻》");
+    expect(wrapper.find(".focus-hero-sub").text()).toContain("还剩约 35%");
+    expect(wrapper.find(".focus-reading-progress-label").text()).toBe("65%");
+    expect(wrapper.find(".focus-hero-action").text()).toBe("继续阅读");
+    expect(wrapper.find(".continue-reading-card").exists()).toBe(false);
+  });
+
+  it("navigates from continue-reading focus hero to the reader route", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_path_curriculum_cmd") {
+        return Promise.resolve({ ...MOCK_CURRICULUM, status: "level_complete" });
+      }
+      if (cmd === "get_daily_goal_progress_cmd") {
+        return Promise.resolve({
+          lessons_today: 2,
+          target_lessons: 2,
+          progress_pct: 100,
+          goal_met: true,
+          streak_current: 3,
+          practiced_today: true,
+        });
+      }
+      if (cmd === "get_unknown_words_cmd") {
+        return Promise.resolve([]);
+      }
+      if (cmd === "get_articles_cmd") {
+        return Promise.resolve([
+          { id: 7, original_title: "今日科技要闻", hot_rank: 1 },
+        ]);
+      }
+      if (cmd === "get_articles_reading_status_cmd") {
+        return Promise.resolve([
+          {
+            article_id: 7,
+            read_at: "2026-07-03 10:00:00",
+            completed: false,
+            scroll_pct: 65,
+          },
+        ]);
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".focus-hero-action").trigger("click");
+    expect(pushSpy).toHaveBeenCalledWith({ name: "reader", params: { id: 7 } });
   });
 
   it("opens translator session via learn-translator route", async () => {

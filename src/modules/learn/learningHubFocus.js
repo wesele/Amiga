@@ -1,4 +1,5 @@
 import { focusPracticeRoute } from "@/modules/path/focusPracticeRoute.js";
+import { isContinueReadingCandidate } from "@/modules/news/readingProgress.js";
 import { pathSectionRoute, sectionKindIcon } from "./pathResume.js";
 import { isStreakAtRisk } from "./streakAtRisk.js";
 
@@ -14,6 +15,22 @@ export const FOCUS_IDS = {
   EXPLORE_PATH: "explorePath",
 };
 
+function continueReadingRoute(article) {
+  return { name: "reader", params: { id: article.articleId } };
+}
+
+function continueReadingFocus(article) {
+  return {
+    id: FOCUS_IDS.CONTINUE_READING,
+    route: continueReadingRoute(article),
+    icon: "📰",
+    articleTitle: article.title,
+    articleId: article.articleId,
+    scrollPct: article.scrollPct,
+    remainingPct: article.remainingPct,
+  };
+}
+
 function resolveStreakAtRiskAction(ctx) {
   const {
     dailyGoal,
@@ -21,6 +38,7 @@ function resolveStreakAtRiskAction(ctx) {
     dueMistakes = 0,
     dueVocabWords = [],
     newsUnreadCount = 0,
+    continueReadingArticle = null,
   } = ctx;
   const goalMet = Boolean(dailyGoal?.goal_met);
 
@@ -31,6 +49,15 @@ function resolveStreakAtRiskAction(ctx) {
     };
   }
   if (!goalMet) {
+    if (isContinueReadingCandidate(continueReadingArticle)) {
+      return {
+        id: FOCUS_IDS.CONTINUE_READING,
+        route: continueReadingRoute(continueReadingArticle),
+        articleTitle: continueReadingArticle.title,
+        remainingPct: continueReadingArticle.remainingPct,
+        scrollPct: continueReadingArticle.scrollPct,
+      };
+    }
     if (newsUnreadCount > 0) {
       return { id: FOCUS_IDS.READ_NEWS, route: { name: "news" } };
     }
@@ -81,6 +108,13 @@ export function pickLearningHubFocus(ctx) {
       dueMistakes,
       vocabCount: dueVocabWords.length,
       newsUnreadCount: ctx.newsUnreadCount ?? 0,
+      ...(action.id === FOCUS_IDS.CONTINUE_READING
+        ? {
+          articleTitle: action.articleTitle,
+          remainingPct: action.remainingPct,
+          scrollPct: action.scrollPct,
+        }
+        : {}),
     };
   }
 
@@ -91,6 +125,10 @@ export function pickLearningHubFocus(ctx) {
       icon: sectionKindIcon(resumeTarget.section.kind),
       sectionTitle: resumeTarget.section.title_native ?? "",
     };
+  }
+
+  if (isContinueReadingCandidate(ctx.continueReadingArticle)) {
+    return continueReadingFocus(ctx.continueReadingArticle);
   }
 
   if (dueMistakes > 0) {
@@ -172,7 +210,14 @@ export function pickSecondarySuggestions(ctx, focus) {
     showFocusArea = false,
   } = ctx;
 
-  if (continueReadingArticle && focusId !== FOCUS_IDS.CONTINUE_READING) {
+  const focusShowsContinueReading =
+    focusId === FOCUS_IDS.CONTINUE_READING
+    || (focusId === FOCUS_IDS.STREAK_AT_RISK && focus?.actionId === FOCUS_IDS.CONTINUE_READING);
+
+  if (
+    isContinueReadingCandidate(continueReadingArticle)
+    && !focusShowsContinueReading
+  ) {
     suggestions.push({ type: "continueReading", ...continueReadingArticle });
   }
 

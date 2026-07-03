@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FOCUS_IDS, pickLearningHubFocus } from "../learningHubFocus.js";
+import { FOCUS_IDS, pickLearningHubFocus, pickSecondarySuggestions } from "../learningHubFocus.js";
 
 const resumeTarget = {
   section: {
@@ -116,5 +116,97 @@ describe("learningHubFocus", () => {
     });
     expect(focus.id).toBe(FOCUS_IDS.EXPLORE_PATH);
     expect(focus.route.name).toBe("path");
+  });
+
+  const continueReadingArticle = {
+    articleId: 42,
+    title: "今日科技要闻",
+    scrollPct: 65,
+    remainingPct: 35,
+  };
+
+  it("surfaces continue reading as hero focus when a valid in-progress article exists", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: { goal_met: true, practiced_today: true },
+      continueReadingArticle,
+      localHour: 10,
+    });
+    expect(focus.id).toBe(FOCUS_IDS.CONTINUE_READING);
+    expect(focus.route).toEqual({ name: "reader", params: { id: 42 } });
+    expect(focus.articleTitle).toBe("今日科技要闻");
+    expect(focus.remainingPct).toBe(35);
+  });
+
+  it("keeps lesson resume ahead of continue reading when the daily goal is unfinished", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: { goal_met: false, practiced_today: true, streak_current: 3 },
+      resumeTarget,
+      continueReadingArticle,
+      localHour: 10,
+    });
+    expect(focus.id).toBe(FOCUS_IDS.CONTINUE_SECTION);
+  });
+
+  it("routes streak-at-risk to continue reading when no lesson resume is available", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: {
+        streak_current: 12,
+        practiced_today: false,
+        goal_met: false,
+        lessons_today: 0,
+        target_lessons: 2,
+      },
+      continueReadingArticle,
+      newsUnreadCount: 3,
+      localHour: 21,
+    });
+    expect(focus.id).toBe(FOCUS_IDS.STREAK_AT_RISK);
+    expect(focus.actionId).toBe(FOCUS_IDS.CONTINUE_READING);
+    expect(focus.route).toEqual({ name: "reader", params: { id: 42 } });
+    expect(focus.articleTitle).toBe("今日科技要闻");
+  });
+
+  it("prefers explore path over continue reading only when no valid candidate exists", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: { goal_met: true, practiced_today: true },
+      continueReadingArticle: {
+        articleId: 1,
+        title: "刚点开",
+        scrollPct: 2,
+        remainingPct: 98,
+      },
+      localHour: 10,
+    });
+    expect(focus.id).toBe(FOCUS_IDS.EXPLORE_PATH);
+  });
+
+  it("omits duplicate continue reading from secondary suggestions when it is the hero focus", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: { goal_met: true, practiced_today: true },
+      continueReadingArticle,
+      localHour: 10,
+    });
+    const suggestions = pickSecondarySuggestions(
+      { continueReadingArticle, dueMistakes: 0, dueVocabWords: [] },
+      focus,
+    );
+    expect(suggestions.some((item) => item.type === "continueReading")).toBe(false);
+  });
+
+  it("omits duplicate continue reading when streak hero already points to it", () => {
+    const focus = pickLearningHubFocus({
+      dailyGoal: {
+        streak_current: 12,
+        practiced_today: false,
+        goal_met: false,
+      },
+      continueReadingArticle,
+      localHour: 21,
+    });
+    const suggestions = pickSecondarySuggestions(
+      { continueReadingArticle, dueMistakes: 0, dueVocabWords: [] },
+      focus,
+    );
+    expect(suggestions.some((item) => item.type === "continueReading")).toBe(false);
   });
 });

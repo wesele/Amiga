@@ -145,6 +145,7 @@ import {
   buildStatusMap,
   collectUnknownWordsFromStatusMap,
 } from "./newsReadingStatus.js";
+import { sortArticlesWithInProgressFirst } from "./readingProgress.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -231,8 +232,8 @@ async function loadArticles() {
     // ES→es) so the user gets the right feed.
     const region = regionForLang(targetLang.value);
     const loadedArticles = await getArticles(region);
-    articles.value = loadedArticles;
     await loadReadingStatus(loadedArticles);
+    articles.value = sortArticlesWithInProgressFirst(loadedArticles, statusMap.value);
   } catch (e) {
     console.error("Failed to load articles:", e);
     articles.value = [];
@@ -287,8 +288,8 @@ async function onRefresh() {
   loading.value = true;
   try {
     const result = await fetchNews(regionForLang(targetLang.value), targetLang.value);
-    articles.value = result;
     await loadReadingStatus(result);
+    articles.value = sortArticlesWithInProgressFirst(result, statusMap.value);
     if (result.length > 0) {
       showStatus(t("news.refreshed", { n: result.length }));
     } else {

@@ -42,6 +42,15 @@
           <div class="focus-hero-copy">
             <p class="focus-hero-title">{{ focusHeroTitle }}</p>
             <p class="focus-hero-sub">{{ focusHeroSub }}</p>
+            <div v-if="showFocusReadingProgress" class="focus-reading-progress" aria-hidden="true">
+              <div class="focus-reading-progress-track">
+                <div
+                  class="focus-reading-progress-fill"
+                  :style="{ width: focusReadingScrollPct + '%' }"
+                />
+              </div>
+              <span class="focus-reading-progress-label">{{ focusReadingScrollPct }}%</span>
+            </div>
             <div v-if="focusHeroGraduation" class="focus-graduation-strip">
               <div class="graduation-bar mini" aria-hidden="true">
                 <div
@@ -591,8 +600,27 @@ const hubFocus = computed(() =>
     mistakePreview: mistakeReviewPreviewText.value,
     vocabPreview: vocabReviewPreviewText.value,
     newsUnreadCount: newsUnreadCount.value,
+    continueReadingArticle: continueReadingArticle.value,
   }),
 );
+
+const focusShowsContinueReading = computed(() => {
+  const focus = hubFocus.value;
+  if (!focus) return false;
+  return (
+    focus.id === FOCUS_IDS.CONTINUE_READING
+    || (focus.id === FOCUS_IDS.STREAK_AT_RISK && focus.actionId === FOCUS_IDS.CONTINUE_READING)
+  );
+});
+
+const showFocusReadingProgress = computed(() => focusShowsContinueReading.value);
+
+const focusReadingScrollPct = computed(() => {
+  const focus = hubFocus.value;
+  if (!focus) return 0;
+  if (focus.scrollPct != null) return focus.scrollPct;
+  return Math.max(0, 100 - (focus.remainingPct ?? 0));
+});
 
 const showStreakNewsChip = computed(() => {
   const focus = hubFocus.value;
@@ -638,7 +666,13 @@ const focusHeroTitle = computed(() => {
     if (focus.actionId === FOCUS_IDS.READ_NEWS) {
       return t("learn.streakAtRiskReadNews");
     }
+    if (focus.actionId === FOCUS_IDS.CONTINUE_READING) {
+      return t("learn.focusContinueReadingTitle", { title: focus.articleTitle });
+    }
     return t("learn.dailyGoal");
+  }
+  if (focus.id === FOCUS_IDS.CONTINUE_READING) {
+    return t("learn.focusContinueReadingTitle", { title: focus.articleTitle });
   }
   if (focus.id === FOCUS_IDS.CONTINUE_SECTION) {
     return focus.sectionTitle || t("learn.continueLearning");
@@ -688,9 +722,15 @@ const focusHeroSub = computed(() => {
     if (focus.actionId === FOCUS_IDS.READ_NEWS) {
       return t("learn.streakAtRiskReadNewsSub", { n: focus.newsUnreadCount });
     }
+    if (focus.actionId === FOCUS_IDS.CONTINUE_READING) {
+      return t("learn.focusContinueReadingStreakSub", { n: focus.streakCurrent });
+    }
     return t("learn.focusDailyGoalSub", {
       remaining: dailyGoalRemainingLessons(dailyGoal.value),
     });
+  }
+  if (focus.id === FOCUS_IDS.CONTINUE_READING) {
+    return t("learn.focusContinueReadingSub", { remainingPct: focus.remainingPct });
   }
   if (focus.id === FOCUS_IDS.CONTINUE_SECTION) {
     const section = resumeTarget.value?.section;
@@ -731,7 +771,13 @@ const focusHeroAction = computed(() => {
     if (focus.actionId === FOCUS_IDS.READ_NEWS) {
       return t("learn.streakAtRiskReadNewsAction");
     }
+    if (focus.actionId === FOCUS_IDS.CONTINUE_READING) {
+      return t("learn.focusContinueReadingAction");
+    }
     return t("learn.streakAtRiskAction");
+  }
+  if (focus.id === FOCUS_IDS.CONTINUE_READING) {
+    return t("learn.focusContinueReadingAction");
   }
   if (focus.id === FOCUS_IDS.CONTINUE_SECTION) {
     return t("learn.focusContinueAction");
@@ -1140,6 +1186,35 @@ onMounted(loadHubData);
   font-weight: 700;
   color: var(--text);
   line-height: 1.3;
+}
+
+.focus-reading-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.focus-reading-progress-track {
+  flex: 1;
+  height: 4px;
+  background: var(--gray-light);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.focus-reading-progress-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+.focus-reading-progress-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
 }
 
 .focus-hero-sub {
