@@ -333,7 +333,7 @@ describe("VocabReviewPage", () => {
       if (cmd === "get_unknown_words_cmd") {
         return Promise.resolve([
           {
-            id: 10,
+            id: 1,
             word: "frontera",
             mastery: 1,
             definition_zh: "边境",
@@ -374,7 +374,7 @@ describe("VocabReviewPage", () => {
     expect(JSON.parse(sessionStorage.getItem("amiga:vocabReviewResume"))).toMatchObject({
       index: 0,
       flipped: true,
-      wordId: 10,
+      wordId: 1,
     });
   });
 
@@ -690,7 +690,7 @@ describe("VocabReviewPage", () => {
       if (cmd === "get_unknown_words_cmd") {
         return Promise.resolve([
           {
-            id: 10,
+            id: 1,
             word: "frontera",
             mastery: 1,
             definition_zh: "边境",
@@ -729,5 +729,78 @@ describe("VocabReviewPage", () => {
 
     expect(wrapper.find(".context-reinforce-nudge").exists()).toBe(false);
     expect(wrapper.text()).toContain("mercado");
+  });
+
+  it("shows cloze front without the target word until reveal", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_unknown_words_cmd") {
+        return Promise.resolve([
+          {
+            id: 4,
+            word: "frontera",
+            mastery: 1,
+            definition_zh: "边境",
+            example: "Cruzaron la frontera al amanecer.",
+            has_user_context: true,
+          },
+        ]);
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const frontFace = wrapper.find(".flashcard-front");
+    expect(wrapper.text()).toContain("主动回忆");
+    expect(frontFace.text()).not.toContain("frontera");
+    expect(wrapper.find(".flashcard-cloze-blank").text()).toBe("___");
+    expect(wrapper.find(".recall-reveal-btn").exists()).toBe(true);
+    expect(wrapper.find(".review-footer-actions .action-btn.secondary").exists()).toBe(false);
+
+    await wrapper.find(".recall-reveal-btn").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("frontera");
+    expect(wrapper.text()).toContain("边境");
+    expect(wrapper.find(".review-footer .action-btn.primary").attributes("disabled")).toBeUndefined();
+  });
+
+  it("blocks swipe rating on cloze cards until reveal", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_unknown_words_cmd") {
+        return Promise.resolve([
+          {
+            id: 4,
+            word: "frontera",
+            mastery: 1,
+            definition_zh: "边境",
+            example: "Cruzaron la frontera al amanecer.",
+          },
+        ]);
+      }
+      return defaultInvoke(cmd);
+    });
+
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".flashcard");
+    await card.trigger("pointerdown", { clientX: 100, clientY: 200 });
+    await card.trigger("pointermove", { clientX: 190, clientY: 200 });
+    await card.trigger("pointerup", { clientX: 190, clientY: 200 });
+    await flushPromises();
+
+    expect(vocabRatingFeedback.playVocabRatingFeedback).not.toHaveBeenCalled();
+    expect(wrapper.find(".flashcard-front").text()).not.toContain("frontera");
+    expect(wrapper.find(".flashcard").classes()).not.toContain("is-flipped");
   });
 });

@@ -1,15 +1,20 @@
-import { computed, ref } from "vue";
+import { computed, ref, unref } from "vue";
 import {
-  canSwipeToRate,
   isVocabSwipeTap,
   shouldAbortVocabSwipe,
   vocabSwipeDragStyle,
   vocabSwipeRating,
 } from "./vocabSwipeRating.js";
+import {
+  VOCAB_CARD_MODES,
+  canRateCard,
+  isRecallCardMode,
+} from "./vocabRecallMode.js";
 
 /** Flashcard flip + swipe interactions shared by micro-review sheets. */
-export function useMicroReviewCard() {
+export function useMicroReviewCard({ cardMode = () => VOCAB_CARD_MODES.CLASSIC } = {}) {
   const flipped = ref(false);
+  const revealed = ref(false);
   const acting = ref(false);
   const ratingAck = ref(null);
   const swipeOffsetX = ref(0);
@@ -20,9 +25,13 @@ export function useMicroReviewCard() {
   let swipeActive = false;
   let swipeAborted = false;
 
+  const activeCardMode = computed(() => unref(cardMode) ?? VOCAB_CARD_MODES.CLASSIC);
+
   const swipeEnabled = computed(() =>
-    canSwipeToRate({
+    canRateCard({
+      mode: activeCardMode.value,
       flipped: flipped.value,
+      revealed: revealed.value,
       acting: acting.value,
       ratingAck: ratingAck.value,
     }),
@@ -42,9 +51,17 @@ export function useMicroReviewCard() {
 
   function resetCard() {
     flipped.value = false;
+    revealed.value = false;
     ratingAck.value = null;
     resetSwipeState();
     swipeConsumed = false;
+  }
+
+  function revealAnswer() {
+    if (acting.value || revealed.value) return false;
+    revealed.value = true;
+    flipped.value = true;
+    return true;
   }
 
   function onCardClick() {
@@ -53,7 +70,13 @@ export function useMicroReviewCard() {
       return false;
     }
     if (acting.value) return false;
+    if (isRecallCardMode(activeCardMode.value) && !revealed.value) {
+      return false;
+    }
     flipped.value = !flipped.value;
+    if (activeCardMode.value === VOCAB_CARD_MODES.CLASSIC) {
+      revealed.value = flipped.value;
+    }
     return true;
   }
 
@@ -121,12 +144,14 @@ export function useMicroReviewCard() {
 
   return {
     flipped,
+    revealed,
     acting,
     ratingAck,
     swipeDragging,
     swipeEnabled,
     swipeStyle,
     resetCard,
+    revealAnswer,
     onCardClick,
     onSwipeDown,
     onSwipeMove,

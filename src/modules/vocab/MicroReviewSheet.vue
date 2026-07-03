@@ -29,39 +29,60 @@
       >
         <div class="micro-review-card-inner">
           <div class="micro-review-face micro-review-front">
-            <div class="micro-review-word-row">
-              <span class="micro-review-word">{{ card.word }}</span>
-              <div
-                v-if="showSpeech"
-                class="micro-review-speech"
-                @click.stop
-                @pointerdown.stop
-              >
-                <button
-                  type="button"
-                  class="micro-review-speech-btn"
-                  :class="{ 'is-speaking': speaking }"
-                  :aria-label="t('vocab.playPronunciation')"
-                  :disabled="speechBusy"
-                  @click="playNormal"
+            <p v-if="isRecallMode" class="micro-review-recall-badge">
+              {{ t("vocab.recallModeBadge") }}
+            </p>
+            <template v-if="cardMode === 'cloze'">
+              <p class="micro-review-cloze" :aria-label="clozeAriaText">
+                <template v-for="(part, clozeIndex) in clozeParts" :key="clozeIndex">
+                  <span v-if="part.blank" class="micro-review-cloze-blank">{{ part.text }}</span>
+                  <span v-else>{{ part.text }}</span>
+                </template>
+              </p>
+              <span class="micro-review-tap-hint">{{ t("vocab.recallClozeHint") }}</span>
+            </template>
+            <template v-else-if="cardMode === 'reverse'">
+              <span class="micro-review-prompt">{{ definition }}</span>
+              <span class="micro-review-tap-hint">{{ t("vocab.recallReverseHint") }}</span>
+            </template>
+            <template v-else>
+              <div class="micro-review-word-row">
+                <span class="micro-review-word">{{ card.word }}</span>
+                <div
+                  v-if="showSpeech"
+                  class="micro-review-speech"
+                  @click.stop
+                  @pointerdown.stop
                 >
-                  🔊
-                </button>
-                <button
-                  type="button"
-                  class="micro-review-speech-btn is-slow"
-                  :class="{ 'is-speaking': slowSpeaking }"
-                  :aria-label="t('path.playAudioSlow')"
-                  :disabled="speechBusy"
-                  @click="playSlow"
-                >
-                  🐢
-                </button>
+                  <button
+                    type="button"
+                    class="micro-review-speech-btn"
+                    :class="{ 'is-speaking': speaking }"
+                    :aria-label="t('vocab.playPronunciation')"
+                    :disabled="speechBusy"
+                    @click="playNormal"
+                  >
+                    🔊
+                  </button>
+                  <button
+                    type="button"
+                    class="micro-review-speech-btn is-slow"
+                    :class="{ 'is-speaking': slowSpeaking }"
+                    :aria-label="t('path.playAudioSlow')"
+                    :disabled="speechBusy"
+                    @click="playSlow"
+                  >
+                    🐢
+                  </button>
+                </div>
               </div>
-            </div>
-            <span class="micro-review-tap-hint">{{ t("vocab.reviewTapToReveal") }}</span>
+              <span class="micro-review-tap-hint">{{ t("vocab.reviewTapToReveal") }}</span>
+            </template>
           </div>
           <div class="micro-review-face micro-review-back">
+            <span v-if="cardMode !== 'classic' && card?.word" class="micro-review-word micro-review-word-back">
+              {{ card.word }}
+            </span>
             <span v-if="definition" class="micro-review-definition">{{ definition }}</span>
             <div
               v-if="showSpeech"
@@ -131,6 +152,11 @@
           </button>
         </div>
       </section>
+      <div v-else-if="showRevealButton" class="micro-review-actions">
+        <button type="button" class="micro-review-later recall-reveal-btn" @click="$emit('reveal')">
+          {{ t("vocab.recallReveal") }}
+        </button>
+      </div>
       <div v-else class="micro-review-actions">
         <button type="button" class="micro-review-continue" @click="$emit('continue')">
           {{ t(continueKey) }}
@@ -151,6 +177,7 @@ import {
   isMicroReviewSpeechTarget,
   shouldAutoPlayMicroReviewSpeech,
 } from "./microReviewSpeech.js";
+import { isRecallCardMode, shouldHideTargetOnFront } from "./vocabRecallMode.js";
 import ContextSpeechControls from "@/shared/components/ContextSpeechControls.vue";
 import {
   isSpeechSynthesisAvailable,
@@ -184,6 +211,10 @@ const props = defineProps({
   laterKey: { type: String, required: true },
   sheetClass: { type: String, default: "" },
   contextNudge: { type: Object, default: null },
+  cardMode: { type: String, default: "classic" },
+  revealed: { type: Boolean, default: false },
+  clozeParts: { type: Array, default: () => [] },
+  clozeAriaText: { type: String, default: "" },
 });
 
 defineEmits([
@@ -194,6 +225,7 @@ defineEmits([
   "swipe-cancel",
   "continue",
   "later",
+  "reveal",
   "context-revisit",
   "context-skip",
 ]);
@@ -208,11 +240,22 @@ const contextSpeechText = computed(() =>
 const speaking = ref(false);
 const slowSpeaking = ref(false);
 const speechBusy = computed(() => speaking.value || slowSpeaking.value);
+const isRecallMode = computed(() => isRecallCardMode(props.cardMode));
+
+const showRevealButton = computed(
+  () =>
+    isRecallMode.value &&
+    !props.revealed &&
+    !props.acting &&
+    !props.ratingAck,
+);
+
 const showSpeech = computed(
   () =>
     isMicroReviewSpeechTarget(props.card?.word) &&
     Boolean(props.speechLanguage) &&
-    isSpeechSynthesisAvailable(),
+    isSpeechSynthesisAvailable() &&
+    (!shouldHideTargetOnFront(props.cardMode) || props.revealed || props.flipped),
 );
 
 let autoPlayTimer = null;
@@ -395,6 +438,49 @@ onUnmounted(() => {
   font-size: 28px;
   font-weight: 800;
   color: var(--text);
+}
+
+.micro-review-word-back {
+  font-size: 24px;
+}
+
+.micro-review-recall-badge {
+  margin: 0 0 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(28, 176, 246, 0.12);
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.micro-review-cloze {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--text);
+}
+
+.micro-review-cloze-blank {
+  display: inline-block;
+  min-width: 3em;
+  padding: 0 3px;
+  border-bottom: 2px dashed var(--blue);
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.micro-review-prompt {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--text);
+}
+
+.recall-reveal-btn {
+  width: 100%;
 }
 
 .micro-review-speech {

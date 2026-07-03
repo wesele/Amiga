@@ -217,6 +217,10 @@
         :definition="microReviewDefinition"
         :context-label="t('path.microReviewFromUnit')"
         :context-text="content.unit_title_native"
+        :card-mode="microReviewCardMode"
+        :revealed="microReviewRevealed"
+        :cloze-parts="microReviewClozeParts"
+        :cloze-aria-text="microReviewClozeAria"
         :flipped="microReviewFlipped"
         :swipe-enabled="microReviewSwipeEnabled"
         :swipe-dragging="microReviewSwipeDragging"
@@ -229,6 +233,7 @@
         continue-key="path.microReviewContinue"
         later-key="path.microReviewLater"
         @card-click="onMicroReviewCardClick"
+        @reveal="onMicroReviewReveal"
         @swipe-down="onMicroReviewSwipeDown"
         @swipe-move="onMicroReviewSwipeMove"
         @swipe-up="onMicroReviewSwipeUp"
@@ -319,6 +324,11 @@ import { buildTeachingMicroReviewQueue } from "@/modules/vocab/microReviewQueue.
 import { useMicroReviewCard } from "@/modules/vocab/useMicroReviewCard.js";
 import { vocabDefinition } from "@/modules/vocab/vocabReviewSession.js";
 import {
+  buildClozeContextParts,
+  clozeAriaLabel,
+  resolveVocabCardMode,
+} from "@/modules/vocab/vocabRecallMode.js";
+import {
   microReviewNudgeCopy,
   shouldOfferMicroReview,
 } from "@/shared/microReview.js";
@@ -363,20 +373,34 @@ const microReviewOpen = ref(false);
 const microReviewDismissed = ref(false);
 const microReviewCompleted = ref(false);
 const microReviewCollapsed = ref(false);
+
+function getMicroReviewCardMode() {
+  const card = microReviewQueue.value[microReviewIndex.value];
+  return resolveVocabCardMode(card, {
+    index: microReviewIndex.value,
+    sessionContextMap: new Map(),
+    mastery: card?.mastery,
+    readingSessionMode: false,
+    nativeLang: getLocale(),
+  });
+}
+
 const {
   flipped: microReviewFlipped,
+  revealed: microReviewRevealed,
   acting: microReviewActing,
   ratingAck: microReviewRatingAck,
   swipeDragging: microReviewSwipeDragging,
   swipeEnabled: microReviewSwipeEnabled,
   swipeStyle: microReviewSwipeStyle,
   resetCard: resetMicroReviewCard,
+  revealAnswer: revealMicroReviewAnswer,
   onCardClick: flipMicroReviewCard,
   onSwipeDown: onMicroReviewSwipeDown,
   onSwipeMove: onMicroReviewSwipeMove,
   onSwipeUp: onMicroReviewSwipeUpRaw,
   onSwipeCancel: onMicroReviewSwipeCancel,
-} = useMicroReviewCard();
+} = useMicroReviewCard({ cardMode: getMicroReviewCardMode });
 let explainSeq = 0;
 
 function formatInvokeError(err) {
@@ -431,6 +455,23 @@ const microReviewDefinition = computed(() =>
   vocabDefinition(microReviewCard.value, getLocale()),
 );
 
+const microReviewCardMode = computed(() => getMicroReviewCardMode());
+
+const microReviewClozeParts = computed(() =>
+  buildClozeContextParts(
+    microReviewCard.value?.example || "",
+    microReviewCard.value?.word,
+  ),
+);
+
+const microReviewClozeAria = computed(() =>
+  clozeAriaLabel(
+    microReviewCard.value?.example || "",
+    microReviewCard.value?.word,
+    t("vocab.recallBlankAria"),
+  ),
+);
+
 function showWordToast(msg) {
   if (!msg) return;
   wordToast.value = msg;
@@ -449,6 +490,10 @@ function onMicroReviewSwipeUp(event) {
 function onMicroReviewCardClick() {
   if (!microReviewCard.value) return;
   flipMicroReviewCard();
+}
+
+function onMicroReviewReveal() {
+  revealMicroReviewAnswer();
 }
 
 function prepareMicroReviewQueue() {

@@ -125,11 +125,14 @@
           />
           <span class="srs-label">{{ vocabStageLabelText }}</span>
         </div>
-        <p v-if="flipped && !acting && !ratingAck" class="swipe-guide">
+        <p v-if="isRecallMode" class="recall-mode-badge">
+          {{ t("vocab.recallModeBadge") }}
+        </p>
+        <p v-if="canRateCurrentCard && !acting && !ratingAck" class="swipe-guide">
           {{ t("vocab.reviewSwipeHint") }}
         </p>
         <WordSpeechButton
-          v-if="currentWord"
+          v-if="currentWord && showWordSpeech"
           class="flashcard-speech-btn"
           :word="currentWord.word"
           :language="speechLanguage"
@@ -146,14 +149,14 @@
             'is-ack-learning': ratingAck === 'learning',
           }"
           :style="swipeCardStyle"
-          :aria-label="flipped ? t('vocab.reviewTapToHide') : t('vocab.reviewTapToReveal')"
+          :aria-label="cardAriaLabel"
           @click="onCardClick"
           @pointerdown="onSwipePointerDown"
           @pointermove="onSwipePointerMove"
           @pointerup="onSwipePointerUp"
           @pointercancel="onSwipePointerCancel"
         >
-          <div v-if="flipped" class="swipe-overlays" aria-hidden="true">
+          <div v-if="canRateCurrentCard" class="swipe-overlays" aria-hidden="true">
             <span
               class="swipe-overlay swipe-overlay-left"
               :style="{ opacity: swipeHints.stillLearning }"
@@ -169,10 +172,30 @@
           </div>
           <div class="flashcard-inner">
             <div class="flashcard-face flashcard-front">
-              <span class="flashcard-word">{{ currentWord?.word }}</span>
-              <span class="flashcard-hint">{{ t("vocab.reviewTapToReveal") }}</span>
+              <template v-if="cardMode === VOCAB_CARD_MODES.CLOZE">
+                <div class="flashcard-cloze">
+                  <p class="flashcard-cloze-text" :aria-label="clozeAriaText">
+                    <template v-for="(part, clozeIndex) in clozeParts" :key="clozeIndex">
+                      <span v-if="part.blank" class="flashcard-cloze-blank">{{ part.text }}</span>
+                      <span v-else>{{ part.text }}</span>
+                    </template>
+                  </p>
+                </div>
+                <span class="flashcard-hint">{{ t("vocab.recallClozeHint") }}</span>
+              </template>
+              <template v-else-if="cardMode === VOCAB_CARD_MODES.REVERSE">
+                <span class="flashcard-prompt">{{ definitionText }}</span>
+                <span class="flashcard-hint">{{ t("vocab.recallReverseHint") }}</span>
+              </template>
+              <template v-else>
+                <span class="flashcard-word">{{ currentWord?.word }}</span>
+                <span class="flashcard-hint">{{ t("vocab.reviewTapToReveal") }}</span>
+              </template>
             </div>
             <div class="flashcard-face flashcard-back">
+              <span v-if="cardMode !== VOCAB_CARD_MODES.CLASSIC" class="flashcard-word flashcard-word-back">
+                {{ currentWord?.word }}
+              </span>
               <span class="flashcard-definition">{{ definitionText }}</span>
               <div v-if="reviewContextParts.length" class="flashcard-context">
                 <span v-if="showNewsSourceBadge" class="flashcard-source-badge">
@@ -231,11 +254,16 @@
             </button>
           </div>
         </section>
+        <div v-else-if="showRevealButton" class="review-footer-actions">
+          <button type="button" class="action-btn primary recall-reveal-btn" @click="revealAnswer">
+            {{ t("vocab.recallReveal") }}
+          </button>
+        </div>
         <div v-else class="review-footer-actions">
           <button
             type="button"
             class="action-btn secondary"
-            :disabled="!flipped || acting"
+            :disabled="!canRateCurrentCard || acting"
             @click="markStillLearning"
           >
             {{ t("vocab.reviewStillLearning") }}
@@ -243,7 +271,7 @@
           <button
             type="button"
             class="action-btn primary"
-            :disabled="!flipped || acting"
+            :disabled="!canRateCurrentCard || acting"
             @click="markGotIt"
           >
             {{ t("vocab.reviewGotIt") }}
@@ -339,13 +367,21 @@ import {
   savePendingAiPractice,
 } from "@/modules/ai-chat/pendingAiPractice.js";
 import {
-  canSwipeToRate,
   isVocabSwipeTap,
   shouldAbortVocabSwipe,
   vocabSwipeDragStyle,
   vocabSwipeHintOpacity,
   vocabSwipeRating,
 } from "./vocabSwipeRating.js";
+import {
+  VOCAB_CARD_MODES,
+  buildClozeContextParts,
+  canRateCard,
+  clozeAriaLabel,
+  isRecallCardMode,
+  resolveVocabCardMode,
+  shouldHideTargetOnFront,
+} from "./vocabRecallMode.js";
 import {
   highlightWordInContext,
   isFromReadingSession,
@@ -379,6 +415,7 @@ const error = ref("");
 const words = ref([]);
 const index = ref(0);
 const flipped = ref(false);
+const revealed = ref(false);
 const cardRated = ref(false);
 const ratingAck = ref(null);
 const pendingRatedMastery = ref(null);
@@ -459,6 +496,50 @@ const reviewContextParts = computed(() =>
   highlightWordInContext(reviewContextText.value, currentWord.value?.word),
 );
 
+const cardMode = computed(() =>
+  resolveVocabCardMode(currentWord.value, {
+    index: index.value,
+    sessionContextMap: sessionContextMap.value,
+    mastery: currentWord.value?.mastery,
+    readingSessionMode: readingSessionMode.value,
+    nativeLang: nativeLang.value,
+  }),
+);
+
+const isRecallMode = computed(() => isRecallCardMode(cardMode.value));
+
+const clozeParts = computed(() =>
+  buildClozeContextParts(reviewContextText.value, currentWord.value?.word),
+);
+
+const clozeAriaText = computed(() =>
+  clozeAriaLabel(reviewContextText.value, currentWord.value?.word, t("vocab.recallBlankAria")),
+);
+
+const showWordSpeech = computed(
+  () => !shouldHideTargetOnFront(cardMode.value) || revealed.value,
+);
+
+const canRateCurrentCard = computed(() =>
+  canRateCard({
+    mode: cardMode.value,
+    flipped: flipped.value,
+    revealed: revealed.value,
+    acting: acting.value,
+    ratingAck: ratingAck.value,
+  }),
+);
+
+const showRevealButton = computed(
+  () => isRecallMode.value && !revealed.value && !acting.value && !ratingAck.value,
+);
+
+const cardAriaLabel = computed(() => {
+  if (canRateCurrentCard.value) return t("vocab.reviewTapToHide");
+  if (isRecallMode.value) return t("vocab.recallTapToReveal");
+  return t("vocab.reviewTapToReveal");
+});
+
 const showNewsSourceBadge = computed(() => {
   const word = currentWord.value;
   if (!word?.word) return false;
@@ -526,13 +607,7 @@ const vocabReviewPlan = computed(() => {
   });
 });
 
-const swipeEnabled = computed(() =>
-  canSwipeToRate({
-    flipped: flipped.value,
-    acting: acting.value,
-    ratingAck: ratingAck.value,
-  }),
-);
+const swipeEnabled = computed(() => canRateCurrentCard.value);
 
 const swipeCardStyle = computed(() => {
   if (!swipeDragging.value || swipeOffsetX.value === 0) return undefined;
@@ -636,7 +711,18 @@ function onSwipePointerCancel() {
 
 function toggleFlip() {
   if (!currentWord.value) return;
+  if (isRecallMode.value && !revealed.value) return;
   flipped.value = !flipped.value;
+  if (cardMode.value === VOCAB_CARD_MODES.CLASSIC) {
+    revealed.value = flipped.value;
+  }
+}
+
+function revealAnswer() {
+  if (!currentWord.value || revealed.value) return;
+  revealed.value = true;
+  flipped.value = true;
+  scheduleFlipAutoPlay();
 }
 
 watch(flipped, (isFlipped) => {
@@ -658,6 +744,7 @@ function onCardClick() {
 
 function resetCard() {
   flipped.value = false;
+  revealed.value = false;
   cardRated.value = false;
   ratingAck.value = null;
   pendingRatedMastery.value = null;
@@ -1481,6 +1568,54 @@ onUnmounted(() => {
   font-size: 36px;
   font-weight: 700;
   color: var(--text);
+}
+
+.flashcard-word-back {
+  font-size: 28px;
+}
+
+.recall-mode-badge {
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(28, 176, 246, 0.12);
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.flashcard-cloze {
+  width: 100%;
+}
+
+.flashcard-cloze-text {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.55;
+  text-align: center;
+  color: var(--text);
+}
+
+.flashcard-cloze-blank {
+  display: inline-block;
+  min-width: 3.5em;
+  padding: 0 4px;
+  border-bottom: 2px dashed var(--blue);
+  color: var(--blue);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.flashcard-prompt {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--text);
+}
+
+.recall-reveal-btn {
+  flex: 1;
 }
 
 .flashcard-hint {
