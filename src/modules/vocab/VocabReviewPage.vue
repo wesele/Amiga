@@ -107,6 +107,23 @@
         <p v-if="currentWord?.mastery === 1" class="review-badge">
           {{ t("vocab.reviewReinforce") }}
         </p>
+        <div
+          v-if="vocabDots.length"
+          class="srs-progress vocab-srs"
+          :aria-label="vocabStageLabelText"
+        >
+          <span
+            v-for="(filled, dotIdx) in vocabDots"
+            :key="dotIdx"
+            class="srs-dot"
+            :class="{
+              'is-filled': filled,
+              'is-just-filled': filled && dotIdx === vocabJustFilledDot,
+            }"
+            aria-hidden="true"
+          />
+          <span class="srs-label">{{ vocabStageLabelText }}</span>
+        </div>
         <p v-if="flipped && !acting && !ratingAck" class="swipe-guide">
           {{ t("vocab.reviewSwipeHint") }}
         </p>
@@ -174,22 +191,30 @@
       </div>
 
       <footer class="review-footer">
-        <button
-          type="button"
-          class="action-btn secondary"
-          :disabled="!flipped || acting"
-          @click="markStillLearning"
+        <p
+          v-if="ratingAck && vocabScheduleText"
+          class="srs-schedule vocab-srs-schedule is-revealed"
         >
-          {{ t("vocab.reviewStillLearning") }}
-        </button>
-        <button
-          type="button"
-          class="action-btn primary"
-          :disabled="!flipped || acting"
-          @click="markGotIt"
-        >
-          {{ t("vocab.reviewGotIt") }}
-        </button>
+          {{ vocabScheduleText }}
+        </p>
+        <div class="review-footer-actions">
+          <button
+            type="button"
+            class="action-btn secondary"
+            :disabled="!flipped || acting"
+            @click="markStillLearning"
+          >
+            {{ t("vocab.reviewStillLearning") }}
+          </button>
+          <button
+            type="button"
+            class="action-btn primary"
+            :disabled="!flipped || acting"
+            @click="markGotIt"
+          >
+            {{ t("vocab.reviewGotIt") }}
+          </button>
+        </div>
       </footer>
     </template>
   </div>
@@ -276,6 +301,12 @@ import {
   isFromReadingSession,
   pickReviewContext,
 } from "./vocabReviewContext.js";
+import {
+  vocabDisplayDotStates,
+  vocabDisplayStageLabel,
+  vocabJustFilledDotIndex,
+  vocabRatingFeedback,
+} from "./vocabReviewMastery.js";
 
 const router = useRouter();
 const route = useRoute();
@@ -289,6 +320,7 @@ const index = ref(0);
 const flipped = ref(false);
 const cardRated = ref(false);
 const ratingAck = ref(null);
+const pendingRatedMastery = ref(null);
 const swipeOffsetX = ref(0);
 const swipeDragging = ref(false);
 const swipeConsumed = ref(false);
@@ -429,6 +461,33 @@ const swipeCardStyle = computed(() => {
 
 const swipeHints = computed(() => vocabSwipeHintOpacity(swipeOffsetX.value));
 
+const vocabDots = computed(() =>
+  vocabDisplayDotStates(currentWord.value?.mastery, {
+    ratedMastery: pendingRatedMastery.value,
+  }),
+);
+
+const vocabJustFilledDot = computed(() =>
+  vocabJustFilledDotIndex(currentWord.value?.mastery, {
+    ratedMastery: pendingRatedMastery.value,
+  }),
+);
+
+const vocabStageLabelText = computed(() =>
+  vocabDisplayStageLabel(currentWord.value?.mastery, t, {
+    ratedMastery: pendingRatedMastery.value,
+  }),
+);
+
+const vocabScheduleText = computed(() => {
+  if (!ratingAck.value || pendingRatedMastery.value == null) return "";
+  return vocabRatingFeedback(
+    currentWord.value?.mastery,
+    pendingRatedMastery.value,
+    t,
+  );
+});
+
 function resetSwipeState() {
   swipeOffsetX.value = 0;
   swipeDragging.value = false;
@@ -521,6 +580,7 @@ function resetCard() {
   flipped.value = false;
   cardRated.value = false;
   ratingAck.value = null;
+  pendingRatedMastery.value = null;
   resetSwipeState();
   swipeConsumed.value = false;
 }
@@ -618,6 +678,7 @@ async function load() {
 async function advanceAfterMark(mastery) {
   if (!currentWord.value || acting.value) return;
   cardRated.value = true;
+  pendingRatedMastery.value = mastery;
   ratingAck.value = vocabRatingAckKind(mastery);
   playVocabRatingFeedback(mastery);
   acting.value = true;
@@ -1272,10 +1333,16 @@ onUnmounted(() => {
 
 .review-footer {
   display: flex;
+  flex-direction: column;
   gap: 10px;
   padding: 16px;
   background: var(--white);
   border-top: 1px solid var(--border);
+}
+
+.review-footer-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .action-btn {

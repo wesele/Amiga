@@ -123,7 +123,7 @@ describe("VocabReviewPage", () => {
     expect(speechBtn.attributes("aria-label")).toBe("播放发音");
   });
 
-  it("shows flashcard with first word and reinforcement badge", async () => {
+  it("shows flashcard with first word, reinforcement badge, and mastery stage", async () => {
     const router = makeRouter();
     await router.push("/vocab/review");
     const wrapper = mount(VocabReviewPage, {
@@ -133,8 +133,42 @@ describe("VocabReviewPage", () => {
 
     expect(wrapper.text()).toContain("hola");
     expect(wrapper.text()).toContain("待巩固");
+    expect(wrapper.text()).toContain("记忆 2/3");
     expect(wrapper.text()).toContain("1/2");
+    const progress = wrapper.find(".srs-progress.vocab-srs");
+    expect(progress.exists()).toBe(true);
+    expect(progress.findAll(".srs-dot.is-filled")).toHaveLength(2);
     expect(wrapper.find(".action-btn.primary").attributes("disabled")).toBeDefined();
+  });
+
+  it("shows mastered schedule feedback after rating got it", async () => {
+    let releaseAck;
+    vi.mocked(vocabRatingFeedback.waitVocabRatingAck).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseAck = resolve;
+        }),
+    );
+
+    const router = makeRouter();
+    await router.push("/vocab/review");
+    const wrapper = mount(VocabReviewPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".flashcard").trigger("click");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    const progress = wrapper.find(".srs-progress.vocab-srs");
+    expect(progress.findAll(".srs-dot.is-filled")).toHaveLength(3);
+    expect(progress.find(".srs-dot.is-just-filled").exists()).toBe(true);
+    expect(wrapper.find(".srs-schedule.is-revealed").text()).toContain("已掌握");
+    expect(wrapper.text()).toContain("记忆 3/3");
+
+    releaseAck();
+    await flushPromises();
   });
 
   it("ticks the progress bar when the learner rates a card", async () => {
@@ -191,6 +225,12 @@ describe("VocabReviewPage", () => {
     expect(VOCAB_PAGE_SOURCE).toMatch(/@pointerdown="onSwipePointerDown"/);
     expect(VOCAB_PAGE_SOURCE).toMatch(/reviewSwipeHint/);
     expect(VOCAB_PAGE_SOURCE).toMatch(/swipe-overlay-left/);
+  });
+
+  it("wires vocab mastery SRS visualization", () => {
+    expect(VOCAB_PAGE_SOURCE).toMatch(/vocabReviewMastery\.js/);
+    expect(VOCAB_PAGE_SOURCE).toMatch(/class="srs-progress vocab-srs"/);
+    expect(VOCAB_PAGE_SOURCE).toMatch(/class="srs-schedule vocab-srs-schedule is-revealed"/);
   });
 
   it("rates a card when the learner swipes right after flipping", async () => {
