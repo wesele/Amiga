@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter } from "vue-router";
 import { flushPromises, mount } from "@vue/test-utils";
 import { setLocale } from "@/shared/i18n";
 import * as api from "@/shared/api.js";
+import { STATS_STORAGE_KEY } from "@/modules/learn/questionTypeStats.js";
 
 const ROOT = resolve(__dirname, "../../../..");
 
@@ -93,8 +94,11 @@ describe("FocusPracticePage", () => {
     expect(source).toMatch(/path\.focusPracticeBadge/);
     expect(source).toMatch(/sessionAccuracy/);
     expect(source).toMatch(/focusPracticeContinuation\.js/);
+    expect(source).toMatch(/focusPracticeProgress\.js/);
     expect(source).toMatch(/FOCUS_CONTINUE_LABEL_KEY/);
     expect(source).toMatch(/continuePractice/);
+    expect(source).toMatch(/type-progress-card/);
+    expect(source).toMatch(/goToNextWeak/);
   });
 
   it("shows your answer alongside correct answer when focus practice answer is wrong", () => {
@@ -104,6 +108,34 @@ describe("FocusPracticePage", () => {
     expect(source).toMatch(/yourAnswerText/);
     expect(source).toMatch(/class="your-answer-reveal"/);
     expect(source).toMatch(/showYourAnswer/);
+  });
+
+  it("shows cumulative progress on the summary screen", async () => {
+    localStorage.setItem(
+      STATS_STORAGE_KEY,
+      JSON.stringify({
+        "zh-es": { T09: { correct: 29, wrong: 21 } },
+      }),
+    );
+
+    const router = makeRouter();
+    await router.push({ name: "path-focus-practice", params: { typeId: "T09" } });
+    await router.isReady();
+
+    const wrapper = mount({ template: "<router-view />" }, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find("input").setValue("wrong");
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+    await wrapper.find(".review-footer .action-btn.primary").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("累计进步");
+    expect(wrapper.text()).toContain("58% →");
+    expect(wrapper.text()).toContain("距脱离薄弱还差");
   });
 
   it("offers another round when the session was not perfect", async () => {

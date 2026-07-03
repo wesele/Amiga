@@ -34,8 +34,37 @@
         {{ t("path.focusPracticeCompleteHint", { n: questions.length }) }}
       </p>
       <p class="summary-stat">
-        {{ t("path.focusPracticeAccuracy", { pct: accuracyPct }) }}
+        {{ t("path.focusPracticeRoundAccuracy", { pct: accuracyPct }) }}
       </p>
+
+      <div v-if="progressSummary" class="type-progress-card">
+        <p class="type-progress-label">{{ t("path.focusPracticeTypeProgress") }}</p>
+        <p class="type-progress-name">{{ t(focusAreaTypeKey(questionType)) }}</p>
+        <p class="type-progress-delta">
+          {{ t("path.focusPracticeAccuracyDelta", {
+            before: progressSummary.beforePct,
+            after: progressSummary.afterPct,
+          }) }}
+          <span class="type-progress-change" :class="deltaToneClass">
+            {{ deltaLabel }}
+          </span>
+        </p>
+        <p v-if="celebrateGraduation" class="graduation-banner">
+          {{ t("path.focusPracticeGraduated") }}
+        </p>
+        <template v-else-if="!progressSummary.graduated">
+          <div class="graduation-bar" aria-hidden="true">
+            <div
+              class="graduation-bar-fill"
+              :style="{ width: progressSummary.progressPct + '%' }"
+            />
+          </div>
+          <p class="graduation-hint">
+            {{ t("path.focusPracticeGraduationBar", { n: progressSummary.remainingPct }) }}
+          </p>
+        </template>
+      </div>
+
       <p v-if="streakCelebration" class="streak-banner">{{ streakCelebration }}</p>
       <p v-if="showContinuePractice" class="continue-hint">{{ t(FOCUS_CONTINUE_HINT_KEY) }}</p>
       <div class="summary-actions">
@@ -49,9 +78,18 @@
           {{ t(FOCUS_CONTINUE_LABEL_KEY) }}
         </button>
         <button
+          v-else-if="showNextWeakCta"
+          type="button"
+          class="action-btn primary"
+          :disabled="continuing"
+          @click="goToNextWeak"
+        >
+          {{ t("path.focusPracticeNextWeak", { type: nextWeakTypeLabel }) }}
+        </button>
+        <button
           type="button"
           class="action-btn"
-          :class="showContinuePractice ? 'secondary' : 'primary'"
+          :class="showPrimaryBack ? 'primary' : 'secondary'"
           @click="exitPractice"
         >
           {{ t("path.focusPracticeBack") }}
@@ -131,6 +169,7 @@ import { loadLearningContext } from "@/shared/learningContext.js";
 import { applyReviewStreak, reviewStreakCelebration } from "@/shared/reviewStreak.js";
 import {
   focusAreaTypeKey,
+  loadQuestionTypeStats,
   pairStatsKey,
   recordAnswer,
 } from "@/modules/learn/questionTypeStats.js";
@@ -141,8 +180,15 @@ import { isValidFocusType } from "./focusPracticeRoute.js";
 import {
   FOCUS_CONTINUE_HINT_KEY,
   FOCUS_CONTINUE_LABEL_KEY,
-  shouldOfferFocusContinuation,
 } from "./focusPracticeContinuation.js";
+import {
+  focusPracticeProgressSummary,
+  pickPostGraduationTypeId,
+  resolveFocusSummaryCtas,
+  shouldCelebrateGraduation,
+  snapshotTypeAccuracy,
+} from "./focusPracticeProgress.js";
+import { focusPracticeRoute } from "./focusPracticeRoute.js";
 import {
   sessionAccuracy,
   sessionProgress,
@@ -179,6 +225,7 @@ const pairKey = ref("");
 const targetLang = ref("es");
 const streakUpdate = ref(null);
 const continuing = ref(false);
+const beforeAccuracyPct = ref(null);
 const hintText = ref("");
 const hintShown = ref(false);
 const hintAutoRevealed = ref(false);
@@ -204,12 +251,62 @@ const progressPct = computed(() =>
 
 const accuracyPct = computed(() => sessionAccuracy(correctCount.value, questions.value.length));
 
-const streakCelebration = computed(() =>
-  reviewStreakCelebration(streakUpdate.value, t),
+const afterAccuracyPct = computed(() => {
+  if (!finished.value || !pairKey.value || !questionType.value) return null;
+  const stats = loadQuestionTypeStats(pairKey.value);
+  return snapshotTypeAccuracy(stats, questionType.value);
+});
+
+const progressSummary = computed(() => {
+  if (!finished.value || beforeAccuracyPct.value == null || afterAccuracyPct.value == null) {
+    return null;
+  }
+  return focusPracticeProgressSummary({
+    beforePct: beforeAccuracyPct.value,
+    afterPct: afterAccuracyPct.value,
+  });
+});
+
+const nextWeakTypeId = computed(() => {
+  if (!progressSummary.value?.graduated || !pairKey.value) return null;
+  const stats = loadQuestionTypeStats(pairKey.value);
+  return pickPostGraduationTypeId(stats, questionType.value);
+});
+
+const summaryCtas = computed(() =>
+  resolveFocusSummaryCtas(progressSummary.value ?? { graduated: false }, {
+    hasNextWeak: Boolean(nextWeakTypeId.value),
+    roundAccuracyPct: accuracyPct.value,
+    questionCount: questions.value.length,
+  }),
 );
 
-const showContinuePractice = computed(() =>
-  shouldOfferFocusContinuation(questions.value.length, accuracyPct.value),
+const showContinuePractice = computed(() => summaryCtas.value.showContinueRound);
+const showNextWeakCta = computed(() => summaryCtas.value.primary === "nextWeak");
+const showPrimaryBack = computed(
+  () => !showContinuePractice.value && !showNextWeakCta.value,
+);
+const celebrateGraduation = computed(() =>
+  shouldCelebrateGraduation(progressSummary.value),
+);
+const nextWeakTypeLabel = computed(() =>
+  nextWeakTypeId.value ? t(focusAreaTypeKey(nextWeakTypeId.value)) : "",
+);
+
+const deltaToneClass = computed(() => {
+  const delta = progressSummary.value?.delta ?? 0;
+  if (delta > 0) return "is-positive";
+  return "is-neutral";
+});
+
+const deltaLabel = computed(() => {
+  const delta = progressSummary.value?.delta ?? 0;
+  if (delta > 0) return t("path.focusPracticeDeltaPositive", { n: delta });
+  return t("path.focusPracticeDeltaNeutral");
+});
+
+const streakCelebration = computed(() =>
+  reviewStreakCelebration(streakUpdate.value, t),
 );
 
 const correctAnswerText = computed(() =>
@@ -393,6 +490,12 @@ async function load() {
     finished.value = false;
     streakUpdate.value = null;
     continuing.value = false;
+    if (questions.value.length > 0) {
+      const stats = loadQuestionTypeStats(pairKey.value);
+      beforeAccuracyPct.value = snapshotTypeAccuracy(stats, questionType.value);
+    } else {
+      beforeAccuracyPct.value = null;
+    }
     resetQuestion();
   } catch (e) {
     error.value = e?.message || t("common.fail");
@@ -471,6 +574,17 @@ watch(currentAnswer, (answer) => {
 async function continuePractice() {
   continuing.value = true;
   try {
+    await load();
+  } finally {
+    continuing.value = false;
+  }
+}
+
+async function goToNextWeak() {
+  if (!nextWeakTypeId.value) return;
+  continuing.value = true;
+  try {
+    await router.replace(focusPracticeRoute(nextWeakTypeId.value));
     await load();
   } finally {
     continuing.value = false;
@@ -728,6 +842,86 @@ onMounted(load);
   color: var(--orange-hover);
   border-radius: var(--radius-sm);
   font-weight: 700;
+}
+
+.type-progress-card {
+  width: 100%;
+  max-width: 320px;
+  margin-top: 8px;
+  padding: 14px 16px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+
+.type-progress-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.type-progress-name {
+  margin: 6px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.type-progress-delta {
+  margin: 4px 0 0;
+  font-size: 15px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.type-progress-change {
+  margin-left: 6px;
+  font-weight: 700;
+}
+
+.type-progress-change.is-positive {
+  color: var(--green);
+}
+
+.type-progress-change.is-neutral {
+  color: var(--text-light);
+}
+
+.graduation-bar {
+  margin-top: 10px;
+  height: 10px;
+  background: var(--gray-light);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.graduation-bar-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.graduation-hint {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-light);
+  line-height: 1.4;
+}
+
+.graduation-banner {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  background: rgba(88, 204, 2, 0.12);
+  border-radius: var(--radius-sm);
+  color: var(--green-hover, #46a302);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 .continue-hint {

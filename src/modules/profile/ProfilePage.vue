@@ -78,6 +78,17 @@
               {{ area.accuracyPct }}%
             </span>
           </div>
+          <div v-if="weakAreaGraduation(area)" class="weak-area-progress">
+            <div class="graduation-bar mini" aria-hidden="true">
+              <div
+                class="graduation-bar-fill"
+                :style="{ width: weakAreaGraduation(area).progressPct + '%' }"
+              />
+            </div>
+            <p class="weak-area-graduation-hint">
+              {{ t("learn.focusAreaGraduationHint", { n: weakAreaGraduation(area).remainingPct }) }}
+            </p>
+          </div>
           <p class="weak-area-tip">{{ t(focusAreaTipKey(area.typeId)) }}</p>
         </button>
       </div>
@@ -224,6 +235,7 @@ import {
 } from "./practiceWeakAreas.js";
 import { recordAccuracyPeak } from "./accuracyPeakStats.js";
 import { focusPracticeRoute } from "@/modules/path/focusPracticeRoute.js";
+import { weakAreaGraduationProgress } from "@/modules/path/focusPracticeProgress.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -275,6 +287,11 @@ onMounted(async () => {
 
 function goToFocusPractice(typeId) {
   router.push(focusPracticeRoute(typeId));
+}
+
+function weakAreaGraduation(area) {
+  const progress = weakAreaGraduationProgress(area?.accuracyPct);
+  return progress.graduated ? null : progress;
 }
 
 async function onSwitchLevel(level) {
@@ -662,6 +679,30 @@ async function handleInstallUpdate() {
 
 .weak-area-pct.tier-needs_work {
   color: #d64545;
+}
+
+.weak-area-progress {
+  margin-top: 6px;
+}
+
+.graduation-bar.mini {
+  height: 6px;
+  background: var(--gray-light);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.graduation-bar.mini .graduation-bar-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 999px;
+}
+
+.weak-area-graduation-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-lighter);
 }
 
 .weak-area-tip {

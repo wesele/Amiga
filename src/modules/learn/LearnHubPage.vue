@@ -33,6 +33,17 @@
           <div class="focus-hero-copy">
             <p class="focus-hero-title">{{ focusHeroTitle }}</p>
             <p class="focus-hero-sub">{{ focusHeroSub }}</p>
+            <div v-if="focusHeroGraduation" class="focus-graduation-strip">
+              <div class="graduation-bar mini" aria-hidden="true">
+                <div
+                  class="graduation-bar-fill"
+                  :style="{ width: focusHeroGraduation.progressPct + '%' }"
+                />
+              </div>
+              <p class="focus-graduation-hint">
+                {{ t("learn.focusAreaGraduationHint", { n: focusHeroGraduation.remainingPct }) }}
+              </p>
+            </div>
           </div>
         </div>
         <button type="button" class="focus-hero-action" @click="goToFocus">
@@ -187,6 +198,17 @@
                 {{ t(focusAreaTypeKey(focusArea.typeId)) }}
                 · {{ t("learn.focusAreaAccuracy", { pct: focusArea.accuracyPct }) }}
               </p>
+              <div v-if="focusAreaGraduation" class="focus-graduation-strip">
+                <div class="graduation-bar mini" aria-hidden="true">
+                  <div
+                    class="graduation-bar-fill"
+                    :style="{ width: focusAreaGraduation.progressPct + '%' }"
+                  />
+                </div>
+                <p class="focus-graduation-hint">
+                  {{ t("learn.focusAreaGraduationHint", { n: focusAreaGraduation.remainingPct }) }}
+                </p>
+              </div>
               <p class="focus-area-hint">{{ t(focusAreaTipKey(focusArea.typeId)) }}</p>
             </div>
             <span class="focus-area-action">{{ t("learn.focusAreaAction") }}</span>
@@ -361,6 +383,7 @@ import {
   shouldShowFocusArea,
 } from "./questionTypeStats.js";
 import { focusPracticeRoute } from "@/modules/path/focusPracticeRoute.js";
+import { weakAreaGraduationProgress } from "@/modules/path/focusPracticeProgress.js";
 import {
   FOCUS_IDS,
   pickLearningHubFocus,
@@ -462,6 +485,19 @@ const showPerfectMilestone = computed(() =>
 const showPerfectStreak = computed(() => shouldShowPerfectStreakCard(perfectStreak.value?.current));
 
 const showFocusArea = computed(() => shouldShowFocusArea(focusArea.value));
+
+const focusAreaGraduation = computed(() => {
+  if (!focusArea.value) return null;
+  const progress = weakAreaGraduationProgress(focusArea.value.accuracyPct);
+  return progress.graduated ? null : progress;
+});
+
+const focusHeroGraduation = computed(() => {
+  const focus = hubFocus.value;
+  if (!focus || focus.id !== FOCUS_IDS.FOCUS_PRACTICE) return null;
+  const progress = weakAreaGraduationProgress(focus.accuracyPct);
+  return progress.graduated ? null : progress;
+});
 
 const mistakeReviewTotal = computed(() => mistakeReviewCount(dueMistakeEntries.value.length));
 
@@ -1309,6 +1345,30 @@ onMounted(loadHubData);
   margin: 2px 0 0;
   font-size: 12px;
   color: #a66f1f;
+  line-height: 1.35;
+}
+
+.focus-graduation-strip {
+  margin-top: 6px;
+}
+
+.graduation-bar.mini {
+  height: 6px;
+  background: rgba(166, 111, 31, 0.18);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.graduation-bar.mini .graduation-bar-fill {
+  height: 100%;
+  background: #c47d00;
+  border-radius: 999px;
+}
+
+.focus-graduation-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #b8842e;
   line-height: 1.35;
 }
 
