@@ -350,7 +350,9 @@ describe("VocabReviewPage", () => {
         return Promise.resolve([
           {
             article_id: Number(args.articleIds[0]),
-            words_unknown: '["casa"]',
+            words_unknown: JSON.stringify([
+              { word: "casa", context: "Mi casa es grande." },
+            ]),
             unknown_count: 1,
             read_at: "2026-07-03 10:00:00",
             read_today: true,
@@ -377,6 +379,13 @@ describe("VocabReviewPage", () => {
 
     expect(wrapper.text()).toContain("casa");
     expect(wrapper.text()).toContain("1/1");
+
+    await wrapper.find(".flashcard").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("来自新闻阅读");
+    expect(wrapper.find(".flashcard-context-mark").text()).toBe("casa");
+    expect(wrapper.text()).toContain("Mi casa es grande.");
   });
 
   it("prioritizes reading-session words and shows highlighted context on flip", async () => {

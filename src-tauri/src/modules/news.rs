@@ -464,6 +464,18 @@ mod tests {
     }
 
     #[test]
+    fn test_count_unique_json_words_supports_object_entries() {
+        let legacy = r#"["inflación","tasa"]"#;
+        assert_eq!(count_unique_json_words(Some(legacy)), 2);
+
+        let with_context = r#"[{"word":"inflación","context":"La inflación subió."},{"word":"tasa","context":"El banco subió la tasa."}]"#;
+        assert_eq!(count_unique_json_words(Some(with_context)), 2);
+
+        let mixed = r#"[{"word":"casa","context":"Mi casa."},"casa",{"word":"perro","context":"Un perro."}]"#;
+        assert_eq!(count_unique_json_words(Some(mixed)), 2);
+    }
+
+    #[test]
     fn test_get_articles_reading_status_invalid_json_counts_zero() {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
@@ -995,16 +1007,22 @@ fn count_unique_json_word_list(json: Option<&str>) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
     let mut words = Vec::new();
     for item in items {
-        let Some(word) = item.as_str() else {
+        let word = if let Some(s) = item.as_str() {
+            s.trim().to_string()
+        } else if let Some(obj) = item.as_object() {
+            obj.get("word")
+                .and_then(|v| v.as_str())
+                .map(|s| s.trim().to_string())
+                .unwrap_or_default()
+        } else {
             continue;
         };
-        let word = word.trim();
         if word.is_empty() {
             continue;
         }
         let key = word.to_lowercase();
         if seen.insert(key) {
-            words.push(word.to_string());
+            words.push(word);
         }
     }
     words

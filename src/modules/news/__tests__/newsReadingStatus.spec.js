@@ -7,14 +7,43 @@ import {
   buildStatusMap,
   collectUnknownWordsFromStatusMap,
   countUnreadArticles,
+  parseUnknownWordEntries,
   parseUnknownWords,
+  serializeUnknownWordEntries,
 } from "../newsReadingStatus.js";
 
 describe("newsReadingStatus helpers", () => {
   it("parseUnknownWords dedupes and ignores invalid JSON", () => {
-    expect(parseUnknownWords('["Hola","hola","  "]')).toEqual(["Hola"]);
+    expect(parseUnknownWords('["Hola","hola","  "]')).toEqual(["hola"]);
     expect(parseUnknownWords("not-json")).toEqual([]);
     expect(parseUnknownWords(null)).toEqual([]);
+  });
+
+  it("parseUnknownWordEntries supports legacy strings and object entries with context", () => {
+    expect(parseUnknownWordEntries('["casa","perro"]')).toEqual([
+      { word: "casa", context: "" },
+      { word: "perro", context: "" },
+    ]);
+    const mixed = JSON.stringify([
+      { word: "inflación", context: "La inflación subió." },
+      "tasa",
+      { word: "tasa", context: "El banco subió la tasa." },
+    ]);
+    expect(parseUnknownWordEntries(mixed)).toEqual([
+      { word: "inflación", context: "La inflación subió." },
+      { word: "tasa", context: "El banco subió la tasa." },
+    ]);
+  });
+
+  it("serializeUnknownWordEntries round-trips review context", () => {
+    const json = serializeUnknownWordEntries([
+      { word: "casa", context: "Mi casa es grande." },
+      { word: "perro", context: "" },
+    ]);
+    expect(JSON.parse(json)).toEqual([
+      { word: "casa", context: "Mi casa es grande." },
+      { word: "perro", context: "" },
+    ]);
   });
 
   it("buildStatusMap indexes rows by article id", () => {
@@ -88,9 +117,15 @@ describe("newsReadingStatus helpers", () => {
     expect(due.has("perro")).toBe(false);
 
     const sessionWords = buildArticleReviewSessionWords(
-      { words_unknown: '["casa"]' },
+      {
+        words_unknown: JSON.stringify([
+          { word: "casa", context: "Mi casa es grande." },
+        ]),
+      },
       9,
     );
-    expect(sessionWords).toEqual([{ word: "casa", context: "", articleId: 9 }]);
+    expect(sessionWords).toEqual([
+      { word: "casa", context: "Mi casa es grande.", articleId: 9 },
+    ]);
   });
 });

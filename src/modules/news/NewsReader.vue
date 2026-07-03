@@ -208,6 +208,7 @@ import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
 import { buildMasteryMap, resolveWordClass as resolveWordMasteryClass, wordKey } from "./wordMastery.js";
 import { saveReadingSessionSummary } from "./readingSession.js";
+import { serializeUnknownWordEntries } from "./newsReadingStatus.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -329,7 +330,7 @@ onBeforeUnmount(async () => {
         article_id: Number(props.id),
         words_looked_up: JSON.stringify(Array.from(knownWordIds.value)),
         words_known: JSON.stringify(Array.from(wordsKnownSet.value)),
-        words_unknown: JSON.stringify(Array.from(wordsUnknownSet.value)),
+        words_unknown: serializeUnknownWordEntries(sessionWordsRef.value),
         reading_time_sec: elapsed,
         completed: true,
       });

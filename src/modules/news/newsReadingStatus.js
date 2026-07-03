@@ -1,23 +1,50 @@
-/** Parse words_unknown JSON from news_reading_log into a deduped word list. */
-export function parseUnknownWords(json) {
+/** Parse words_unknown JSON into deduped { word, context } entries (backward compatible). */
+export function parseUnknownWordEntries(json) {
   if (!json) return [];
   try {
     const parsed = JSON.parse(json);
     if (!Array.isArray(parsed)) return [];
-    const seen = new Set();
-    const words = [];
+    const byWord = new Map();
     for (const item of parsed) {
-      const word = typeof item === "string" ? item.trim() : "";
-      if (!word) continue;
-      const key = word.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      words.push(word);
+      if (typeof item === "string") {
+        const word = item.trim();
+        if (!word) continue;
+        byWord.set(word.toLowerCase(), { word, context: "" });
+        continue;
+      }
+      if (item && typeof item === "object" && item.word) {
+        const word = String(item.word).trim();
+        if (!word) continue;
+        byWord.set(word.toLowerCase(), {
+          word,
+          context: String(item.context || "").trim(),
+        });
+      }
     }
-    return words;
+    return Array.from(byWord.values());
   } catch {
     return [];
   }
+}
+
+/** Parse words_unknown JSON from news_reading_log into a deduped word list. */
+export function parseUnknownWords(json) {
+  return parseUnknownWordEntries(json).map((entry) => entry.word);
+}
+
+/** Serialize session word entries for news_reading_log.words_unknown storage. */
+export function serializeUnknownWordEntries(entries) {
+  const byWord = new Map();
+  for (const entry of entries || []) {
+    if (!entry?.word) continue;
+    const word = String(entry.word).trim();
+    if (!word) continue;
+    byWord.set(word.toLowerCase(), {
+      word,
+      context: String(entry.context || "").trim(),
+    });
+  }
+  return JSON.stringify(Array.from(byWord.values()));
 }
 
 /** Build a Map<articleId, statusRow> from API rows. */
@@ -117,9 +144,9 @@ export function buildDueWordKeySet(masteryEntries) {
 /** Build session word entries from an article log for vocab review. */
 export function buildArticleReviewSessionWords(status, articleId) {
   if (!status?.words_unknown) return [];
-  return parseUnknownWords(status.words_unknown).map((word) => ({
+  return parseUnknownWordEntries(status.words_unknown).map(({ word, context }) => ({
     word,
-    context: "",
+    context: context || "",
     articleId: Number(articleId),
   }));
 }
