@@ -319,6 +319,17 @@ export default {
     explainTimeout: "Explanation timed out — check your network or model settings",
     explainEmpty: "No explanation received",
     explainRetry: "Retry",
+    teachingComplete: {
+      grammarTitle: "Grammar preview complete!",
+      vocabTitle: "Vocabulary preview complete!",
+      vocabWordsHint: "You'll practice with these words next",
+    },
+    teachingContinue: {
+      toVocab: "Continue to vocabulary",
+      toVocabSub: "{unit}",
+      toPractice: "Start practice",
+      toPracticeSub: "Reinforce the words you just learned",
+    },
   },
 
   common: {

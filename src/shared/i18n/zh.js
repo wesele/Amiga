@@ -322,6 +322,17 @@ export default {
     explainTimeout: "讲解生成超时，请检查网络或模型配置后重试",
     explainEmpty: "未收到讲解内容",
     explainRetry: "重试",
+    teachingComplete: {
+      grammarTitle: "语法预习完成！",
+      vocabTitle: "词汇预习完成！",
+      vocabWordsHint: "接下来练习会用到这些词",
+    },
+    teachingContinue: {
+      toVocab: "继续学词汇",
+      toVocabSub: "{unit}",
+      toPractice: "开始练习",
+      toPracticeSub: "巩固刚学的词",
+    },
   },
 
   common: {

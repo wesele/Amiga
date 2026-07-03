@@ -25,3 +25,29 @@ export function continueRouteAfterLesson(result) {
 export function shouldContinueToNextLesson(result) {
   return continueRouteAfterLesson(result) != null;
 }
+
+/** Same routing logic for teaching-node and practice-lesson completions. */
+export const continueRouteAfterSection = continueRouteAfterLesson;
+
+/** i18n keys for the teaching summary primary CTA. */
+export function teachingContinueCtaKeys(result) {
+  const route = continueRouteAfterLesson(result);
+  if (!route) return null;
+  const kind = sectionKindFromId(result?.next_section_id);
+  if (kind === "vocab") {
+    return {
+      labelKey: "path.teachingContinue.toVocab",
+      subtitleKey: "path.teachingContinue.toVocabSub",
+    };
+  }
+  if (kind === "practice") {
+    return {
+      labelKey: "path.teachingContinue.toPractice",
+      subtitleKey: "path.teachingContinue.toPracticeSub",
+    };
+  }
+  return {
+    labelKey: "path.continueNextLesson",
+    subtitleKey: null,
+  };
+}

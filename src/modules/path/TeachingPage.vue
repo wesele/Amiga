@@ -15,6 +15,63 @@
       <button class="action-btn secondary" @click="load">{{ t("common.retry") }}</button>
     </div>
 
+    <template v-else-if="completionResult">
+      <div class="teach-summary">
+        <h2 class="summary-title">{{ summaryTitle }}</h2>
+        <p v-if="completionResult.streak_extended" class="streak-banner">
+          {{ t("path.streakExtended", { n: completionResult.streak_current }) }}
+        </p>
+        <p v-if="completionResult.daily_goal_just_met" class="daily-goal-banner">
+          {{
+            t("path.dailyGoalMetCelebration", {
+              done: completionResult.daily_goal_lessons_today,
+              total: completionResult.daily_goal_target,
+            })
+          }}
+        </p>
+        <p v-else-if="showDailyGoalNudge" class="daily-goal-banner is-nudge">
+          {{
+            t("path.dailyGoalRemaining", {
+              remaining: dailyGoalRemaining,
+              done: completionResult.daily_goal_lessons_today,
+              total: completionResult.daily_goal_target,
+            })
+          }}
+        </p>
+        <p v-if="completionResult.weekly_goal_just_met" class="weekly-goal-banner">
+          {{
+            t("path.weeklyGoalMetCelebration", {
+              done: completionResult.weekly_goal_active_days,
+              total: completionResult.weekly_goal_target_days,
+            })
+          }}
+        </p>
+        <p v-if="completionResult.level_upgraded" class="level-up-banner">
+          🎓 {{ t("path.levelUp", { level: completionResult.new_cefr_level }) }}
+        </p>
+        <section v-if="content?.kind === 'vocab' && summaryWords.length" class="summary-words">
+          <p class="summary-words-hint">{{ t("path.teachingComplete.vocabWordsHint") }}</p>
+          <div class="summary-word-chips">
+            <span v-for="w in summaryWords" :key="w.word" class="summary-word-chip">{{ w.word }}</span>
+          </div>
+        </section>
+      </div>
+      <footer class="teach-footer">
+        <template v-if="continueRoute">
+          <button class="action-btn primary" @click="goToContinue">
+            {{ continueCtaLabel }}
+          </button>
+          <p v-if="continueCtaSubtitle" class="continue-sub">{{ continueCtaSubtitle }}</p>
+          <button class="action-btn secondary" @click="exitTeaching">
+            {{ t("path.backToPath") }}
+          </button>
+        </template>
+        <button v-else class="action-btn primary" @click="exitTeaching">
+          {{ t("path.backToPath") }}
+        </button>
+      </footer>
+    </template>
+
     <template v-else-if="content">
       <div class="teach-body">
         <div class="goal-card">
@@ -115,6 +172,14 @@ import {
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { pathRouteWithCurrentFocus } from "./pathMapScroll.js";
+import {
+  continueRouteAfterSection,
+  teachingContinueCtaKeys,
+} from "./lessonContinue.js";
+import {
+  dailyGoalLessonsRemaining,
+  shouldShowDailyGoalNudge,
+} from "./dailyGoalNudge.js";
 import { promiseWithTimeout } from "@/shared/promiseTimeout.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 
@@ -127,6 +192,7 @@ const loading = ref(true);
 const error = ref("");
 const submitting = ref(false);
 const content = ref(null);
+const completionResult = ref(null);
 const teachingWords = ref([]);
 const selectedWord = ref(null);
 const userId = ref("");
@@ -148,6 +214,43 @@ const kindLabel = computed(() => {
   if (content.value?.kind === "vocab") return t("path.nodeVocab");
   return t("path.nodeGrammar");
 });
+
+const summaryTitle = computed(() => {
+  if (content.value?.kind === "vocab") return t("path.teachingComplete.vocabTitle");
+  return t("path.teachingComplete.grammarTitle");
+});
+
+const summaryWords = computed(() => teachingWords.value.slice(0, 5));
+
+const continueRoute = computed(() =>
+  completionResult.value ? continueRouteAfterSection(completionResult.value) : null,
+);
+
+const continueCtaKeys = computed(() =>
+  completionResult.value ? teachingContinueCtaKeys(completionResult.value) : null,
+);
+
+const continueCtaLabel = computed(() => {
+  const keys = continueCtaKeys.value;
+  return keys ? t(keys.labelKey) : t("path.backToPath");
+});
+
+const continueCtaSubtitle = computed(() => {
+  const keys = continueCtaKeys.value;
+  if (!keys?.subtitleKey) return "";
+  if (keys.subtitleKey === "path.teachingContinue.toVocabSub") {
+    return t(keys.subtitleKey, { unit: content.value?.unit_title_native ?? "" });
+  }
+  return t(keys.subtitleKey);
+});
+
+const dailyGoalRemaining = computed(() =>
+  dailyGoalLessonsRemaining(completionResult.value),
+);
+
+const showDailyGoalNudge = computed(() =>
+  shouldShowDailyGoalNudge(completionResult.value),
+);
 
 async function onGrammarPointClick(idx, point) {
   if (expandedPoint.value === idx && !pointErrors.value[idx]) {
@@ -266,6 +369,12 @@ function exitTeaching() {
   router.replace(pathRouteWithCurrentFocus());
 }
 
+function goToContinue() {
+  const route = continueRoute.value;
+  if (route) router.replace(route);
+  else exitTeaching();
+}
+
 async function load() {
   loading.value = true;
   error.value = "";
@@ -295,13 +404,12 @@ async function load() {
 async function finishTeaching() {
   submitting.value = true;
   try {
-    await completeTeachingNode(
+    completionResult.value = await completeTeachingNode(
       userMeta.value.nativeLang,
       userMeta.value.targetLang,
       userMeta.value.cefr,
       route.params.nodeId,
     );
-    router.replace(pathRouteWithCurrentFocus());
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {
@@ -632,5 +740,117 @@ onMounted(load);
   background: var(--white);
   color: var(--text);
   border: 2px solid var(--border);
+}
+
+.teach-summary {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.summary-title {
+  margin: 0 0 16px;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.streak-banner {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  background: var(--orange-bg);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--orange);
+  width: 100%;
+  max-width: 360px;
+}
+
+.daily-goal-banner {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  background: var(--green-bg);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green-hover);
+  width: 100%;
+  max-width: 360px;
+}
+
+.daily-goal-banner.is-nudge {
+  background: linear-gradient(135deg, #fff8e6 0%, #ffefcc 100%);
+  color: #8a6200;
+  border: 1px solid #e6b84d;
+}
+
+.weekly-goal-banner {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  background: var(--blue-bg);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--blue-hover);
+  width: 100%;
+  max-width: 360px;
+}
+
+.level-up-banner {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  background: var(--orange-bg);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--orange);
+  width: 100%;
+  max-width: 360px;
+}
+
+.summary-words {
+  margin-top: 24px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.summary-words-hint {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.summary-word-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.summary-word-chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--white);
+  border: 2px solid var(--border);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.continue-sub {
+  margin: 8px 0 12px;
+  font-size: 13px;
+  color: var(--text-light);
+  font-weight: 600;
+  text-align: center;
+}
+
+.teach-footer .action-btn.secondary {
+  margin-top: 10px;
 }
 </style>

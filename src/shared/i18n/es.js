@@ -319,6 +319,17 @@ export default {
     explainTimeout: "Tiempo de espera agotado — revisa la red o la configuración del modelo",
     explainEmpty: "No se recibió explicación",
     explainRetry: "Reintentar",
+    teachingComplete: {
+      grammarTitle: "¡Vista previa gramatical completada!",
+      vocabTitle: "¡Vista previa de vocabulario completada!",
+      vocabWordsHint: "Practicarás con estas palabras a continuación",
+    },
+    teachingContinue: {
+      toVocab: "Continuar al vocabulario",
+      toVocabSub: "{unit}",
+      toPractice: "Empezar práctica",
+      toPracticeSub: "Refuerza las palabras que acabas de aprender",
+    },
   },
 
   common: {

@@ -21,6 +21,11 @@ function makeRouter() {
         name: "path-teaching",
         component: TeachingPage,
       },
+      {
+        path: "/learn/path/lesson/:sectionId",
+        name: "path-lesson",
+        component: { template: "<div class='lesson-page'/>" },
+      },
     ],
   });
 }
@@ -257,5 +262,154 @@ describe("TeachingPage vocab list", () => {
       sourceLang: "es",
       nativeLang: "zh",
     });
+  });
+});
+
+function completeTeachingResult(overrides = {}) {
+  return {
+    passed: true,
+    stars: 1,
+    best_score: 100,
+    next_section_id: "zh-es/U01-VOCAB",
+    level_upgraded: false,
+    streak_extended: false,
+    streak_current: 0,
+    daily_goal_just_met: false,
+    daily_goal_lessons_today: 1,
+    daily_goal_target: 3,
+    ...overrides,
+  };
+}
+
+describe("TeachingPage completion flow", () => {
+  let mockInvoke;
+  let router;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockInvoke = vi.fn();
+    api.__setInvoke(mockInvoke);
+    setLocale("zh", { persist: false });
+    router = makeRouter();
+  });
+
+  async function finishGrammarTeaching(resultOverrides = {}) {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_teaching_content_cmd") {
+        return Promise.resolve(teachingContent());
+      }
+      if (cmd === "complete_teaching_node_cmd") {
+        return Promise.resolve(completeTeachingResult(resultOverrides));
+      }
+      return Promise.reject(new Error(`unexpected invoke: ${cmd}`));
+    });
+
+    await router.push({ name: "path-teaching", params: { nodeId: GRAMMAR_NODE_ID } });
+    await router.isReady();
+    const wrapper = mount(TeachingPage, { global: { plugins: [router] } });
+    await flushPromises();
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+    return { wrapper, router };
+  }
+
+  async function finishVocabTeaching(resultOverrides = {}) {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") {
+        return Promise.resolve({ id: "u1", native_language: "zh" });
+      }
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
+      }
+      if (cmd === "get_teaching_content_cmd") {
+        return Promise.resolve(vocabTeachingContent());
+      }
+      if (cmd === "get_user_vocab_by_level_cmd") {
+        return Promise.resolve([]);
+      }
+      if (cmd === "complete_teaching_node_cmd") {
+        return Promise.resolve(
+          completeTeachingResult({
+            next_section_id: "zh-es/U01-PRACTICE",
+            ...resultOverrides,
+          }),
+        );
+      }
+      return Promise.reject(new Error(`unexpected invoke: ${cmd}`));
+    });
+
+    await router.push({ name: "path-teaching", params: { nodeId: VOCAB_NODE_ID } });
+    await router.isReady();
+    const wrapper = mount(TeachingPage, { global: { plugins: [router] } });
+    await flushPromises();
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+    return { wrapper, router };
+  }
+
+  it("shows grammar summary and routes to vocab on continue", async () => {
+    const { wrapper, router } = await finishGrammarTeaching();
+    expect(wrapper.find(".summary-title").text()).toContain("语法预习完成");
+    expect(wrapper.text()).toContain("继续学词汇");
+    expect(wrapper.text()).toContain("基础问候与自我介绍");
+
+    const buttons = wrapper.findAll(".action-btn.primary");
+    await buttons[0].trigger("click");
+    await flushPromises();
+    expect(router.currentRoute.value.name).toBe("path-teaching");
+    expect(router.currentRoute.value.params.nodeId).toBe("zh-es/U01-VOCAB");
+  });
+
+  it("shows vocab summary with word chips and routes to practice", async () => {
+    const { wrapper, router } = await finishVocabTeaching();
+    expect(wrapper.find(".summary-title").text()).toContain("词汇预习完成");
+    expect(wrapper.text()).toContain("开始练习");
+    expect(wrapper.text()).toContain("接下来练习会用到这些词");
+    expect(wrapper.findAll(".summary-word-chip")).toHaveLength(3);
+
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+    expect(router.currentRoute.value.name).toBe("path-lesson");
+    expect(router.currentRoute.value.params.sectionId).toBe("zh-es/U01-PRACTICE");
+  });
+
+  it("returns to path map via secondary CTA", async () => {
+    const { wrapper, router } = await finishGrammarTeaching();
+    await wrapper.find(".action-btn.secondary").trigger("click");
+    await flushPromises();
+    expect(router.currentRoute.value.name).toBe("path");
+  });
+
+  it("shows level-up celebration without auto-continue route", async () => {
+    const { wrapper, router } = await finishGrammarTeaching({
+      next_section_id: "zh-es/U02-GRAMMAR",
+      level_upgraded: true,
+      new_cefr_level: "A2",
+    });
+    expect(wrapper.text()).toContain("已升级到 A2");
+    expect(wrapper.text()).not.toContain("继续学词汇");
+    await wrapper.find(".action-btn.primary").trigger("click");
+    await flushPromises();
+    expect(router.currentRoute.value.name).toBe("path");
+  });
+
+  it("shows streak and daily goal celebration banners", async () => {
+    const { wrapper } = await finishGrammarTeaching({
+      streak_extended: true,
+      streak_current: 5,
+      daily_goal_just_met: true,
+      daily_goal_lessons_today: 3,
+      daily_goal_target: 3,
+    });
+    expect(wrapper.text()).toContain("5 天连胜");
+    expect(wrapper.text()).toContain("今日目标达成");
   });
 });

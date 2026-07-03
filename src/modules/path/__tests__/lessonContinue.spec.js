@@ -3,6 +3,7 @@ import {
   continueRouteAfterLesson,
   sectionKindFromId,
   shouldContinueToNextLesson,
+  teachingContinueCtaKeys,
 } from "../lessonContinue.js";
 
 describe("sectionKindFromId", () => {
@@ -65,6 +66,42 @@ describe("continueRouteAfterLesson", () => {
   it("returns null after a level upgrade so learners can see the celebration", () => {
     expect(
       continueRouteAfterLesson({
+        passed: true,
+        level_upgraded: true,
+        next_section_id: "zh-es/U02-GRAMMAR",
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("teachingContinueCtaKeys", () => {
+  it("maps grammar completion to vocab CTA keys", () => {
+    expect(
+      teachingContinueCtaKeys({
+        passed: true,
+        next_section_id: "zh-es/U01-VOCAB",
+      }),
+    ).toEqual({
+      labelKey: "path.teachingContinue.toVocab",
+      subtitleKey: "path.teachingContinue.toVocabSub",
+    });
+  });
+
+  it("maps vocab completion to practice CTA keys", () => {
+    expect(
+      teachingContinueCtaKeys({
+        passed: true,
+        next_section_id: "zh-es/U01-PRACTICE",
+      }),
+    ).toEqual({
+      labelKey: "path.teachingContinue.toPractice",
+      subtitleKey: "path.teachingContinue.toPracticeSub",
+    });
+  });
+
+  it("returns null when auto-continue is blocked", () => {
+    expect(
+      teachingContinueCtaKeys({
         passed: true,
         level_upgraded: true,
         next_section_id: "zh-es/U02-GRAMMAR",
