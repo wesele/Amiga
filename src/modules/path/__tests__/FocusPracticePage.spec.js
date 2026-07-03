@@ -73,6 +73,27 @@ describe("FocusPracticePage", () => {
           questions: [MOCK_QUESTION],
         });
       }
+      if (cmd === "get_path_curriculum_cmd") {
+        return Promise.resolve({
+          status: "active",
+          units: [
+            {
+              sections: [
+                {
+                  id: "zh-es/U01-GRAMMAR",
+                  kind: "grammar",
+                  title_native: "基础语法",
+                  current: true,
+                  locked: false,
+                },
+              ],
+            },
+          ],
+        });
+      }
+      if (cmd === "get_unknown_words_cmd") return Promise.resolve([]);
+      if (cmd === "get_articles_cmd") return Promise.resolve([]);
+      if (cmd === "get_articles_reading_status_cmd") return Promise.resolve([]);
       return Promise.resolve(null);
     });
     api.__setInvoke(mockInvoke);
@@ -93,12 +114,13 @@ describe("FocusPracticePage", () => {
     expect(source).toMatch(/class="hint-btn"/);
     expect(source).toMatch(/path\.focusPracticeBadge/);
     expect(source).toMatch(/sessionAccuracy/);
-    expect(source).toMatch(/focusPracticeContinuation\.js/);
+    expect(source).toMatch(/postFocusPracticePlan\.js/);
     expect(source).toMatch(/focusPracticeProgress\.js/);
-    expect(source).toMatch(/FOCUS_CONTINUE_LABEL_KEY/);
+    expect(source).toMatch(/next-steps-panel/);
     expect(source).toMatch(/continuePractice/);
     expect(source).toMatch(/type-progress-card/);
     expect(source).toMatch(/goToNextWeak/);
+    expect(source).toMatch(/goToFocusStep/);
   });
 
   it("shows your answer alongside correct answer when focus practice answer is wrong", () => {
@@ -155,8 +177,9 @@ describe("FocusPracticePage", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("专项练习完成");
+    expect(wrapper.find(".next-steps-panel").exists()).toBe(true);
     expect(wrapper.text()).toContain("再练一轮");
-    expect(wrapper.text()).toContain("趁热打铁");
+    expect(wrapper.text()).toContain("稍后再说");
   });
 
   it("hides continue button after a perfect focus practice round", async () => {

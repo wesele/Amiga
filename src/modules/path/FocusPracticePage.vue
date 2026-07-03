@@ -66,32 +66,57 @@
       </div>
 
       <p v-if="streakCelebration" class="streak-banner">{{ streakCelebration }}</p>
-      <p v-if="showContinuePractice" class="continue-hint">{{ t(FOCUS_CONTINUE_HINT_KEY) }}</p>
-      <div class="summary-actions">
+      <section v-if="focusPracticePlan" class="next-steps-panel">
+        <p class="next-steps-eyebrow">{{ t("path.nextStep.title") }}</p>
+        <div class="next-steps-primary">
+          <span class="next-steps-icon" aria-hidden="true">{{ focusPracticePlan.primary.icon }}</span>
+          <div class="next-steps-copy">
+            <p class="next-steps-primary-title">{{ stepTitle(focusPracticePlan.primary) }}</p>
+            <p
+              v-if="focusPracticePlan.primary.subtitleKey"
+              class="next-steps-primary-sub"
+            >
+              {{ stepSubtitle(focusPracticePlan.primary) }}
+            </p>
+          </div>
+        </div>
+        <div v-if="focusPracticePlan.secondary.length" class="next-steps-queue">
+          <p class="next-steps-queue-title">
+            {{ t("path.nextStep.queueTitle", { n: focusPracticePlan.secondary.length }) }}
+          </p>
+          <button
+            v-for="step in focusPracticePlan.secondary"
+            :key="step.id"
+            type="button"
+            class="next-steps-queue-item"
+            :disabled="!step.route && !step.contactAction && !isContinueFocusStep(step) && !isNextWeakStep(step)"
+            @click="goToFocusStep(step)"
+          >
+            <span class="next-steps-queue-icon" aria-hidden="true">{{ step.icon }}</span>
+            <div class="next-steps-queue-copy">
+              <p class="next-steps-queue-item-title">{{ stepTitle(step) }}</p>
+              <p v-if="step.subtitleKey" class="next-steps-queue-item-sub">
+                {{ stepSubtitle(step) }}
+              </p>
+            </div>
+          </button>
+        </div>
+      </section>
+      <div v-if="focusPracticePlan" class="summary-actions">
         <button
-          v-if="showContinuePractice"
           type="button"
           class="action-btn primary"
-          :disabled="continuing"
-          @click="continuePractice"
+          :disabled="continuing || openingAiPractice"
+          @click="goToFocusStep(focusPracticePlan.primary)"
         >
-          {{ t(FOCUS_CONTINUE_LABEL_KEY) }}
+          {{ stepContinueLabel(focusPracticePlan.primary) }}
         </button>
-        <button
-          v-else-if="showNextWeakCta"
-          type="button"
-          class="action-btn primary"
-          :disabled="continuing"
-          @click="goToNextWeak"
-        >
-          {{ t("path.focusPracticeNextWeak", { type: nextWeakTypeLabel }) }}
+        <button type="button" class="action-btn secondary" @click="exitPractice">
+          {{ t("path.focusPracticeLater") }}
         </button>
-        <button
-          type="button"
-          class="action-btn"
-          :class="showPrimaryBack ? 'primary' : 'secondary'"
-          @click="exitPractice"
-        >
+      </div>
+      <div v-else class="summary-actions">
+        <button type="button" class="action-btn primary" @click="exitPractice">
           {{ t("path.focusPracticeBack") }}
         </button>
       </div>
@@ -173,8 +198,20 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
-import { getFocusPractice } from "@/shared/api.js";
+import {
+  getArticles,
+  getArticlesReadingStatus,
+  getFocusPractice,
+  getPathCurriculum,
+  getUnknownWords,
+} from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
+import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
+import { findCurrentSection } from "@/modules/learn/pathResume.js";
+import {
+  buildStatusMap,
+  countUnreadArticles,
+} from "@/modules/news/newsReadingStatus.js";
 import { applyReviewStreak, reviewStreakCelebration } from "@/shared/reviewStreak.js";
 import {
   focusAreaTypeKey,
@@ -186,14 +223,17 @@ import { playAnswerFeedback } from "@/shared/lessonFeedback.js";
 import { getQuestionHint, hasQuestionHint } from "./questionHint.js";
 import { HINT_IDLE_MS, shouldScheduleAutoHint } from "./questionHintTimer.js";
 import { isValidFocusType } from "./focusPracticeRoute.js";
+import { loadDueMistakes } from "./mistakeReviewStore.js";
+import { REMAINING_PEEK_LIMIT } from "./mistakeReviewContinuation.js";
 import {
-  FOCUS_CONTINUE_HINT_KEY,
-  FOCUS_CONTINUE_LABEL_KEY,
-} from "./focusPracticeContinuation.js";
+  buildPostFocusPracticePlan,
+  isAiPracticeStep,
+  isContinueFocusStep,
+  isNextWeakStep,
+} from "./postFocusPracticePlan.js";
 import {
   focusPracticeProgressSummary,
   pickPostGraduationTypeId,
-  resolveFocusSummaryCtas,
   shouldCelebrateGraduation,
   snapshotTypeAccuracy,
 } from "./focusPracticeProgress.js";
@@ -232,10 +272,18 @@ const lastCorrect = ref(false);
 const finished = ref(false);
 const correctCount = ref(0);
 const userId = ref("");
+const nativeLang = ref("zh");
 const pairKey = ref("");
 const targetLang = ref("es");
+const cefr = ref("A1");
 const streakUpdate = ref(null);
 const continuing = ref(false);
+const resumeTarget = ref(null);
+const dueMistakeCount = ref(0);
+const dueVocabCount = ref(0);
+const newsUnreadCount = ref(0);
+const planContextReady = ref(false);
+const openingAiPractice = ref(false);
 const beforeAccuracyPct = ref(null);
 const hintText = ref("");
 const hintShown = ref(false);
@@ -285,25 +333,27 @@ const nextWeakTypeId = computed(() => {
   return pickPostGraduationTypeId(stats, questionType.value);
 });
 
-const summaryCtas = computed(() =>
-  resolveFocusSummaryCtas(progressSummary.value ?? { graduated: false }, {
-    hasNextWeak: Boolean(nextWeakTypeId.value),
-    roundAccuracyPct: accuracyPct.value,
-    questionCount: questions.value.length,
-  }),
-);
-
-const showContinuePractice = computed(() => summaryCtas.value.showContinueRound);
-const showNextWeakCta = computed(() => summaryCtas.value.primary === "nextWeak");
-const showPrimaryBack = computed(
-  () => !showContinuePractice.value && !showNextWeakCta.value,
-);
 const celebrateGraduation = computed(() =>
   shouldCelebrateGraduation(progressSummary.value),
 );
-const nextWeakTypeLabel = computed(() =>
-  nextWeakTypeId.value ? t(focusAreaTypeKey(nextWeakTypeId.value)) : "",
-);
+
+const focusPracticePlan = computed(() => {
+  if (!finished.value || !planContextReady.value || !streakUpdate.value) {
+    return null;
+  }
+  return buildPostFocusPracticePlan({
+    streakUpdate: streakUpdate.value,
+    progressSummary: progressSummary.value ?? { graduated: false },
+    currentTypeId: questionType.value,
+    nextWeakTypeId: nextWeakTypeId.value,
+    roundAccuracyPct: accuracyPct.value,
+    questionCount: questions.value.length,
+    dueMistakes: dueMistakeCount.value,
+    dueVocabCount: dueVocabCount.value,
+    newsUnreadCount: newsUnreadCount.value,
+    resumeTarget: resumeTarget.value,
+  });
+});
 
 const deltaToneClass = computed(() => {
   const delta = progressSummary.value?.delta ?? 0;
@@ -505,7 +555,9 @@ async function load() {
   try {
     const ctx = await loadLearningContext();
     userId.value = ctx.user?.id ?? "";
+    nativeLang.value = ctx.nativeLang;
     targetLang.value = ctx.targetLang;
+    cefr.value = ctx.cefr;
     pairKey.value = pairStatsKey(ctx.nativeLang, ctx.targetLang);
     const session = await getFocusPractice(
       ctx.nativeLang,
@@ -520,6 +572,11 @@ async function load() {
     finished.value = false;
     streakUpdate.value = null;
     continuing.value = false;
+    planContextReady.value = false;
+    resumeTarget.value = null;
+    dueMistakeCount.value = 0;
+    dueVocabCount.value = 0;
+    newsUnreadCount.value = 0;
     if (questions.value.length > 0) {
       const stats = loadQuestionTypeStats(pairKey.value);
       beforeAccuracyPct.value = snapshotTypeAccuracy(stats, questionType.value);
@@ -565,6 +622,7 @@ async function advanceAfterResult() {
     sessionComplete: false,
     targetLanguage: targetLang.value,
   });
+  await loadPostFocusPracticeContext();
 }
 
 async function onPrimaryAction() {
@@ -618,6 +676,125 @@ async function goToNextWeak() {
     await load();
   } finally {
     continuing.value = false;
+  }
+}
+
+function regionForLang(lang) {
+  switch (lang) {
+    case "zh":
+      return "CN";
+    case "en":
+      return "US";
+    case "es":
+      return "ES";
+    default:
+      return "CN";
+  }
+}
+
+async function loadNewsUnread() {
+  try {
+    const articles = await getArticles(regionForLang(targetLang.value));
+    if (!articles.length) {
+      newsUnreadCount.value = 0;
+      return;
+    }
+    const ids = articles.map((article) => article.id).filter((id) => id != null);
+    const rows = await getArticlesReadingStatus(userId.value, ids);
+    const map = buildStatusMap(rows);
+    newsUnreadCount.value = countUnreadArticles(map, articles);
+  } catch {
+    newsUnreadCount.value = 0;
+  }
+}
+
+async function loadPostFocusPracticeContext() {
+  planContextReady.value = false;
+  try {
+    const curriculum = await getPathCurriculum(
+      nativeLang.value,
+      targetLang.value,
+      cefr.value,
+    );
+    resumeTarget.value = findCurrentSection(curriculum);
+    dueMistakeCount.value = loadDueMistakes(pairKey.value, {
+      limit: REMAINING_PEEK_LIMIT,
+    }).length;
+    if (userId.value) {
+      const words = await getUnknownWords(
+        userId.value,
+        cefr.value,
+        REMAINING_PEEK_LIMIT,
+        targetLang.value,
+      );
+      dueVocabCount.value = Array.isArray(words) ? words.length : 0;
+    } else {
+      dueVocabCount.value = 0;
+    }
+    await loadNewsUnread();
+  } catch {
+    resumeTarget.value = null;
+    dueMistakeCount.value = 0;
+    dueVocabCount.value = 0;
+    newsUnreadCount.value = 0;
+  } finally {
+    planContextReady.value = true;
+  }
+}
+
+function resolveFocusStepParams(step, params = {}) {
+  const resolved = { ...params };
+  if (params.typeId) {
+    resolved.type = t(focusAreaTypeKey(params.typeId));
+    delete resolved.typeId;
+  }
+  if (params.prevTypeId) {
+    resolved.prevType = t(focusAreaTypeKey(params.prevTypeId));
+    delete resolved.prevTypeId;
+  }
+  return resolved;
+}
+
+function stepTitle(step) {
+  if (!step?.titleKey) return "";
+  return t(step.titleKey, resolveFocusStepParams(step, step.titleParams ?? {}));
+}
+
+function stepSubtitle(step) {
+  if (!step?.subtitleKey) return "";
+  return t(step.subtitleKey, resolveFocusStepParams(step, step.subtitleParams ?? {}));
+}
+
+function stepContinueLabel(step) {
+  if (!step?.continueKey) return t("path.focusPracticeBack");
+  return t(step.continueKey, resolveFocusStepParams(step, step.continueParams ?? {}));
+}
+
+async function goToFocusStep(step) {
+  if (!step) return;
+  if (isContinueFocusStep(step)) {
+    await continuePractice();
+    return;
+  }
+  if (isNextWeakStep(step)) {
+    await goToNextWeak();
+    return;
+  }
+  if (isAiPracticeStep(step)) {
+    openingAiPractice.value = true;
+    try {
+      await openAiContact(
+        router,
+        { name: t("chat.amiga"), contactType: "amiga" },
+        { targetLang: targetLang.value },
+      );
+    } finally {
+      openingAiPractice.value = false;
+    }
+    return;
+  }
+  if (step.route) {
+    router.replace(step.route);
   }
 }
 
@@ -972,11 +1149,120 @@ onMounted(load);
   line-height: 1.45;
 }
 
-.continue-hint {
+.next-steps-panel {
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 14px 16px 16px;
+  background: linear-gradient(135deg, #e8f8ef 0%, #d4f5e0 100%);
+  border: 1px solid var(--green);
+  border-radius: var(--radius-md);
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.next-steps-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--green-hover);
+}
+
+.next-steps-primary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.next-steps-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.next-steps-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-primary-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.next-steps-primary-sub {
   margin: 4px 0 0;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-light);
-  line-height: 1.45;
+  line-height: 1.4;
+}
+
+.next-steps-queue {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(88, 204, 2, 0.25);
+}
+
+.next-steps-queue-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+.next-steps-queue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.next-steps-queue-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.next-steps-queue-item:disabled {
+  cursor: default;
+}
+
+.next-steps-queue-icon {
+  font-size: 18px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.next-steps-queue-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-steps-queue-item-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.next-steps-queue-item-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-light);
+  line-height: 1.35;
 }
 
 .summary-actions {
