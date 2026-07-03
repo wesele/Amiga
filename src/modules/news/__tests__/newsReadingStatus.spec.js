@@ -6,6 +6,7 @@ import {
   buildDueWordKeySet,
   buildStatusMap,
   collectUnknownWordsFromStatusMap,
+  comprehensionBadge,
   countUnreadArticles,
   parseUnknownWordEntries,
   parseUnknownWords,
@@ -101,6 +102,46 @@ describe("newsReadingStatus helpers", () => {
     );
     expect(mastered.readBadge).toBe("cardRead");
     expect(mastered.showReviewChip).toBe(false);
+  });
+
+  it("comprehensionBadge and articleCardState expose understanding badges", () => {
+    expect(
+      comprehensionBadge({
+        completed: true,
+        comprehension_score: 2,
+        comprehension_skipped: false,
+      }),
+    ).toEqual({ key: "cardComprehensionPerfect", params: {} });
+    expect(
+      comprehensionBadge({
+        completed: true,
+        comprehension_score: 1,
+        comprehension_skipped: false,
+      }),
+    ).toEqual({ key: "cardComprehensionPartial", params: { n: 1, total: 2 } });
+    expect(
+      comprehensionBadge({
+        completed: true,
+        comprehension_score: null,
+        comprehension_skipped: true,
+      }),
+    ).toBeNull();
+
+    const partial = articleCardState(
+      { id: 5 },
+      {
+        read_at: "2026-07-02 10:00:00",
+        completed: true,
+        read_today: false,
+        comprehension_score: 1,
+        comprehension_skipped: false,
+        unknown_count: 0,
+      },
+    );
+    expect(partial.comprehensionBadge).toEqual({
+      key: "cardComprehensionPartial",
+      params: { n: 1, total: 2 },
+    });
   });
 
   it("aggregateListSummary and countUnreadArticles tally progress", () => {

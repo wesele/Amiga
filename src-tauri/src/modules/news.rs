@@ -569,6 +569,40 @@ mod tests {
     }
 
     #[test]
+    fn test_get_articles_reading_status_returns_comprehension_fields() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES ('user-1', 'Test')",
+            [],
+        )
+        .unwrap();
+        let aid = insert_test_article(&conn, "Comprehension Article", "world");
+        conn.execute(
+            "INSERT INTO news_reading_log (user_id, article_id, reading_time_sec, completed, scroll_pct, comprehension_score, comprehension_skipped, comprehension_answers_json, read_at)
+             VALUES ('user-1', ?1, 40, 1, 100, 1, 0, '{\"main-idea\":\"a\"}', '2026-07-03 10:00:00.000')",
+            params![aid],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO news_reading_log (user_id, article_id, reading_time_sec, completed, scroll_pct, comprehension_score, comprehension_skipped, read_at)
+             VALUES ('user-1', ?1, 20, 1, 100, NULL, 1, '2026-07-02 10:00:00.000')",
+            params![aid],
+        )
+        .unwrap();
+        drop(conn);
+
+        let statuses = get_articles_reading_status(&pool, "user-1", &[aid]).unwrap();
+        assert_eq!(statuses.len(), 1);
+        assert_eq!(statuses[0].comprehension_score, Some(1));
+        assert!(!statuses[0].comprehension_skipped);
+        assert_eq!(
+            statuses[0].comprehension_answers_json.as_deref(),
+            Some("{\"main-idea\":\"a\"}")
+        );
+    }
+
+    #[test]
     fn test_sync_refresh_clears_visible_batch_when_feed_returns_empty() {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
@@ -624,6 +658,12 @@ pub struct ArticleReadingStatus {
     pub words_unknown: Option<String>,
     pub completed: bool,
     pub scroll_pct: i32,
+    #[serde(default)]
+    pub comprehension_score: Option<i32>,
+    #[serde(default)]
+    pub comprehension_skipped: bool,
+    #[serde(default)]
+    pub comprehension_answers_json: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1157,7 +1197,8 @@ pub fn get_articles_reading_status(
         .collect();
     let sql = format!(
         "SELECT l.article_id, l.words_unknown, l.words_known, l.reading_time_sec, l.read_at,
-                l.completed, l.scroll_pct
+                l.completed, l.scroll_pct, l.comprehension_score, l.comprehension_skipped,
+                l.comprehension_answers_json
          FROM news_reading_log l
          INNER JOIN (
              SELECT article_id, MAX(read_at) AS max_read_at
@@ -1196,6 +1237,9 @@ pub fn get_articles_reading_status(
                 words_unknown,
                 completed: completed != 0,
                 scroll_pct: row.get(6)?,
+                comprehension_score: row.get(7)?,
+                comprehension_skipped: row.get::<_, i32>(8)? != 0,
+                comprehension_answers_json: row.get(9)?,
             })
         })
         .map_err(|e| format!("Failed to query reading status: {}", e))?

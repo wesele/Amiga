@@ -79,6 +79,17 @@
             >
               {{ t(`news.${cardStateFor(article).unknownLine.key}`, { n: cardStateFor(article).unknownLine.n }) }}
             </span>
+            <span
+              v-if="cardStateFor(article).comprehensionBadge"
+              class="badge-comprehension"
+            >
+              {{
+                t(
+                  `news.${cardStateFor(article).comprehensionBadge.key}`,
+                  cardStateFor(article).comprehensionBadge.params,
+                )
+              }}
+            </span>
             <a
               v-if="article.source"
               class="card-source clickable"
@@ -638,6 +649,15 @@ function formatSource(source) {
   border-radius: 10px;
   background: var(--purple-bg);
   color: var(--purple);
+}
+
+.badge-comprehension {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(255, 193, 7, 0.18);
+  color: #9a6700;
 }
 
 .card-review-chip {

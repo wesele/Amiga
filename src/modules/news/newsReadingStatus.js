@@ -49,6 +49,21 @@ export function serializeUnknownWordEntries(entries) {
   return JSON.stringify(Array.from(byWord.values()));
 }
 
+const COMPREHENSION_QUIZ_TOTAL = 2;
+
+/** Derive list-card comprehension badge from latest reading status. */
+export function comprehensionBadge(status) {
+  if (!status?.completed || status.comprehension_skipped) return null;
+  if (status.comprehension_score == null) return null;
+  if (status.comprehension_score >= COMPREHENSION_QUIZ_TOTAL) {
+    return { key: "cardComprehensionPerfect", params: {} };
+  }
+  return {
+    key: "cardComprehensionPartial",
+    params: { n: status.comprehension_score, total: COMPREHENSION_QUIZ_TOTAL },
+  };
+}
+
 /** Build a Map<articleId, statusRow> from API rows. */
 export function buildStatusMap(rows) {
   const map = new Map();
@@ -78,6 +93,7 @@ export function articleCardState(article, status, options = {}) {
       readBadge: null,
       progressLine: null,
       unknownLine: null,
+      comprehensionBadge: null,
       showContinueChip: false,
       showReviewChip: false,
       cardClass: "is-unread",
@@ -92,6 +108,7 @@ export function articleCardState(article, status, options = {}) {
       readBadge: null,
       progressLine: { key: "cardInProgress", pct },
       unknownLine: null,
+      comprehensionBadge: null,
       showContinueChip: true,
       showReviewChip: false,
       cardClass: "is-in-progress",
@@ -116,6 +133,7 @@ export function articleCardState(article, status, options = {}) {
     progressLine: null,
     unknownLine:
       unknownCount > 0 ? { key: "cardUnknownWords", n: unknownCount } : null,
+    comprehensionBadge: comprehensionBadge(status),
     showContinueChip: false,
     showReviewChip,
     cardClass: "is-read",

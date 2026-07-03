@@ -44,19 +44,25 @@
     </div>
 
     <!-- Article body -->
-    <div v-else ref="articleBodyRef" class="article-body" @scroll="onArticleScroll">
+    <div
+      v-else
+      ref="articleBodyRef"
+      class="article-body"
+      @scroll="onArticleScroll"
+      @click="onArticleBodyClick"
+    >
       <!-- Original mode -->
       <div v-if="!bilingualMode" class="article-text">
         <template v-for="(token, idx) in tokens" :key="idx">
           <span
             v-if="token.isWord"
             class="word"
-            :class="resolveWordClass(token)"
+            :class="[resolveWordClass(token), { 'evidence-highlight': token.inEvidence }]"
             @click.stop="onWordTap(token)"
           >
             {{ token.text }}
           </span>
-          <span v-else>{{ token.text }}</span>
+          <span v-else :class="{ 'evidence-highlight': token.inEvidence }">{{ token.text }}</span>
         </template>
       </div>
 
@@ -68,10 +74,10 @@
               <span
                 v-if="token.isWord"
                 class="word"
-                :class="resolveWordClass(token)"
+                :class="[resolveWordClass(token), { 'evidence-highlight': token.inEvidence }]"
                 @click.stop="onWordTap(token)"
               >{{ token.text }}</span>
-              <span v-else>{{ token.text }}</span>
+              <span v-else :class="{ 'evidence-highlight': token.inEvidence }">{{ token.text }}</span>
             </template>
           </p>
           <p class="para-translation">{{ translations[pidx] || '…' }}</p>
@@ -163,8 +169,23 @@
       @later="dismissMicroReview"
     />
 
+    <div
+      v-if="comprehensionRevisitActive && article?.rewritten_body"
+      class="comprehension-revisit-strip"
+    >
+      {{ t("news.comprehensionRevisitStrip") }}
+    </div>
+
     <!-- Fixed bottom bar -->
     <div v-if="article?.rewritten_body" class="bottom-bar">
+      <button
+        v-if="showComprehensionRevisitChip"
+        type="button"
+        class="comprehension-revisit-chip"
+        @click="revisitPastComprehension"
+      >
+        {{ t("news.comprehensionRevisitChip") }}
+      </button>
       <button
         type="button"
         class="legend-toggle"
@@ -304,6 +325,14 @@
                 @click="enterCompletionSummaryFromQuiz"
               >
                 {{ t("news.comprehensionViewSummary") }}
+              </button>
+              <button
+                v-if="hasWrongComprehensionAnswers"
+                type="button"
+                class="action-btn secondary"
+                @click="enterComprehensionRevisit()"
+              >
+                {{ t("news.nextStep.revisitArticle") }}
               </button>
             </div>
           </template>
@@ -514,6 +543,14 @@ import {
   scoreComprehension,
   shouldOfferComprehensionQuiz,
 } from "./readingComprehension.js";
+import {
+  applyEvidenceToTokens,
+  collectEvidenceSentences,
+  findEvidenceRanges,
+  paragraphOffsets,
+  rangesForParagraph,
+  scrollToFirstEvidence,
+} from "./comprehensionEvidence.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -585,6 +622,8 @@ const comprehensionCurrentIndex = ref(0);
 const comprehensionQuizPhase = ref("answering");
 const comprehensionResult = ref(null);
 const comprehensionOfferAttempted = ref(false);
+const comprehensionRevisitActive = ref(false);
+const evidenceRanges = ref([]);
 const summaryMode = ref("complete");
 const dailyGoalSnapshot = ref(null);
 const practicedTodayBefore = ref(false);
@@ -699,6 +738,17 @@ const comprehensionCelebrationBanner = computed(() => {
     comprehensionResult.value.total,
     comprehensionResult.value.skipped,
   );
+});
+
+const hasWrongComprehensionAnswers = computed(
+  () => comprehensionResult.value?.details?.some((detail) => !detail.correct) ?? false,
+);
+
+const showComprehensionRevisitChip = computed(() => {
+  const status = savedReadingStatus.value;
+  if (!status?.completed || status.comprehension_skipped) return false;
+  if (status.comprehension_score == null) return false;
+  return status.comprehension_score < 2;
 });
 
 const readingPlan = computed(() => {
@@ -992,15 +1042,36 @@ async function loadWordMastery(allText) {
   }
 }
 
+function articleBodyText() {
+  return article.value?.rewritten_body || article.value?.original_body || "";
+}
+
+function clearComprehensionRevisit() {
+  if (!comprehensionRevisitActive.value && !evidenceRanges.value.length) return;
+  comprehensionRevisitActive.value = false;
+  evidenceRanges.value = [];
+  refreshEvidenceOnTokens();
+}
+
+function refreshEvidenceOnTokens() {
+  const body = articleBodyText();
+  if (!body) return;
+  const ranges = comprehensionRevisitActive.value ? evidenceRanges.value : [];
+  const baseTokens = applyMasteryToTokens(tokenizeArticleText(body), masteryMap.value);
+  tokens.value = applyEvidenceToTokens(baseTokens, ranges);
+
+  if (paragraphs.value.length > 0) {
+    const offsets = paragraphOffsets(body);
+    paraTokens.value = offsets.map(({ text, start }) => {
+      const paraRanges = rangesForParagraph(ranges, start, text.length);
+      const paraBase = applyMasteryToTokens(tokenizeArticleText(text), masteryMap.value);
+      return applyEvidenceToTokens(paraBase, paraRanges);
+    });
+  }
+}
+
 function refreshTokenMastery() {
-  if (tokens.value.length > 0) {
-    tokens.value = applyMasteryToTokens(tokens.value, masteryMap.value);
-  }
-  if (paraTokens.value.length > 0) {
-    paraTokens.value = paraTokens.value.map((para) =>
-      applyMasteryToTokens(para, masteryMap.value),
-    );
-  }
+  refreshEvidenceOnTokens();
 }
 
 function resolveWordClass(token) {
@@ -1160,6 +1231,7 @@ async function doRewrite() {
 }
 
 async function toggleBilingual() {
+  clearComprehensionRevisit();
   bilingualMode.value = !bilingualMode.value;
   if (bilingualMode.value && translations.value.length === 0) {
     await loadBilingual();
@@ -1173,9 +1245,7 @@ async function loadBilingual() {
     // Split body into paragraphs
     const body = article.value?.rewritten_body || article.value?.original_body || "";
     paragraphs.value = body.split("\n\n").map(p => p.trim()).filter(p => p);
-    paraTokens.value = paragraphs.value.map((p) =>
-      applyMasteryToTokens(tokenizeArticleText(p), masteryMap.value),
-    );
+    refreshEvidenceOnTokens();
     const result = await getBilingual(Number(props.id), targetLang, getLocale());
     translations.value = result;
     // Translate title
@@ -1198,7 +1268,8 @@ async function loadBilingual() {
 // Tokenize article body
 const tokens = ref([]);
 function parseText(text) {
-  tokens.value = applyMasteryToTokens(tokenizeArticleText(text), masteryMap.value);
+  void text;
+  refreshEvidenceOnTokens();
 }
 
 watch(() => article.value?.rewritten_body, async (val) => {
@@ -1212,7 +1283,16 @@ watch(() => article.value?.original_body, (val) => {
   if (val && !article.value?.rewritten_body) parseText(val);
 });
 
+function onArticleBodyClick() {
+  if (!comprehensionRevisitActive.value) return;
+  clearComprehensionRevisit();
+}
+
 function onWordTap(token) {
+  if (comprehensionRevisitActive.value) {
+    clearComprehensionRevisit();
+    return;
+  }
   if (!token.isWord) return;
   // If there's an active multi-character text selection, this click likely
   // resulted from the user finishing a drag-selection — don't open the word
@@ -1471,10 +1551,7 @@ async function goToReadingStep(step) {
     return;
   }
   if (isRevisitArticleStep(step)) {
-    showCompletionSummary.value = false;
-    await nextTick();
-    articleBodyRef.value?.scrollTo({ top: 0, behavior: "smooth" });
-    showWordToast(t("news.comprehensionRevisitToast"));
+    await enterComprehensionRevisit();
     return;
   }
   if (isVocabReviewStep(step)) {
@@ -1565,7 +1642,67 @@ async function skipComprehensionQuiz() {
   void loadPostReadingContext();
 }
 
+async function enterComprehensionRevisit(result = comprehensionResult.value) {
+  const body = articleBodyText();
+  const sentences = collectEvidenceSentences(result);
+  showCompletionSummary.value = false;
+  showComprehensionQuiz.value = false;
+
+  if (!sentences.length) {
+    await nextTick();
+    articleBodyRef.value?.scrollTo({ top: 0, behavior: "smooth" });
+    showWordToast(t("news.comprehensionRevisitFallback"));
+    return;
+  }
+
+  const ranges = findEvidenceRanges(body, sentences);
+  if (!ranges.length) {
+    await nextTick();
+    articleBodyRef.value?.scrollTo({ top: 0, behavior: "smooth" });
+    showWordToast(t("news.comprehensionRevisitFallback"));
+    return;
+  }
+
+  comprehensionRevisitActive.value = true;
+  evidenceRanges.value = ranges;
+  refreshEvidenceOnTokens();
+  await nextTick();
+  const scrolled = scrollToFirstEvidence(articleBodyRef.value);
+  showWordToast(
+    t(scrolled ? "news.comprehensionRevisitToast" : "news.comprehensionRevisitFallback"),
+  );
+}
+
+async function revisitPastComprehension() {
+  const status = savedReadingStatus.value;
+  if (!status?.comprehension_answers_json) {
+    showWordToast(t("news.comprehensionRevisitFallback"));
+    return;
+  }
+  try {
+    const quiz = await getComprehensionQuiz(
+      Number(props.id),
+      currentLevel,
+      getLocale(),
+      targetLang,
+    );
+    if (!quiz?.questions?.length) {
+      showWordToast(t("news.comprehensionRevisitFallback"));
+      return;
+    }
+    const answers = JSON.parse(status.comprehension_answers_json);
+    const result = scoreComprehension(quiz.questions, answers);
+    comprehensionResult.value = result;
+    comprehensionAnswers.value = answers;
+    await enterComprehensionRevisit(result);
+  } catch (e) {
+    console.error("Failed to revisit past comprehension:", e);
+    showWordToast(t("news.comprehensionRevisitFallback"));
+  }
+}
+
 async function offerComprehensionQuiz() {
+  clearComprehensionRevisit();
   if (comprehensionOfferAttempted.value) return false;
   comprehensionOfferAttempted.value = true;
   if (
@@ -1651,6 +1788,7 @@ function completeAndReview() {
 }
 
 async function goBack() {
+  clearComprehensionRevisit();
   if (microReviewOpen.value) {
     collapseMicroReview();
     return;
@@ -1891,6 +2029,38 @@ function formatSource(source) {
   color: var(--blue);
   font-weight: 600;
   background: var(--blue-bg);
+}
+
+.evidence-highlight {
+  background: var(--comprehension-evidence-bg, rgba(255, 193, 7, 0.35));
+  border-radius: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.comprehension-revisit-strip {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: rgba(255, 193, 7, 0.12);
+  border-top: 1px solid rgba(255, 193, 7, 0.25);
+  text-align: center;
+}
+
+.comprehension-revisit-chip {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 193, 7, 0.45);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 193, 7, 0.12);
+  color: #9a6700;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
 }
 
 .word-new {
