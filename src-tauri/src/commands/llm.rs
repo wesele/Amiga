@@ -136,5 +136,12 @@ pub async fn translate_text_cmd(
 ) -> Result<String, String> {
     use crate::modules::translation as translation_mod;
 
-    translation_mod::translate_text(&llm.client, &db, &text, &source_lang, &native_lang).await
+    translation_mod::translate_text(
+        &llm.client,
+        &db,
+        &text,
+        &source_lang,
+        &native_lang,
+    )
+    .await
 }
