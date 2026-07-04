@@ -53,6 +53,7 @@ export default {
     finish: "Terminar",
     correct: "¡Correcto!",
     incorrect: "Casi — inténtalo de nuevo",
+    correctAnswer: "Respuesta correcta: {answer}",
     lessonPassed: "¡Sección completada!",
     lessonFailed: "¡Sigue así!",
     score: "{correct}/{total} correctas",

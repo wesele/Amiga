@@ -52,6 +52,9 @@
       <footer class="lesson-footer">
         <p v-if="showResult" class="feedback" :class="lastCorrect ? 'ok' : 'bad'">
           {{ lastCorrect ? t("path.correct") : t("path.incorrect") }}
+          <span v-if="!lastCorrect && correctAnswerText" class="correct-answer">
+            {{ t("path.correctAnswer", { answer: correctAnswerText }) }}
+          </span>
         </p>
         <button
           class="action-btn primary"
@@ -130,6 +133,18 @@ const primaryLabel = computed(() => {
       : t("path.next");
   }
   return t("path.check");
+});
+
+const correctAnswerText = computed(() => {
+  const q = currentQuestion.value;
+  if (!q) return "";
+  if (q.type === "T10") {
+    return q.acceptedAnswers?.[0] || q.answer || "";
+  }
+  if (q.type === "T09") {
+    return q.answer || "";
+  }
+  return "";
 });
 
 async function load() {
@@ -291,6 +306,9 @@ onMounted(load);
 }
 
 .feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin: 0 0 10px;
   font-weight: 700;
   text-align: center;
@@ -302,6 +320,12 @@ onMounted(load);
 
 .feedback.bad {
   color: var(--red);
+}
+
+.correct-answer {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .action-btn {
