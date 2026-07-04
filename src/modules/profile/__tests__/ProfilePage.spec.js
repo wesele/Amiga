@@ -42,50 +42,19 @@ describe("ProfilePage", () => {
     });
   }
 
-  it("renders both stat labels", () => {
+  it("renders the account card header (avatar + nickname)", () => {
     mockInvoke.mockRejectedValue(new Error("not wired in test"));
     const wrapper = mountPage();
-    expect(wrapper.text()).toContain("已掌握词汇");
-    expect(wrapper.text()).toContain("已读文章");
+    expect(wrapper.find(".account-card").exists()).toBe(true);
+    expect(wrapper.find(".account-avatar").exists()).toBe(true);
   });
 
-  it("shows 0 for read articles when API fails", async () => {
-    mockInvoke.mockRejectedValue(new Error("boom"));
+  it("does not render the moved-out stats row anymore", () => {
+    mockInvoke.mockRejectedValue(new Error("not wired in test"));
     const wrapper = mountPage();
-    await flushPromises();
-    const cells = wrapper.findAll(".stat-cell");
-    const readCell = cells.find((c) => c.text().includes("已读文章"));
-    expect(readCell.find(".stat-value").text()).toBe("0");
-  });
-
-  it("shows the read article count returned by the API", async () => {
-    mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
-      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
-      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 0, total_learning: 0, total: 0 });
-      if (cmd === "get_read_article_count_cmd") return Promise.resolve(7);
-      return Promise.resolve(null);
-    });
-    const wrapper = mountPage();
-    await flushPromises();
-    const cells = wrapper.findAll(".stat-cell");
-    const readCell = cells.find((c) => c.text().includes("已读文章"));
-    expect(readCell.find(".stat-value").text()).toBe("7");
-  });
-
-  it("shows the mastered vocab count returned by the API", async () => {
-    mockInvoke.mockImplementation((cmd) => {
-      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
-      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
-      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 42, total_learning: 5, total: 1000 });
-      if (cmd === "get_read_article_count_cmd") return Promise.resolve(3);
-      return Promise.resolve(null);
-    });
-    const wrapper = mountPage();
-    await flushPromises();
-    const cells = wrapper.findAll(".stat-cell");
-    const vocabCell = cells.find((c) => c.text().includes("已掌握词汇"));
-    expect(vocabCell.find(".stat-value").text()).toBe("42");
+    // The stats row was moved to LearnHubPage; ProfilePage should no longer show it.
+    expect(wrapper.find(".stats-row").exists()).toBe(false);
+    expect(wrapper.findAll(".stat-cell").length).toBe(0);
   });
 
   it("renders the learning language switcher with three pills", async () => {

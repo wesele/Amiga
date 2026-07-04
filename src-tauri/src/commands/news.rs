@@ -45,3 +45,11 @@ pub async fn get_read_article_count_cmd(
 ) -> Result<i32, String> {
     news_mod::get_read_article_count(&db, &user_id)
 }
+
+#[tauri::command]
+pub async fn get_learning_days_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+) -> Result<i32, String> {
+    news_mod::get_learning_days(&db, &user_id)
+}

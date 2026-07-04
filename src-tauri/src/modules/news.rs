@@ -429,6 +429,122 @@ mod tests {
         drop(conn);
         assert!(get_articles(&pool, "ES").unwrap().is_empty());
     }
+
+    fn insert_test_word(conn: &Connection, word: &str, lang: &str) -> i64 {
+        conn.execute(
+            "INSERT INTO vocab_bank (word, lemma, pos, cefr_level, language, frequency)
+             VALUES (?1, ?2, 'noun', 'A1', ?3, 100)",
+            params![word, word, lang],
+        )
+        .unwrap();
+        conn.last_insert_rowid()
+    }
+
+    #[test]
+    fn test_get_learning_days_zero_when_no_activity() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES ('user-1', 'Test')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        assert_eq!(get_learning_days(&pool, "user-1").unwrap(), 0);
+    }
+
+    #[test]
+    fn test_get_learning_days_counts_distinct_read_dates() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES ('user-1', 'Test')",
+            [],
+        )
+        .unwrap();
+        let aid = insert_test_article(&conn, "Article A", "world");
+        let aid2 = insert_test_article(&conn, "Article B", "world");
+        // Two articles read on the same day → counts as 1 day.
+        conn.execute(
+            "INSERT INTO news_reading_log (user_id, article_id, completed, read_at)
+             VALUES ('user-1', ?1, 1, '2024-05-01 10:00:00')",
+            params![aid],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO news_reading_log (user_id, article_id, completed, read_at)
+             VALUES ('user-1', ?1, 1, '2024-05-01 18:00:00')",
+            params![aid2],
+        )
+        .unwrap();
+        drop(conn);
+        assert_eq!(get_learning_days(&pool, "user-1").unwrap(), 1);
+    }
+
+    #[test]
+    fn test_get_learning_days_unions_reading_and_vocab_days() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES ('user-1', 'Test')",
+            [],
+        )
+        .unwrap();
+        let aid = insert_test_article(&conn, "Article A", "world");
+        conn.execute(
+            "INSERT INTO news_reading_log (user_id, article_id, completed, read_at)
+             VALUES ('user-1', ?1, 1, '2024-05-01 10:00:00')",
+            params![aid],
+        )
+        .unwrap();
+        let w1 = insert_test_word(&conn, "hola", "es");
+        let w2 = insert_test_word(&conn, "mundo", "es");
+        // A word learned on a DIFFERENT day than the article read.
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
+             VALUES ('user-1', ?1, 2, 'news_reading', '2024-05-02 09:00:00')",
+            params![w1],
+        )
+        .unwrap();
+        // A word learned on the SAME day as the article read → must not double-count.
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
+             VALUES ('user-1', ?1, 1, 'news_reading', '2024-05-01 12:00:00')",
+            params![w2],
+        )
+        .unwrap();
+        drop(conn);
+        assert_eq!(get_learning_days(&pool, "user-1").unwrap(), 2);
+    }
+
+    #[test]
+    fn test_get_learning_days_ignores_wizard_init_and_unseen() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO users (id, nickname) VALUES ('user-1', 'Test')",
+            [],
+        )
+        .unwrap();
+        let w1 = insert_test_word(&conn, "hola", "es");
+        let w2 = insert_test_word(&conn, "mundo", "es");
+        // wizard_init mastery 2 should be ignored (bulk seed).
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
+             VALUES ('user-1', ?1, 2, 'wizard_init', '2024-05-02 09:00:00')",
+            params![w1],
+        )
+        .unwrap();
+        // mastery 0 (unseen) should be ignored.
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
+             VALUES ('user-1', ?1, 0, 'news_reading', '2024-05-03 09:00:00')",
+            params![w2],
+        )
+        .unwrap();
+        drop(conn);
+        assert_eq!(get_learning_days(&pool, "user-1").unwrap(), 0);
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -857,8 +973,7 @@ pub async fn rewrite_article_for_user(
     let original = article.original_body.unwrap_or_default();
 
     // Scoped to the article's target language so an English learner gets English words.
-    let unknown_words =
-        vocab_mod::get_unknown_words(db, user_id, cefr_level, 20, target_lang)?;
+    let unknown_words = vocab_mod::get_unknown_words(db, user_id, cefr_level, 20, target_lang)?;
     let new_words: Vec<String> = unknown_words.iter().map(|w| w.word.clone()).collect();
 
     let result = llm_mod::rewrite_article(
@@ -892,6 +1007,30 @@ pub fn get_read_article_count(db: &DatabasePool, user_id: &str) -> Result<i32, S
         .query_row(
             "SELECT COUNT(DISTINCT article_id) FROM news_reading_log
              WHERE user_id = ?1 AND completed = 1",
+            params![user_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    Ok(count)
+}
+
+/// Count the total number of distinct days the user has learned anything.
+/// A day counts as a learning day if the user read at least one article on that
+/// day, or marked at least one word as known/learning (excluding the wizard's
+/// initial bulk-insert seed records).
+pub fn get_learning_days(db: &DatabasePool, user_id: &str) -> Result<i32, String> {
+    let conn = db.conn()?;
+    let count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM (
+                SELECT DISTINCT date(read_at) AS d FROM news_reading_log
+                 WHERE user_id = ?1 AND read_at IS NOT NULL
+                UNION
+                SELECT DISTINCT date(updated_at) AS d FROM user_vocab
+                 WHERE user_id = ?1
+                   AND mastery >= 1
+                   AND COALESCE(source, '') <> 'wizard_init'
+            )",
             params![user_id],
             |row| row.get(0),
         )

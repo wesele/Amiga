@@ -29,8 +29,10 @@ export default {
 
   learn: {
     title: "Learn",
+    statusSection: "Learning Status",
     path: "Progress Path",
     news: "News",
+    days: "Days Learned",
   },
 
   path: {

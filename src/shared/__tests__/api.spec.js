@@ -190,6 +190,11 @@ describe("API module", () => {
       api.getReadArticleCount("u1");
       expect(mockInvoke).toHaveBeenCalledWith("get_read_article_count_cmd", { userId: "u1" });
     });
+
+    it("getLearningDays calls invoke with userId", () => {
+      api.getLearningDays("u1");
+      expect(mockInvoke).toHaveBeenCalledWith("get_learning_days_cmd", { userId: "u1" });
+    });
   });
 
   describe("LLM API", () => {

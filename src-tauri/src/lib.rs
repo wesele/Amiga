@@ -96,6 +96,7 @@ pub fn run() {
             commands::news::get_article_cmd,
             commands::news::save_reading_log_cmd,
             commands::news::get_read_article_count_cmd,
+            commands::news::get_learning_days_cmd,
             // Prompt commands
             commands::prompts::get_all_prompts_cmd,
             commands::prompts::get_prompt_cmd,

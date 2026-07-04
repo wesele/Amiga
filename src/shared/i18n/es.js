@@ -29,8 +29,10 @@ export default {
 
   learn: {
     title: "Aprender",
+    statusSection: "Estado de Aprendizaje",
     path: "Camino de progreso",
     news: "Noticias",
+    days: "Días de Estudio",
   },
 
   path: {

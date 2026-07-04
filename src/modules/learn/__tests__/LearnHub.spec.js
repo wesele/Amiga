@@ -42,6 +42,7 @@ describe("LearnHubPage", () => {
       if (cmd === "get_target_language_cmd") return Promise.resolve("es");
       if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
       if (cmd === "create_chat_session_cmd") return Promise.resolve("translator-sess");
       return Promise.resolve(null);
     });
@@ -110,5 +111,66 @@ describe("LearnHubPage", () => {
       name: "learn-translator",
       params: { sessionId: "translator-sess" },
     });
+  });
+
+  it("renders the learning status panel with three stat cells", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const card = wrapper.find(".status-card");
+    expect(card.exists()).toBe(true);
+    const cells = wrapper.findAll(".stat-cell");
+    expect(cells.length).toBe(3);
+    const labels = cells.map((c) => c.find(".stat-label").text());
+    expect(labels).toContain("已掌握词汇");
+    expect(labels).toContain("已读文章");
+    expect(labels).toContain("学习天数");
+  });
+
+  it("shows values returned by the stats APIs in the status panel", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 42, total_learning: 5, total: 1000 });
+      if (cmd === "get_read_article_count_cmd") return Promise.resolve(7);
+      if (cmd === "get_learning_days_cmd") return Promise.resolve(9);
+      return Promise.resolve(null);
+    });
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    await flushPromises();
+
+    const cells = wrapper.findAll(".stat-cell");
+    const vocabCell = cells.find((c) => c.text().includes("已掌握词汇"));
+    const readCell = cells.find((c) => c.text().includes("已读文章"));
+    const daysCell = cells.find((c) => c.text().includes("学习天数"));
+    expect(vocabCell.find(".stat-value").text()).toBe("42");
+    expect(readCell.find(".stat-value").text()).toBe("7");
+    expect(daysCell.find(".stat-value").text()).toBe("9");
+  });
+
+  it("falls back to 0 when the stats APIs fail", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1" });
+      return Promise.reject(new Error("boom"));
+    });
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const cells = wrapper.findAll(".stat-cell");
+    for (const cell of cells) {
+      expect(cell.find(".stat-value").text()).toBe("0");
+    }
   });
 });

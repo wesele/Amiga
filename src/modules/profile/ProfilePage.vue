@@ -17,17 +17,6 @@
             </div>
           </div>
         </div>
-        <div class="stats-row">
-          <div class="stat-cell">
-            <div class="stat-value">{{ vocabStats?.total_known || 0 }}</div>
-            <div class="stat-label">{{ t('profile.words') }}</div>
-          </div>
-          <div class="stat-divider" />
-          <div class="stat-cell">
-            <div class="stat-value">{{ readArticleCount }}</div>
-            <div class="stat-label">{{ t('profile.articles') }}</div>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -139,8 +128,6 @@
 import { ref, onMounted, computed } from "vue";
 import {
   getLearningGoals,
-  getUserVocabStats,
-  getReadArticleCount,
   checkUpdate,
   updateLearningGoalCefr,
 } from "@/shared/api.js";
@@ -157,8 +144,6 @@ const { t } = useI18n();
 const targetLangStore = useTargetLangStore();
 const user = ref(null);
 const goals = ref([]);
-const vocabStats = ref(null);
-const readArticleCount = ref(0);
 const currentTargetLang = computed(() => targetLangStore.code || "");
 const currentLevel = ref("A1");
 const levelSwitching = ref(false);
@@ -174,8 +159,6 @@ onMounted(async () => {
     });
     user.value = ctx.user;
     goals.value = ctx.goals;
-    vocabStats.value = await getUserVocabStats(user.value.id, currentTargetLang.value);
-    readArticleCount.value = await getReadArticleCount(user.value.id);
     if (ctx.currentGoal) currentLevel.value = ctx.cefr;
   } catch (e) {
     console.error("Failed to load profile:", e);
@@ -405,35 +388,6 @@ async function handleInstallUpdate() {
   color: var(--text-lighter);
   flex-shrink: 0;
   opacity: 0.6;
-}
-
-/* Stats row */
-.stats-row {
-  display: flex;
-  align-items: center;
-  border-top: 1px solid var(--border);
-  padding: 4px 0;
-}
-.stat-cell {
-  flex: 1;
-  text-align: center;
-  padding: 10px 4px;
-}
-.stat-value {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--green);
-}
-.stat-label {
-  font-size: 11px;
-  color: var(--text-lighter);
-  margin-top: 1px;
-}
-.stat-divider {
-  width: 1px;
-  height: 32px;
-  background: var(--border);
-  flex-shrink: 0;
 }
 
 /* Update Dialog */

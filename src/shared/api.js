@@ -97,6 +97,7 @@ export function createApiClient(invoke) {
     getArticle: (articleId) => call("get_article_cmd", { articleId }),
     saveReadingLog: (logEntry) => call("save_reading_log_cmd", { logEntry }),
     getReadArticleCount: (userId) => call("get_read_article_count_cmd", { userId }),
+    getLearningDays: (userId) => call("get_learning_days_cmd", { userId }),
 
     // LLM
     rewriteArticle: (articleId, cefrLevel, userId, targetLang) =>
@@ -226,6 +227,7 @@ export const getArticles = (...args) => defaultApiClient.getArticles(...args);
 export const getArticle = (...args) => defaultApiClient.getArticle(...args);
 export const saveReadingLog = (...args) => defaultApiClient.saveReadingLog(...args);
 export const getReadArticleCount = (...args) => defaultApiClient.getReadArticleCount(...args);
+export const getLearningDays = (...args) => defaultApiClient.getLearningDays(...args);
 
 // --- LLM ---
 export const rewriteArticle = (...args) => defaultApiClient.rewriteArticle(...args);

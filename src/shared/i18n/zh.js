@@ -32,8 +32,10 @@ export default {
 
   learn: {
     title: "学习",
+    statusSection: "学习状态",
     path: "晋级之路",
     news: "新闻",
+    days: "学习天数",
   },
 
   path: {

@@ -4,6 +4,25 @@
       <h1 class="page-title">{{ t("learn.title") }}</h1>
     </header>
 
+    <section class="status-section">
+      <div class="status-card">
+        <div class="stat-cell">
+          <div class="stat-value">{{ vocabStats?.total_known || 0 }}</div>
+          <div class="stat-label">{{ t("profile.words") }}</div>
+        </div>
+        <div class="stat-divider" />
+        <div class="stat-cell">
+          <div class="stat-value">{{ readArticleCount }}</div>
+          <div class="stat-label">{{ t("profile.articles") }}</div>
+        </div>
+        <div class="stat-divider" />
+        <div class="stat-cell">
+          <div class="stat-value">{{ learningDays }}</div>
+          <div class="stat-label">{{ t("learn.days") }}</div>
+        </div>
+      </div>
+    </section>
+
     <div class="module-grid">
       <button
         v-for="mod in modules"
@@ -20,22 +39,49 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
+import {
+  getUserVocabStats,
+  getReadArticleCount,
+  getLearningDays,
+} from "@/shared/api.js";
+import { loadLearningContext } from "@/shared/learningContext.js";
 
 const router = useRouter();
 const { t } = useI18n();
 const targetLangStore = useTargetLangStore();
 const opening = ref(null);
+const vocabStats = ref(null);
+const readArticleCount = ref(0);
+const learningDays = ref(0);
 
 const modules = [
   { id: "path", labelKey: "learn.path", icon: "🛤️", route: { name: "path" } },
   { id: "news", labelKey: "learn.news", icon: "📰", route: { name: "news" } },
   { id: "translator", labelKey: "chat.translator", icon: "🌐", action: "translator" },
 ];
+
+onMounted(async () => {
+  try {
+    const ctx = await loadLearningContext({
+      targetLangStore,
+      fallbackToFirstGoal: true,
+    });
+    const user = ctx.user;
+    const lang = ctx.targetLang || targetLangStore.code || "";
+    if (user?.id) {
+      vocabStats.value = await getUserVocabStats(user.id, lang);
+      readArticleCount.value = await getReadArticleCount(user.id);
+      learningDays.value = await getLearningDays(user.id);
+    }
+  } catch (e) {
+    console.error("Failed to load learn hub stats:", e);
+  }
+});
 
 async function openModule(mod) {
   if (mod.route) {
@@ -73,6 +119,46 @@ async function openModule(mod) {
   margin: 0;
   font-size: 22px;
   font-weight: 700;
+}
+
+.status-section {
+  padding: 0 16px 4px;
+}
+
+.status-card {
+  display: flex;
+  align-items: center;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.stat-cell {
+  flex: 1;
+  text-align: center;
+  padding: 12px 4px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--green);
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-lighter);
+  margin-top: 2px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 32px;
+  background: var(--border);
+  flex-shrink: 0;
 }
 
 .module-grid {
