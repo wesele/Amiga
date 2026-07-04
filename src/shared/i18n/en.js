@@ -168,6 +168,8 @@ export default {
     known: "Known",
     unknown: "Unknown",
     sample: "Sample",
+    readAloud: "Read aloud",
+    stopReading: "Stop reading",
     share: "Share",
     sharing: "Sharing…",
     shareTitle: "Share to another app to keep discussing",

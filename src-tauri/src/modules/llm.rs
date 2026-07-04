@@ -611,33 +611,38 @@ pub async fn translate_word(
     let native_label = lang_name(native_lang);
     let source_label = lang_name(source_lang);
 
-    let vars = [
-        ("WORD", word),
-        ("CONTEXT", context),
-        ("SOURCE_LANG", source_label),
-        ("TARGET_LANG", native_label),
-    ];
-
-    let messages = build_chat_messages(db, "translate-word", &vars);
-
-    let messages = if messages.is_empty() {
-        let prompt = format!(
-            "Translate the following {source_label} word, given its context. \
-             Output a translation in {native_label}.\n\
-             Word: {word}\n\
-             Context: {context}\n\
-             Return a strict JSON object: \
-             {{\"translation\": \"<translation in {native_label}>\", \
-             \"ipa\": \"IPA pronunciation\", \
-             \"pos\": \"part of speech (noun/verb/adjective/etc.)\", \
-             \"example\": \"one simple example sentence in {source_label}\"}}"
-        );
-        build_chat_messages_fallback(
-            "You are a precise dictionary assistant. Output only the requested JSON, no extra prose.",
-            &prompt,
-        )
-    } else {
-        messages
+    let messages = match crate::modules::prompts::get_prompt(db, "translator-chat") {
+        Ok(p) => build_chat_messages_fallback(
+            &p.system_prompt,
+            &format!(
+                "Translate the following {source_label} word using the same rules as the AI translation assistant.\n\
+                 Word: {word}\n\
+                 Context: {context}\n\
+                 Target output language: {native_label}\n\n\
+                 Return a strict JSON object only:\n\
+                 {{\"translation\": \"<translation in {native_label}>\", \
+                 \"ipa\": \"IPA pronunciation\", \
+                 \"pos\": \"part of speech (noun/verb/adjective/etc.)\", \
+                 \"example\": \"one simple example sentence in {source_label}\"}}"
+            ),
+        ),
+        Err(_) => {
+            let prompt = format!(
+                "Translate the following {source_label} word, given its context. \
+                 Output a translation in {native_label}.\n\
+                 Word: {word}\n\
+                 Context: {context}\n\
+                 Return a strict JSON object: \
+                 {{\"translation\": \"<translation in {native_label}>\", \
+                 \"ipa\": \"IPA pronunciation\", \
+                 \"pos\": \"part of speech (noun/verb/adjective/etc.)\", \
+                 \"example\": \"one simple example sentence in {source_label}\"}}"
+            );
+            build_chat_messages_fallback(
+                "You are a precise dictionary assistant. Output only the requested JSON, no extra prose.",
+                &prompt,
+            )
+        }
     };
 
     let response = client.chat(db, messages).await?;

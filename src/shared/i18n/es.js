@@ -168,6 +168,8 @@ export default {
     known: "Conozco",
     unknown: "No conozco",
     sample: "Muestra",
+    readAloud: "Leer en voz alta",
+    stopReading: "Detener lectura",
     share: "Compartir",
     sharing: "Compartiendo…",
     shareTitle: "Compartir en otra app para seguir conversando",

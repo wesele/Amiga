@@ -86,11 +86,13 @@ describe("PageHeader", () => {
 
   it("keeps path variant back, level actions, and title vertically centered", () => {
     const source = readFileSync(resolve(ROOT, "src/shared/components/PageHeader.vue"), "utf8");
-    expect(source).toMatch(/\.variant-path\s*\{[\s\S]*grid-template-columns:\s*40px auto minmax\(0,\s*1fr\)/);
+    expect(source).toMatch(/\.variant-path\s*\{[\s\S]*grid-template-columns:\s*56px minmax\(0,\s*1fr\) 56px/);
     expect(source).toMatch(/\.variant-path\s*\{[\s\S]*align-items:\s*center/);
     expect(source).toMatch(/class="path-title"/);
-    expect(source).toMatch(/\.variant-path\s*\{[\s\S]*column-gap:\s*24px/);
-    expect(source).toMatch(/\.variant-path \.header-actions\s*\{[\s\S]*grid-column:\s*2/);
-    expect(source).toMatch(/\.variant-path \.path-title\s*\{[\s\S]*grid-column:\s*3/);
+    expect(source).toMatch(/\.variant-path\s*\{[\s\S]*column-gap:\s*8px/);
+    expect(source).toMatch(/\.variant-path \.header-actions\s*\{[\s\S]*grid-column:\s*3/);
+    expect(source).toMatch(/\.variant-path \.path-title\s*\{[\s\S]*grid-column:\s*2/);
+    expect(source).toMatch(/\.variant-path \.path-title\s*\{[\s\S]*justify-self:\s*center/);
+    expect(source).toMatch(/\.variant-path \.path-title\s*\{[\s\S]*text-align:\s*center/);
   });
 });

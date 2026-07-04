@@ -17,6 +17,8 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.provider.Settings
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import android.view.View
 import android.webkit.JavascriptInterface
@@ -33,6 +35,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.json.JSONObject
@@ -75,6 +78,8 @@ class MainActivity : TauriActivity() {
     private var translateCallback: TranslateWindowCallback? = null
     private var apkDownloadReceiver: BroadcastReceiver? = null
     private val pendingApkDownloads = mutableMapOf<Long, File>()
+    private var textToSpeech: TextToSpeech? = null
+    private var textToSpeechReady = false
 
     // Disable the WryActivity's stock back navigation (which calls
     // mWebView.goBack()). We install our own hierarchical back handler
@@ -139,7 +144,11 @@ class MainActivity : TauriActivity() {
         //    system browser instead of creating another in-app WebView.
         installExternalLinkBridge(webView)
 
-        // 6) Update bridge: download a new APK and hand it to the
+        // 6) TTS bridge: use Android's native language-aware engine
+        //    instead of WebView speechSynthesis, which may ignore lang.
+        installTtsBridge(webView)
+
+        // 7) Update bridge: download a new APK and hand it to the
         //    package installer so Android users can upgrade in-place.
         installUpdaterBridge(webView)
     }
@@ -150,6 +159,10 @@ class MainActivity : TauriActivity() {
         apkDownloadReceiver?.let { unregisterReceiver(it) }
         apkDownloadReceiver = null
         pendingApkDownloads.clear()
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
+        textToSpeech = null
+        textToSpeechReady = false
         super.onDestroy()
     }
 
@@ -369,6 +382,86 @@ class MainActivity : TauriActivity() {
                 }
             }
         }, "__amigaShare")
+    }
+
+    /**
+     * Install a native Android TTS bridge. The WebView implementation of
+     * speechSynthesis can ignore the requested voice and fall back to the
+     * system default (often English). Android TextToSpeech lets us set and
+     * validate the exact Locale before speaking, so Spanish news uses the
+     * Spanish engine when it is installed.
+     */
+    private fun installTtsBridge(webView: WebView) {
+        webView.addJavascriptInterface(object {
+            @JavascriptInterface
+            fun speak(text: String, langTag: String): String {
+                if (text.isBlank()) return "empty"
+                val latch = CountDownLatch(1)
+                var result = "failed"
+                this@MainActivity.runOnUiThread {
+                    result = speakNativeText(webView, text, langTag)
+                    latch.countDown()
+                }
+                return if (latch.await(3, TimeUnit.SECONDS)) result else "timeout"
+            }
+
+            @JavascriptInterface
+            fun stop() {
+                this@MainActivity.runOnUiThread {
+                    textToSpeech?.stop()
+                    webView.evaluateJavascript("window.__amigaTtsDone&&window.__amigaTtsDone()", null)
+                }
+            }
+        }, "__amigaTts")
+    }
+
+    private fun speakNativeText(webView: WebView, text: String, langTag: String): String {
+        val engine = textToSpeech
+        if (engine == null || !textToSpeechReady) {
+            textToSpeech = TextToSpeech(this) { status ->
+                textToSpeechReady = status == TextToSpeech.SUCCESS
+                if (textToSpeechReady) {
+                    val speakResult = speakNativeText(webView, text, langTag)
+                    if (speakResult != "ok") {
+                        webView.evaluateJavascript("window.__amigaTtsDone&&window.__amigaTtsDone()", null)
+                    }
+                } else {
+                    webView.evaluateJavascript("window.__amigaTtsDone&&window.__amigaTtsDone()", null)
+                }
+            }
+            return "initializing"
+        }
+
+        val locale = Locale.forLanguageTag(langTag.ifBlank { "en-US" })
+        val availability = engine.isLanguageAvailable(locale)
+        if (availability == TextToSpeech.LANG_MISSING_DATA || availability == TextToSpeech.LANG_NOT_SUPPORTED) {
+            Log.w(TAG, "TTS language not available: $langTag")
+            return "missing-language"
+        }
+        val setResult = engine.setLanguage(locale)
+        if (setResult == TextToSpeech.LANG_MISSING_DATA || setResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+            Log.w(TAG, "TTS refused language: $langTag")
+            return "missing-language"
+        }
+
+        val utteranceId = "amiga-news-reader-${System.currentTimeMillis()}"
+        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {}
+            override fun onDone(utteranceId: String?) {
+                webView.post {
+                    webView.evaluateJavascript("window.__amigaTtsDone&&window.__amigaTtsDone()", null)
+                }
+            }
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) {
+                webView.post {
+                    webView.evaluateJavascript("window.__amigaTtsDone&&window.__amigaTtsDone()", null)
+                }
+            }
+        })
+        engine.stop()
+        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+        return "ok"
     }
 
     /**

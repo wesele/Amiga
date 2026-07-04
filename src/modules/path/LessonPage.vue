@@ -195,14 +195,7 @@ async function finishLesson() {
   router.replace({ name: "path" });
 }
 
-function onPrimaryAction() {
-  if (!showResult.value) {
-    lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
-    if (lastCorrect.value) correctCount.value += 1;
-    showResult.value = true;
-    return;
-  }
-
+function goToNextQuestion() {
   if (index.value < questions.value.length - 1) {
     index.value += 1;
     currentAnswer.value = null;
@@ -212,6 +205,21 @@ function onPrimaryAction() {
   }
 
   submitLesson();
+}
+
+function onPrimaryAction() {
+  if (!showResult.value) {
+    lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
+    if (lastCorrect.value) correctCount.value += 1;
+    if (lastCorrect.value) {
+      goToNextQuestion();
+      return;
+    }
+    showResult.value = true;
+    return;
+  }
+
+  goToNextQuestion();
 }
 
 async function submitLesson() {

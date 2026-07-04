@@ -1,6 +1,6 @@
 use crate::modules::database::DatabasePool;
 use log;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, Transaction};
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
@@ -430,6 +430,53 @@ mod tests {
         assert!(get_articles(&pool, "ES").unwrap().is_empty());
     }
 
+    #[test]
+    fn test_sync_refresh_clears_ai_caches_when_no_new_articles() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO news_articles
+                (original_title, original_body, rewritten_body, rewrite_level, new_words, source, region, hot_rank, is_current)
+             VALUES
+                ('Existing', 'Old body', 'Cached rewrite', 'A2', '[\"hola\"]', 'https://example.com/current', 'ES', 1, 1)",
+            [],
+        )
+        .unwrap();
+        let existing_id = conn.last_insert_rowid() as i32;
+        conn.execute(
+            "INSERT INTO news_bilingual_cache (article_id, native_lang, paragraphs_json)
+             VALUES (?1, 'zh', '[\"缓存翻译\"]')",
+            params![existing_id],
+        )
+        .unwrap();
+        drop(conn);
+
+        let synced = sync_articles(
+            &pool,
+            "ES",
+            vec![(
+                "Existing updated".to_string(),
+                "New body".to_string(),
+                None,
+                "https://example.com/current".to_string(),
+                1,
+            )],
+        )
+        .unwrap();
+
+        assert_eq!(synced.len(), 1);
+        assert_eq!(synced[0].id, Some(existing_id));
+        assert!(synced[0].rewritten_body.is_none());
+        assert!(synced[0].rewrite_level.is_none());
+        assert!(synced[0].new_words.is_none());
+
+        let article = get_article(&pool, existing_id).unwrap();
+        assert!(article.rewritten_body.is_none());
+        assert!(article.rewrite_level.is_none());
+        assert!(article.new_words.is_none());
+        assert!(get_bilingual_cache(&pool, existing_id, "zh").unwrap().is_none());
+    }
+
     fn insert_test_word(conn: &Connection, word: &str, lang: &str) -> i64 {
         conn.execute(
             "INSERT INTO vocab_bank (word, lemma, pos, cefr_level, language, frequency)
@@ -642,7 +689,19 @@ fn sync_articles_with_conn(
     }
 
     let mut articles = Vec::new();
+    let mut has_new_articles = false;
     for (title, summary, image_url, feed_source, rank) in raw_entries {
+        let existed = tx
+            .query_row(
+                "SELECT 1 FROM news_articles WHERE source = ?1 LIMIT 1",
+                params![feed_source],
+                |_| Ok(()),
+            )
+            .is_ok();
+        if !existed {
+            has_new_articles = true;
+        }
+
         tx.execute(
             "INSERT INTO news_articles (original_title, original_body, source, image_url, region, hot_rank, is_current)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)
@@ -685,9 +744,48 @@ fn sync_articles_with_conn(
         articles.push(article);
     }
 
+    if !has_new_articles {
+        clear_current_article_ai_caches(&tx, region)?;
+        for article in &mut articles {
+            article.rewritten_body = None;
+            article.rewrite_level = None;
+            article.new_words = None;
+        }
+        log::info!(
+            "No new articles for region {}; cleared AI rewrite and bilingual caches",
+            region
+        );
+    }
+
     tx.commit()
         .map_err(|e| format!("Failed to commit news sync transaction: {}", e))?;
     Ok(articles)
+}
+
+fn clear_current_article_ai_caches(tx: &Transaction<'_>, region: &str) -> Result<(), String> {
+    tx.execute(
+        "UPDATE news_articles
+         SET rewritten_body = NULL,
+             rewrite_level = NULL,
+             new_words = NULL
+         WHERE region = ?1
+           AND is_current = 1",
+        params![region],
+    )
+    .map_err(|e| format!("Failed to clear article rewrite cache: {}", e))?;
+
+    tx.execute(
+        "DELETE FROM news_bilingual_cache
+         WHERE article_id IN (
+             SELECT id FROM news_articles
+             WHERE region = ?1
+               AND is_current = 1
+         )",
+        params![region],
+    )
+    .map_err(|e| format!("Failed to clear article bilingual cache: {}", e))?;
+
+    Ok(())
 }
 
 /// Fetch news from RSS feeds

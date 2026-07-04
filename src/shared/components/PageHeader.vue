@@ -223,9 +223,9 @@ function handleBack() {
 
 .variant-path {
   display: grid;
-  grid-template-columns: 40px auto minmax(0, 1fr);
+  grid-template-columns: 56px minmax(0, 1fr) 56px;
   align-items: center;
-  column-gap: 24px;
+  column-gap: 8px;
   padding: 14px 16px 12px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
@@ -248,7 +248,7 @@ function handleBack() {
 }
 
 .variant-path .header-actions {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1;
   display: flex;
   align-items: center;
@@ -257,10 +257,12 @@ function handleBack() {
 }
 
 .variant-path .path-title {
-  grid-column: 3;
+  grid-column: 2;
   grid-row: 1;
   min-width: 0;
   align-self: center;
+  justify-self: center;
+  text-align: center;
 }
 
 .header-actions {

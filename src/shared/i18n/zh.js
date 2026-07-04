@@ -171,6 +171,8 @@ export default {
     known: "认识",
     unknown: "不认识",
     sample: "示例",
+    readAloud: "朗读",
+    stopReading: "停止朗读",
     share: "分享",
     sharing: "分享中…",
     shareTitle: "分享到其他应用继续讨论",

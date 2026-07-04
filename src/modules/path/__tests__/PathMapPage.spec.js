@@ -77,6 +77,9 @@ describe("PathMapPage unit guide layout", () => {
     expect(source).toMatch(/ref="pathScroll"/);
     expect(source).toMatch(/function scrollToCurrentNode\(\)/);
     expect(source).toMatch(/querySelector\("\.path-step\.is-current"\)/);
+    expect(source).toMatch(/scroller\.getBoundingClientRect\(\)/);
+    expect(source).toMatch(/currentStep\.getBoundingClientRect\(\)/);
+    expect(source).toMatch(/scroller\.scrollTop \+ stepRect\.top - scrollerRect\.top/);
     expect(source).toMatch(/scroller\.scrollTo/);
     expect(source).toMatch(/await scrollToCurrentNode\(\)/);
   });

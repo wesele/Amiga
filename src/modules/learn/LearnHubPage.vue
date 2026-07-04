@@ -31,12 +31,10 @@
       >
         <div class="path-progress-main">
           <span class="path-progress-icon">{{ pathModule.icon }}</span>
-          <div class="path-progress-copy">
-            <span class="path-progress-title">{{ t(pathModule.labelKey) }}</span>
-            <span class="path-progress-sub">{{ pathProgressLabel }}</span>
-          </div>
+          <span class="path-progress-title">{{ t(pathModule.labelKey) }}</span>
           <span class="path-progress-level">{{ pathCefr }}</span>
         </div>
+        <div class="path-progress-sub">{{ pathProgressLabel }}</div>
         <div class="path-progress-track" aria-hidden="true">
           <div class="path-progress-fill" :style="{ width: pathProgressPercent + '%' }" />
         </div>
@@ -230,10 +228,11 @@ async function openModule(mod) {
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
   height: calc((100vw - (var(--module-grid-x) * 2) - var(--module-grid-col-gap)) / 2);
-  padding: 16px;
+  padding: 14px 16px;
   background: linear-gradient(135deg, #ffffff 0%, #eef8f0 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -257,20 +256,13 @@ async function openModule(mod) {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
 }
 
 .path-progress-icon {
-  font-size: 34px;
+  font-size: 30px;
   line-height: 1;
-}
-
-.path-progress-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
 }
 
 .path-progress-title {
@@ -281,10 +273,10 @@ async function openModule(mod) {
 }
 
 .path-progress-sub {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-light);
-  line-height: 1.25;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -302,7 +294,7 @@ async function openModule(mod) {
 
 .path-progress-track {
   width: 100%;
-  height: 10px;
+  height: 9px;
   overflow: hidden;
   border-radius: 999px;
   background: rgba(88, 204, 2, 0.16);

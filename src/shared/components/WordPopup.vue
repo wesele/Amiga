@@ -8,12 +8,17 @@
         <span>{{ t('popup.translating') }}</span>
       </div>
 
+      <template v-else-if="textTranslation">
+        <div class="popup-trans">{{ textTranslation }}</div>
+      </template>
+
       <template v-else-if="translation">
         <div class="popup-trans">{{ translation.translation }}</div>
         <div class="popup-extra" v-if="translation.pos || translation.ipa">
           <span v-if="translation.pos" class="tag-pos">{{ translation.pos }}</span>
           <span v-if="translation.ipa" class="tag-ipa">{{ translation.ipa }}</span>
         </div>
+        <div v-if="translation.example" class="popup-example">{{ translation.example }}</div>
         <div v-if="!alwaysShowActions" class="popup-actions">
           <button class="act-known" @click="$emit('known'); emitClose()">✅ {{ t('popup.known') }}</button>
           <button class="act-unknown" @click="$emit('unknown'); emitClose()">❌ {{ t('popup.unknown') }}</button>
@@ -38,7 +43,7 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
-import { translateWord } from "@/shared/api.js";
+import { translateText, translateWord } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
 
 const props = defineProps({
@@ -47,19 +52,25 @@ const props = defineProps({
   sourceLang: { type: String, default: "es" },
   nativeLang: { type: String, default: "zh" },
   alwaysShowActions: { type: Boolean, default: false },
+  mode: { type: String, default: "word" },
 });
 
 const emit = defineEmits(["close", "known", "unknown"]);
 const { t } = useI18n();
 
 const translation = ref(null);
+const textTranslation = ref("");
 const loading = ref(true);
 const error = ref("");
 
 onMounted(async () => {
   try {
-    const result = await translateWord(props.word, props.context, props.sourceLang, props.nativeLang);
-    translation.value = result;
+    if (props.mode === "text") {
+      textTranslation.value = await translateText(props.word, props.sourceLang, props.nativeLang);
+    } else {
+      const result = await translateWord(props.word, props.context, props.sourceLang, props.nativeLang);
+      translation.value = result;
+    }
   } catch (e) {
     error.value = t("popup.fail");
   } finally {
@@ -144,6 +155,13 @@ function emitClose() {
   gap: 8px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+}
+
+.popup-example {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-light);
+  margin: 2px 0 12px;
 }
 
 .tag-pos {

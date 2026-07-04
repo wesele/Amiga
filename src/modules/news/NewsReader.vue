@@ -79,6 +79,7 @@
         :context="selectedWord.context"
         :source-lang="targetLang"
         :native-lang="getLocale()"
+        mode="text"
         @close="selectedWord = null"
         @known="onWordKnown"
         @unknown="onWordUnknown"
@@ -132,15 +133,31 @@
           </svg>
         </button>
         <button
-          class="mode-btn share-btn"
+          class="mode-btn icon-btn read-btn"
+          :class="{ 'is-reading': reading }"
+          :disabled="!canReadArticle"
+          :title="reading ? t('news.stopReading') : t('news.readAloud')"
+          :aria-label="reading ? t('news.stopReading') : t('news.readAloud')"
+          @click="toggleReading"
+        >
+          <svg v-if="!reading" class="read-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1-3.29-2.5-4.03v8.05c1.5-.73 2.5-2.25 2.5-4.02z"/>
+            <path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+          </svg>
+          <svg v-else class="read-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+            <path d="M6 6h4v12H6V6zm8 0h4v12h-4V6z"/>
+          </svg>
+        </button>
+        <button
+          class="mode-btn icon-btn share-btn"
           :disabled="sharing"
           :title="t('news.shareTitle')"
+          :aria-label="t('news.share')"
           @click="onShare"
         >
-          <svg class="share-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+          <svg class="share-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
             <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/>
           </svg>
-          <span>{{ sharing ? t('news.sharing') : t('news.share') }}</span>
         </button>
       </div>
     </div>
@@ -153,7 +170,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
 import { getArticle, rewriteArticle, saveReadingLog, updateWordMastery, getBilingual, translateText, lookupWordIds, ensureWordsSeen, addDiscoveredWord, shareText as nativeShareText } from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
@@ -199,6 +216,20 @@ const sharing = ref(false);
 const shareStatus = ref("");
 let shareStatusTimer = null;
 
+// Read aloud state
+const reading = ref(false);
+const nativeTtsAvailable = ref(false);
+let speechUtterance = null;
+const canReadArticle = computed(() => {
+  if (!getReadableArticleText()) return false;
+  return nativeTtsAvailable.value || (typeof window !== "undefined" && "speechSynthesis" in window);
+});
+const speechLangMap = {
+  es: "es-ES",
+  en: "en-US",
+  zh: "zh-CN",
+};
+
 const {
   selectionText,
   selectionResult,
@@ -227,6 +258,11 @@ onMounted(async () => {
   // Android: the system text-selection toolbar calls this global function
   // when the user taps the "翻译" menu item (see MainActivity.kt).
   window.__amigaTranslateSelection = handleNativeTranslate;
+  window.__amigaTtsDone = () => {
+    reading.value = false;
+    speechUtterance = null;
+  };
+  nativeTtsAvailable.value = !!(window.__amigaTts && typeof window.__amigaTts.speak === "function");
   try {
     const ctx = await loadLearningContext({ targetLangStore });
     userId = ctx.user.id;
@@ -257,11 +293,13 @@ onBeforeUnmount(async () => {
   document.removeEventListener("selectionchange", onSelectionChange);
   document.removeEventListener("pointerup", onPointerUp);
   delete window.__amigaTranslateSelection;
+  delete window.__amigaTtsDone;
   cleanupSelectionTranslation();
   if (shareStatusTimer) {
     clearTimeout(shareStatusTimer);
     shareStatusTimer = null;
   }
+  stopReading();
   if (userId && article.value) {
     const elapsed = Math.round((Date.now() - startTime.value) / 1000);
     try {
@@ -447,6 +485,77 @@ async function onShare() {
   }
 }
 
+function getReadableArticleText() {
+  if (!article.value) return "";
+  const title = article.value.original_title || "";
+  const body = article.value.rewritten_body || article.value.original_body || "";
+  return `${title}\n\n${body}`.trim();
+}
+
+function toggleReading() {
+  if (reading.value) {
+    stopReading();
+    return;
+  }
+  startReading();
+}
+
+function startReading() {
+  if (!canReadArticle.value) return;
+  stopReading();
+  const text = getReadableArticleText();
+  const speechLang = getSpeechLang(targetLang);
+  if (window.__amigaTts && typeof window.__amigaTts.speak === "function") {
+    const result = window.__amigaTts.speak(text, speechLang);
+    if (result === "ok" || result === "initializing") {
+      reading.value = true;
+    }
+    return;
+  }
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = speechLang;
+  utterance.voice = pickSpeechVoice(speechLang);
+  utterance.rate = 0.9;
+  utterance.onend = () => {
+    if (speechUtterance === utterance) {
+      reading.value = false;
+      speechUtterance = null;
+    }
+  };
+  utterance.onerror = utterance.onend;
+  speechUtterance = utterance;
+  reading.value = true;
+  window.speechSynthesis.speak(utterance);
+}
+
+function getSpeechLang(lang) {
+  return speechLangMap[lang] || lang || "en-US";
+}
+
+function pickSpeechVoice(lang) {
+  if (typeof window === "undefined" || !window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices();
+  const langLower = lang.toLowerCase();
+  const family = langLower.split("-")[0];
+  return (
+    voices.find((voice) => voice.lang.toLowerCase() === langLower) ||
+    voices.find((voice) => voice.lang.toLowerCase().startsWith(`${family}-`)) ||
+    voices.find((voice) => voice.lang.toLowerCase() === family) ||
+    null
+  );
+}
+
+function stopReading() {
+  if (typeof window !== "undefined" && window.__amigaTts && typeof window.__amigaTts.stop === "function") {
+    window.__amigaTts.stop();
+  }
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+  reading.value = false;
+  speechUtterance = null;
+}
+
 function goBack() {
   const parent = router.currentRoute.value?.meta?.parent;
   if (parent) {
@@ -514,7 +623,7 @@ function formatSource(source) {
   font-weight: 700;
   line-height: 1.3;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: break-word;
@@ -691,6 +800,29 @@ function formatSource(source) {
 .mode-toggle-icon {
   opacity: 0.7;
   margin-top: 1px;
+}
+
+.icon-btn {
+  flex: 0 0 52px;
+  width: 52px;
+  padding: 10px 0;
+}
+
+.read-btn {
+  color: var(--purple, #7c3aed);
+  border-color: var(--purple, #7c3aed);
+  background: rgba(124, 58, 237, 0.08);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.12);
+}
+
+.read-btn:hover:not(:disabled),
+.read-btn.is-reading {
+  background: rgba(124, 58, 237, 0.15);
+}
+
+.read-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .share-btn {

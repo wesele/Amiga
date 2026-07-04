@@ -251,7 +251,10 @@ async function scrollToCurrentNode() {
   const currentStep = scroller.querySelector(".path-step.is-current");
   if (!currentStep) return;
   requestAnimationFrame(() => {
-    const top = currentStep.offsetTop - scroller.clientHeight * 0.42 + currentStep.clientHeight / 2;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const stepRect = currentStep.getBoundingClientRect();
+    const stepTop = scroller.scrollTop + stepRect.top - scrollerRect.top;
+    const top = stepTop - scroller.clientHeight * 0.42 + currentStep.clientHeight / 2;
     scroller.scrollTo({ top: Math.max(0, top), behavior: "auto" });
   });
 }
@@ -303,10 +306,12 @@ onMounted(load);
 
 <style scoped>
 .path-map {
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   background: linear-gradient(180deg, #b8e6ff 0%, #d8f4e8 35%, #eef8f0 100%);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .header-text {
@@ -472,8 +477,16 @@ onMounted(load);
 
 .path-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px 0 40px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.path-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .unit-block {
