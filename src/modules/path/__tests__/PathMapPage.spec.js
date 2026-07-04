@@ -40,8 +40,10 @@ describe("PathMapPage unit guide layout", () => {
   it("offsets nodes left, center, and right with captions below the node", () => {
     const source = readVue("src/modules/path/PathMapPage.vue");
     expect(source).toMatch(/\.path-step\.lane-left \.step-body\s*\{[\s\S]*align-self:\s*flex-start/);
+    expect(source).toMatch(/margin-left:\s*max\(0px,\s*calc\(22% - 56px\)\)/);
     expect(source).toMatch(/\.path-step\.lane-center \.step-body\s*\{[\s\S]*align-self:\s*center/);
     expect(source).toMatch(/\.path-step\.lane-right \.step-body\s*\{[\s\S]*align-self:\s*flex-end/);
+    expect(source).toMatch(/margin-right:\s*max\(0px,\s*calc\(22% - 56px\)\)/);
     expect(source).toMatch(/\.step-body\s*\{[\s\S]*flex-direction:\s*column/);
     expect(source).toMatch(/\.node-caption\s*\{[\s\S]*text-align:\s*center/);
   });

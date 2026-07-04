@@ -35,9 +35,11 @@
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
       </button>
-      <slot name="title">
-        <h1 class="page-title">{{ title }}</h1>
-      </slot>
+      <div class="path-title">
+        <slot name="title">
+          <h1 class="page-title">{{ title }}</h1>
+        </slot>
+      </div>
       <div v-if="$slots.actions" class="header-actions">
         <slot name="actions" />
       </div>
@@ -221,9 +223,9 @@ function handleBack() {
 
 .variant-path {
   display: grid;
-  grid-template-columns: 40px 1fr auto;
-  grid-template-rows: auto auto;
-  gap: 4px 10px;
+  grid-template-columns: 40px auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 24px;
   padding: 14px 16px 12px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
@@ -232,7 +234,7 @@ function handleBack() {
 }
 
 .variant-path .back-btn {
-  grid-row: 1 / 3;
+  grid-column: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -246,9 +248,19 @@ function handleBack() {
 }
 
 .variant-path .header-actions {
-  grid-row: 1 / 3;
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
   align-self: center;
   justify-self: end;
+}
+
+.variant-path .path-title {
+  grid-column: 3;
+  grid-row: 1;
+  min-width: 0;
+  align-self: center;
 }
 
 .header-actions {

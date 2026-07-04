@@ -571,7 +571,7 @@ onMounted(load);
 
 .path-step.lane-left .step-body {
   align-self: flex-start;
-  margin-left: 14%;
+  margin-left: max(0px, calc(22% - 56px));
 }
 
 .path-step.lane-center .step-body {
@@ -580,7 +580,7 @@ onMounted(load);
 
 .path-step.lane-right .step-body {
   align-self: flex-end;
-  margin-right: 14%;
+  margin-right: max(0px, calc(22% - 56px));
 }
 
 .step-body {

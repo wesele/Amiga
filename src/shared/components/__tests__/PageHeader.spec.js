@@ -1,7 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import PageHeader from "@/shared/components/PageHeader.vue";
+
+const ROOT = resolve(__dirname, "../../../..");
 
 function makeRouter(parent = "learn") {
   return createRouter({
@@ -78,5 +82,15 @@ describe("PageHeader", () => {
 
     expect(wrapper.find(".list-header").exists()).toBe(true);
     expect(wrapper.find(".today-label").text()).toBe("July 1");
+  });
+
+  it("keeps path variant back, level actions, and title vertically centered", () => {
+    const source = readFileSync(resolve(ROOT, "src/shared/components/PageHeader.vue"), "utf8");
+    expect(source).toMatch(/\.variant-path\s*\{[\s\S]*grid-template-columns:\s*40px auto minmax\(0,\s*1fr\)/);
+    expect(source).toMatch(/\.variant-path\s*\{[\s\S]*align-items:\s*center/);
+    expect(source).toMatch(/class="path-title"/);
+    expect(source).toMatch(/\.variant-path\s*\{[\s\S]*column-gap:\s*24px/);
+    expect(source).toMatch(/\.variant-path \.header-actions\s*\{[\s\S]*grid-column:\s*2/);
+    expect(source).toMatch(/\.variant-path \.path-title\s*\{[\s\S]*grid-column:\s*3/);
   });
 });
