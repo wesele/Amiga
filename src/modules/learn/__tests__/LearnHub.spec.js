@@ -43,6 +43,14 @@ describe("LearnHubPage", () => {
       if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1" });
       if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_path_curriculum_cmd") {
+        return Promise.resolve({
+          status: "active",
+          completed_sections: 3,
+          total_sections: 10,
+          total_stars: 7,
+        });
+      }
       if (cmd === "create_chat_session_cmd") return Promise.resolve("translator-sess");
       return Promise.resolve(null);
     });
@@ -52,27 +60,49 @@ describe("LearnHubPage", () => {
   it("uses a 2-column tile grid with two icons per row", () => {
     const source = readVue("src/modules/learn/LearnHubPage.vue");
     expect(source).toMatch(/grid-template-columns:\s*repeat\(2/);
+    expect(source).toMatch(/grid-column:\s*1\s*\/\s*-1/);
     expect(source).toMatch(/aspect-ratio:\s*1/);
     expect(source).not.toMatch(/width:\s*130px/);
     expect(source).toMatch(/font-size:\s*12vw/);
-    expect(source).toMatch(/gap:\s*6vw/);
-    expect(source).toMatch(/padding:\s*10vw\s+8vw\s+14vw/);
+    expect(source).toMatch(/--module-grid-row-gap:\s*8vw/);
+    expect(source).toMatch(/--module-grid-col-gap:\s*6vw/);
+    expect(source).toMatch(/gap:\s*var\(--module-grid-row-gap\)\s+var\(--module-grid-col-gap\)/);
+    expect(source).toMatch(/height:\s*calc\(\(100vw - \(var\(--module-grid-x\) \* 2\) - var\(--module-grid-col-gap\)\) \/ 2\)/);
     expect(source).toMatch(/font-size:\s*clamp\(14px,\s*5vw,\s*18px\)/);
   });
 
-  it("renders three module tiles in a grid", async () => {
+  it("renders a path progress bar above two module tiles", async () => {
     const router = makeRouter();
     const wrapper = mount(LearnHubPage, {
       global: { plugins: [router] },
     });
     await flushPromises();
+    await flushPromises();
 
+    const pathCard = wrapper.find(".path-progress-card");
+    expect(pathCard.exists()).toBe(true);
+    expect(pathCard.find(".path-progress-title").text()).toBe("晋级之路");
+    expect(pathCard.text()).toContain("已完成 3/10 关");
+    expect(pathCard.text()).toContain("★ 7");
+    expect(pathCard.find(".path-progress-fill").attributes("style")).toContain("width: 30%");
     const tiles = wrapper.findAll(".module-tile");
-    expect(tiles.length).toBe(3);
+    expect(tiles.length).toBe(2);
     const labels = tiles.map((t) => t.find(".module-label").text());
-    expect(labels).toContain("晋级之路");
     expect(labels).toContain("新闻");
     expect(labels).toContain("AI 翻译");
+  });
+
+  it("navigates to path when the path progress bar is clicked", async () => {
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".path-progress-card").trigger("click");
+
+    expect(pushSpy).toHaveBeenCalledWith({ name: "path" });
   });
 
   it("navigates to news when the news tile is clicked", async () => {
