@@ -23,6 +23,11 @@ describe("checkAnswer", () => {
     expect(checkAnswer(q, ["soy", "Yo", "estudiante."])).toBe(false);
   });
 
+  it("ignores punctuation and accents for T06 sentence order", () => {
+    const q = { type: "T06", targetSentence: "¿Cómo estás?" };
+    expect(checkAnswer(q, ["Como", "estas"])).toBe(true);
+  });
+
   it("normalizes accents for T09", () => {
     const q = { type: "T09", answer: "café", commonMistakes: [] };
     expect(checkAnswer(q, "cafe")).toBe(true);

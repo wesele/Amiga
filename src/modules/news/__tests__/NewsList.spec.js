@@ -235,6 +235,11 @@ describe("NewsList click handling", () => {
     expect(cards).toHaveLength(1);
     expect(cards[0].text()).toContain("Fresh headline");
   });
+
+  it("loads cached articles scoped to the active target language", async () => {
+    const { api } = await mountList();
+    expect(api.getArticles).toHaveBeenCalledWith("ES", "es");
+  });
 });
 
 describe("NewsList localized date", () => {

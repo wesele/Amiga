@@ -110,6 +110,7 @@ describe("AppShell bottom-nav safe-area", () => {
 describe("AppShell render", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    localStorage.clear();
   });
 
   it("renders 4 nav items in the bottom-nav", () => {
@@ -121,6 +122,15 @@ describe("AppShell render", () => {
   it("renders the .bottom-nav-safe strip even when the bottom-nav is hidden", () => {
     const wrapper = mountShell();
     expect(wrapper.find(".bottom-nav-safe").exists()).toBe(true);
+  });
+
+  it("marks the chat tab when a social group or direct conversation has unread messages", () => {
+    localStorage.setItem("idioma.social.previews", JSON.stringify({
+      public: { text: "hello", unread: true, createdAt: new Date().toISOString() },
+    }));
+    const wrapper = mountShell();
+    const chatTab = wrapper.findAll(".bottom-nav .nav-item")[2];
+    expect(chatTab.classes()).toContain("has-unread");
   });
 
   it("hides the bottom-nav on the wizard, reader, and chat-session routes", async () => {

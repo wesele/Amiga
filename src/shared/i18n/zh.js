@@ -34,6 +34,7 @@ export default {
     title: "学习",
     path: "晋级之路",
     news: "新闻",
+    expression: "表达评分",
   },
 
   path: {
@@ -83,6 +84,8 @@ export default {
     explainTimeout: "讲解生成超时，请检查网络或模型配置后重试",
     explainEmpty: "未收到讲解内容",
     explainRetry: "重试",
+    previousGrammar: "\u4e0a\u4e00\u4e2a",
+    nextGrammar: "\u4e0b\u4e00\u4e2a",
   },
 
   common: {
@@ -154,6 +157,7 @@ export default {
     rewriteBtn: "AI 智能改写",
     rewriting: "AI 正在改写文章…",
     rewriteFail: "AI 改写失败，请检查 API 配置后重试",
+    rawAfterRewriteFail: "改写失败，先显示原文。下次进入会再次尝试改写。",
     translate: "翻译",
     translating: "翻译中…",
     translateFail: "翻译暂不可用",
@@ -345,6 +349,10 @@ export default {
     freeNotice: "免费模型，仅供测试，随时可能失效。如果失效，请更新到新版本。",
     savedBuiltin: "已切换到系统内置模型",
     configEmpty: "请填写完整的 API Key、Base URL 和模型名称",
+    loadModels: "拉取",
+    loadingModels: "拉取中",
+    modelsConfigEmpty: "请先填写 API Key 和 Base URL",
+    modelsLoadFail: "模型列表拉取失败",
   },
 
   prompts: {

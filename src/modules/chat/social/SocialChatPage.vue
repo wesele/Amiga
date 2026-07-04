@@ -49,15 +49,17 @@
 
     <div class="chat-input-bar">
       <input
+        ref="inputEl"
         v-model="inputText"
         class="chat-input"
         :placeholder="t('chat.input')"
         @keydown.enter.prevent="handleEnter"
+        @focus="onInputFocus"
       />
       <div class="send-btn" :class="{ disabled: !canSend }" @click="sendMessage">{{ t("chat.send") }}</div>
     </div>
     <div v-if="sendError" class="chat-send-error">{{ sendError }}</div>
-    <div class="chat-safe-bottom" aria-hidden="true" />
+    <div class="chat-safe-bottom" :class="{ 'keyboard-open': keyboardOpen }" aria-hidden="true" />
   </div>
 </template>
 
@@ -105,13 +107,18 @@ const peerAvatar = ref("😊");
 const connectionState = ref("connecting");
 const inputText = ref("");
 const messages = ref([]);
+const chatView = ref(null);
 const messageListEl = ref(null);
+const inputEl = ref(null);
 const socketRef = ref(null);
 const reconnectAttempt = ref(0);
 const reconnectTimer = ref(null);
 const sendError = ref("");
 const initialised = ref(false);
 const showMenu = ref(false);
+const keyboardOpen = ref(false);
+let cachedViewportHeight = 0;
+let syncRaf = null;
 const mode = computed(() => route.params.mode || "public");
 const peerId = computed(() => route.params.peerId || "");
 const roomTitle = computed(() => {
@@ -130,6 +137,61 @@ const previewContactKey = computed(() => (
     peerId.value,
   )
 ));
+
+function getVisualViewport() {
+  return typeof window === "undefined" ? null : window.visualViewport || null;
+}
+
+function startSync() {
+  stopSync();
+  const vv = getVisualViewport();
+  if (!vv || !chatView.value) return;
+  function tick() {
+    if (!chatView.value) return;
+    chatView.value.style.top = `${vv.offsetTop}px`;
+    chatView.value.style.height = `${vv.height}px`;
+    syncRaf = requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+function stopSync({ reset = false } = {}) {
+  if (syncRaf) {
+    cancelAnimationFrame(syncRaf);
+    syncRaf = null;
+  }
+  if (reset && chatView.value) {
+    chatView.value.style.top = "";
+    chatView.value.style.height = "";
+  }
+}
+
+function onViewportResize() {
+  const vv = getVisualViewport();
+  if (!vv) return;
+  const diff = cachedViewportHeight - vv.height;
+  if (diff > 80) {
+    keyboardOpen.value = true;
+    startSync();
+    scrollToBottom();
+  } else {
+    cachedViewportHeight = vv.height;
+    keyboardOpen.value = false;
+    stopSync({ reset: true });
+  }
+}
+
+function onInputFocus() {
+  scrollToBottom();
+}
+
+function scrollToBottom() {
+  nextTick(() => {
+    if (messageListEl.value) {
+      messageListEl.value.scrollTop = messageListEl.value.scrollHeight;
+    }
+  });
+}
 
 function avatarForSender(senderId, senderAvatar = "") {
   if (senderAvatar) return senderAvatar;
@@ -196,20 +258,12 @@ function pushMessage(message, { fromSocket = false, persist = true } = {}) {
     persistMessages();
   }
   recordPreview(normalized, { markUnread: fromSocket });
-  nextTick(() => {
-    if (messageListEl.value) {
-      messageListEl.value.scrollTop = messageListEl.value.scrollHeight;
-    }
-  });
+  scrollToBottom();
 }
 
 function loadCachedMessages() {
   messages.value = getSocialMessages(previewContactKey.value);
-  nextTick(() => {
-    if (messageListEl.value) {
-      messageListEl.value.scrollTop = messageListEl.value.scrollHeight;
-    }
-  });
+  scrollToBottom();
 }
 
 function disconnectSocket() {
@@ -322,11 +376,7 @@ async function loadInitialState() {
     }
     if (offlineMessages.length > 0) {
       messages.value = mergeSocialMessages(previewContactKey.value, offlineMessages);
-      nextTick(() => {
-        if (messageListEl.value) {
-          messageListEl.value.scrollTop = messageListEl.value.scrollHeight;
-        }
-      });
+      scrollToBottom();
     }
   }
 }
@@ -375,6 +425,11 @@ async function enterConversation() {
 }
 
 onMounted(async () => {
+  const vv = getVisualViewport();
+  if (vv) {
+    cachedViewportHeight = vv.height;
+    vv.addEventListener("resize", onViewportResize);
+  }
   document.addEventListener("visibilitychange", handleVisibility);
   if (initialised.value) return;
   initialised.value = true;
@@ -391,7 +446,10 @@ watch(
 );
 
 onUnmounted(() => {
+  const vv = getVisualViewport();
+  if (vv) vv.removeEventListener("resize", onViewportResize);
   document.removeEventListener("visibilitychange", handleVisibility);
+  stopSync({ reset: true });
   disconnectSocket();
 });
 </script>
@@ -631,5 +689,9 @@ onUnmounted(() => {
   flex-shrink: 0;
   height: var(--safe-bottom, env(safe-area-inset-bottom, 0px));
   background: var(--white);
+}
+
+.chat-safe-bottom.keyboard-open {
+  height: 0;
 }
 </style>

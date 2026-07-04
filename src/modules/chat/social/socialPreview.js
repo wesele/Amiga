@@ -17,6 +17,11 @@ export function getSocialPreview(contactKey) {
   return store[contactKey] || null;
 }
 
+export function hasUnreadSocialPreview() {
+  const store = readLocalJson(STORAGE_KEY);
+  return Object.values(store).some((preview) => Boolean(preview?.unread));
+}
+
 export function updateSocialPreview({
   contactKey,
   text,

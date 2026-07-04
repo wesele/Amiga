@@ -34,6 +34,7 @@ const opening = ref(null);
 const modules = [
   { id: "path", labelKey: "learn.path", icon: "🛤️", route: { name: "path" } },
   { id: "news", labelKey: "learn.news", icon: "📰", route: { name: "news" } },
+  { id: "expression", labelKey: "learn.expression", icon: "✍️", route: { name: "expression" } },
   { id: "translator", labelKey: "chat.translator", icon: "🌐", action: "translator" },
 ];
 

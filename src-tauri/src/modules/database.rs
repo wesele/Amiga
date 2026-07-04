@@ -48,7 +48,7 @@ fn copy_sqlite_bundle(src: &Path, dst: &Path) -> Result<(), String> {
 /// scoped storage can still block direct file writes from native code even
 /// when the folder is present — probe with a real write instead of only
 /// checking `create_dir_all`.
-#[cfg(any(test, target_os = "android"))]
+#[cfg(target_os = "android")]
 fn is_directory_writable(dir: &Path) -> bool {
     if std::fs::create_dir_all(dir).is_err() {
         return false;
@@ -146,7 +146,8 @@ mod tests {
         let count: i32 = conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(count, 16, "Should have 16 migrations applied");
+        let expected = crate::modules::migrations::all_migrations().len() as i32;
+        assert_eq!(count, expected, "Should have all migrations applied");
     }
 
     #[test]
@@ -523,7 +524,7 @@ impl DatabasePool {
     /// If we are using internal but external parent is writable, publish a
     /// copy of current DB to the public location so it survives future
     /// uninstall + reinstall.
-    #[cfg(any(test, target_os = "android"))]
+    #[cfg(target_os = "android")]
     fn publish_to_external_if_possible(internal: &Path, external: &Path) -> Result<(), String> {
         if !internal.exists() {
             return Ok(());

@@ -31,6 +31,7 @@ export default {
     title: "Learn",
     path: "Progress Path",
     news: "News",
+    expression: "Expression",
   },
 
   path: {
@@ -80,6 +81,8 @@ export default {
     explainTimeout: "Explanation timed out — check your network or model settings",
     explainEmpty: "No explanation received",
     explainRetry: "Retry",
+    previousGrammar: "Previous",
+    nextGrammar: "Next",
   },
 
   common: {
@@ -151,6 +154,7 @@ export default {
     rewriteBtn: "AI rewrite",
     rewriting: "AI is rewriting…",
     rewriteFail: "Rewrite failed. Check API settings and retry.",
+    rawAfterRewriteFail: "Showing the original. Rewrite will retry next time.",
     translate: "Translate",
     translating: "Translating…",
     translateFail: "Translation unavailable",
@@ -342,6 +346,10 @@ export default {
     freeNotice: "Free model, for testing only — may stop working at any time. If it stops working, please update to the latest version.",
     savedBuiltin: "Switched to built-in model",
     configEmpty: "Please fill in API Key, Base URL and model name",
+    loadModels: "Load",
+    loadingModels: "Loading",
+    modelsConfigEmpty: "Enter API Key and Base URL first",
+    modelsLoadFail: "Could not load models",
   },
 
   prompts: {

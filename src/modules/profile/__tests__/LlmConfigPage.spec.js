@@ -50,6 +50,9 @@ describe("LlmConfigPage", () => {
         return Promise.resolve(null);
       }
       if (cmd === "test_llm_connection_cmd") return Promise.resolve({ success: true, message: "ok" });
+      if (cmd === "list_llm_models_cmd") {
+        return Promise.resolve([{ id: "gpt-4o-mini" }, { id: "gpt-4.1-mini" }]);
+      }
       return Promise.resolve(null);
     });
   });
@@ -156,5 +159,45 @@ describe("LlmConfigPage", () => {
     expect(config?.base_url).toBe(BUILTIN.base_url);
     expect(config?.api_key).toBe(BUILTIN.api_key);
     expect(config?.model).toBe(BUILTIN.model);
+  });
+
+  it("offers provider URL presets while keeping Base URL editable", async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.find('input[type="radio"][value="custom"]').setValue(true);
+    await flushPromises();
+
+    const presets = wrapper.findAll(".preset-btn");
+    expect(presets.map((button) => button.text())).toContain("OpenCode Zen");
+    const zen = presets.find((button) => button.text() === "OpenCode Zen");
+    await zen.trigger("click");
+
+    const inputs = wrapper.findAll("input.field-input");
+    expect(inputs[1].element.value).toBe("https://opencode.ai/zen/v1");
+    expect(inputs[2].element.value).toBe("zen");
+
+    await inputs[1].setValue("https://custom.example/v1");
+    expect(inputs[1].element.value).toBe("https://custom.example/v1");
+  });
+
+  it("loads remote model ids into the selectable model input", async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.find('input[type="radio"][value="custom"]').setValue(true);
+    await flushPromises();
+
+    const inputs = wrapper.findAll("input.field-input");
+    await inputs[0].setValue("sk-mykey");
+    await inputs[1].setValue("https://api.openai.com/v1");
+
+    await wrapper.find(".load-models-btn").trigger("click");
+    await flushPromises();
+
+    const call = mockInvoke.mock.calls.find((c) => c[0] === "list_llm_models_cmd");
+    expect(call?.[1]?.config.base_url).toBe("https://api.openai.com/v1");
+    const options = wrapper.findAll("datalist option").map((option) => option.attributes("value"));
+    expect(options).toContain("gpt-4o-mini");
   });
 });

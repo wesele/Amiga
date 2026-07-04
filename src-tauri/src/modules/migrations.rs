@@ -66,6 +66,16 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add path_grammar_explain_cache for LLM grammar teaching cache",
             MIGRATION_V16,
         ),
+        (
+            17,
+            "Scope cached news articles by target language",
+            MIGRATION_V17,
+        ),
+        (
+            18,
+            "Add learning feature tables for saved sentences, quizzes, scoring, safety, and AI audit logs",
+            MIGRATION_V18,
+        ),
     ]
 }
 
@@ -348,4 +358,82 @@ CREATE TABLE IF NOT EXISTS path_grammar_explain_cache (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (pair_key, cefr, unit_id, point_text)
 );
+"#;
+
+const MIGRATION_V17: &str = r#"
+ALTER TABLE news_articles ADD COLUMN target_lang TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_news_region_lang_current
+  ON news_articles(region, target_lang, is_current, hot_rank, fetched_at);
+"#;
+
+const MIGRATION_V18: &str = r#"
+CREATE TABLE IF NOT EXISTS saved_sentences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    article_id INTEGER REFERENCES news_articles(id) ON DELETE SET NULL,
+    original_text TEXT NOT NULL,
+    translation TEXT NOT NULL DEFAULT '',
+    source TEXT,
+    target_lang TEXT NOT NULL DEFAULT 'es',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, article_id, original_text, target_lang)
+);
+
+CREATE INDEX IF NOT EXISTS idx_saved_sentences_user
+  ON saved_sentences(user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS article_quiz_cache (
+    article_id INTEGER NOT NULL REFERENCES news_articles(id) ON DELETE CASCADE,
+    target_lang TEXT NOT NULL DEFAULT 'es',
+    native_lang TEXT NOT NULL DEFAULT 'zh',
+    quiz_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (article_id, target_lang, native_lang)
+);
+
+CREATE TABLE IF NOT EXISTS expression_scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    mode TEXT NOT NULL CHECK(mode IN ('writing', 'speaking', 'retell')),
+    target_lang TEXT NOT NULL DEFAULT 'es',
+    native_lang TEXT NOT NULL DEFAULT 'zh',
+    scenario TEXT NOT NULL DEFAULT '',
+    input_text TEXT NOT NULL,
+    reference_text TEXT NOT NULL DEFAULT '',
+    result_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_expression_scores_user_mode
+  ON expression_scores(user_id, mode, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS ai_call_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    feature_name TEXT NOT NULL,
+    model TEXT NOT NULL DEFAULT '',
+    duration_ms INTEGER NOT NULL DEFAULT 0,
+    failed INTEGER NOT NULL DEFAULT 0,
+    feedback_type TEXT NOT NULL DEFAULT '',
+    input_hash TEXT NOT NULL DEFAULT '',
+    error_message TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_call_logs_feature
+  ON ai_call_logs(feature_name, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS moderation_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    feature_name TEXT NOT NULL,
+    target_type TEXT NOT NULL DEFAULT '',
+    target_id TEXT NOT NULL DEFAULT '',
+    result_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_moderation_results_user
+  ON moderation_results(user_id, created_at DESC);
 "#;

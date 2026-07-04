@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Amiga 产品功能开发计划书</title>
+  <style>
+    :root {
+      --ink: #28342d;
+      --muted: #637166;
+      --paper: #fbfcf8;
+      --card: #ffffff;
+      --line: #dce5dc;
+      --green: #42a86c;
+      --green-soft: #e6f7ed;
+      --blue: #4f8fc8;
+      --blue-soft: #e8f3fb;
+      --orange: #b7791f;
+      --orange-soft: #fff4dc;
+      --red-soft: #ffe9e3;
+      --shadow: 0 14px 34px rgba(45, 67, 53, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+      line-height: 1.5;
+    }
+
+    .page {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 36px 22px 68px;
+    }
+
+    .hero {
+      padding: 42px;
+      border-radius: 26px;
+      background: linear-gradient(135deg, #f4ffe9 0%, #e8f7f2 50%, #fff4df 100%);
+      box-shadow: var(--shadow);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(66, 168, 108, 0.28);
+      color: #337a53;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      max-width: 840px;
+      margin: 18px 0 12px;
+      font-size: clamp(34px, 5vw, 64px);
+      line-height: 1.03;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 920px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    section {
+      margin-top: 24px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+
+    section > h2 {
+      margin-bottom: 14px;
+      font-size: 28px;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      max-width: 900px;
+      margin-bottom: 18px;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fcfffb;
+    }
+
+    .card h3 {
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .card p {
+      margin-bottom: 0;
+      color: var(--muted);
+    }
+
+    .tag {
+      display: inline-flex;
+      margin-bottom: 8px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: var(--blue-soft);
+      color: #376f9e;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .tag.p0 { background: var(--green-soft); color: #2f744d; }
+    .tag.p1 { background: var(--orange-soft); color: var(--orange); }
+    .tag.p2 { background: var(--blue-soft); color: #376f9e; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      vertical-align: top;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+    }
+
+    th {
+      background: var(--green-soft);
+      color: #2f744d;
+      font-size: 13px;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .module {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .module-head {
+      display: grid;
+      grid-template-columns: 96px 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 16px 18px;
+      background: linear-gradient(90deg, #f1fbf4 0%, #f7fbff 100%);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .module-id {
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--green);
+    }
+
+    .module-title {
+      margin: 0;
+      font-size: 21px;
+    }
+
+    .module-meta {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .module-body {
+      padding: 0 18px 18px;
+      overflow-x: auto;
+    }
+
+    .pill {
+      display: inline-flex;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #eef3ef;
+      color: #526256;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+    }
+
+    .sprint {
+      min-height: 154px;
+      padding: 14px;
+      border-radius: 15px;
+      border: 1px solid #ecd8b9;
+      background: var(--orange-soft);
+    }
+
+    .sprint strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--orange);
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    li + li { margin-top: 6px; }
+
+    .risk {
+      background: var(--red-soft);
+      border-color: #f0c8bf;
+    }
+
+    @media (max-width: 900px) {
+      .page { padding: 16px 10px 42px; }
+      .hero { padding: 28px 20px; }
+      section { padding: 20px 14px; }
+      .cols-2, .cols-3, .cols-4, .timeline { grid-template-columns: 1fr; }
+      .module-head {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+      .module-meta { text-align: left; white-space: normal; }
+      table { min-width: 980px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <span class="eyebrow">Amiga 产品功能开发计划书 · v1</span>
+      <h1>按模块拆解，可直接进入开发排期</h1>
+      <p class="lead">
+        本计划基于《Amiga 产品发展路线图》，强调 AI-first、轻运营、国际社交、适度评分与能力评测。计划只包含可执行功能，不引入付费、商城、XP、生命值、排行榜或成瘾激励。
+      </p>
+    </header>
+
+    <section>
+      <h2>1. 开发原则</h2>
+      <div class="grid cols-4">
+        <div class="card"><span class="tag p0">原则 01</span><h3>AI-first</h3><p>内容生成、解释、陪练、评分、评测优先调用大模型 API，人工只做规则、审核和体验把关。</p></div>
+        <div class="card"><span class="tag p0">原则 02</span><h3>轻产品</h3><p>先做小闭环，不做重课程后台、重社区、重运营活动。</p></div>
+        <div class="card"><span class="tag p0">原则 03</span><h3>学习优先</h3><p>评分和社交都必须导向学习建议，不做攀比和刷榜。</p></div>
+        <div class="card"><span class="tag p0">原则 04</span><h3>本地优先</h3><p>学习记录默认本地保存；同步、公开社交资料、跨 App 分享都显式授权。</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>2. 模块总览</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>模块编号</th>
+            <th>模块名称</th>
+            <th>核心目标</th>
+            <th>优先级</th>
+            <th>建议阶段</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>M01</td><td>今日学习桌</td><td>把入口从功能宫格改成每日可执行学习任务。</td><td><span class="pill">P0</span></td><td>第 1-2 周</td></tr>
+          <tr><td>M02</td><td>AI 解释与反馈</td><td>让错题、总结、例句都能即时获得短解释。</td><td><span class="pill">P0</span></td><td>第 1-4 周</td></tr>
+          <tr><td>M03</td><td>能力评测</td><td>提供 CEFR 估计、分项评分和推荐学习入口。</td><td><span class="pill">P0</span></td><td>第 3-6 周</td></tr>
+          <tr><td>M04</td><td>温习篮</td><td>把错题、半熟词、旧语法点合并为 5 分钟复习。</td><td><span class="pill">P1</span></td><td>第 5-8 周</td></tr>
+          <tr><td>M05</td><td>国际社交</td><td>用语伴、互改一句话、文化问答形成产品亮点。</td><td><span class="pill">P1</span></td><td>第 7-12 周</td></tr>
+          <tr><td>M06</td><td>真实阅读</td><td>将新闻升级为分级阅读与句子收藏。</td><td><span class="pill">P1</span></td><td>第 7-10 周</td></tr>
+          <tr><td>M07</td><td>表达评分</td><td>对口语、写作、复述给出温和分项评分。</td><td><span class="pill">P1</span></td><td>第 9-12 周</td></tr>
+          <tr><td>M08</td><td>数据与质量护栏</td><td>沉淀学习画像、AI 质量回收、社交安全。</td><td><span class="pill">P0</span></td><td>全程</td></tr>
+          <tr><td>M09</td><td>外部 App 集成</td><td>支持双语卡片、分享、外部文本导入。</td><td><span class="pill">P2</span></td><td>第 10-12 周</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>3. 功能拆解</h2>
+
+      <article class="module">
+        <div class="module-head">
+          <div class="module-id">M01</div>
+          <h3 class="module-title">今日学习桌</h3>
+          <div class="module-meta">替换 Learn Hub 宫格 · P0</div>
+        </div>
+        <div class="module-body">
+          <table>
+            <thead>
+              <tr><th>功能编号</th><th>功能名称</th><th>开发内容</th><th>数据/API</th><th>验收标准</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>M01-F01</td>
+                <td>今日入口聚合</td>
+                <td>首页显示 4 个主入口：继续路径、温习篮、能力评测、问 Amiga。保留新闻入口为“真实阅读”。</td>
+                <td>读取当前用户、目标语、CEFR、最近学习节点。</td>
+                <td>用户打开学习页 1 屏内能看到下一步；点击继续路径可直达当前节点。</td>
+              </tr>
+              <tr>
+                <td>M01-F02</td>
+                <td>下一步建议</td>
+                <td>根据最近学习记录生成一句建议，如“今天先复习过去式，再读一段短新闻”。</td>
+                <td>本地规则优先；可选调用 AI 生成自然文案。</td>
+                <td>无学习记录时给新手路径；有记录时建议不为空且可执行。</td>
+              </tr>
+              <tr>
+                <td>M01-F03</td>
+                <td>轻节奏设置</td>
+                <td>设置“慢一点 / 正常 / 多挑战一点”，影响今日推荐数量和评测难度。</td>
+                <td>新增 user_learning_preferences。</td>
+                <td>设置后刷新首页，推荐项数量和文案随节奏变化。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="module">
+        <div class="module-head">
+          <div class="module-id">M02</div>
+          <h3 class="module-title">AI 解释与反馈</h3>
+          <div class="module-meta">错题解释、总结建议 · P0</div>
+        </div>
+        <div class="module-body">
+          <table>
+            <thead>
+              <tr><th>功能编号</th><th>功能名称</th><th>开发内容</th><th>AI Prompt 输入</th><th>验收标准</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>M02-F01</td>
+                <td>问 Amiga 这一题</td>
+                <td>在答错后显示“问 Amiga”按钮，返回 1 段短解释 + 1 个正确例句。</td>
+                <td>题目、用户答案、正确答案、母语、目标语、CEFR。</td>
+                <td>解释不超过 80 字；失败时降级显示标准答案。</td>
+              </tr>
+              <tr>
+                <td>M02-F02</td>
+                <td>总结页复盘</td>
+                <td>课程结束页展示表现评分、易错点、下一步建议。</td>
+                <td>本次题目类型、错题列表、正确率、耗时。</td>
+                <td>完成一课后展示 1-5 星、易错标签和下一步按钮。</td>
+              </tr>
+              <tr>
+                <td>M02-F03</td>
+                <td>AI 解释缓存</td>
+                <td>同一题同一答案的解释写入本地缓存，减少 API 成本。</td>
+                <td>cache_key = question_id + answer_hash + locale。</td>
+                <td>重复点击不重复调用 API；缓存可清理。</td>
+              </tr>
+              <tr>
+                <td>M02-F04</td>
+                <td>解释质量反馈</td>
+                <td>解释下方提供“有用 / 看不懂 / 可能错了”。</td>
+                <td>记录 explanation_id、feedback_type。</td>
+                <td>用户反馈可本地记录，并进入质量面板数据。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="module">
+        <div class="module-head">
+          <div class="module-id">M03</div>
+          <h3 class="module-title">能力评测</h3>
+          <div class="module-meta">用户喜欢的阶段感 · P0</div>
+        </div>
+        <div class="module-body">
+          <table>
+            <thead>
+              <tr><th>功能编号</th><th>功能名称</th><th>开发内容</th><th>数据/API</th><th>验收标准</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>M03-F01</td>
+                <td>5 分钟轻测</td>
+                <td>固定 12-16 题，覆盖词汇、阅读、语法、听力/音频占位、表达短答。</td>
+                <td>assessment_sessions、assessment_items、assessment_answers。</td>
+                <td>5 分钟内可完成；中途退出可保存草稿。</td>
+              </tr>
+              <tr>
+                <td>M03-F02</td>
+                <td>CEFR 估计</td>
+                <td>按正确率、题目难度、表达评分估计 A1/A2/B1...，同时给置信度。</td>
+                <td>本地规则先行，AI 用于表达题评分。</td>
+                <td>结果页显示等级、置信度、不要超过 3 条建议。</td>
+              </tr>
+              <tr>
+                <td>M03-F03</td>
+                <td>分项能力图</td>
+                <td>展示词汇、语法、阅读、听力、表达 5 项评分。</td>
+                <td>score_breakdown JSON。</td>
+                <td>每项都有分数、短评和对应推荐练习入口。</td>
+              </tr>
+              <tr>
+                <td>M03-F04</td>
+                <td>月度再测</td>
+                <td>每 30 天建议再测一次；不弹强提醒，只在学习桌展示。</td>
+                <td>last_assessment_at。</td>
+                <td>到期显示“可以再测一次”；用户可关闭本次提示。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="module">
+        <div class="module-head">
+          <div class="module-id">M04</div>
+          <h3 class="module-title">温习篮</h3>
+          <div class="module-meta">间隔复习 · P1</div>
+        </div>
+        <div class="module-body">
+          <table>
+            <thead>
+              <tr><th>功能编号</th><th>功能名称</th><th>开发内容</th><th>数据/API</th><th>验收标准</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>M04-F01</td>
+                <td>复习队列</td>
+                <td>从错题、半熟词、旧语法点生成最多 10 个复习项。</td>
+                <td>review_items、skill_tags、next_review_at。</td>
+                <td>队列为空时推荐继续路径或真实阅读。</td>
+              </tr>
+              <tr>
+                <td>M04-F02</td>
+                <td>词汇熟悉度升级</td>
+                <td>将 Vocab mastery 扩展为 familiarity、last_reviewed、next_review。</td>
+                <td>追加 migration，不改历史 migration。</td>
+                <td>点“认识/不认识”后更新下一次复习时间。</td>
+              </tr>
+              <tr>
+                <td>M04-F03</td>
+                <td>错题自动入篮</td>
+                <td>练习错题自动进入温习篮，并携带题型和技能标签。</td>
+                <td>exercise_records 增加 skill_tags 或扩展表。</td>
+                <td>答错后下一次温习能看到相关题或同类题。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="module">
+        <div class="module-head">
+          <div class="module-id">M05</div>
+          <h3 class="module-title">国际社交</h3>
+          <div class="module-meta">产品亮点 · P1</div>
+        </div>
+        <div class="module-body">
+          <table>
+            <thead>
+              <tr><th>功能编号</th><th>功能名称</th><th>开发内容</th><th>数据/API</th><th>验收标准</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>M05-F01</td>
+                <td>语伴资料卡</td>
+                <td>用户可设置母语、目标语、兴趣、时区、想练什么。</td>
+                <td>social_profiles。</td>
+                <td>资料默认不公开；用户开启后才进入匹配。</td>
+              </tr>
+              <tr>
+                <td>M05-F02</td>
+                <td>改一句话</td>
+                <td>用户发布一句目标语，请母语者或 AI 帮改。先做异步轻互动。</td>
+                <td>social_corrections、AI fallback。</td>
+                <td>可提交、可收到改写、可采纳为收藏句。</td>
+              </tr>
+              <tr>
+                <td>M05-F03</td>
+                <td>语伴匹配</td>
+                <td>按语言互补、兴趣、时区推荐 3 个候选。</td>
+                <td>匹配算法先本地规则，后续可云端。</td>
+                <td>候选卡片可发起问候，不展示排行榜或热度。</td>
+              </tr>
+              <tr>
+                <td>M05-F04</td>
+                <td>文化问答</td>
+                <td>围绕真实场景提问，如“西语里这样说礼貌吗？”支持 AI 预答 + 人类补充。</td>
+                <td>social_questions、answers。</td>
+                <td>问题可转成学习卡片；敏感内容需过滤。</td>
+              </tr>
+              <tr>
+                <td>M05-F05</td>
+                <td>安全护栏</td>
+                <td>举报、拉黑、敏感词过滤、陌生人频率限制。</td>
+                <td>blocks、reports、moderation_logs。</td>
+                <td>被拉黑用户不可继续发消息；举报记录可导出排查。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="module">
+        <div class="module-head">
+          <div class="module-id">M06</div>
+          <h3 class="module-title">真实阅读</h3>
+          <div class="module-meta">News 升级 · P1</div>
+        </div>
+        <div class="module-body">
+          <table>
+            <thead>
+              <tr><th>功能编号</th><th>功能名称</th><th>开发内容</th><th>数据/API</th><th>验收标准</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>M06-F01</td>
+                <td>分级阅读模式</td>
+                <td>同一新闻提供原文、简写版、重点词、句子收藏。</td>
+                <td>AI rewrite by CEFR；article_versions。</td>
+                <td>用户可在原文/简写间切换，保留阅读位置。</td>
+              </tr>
+              <tr>
+                <td>M06-F02</td>
+                <td>句子收藏</td>
+                <td>选中一句保存为双语句卡，可进入温习篮或分享。</td>
+                <td>saved_sentences。</td>
+                <td>收藏句能显示原文、翻译、来源文章。</td>
+              </tr>
+              <tr>
+                <td>M06-F03</td>
+                <td>读后小测</td>
+                <td>AI 生成 3 个理解题，不计排名，只给阅读理解反馈。</td>
+                <td>article_quiz_cache。</td>
+                <td>题目与文章相关；失败时隐藏小测入口。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="module">
+        <div class="module-head">
+          <div class="module-id">M07</div>
+          <h3 class="module-title">表达评分</h3>
+          <div class="module-meta">满足评价心理 · P1</div>
+        </div>
+        <div class="module-body">
+          <table>
+            <thead>
+              <tr><th>功能编号</th><th>功能名称</th><th>开发内容</th><th>AI Prompt 输入</th><th>验收标准</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>M07-F01</td>
+                <td>写作短评</td>
+                <td>用户写 1-3 句，AI 给准确度、自然度、表达丰富度评分。</td>
+                <td>用户文本、目标语、母语、场景、CEFR。</td>
+                <td>返回 3 个分项分、总评、一个更自然版本。</td>
+              </tr>
+              <tr>
+                <td>M07-F02</td>
+                <td>口语评分占位</td>
+                <td>先实现文本转写后的评分流程；录音能力后续接入。</td>
+                <td>转写文本、目标句或场景。</td>
+                <td>没有录音权限时仍可用文本口语练习。</td>
+              </tr>
+              <tr>
+                <td>M07-F03</td>
+                <td>复述练习</td>
+                <td>用户读完微故事/新闻后用目标语复述，AI 评分并指出缺失信息。</td>
+                <td>原文摘要、用户复述、CEFR。</td>
+                <td>评分包括内容覆盖、语言准确、自然度。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="module">
+        <div class="module-head">
+          <div class="module-id">M08</div>
+          <h3 class="module-title">数据与质量护栏</h3>
+          <div class="module-meta">全程基础设施 · P0</div>
+        </div>
+        <div class="module-body">
+          <table>
+            <thead>
+              <tr><th>功能编号</th><th>功能名称</th><th>开发内容</th><th>数据/API</th><th>验收标准</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>M08-F01</td>
+                <td>学习画像</td>
+                <td>汇总用户 CEFR、强弱项、常错技能、兴趣主题。</td>
+                <td>learning_profile 聚合表或视图。</td>
+                <td>首页、评测、AI prompt 均可读取画像。</td>
+              </tr>
+              <tr>
+                <td>M08-F02</td>
+                <td>AI 调用审计</td>
+                <td>记录功能、模型、耗时、是否失败、用户反馈，不存敏感原文或做脱敏。</td>
+                <td>ai_call_logs。</td>
+                <td>可统计失败率和成本；用户可清理本地记录。</td>
+              </tr>
+              <tr>
+                <td>M08-F03</td>
+                <td>内容安全</td>
+                <td>社交和 AI 输出增加敏感内容检查与降级文案。</td>
+                <td>moderation_result。</td>
+                <td>敏感输入不进入公开社交；用户看到明确提示。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="module">
+        <div class="module-head">
+          <div class="module-id">M09</div>
+          <h3 class="module-title">外部 App 集成</h3>
+          <div class="module-meta">轻增长 · P2</div>
+        </div>
+        <div class="module-body">
+          <table>
+            <thead>
+              <tr><th>功能编号</th><th>功能名称</th><th>开发内容</th><th>平台注意</th><th>验收标准</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>M09-F01</td>
+                <td>双语卡片分享</td>
+                <td>将收藏句、AI 润色结果生成图片或文本卡片。</td>
+                <td>Windows 使用系统分享/复制；Android 使用 share intent。</td>
+                <td>可分享到微信、WhatsApp、Telegram 或复制到剪贴板。</td>
+              </tr>
+              <tr>
+                <td>M09-F02</td>
+                <td>外部文本导入</td>
+                <td>用户从浏览器/聊天 App 分享外语文本到 Amiga，进入翻译和收藏流程。</td>
+                <td>Android share target 优先；Windows 先做剪贴板导入。</td>
+                <td>导入后可翻译、收藏句子、问 Amiga。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section>
+      <h2>4. 12 周实施顺序</h2>
+      <div class="timeline">
+        <div class="sprint"><strong>第 1-2 周</strong><ul><li>M01-F01/F02</li><li>M02-F01 原型</li><li>AI prompt 模板</li></ul></div>
+        <div class="sprint"><strong>第 3-4 周</strong><ul><li>M02-F02/F03/F04</li><li>M03-F01 题流</li><li>总结页评分</li></ul></div>
+        <div class="sprint"><strong>第 5-6 周</strong><ul><li>M03-F02/F03/F04</li><li>M08-F01</li><li>评测结果推荐</li></ul></div>
+        <div class="sprint"><strong>第 7-8 周</strong><ul><li>M04-F01/F02/F03</li><li>M06-F01</li><li>学习桌接温习篮</li></ul></div>
+        <div class="sprint"><strong>第 9-10 周</strong><ul><li>M05-F01/F02</li><li>M06-F02/F03</li><li>M07-F01</li></ul></div>
+        <div class="sprint"><strong>第 11-12 周</strong><ul><li>M05-F03/F04/F05</li><li>M07-F02/F03</li><li>M09-F01/F02</li></ul></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>5. 验证清单</h2>
+      <table>
+        <thead>
+          <tr><th>类型</th><th>必须验证</th><th>通过标准</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>前端 UI</td><td>学习桌、评测页、温习篮、社交页、分享卡片均需截图。</td><td>480x800 下无溢出、无遮挡、主操作清楚。</td></tr>
+          <tr><td>Rust/Tauri</td><td>新增 command、schema、capability 后必须 cargo build。</td><td>Windows build 通过；涉及 Android 原生再跑 Android 验证。</td></tr>
+          <tr><td>AI 功能</td><td>解释、评分、评测要测成功、超时、空结果、低质量反馈。</td><td>失败时有降级，不阻断学习流程。</td></tr>
+          <tr><td>数据迁移</td><td>温习篮、评测、社交资料新增表只追加 migration。</td><td>旧用户启动后数据可用，测试覆盖空库和已有库。</td></tr>
+          <tr><td>社交安全</td><td>举报、拉黑、敏感内容、频率限制。</td><td>被限制内容不可公开；用户可退出社交功能。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>6. 风险与处理</h2>
+      <div class="grid cols-3">
+        <div class="card risk"><span class="tag p1">风险</span><h3>AI 成本不可控</h3><p>先缓存解释与文章小测；长文本功能限制长度；失败时用本地规则降级。</p></div>
+        <div class="card risk"><span class="tag p1">风险</span><h3>评分引发焦虑</h3><p>只显示分项建议，不做排名；文案强调“下一步怎么练”。</p></div>
+        <div class="card risk"><span class="tag p1">风险</span><h3>社交变重</h3><p>先做异步轻互动，不做动态流；安全功能先于扩大曝光。</p></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

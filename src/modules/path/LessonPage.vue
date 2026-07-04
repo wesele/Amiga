@@ -184,10 +184,22 @@ function onPrimaryAction() {
   if (!showResult.value) {
     lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
     if (lastCorrect.value) correctCount.value += 1;
+    if (lastCorrect.value && isChoiceQuestion(currentQuestion.value)) {
+      advanceQuestion();
+      return;
+    }
     showResult.value = true;
     return;
   }
 
+  advanceQuestion();
+}
+
+function isChoiceQuestion(question) {
+  return ["T01", "T02", "T05", "T07", "T08", "T12"].includes(question?.type);
+}
+
+function advanceQuestion() {
   if (index.value < questions.value.length - 1) {
     index.value += 1;
     currentAnswer.value = null;

@@ -11,6 +11,9 @@
             <path d="M17.65 6.35A7.96 7.96 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
           </svg>
         </button>
+        <button class="refresh-btn" :disabled="loading || importing" title="导入剪贴板" @click="onImportClipboard">
+          <span class="import-icon">↓</span>
+        </button>
       </template>
       <template #below>
         <span class="today-label">{{ formattedDate }}</span>
@@ -76,7 +79,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { useRouter } from "vue-router";
-import { getArticles, fetchNews, getCurrentUser } from "@/shared/api.js";
+import { getArticles, fetchNews, getCurrentUser, importClipboardArticle } from "@/shared/api.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { openSourceUrl } from "./utils.js";
 import { useI18n } from "@/shared/i18n";
@@ -88,6 +91,7 @@ const router = useRouter();
 const targetLangStore = useTargetLangStore();
 const articles = ref([]);
 const loading = ref(false);
+const importing = ref(false);
 const statusText = ref("");
 let statusTimer = null;
 let userId = "";
@@ -136,7 +140,7 @@ async function loadArticles() {
     // Region is derived from the target language (CN→zh, US/WORLD→en,
     // ES→es) so the user gets the right feed.
     const region = regionForLang(targetLang.value);
-    articles.value = await getArticles(region);
+    articles.value = await getArticles(region, targetLang.value);
   } catch (e) {
     console.error("Failed to load articles:", e);
     articles.value = [];
@@ -175,6 +179,34 @@ async function onRefresh() {
     articles.value = [];
   } finally {
     loading.value = false;
+  }
+}
+
+async function onImportClipboard() {
+  if (importing.value) return;
+  importing.value = true;
+  try {
+    if (typeof navigator?.clipboard?.readText !== "function") {
+      showStatus("当前环境无法读取剪贴板");
+      return;
+    }
+    const text = (await navigator.clipboard.readText()).trim();
+    if (!text) {
+      showStatus("剪贴板没有可导入的文本");
+      return;
+    }
+    const articleId = await importClipboardArticle({
+      title: text.split(/\r?\n/).find(Boolean)?.slice(0, 60) || "剪贴板文本",
+      body: text,
+      source: "clipboard",
+      target_lang: targetLang.value,
+    });
+    router.push(`/news/${articleId}`);
+  } catch (e) {
+    console.error("Failed to import clipboard:", e);
+    showStatus(typeof e === "string" ? e : e?.message || "导入失败");
+  } finally {
+    importing.value = false;
   }
 }
 
@@ -233,6 +265,12 @@ function formatSource(source) {
 
 .refresh-btn:disabled {
   opacity: 0.5;
+}
+
+.import-icon {
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 900;
 }
 
 .spinning {

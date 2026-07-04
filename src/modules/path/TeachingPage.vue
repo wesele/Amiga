@@ -1,7 +1,7 @@
 <template>
   <div class="teaching-page" :class="content?.kind">
     <header class="teach-header">
-      <button class="close-btn" :aria-label="t('common.back')" @click="exitTeaching">✕</button>
+      <button class="close-btn" :aria-label="t('common.back')" @click="exitTeaching">&times;</button>
       <div class="header-center">
         <span class="kind-badge">{{ kindLabel }}</span>
         <p class="unit-label">{{ content?.unit_title_native }}</p>
@@ -31,23 +31,12 @@
                 v-for="(point, idx) in content.grammar_points"
                 :key="idx"
                 class="point-item"
-                :class="{ expanded: expandedPoint === idx, loading: loadingPoint === idx }"
               >
                 <button type="button" class="point-btn" @click="onGrammarPointClick(idx, point)">
                   <span class="point-num">{{ idx + 1 }}</span>
                   <span class="point-text">{{ point }}</span>
-                  <span class="point-chevron">{{ expandedPoint === idx ? "▾" : "▸" }}</span>
+                  <span class="point-chevron">&gt;</span>
                 </button>
-                <div v-if="expandedPoint === idx" class="point-detail">
-                  <p v-if="loadingPoint === idx" class="detail-loading">{{ t("path.explainLoading") }}</p>
-                  <template v-else-if="pointErrors[idx]">
-                    <p class="detail-error">{{ pointErrors[idx] }}</p>
-                    <button type="button" class="retry-link" @click="onGrammarPointClick(idx, point)">
-                      {{ t("path.explainRetry") }}
-                    </button>
-                  </template>
-                  <div v-else-if="explanations[idx]" class="detail-body">{{ explanations[idx] }}</div>
-                </div>
               </li>
             </ul>
           </section>
@@ -106,15 +95,12 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
   completeTeachingNode,
-  explainGrammarPoint,
-  getGrammarExplanationCached,
   getTeachingContent,
   getUserVocabByLevel,
   updateWordMastery,
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { promiseWithTimeout } from "@/shared/promiseTimeout.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 
 const route = useRoute();
@@ -130,76 +116,18 @@ const teachingWords = ref([]);
 const selectedWord = ref(null);
 const userId = ref("");
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
-const expandedPoint = ref(null);
-const loadingPoint = ref(null);
-const explanations = ref({});
-const pointErrors = ref({});
-let explainSeq = 0;
-
-function formatInvokeError(err) {
-  if (!err) return "";
-  if (typeof err === "string") return err;
-  if (typeof err.message === "string" && err.message) return err.message;
-  return String(err);
-}
 
 const kindLabel = computed(() => {
   if (content.value?.kind === "vocab") return t("path.nodeVocab");
   return t("path.nodeGrammar");
 });
 
-async function onGrammarPointClick(idx, point) {
-  if (expandedPoint.value === idx && !pointErrors.value[idx]) {
-    expandedPoint.value = null;
-    return;
-  }
-  expandedPoint.value = idx;
-  if (explanations.value[idx]) {
-    pointErrors.value = { ...pointErrors.value, [idx]: "" };
-    return;
-  }
-
-  const seq = ++explainSeq;
-  loadingPoint.value = idx;
-  pointErrors.value = { ...pointErrors.value, [idx]: "" };
-  try {
-    const c = content.value;
-    const cached = await getGrammarExplanationCached(
-      userMeta.value.cefr,
-      c.unit_id,
-      point,
-    );
-    if (seq !== explainSeq) return;
-    if (cached) {
-      explanations.value = { ...explanations.value, [idx]: cached };
-      return;
-    }
-
-    const res = await promiseWithTimeout(
-      explainGrammarPoint(
-        userMeta.value.cefr,
-        userMeta.value.targetLang,
-        c.unit_id,
-        point,
-        c.unit_title_native,
-        c.goal_native,
-      ),
-      120000,
-      t("path.explainTimeout"),
-    );
-    if (seq !== explainSeq) return;
-    const text = res?.explanation;
-    if (!text) throw new Error(t("path.explainEmpty"));
-    explanations.value = { ...explanations.value, [idx]: text };
-  } catch (e) {
-    if (seq !== explainSeq) return;
-    pointErrors.value = {
-      ...pointErrors.value,
-      [idx]: formatInvokeError(e),
-    };
-  } finally {
-    if (seq === explainSeq) loadingPoint.value = null;
-  }
+function onGrammarPointClick(idx, point) {
+  if (!point) return;
+  router.push({
+    name: "path-grammar-point",
+    params: { nodeId: route.params.nodeId, pointIdx: idx },
+  });
 }
 
 function chipClass(mastery) {
@@ -280,10 +208,6 @@ async function load() {
     );
     selectedWord.value = null;
     await loadTeachingWords(content.value?.words, targetLang, cefr);
-    expandedPoint.value = null;
-    loadingPoint.value = null;
-    explanations.value = {};
-    pointErrors.value = {};
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {
@@ -342,7 +266,8 @@ onMounted(load);
   border: none;
   border-radius: 50%;
   background: var(--gray-light);
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: 800;
   cursor: pointer;
 }
 
@@ -433,16 +358,6 @@ onMounted(load);
   border: 2px solid var(--border);
   box-shadow: 0 3px 0 var(--border);
   overflow: hidden;
-  transition: border-color var(--transition), box-shadow var(--transition);
-}
-
-.point-item.expanded {
-  border-color: #ce82ff;
-  box-shadow: 0 3px 0 #a855f7;
-}
-
-.point-item.loading {
-  opacity: 0.92;
 }
 
 .point-btn {
@@ -485,47 +400,9 @@ onMounted(load);
 .point-chevron {
   flex-shrink: 0;
   color: var(--text-light);
-  font-size: 14px;
-  margin-top: 2px;
-}
-
-.point-detail {
-  padding: 0 14px 14px 54px;
-}
-
-.detail-loading,
-.detail-error {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.detail-loading {
-  color: var(--text-light);
-}
-
-.detail-error {
-  color: var(--red);
-}
-
-.retry-link {
-  margin-top: 8px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--blue-hover);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.detail-body {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.65;
-  color: var(--text);
-  white-space: pre-wrap;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.3;
 }
 
 .scenario-chips {

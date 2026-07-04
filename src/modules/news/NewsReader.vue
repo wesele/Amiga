@@ -32,13 +32,26 @@
       <div class="spinner" />
       <p>{{ t('news.rewriting') }}</p>
     </div>
-    <div v-else-if="rewriteError" class="rewrite-prompt">
+    <div v-else-if="rewriteError && !displayBody" class="rewrite-prompt">
       <p class="error-text">{{ rewriteError }}</p>
       <button class="btn-rewrite" @click="doRewrite">{{ t('common.retry') }}</button>
     </div>
 
     <!-- Article body -->
     <div v-else class="article-body">
+      <div v-if="rewriteError && displayBody" class="inline-rewrite-error">
+        <span>{{ t('news.rawAfterRewriteFail') }}</span>
+        <button type="button" class="inline-retry" :disabled="rewriting" @click="doRewrite">
+          {{ rewriting ? t('news.rewriting') : t('common.retry') }}
+        </button>
+      </div>
+      <div v-if="savedSentences.length" class="saved-sentences">
+        <h2>已收藏句</h2>
+        <div v-for="item in savedSentences" :key="item.id" class="saved-sentence">
+          <p>{{ item.original_text }}</p>
+          <small>{{ item.translation }}</small>
+        </div>
+      </div>
       <!-- Original mode -->
       <div v-if="!bilingualMode" class="article-text">
         <template v-for="(token, idx) in tokens" :key="idx">
@@ -93,6 +106,15 @@
           <div v-if="selectionLoading" class="sel-loading">{{ t('news.translating') }}</div>
           <div v-else-if="selectionResult" class="sel-result">{{ selectionResult }}</div>
           <div v-else-if="selectionError" class="sel-error">{{ selectionError }}</div>
+          <button
+            v-if="selectionResult"
+            class="sel-save"
+            type="button"
+            :disabled="savingSentence"
+            @click="saveSelectedSentence"
+          >
+            {{ savingSentence ? "保存中..." : "收藏句子" }}
+          </button>
           <button class="sel-close" @click="clearSelection">✕</button>
         </div>
       </div>
@@ -142,6 +164,15 @@
           </svg>
           <span>{{ sharing ? t('news.sharing') : t('news.share') }}</span>
         </button>
+        <button class="mode-btn tool-btn" type="button" :disabled="quizLoading" @click="openQuiz">
+          <span>{{ quizLoading ? "生成中" : "小测" }}</span>
+        </button>
+        <button class="mode-btn tool-btn" type="button" @click="openRetell">
+          <span>复述</span>
+        </button>
+        <button class="mode-btn tool-btn" type="button" @click="shareCard">
+          <span>卡片</span>
+        </button>
       </div>
     </div>
 
@@ -149,13 +180,78 @@
     <Transition name="popup">
       <div v-if="shareStatus" class="share-toast">{{ shareStatus }}</div>
     </Transition>
+
+    <Transition name="popup">
+      <div v-if="quizOpen" class="feature-overlay" @click.self="quizOpen = false">
+        <section class="feature-sheet">
+          <header class="sheet-header">
+            <h2>读后小测</h2>
+            <button type="button" class="sheet-close" @click="quizOpen = false">×</button>
+          </header>
+          <p v-if="quizError" class="sel-error">{{ quizError }}</p>
+          <div v-for="(q, qidx) in quizQuestions" :key="q.question" class="quiz-item">
+            <p class="quiz-question">{{ qidx + 1 }}. {{ q.question }}</p>
+            <button
+              v-for="(option, oidx) in q.options"
+              :key="option"
+              type="button"
+              class="option-btn"
+              :class="optionClass(qidx, oidx)"
+              @click="quizAnswers[qidx] = oidx"
+            >
+              {{ option }}
+            </button>
+            <p v-if="quizAnswers[qidx] !== undefined" class="quiz-explain">
+              {{ q.explanation }}
+            </p>
+          </div>
+        </section>
+      </div>
+    </Transition>
+
+    <Transition name="popup">
+      <div v-if="retellOpen" class="feature-overlay" @click.self="retellOpen = false">
+        <section class="feature-sheet">
+          <header class="sheet-header">
+            <h2>复述练习</h2>
+            <button type="button" class="sheet-close" @click="retellOpen = false">×</button>
+          </header>
+          <textarea v-model.trim="retellText" class="retell-input" rows="6" placeholder="用目标语复述这篇文章的主要内容" />
+          <button class="btn-rewrite" type="button" :disabled="retellLoading" @click="submitRetell">
+            {{ retellLoading ? "评分中..." : "提交复述" }}
+          </button>
+          <p v-if="retellError" class="sel-error">{{ retellError }}</p>
+          <div v-if="retellResult" class="retell-result">
+            <strong>{{ retellResult.total_score }} 分</strong>
+            <p>{{ retellResult.summary }}</p>
+            <p>{{ retellResult.improved_version }}</p>
+          </div>
+        </section>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, saveReadingLog, updateWordMastery, getBilingual, translateText, lookupWordIds, ensureWordsSeen, addDiscoveredWord, shareText as nativeShareText } from "@/shared/api.js";
+import {
+  getArticle,
+  rewriteArticle,
+  saveReadingLog,
+  updateWordMastery,
+  getBilingual,
+  translateText,
+  lookupWordIds,
+  ensureWordsSeen,
+  addDiscoveredWord,
+  saveSentence,
+  listSavedSentences,
+  getArticleQuiz,
+  scoreExpression,
+  moderateContent,
+  shareText as nativeShareText,
+} from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -193,11 +289,25 @@ const paraTokens = ref([]);
 const titleTranslation = ref("");
 const loadingTranslation = ref(false);
 const translationError = ref("");
+const displayBody = computed(() => article.value?.rewritten_body || article.value?.original_body || "");
 
 // Share state
 const sharing = ref(false);
 const shareStatus = ref("");
 let shareStatusTimer = null;
+
+const savingSentence = ref(false);
+const savedSentences = ref([]);
+const quizOpen = ref(false);
+const quizLoading = ref(false);
+const quizError = ref("");
+const quizQuestions = ref([]);
+const quizAnswers = ref({});
+const retellOpen = ref(false);
+const retellText = ref("");
+const retellLoading = ref(false);
+const retellError = ref("");
+const retellResult = ref(null);
 
 const {
   selectionText,
@@ -239,6 +349,7 @@ onMounted(async () => {
     } else {
       processArticleWords();
     }
+    await loadSavedSentences();
   } catch (e) {
     console.error("Failed to load article:", e);
   }
@@ -327,6 +438,10 @@ async function doRewrite() {
   } catch (e) {
     console.error("Failed to rewrite article:", e);
     rewriteError.value = typeof e === "string" ? e : (e?.message || t("news.rewriteFail"));
+    if (article.value?.original_body) {
+      parseText(article.value.original_body);
+      processArticleWords();
+    }
   } finally {
     rewriting.value = false;
   }
@@ -444,6 +559,112 @@ async function onShare() {
     });
   } finally {
     sharing.value = false;
+  }
+}
+
+async function saveSelectedSentence() {
+  if (!selectionText.value || !selectionResult.value || savingSentence.value) return;
+  savingSentence.value = true;
+  try {
+    await saveSentence({
+      user_id: userId,
+      article_id: Number(props.id),
+      original_text: selectionText.value,
+      translation: selectionResult.value,
+      source: article.value?.source || "",
+      target_lang: targetLang,
+    });
+    await loadSavedSentences();
+    showShareStatus("已收藏句子");
+    clearSelection();
+  } catch (e) {
+    showShareStatus(typeof e === "string" ? e : e?.message || "收藏失败");
+  } finally {
+    savingSentence.value = false;
+  }
+}
+
+async function loadSavedSentences() {
+  if (!userId) return;
+  try {
+    savedSentences.value = await listSavedSentences(userId, Number(props.id));
+  } catch (_) {
+    savedSentences.value = [];
+  }
+}
+
+async function openQuiz() {
+  quizOpen.value = true;
+  quizError.value = "";
+  if (quizQuestions.value.length > 0 || quizLoading.value) return;
+  quizLoading.value = true;
+  try {
+    const quiz = await getArticleQuiz(Number(props.id), targetLang, getLocale());
+    quizQuestions.value = quiz.questions || [];
+    if (quizQuestions.value.length === 0) {
+      quizError.value = "暂时无法生成小测";
+    }
+  } catch (e) {
+    quizError.value = "AI 小测生成失败，不影响继续阅读。";
+  } finally {
+    quizLoading.value = false;
+  }
+}
+
+function optionClass(qidx, oidx) {
+  const answer = quizAnswers.value[qidx];
+  if (answer === undefined) return "";
+  const correct = quizQuestions.value[qidx]?.answer_index;
+  if (oidx === correct) return "correct";
+  if (oidx === answer) return "wrong";
+  return "";
+}
+
+function openRetell() {
+  retellOpen.value = true;
+  retellError.value = "";
+}
+
+async function submitRetell() {
+  retellError.value = "";
+  retellResult.value = null;
+  if (!retellText.value) {
+    retellError.value = "请先写下你的复述";
+    return;
+  }
+  retellLoading.value = true;
+  try {
+    retellResult.value = await scoreExpression({
+      user_id: userId,
+      mode: "retell",
+      target_lang: targetLang,
+      native_lang: getLocale(),
+      scenario: "读完新闻后复述主要内容",
+      input_text: retellText.value,
+      reference_text: `${article.value?.original_title || ""}\n${displayBody.value}`,
+    });
+  } catch (e) {
+    retellError.value = "AI 暂时无法评分，复述内容已保留在输入框，可稍后重试。";
+  } finally {
+    retellLoading.value = false;
+  }
+}
+
+async function shareCard() {
+  if (!article.value) return;
+  const title = article.value.original_title || "";
+  const body = displayBody.value.slice(0, 360);
+  const cardText = `Amiga 双语卡片\n\n${title}\n\n${body}\n\n${article.value.source || ""}`;
+  try {
+    const safety = await moderateContent(userId, "bilingual_card", cardText, "article", String(props.id));
+    if (!safety.allowed) {
+      showShareStatus(safety.message || "内容暂时不能分享");
+      return;
+    }
+    await nativeShareText(cardText);
+    showShareStatus("卡片内容已发送到分享/复制");
+  } catch (e) {
+    showShareStatus("卡片分享失败");
   }
 }
 
@@ -591,6 +812,39 @@ function formatSource(source) {
   word-break: break-word;
 }
 
+.inline-rewrite-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-md);
+  background: var(--orange-bg);
+  color: var(--orange);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.inline-retry {
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  background: var(--surface);
+  color: var(--orange);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.inline-retry:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .btn-rewrite {
   padding: 12px 32px;
   border-radius: var(--radius-md);
@@ -631,6 +885,36 @@ function formatSource(source) {
   touch-action: auto;
 }
 
+.saved-sentences {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-left: 3px solid var(--green);
+  background: var(--green-bg);
+}
+
+.saved-sentences h2 {
+  margin: 0 0 8px;
+  color: var(--green);
+  font-size: 14px;
+}
+
+.saved-sentence {
+  padding: 8px 0;
+  border-top: 1px solid rgba(88, 204, 2, 0.18);
+}
+
+.saved-sentence p {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.saved-sentence small {
+  color: var(--text-light);
+  line-height: 1.4;
+}
+
 .word {
   cursor: pointer;
   padding: 0 1px;
@@ -657,18 +941,20 @@ function formatSource(source) {
 /* Mode bar */
 .mode-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 0;
 }
 
 .mode-btn {
-  flex: 1;
+  flex: 1 1 30%;
+  min-width: 70px;
   padding: 10px 0;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text-light);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   transition: all var(--transition);
@@ -711,6 +997,15 @@ function formatSource(source) {
 
 .share-icon {
   flex-shrink: 0;
+}
+
+.tool-btn {
+  color: var(--text);
+  background: var(--surface-variant);
+}
+
+.tool-btn:disabled {
+  opacity: 0.6;
 }
 
 .share-toast {
@@ -827,6 +1122,120 @@ function formatSource(source) {
 .sel-error {
   font-size: 13px;
   color: var(--red);
+}
+
+.sel-save {
+  margin-top: 12px;
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--green);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 10px 12px;
+}
+
+.feature-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 520;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 16px;
+}
+
+.feature-sheet {
+  width: 100%;
+  max-height: 78vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-sm);
+  padding: 16px;
+  box-shadow: var(--shadow-lg);
+}
+
+.sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sheet-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.sheet-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-variant);
+  color: var(--text);
+  font-size: 18px;
+}
+
+.quiz-item {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.quiz-question {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.option-btn {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  line-height: 1.35;
+}
+
+.option-btn.correct {
+  border-color: var(--green);
+  background: var(--green-bg);
+}
+
+.option-btn.wrong {
+  border-color: var(--red);
+  background: rgba(255, 75, 75, 0.08);
+}
+
+.quiz-explain,
+.retell-result {
+  margin: 10px 0 0;
+  color: var(--text-light);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.retell-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
 }
 
 .sel-close {

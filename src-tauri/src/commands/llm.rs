@@ -60,6 +60,14 @@ pub async fn test_llm_connection_cmd(
 }
 
 #[tauri::command]
+pub async fn list_llm_models_cmd(
+    llm: State<'_, LlmState>,
+    config: llm_mod::ModelConfig,
+) -> Result<Vec<llm_mod::ModelOption>, String> {
+    llm.client.list_models(&config).await
+}
+
+#[tauri::command]
 pub async fn save_llm_config_cmd(
     db: State<'_, DatabasePool>,
     key: String,
@@ -136,12 +144,5 @@ pub async fn translate_text_cmd(
 ) -> Result<String, String> {
     use crate::modules::translation as translation_mod;
 
-    translation_mod::translate_text(
-        &llm.client,
-        &db,
-        &text,
-        &source_lang,
-        &native_lang,
-    )
-    .await
+    translation_mod::translate_text(&llm.client, &db, &text, &source_lang, &native_lang).await
 }
