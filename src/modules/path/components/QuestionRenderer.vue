@@ -10,17 +10,19 @@
       :alt="question.typeName"
     />
 
-    <button
-      v-if="hasAudio"
-      type="button"
-      class="audio-btn"
-      :disabled="audioBusy"
-      @click="playAudio"
-    >
-      🔊 {{ t("path.playAudio") }}
-    </button>
+    <div v-if="hasAudio" class="audio-panel">
+      <button
+        type="button"
+        class="audio-btn"
+        :disabled="audioBusy"
+        @click="playAudio"
+      >
+        <span class="audio-icon" aria-hidden="true">♪</span>
+        <span>{{ t("path.playAudio") }}</span>
+      </button>
+    </div>
 
-    <div v-if="isChoiceType" class="options">
+    <div v-if="isChoiceType" class="options" :class="{ 'image-options': question.type === 'T02' }">
       <button
         v-for="(opt, idx) in choiceOptions"
         :key="idx"
@@ -30,6 +32,9 @@
         :disabled="showResult"
         @click="selectChoice(idx)"
       >
+        <span v-if="!choiceImage(idx)" class="option-index" aria-hidden="true">
+          {{ optionLetter(idx) }}
+        </span>
         <QuestionImage
           v-if="choiceImage(idx)"
           class="option-image"
@@ -72,17 +77,19 @@
 
     <div v-else-if="question.type === 'T06'" class="word-order">
       <div class="built-sentence">
-        <button
-          v-for="(word, idx) in builtWords"
-          :key="'b' + idx"
-          type="button"
-          class="word-chip built"
-          :disabled="showResult"
-          @click="removeWord(idx)"
-        >
-          {{ word }}
-        </button>
-        <span v-if="builtWords.length === 0" class="placeholder">{{ t("path.tapWords") }}</span>
+        <div class="sentence-line">
+          <button
+            v-for="(word, idx) in builtWords"
+            :key="'b' + idx"
+            type="button"
+            class="word-chip built"
+            :disabled="showResult"
+            @click="removeWord(idx)"
+          >
+            {{ word }}
+          </button>
+          <span v-if="builtWords.length === 0" class="placeholder">{{ t("path.tapWords") }}</span>
+        </div>
       </div>
       <div class="word-bank">
         <button
@@ -182,6 +189,10 @@ function shuffleRights() {
 function choiceImage(idx) {
   if (props.question.type !== "T02") return null;
   return props.question.imageOptions?.[idx] || null;
+}
+
+function optionLetter(idx) {
+  return String.fromCharCode(65 + idx);
 }
 
 function optionClass(idx) {
@@ -305,94 +316,220 @@ watch(
 .question-renderer {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .prompt {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.45;
+  padding: 2px 2px 0;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.audio-panel {
+  display: flex;
+  justify-content: center;
 }
 
 .audio-btn {
-  align-self: flex-start;
-  padding: 10px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  min-height: 52px;
+  padding: 0 20px;
+  border: 2px solid #84d8ff;
+  border-radius: 999px;
   background: var(--blue-bg);
   color: var(--blue-hover);
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 800;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 4px 0 #b9e9ff;
+}
+
+.audio-btn:disabled {
+  opacity: 0.65;
+  box-shadow: none;
+}
+
+.audio-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: var(--white);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
 }
 
 .options {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+}
+
+.options.image-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .option-btn {
   width: 100%;
-  padding: 14px 16px;
+  min-height: 58px;
+  padding: 13px 14px;
   border: 2px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--white);
   text-align: left;
   font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
   cursor: pointer;
-  transition: border-color var(--transition), background var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 0 var(--border);
+  transition:
+    border-color var(--transition),
+    background var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition);
+}
+
+.option-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--border);
+}
+
+.option-btn:disabled {
+  cursor: default;
+}
+
+.image-options .option-btn {
+  min-height: 168px;
+  padding: 8px;
+  align-items: stretch;
+  justify-content: center;
 }
 
 .option-btn.selected {
   border-color: var(--blue);
   background: var(--blue-bg);
+  box-shadow: 0 4px 0 #84d8ff;
 }
 
 .option-btn.correct {
   border-color: var(--green);
   background: var(--green-bg);
+  box-shadow: 0 4px 0 #b7e89a;
 }
 
 .option-btn.wrong {
   border-color: var(--red);
   background: var(--red-bg);
+  box-shadow: 0 4px 0 #ffb3b3;
 }
 
 .option-image {
   margin-bottom: 0;
+  width: 100%;
 }
 
 .option-text {
   display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.option-index {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gray-light);
+  color: var(--text-light);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.option-btn.selected .option-index,
+.option-btn.correct .option-index {
+  background: var(--green);
+  color: var(--white);
+}
+
+.option-btn.wrong .option-index {
+  background: var(--red);
+  color: var(--white);
 }
 
 .matching {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--white);
+  border: 2px solid var(--border);
+  box-shadow: 0 4px 0 var(--border);
+}
+
+.match-col {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
 .match-item,
 .word-chip {
-  padding: 12px;
+  min-height: 48px;
+  padding: 10px 12px;
   border: 2px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--white);
   font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
   cursor: pointer;
+  overflow-wrap: anywhere;
+  transition:
+    border-color var(--transition),
+    background var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition);
+}
+
+.match-item {
+  width: 100%;
+  box-shadow: 0 3px 0 var(--border);
+}
+
+.match-item:active:not(:disabled),
+.word-chip:active:not(:disabled) {
+  transform: translateY(2px);
 }
 
 .match-item.selected,
 .word-chip:not(:disabled):hover {
   border-color: var(--blue);
   background: var(--blue-bg);
+  box-shadow: 0 3px 0 #84d8ff;
 }
 
 .match-item.matched {
   border-color: var(--green);
   background: var(--green-bg);
-  opacity: 0.8;
+  box-shadow: none;
+  opacity: 0.86;
 }
 
 .word-order {
@@ -402,42 +539,92 @@ watch(
 }
 
 .built-sentence {
-  min-height: 56px;
-  padding: 10px;
-  border: 2px dashed var(--border);
+  min-height: 96px;
+  padding: 12px;
+  border: 2px dashed #c8c8c8;
   border-radius: var(--radius-md);
+  background: linear-gradient(180deg, var(--white) 0%, #fbfbfb 100%);
+  display: flex;
+  align-items: stretch;
+}
+
+.sentence-line {
+  width: 100%;
+  min-height: 68px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  align-items: center;
+  align-content: flex-start;
+  align-items: flex-start;
 }
 
 .placeholder {
   color: var(--text-lighter);
   font-size: 14px;
+  font-weight: 700;
+  align-self: center;
+  margin: auto;
 }
 
 .word-bank {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
+  padding: 2px;
+}
+
+.word-chip {
+  box-shadow: 0 3px 0 var(--border);
+}
+
+.word-chip:disabled:not(.built) {
+  opacity: 0.28;
+  box-shadow: none;
 }
 
 .word-chip.built {
   border-color: var(--green);
   background: var(--green-bg);
+  box-shadow: 0 3px 0 #b7e89a;
 }
 
 .text-input-wrap {
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .text-input {
   width: 100%;
-  padding: 14px 16px;
+  min-height: 58px;
+  padding: 15px 16px;
   border: 2px solid var(--border);
   border-radius: var(--radius-md);
   font-size: 16px;
+  font-weight: 700;
   box-sizing: border-box;
+  background: var(--white);
+  color: var(--text);
+  box-shadow: 0 4px 0 var(--border);
+  outline: none;
+}
+
+.text-input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 4px 0 #84d8ff;
+}
+
+@media (max-width: 380px) {
+  .options.image-options {
+    grid-template-columns: 1fr;
+  }
+
+  .matching {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .match-item,
+  .word-chip {
+    font-size: 14px;
+  }
 }
 </style>

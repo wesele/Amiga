@@ -19,7 +19,7 @@ const props = defineProps({
 const imageAlt = computed(() => props.alt || props.imageDesc || "");
 
 const sanitizedSvg = computed(() => {
-  const svg = props.imageSvg || "";
+  const svg = (props.imageSvg || "").trim();
   if (!/^<svg[\s>]/i.test(svg)) return "";
   if (/<script|on\w+\s*=|javascript:/i.test(svg)) return "";
   return svg;

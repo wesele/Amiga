@@ -239,14 +239,14 @@ onMounted(load);
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
+  background: linear-gradient(180deg, #ffffff 0%, var(--bg) 220px);
 }
 
 .lesson-header {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 12px 16px 10px;
   background: var(--white);
   border-bottom: 1px solid var(--border);
 }
@@ -280,7 +280,12 @@ onMounted(load);
 .lesson-body,
 .summary {
   flex: 1;
-  padding: 24px 20px;
+  padding: 22px 20px;
+}
+
+.lesson-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .center-state {
@@ -293,16 +298,18 @@ onMounted(load);
 }
 
 .section-label {
-  margin: 0 0 16px;
+  margin: 0 0 14px;
   font-size: 13px;
   color: var(--text-light);
-  font-weight: 600;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .lesson-footer {
-  padding: 16px 20px calc(16px + var(--safe-bottom));
+  padding: 14px 20px calc(16px + var(--safe-bottom));
   background: var(--white);
   border-top: 1px solid var(--border);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.04);
 }
 
 .feedback {

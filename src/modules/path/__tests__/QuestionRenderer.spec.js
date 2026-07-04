@@ -23,4 +23,12 @@ describe("QuestionRenderer", () => {
     expect(source).not.toContain('class="image-desc"');
     expect(source).toContain("imageAlt");
   });
+
+  it("allows generated SVG with harmless leading whitespace", () => {
+    const source = readFileSync(
+      resolve(ROOT, "modules/path/components/QuestionImage.vue"),
+      "utf8",
+    );
+    expect(source).toContain('(props.imageSvg || "").trim()');
+  });
 });
