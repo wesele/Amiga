@@ -253,57 +253,6 @@ describe("API module", () => {
     });
   });
 
-  describe("Learning feature API", () => {
-    it("review basket calls use stable command names", () => {
-      api.getReviewSummary("u1", "es");
-      api.listReviewQueue("u1", "es", 5);
-      api.completeReviewItem("u1", "vocab:1", true);
-
-      expect(mockInvoke).toHaveBeenNthCalledWith(1, "get_review_summary_cmd", {
-        userId: "u1",
-        targetLang: "es",
-      });
-      expect(mockInvoke).toHaveBeenNthCalledWith(2, "list_review_queue_cmd", {
-        userId: "u1",
-        targetLang: "es",
-        limit: 5,
-      });
-      expect(mockInvoke).toHaveBeenNthCalledWith(3, "complete_review_item_cmd", {
-        userId: "u1",
-        itemId: "vocab:1",
-        remembered: true,
-      });
-    });
-
-    it("social learning calls use wrapped invoke payloads", () => {
-      const profile = { user_id: "u1", interests: ["music"] };
-      api.saveSocialProfile(profile);
-      api.getSocialRecommendations("u1");
-      api.submitSentenceRewrite("u1", "es", "hola");
-      api.askCultureQuestion("u1", "es", "How polite?");
-      api.getArticleVersion(3, "A2");
-
-      expect(mockInvoke).toHaveBeenNthCalledWith(1, "save_social_profile_cmd", { profile });
-      expect(mockInvoke).toHaveBeenNthCalledWith(2, "get_social_recommendations_cmd", {
-        userId: "u1",
-      });
-      expect(mockInvoke).toHaveBeenNthCalledWith(3, "submit_sentence_rewrite_cmd", {
-        userId: "u1",
-        targetLang: "es",
-        text: "hola",
-      });
-      expect(mockInvoke).toHaveBeenNthCalledWith(4, "ask_culture_question_cmd", {
-        userId: "u1",
-        targetLang: "es",
-        question: "How polite?",
-      });
-      expect(mockInvoke).toHaveBeenNthCalledWith(5, "get_article_version_cmd", {
-        articleId: 3,
-        cefrLevel: "A2",
-      });
-    });
-  });
-
   describe("Cloud sync API", () => {
     it("testCloudSync calls invoke", () => {
       api.testCloudSync();

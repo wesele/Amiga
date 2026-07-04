@@ -59,7 +59,6 @@ describe("LessonPage choice flow", () => {
           ],
         });
       }
-      if (cmd === "record_lesson_mistake_cmd") return Promise.resolve(null);
       return Promise.reject(new Error(`unexpected invoke: ${cmd}`));
     });
   });

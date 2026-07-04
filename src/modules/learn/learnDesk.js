@@ -97,11 +97,9 @@ export function buildNextSuggestion({ profile, pace = DEFAULT_PACE, hasRecentLes
   };
 }
 
-export function dailyEntries({ pace = DEFAULT_PACE, reviewCount = 0 } = {}) {
+export function dailyEntries({ pace = DEFAULT_PACE } = {}) {
   const meta = paceMeta(pace);
-  const reviewLabel = reviewCount > 0
-    ? `${reviewCount} 项到期`
-    : (meta.dailyItems <= 2 ? "温习 3 分钟" : `温习 ${meta.dailyItems} 组`);
+  const reviewLabel = meta.dailyItems <= 2 ? "温习 3 分钟" : `温习 ${meta.dailyItems} 组`;
   return [
     {
       id: "path",
@@ -114,7 +112,7 @@ export function dailyEntries({ pace = DEFAULT_PACE, reviewCount = 0 } = {}) {
       id: "review",
       title: "温习篮",
       desc: reviewLabel,
-      route: { name: "review" },
+      route: { name: "vocab" },
     },
     {
       id: "assessment",

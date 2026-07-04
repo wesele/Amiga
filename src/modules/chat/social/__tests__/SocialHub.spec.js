@@ -115,7 +115,7 @@ describe("SocialHub", () => {
     });
     await flushPromises();
 
-    const input = wrapper.find(".inline-form input");
+    const input = wrapper.find("input");
     await input.setValue("Bob");
 
     const buttons = wrapper.findAll(".primary-btn");
@@ -143,7 +143,7 @@ describe("SocialHub", () => {
     });
     await flushPromises();
 
-    const input = wrapper.find(".inline-form input");
+    const input = wrapper.find("input");
     await input.setValue("Alice");
     await flushPromises();
     const buttons = wrapper.findAll(".primary-btn");
@@ -169,7 +169,7 @@ describe("SocialHub", () => {
     });
     await flushPromises();
 
-    const input = wrapper.find(".inline-form input");
+    const input = wrapper.find("input");
     await input.setValue("   ");
     await flushPromises();
     const buttons = wrapper.findAll(".primary-btn");

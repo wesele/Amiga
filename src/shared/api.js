@@ -126,35 +126,6 @@ export function createApiClient(invoke) {
     moderateContent: (userId, featureName, text, targetType, targetId) =>
       call("moderate_content_cmd", { userId, featureName, text, targetType, targetId }),
     importClipboardArticle: (request) => call("import_clipboard_article_cmd", { request }),
-    getReviewSummary: (userId, targetLang) =>
-      call("get_review_summary_cmd", { userId, targetLang }),
-    listReviewQueue: (userId, targetLang, limit = 10) =>
-      call("list_review_queue_cmd", { userId, targetLang, limit }),
-    completeReviewItem: (userId, itemId, remembered) =>
-      call("complete_review_item_cmd", { userId, itemId, remembered }),
-    recordLessonMistake: (request) => call("record_lesson_mistake_cmd", { request }),
-    shouldPromptAssessment: (userId, targetLang) =>
-      call("should_prompt_assessment_cmd", { userId, targetLang }),
-    recordAssessmentEvent: (userId, targetLang, dismissed = false) =>
-      call("record_assessment_event_cmd", { userId, targetLang, dismissed }),
-    saveSocialProfile: (profile) => call("save_social_profile_cmd", { profile }),
-    getSocialProfile: (userId) => call("get_social_profile_cmd", { userId }),
-    getSocialRecommendations: (userId) => call("get_social_recommendations_cmd", { userId }),
-    setSocialBlock: (blockerId, blockedId, blocked) =>
-      call("set_social_block_cmd", { blockerId, blockedId, blocked }),
-    reportSocialUser: (reporterId, targetId, reason, detail) =>
-      call("report_social_user_cmd", { reporterId, targetId, reason, detail }),
-    listSocialReports: (reporterId) => call("list_social_reports_cmd", { reporterId }),
-    submitSentenceRewrite: (userId, targetLang, text) =>
-      call("submit_sentence_rewrite_cmd", { userId, targetLang, text }),
-    adoptSentenceRewrite: (rewriteId, userId, targetLang) =>
-      call("adopt_sentence_rewrite_cmd", { rewriteId, userId, targetLang }),
-    askCultureQuestion: (userId, targetLang, question) =>
-      call("ask_culture_question_cmd", { userId, targetLang, question }),
-    saveCultureQuestionCard: (questionId, userId, targetLang) =>
-      call("save_culture_question_card_cmd", { questionId, userId, targetLang }),
-    getArticleVersion: (articleId, cefrLevel) =>
-      call("get_article_version_cmd", { articleId, cefrLevel }),
 
     // Settings
     saveSetting: (key, value) => call("save_setting_cmd", { key, value }),
@@ -293,26 +264,6 @@ export const clearAiCallLogs = (...args) => defaultApiClient.clearAiCallLogs(...
 export const moderateContent = (...args) => defaultApiClient.moderateContent(...args);
 export const importClipboardArticle = (...args) =>
   defaultApiClient.importClipboardArticle(...args);
-export const getReviewSummary = (...args) => defaultApiClient.getReviewSummary(...args);
-export const listReviewQueue = (...args) => defaultApiClient.listReviewQueue(...args);
-export const completeReviewItem = (...args) => defaultApiClient.completeReviewItem(...args);
-export const recordLessonMistake = (...args) => defaultApiClient.recordLessonMistake(...args);
-export const shouldPromptAssessment = (...args) =>
-  defaultApiClient.shouldPromptAssessment(...args);
-export const recordAssessmentEvent = (...args) => defaultApiClient.recordAssessmentEvent(...args);
-export const saveSocialProfile = (...args) => defaultApiClient.saveSocialProfile(...args);
-export const getSocialProfile = (...args) => defaultApiClient.getSocialProfile(...args);
-export const getSocialRecommendations = (...args) =>
-  defaultApiClient.getSocialRecommendations(...args);
-export const setSocialBlock = (...args) => defaultApiClient.setSocialBlock(...args);
-export const reportSocialUser = (...args) => defaultApiClient.reportSocialUser(...args);
-export const listSocialReports = (...args) => defaultApiClient.listSocialReports(...args);
-export const submitSentenceRewrite = (...args) => defaultApiClient.submitSentenceRewrite(...args);
-export const adoptSentenceRewrite = (...args) => defaultApiClient.adoptSentenceRewrite(...args);
-export const askCultureQuestion = (...args) => defaultApiClient.askCultureQuestion(...args);
-export const saveCultureQuestionCard = (...args) =>
-  defaultApiClient.saveCultureQuestionCard(...args);
-export const getArticleVersion = (...args) => defaultApiClient.getArticleVersion(...args);
 
 // --- Settings ---
 export const saveSetting = (...args) => defaultApiClient.saveSetting(...args);

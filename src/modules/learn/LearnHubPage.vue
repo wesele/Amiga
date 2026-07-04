@@ -17,15 +17,6 @@
       </button>
     </section>
 
-    <section v-if="assessmentDue" class="assessment-nudge">
-      <div>
-        <p class="panel-kicker">轻提醒</p>
-        <strong>可以再测一次当前水平</strong>
-      </div>
-      <button type="button" class="nudge-link" @click="openAssessment">去评测</button>
-      <button type="button" class="nudge-close" @click="dismissAssessment">x</button>
-    </section>
-
     <section class="pace-band" aria-label="学习节奏">
       <button
         v-for="option in paceOptions"
@@ -63,14 +54,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import {
-  getLearningProfile,
-  getReviewSummary,
-  getSetting,
-  recordAssessmentEvent,
-  saveSetting,
-  shouldPromptAssessment,
-} from "@/shared/api.js";
+import { getLearningProfile, getSetting, saveSetting } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
@@ -89,8 +73,6 @@ const pace = ref("normal");
 const profile = ref(null);
 const cefr = ref("A1");
 const context = ref(null);
-const reviewCount = ref(0);
-const assessmentDue = ref(false);
 const paceOptions = PACE_OPTIONS;
 
 const suggestion = computed(() =>
@@ -100,7 +82,7 @@ const suggestion = computed(() =>
     hasRecentLesson: true,
   }),
 );
-const entries = computed(() => dailyEntries({ pace: pace.value, reviewCount: reviewCount.value }));
+const entries = computed(() => dailyEntries({ pace: pace.value }));
 
 function entryMark(id) {
   return {
@@ -114,20 +96,6 @@ function entryMark(id) {
 
 function openRoute(route) {
   if (route) router.push(route);
-}
-
-async function openAssessment() {
-  if (context.value?.user?.id) {
-    await recordAssessmentEvent(context.value.user.id, context.value.targetLang, false).catch(() => {});
-  }
-  router.push({ name: "assessment" });
-}
-
-async function dismissAssessment() {
-  assessmentDue.value = false;
-  if (context.value?.user?.id) {
-    await recordAssessmentEvent(context.value.user.id, context.value.targetLang, true).catch(() => {});
-  }
 }
 
 async function setPace(value) {
@@ -163,12 +131,6 @@ async function load() {
     if (context.value.user?.id) {
       profile.value = await getLearningProfile(context.value.user.id, context.value.targetLang);
       cefr.value = profile.value?.cefr_level || cefr.value;
-      const summary = await getReviewSummary(context.value.user.id, context.value.targetLang).catch(() => null);
-      reviewCount.value = summary?.due_count || 0;
-      assessmentDue.value = await shouldPromptAssessment(
-        context.value.user.id,
-        context.value.targetLang,
-      ).catch(() => false);
     }
   } catch {
     profile.value = null;
@@ -224,45 +186,6 @@ onMounted(load);
   background: var(--white);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
-}
-
-.assessment-nudge {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  gap: 10px;
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px solid var(--blue);
-  border-radius: var(--radius-md);
-  background: var(--blue-bg);
-  color: var(--text);
-}
-
-.assessment-nudge strong {
-  font-size: 14px;
-}
-
-.nudge-link,
-.nudge-close {
-  border: none;
-  border-radius: var(--radius-sm);
-  font: inherit;
-  font-weight: 800;
-}
-
-.nudge-link {
-  min-height: 36px;
-  padding: 0 12px;
-  background: var(--blue);
-  color: var(--white);
-}
-
-.nudge-close {
-  width: 32px;
-  height: 32px;
-  background: var(--white);
-  color: var(--text-light);
 }
 
 .panel-kicker {
