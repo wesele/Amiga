@@ -1,12 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
-import LearnHubPage from "@/modules/learn/LearnHubPage.vue";
-import { buildNextSuggestion, loadStudyPace, saveStudyPace } from "../learnDesk.js";
+import { setLocale } from "@/shared/i18n";
+
+const ROOT = resolve(__dirname, "../../../..");
+function readVue(rel) {
+  return readFileSync(resolve(ROOT, rel), "utf8");
+}
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
+
+const LearnHubPage = (await import("@/modules/learn/LearnHubPage.vue")).default;
 
 function makeRouter() {
   return createRouter({
@@ -14,9 +22,7 @@ function makeRouter() {
     routes: [
       { path: "/learn", name: "learn", component: LearnHubPage },
       { path: "/learn/path", name: "path", component: { template: "<div/>" } },
-      { path: "/learn/assessment", name: "assessment", component: { template: "<div/>" } },
       { path: "/learn/expression", name: "expression", component: { template: "<div/>" } },
-      { path: "/vocab", name: "vocab", component: { template: "<div/>" } },
       { path: "/news", name: "news", component: { template: "<div/>" } },
       {
         path: "/learn/translator/:sessionId",
@@ -28,71 +34,82 @@ function makeRouter() {
 }
 
 describe("LearnHubPage", () => {
+  let mockInvoke;
+
   beforeEach(() => {
     setActivePinia(createPinia());
-    localStorage.clear();
-    api.__setInvoke(vi.fn().mockImplementation((cmd) => {
-      if (cmd === "get_setting_cmd") return Promise.resolve(null);
-      if (cmd === "save_setting_cmd") return Promise.resolve(null);
-      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+    setLocale("zh", { persist: false });
+    mockInvoke = vi.fn().mockImplementation((cmd) => {
       if (cmd === "get_target_language_cmd") return Promise.resolve("es");
-      if (cmd === "get_learning_goals_cmd") {
-        return Promise.resolve([{ target_language: "es", cefr_level: "A1" }]);
-      }
-      if (cmd === "get_learning_profile_cmd") {
-        return Promise.resolve({
-          user_id: "u1",
-          cefr_level: "A1",
-          articles_read: 0,
-          vocab_seen: 2,
-          vocab_mastered: 0,
-          weak_skills: ["词汇"],
-          interests: [],
-        });
-      }
       if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1" });
       if (cmd === "create_chat_session_cmd") return Promise.resolve("translator-sess");
       return Promise.resolve(null);
-    }));
+    });
+    api.__setInvoke(mockInvoke);
   });
 
-  it("renders today's learning desk entries", async () => {
+  it("uses a 2-column tile grid with two icons per row", () => {
+    const source = readVue("src/modules/learn/LearnHubPage.vue");
+    expect(source).toMatch(/grid-template-columns:\s*repeat\(2/);
+    expect(source).toMatch(/aspect-ratio:\s*1/);
+    expect(source).not.toMatch(/width:\s*130px/);
+    expect(source).toMatch(/font-size:\s*12vw/);
+    expect(source).toMatch(/gap:\s*6vw/);
+    expect(source).toMatch(/padding:\s*10vw\s+8vw\s+14vw/);
+    expect(source).toMatch(/font-size:\s*clamp\(14px,\s*5vw,\s*18px\)/);
+  });
+
+  it("renders four module tiles in a grid", async () => {
     const router = makeRouter();
-    const wrapper = mount(LearnHubPage, { global: { plugins: [router] } });
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
     await flushPromises();
 
-    expect(wrapper.text()).toContain("今日学习桌");
-    expect(wrapper.text()).toContain("继续路径");
-    expect(wrapper.text()).toContain("能力评测");
-    expect(wrapper.text()).toContain("真实阅读");
+    const tiles = wrapper.findAll(".module-tile");
+    expect(tiles.length).toBe(4);
+    const labels = tiles.map((t) => t.find(".module-label").text());
+    expect(labels).toContain("晋级之路");
+    expect(labels).toContain("新闻");
+    expect(labels).toContain("AI 翻译");
   });
 
-  it("navigates to assessment from the desk", async () => {
+  it("navigates to news when the news tile is clicked", async () => {
     const router = makeRouter();
     const pushSpy = vi.spyOn(router, "push");
-    const wrapper = mount(LearnHubPage, { global: { plugins: [router] } });
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
     await flushPromises();
 
-    const assessment = wrapper.findAll(".entry-row")
-      .find((button) => button.text().includes("能力评测"));
-    await assessment.trigger("click");
+    const newsTile = wrapper.findAll(".module-tile")
+      .find((t) => t.find(".module-label").text() === "新闻");
+    await newsTile.trigger("click");
 
-    expect(pushSpy).toHaveBeenCalledWith({ name: "assessment" });
+    expect(pushSpy).toHaveBeenCalledWith({ name: "news" });
   });
 
-  it("persists pace with local fallback", async () => {
-    const storage = window.localStorage;
-    await saveStudyPace("challenge", { saveSetting: vi.fn().mockRejectedValue(new Error("x")), storage });
-    await expect(loadStudyPace({ getSetting: vi.fn().mockRejectedValue(new Error("x")), storage }))
-      .resolves.toBe("challenge");
-  });
-
-  it("builds a non-empty linked suggestion", () => {
-    const suggestion = buildNextSuggestion({
-      profile: { vocab_seen: 1, articles_read: 0 },
-      pace: "slow",
+  it("opens translator session via learn-translator route", async () => {
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
     });
-    expect(suggestion.title).toBeTruthy();
-    expect(suggestion.route).toEqual({ name: "vocab" });
+    await flushPromises();
+
+    const translatorTile = wrapper.findAll(".module-tile")
+      .find((t) => t.find(".module-label").text() === "AI 翻译");
+    await translatorTile.trigger("click");
+    await flushPromises();
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "create_chat_session_cmd",
+      expect.objectContaining({ contactType: "translator" }),
+    );
+    expect(pushSpy).toHaveBeenCalledWith({
+      name: "learn-translator",
+      params: { sessionId: "translator-sess" },
+    });
   });
 });
