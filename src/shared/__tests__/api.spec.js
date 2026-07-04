@@ -170,9 +170,9 @@ describe("API module", () => {
       expect(mockInvoke).toHaveBeenCalledWith("fetch_news_cmd", { region: "world", targetLang: "es" });
     });
 
-    it("getArticles calls invoke with region and targetLang", () => {
-      api.getArticles("world", "es");
-      expect(mockInvoke).toHaveBeenCalledWith("get_articles_cmd", { region: "world", targetLang: "es" });
+    it("getArticles calls invoke with region", () => {
+      api.getArticles("world");
+      expect(mockInvoke).toHaveBeenCalledWith("get_articles_cmd", { region: "world" });
     });
 
     it("getArticle calls invoke with articleId", () => {
@@ -211,12 +211,6 @@ describe("API module", () => {
       const config = { base_url: "http://localhost", api_key: "key", model: "gpt" };
       api.testLlmConnection(config);
       expect(mockInvoke).toHaveBeenCalledWith("test_llm_connection_cmd", { config });
-    });
-
-    it("listLlmModels calls invoke with config", () => {
-      const config = { base_url: "http://localhost", api_key: "key", model: "gpt" };
-      api.listLlmModels(config);
-      expect(mockInvoke).toHaveBeenCalledWith("list_llm_models_cmd", { config });
     });
 
     it("saveLlmConfig calls invoke with key and config", () => {

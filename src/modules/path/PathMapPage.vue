@@ -288,16 +288,10 @@ onMounted(load);
 
 <style scoped>
 .path-map {
-  height: 100%;
-  min-height: 0;
+  min-height: 100%;
   background: linear-gradient(180deg, #b8e6ff 0%, #d8f4e8 35%, #eef8f0 100%);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-}
-
-.path-map :deep(.page-header) {
-  flex-shrink: 0;
 }
 
 .header-text {
@@ -463,7 +457,6 @@ onMounted(load);
 
 .path-scroll {
   flex: 1;
-  min-height: 0;
   overflow-y: auto;
   padding: 8px 0 40px;
 }

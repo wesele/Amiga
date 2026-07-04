@@ -68,43 +68,11 @@
           <div class="field-group">
             <label class="field-label">{{ t('llm.baseUrl') }}</label>
             <input v-model="baseUrl" type="text" class="field-input" placeholder="https://api.openai.com/v1" />
-            <div class="preset-grid">
-              <button
-                v-for="preset in providerPresets"
-                :key="preset.name"
-                type="button"
-                class="preset-btn"
-                :class="{ active: normalizedBaseUrl === preset.baseUrl }"
-                @click="applyProviderPreset(preset)"
-              >
-                {{ preset.name }}
-              </button>
-            </div>
           </div>
           <div class="field-divider" />
           <div class="field-group">
             <label class="field-label">{{ t('llm.model') }}</label>
-            <div class="model-input-row">
-              <input
-                v-model="modelName"
-                type="text"
-                class="field-input"
-                list="llm-model-options"
-                placeholder="gpt-4o-mini"
-              />
-              <button
-                type="button"
-                class="load-models-btn"
-                :disabled="loadingModels"
-                @click="loadModels"
-              >
-                {{ loadingModels ? t('llm.loadingModels') : t('llm.loadModels') }}
-              </button>
-            </div>
-            <datalist id="llm-model-options">
-              <option v-for="option in filteredModels" :key="option" :value="option" />
-            </datalist>
-            <div v-if="modelError" class="model-error">{{ modelError }}</div>
+            <input v-model="modelName" type="text" class="field-input" placeholder="gpt-4o-mini" />
           </div>
         </div>
       </template>
@@ -133,11 +101,10 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from "vue";
+import { ref, onMounted } from "vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import {
   getLlmConfig,
-  listLlmModels,
   saveLlmConfig,
   testLlmConnection,
   saveSetting,
@@ -150,9 +117,6 @@ const mode = ref("builtin");
 const apiKey = ref("");
 const baseUrl = ref("https://api.openai.com/v1");
 const modelName = ref("");
-const modelOptions = ref([]);
-const loadingModels = ref(false);
-const modelError = ref("");
 const builtin = ref({
   baseUrl: "",
   apiKey: "",
@@ -164,43 +128,6 @@ const testResult = ref(null);
 const saved = ref(false);
 const savedMessage = ref("");
 const error = ref("");
-
-const providerPresets = [
-  {
-    name: "OpenAI",
-    baseUrl: "https://api.openai.com/v1",
-    models: ["gpt-4.1-mini", "gpt-4o-mini"],
-  },
-  {
-    name: "DeepSeek",
-    baseUrl: "https://api.deepseek.com/v1",
-    models: ["deepseek-chat", "deepseek-reasoner"],
-  },
-  {
-    name: "NVIDIA NIM",
-    baseUrl: "https://integrate.api.nvidia.com/v1",
-    models: ["openai/gpt-oss-120b", "nvidia/llama-3.1-nemotron-ultra-253b-v1"],
-  },
-  {
-    name: "OpenCode Zen",
-    baseUrl: "https://opencode.ai/zen/v1",
-    models: ["zen"],
-  },
-];
-
-const normalizedBaseUrl = computed(() => baseUrl.value.trim().replace(/\/+$/, ""));
-const filteredModels = computed(() => {
-  const query = modelName.value.trim().toLowerCase();
-  const values = new Set(modelOptions.value);
-  for (const preset of providerPresets) {
-    if (normalizedBaseUrl.value === preset.baseUrl) {
-      for (const model of preset.models) values.add(model);
-    }
-  }
-  return Array.from(values)
-    .filter((model) => !query || model.toLowerCase().includes(query))
-    .sort((a, b) => a.localeCompare(b));
-});
 
 onMounted(async () => {
   try {
@@ -238,39 +165,6 @@ function currentConfig() {
     base_url: baseUrl.value,
     model: modelName.value,
   };
-}
-
-function applyProviderPreset(preset) {
-  baseUrl.value = preset.baseUrl;
-  modelOptions.value = preset.models;
-  modelError.value = "";
-  if (!modelName.value && preset.models.length > 0) {
-    modelName.value = preset.models[0];
-  }
-}
-
-async function loadModels() {
-  modelError.value = "";
-  if (!apiKey.value || !baseUrl.value) {
-    modelError.value = t("llm.modelsConfigEmpty");
-    return;
-  }
-  loadingModels.value = true;
-  try {
-    const result = await listLlmModels({
-      api_key: apiKey.value,
-      base_url: baseUrl.value,
-      model: modelName.value || "models",
-    });
-    modelOptions.value = (result || []).map((item) => item.id).filter(Boolean);
-    if (!modelName.value && modelOptions.value.length > 0) {
-      modelName.value = modelOptions.value[0];
-    }
-  } catch (e) {
-    modelError.value = e?.message || String(e || t("llm.modelsLoadFail"));
-  } finally {
-    loadingModels.value = false;
-  }
 }
 
 async function saveConfig() {
@@ -360,68 +254,6 @@ async function testConnection() {
 }
 .field-input:focus {
   border-color: var(--blue);
-}
-
-.preset-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.preset-btn {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text-light);
-  min-height: 34px;
-  padding: 7px 8px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.preset-btn.active {
-  border-color: var(--blue);
-  background: var(--blue-bg);
-  color: var(--blue);
-}
-
-.model-input-row {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-}
-
-.model-input-row .field-input {
-  min-width: 0;
-}
-
-.load-models-btn {
-  flex-shrink: 0;
-  border: 1px solid var(--blue);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--blue);
-  padding: 0 10px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.load-models-btn:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
-.model-error {
-  margin-top: 8px;
-  color: var(--red);
-  font-size: 12px;
-  line-height: 1.4;
-  word-break: break-word;
 }
 .field-divider {
   height: 1px;

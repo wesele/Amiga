@@ -93,7 +93,7 @@ export function createApiClient(invoke) {
 
     // News
     fetchNews: (region, targetLang) => call("fetch_news_cmd", { region, targetLang }),
-    getArticles: (region, targetLang) => call("get_articles_cmd", { region, targetLang }),
+    getArticles: (region) => call("get_articles_cmd", { region }),
     getArticle: (articleId) => call("get_article_cmd", { articleId }),
     saveReadingLog: (logEntry) => call("save_reading_log_cmd", { logEntry }),
     getReadArticleCount: (userId) => call("get_read_article_count_cmd", { userId }),
@@ -104,28 +104,12 @@ export function createApiClient(invoke) {
     translateWord: (word, context, sourceLang, nativeLang) =>
       call("translate_word_cmd", { word, context, sourceLang, nativeLang }),
     testLlmConnection: (config) => call("test_llm_connection_cmd", { config }),
-    listLlmModels: (config) => call("list_llm_models_cmd", { config }),
     saveLlmConfig: (key, config) => call("save_llm_config_cmd", { key, config }),
     getLlmConfig: () => call("get_llm_config_cmd"),
     getBilingual: (articleId, sourceLang, nativeLang) =>
       call("get_bilingual_cmd", { articleId, sourceLang, nativeLang }),
     translateText: (text, sourceLang, nativeLang) =>
       call("translate_text_cmd", { text, sourceLang, nativeLang }),
-
-    // Learning features
-    saveSentence: (request) => call("save_sentence_cmd", { request }),
-    listSavedSentences: (userId, articleId) =>
-      call("list_saved_sentences_cmd", { userId, articleId }),
-    getArticleQuiz: (articleId, targetLang, nativeLang) =>
-      call("get_article_quiz_cmd", { articleId, targetLang, nativeLang }),
-    scoreExpression: (request) => call("score_expression_cmd", { request }),
-    getLearningProfile: (userId, targetLang) =>
-      call("get_learning_profile_cmd", { userId, targetLang }),
-    logAiCall: (request) => call("log_ai_call_cmd", { request }),
-    clearAiCallLogs: (userId) => call("clear_ai_call_logs_cmd", { userId }),
-    moderateContent: (userId, featureName, text, targetType, targetId) =>
-      call("moderate_content_cmd", { userId, featureName, text, targetType, targetId }),
-    importClipboardArticle: (request) => call("import_clipboard_article_cmd", { request }),
 
     // Settings
     saveSetting: (key, value) => call("save_setting_cmd", { key, value }),
@@ -247,23 +231,10 @@ export const getReadArticleCount = (...args) => defaultApiClient.getReadArticleC
 export const rewriteArticle = (...args) => defaultApiClient.rewriteArticle(...args);
 export const translateWord = (...args) => defaultApiClient.translateWord(...args);
 export const testLlmConnection = (...args) => defaultApiClient.testLlmConnection(...args);
-export const listLlmModels = (...args) => defaultApiClient.listLlmModels(...args);
 export const saveLlmConfig = (...args) => defaultApiClient.saveLlmConfig(...args);
 export const getLlmConfig = (...args) => defaultApiClient.getLlmConfig(...args);
 export const getBilingual = (...args) => defaultApiClient.getBilingual(...args);
 export const translateText = (...args) => defaultApiClient.translateText(...args);
-
-// --- Learning features ---
-export const saveSentence = (...args) => defaultApiClient.saveSentence(...args);
-export const listSavedSentences = (...args) => defaultApiClient.listSavedSentences(...args);
-export const getArticleQuiz = (...args) => defaultApiClient.getArticleQuiz(...args);
-export const scoreExpression = (...args) => defaultApiClient.scoreExpression(...args);
-export const getLearningProfile = (...args) => defaultApiClient.getLearningProfile(...args);
-export const logAiCall = (...args) => defaultApiClient.logAiCall(...args);
-export const clearAiCallLogs = (...args) => defaultApiClient.clearAiCallLogs(...args);
-export const moderateContent = (...args) => defaultApiClient.moderateContent(...args);
-export const importClipboardArticle = (...args) =>
-  defaultApiClient.importClipboardArticle(...args);
 
 // --- Settings ---
 export const saveSetting = (...args) => defaultApiClient.saveSetting(...args);

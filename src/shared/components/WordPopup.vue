@@ -10,15 +10,9 @@
 
       <template v-else-if="translation">
         <div class="popup-trans">{{ translation.translation }}</div>
-        <div v-if="translation.explanation" class="popup-explanation">
-          {{ translation.explanation }}
-        </div>
         <div class="popup-extra" v-if="translation.pos || translation.ipa">
           <span v-if="translation.pos" class="tag-pos">{{ translation.pos }}</span>
           <span v-if="translation.ipa" class="tag-ipa">{{ translation.ipa }}</span>
-        </div>
-        <div v-if="translation.example" class="popup-example">
-          {{ translation.example }}
         </div>
         <div v-if="!alwaysShowActions" class="popup-actions">
           <button class="act-known" @click="$emit('known'); emitClose()">✅ {{ t('popup.known') }}</button>
@@ -150,23 +144,6 @@ function emitClose() {
   gap: 8px;
   margin-bottom: 12px;
   flex-wrap: wrap;
-}
-
-.popup-explanation {
-  font-size: 14px;
-  color: var(--text-light);
-  line-height: 1.5;
-  margin-bottom: 10px;
-}
-
-.popup-example {
-  font-size: 13px;
-  color: var(--text-light);
-  line-height: 1.5;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-variant);
-  margin-bottom: 12px;
 }
 
 .tag-pos {

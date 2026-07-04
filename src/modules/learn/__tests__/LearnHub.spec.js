@@ -22,7 +22,6 @@ function makeRouter() {
     routes: [
       { path: "/learn", name: "learn", component: LearnHubPage },
       { path: "/learn/path", name: "path", component: { template: "<div/>" } },
-      { path: "/learn/expression", name: "expression", component: { template: "<div/>" } },
       { path: "/news", name: "news", component: { template: "<div/>" } },
       {
         path: "/learn/translator/:sessionId",
@@ -60,7 +59,7 @@ describe("LearnHubPage", () => {
     expect(source).toMatch(/font-size:\s*clamp\(14px,\s*5vw,\s*18px\)/);
   });
 
-  it("renders four module tiles in a grid", async () => {
+  it("renders three module tiles in a grid", async () => {
     const router = makeRouter();
     const wrapper = mount(LearnHubPage, {
       global: { plugins: [router] },
@@ -68,7 +67,7 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     const tiles = wrapper.findAll(".module-tile");
-    expect(tiles.length).toBe(4);
+    expect(tiles.length).toBe(3);
     const labels = tiles.map((t) => t.find(".module-label").text());
     expect(labels).toContain("晋级之路");
     expect(labels).toContain("新闻");

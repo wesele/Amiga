@@ -40,8 +40,4 @@ screenshots/
 # Isolated second Windows dev instance (complete copy, 100% independent process + data)
 # See run-windows-2.bat and AGENTS.md
 windows-2/
-windows-/**
-
-# Codex analysis targets
-target-codex/
-target-codex-test/
+windows-2/**

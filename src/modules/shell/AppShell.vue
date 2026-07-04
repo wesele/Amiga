@@ -1,44 +1,28 @@
 <template>
-  <div ref="shellEl" class="app-shell">
+  <div class="app-shell">
     <main class="app-content">
       <router-view />
     </main>
     <template v-if="showNav">
       <nav class="bottom-nav">
-        <button
-          v-for="tab in tabs"
-          :key="tab.name"
-          class="nav-item"
-          :class="{ active: isTabActive(tab), 'has-unread': tab.name === 'chat' && hasChatUnread }"
-          @click="switchTab(tab)"
-        >
+        <button v-for="tab in tabs" :key="tab.name" class="nav-item" :class="{ active: isTabActive(tab) }" @click="switchTab(tab)">
           <div class="nav-icon" v-html="tab.icon" />
           <span class="nav-label">{{ t(tab.label) }}</span>
         </button>
       </nav>
     </template>
-    <div class="bottom-nav-safe" :class="{ 'keyboard-open': keyboardOpen }" aria-hidden="true" />
+    <div class="bottom-nav-safe" aria-hidden="true" />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
-import { eventBus } from "@/shared/eventBus.js";
-import {
-  hasUnreadSocialPreview,
-  SOCIAL_PREVIEW_UPDATED,
-} from "@/modules/chat/social/socialPreview.js";
+
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
-const shellEl = ref(null);
-const keyboardOpen = ref(false);
-const unreadVersion = ref(0);
-let cachedViewportHeight = 0;
-let syncRaf = null;
-let unsubscribePreview = null;
 
 const tabs = [
   {
@@ -64,52 +48,6 @@ const tabs = [
 ];
 
 const tabRootNames = new Set(tabs.map((t) => t.name));
-const hasChatUnread = computed(() => {
-  unreadVersion.value;
-  return hasUnreadSocialPreview();
-});
-
-function getVisualViewport() {
-  return typeof window === "undefined" ? null : window.visualViewport || null;
-}
-
-function startViewportSync() {
-  stopViewportSync();
-  const vv = getVisualViewport();
-  if (!vv || !shellEl.value) return;
-  function tick() {
-    if (!shellEl.value) return;
-    shellEl.value.style.top = `${vv.offsetTop}px`;
-    shellEl.value.style.height = `${vv.height}px`;
-    syncRaf = requestAnimationFrame(tick);
-  }
-  tick();
-}
-
-function stopViewportSync({ reset = false } = {}) {
-  if (syncRaf) {
-    cancelAnimationFrame(syncRaf);
-    syncRaf = null;
-  }
-  if (reset && shellEl.value) {
-    shellEl.value.style.top = "";
-    shellEl.value.style.height = "";
-  }
-}
-
-function onViewportResize() {
-  const vv = getVisualViewport();
-  if (!vv) return;
-  const diff = cachedViewportHeight - vv.height;
-  if (diff > 80) {
-    keyboardOpen.value = true;
-    startViewportSync();
-  } else {
-    cachedViewportHeight = vv.height;
-    keyboardOpen.value = false;
-    stopViewportSync({ reset: true });
-  }
-}
 
 function isTabActive(tab) {
   const name = route.name;
@@ -136,24 +74,6 @@ function switchTab(tab) {
 const showNav = computed(() => {
   const noNavRoutes = ["wizard", "reader", "chat-session", "social-chat", "learn-translator"];
   return !noNavRoutes.includes(route.name);
-});
-
-onMounted(() => {
-  const vv = getVisualViewport();
-  if (vv) {
-    cachedViewportHeight = vv.height;
-    vv.addEventListener("resize", onViewportResize);
-  }
-  unsubscribePreview = eventBus.on(SOCIAL_PREVIEW_UPDATED, () => {
-    unreadVersion.value += 1;
-  });
-});
-
-onUnmounted(() => {
-  const vv = getVisualViewport();
-  if (vv) vv.removeEventListener("resize", onViewportResize);
-  stopViewportSync({ reset: true });
-  unsubscribePreview?.();
 });
 </script>
 
@@ -207,10 +127,6 @@ onUnmounted(() => {
   position: relative;
 }
 
-.bottom-nav-safe.keyboard-open {
-  height: 0;
-}
-
 /* When the bottom-nav is hidden, the safe-area strip should blend with
  * the page background instead of the nav-bar surface color. */
 .app-shell:not(:has(.bottom-nav)) .bottom-nav-safe {
@@ -244,18 +160,6 @@ onUnmounted(() => {
 
 .nav-item.active .nav-icon {
   transform: translateY(-2px);
-}
-
-.nav-item.has-unread::after {
-  content: "";
-  position: absolute;
-  top: 7px;
-  right: 18px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 0 2px var(--surface);
 }
 
 .nav-icon {

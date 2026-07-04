@@ -31,7 +31,6 @@ export default {
     title: "Aprender",
     path: "Camino de progreso",
     news: "Noticias",
-    expression: "Expresión",
   },
 
   path: {
@@ -81,8 +80,6 @@ export default {
     explainTimeout: "Tiempo de espera agotado — revisa la red o la configuración del modelo",
     explainEmpty: "No se recibió explicación",
     explainRetry: "Reintentar",
-    previousGrammar: "Anterior",
-    nextGrammar: "Siguiente",
   },
 
   common: {
@@ -154,7 +151,6 @@ export default {
     rewriteBtn: "Reescribir con IA",
     rewriting: "La IA está reescribiendo…",
     rewriteFail: "Reescritura fallida. Revisa la configuración de la API y reintenta.",
-    rawAfterRewriteFail: "Mostrando el original. Se volverá a intentar reescribir la próxima vez.",
     translate: "Traducir",
     translating: "Traduciendo…",
     translateFail: "Traducción no disponible",
@@ -346,10 +342,6 @@ export default {
     freeNotice: "Modelo gratuito, solo para pruebas — puede dejar de funcionar en cualquier momento. Si deja de funcionar, actualiza a la última versión.",
     savedBuiltin: "Cambiado al modelo integrado",
     configEmpty: "Completa API Key, Base URL y nombre del modelo",
-    loadModels: "Cargar",
-    loadingModels: "Cargando",
-    modelsConfigEmpty: "Introduce API Key y Base URL primero",
-    modelsLoadFail: "No se pudieron cargar los modelos",
   },
 
   prompts: {

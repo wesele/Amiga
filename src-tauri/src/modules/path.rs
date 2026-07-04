@@ -105,9 +105,9 @@ struct FrameworkSection {
     #[serde(rename = "coveredWords", default)]
     covered_words: Vec<String>,
     #[serde(rename = "grammarPoint", default)]
-    _grammar_point: String,
+    grammar_point: String,
     #[serde(default)]
-    _scenario: String,
+    scenario: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -174,6 +174,10 @@ fn resolve_pair_key(native_lang: &str, target_lang: &str) -> Option<String> {
     }
 
     None
+}
+
+pub fn is_path_supported(native_lang: &str, target_lang: &str) -> bool {
+    resolve_pair_key(native_lang, target_lang).is_some()
 }
 
 fn framework_units(pair_key: &str, cefr: &str) -> Result<Vec<FrameworkUnit>, String> {
@@ -287,12 +291,12 @@ fn rewrite_image_urls(value: &mut Value) {
                     for opt in arr {
                         if let Some(url) = opt.get("imageUrl").and_then(|v| v.as_str()) {
                             if let Some(filename) = extract_image_filename(url) {
-                                if let Some(m) = opt.as_object_mut() {
+                                opt.as_object_mut().map(|m| {
                                     m.insert(
                                         "imageUrl".to_string(),
                                         Value::String(format!("/content-images/{filename}")),
                                     );
-                                }
+                                });
                             }
                         }
                     }
@@ -464,7 +468,7 @@ pub fn get_path_curriculum(
             return false;
         }
         let prev = &ordered[idx - 1];
-        !progress.get(prev).map(|p| p.stars > 0).unwrap_or(false)
+        progress.get(prev).map(|p| p.stars > 0).unwrap_or(false) == false
     }
 
     for unit in units {
@@ -647,7 +651,6 @@ pub fn save_grammar_explanation_cache(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 pub async fn explain_grammar_point(
     client: &LlmClient,
     pool: &DatabasePool,
@@ -832,7 +835,6 @@ pub fn complete_teaching_node(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn complete_section(
     pool: &DatabasePool,
     user_id: &str,
@@ -971,6 +973,15 @@ mod tests {
         )
         .unwrap();
         "u1".to_string()
+    }
+
+    #[test]
+    fn is_path_supported_exact_and_fallback() {
+        assert!(is_path_supported("zh", "es"));
+        assert!(is_path_supported("zh", "en"));
+        // No en-es bank; falls back to zh-es (same target language).
+        assert!(is_path_supported("en", "es"));
+        assert!(!is_path_supported("en", "fr"));
     }
 
     #[test]

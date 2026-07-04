@@ -130,8 +130,6 @@ pub struct RewriteResult {
 pub struct TranslationResult {
     /// Translation of the word in the user's native language.
     pub translation: String,
-    /// Short learner-friendly meaning/explanation in the user's native language.
-    pub explanation: Option<String>,
     pub ipa: Option<String>,
     pub pos: Option<String>,
     pub example: Option<String>,
@@ -164,11 +162,6 @@ pub fn lang_name_zh(code: &str) -> &'static str {
 pub struct TestResult {
     pub success: bool,
     pub message: String,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ModelOption {
-    pub id: String,
 }
 
 pub struct LlmClient {
@@ -316,6 +309,19 @@ impl LlmClient {
         self.call(active, messages).await
     }
 
+    pub async fn chat_with_limits(
+        &self,
+        db: &DatabasePool,
+        messages: Vec<ChatMessage>,
+        max_tokens: u32,
+        timeout_secs: u64,
+    ) -> Result<String, String> {
+        let config = get_llm_config(db)?;
+        let active = config.active()?;
+        self.call_with_options(active, messages, max_tokens, timeout_secs, false)
+            .await
+    }
+
     /// Grammar explanations are short but may need extra time on mobile networks.
     /// Try with `max_completion_tokens` first (NVIDIA builtin), then fall back
     /// without it for older OpenAI-compatible endpoints.
@@ -386,55 +392,6 @@ impl LlmClient {
                 message: format!("连接失败: {}", e),
             },
         }
-    }
-
-    pub async fn list_models(&self, config: &ModelConfig) -> Result<Vec<ModelOption>, String> {
-        if config.base_url.trim().is_empty() {
-            return Err("Base URL is required".to_string());
-        }
-        if config.api_key.trim().is_empty() {
-            return Err("API Key is required".to_string());
-        }
-
-        let url = format!("{}/models", config.base_url.trim_end_matches('/'));
-        let response = self
-            .http
-            .get(&url)
-            .timeout(std::time::Duration::from_secs(30))
-            .header("Authorization", format!("Bearer {}", config.api_key))
-            .send()
-            .await
-            .map_err(|e| format!("Failed to load models: {e}"))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
-            return Err(format!(
-                "Models API error {}: {}",
-                status,
-                &text[..text.len().min(300)]
-            ));
-        }
-
-        let raw_text = response
-            .text()
-            .await
-            .map_err(|e| format!("Failed to read models response: {}", e))?;
-        let json: serde_json::Value =
-            serde_json::from_str(&raw_text).map_err(|e| format!("Invalid models JSON: {}", e))?;
-
-        let mut models = Vec::new();
-        if let Some(items) = json.get("data").and_then(|value| value.as_array()) {
-            for item in items {
-                if let Some(id) = item.get("id").and_then(|value| value.as_str()) {
-                    models.push(ModelOption { id: id.to_string() });
-                }
-            }
-        }
-
-        models.sort_by(|a, b| a.id.cmp(&b.id));
-        models.dedup_by(|a, b| a.id == b.id);
-        Ok(models)
     }
 }
 
@@ -671,7 +628,6 @@ pub async fn translate_word(
              Context: {context}\n\
              Return a strict JSON object: \
              {{\"translation\": \"<translation in {native_label}>\", \
-             \"explanation\": \"short meaning or usage note in {native_label}\", \
              \"ipa\": \"IPA pronunciation\", \
              \"pos\": \"part of speech (noun/verb/adjective/etc.)\", \
              \"example\": \"one simple example sentence in {source_label}\"}}"

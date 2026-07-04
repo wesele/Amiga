@@ -14,8 +14,8 @@ mod tests {
 
     fn insert_test_article(conn: &Connection, title: &str, region: &str) -> i32 {
         conn.execute(
-            "INSERT INTO news_articles (original_title, original_body, region, target_lang, hot_rank)
-             VALUES (?1, ?2, ?3, 'es', 1)",
+            "INSERT INTO news_articles (original_title, original_body, region, hot_rank)
+             VALUES (?1, ?2, ?3, 1)",
             params![title, "Test body content for ", region],
         )
         .unwrap();
@@ -25,7 +25,7 @@ mod tests {
     #[test]
     fn test_get_articles_returns_empty_when_no_articles() {
         let pool = test_pool();
-        let articles = get_articles(&pool, "world", "es").unwrap();
+        let articles = get_articles(&pool, "world").unwrap();
         assert!(articles.is_empty());
     }
 
@@ -58,12 +58,12 @@ mod tests {
             insert_test_article(&conn, "Sports News", "sports");
         }
 
-        let world_articles = get_articles(&pool, "world", "es").unwrap();
+        let world_articles = get_articles(&pool, "world").unwrap();
         assert!(world_articles
             .iter()
             .any(|a| a.region == Some("world".to_string())));
 
-        let tech_articles = get_articles(&pool, "tech", "es").unwrap();
+        let tech_articles = get_articles(&pool, "tech").unwrap();
         assert!(tech_articles
             .iter()
             .any(|a| a.region == Some("tech".to_string())));
@@ -74,45 +74,22 @@ mod tests {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
         conn.execute(
-            "INSERT INTO news_articles (original_title, original_body, source, region, target_lang, hot_rank, is_current)
-             VALUES ('Hidden News', 'Body', 'https://example.com/hidden', 'world', 'es', 1, 0)",
+            "INSERT INTO news_articles (original_title, original_body, source, region, hot_rank, is_current)
+             VALUES ('Hidden News', 'Body', 'https://example.com/hidden', 'world', 1, 0)",
             [],
         )
         .unwrap();
         conn.execute(
-            "INSERT INTO news_articles (original_title, original_body, source, region, target_lang, hot_rank, is_current)
-             VALUES ('Visible News', 'Body', 'https://example.com/visible', 'world', 'es', 2, 1)",
+            "INSERT INTO news_articles (original_title, original_body, source, region, hot_rank, is_current)
+             VALUES ('Visible News', 'Body', 'https://example.com/visible', 'world', 2, 1)",
             [],
         )
         .unwrap();
         drop(conn);
 
-        let articles = get_articles(&pool, "world", "es").unwrap();
+        let articles = get_articles(&pool, "world").unwrap();
         assert_eq!(articles.len(), 1);
         assert_eq!(articles[0].original_title, "Visible News");
-    }
-
-    #[test]
-    fn test_get_articles_filters_by_target_language() {
-        let pool = test_pool();
-        let conn = pool.conn().unwrap();
-        conn.execute(
-            "INSERT INTO news_articles (original_title, original_body, source, region, target_lang, hot_rank, is_current)
-             VALUES ('English News', 'Body', 'https://example.com/en', 'CN', 'en', 1, 1)",
-            [],
-        )
-        .unwrap();
-        conn.execute(
-            "INSERT INTO news_articles (original_title, original_body, source, region, target_lang, hot_rank, is_current)
-             VALUES ('Chinese News', 'Body', 'https://example.com/zh', 'CN', 'zh', 2, 1)",
-            [],
-        )
-        .unwrap();
-        drop(conn);
-
-        let zh_articles = get_articles(&pool, "CN", "zh").unwrap();
-        assert_eq!(zh_articles.len(), 1);
-        assert_eq!(zh_articles[0].original_title, "Chinese News");
     }
 
     #[test]
@@ -330,8 +307,8 @@ mod tests {
         )
         .unwrap();
         conn.execute(
-            "INSERT INTO news_articles (original_title, original_body, source, region, target_lang, hot_rank)
-             VALUES ('Old title', 'Old body', 'https://example.com/a', 'ES', 'es', 1)",
+            "INSERT INTO news_articles (original_title, original_body, source, region, hot_rank)
+             VALUES ('Old title', 'Old body', 'https://example.com/a', 'ES', 1)",
             [],
         )
         .unwrap();
@@ -347,7 +324,6 @@ mod tests {
         let synced = sync_articles(
             &pool,
             "ES",
-            "es",
             vec![(
                 "Fresh title".to_string(),
                 "Fresh body".to_string(),
@@ -383,8 +359,8 @@ mod tests {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
         conn.execute(
-            "INSERT INTO news_articles (original_title, original_body, source, region, target_lang, hot_rank)
-             VALUES ('Stale', 'Old body', 'https://example.com/stale', 'ES', 'es', 9)",
+            "INSERT INTO news_articles (original_title, original_body, source, region, hot_rank)
+             VALUES ('Stale', 'Old body', 'https://example.com/stale', 'ES', 9)",
             [],
         )
         .unwrap();
@@ -394,7 +370,6 @@ mod tests {
         let synced = sync_articles(
             &pool,
             "ES",
-            "es",
             vec![(
                 "Latest".to_string(),
                 "Latest body".to_string(),
@@ -431,15 +406,15 @@ mod tests {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
         conn.execute(
-            "INSERT INTO news_articles (original_title, original_body, source, region, target_lang, hot_rank)
-             VALUES ('Existing', 'Body', 'https://example.com/current', 'ES', 'es', 1)",
+            "INSERT INTO news_articles (original_title, original_body, source, region, hot_rank)
+             VALUES ('Existing', 'Body', 'https://example.com/current', 'ES', 1)",
             [],
         )
         .unwrap();
         let existing_id = conn.last_insert_rowid() as i32;
         drop(conn);
 
-        let synced = sync_articles(&pool, "ES", "es", Vec::new()).unwrap();
+        let synced = sync_articles(&pool, "ES", Vec::new()).unwrap();
         assert!(synced.is_empty());
 
         let conn = pool.conn().unwrap();
@@ -452,7 +427,7 @@ mod tests {
             .unwrap();
         assert_eq!(state, 0);
         drop(conn);
-        assert!(get_articles(&pool, "ES", "es").unwrap().is_empty());
+        assert!(get_articles(&pool, "ES").unwrap().is_empty());
     }
 }
 
@@ -466,7 +441,6 @@ pub struct Article {
     pub source: Option<String>,
     pub image_url: Option<String>,
     pub region: Option<String>,
-    pub target_lang: Option<String>,
     pub hot_rank: Option<i32>,
     pub new_words: Option<String>,
     pub fetched_at: Option<String>,
@@ -494,8 +468,8 @@ fn get_rss_feeds(region: &str, target_lang: &str) -> Vec<&'static str> {
         ],
         // Chinese news
         (_, "zh") => vec![
-            "https://feeds.bbci.co.uk/zhongwen/simp/rss.xml",
-            "https://www.zaobao.com.sg/realtime/china/rss.xml",
+            "https://www.chinadaily.com.cn/rss/world_rss.xml",
+            "https://www.cgtn.com/subscribe.rss",
         ],
         // English news
         (_, "en") => vec![
@@ -512,17 +486,15 @@ fn get_rss_feeds(region: &str, target_lang: &str) -> Vec<&'static str> {
 fn sync_articles(
     db: &DatabasePool,
     region: &str,
-    target_lang: &str,
     raw_entries: Vec<(String, String, Option<String>, String, i32)>,
 ) -> Result<Vec<Article>, String> {
     let guard = db.conn()?;
-    sync_articles_with_conn(&guard, region, target_lang, &raw_entries)
+    sync_articles_with_conn(&guard, region, &raw_entries)
 }
 
 fn sync_articles_with_conn(
     conn: &Connection,
     region: &str,
-    target_lang: &str,
     raw_entries: &[(String, String, Option<String>, String, i32)],
 ) -> Result<Vec<Article>, String> {
     let tx = conn
@@ -532,8 +504,8 @@ fn sync_articles_with_conn(
     tx.execute(
         "UPDATE news_articles
          SET is_current = 0
-         WHERE region = ?1 AND target_lang = ?2",
-        params![region, target_lang],
+         WHERE region = ?1",
+        params![region],
     )
     .map_err(|e| format!("Failed to hide current articles: {}", e))?;
 
@@ -556,25 +528,24 @@ fn sync_articles_with_conn(
     let mut articles = Vec::new();
     for (title, summary, image_url, feed_source, rank) in raw_entries {
         tx.execute(
-            "INSERT INTO news_articles (original_title, original_body, source, image_url, region, target_lang, hot_rank, is_current)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1)
+            "INSERT INTO news_articles (original_title, original_body, source, image_url, region, hot_rank, is_current)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)
              ON CONFLICT(source) DO UPDATE SET
                  original_title = excluded.original_title,
                  original_body = excluded.original_body,
                  image_url = excluded.image_url,
                  region = excluded.region,
-                 target_lang = excluded.target_lang,
                  hot_rank = excluded.hot_rank,
                  is_current = 1,
                  fetched_at = datetime('now')",
-            params![title, summary, feed_source, image_url, region, target_lang, rank],
+            params![title, summary, feed_source, image_url, region, rank],
         )
         .map_err(|e| format!("Failed to upsert article '{}': {}", title, e))?;
 
         let article = tx
             .query_row(
                 "SELECT id, original_title, original_body, rewritten_body, rewrite_level,
-                        source, image_url, region, target_lang, hot_rank, new_words, fetched_at
+                        source, image_url, region, hot_rank, new_words, fetched_at
                  FROM news_articles
                  WHERE source = ?1",
                 params![feed_source],
@@ -588,10 +559,9 @@ fn sync_articles_with_conn(
                         source: row.get(5)?,
                         image_url: row.get(6)?,
                         region: row.get(7)?,
-                        target_lang: row.get(8)?,
-                        hot_rank: row.get(9)?,
-                        new_words: row.get(10)?,
-                        fetched_at: row.get(11)?,
+                        hot_rank: row.get(8)?,
+                        new_words: row.get(9)?,
+                        fetched_at: row.get(10)?,
                     })
                 },
             )
@@ -692,7 +662,7 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
         }
     }
 
-    match sync_articles(db, region, target_lang, raw_entries) {
+    match sync_articles(db, region, raw_entries) {
         Ok(articles) => {
             log::info!("Fetched {} articles for region {}", articles.len(), region);
             articles
@@ -705,19 +675,14 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
 }
 
 /// Get cached articles
-pub fn get_articles(
-    db: &DatabasePool,
-    region: &str,
-    target_lang: &str,
-) -> Result<Vec<Article>, String> {
+pub fn get_articles(db: &DatabasePool, region: &str) -> Result<Vec<Article>, String> {
     let conn = db.conn()?;
     let mut stmt = conn
         .prepare(
             "SELECT id, original_title, original_body, rewritten_body, rewrite_level,
-                source, image_url, region, target_lang, hot_rank, new_words, fetched_at
+                source, image_url, region, hot_rank, new_words, fetched_at
          FROM news_articles
-         WHERE region = ?1
-           AND target_lang = ?2
+         WHERE (region = ?1 OR region IS NULL)
            AND COALESCE(is_current, 1) = 1
          ORDER BY hot_rank ASC, fetched_at DESC
          LIMIT 10",
@@ -725,7 +690,7 @@ pub fn get_articles(
         .map_err(|e| format!("Query error: {}", e))?;
 
     let articles: Vec<Article> = stmt
-        .query_map(params![region, target_lang], |row| {
+        .query_map(params![region], |row| {
             Ok(Article {
                 id: Some(row.get(0)?),
                 original_title: row.get(1)?,
@@ -735,10 +700,9 @@ pub fn get_articles(
                 source: row.get(5)?,
                 image_url: row.get(6)?,
                 region: row.get(7)?,
-                target_lang: row.get(8)?,
-                hot_rank: row.get(9)?,
-                new_words: row.get(10)?,
-                fetched_at: row.get(11)?,
+                hot_rank: row.get(8)?,
+                new_words: row.get(9)?,
+                fetched_at: row.get(10)?,
             })
         })
         .map_err(|e| format!("Failed to query articles: {}", e))?
@@ -753,7 +717,7 @@ pub fn get_article(db: &DatabasePool, article_id: i32) -> Result<Article, String
     let conn = db.conn()?;
     conn.query_row(
         "SELECT id, original_title, original_body, rewritten_body, rewrite_level,
-                source, image_url, region, target_lang, hot_rank, new_words, fetched_at
+                source, image_url, region, hot_rank, new_words, fetched_at
          FROM news_articles WHERE id = ?1",
         params![article_id],
         |row| {
@@ -766,10 +730,9 @@ pub fn get_article(db: &DatabasePool, article_id: i32) -> Result<Article, String
                 source: row.get(5)?,
                 image_url: row.get(6)?,
                 region: row.get(7)?,
-                target_lang: row.get(8)?,
-                hot_rank: row.get(9)?,
-                new_words: row.get(10)?,
-                fetched_at: row.get(11)?,
+                hot_rank: row.get(8)?,
+                new_words: row.get(9)?,
+                fetched_at: row.get(10)?,
             })
         },
     )
@@ -797,7 +760,7 @@ pub fn save_rewritten_article(
 pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(), String> {
     let conn = db.conn()?;
     let read_at = chrono::Local::now()
-        .format("%Y-%m-%d %H:%M:%S%.9f")
+        .format("%Y-%m-%d %H:%M:%S%.3f")
         .to_string();
     conn.execute(
         "INSERT INTO news_reading_log (user_id, article_id, words_looked_up, words_known, words_unknown, reading_time_sec, completed, read_at)
@@ -894,7 +857,8 @@ pub async fn rewrite_article_for_user(
     let original = article.original_body.unwrap_or_default();
 
     // Scoped to the article's target language so an English learner gets English words.
-    let unknown_words = vocab_mod::get_unknown_words(db, user_id, cefr_level, 20, target_lang)?;
+    let unknown_words =
+        vocab_mod::get_unknown_words(db, user_id, cefr_level, 20, target_lang)?;
     let new_words: Vec<String> = unknown_words.iter().map(|w| w.word.clone()).collect();
 
     let result = llm_mod::rewrite_article(

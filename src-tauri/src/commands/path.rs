@@ -55,7 +55,6 @@ pub fn get_grammar_explanation_cached_cmd(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn explain_grammar_point_cmd(
     db: State<'_, DatabasePool>,

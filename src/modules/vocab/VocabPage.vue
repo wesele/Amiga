@@ -226,7 +226,6 @@ async function onKnown() {
   try {
     await updateWordMastery(userId.value, w.id, 2, "vocab_review");
     w.mastery = 2;
-    await loadStats();
   } catch (_) {}
   selectedWord.value = null;
 }
@@ -237,7 +236,6 @@ async function onUnknown() {
   try {
     await updateWordMastery(userId.value, w.id, 1, "vocab_review");
     w.mastery = 1;
-    await loadStats();
   } catch (_) {}
   selectedWord.value = null;
 }
