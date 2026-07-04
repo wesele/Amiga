@@ -122,7 +122,7 @@ async function openModule(mod) {
 }
 
 .status-section {
-  padding: 0 16px 4px;
+  padding: 0 0 4px;
 }
 
 .status-card {
@@ -130,7 +130,9 @@ async function openModule(mod) {
   align-items: center;
   background: var(--white);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-right: 0;
+  border-left: 0;
+  border-radius: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   overflow: hidden;
 }
