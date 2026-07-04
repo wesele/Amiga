@@ -99,6 +99,7 @@ import {
   chatCompletion,
   completeSection,
   getSectionLesson,
+  recordLessonMistake,
 } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
@@ -132,7 +133,7 @@ const explanation = ref(null);
 const explainLoading = ref(false);
 const feedbackSaved = ref(false);
 
-const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
+const userMeta = ref({ userId: "", nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
 const currentQuestion = computed(() => questions.value[index.value] || null);
 const progressPct = computed(() => {
@@ -194,6 +195,7 @@ async function load() {
   try {
     const { user, targetLang, cefr } = await loadLearningContext({ targetLangStore });
     userMeta.value = {
+      userId: user.id,
       nativeLang: user.native_language,
       targetLang,
       cefr,
@@ -252,7 +254,10 @@ function onPrimaryAction() {
       answer: currentAnswer.value,
       correct: lastCorrect.value,
     });
-    if (!lastCorrect.value) mistakes.value.push(currentQuestion.value);
+    if (!lastCorrect.value) {
+      mistakes.value.push(currentQuestion.value);
+      recordMistake(currentQuestion.value).catch(() => {});
+    }
     if (lastCorrect.value && isChoiceQuestion(currentQuestion.value)) {
       advanceQuestion();
       return;
@@ -262,6 +267,19 @@ function onPrimaryAction() {
   }
 
   advanceQuestion();
+}
+
+async function recordMistake(question) {
+  if (!userMeta.value.userId || !question) return;
+  await recordLessonMistake({
+    user_id: userMeta.value.userId,
+    target_lang: userMeta.value.targetLang,
+    source_id: `${route.params.sectionId}:${question.id || index.value}`,
+    title: lesson.value?.section_title_native || route.params.sectionId,
+    prompt: question.sourceText || question.prompt || question.question || question.text || question.type || "",
+    answer: correctAnswerText(question),
+    skill_tag: question.type || "lesson",
+  });
 }
 
 function isChoiceQuestion(question) {

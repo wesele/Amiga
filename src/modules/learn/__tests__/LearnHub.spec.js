@@ -15,6 +15,7 @@ function makeRouter() {
       { path: "/learn", name: "learn", component: LearnHubPage },
       { path: "/learn/path", name: "path", component: { template: "<div/>" } },
       { path: "/learn/assessment", name: "assessment", component: { template: "<div/>" } },
+      { path: "/learn/review", name: "review", component: { template: "<div/>" } },
       { path: "/learn/expression", name: "expression", component: { template: "<div/>" } },
       { path: "/vocab", name: "vocab", component: { template: "<div/>" } },
       { path: "/news", name: "news", component: { template: "<div/>" } },
@@ -50,6 +51,8 @@ describe("LearnHubPage", () => {
           interests: [],
         });
       }
+      if (cmd === "get_review_summary_cmd") return Promise.resolve({ due_count: 2 });
+      if (cmd === "should_prompt_assessment_cmd") return Promise.resolve(false);
       if (cmd === "get_chat_sessions_cmd") return Promise.resolve([]);
       if (cmd === "create_chat_session_cmd") return Promise.resolve("translator-sess");
       return Promise.resolve(null);
@@ -65,6 +68,7 @@ describe("LearnHubPage", () => {
     expect(wrapper.text()).toContain("继续路径");
     expect(wrapper.text()).toContain("能力评测");
     expect(wrapper.text()).toContain("真实阅读");
+    expect(wrapper.text()).toContain("2 项到期");
   });
 
   it("navigates to assessment from the desk", async () => {
@@ -78,6 +82,19 @@ describe("LearnHubPage", () => {
     await assessment.trigger("click");
 
     expect(pushSpy).toHaveBeenCalledWith({ name: "assessment" });
+  });
+
+  it("navigates to review basket from the desk", async () => {
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, { global: { plugins: [router] } });
+    await flushPromises();
+
+    const review = wrapper.findAll(".entry-row")
+      .find((button) => button.text().includes("温习篮"));
+    await review.trigger("click");
+
+    expect(pushSpy).toHaveBeenCalledWith({ name: "review" });
   });
 
   it("persists pace with local fallback", async () => {

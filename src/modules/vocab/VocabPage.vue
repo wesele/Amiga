@@ -72,8 +72,9 @@
             <span
               class="word-chip"
               :class="chipClass(w.mastery)"
+              :title="reviewHint(w)"
               @click="onWordTap(w)"
-            >{{ w.word }}</span><template v-if="idx < filteredWords.length - 1">, </template>
+            >{{ w.word }}<small v-if="w.next_review" class="review-dot">•</small></span><template v-if="idx < filteredWords.length - 1">, </template>
           </template>
         </div>
         <div v-else class="empty-state">
@@ -173,6 +174,12 @@ function chipClass(mastery) {
   if (mastery >= 2) return "chip-mastered";
   if (mastery === 1) return "chip-seen";
   return "chip-unseen";
+}
+
+function reviewHint(word) {
+  if (!word?.next_review) return "";
+  const level = word.familiarity ?? word.mastery ?? 0;
+  return `熟悉度 ${level}，下次复习 ${new Date(word.next_review).toLocaleDateString()}`;
 }
 
 function enterLevel(level) {
@@ -542,6 +549,13 @@ watch(drilledLevel, () => {
 .chip-unseen { color: var(--text); }
 .chip-seen { color: var(--blue); font-weight: 600; }
 .chip-mastered { color: var(--green); font-weight: 700; }
+
+.review-dot {
+  margin-left: 2px;
+  color: var(--orange);
+  font-size: 11px;
+  vertical-align: top;
+}
 
 /* Popup transition */
 .popup-enter-active,

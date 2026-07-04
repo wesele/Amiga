@@ -780,13 +780,21 @@ pub fn update_word_mastery(
     source: &str,
 ) -> Result<(), String> {
     let conn = db.conn()?;
+    let familiarity = if mastery >= 2 { 3 } else { 1 };
+    let next_review = if mastery >= 2 { "+7 days" } else { "+1 day" };
 
     conn.execute(
-        "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
-         VALUES (?1, ?2, ?3, ?4, datetime('now'))
+        "INSERT INTO user_vocab
+            (user_id, word_id, mastery, source, familiarity, last_reviewed, next_review, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'), datetime('now', ?6), datetime('now'))
          ON CONFLICT(user_id, word_id) DO UPDATE SET
-         mastery = ?3, source = ?4, updated_at = datetime('now')",
-        params![user_id, word_id, mastery, source],
+         mastery = ?3,
+         source = ?4,
+         familiarity = ?5,
+         last_reviewed = datetime('now'),
+         next_review = datetime('now', ?6),
+         updated_at = datetime('now')",
+        params![user_id, word_id, mastery, source, familiarity, next_review],
     )
     .map_err(|e| format!("Failed to update word mastery: {}", e))?;
 
@@ -897,6 +905,9 @@ pub struct UserVocabWord {
     pub mastery: Option<i32>,
     pub source: Option<String>,
     pub updated_at: Option<String>,
+    pub familiarity: Option<i32>,
+    pub last_reviewed: Option<String>,
+    pub next_review: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -920,7 +931,8 @@ pub fn get_user_vocab_by_level(
     let mut stmt = conn
         .prepare(
             "SELECT vb.id, vb.word, vb.lemma, vb.pos, vb.cefr_level,
-                uv.mastery, uv.source, uv.updated_at
+                uv.mastery, uv.source, uv.updated_at,
+                uv.familiarity, uv.last_reviewed, uv.next_review
          FROM vocab_bank vb
          LEFT JOIN user_vocab uv ON vb.id = uv.word_id AND uv.user_id = ?1
          WHERE vb.language = ?2 AND vb.cefr_level = ?3
@@ -939,6 +951,9 @@ pub fn get_user_vocab_by_level(
                 mastery: row.get(5)?,
                 source: row.get(6)?,
                 updated_at: row.get(7)?,
+                familiarity: row.get(8)?,
+                last_reviewed: row.get(9)?,
+                next_review: row.get(10)?,
             })
         })
         .map_err(|e| format!("Failed to query user vocab: {}", e))?

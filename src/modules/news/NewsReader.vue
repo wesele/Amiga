@@ -52,8 +52,8 @@
           <small>{{ item.translation }}</small>
         </div>
       </div>
-      <!-- Original mode -->
-      <div v-if="!bilingualMode" class="article-text">
+      <!-- Original / graded mode -->
+      <div v-if="!bilingualMode" ref="articleBodyEl" class="article-text">
         <template v-for="(token, idx) in tokens" :key="idx">
           <span v-if="token.isWord" class="word" @click.stop="onWordTap(token)">
             {{ token.text }}
@@ -145,13 +145,25 @@
         <button
           class="mode-btn mode-toggle"
           :class="{ 'is-bilingual': bilingualMode }"
-          :title="bilingualMode ? t('news.original') : t('news.bilingual')"
-          @click="toggleBilingual"
+          title="Original"
+          @click="setReaderMode('original')"
         >
-          <span class="mode-toggle-label">{{ bilingualMode ? t('news.bilingual') : t('news.original') }}</span>
-          <svg class="mode-toggle-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
-            <path d="M7 10l5 5 5-5z"/>
-          </svg>
+          <span class="mode-toggle-label">原文</span>
+        </button>
+        <button
+          class="mode-btn tool-btn"
+          type="button"
+          :disabled="gradedLoading"
+          @click="setReaderMode('graded')"
+        >
+          <span>{{ gradedLoading ? "生成中" : "分级" }}</span>
+        </button>
+        <button
+          class="mode-btn tool-btn"
+          type="button"
+          @click="setReaderMode('bilingual')"
+        >
+          <span>双语</span>
         </button>
         <button
           class="mode-btn share-btn"
@@ -248,6 +260,7 @@ import {
   saveSentence,
   listSavedSentences,
   getArticleQuiz,
+  getArticleVersion,
   scoreExpression,
   moderateContent,
   shareText as nativeShareText,
@@ -289,7 +302,14 @@ const paraTokens = ref([]);
 const titleTranslation = ref("");
 const loadingTranslation = ref(false);
 const translationError = ref("");
-const displayBody = computed(() => article.value?.rewritten_body || article.value?.original_body || "");
+const readerMode = ref("original");
+const gradedBody = ref("");
+const gradedLoading = ref(false);
+const articleBodyEl = ref(null);
+const displayBody = computed(() => {
+  if (readerMode.value === "graded" && gradedBody.value) return gradedBody.value;
+  return article.value?.rewritten_body || article.value?.original_body || "";
+});
 
 // Share state
 const sharing = ref(false);
@@ -447,10 +467,34 @@ async function doRewrite() {
   }
 }
 
-async function toggleBilingual() {
-  bilingualMode.value = !bilingualMode.value;
-  if (bilingualMode.value && translations.value.length === 0) {
+async function setReaderMode(mode) {
+  const scroller = document.querySelector(".article-body");
+  const top = scroller?.scrollTop || 0;
+  readerMode.value = mode;
+  bilingualMode.value = mode === "bilingual";
+  if (mode === "graded" && !gradedBody.value) {
+    await loadGradedVersion();
+  }
+  if (mode === "bilingual" && translations.value.length === 0) {
     await loadBilingual();
+  }
+  parseText(displayBody.value);
+  requestAnimationFrame(() => {
+    if (scroller) scroller.scrollTop = top;
+  });
+}
+
+async function loadGradedVersion() {
+  if (!article.value || gradedLoading.value) return;
+  gradedLoading.value = true;
+  try {
+    const version = await getArticleVersion(Number(props.id), currentLevel);
+    gradedBody.value = version.body || "";
+  } catch (e) {
+    rewriteError.value = typeof e === "string" ? e : (e?.message || t("news.rewriteFail"));
+    gradedBody.value = "";
+  } finally {
+    gradedLoading.value = false;
   }
 }
 
