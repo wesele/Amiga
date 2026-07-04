@@ -167,7 +167,7 @@ async function openModule(mod) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6vw;
-  padding: 10vw 8vw 14vw;
+  padding: 8vw 8vw 14vw;
   box-sizing: border-box;
 }
 
