@@ -466,12 +466,34 @@ const UNITS = [
   },
 ];
 
+function fisherYates(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+const CHOICE_TYPES = new Set(['T05', 'T07', 'T08', 'T12']);
+
+function shuffleQuestionOptions(q) {
+  if (!CHOICE_TYPES.has(q.type)) return q;
+  const opts = [...q.options];
+  const correct = opts[q.answerIdx];
+  fisherYates(opts);
+  const newIdx = opts.indexOf(correct);
+  const out = { ...q, options: opts, answerIdx: newIdx };
+  if (q.type === 'T05' && q.blank !== undefined) {
+    out.blank = correct;
+  }
+  return out;
+}
+
 function collectQuestions(units) {
   const out = [];
   for (const unit of units) {
     for (const section of unit.sections) {
       for (const q of section.questions) {
-        out.push(q);
+        out.push(shuffleQuestionOptions(q));
       }
     }
   }

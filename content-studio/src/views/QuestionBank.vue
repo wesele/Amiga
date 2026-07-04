@@ -598,7 +598,7 @@ import { useValidator } from '../composables/useValidator.js'
 import { CEFR_TYPE_MAP, QUESTION_SCHEMAS } from '../data/question-types.js'
 import QuestionImage from '../components/QuestionImage.vue'
 import { buildSectionId, questionMatchesSection } from '../utils/sectionId.js'
-import { normalizeQuestion } from '../utils/normalizeQuestion.js'
+import { normalizeQuestion, shuffleOptions } from '../utils/normalizeQuestion.js'
 
 const route = useRoute()
 const storage = useStorage()
@@ -1294,9 +1294,10 @@ function prepareQuestionsForSave(questions, unit, sec, sourceLang, targetLang, l
       continue
     }
 
+    const shuffled = shuffleOptions(normalized)
     valid.push({
-      ...normalized,
-      id: normalized.id || `${targetLang.toLowerCase()}-${level.toLowerCase()}-${unit.id.toLowerCase()}-${sec.id.toLowerCase()}-${String(valid.length + 1).padStart(3, '0')}`
+      ...shuffled,
+      id: shuffled.id || `${targetLang.toLowerCase()}-${level.toLowerCase()}-${unit.id.toLowerCase()}-${sec.id.toLowerCase()}-${String(valid.length + 1).padStart(3, '0')}`
     })
   }
 

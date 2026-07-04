@@ -158,6 +158,39 @@ export function normalizeQuestion(q, ctx = {}) {
   return out
 }
 
+function fisherYates(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+}
+
+const CHOICE_TYPES = new Set(['T01', 'T02', 'T05', 'T07', 'T08', 'T12'])
+
+export function shuffleOptions(q) {
+  if (!CHOICE_TYPES.has(q.type)) return q
+  if (q.type === 'T02') {
+    if (!Array.isArray(q.imageOptions) || q.imageOptions.length < 2) return q
+    if (q.answerIdx == null || q.answerIdx < 0 || q.answerIdx >= q.imageOptions.length) return q
+    const correctItem = q.imageOptions[q.answerIdx]
+    const opts = [...q.imageOptions]
+    fisherYates(opts)
+    const newIdx = opts.indexOf(correctItem)
+    return { ...q, imageOptions: opts, answerIdx: newIdx }
+  }
+  if (!Array.isArray(q.options) || q.options.length < 2) return q
+  if (q.answerIdx == null || q.answerIdx < 0 || q.answerIdx >= q.options.length) return q
+  const correctValue = q.options[q.answerIdx]
+  const opts = [...q.options]
+  fisherYates(opts)
+  const newIdx = opts.indexOf(correctValue)
+  const out = { ...q, options: opts, answerIdx: newIdx }
+  if (q.type === 'T05' && q.blank !== undefined) {
+    out.blank = correctValue
+  }
+  return out
+}
+
 export function migrateQuestionFields(questions, pairConfigMap = {}) {
   let changed = 0
   const stats = {
