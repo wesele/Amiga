@@ -31,9 +31,14 @@
         <p v-if="!result?.passed" class="retry-hint">{{ t("path.unlimitedRetry") }}</p>
         <div class="summary-actions">
           <button class="action-btn secondary" @click="retryLesson">{{ t("path.retry") }}</button>
+          <button class="action-btn secondary" @click="goReview">{{ reviewActionLabel }}</button>
           <button class="action-btn primary" @click="finishLesson">
             {{ result?.passed ? t("path.continuePath") : t("path.backToPath") }}
           </button>
+        </div>
+        <div class="review-panel">
+          <p class="review-score">{{ performanceLabel }}</p>
+          <p v-for="tag in mistakeTags" :key="tag" class="mistake-tag">{{ tag }}</p>
         </div>
       </div>
     </template>
@@ -53,6 +58,27 @@
         <p v-if="showResult" class="feedback" :class="lastCorrect ? 'ok' : 'bad'">
           {{ lastCorrect ? t("path.correct") : t("path.incorrect") }}
         </p>
+        <div v-if="showResult && !lastCorrect" class="explain-card">
+          <button
+            type="button"
+            class="ask-btn"
+            :disabled="explainLoading"
+            @click="askAmiga"
+          >
+            {{ explainLoading ? "解释中..." : "问 Amiga" }}
+          </button>
+          <div v-if="explanation" class="explain-copy">
+            <p>{{ explanation.reason }}</p>
+            <p><strong>例句</strong> {{ explanation.example }}</p>
+            <p v-if="explanation.tip">{{ explanation.tip }}</p>
+            <div class="feedback-actions" aria-label="解释反馈">
+              <button type="button" @click="sendExplanationFeedback('useful')">有用</button>
+              <button type="button" @click="sendExplanationFeedback('unclear')">看不懂</button>
+              <button type="button" @click="sendExplanationFeedback('wrong')">可能错了</button>
+            </div>
+            <p v-if="feedbackSaved" class="feedback-saved">已记录反馈</p>
+          </div>
+        </div>
         <button
           class="action-btn primary"
           :disabled="!canCheck"
@@ -70,6 +96,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import {
+  chatCompletion,
   completeSection,
   getSectionLesson,
 } from "@/shared/api.js";
@@ -77,6 +104,11 @@ import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import { checkAnswer } from "./checkAnswer.js";
+import {
+  correctAnswerText,
+  explainQuestion,
+  saveExplanationFeedback,
+} from "./aiExplanation.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -94,6 +126,11 @@ const lastCorrect = ref(false);
 const correctCount = ref(0);
 const finished = ref(false);
 const result = ref(null);
+const mistakes = ref([]);
+const answerLog = ref([]);
+const explanation = ref(null);
+const explainLoading = ref(false);
+const feedbackSaved = ref(false);
 
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
@@ -131,6 +168,25 @@ const primaryLabel = computed(() => {
   }
   return t("path.check");
 });
+const performanceLabel = computed(() => {
+  const total = questions.value.length || 1;
+  const pct = Math.round((correctCount.value / total) * 100);
+  if (pct >= 90) return `表现 ${pct}%：很稳，继续接触真实材料。`;
+  if (pct >= 60) return `表现 ${pct}%：基础可用，错题适合温习一次。`;
+  return `表现 ${pct}%：建议放慢一点，把本节重练一遍。`;
+});
+const mistakeTags = computed(() => {
+  if (!mistakes.value.length) return ["没有明显错题，下一步做轻量巩固。"];
+  const counts = mistakes.value.reduce((acc, q) => {
+    const key = q.type || "unknown";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  return Object.entries(counts).map(([type, count]) => `${type} 易错 ${count} 题`);
+});
+const reviewActionLabel = computed(() =>
+  mistakes.value.length ? "进入温习篮" : "去真实阅读",
+);
 
 async function load() {
   loading.value = true;
@@ -166,6 +222,9 @@ function resetSession() {
   correctCount.value = 0;
   finished.value = false;
   result.value = null;
+  mistakes.value = [];
+  answerLog.value = [];
+  resetExplanation();
 }
 
 function retryLesson() {
@@ -180,10 +239,20 @@ async function finishLesson() {
   router.replace({ name: "path" });
 }
 
+function goReview() {
+  router.replace(mistakes.value.length ? { name: "vocab" } : { name: "news" });
+}
+
 function onPrimaryAction() {
   if (!showResult.value) {
     lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
     if (lastCorrect.value) correctCount.value += 1;
+    answerLog.value.push({
+      question: currentQuestion.value,
+      answer: currentAnswer.value,
+      correct: lastCorrect.value,
+    });
+    if (!lastCorrect.value) mistakes.value.push(currentQuestion.value);
     if (lastCorrect.value && isChoiceQuestion(currentQuestion.value)) {
       advanceQuestion();
       return;
@@ -205,10 +274,42 @@ function advanceQuestion() {
     currentAnswer.value = null;
     showResult.value = false;
     lastCorrect.value = false;
+    resetExplanation();
     return;
   }
 
   submitLesson();
+}
+
+function resetExplanation() {
+  explanation.value = null;
+  explainLoading.value = false;
+  feedbackSaved.value = false;
+}
+
+async function askAmiga() {
+  if (!currentQuestion.value || explainLoading.value) return;
+  explainLoading.value = true;
+  feedbackSaved.value = false;
+  try {
+    explanation.value = await explainQuestion({
+      question: currentQuestion.value,
+      userAnswer: currentAnswer.value,
+      correctAnswer: correctAnswerText(currentQuestion.value),
+      nativeLang: userMeta.value.nativeLang,
+      targetLang: userMeta.value.targetLang,
+      cefr: userMeta.value.cefr,
+      chatCompletion,
+    });
+  } finally {
+    explainLoading.value = false;
+  }
+}
+
+function sendExplanationFeedback(type) {
+  if (!explanation.value?.explanation_id) return;
+  saveExplanationFeedback(explanation.value.explanation_id, type);
+  feedbackSaved.value = true;
 }
 
 async function submitLesson() {
@@ -388,5 +489,84 @@ onMounted(load);
   width: 100%;
   max-width: 320px;
   margin-top: 16px;
+}
+
+.review-panel {
+  width: 100%;
+  max-width: 320px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--white);
+}
+
+.review-score {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.mistake-tag {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-light);
+}
+
+.explain-card {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+
+.ask-btn {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--blue);
+  border-radius: var(--radius-sm);
+  background: var(--blue-bg);
+  color: var(--blue-hover);
+  font: inherit;
+  font-weight: 800;
+}
+
+.ask-btn:disabled {
+  opacity: 0.6;
+}
+
+.explain-copy {
+  margin-top: 10px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.explain-copy p {
+  margin: 6px 0 0;
+}
+
+.feedback-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.feedback-actions button {
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.feedback-saved {
+  color: var(--green-hover);
+  font-weight: 700;
 }
 </style>
