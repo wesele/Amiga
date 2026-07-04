@@ -69,4 +69,13 @@ describe("PathMapPage unit guide layout", () => {
     expect(source).toMatch(/\.path-connector\s*\{[\s\S]*margin:\s*2px 0 8px/);
     expect(source).toMatch(/\.step-body\s*\{[\s\S]*gap:\s*6px/);
   });
+
+  it("scrolls the map to the current node after loading", () => {
+    const source = readVue("src/modules/path/PathMapPage.vue");
+    expect(source).toMatch(/ref="pathScroll"/);
+    expect(source).toMatch(/function scrollToCurrentNode\(\)/);
+    expect(source).toMatch(/querySelector\("\.path-step\.is-current"\)/);
+    expect(source).toMatch(/scroller\.scrollTo/);
+    expect(source).toMatch(/await scrollToCurrentNode\(\)/);
+  });
 });

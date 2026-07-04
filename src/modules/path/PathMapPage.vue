@@ -70,7 +70,7 @@
       <p>{{ t("path.levelCompleteDesc") }}</p>
     </div>
 
-    <div v-else-if="curriculum" class="path-scroll">
+    <div v-else-if="curriculum" ref="pathScroll" class="path-scroll">
       <div
         v-for="(unit, uIdx) in curriculum.units"
         :key="unit.id"
@@ -135,7 +135,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import { CEFR_LEVELS, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
@@ -162,6 +162,7 @@ const curriculum = ref(null);
 const currentCefr = ref("A1");
 const levelSwitching = ref(false);
 const showLevelPicker = ref(false);
+const pathScroll = ref(null);
 const learningLevels = LEARNING_CEFR_LEVELS;
 
 const completedLevelLabel = computed(() => {
@@ -243,6 +244,18 @@ function startNode(section) {
   router.push({ name: "path-lesson", params: { sectionId: section.id } });
 }
 
+async function scrollToCurrentNode() {
+  await nextTick();
+  const scroller = pathScroll.value;
+  if (!scroller || curriculum.value?.status !== "active") return;
+  const currentStep = scroller.querySelector(".path-step.is-current");
+  if (!currentStep) return;
+  requestAnimationFrame(() => {
+    const top = currentStep.offsetTop - scroller.clientHeight * 0.42 + currentStep.clientHeight / 2;
+    scroller.scrollTo({ top: Math.max(0, top), behavior: "auto" });
+  });
+}
+
 async function load() {
   loading.value = true;
   error.value = "";
@@ -257,6 +270,7 @@ async function load() {
     error.value = e?.message || String(e);
   } finally {
     loading.value = false;
+    await scrollToCurrentNode();
   }
 }
 
@@ -275,6 +289,7 @@ async function onSwitchLevel(level) {
     error.value = e?.message || String(e);
   } finally {
     levelSwitching.value = false;
+    await scrollToCurrentNode();
   }
 }
 
