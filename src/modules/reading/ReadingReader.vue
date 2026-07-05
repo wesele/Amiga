@@ -96,6 +96,22 @@
         <button class="btn-mode" :class="{ active: bilingualMode }" @click="toggleBilingual">
           {{ bilingualMode ? t('news.bilingual') : t('news.original') }}
         </button>
+        <button
+          class="btn-read"
+          :class="{ 'is-reading': reading }"
+          :disabled="!canReadArticle"
+          :title="reading ? t('news.stopReading') : t('news.readAloud')"
+          :aria-label="reading ? t('news.stopReading') : t('news.readAloud')"
+          @click="toggleReading"
+        >
+          <svg v-if="!reading" class="read-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1-3.29-2.5-4.03v8.05c1.5-.73 2.5-2.25 2.5-4.02z"/>
+            <path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+          </svg>
+          <svg v-else class="read-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+            <path d="M6 6h4v12H6V6zm8 0h4v12h-4V6z"/>
+          </svg>
+        </button>
         <button class="btn-test" :disabled="testLoading" @click="goTest">
           {{ t('reading.test') }}
         </button>
@@ -105,7 +121,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
@@ -140,6 +156,20 @@ const tokens = ref([]);
 const selectedWord = ref(null);
 const testLoading = ref(false);
 
+// Read aloud state
+const reading = ref(false);
+const nativeTtsAvailable = ref(false);
+let speechUtterance = null;
+const canReadArticle = computed(() => {
+  if (!getReadableArticleText()) return false;
+  return nativeTtsAvailable.value || (typeof window !== "undefined" && "speechSynthesis" in window);
+});
+const speechLangMap = {
+  es: "es-ES",
+  en: "en-US",
+  zh: "zh-CN",
+};
+
 let targetLang = "es";
 let userId = "";
 
@@ -168,6 +198,11 @@ onMounted(async () => {
   document.addEventListener("selectionchange", onSelectionChange);
   document.addEventListener("pointerup", onPointerUp);
   window.__amigaTranslateSelection = handleNativeTranslate;
+  window.__amigaTtsDone = () => {
+    reading.value = false;
+    speechUtterance = null;
+  };
+  nativeTtsAvailable.value = !!(window.__amigaTts && typeof window.__amigaTts.speak === "function");
   await loadArticle();
 });
 
@@ -175,7 +210,9 @@ onBeforeUnmount(() => {
   document.removeEventListener("selectionchange", onSelectionChange);
   document.removeEventListener("pointerup", onPointerUp);
   delete window.__amigaTranslateSelection;
+  delete window.__amigaTtsDone;
   cleanupSelectionTranslation();
+  stopReading();
 });
 
 watch(() => article.value?.body, (val) => {
@@ -290,6 +327,77 @@ function goTest() {
   router.push(`/learn/reading/${props.id}/test`).finally(() => {
     testLoading.value = false;
   });
+}
+
+function getReadableArticleText() {
+  if (!article.value) return "";
+  const title = article.value.title || "";
+  const body = article.value.body || "";
+  return `${title}\n\n${body}`.trim();
+}
+
+function toggleReading() {
+  if (reading.value) {
+    stopReading();
+    return;
+  }
+  startReading();
+}
+
+function startReading() {
+  if (!canReadArticle.value) return;
+  stopReading();
+  const text = getReadableArticleText();
+  const speechLang = getSpeechLang(targetLang);
+  if (window.__amigaTts && typeof window.__amigaTts.speak === "function") {
+    const result = window.__amigaTts.speak(text, speechLang);
+    if (result === "ok" || result === "initializing") {
+      reading.value = true;
+    }
+    return;
+  }
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = speechLang;
+  utterance.voice = pickSpeechVoice(speechLang);
+  utterance.rate = 0.9;
+  utterance.onend = () => {
+    if (speechUtterance === utterance) {
+      reading.value = false;
+      speechUtterance = null;
+    }
+  };
+  utterance.onerror = utterance.onend;
+  speechUtterance = utterance;
+  reading.value = true;
+  window.speechSynthesis.speak(utterance);
+}
+
+function getSpeechLang(lang) {
+  return speechLangMap[lang] || lang || "en-US";
+}
+
+function pickSpeechVoice(lang) {
+  if (typeof window === "undefined" || !window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices();
+  const langLower = lang.toLowerCase();
+  const family = langLower.split("-")[0];
+  return (
+    voices.find((voice) => voice.lang.toLowerCase() === langLower) ||
+    voices.find((voice) => voice.lang.toLowerCase().startsWith(`${family}-`)) ||
+    voices.find((voice) => voice.lang.toLowerCase() === family) ||
+    null
+  );
+}
+
+function stopReading() {
+  if (typeof window !== "undefined" && window.__amigaTts && typeof window.__amigaTts.stop === "function") {
+    window.__amigaTts.stop();
+  }
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+  reading.value = false;
+  speechUtterance = null;
 }
 </script>
 
@@ -471,10 +579,12 @@ function goTest() {
   width: 100%;
   display: flex;
   gap: 10px;
+  align-items: center;
 }
 
 .btn-mode,
 .btn-test,
+.btn-read,
 .btn-rewrite {
   border-radius: var(--radius-md);
   font-family: inherit;
@@ -515,6 +625,34 @@ function goTest() {
 
 .btn-test:hover:not(:disabled) {
   opacity: 0.9;
+}
+
+.btn-read {
+  flex: 0 0 52px;
+  width: 52px;
+  padding: 10px 0;
+  border: 1.5px solid var(--purple, #7c3aed);
+  background: rgba(124, 58, 237, 0.08);
+  color: var(--purple, #7c3aed);
+  font-size: 16px;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-read:hover:not(:disabled),
+.btn-read.is-reading {
+  background: rgba(124, 58, 237, 0.15);
+}
+
+.btn-read:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.read-icon {
+  flex-shrink: 0;
 }
 
 .btn-rewrite {
