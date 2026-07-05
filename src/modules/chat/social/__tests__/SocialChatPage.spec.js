@@ -6,6 +6,10 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
+import {
+  getSocialPreview,
+  updateSocialPreview,
+} from "@/modules/chat/social/socialPreview.js";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
@@ -139,6 +143,32 @@ describe("SocialChatPage", () => {
     expect(bubbles).toHaveLength(1);
     expect(bubbles[0].find(".msg-text").text()).toBe("Hello everyone!");
     expect(bubbles[0].find(".msg-sender").text()).toBe("Bob");
+  });
+
+  it("does not count messages as unread while the public group is open", async () => {
+    updateSocialPreview({
+      contactKey: "public",
+      text: "Previous",
+      createdAt: "2026-01-01T11:59:00Z",
+      senderId: "Bob",
+      currentUserId: "Alice",
+    });
+    expect(getSocialPreview("public").unread).toBe(1);
+
+    const { wrapper } = await mountPage("public");
+
+    capturedSocket._emit("message", { data: JSON.stringify({
+      type: "message",
+      id: "m2",
+      senderId: "Bob",
+      text: "Visible in the open room",
+      createdAt: "2026-01-01T12:02:00Z",
+    }) });
+    await flushPromises();
+
+    expect(wrapper.findAll(".msg-bubble")).toHaveLength(1);
+    expect(getSocialPreview("public").unread).toBe(0);
+    expect(getSocialPreview("public").text).toBe("Visible in the open room");
   });
 
   it("displays history messages on connect", async () => {

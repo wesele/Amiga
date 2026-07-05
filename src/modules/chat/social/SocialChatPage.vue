@@ -177,7 +177,7 @@ function recordPreview(message, { markUnread = false } = {}) {
   });
 }
 
-function pushMessage(message, { fromSocket = false, persist = true } = {}) {
+function pushMessage(message, { persist = true } = {}) {
   if (message?.senderAvatar) {
     rememberSocialAvatar(message.senderId, message.senderAvatar);
   }
@@ -195,7 +195,7 @@ function pushMessage(message, { fromSocket = false, persist = true } = {}) {
   if (persist) {
     persistMessages();
   }
-  recordPreview(normalized, { markUnread: fromSocket });
+  recordPreview(normalized, { markUnread: false });
   nextTick(() => {
     if (messageListEl.value) {
       messageListEl.value.scrollTop = messageListEl.value.scrollHeight;
@@ -277,7 +277,7 @@ async function connectSocket() {
         return;
       }
       if (payload?.type === "message") {
-        pushMessage(payload, { fromSocket: true });
+        pushMessage(payload);
       }
       if (payload?.type === "history") {
         for (const item of payload.items || []) {
