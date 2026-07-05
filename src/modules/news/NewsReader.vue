@@ -143,15 +143,15 @@
       </div>
     </div>
 
-    <!-- Share status toast -->
+    <!-- Share / read-aloud status toast -->
     <Transition name="popup">
-      <div v-if="shareStatus" class="share-toast">{{ shareStatus }}</div>
+      <div v-if="shareStatus || readStatus" class="share-toast">{{ shareStatus || readStatus }}</div>
     </Transition>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
 import { getArticle, rewriteArticle, saveReadingLog, updateWordMastery, getBilingual, translateText, lookupWordIds, ensureWordsSeen, addDiscoveredWord, shareText as nativeShareText } from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
@@ -164,6 +164,7 @@ import { loadLearningContext } from "@/shared/learningContext.js";
 import { extractWordTexts, tokenizeArticleText } from "./articleText.js";
 import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
+import { useReadAloud } from "@/shared/readAloud.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -197,19 +198,24 @@ const sharing = ref(false);
 const shareStatus = ref("");
 let shareStatusTimer = null;
 
-// Read aloud state
-const reading = ref(false);
-const nativeTtsAvailable = ref(false);
-let speechUtterance = null;
-const canReadArticle = computed(() => {
-  if (!getReadableArticleText()) return false;
-  return nativeTtsAvailable.value || (typeof window !== "undefined" && "speechSynthesis" in window);
+function getReadableArticleText() {
+  if (!article.value) return "";
+  const title = article.value.original_title || "";
+  const body = article.value.rewritten_body || article.value.original_body || "";
+  return `${title}\n\n${body}`.trim();
+}
+
+const {
+  reading,
+  readStatus,
+  canRead: canReadArticle,
+  toggleReading,
+  stopReading,
+} = useReadAloud({
+  getText: getReadableArticleText,
+  getTargetLang: () => targetLang,
+  t,
 });
-const speechLangMap = {
-  es: "es-ES",
-  en: "en-US",
-  zh: "zh-CN",
-};
 
 const {
   selectionText,
@@ -239,11 +245,6 @@ onMounted(async () => {
   // Android: the system text-selection toolbar calls this global function
   // when the user taps the "翻译" menu item (see MainActivity.kt).
   window.__amigaTranslateSelection = handleNativeTranslate;
-  window.__amigaTtsDone = () => {
-    reading.value = false;
-    speechUtterance = null;
-  };
-  nativeTtsAvailable.value = !!(window.__amigaTts && typeof window.__amigaTts.speak === "function");
   try {
     const ctx = await loadLearningContext({ targetLangStore });
     userId = ctx.user.id;
@@ -274,7 +275,6 @@ onBeforeUnmount(async () => {
   document.removeEventListener("selectionchange", onSelectionChange);
   document.removeEventListener("pointerup", onPointerUp);
   delete window.__amigaTranslateSelection;
-  delete window.__amigaTtsDone;
   cleanupSelectionTranslation();
   if (shareStatusTimer) {
     clearTimeout(shareStatusTimer);
@@ -464,77 +464,6 @@ async function onShare() {
   } finally {
     sharing.value = false;
   }
-}
-
-function getReadableArticleText() {
-  if (!article.value) return "";
-  const title = article.value.original_title || "";
-  const body = article.value.rewritten_body || article.value.original_body || "";
-  return `${title}\n\n${body}`.trim();
-}
-
-function toggleReading() {
-  if (reading.value) {
-    stopReading();
-    return;
-  }
-  startReading();
-}
-
-function startReading() {
-  if (!canReadArticle.value) return;
-  stopReading();
-  const text = getReadableArticleText();
-  const speechLang = getSpeechLang(targetLang);
-  if (window.__amigaTts && typeof window.__amigaTts.speak === "function") {
-    const result = window.__amigaTts.speak(text, speechLang);
-    if (result === "ok" || result === "initializing") {
-      reading.value = true;
-    }
-    return;
-  }
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = speechLang;
-  utterance.voice = pickSpeechVoice(speechLang);
-  utterance.rate = 0.9;
-  utterance.onend = () => {
-    if (speechUtterance === utterance) {
-      reading.value = false;
-      speechUtterance = null;
-    }
-  };
-  utterance.onerror = utterance.onend;
-  speechUtterance = utterance;
-  reading.value = true;
-  window.speechSynthesis.speak(utterance);
-}
-
-function getSpeechLang(lang) {
-  return speechLangMap[lang] || lang || "en-US";
-}
-
-function pickSpeechVoice(lang) {
-  if (typeof window === "undefined" || !window.speechSynthesis) return null;
-  const voices = window.speechSynthesis.getVoices();
-  const langLower = lang.toLowerCase();
-  const family = langLower.split("-")[0];
-  return (
-    voices.find((voice) => voice.lang.toLowerCase() === langLower) ||
-    voices.find((voice) => voice.lang.toLowerCase().startsWith(`${family}-`)) ||
-    voices.find((voice) => voice.lang.toLowerCase() === family) ||
-    null
-  );
-}
-
-function stopReading() {
-  if (typeof window !== "undefined" && window.__amigaTts && typeof window.__amigaTts.stop === "function") {
-    window.__amigaTts.stop();
-  }
-  if (typeof window !== "undefined" && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-  }
-  reading.value = false;
-  speechUtterance = null;
 }
 
 function goBack() {

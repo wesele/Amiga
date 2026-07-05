@@ -15,6 +15,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Looper
 import android.provider.MediaStore
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
@@ -80,6 +81,8 @@ class MainActivity : TauriActivity() {
     private val pendingApkDownloads = mutableMapOf<Long, File>()
     private var textToSpeech: TextToSpeech? = null
     private var textToSpeechReady = false
+    private var ttsPendingChunks: MutableList<String> = mutableListOf()
+    private var ttsSessionWebView: WebView? = null
 
     // Disable the WryActivity's stock back navigation (which calls
     // mWebView.goBack()). We install our own hierarchical back handler
@@ -159,6 +162,8 @@ class MainActivity : TauriActivity() {
         apkDownloadReceiver?.let { unregisterReceiver(it) }
         apkDownloadReceiver = null
         pendingApkDownloads.clear()
+        ttsPendingChunks.clear()
+        ttsSessionWebView = null
         textToSpeech?.stop()
         textToSpeech?.shutdown()
         textToSpeech = null
@@ -396,23 +401,160 @@ class MainActivity : TauriActivity() {
             @JavascriptInterface
             fun speak(text: String, langTag: String): String {
                 if (text.isBlank()) return "empty"
-                val latch = CountDownLatch(1)
-                var result = "failed"
-                this@MainActivity.runOnUiThread {
-                    result = speakNativeText(webView, text, langTag)
-                    latch.countDown()
+                return runOnUiThreadAndWait(8) {
+                    speakNativeText(webView, text, langTag)
                 }
-                return if (latch.await(3, TimeUnit.SECONDS)) result else "timeout"
             }
 
             @JavascriptInterface
             fun stop() {
                 this@MainActivity.runOnUiThread {
+                    clearTtsSession()
                     textToSpeech?.stop()
-                    webView.evaluateJavascript("window.__amigaTtsDone&&window.__amigaTtsDone()", null)
                 }
             }
         }, "__amigaTts")
+    }
+
+    private fun runOnUiThreadAndWait(timeoutSeconds: Long, block: () -> String): String {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return block()
+        }
+        val latch = CountDownLatch(1)
+        var result = "failed"
+        this@MainActivity.runOnUiThread {
+            try {
+                result = block()
+            } finally {
+                latch.countDown()
+            }
+        }
+        return if (latch.await(timeoutSeconds, TimeUnit.SECONDS)) result else "timeout"
+    }
+
+    private fun localeCandidates(langTag: String): List<String> {
+        val tag = langTag.ifBlank { "en-US" }
+        val family = tag.substringBefore('-').lowercase(Locale.ROOT)
+        return when (family) {
+            "es" -> listOf(tag, "es-ES", "es-MX", "es-US", "es")
+            "en" -> listOf(tag, "en-US", "en-GB", "en-AU", "en")
+            "zh" -> listOf(tag, "zh-CN", "zh-TW", "zh-HK", "zh")
+            else -> listOf(tag, family)
+        }.distinct()
+    }
+
+    private fun applyBestLocale(engine: TextToSpeech, langTag: String): Locale? {
+        for (candidate in localeCandidates(langTag)) {
+            val locale = Locale.forLanguageTag(candidate)
+            val availability = engine.isLanguageAvailable(locale)
+            if (availability == TextToSpeech.LANG_MISSING_DATA || availability == TextToSpeech.LANG_NOT_SUPPORTED) {
+                continue
+            }
+            when (engine.setLanguage(locale)) {
+                TextToSpeech.LANG_MISSING_DATA, TextToSpeech.LANG_NOT_SUPPORTED -> continue
+                else -> return locale
+            }
+        }
+        return null
+    }
+
+    private fun splitTextForTts(text: String, maxChunkSize: Int = 3500): List<String> {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        if (trimmed.length <= maxChunkSize) return listOf(trimmed)
+
+        val chunks = mutableListOf<String>()
+        var index = 0
+        while (index < trimmed.length) {
+            var end = (index + maxChunkSize).coerceAtMost(trimmed.length)
+            if (end < trimmed.length) {
+                val slice = trimmed.substring(index, end)
+                val lastSpace = slice.lastIndexOf(' ')
+                if (lastSpace > 0) {
+                    end = index + lastSpace
+                }
+            }
+            val chunk = trimmed.substring(index, end).trim()
+            if (chunk.isNotEmpty()) {
+                chunks.add(chunk)
+            }
+            index = if (end <= index) index + 1 else end
+            while (index < trimmed.length && trimmed[index].isWhitespace()) {
+                index++
+            }
+        }
+        return chunks
+    }
+
+    private fun clearTtsSession() {
+        ttsPendingChunks.clear()
+        ttsSessionWebView = null
+    }
+
+    private fun notifyTtsError(webView: WebView, reason: String) {
+        val safeReason = reason.replace("\\", "\\\\").replace("'", "\\'")
+        webView.post {
+            webView.evaluateJavascript(
+                "window.__amigaTtsError&&window.__amigaTtsError('$safeReason');window.__amigaTtsDone&&window.__amigaTtsDone()",
+                null,
+            )
+        }
+    }
+
+    private fun finishTtsSession(webView: WebView) {
+        clearTtsSession()
+        webView.post {
+            webView.evaluateJavascript("window.__amigaTtsDone&&window.__amigaTtsDone()", null)
+        }
+    }
+
+    private fun installTtsProgressListener(engine: TextToSpeech, webView: WebView) {
+        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {}
+
+            override fun onDone(utteranceId: String?) {
+                val activeWebView = ttsSessionWebView ?: return
+                if (ttsPendingChunks.isEmpty()) {
+                    finishTtsSession(activeWebView)
+                } else {
+                    speakNextChunk(engine, activeWebView, TextToSpeech.QUEUE_ADD)
+                }
+            }
+
+            override fun onError(utteranceId: String?, errorCode: Int) {
+                // ERROR_STOPPED (-2): utterance cancelled by engine.stop(), not a user failure.
+                if (errorCode == -2) return
+                Log.w(TAG, "TTS error code=$errorCode utterance=$utteranceId")
+                val activeWebView = ttsSessionWebView ?: return
+                clearTtsSession()
+                notifyTtsError(activeWebView, "error-$errorCode")
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) {
+                Log.w(TAG, "TTS error utterance=$utteranceId")
+            }
+        })
+    }
+
+    private fun speakNextChunk(engine: TextToSpeech, webView: WebView, queueMode: Int): String {
+        if (ttsPendingChunks.isEmpty()) {
+            finishTtsSession(webView)
+            return "ok"
+        }
+        val chunk = ttsPendingChunks.removeAt(0)
+        val utteranceId = "amiga-tts-${System.currentTimeMillis()}"
+        val params = Bundle().apply {
+            putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
+        }
+        val code = engine.speak(chunk, queueMode, params, utteranceId)
+        if (code == TextToSpeech.ERROR) {
+            Log.w(TAG, "TTS speak returned ERROR for chunk length=${chunk.length}")
+            clearTtsSession()
+            notifyTtsError(webView, "speak-failed")
+            return "speak-failed"
+        }
+        return "ok"
     }
 
     private fun speakNativeText(webView: WebView, text: String, langTag: String): String {
@@ -422,46 +564,33 @@ class MainActivity : TauriActivity() {
                 textToSpeechReady = status == TextToSpeech.SUCCESS
                 if (textToSpeechReady) {
                     val speakResult = speakNativeText(webView, text, langTag)
-                    if (speakResult != "ok") {
-                        webView.evaluateJavascript("window.__amigaTtsDone&&window.__amigaTtsDone()", null)
+                    if (speakResult != "ok" && speakResult != "initializing") {
+                        notifyTtsError(webView, speakResult)
                     }
                 } else {
-                    webView.evaluateJavascript("window.__amigaTtsDone&&window.__amigaTtsDone()", null)
+                    Log.w(TAG, "TextToSpeech init failed with status=$status")
+                    notifyTtsError(webView, "init-failed")
                 }
             }
             return "initializing"
         }
 
-        val locale = Locale.forLanguageTag(langTag.ifBlank { "en-US" })
-        val availability = engine.isLanguageAvailable(locale)
-        if (availability == TextToSpeech.LANG_MISSING_DATA || availability == TextToSpeech.LANG_NOT_SUPPORTED) {
+        val locale = applyBestLocale(engine, langTag)
+        if (locale == null) {
             Log.w(TAG, "TTS language not available: $langTag")
             return "missing-language"
         }
-        val setResult = engine.setLanguage(locale)
-        if (setResult == TextToSpeech.LANG_MISSING_DATA || setResult == TextToSpeech.LANG_NOT_SUPPORTED) {
-            Log.w(TAG, "TTS refused language: $langTag")
-            return "missing-language"
+
+        val chunks = splitTextForTts(text)
+        if (chunks.isEmpty()) {
+            return "empty"
         }
 
-        val utteranceId = "amiga-news-reader-${System.currentTimeMillis()}"
-        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {}
-            override fun onDone(utteranceId: String?) {
-                webView.post {
-                    webView.evaluateJavascript("window.__amigaTtsDone&&window.__amigaTtsDone()", null)
-                }
-            }
-            @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) {
-                webView.post {
-                    webView.evaluateJavascript("window.__amigaTtsDone&&window.__amigaTtsDone()", null)
-                }
-            }
-        })
-        engine.stop()
-        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
-        return "ok"
+        clearTtsSession()
+        ttsPendingChunks = chunks.toMutableList()
+        ttsSessionWebView = webView
+        installTtsProgressListener(engine, webView)
+        return speakNextChunk(engine, webView, TextToSpeech.QUEUE_FLUSH)
     }
 
     /**

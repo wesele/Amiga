@@ -197,6 +197,8 @@ export default {
     sample: "Muestra",
     readAloud: "Leer en voz alta",
     stopReading: "Detener lectura",
+    readAloudFail: "No se pudo leer en voz alta, inténtalo de nuevo",
+    readAloudMissingLanguage: "No hay datos de voz para este idioma. Descárgalos en ajustes del sistema e inténtalo de nuevo",
     share: "Compartir",
     sharing: "Compartiendo…",
     shareTitle: "Compartir en otra app para seguir conversando",

@@ -197,6 +197,8 @@ export default {
     sample: "Sample",
     readAloud: "Read aloud",
     stopReading: "Stop reading",
+    readAloudFail: "Read aloud failed, please try again",
+    readAloudMissingLanguage: "Speech data for this language is not installed. Download it in system settings and try again",
     share: "Share",
     sharing: "Sharing…",
     shareTitle: "Share to another app to keep discussing",

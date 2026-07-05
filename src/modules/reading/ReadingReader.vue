@@ -92,7 +92,7 @@
         <button
           class="btn-read"
           :class="{ 'is-reading': reading }"
-          :disabled="!canReadArticle"
+          :disabled="!canRead"
           :title="reading ? t('news.stopReading') : t('news.readAloud')"
           :aria-label="reading ? t('news.stopReading') : t('news.readAloud')"
           @click="toggleReading"
@@ -110,11 +110,15 @@
         </button>
       </div>
     </div>
+
+    <Transition name="popup">
+      <div v-if="readStatus" class="read-toast">{{ readStatus }}</div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
@@ -130,6 +134,7 @@ import WordPopup from "@/shared/components/WordPopup.vue";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { tokenizeArticleText } from "../news/articleText.js";
 import { useSelectionTranslation } from "../news/selectionTranslation.js";
+import { useReadAloud } from "@/shared/readAloud.js";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -150,18 +155,23 @@ const selectedWord = ref(null);
 const testLoading = ref(false);
 
 // Read aloud state
-const reading = ref(false);
-const nativeTtsAvailable = ref(false);
-let speechUtterance = null;
-const canReadArticle = computed(() => {
-  if (!getReadableArticleText()) return false;
-  return nativeTtsAvailable.value || (typeof window !== "undefined" && "speechSynthesis" in window);
+function getReadableArticleText() {
+  if (!article.value) return "";
+  const title = article.value.title || "";
+  const body = article.value.body || "";
+  return `${title}\n\n${body}`.trim();
+}
+
+const {
+  reading,
+  readStatus,
+  canRead,
+  toggleReading,
+} = useReadAloud({
+  getText: getReadableArticleText,
+  getTargetLang: () => targetLang,
+  t,
 });
-const speechLangMap = {
-  es: "es-ES",
-  en: "en-US",
-  zh: "zh-CN",
-};
 
 let targetLang = "es";
 let userId = "";
@@ -191,11 +201,6 @@ onMounted(async () => {
   document.addEventListener("selectionchange", onSelectionChange);
   document.addEventListener("pointerup", onPointerUp);
   window.__amigaTranslateSelection = handleNativeTranslate;
-  window.__amigaTtsDone = () => {
-    reading.value = false;
-    speechUtterance = null;
-  };
-  nativeTtsAvailable.value = !!(window.__amigaTts && typeof window.__amigaTts.speak === "function");
   await loadArticle();
 });
 
@@ -203,9 +208,7 @@ onBeforeUnmount(() => {
   document.removeEventListener("selectionchange", onSelectionChange);
   document.removeEventListener("pointerup", onPointerUp);
   delete window.__amigaTranslateSelection;
-  delete window.__amigaTtsDone;
   cleanupSelectionTranslation();
-  stopReading();
 });
 
 watch(() => article.value?.body, (val) => {
@@ -322,76 +325,6 @@ function goTest() {
   });
 }
 
-function getReadableArticleText() {
-  if (!article.value) return "";
-  const title = article.value.title || "";
-  const body = article.value.body || "";
-  return `${title}\n\n${body}`.trim();
-}
-
-function toggleReading() {
-  if (reading.value) {
-    stopReading();
-    return;
-  }
-  startReading();
-}
-
-function startReading() {
-  if (!canReadArticle.value) return;
-  stopReading();
-  const text = getReadableArticleText();
-  const speechLang = getSpeechLang(targetLang);
-  if (window.__amigaTts && typeof window.__amigaTts.speak === "function") {
-    const result = window.__amigaTts.speak(text, speechLang);
-    if (result === "ok" || result === "initializing") {
-      reading.value = true;
-    }
-    return;
-  }
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = speechLang;
-  utterance.voice = pickSpeechVoice(speechLang);
-  utterance.rate = 0.9;
-  utterance.onend = () => {
-    if (speechUtterance === utterance) {
-      reading.value = false;
-      speechUtterance = null;
-    }
-  };
-  utterance.onerror = utterance.onend;
-  speechUtterance = utterance;
-  reading.value = true;
-  window.speechSynthesis.speak(utterance);
-}
-
-function getSpeechLang(lang) {
-  return speechLangMap[lang] || lang || "en-US";
-}
-
-function pickSpeechVoice(lang) {
-  if (typeof window === "undefined" || !window.speechSynthesis) return null;
-  const voices = window.speechSynthesis.getVoices();
-  const langLower = lang.toLowerCase();
-  const family = langLower.split("-")[0];
-  return (
-    voices.find((voice) => voice.lang.toLowerCase() === langLower) ||
-    voices.find((voice) => voice.lang.toLowerCase().startsWith(`${family}-`)) ||
-    voices.find((voice) => voice.lang.toLowerCase() === family) ||
-    null
-  );
-}
-
-function stopReading() {
-  if (typeof window !== "undefined" && window.__amigaTts && typeof window.__amigaTts.stop === "function") {
-    window.__amigaTts.stop();
-  }
-  if (typeof window !== "undefined" && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-  }
-  reading.value = false;
-  speechUtterance = null;
-}
 </script>
 
 <style scoped>
@@ -764,5 +697,23 @@ function stopReading() {
 .popup-leave-to {
   opacity: 0;
   transform: translateY(8px);
+}
+
+.read-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(80px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  transform: translateX(-50%);
+  background: var(--text);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 400;
+  max-width: calc(100% - 40px);
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  line-height: 1.4;
 }
 </style>

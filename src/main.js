@@ -11,6 +11,7 @@ import { installAndroidBridge } from "./app/androidBridge.js";
 import { loadFeatureModules, loadShellModule } from "./app/modules.js";
 import { applyQueryLocale } from "./app/queryLocale.js";
 import { installWizardGuard } from "./app/routeGuards.js";
+import { bootSocialInbox } from "./modules/chat/social/socialInboxService.js";
 
 async function bootstrap() {
   // Browser-dev escape hatch: `?locale=en` (or `es` / `zh`) overrides the
@@ -52,6 +53,10 @@ async function bootstrap() {
   await loadFeatureModules(kernel);
 
   app.mount("#app");
+
+  // Inbox sockets need a live WebView; boot again after mount in case the
+  // module-init attempt ran too early (Tauri invoke / network not ready).
+  bootSocialInbox().catch(() => {});
 
   // Fix: force re-resolve after mount to handle race condition
   // between async beforeEach guard and dynamic route registration

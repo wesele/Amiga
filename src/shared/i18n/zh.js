@@ -200,6 +200,8 @@ export default {
     sample: "示例",
     readAloud: "朗读",
     stopReading: "停止朗读",
+    readAloudFail: "朗读失败，请重试",
+    readAloudMissingLanguage: "未安装该语言语音包，请在系统设置中下载后重试",
     share: "分享",
     sharing: "分享中…",
     shareTitle: "分享到其他应用继续讨论",

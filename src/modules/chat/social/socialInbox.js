@@ -47,35 +47,87 @@ function handleIncomingMessage(payload, userId) {
 
 export function startSocialInboxListener({ userId, friends = [] }) {
   const sockets = [];
+  const reconnectTimers = [];
   let offlineTimer = null;
   let stopped = false;
-  const directPeerIds = new Set();
 
-  async function connectPublicSocket(config) {
-    const socket = createSocialSocket(config, {
-      userId,
+  function clearReconnectTimers() {
+    for (const timer of reconnectTimers.splice(0)) {
+      clearTimeout(timer);
+    }
+  }
+
+  function connectSocketWithReconnect(config, { mode, peerId = "", onMessage }) {
+    let reconnectAttempt = 0;
+    let reconnectTimer = null;
+
+    function clearReconnectTimer() {
+      if (!reconnectTimer) return;
+      clearTimeout(reconnectTimer);
+      const idx = reconnectTimers.indexOf(reconnectTimer);
+      if (idx >= 0) reconnectTimers.splice(idx, 1);
+      reconnectTimer = null;
+    }
+
+    function scheduleReconnect() {
+      if (stopped || reconnectTimer) return;
+      if (typeof document !== "undefined"
+        && document.visibilityState === "hidden"
+        && shouldDisconnectSocialSocketOnHidden()) {
+        return;
+      }
+      reconnectAttempt += 1;
+      const delay = Math.min(1000 * 2 ** (reconnectAttempt - 1), 15000);
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        open();
+      }, delay);
+      reconnectTimers.push(reconnectTimer);
+    }
+
+    function open() {
+      if (stopped) return;
+      const socket = createSocialSocket(config, {
+        userId,
+        mode,
+        peerId,
+        onOpen: () => {
+          reconnectAttempt = 0;
+        },
+        onClose: () => {
+          const idx = sockets.indexOf(socket);
+          if (idx >= 0) sockets.splice(idx, 1);
+          if (!stopped) scheduleReconnect();
+        },
+        onError: () => {},
+        onMessage,
+      });
+      sockets.push(socket);
+    }
+
+    open();
+  }
+
+  function connectPublicSocket(config) {
+    connectSocketWithReconnect(config, {
       mode: "public",
       peerId: "",
       onMessage: (payload) => {
         if (!isIncomingMessage(payload, userId)) return;
-        if (directPeerIds.has(payload.senderId)) return;
         handleIncomingMessage({ ...payload, mode: "public" }, userId);
       },
     });
-    sockets.push(socket);
   }
 
-  async function connectDirectSockets(config) {
+  function connectDirectSockets(config) {
     for (const friend of friends) {
       const peerId = friend.friendUserId || friend.peerId;
       if (!peerId) continue;
-      directPeerIds.add(peerId);
-      const socket = createSocialSocket(config, {
-        userId,
+      connectSocketWithReconnect(config, {
         mode: "direct",
         peerId,
-      onMessage: (payload) => {
-        if (isIncomingMessage(payload, userId)) {
+        onMessage: (payload) => {
+          if (!isIncomingMessage(payload, userId)) return;
           const key = `${payload.senderId}|${payload.text}|${payload.createdAt || ""}`;
           if (recentDirectMessages.has(key)) return;
           recentDirectMessages.add(key);
@@ -85,10 +137,8 @@ export function startSocialInboxListener({ userId, friends = [] }) {
             entries.slice(-250).forEach((k) => recentDirectMessages.add(k));
           }
           handleIncomingMessage({ ...payload, mode: "direct" }, userId);
-        }
-      },
+        },
       });
-      sockets.push(socket);
     }
   }
 
@@ -121,8 +171,15 @@ export function startSocialInboxListener({ userId, friends = [] }) {
 
   function handleVisibility() {
     if (typeof document === "undefined") return;
-    if (document.visibilityState === "hidden" && shouldDisconnectSocialSocketOnHidden()) {
-      stop();
+    if (document.visibilityState === "visible" && !stopped) {
+      const configPromise = getSocialConfig();
+      configPromise.then((config) => {
+        if (stopped) return;
+        if (sockets.length === 0) {
+          connectPublicSocket(config);
+          connectDirectSockets(config);
+        }
+      }).catch(() => {});
     }
   }
 
@@ -130,9 +187,9 @@ export function startSocialInboxListener({ userId, friends = [] }) {
     try {
       const config = await getSocialConfig();
       if (stopped) return;
-      await connectPublicSocket(config);
+      connectPublicSocket(config);
       if (stopped) return;
-      await connectDirectSockets(config);
+      connectDirectSockets(config);
       if (stopped) return;
       await pollOffline(config);
       if (stopped) return;
@@ -149,6 +206,7 @@ export function startSocialInboxListener({ userId, friends = [] }) {
 
   function stop() {
     stopped = true;
+    clearReconnectTimers();
     if (offlineTimer) {
       clearInterval(offlineTimer);
       offlineTimer = null;
