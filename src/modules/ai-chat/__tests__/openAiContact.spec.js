@@ -46,6 +46,7 @@ describe("openAiContact", () => {
     expect(pushSpy).toHaveBeenCalledWith({
       name: "chat-session",
       params: { sessionId: "new-sess" },
+      query: {},
     });
   });
 
@@ -70,6 +71,7 @@ describe("openAiContact", () => {
     expect(pushSpy).toHaveBeenCalledWith({
       name: "chat-session",
       params: { sessionId: "existing" },
+      query: {},
     });
   });
 
@@ -93,6 +95,7 @@ describe("openAiContact", () => {
     expect(pushSpy).toHaveBeenCalledWith({
       name: "learn-translator",
       params: { sessionId: "learn-sess" },
+      query: {},
     });
   });
 });

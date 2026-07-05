@@ -79,7 +79,7 @@
         :context="selectedWord.context"
         :source-lang="targetLang"
         :native-lang="getLocale()"
-        mode="text"
+        mode="word"
         @close="selectedWord = null"
         @known="onWordKnown"
         @unknown="onWordUnknown"

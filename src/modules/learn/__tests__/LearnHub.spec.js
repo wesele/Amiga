@@ -141,6 +141,7 @@ describe("LearnHubPage", () => {
     expect(pushSpy).toHaveBeenCalledWith({
       name: "learn-translator",
       params: { sessionId: "translator-sess" },
+      query: {},
     });
   });
 

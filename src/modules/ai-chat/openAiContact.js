@@ -3,8 +3,14 @@ import { createChatSession, getChatSessions, getCurrentUser } from "@/shared/api
 /**
  * Open an AI contact chat (amiga / translator). Finds an existing session
  * for the contact type or creates one, then navigates to the chat page.
+ * @param {Object} router - Vue Router instance
+ * @param {Object} contact - Contact object with name and contactType
+ * @param {Object} options - Options object
+ * @param {string} options.routeName - Route name to navigate to
+ * @param {string} options.targetLang - Target language code
+ * @param {string} options.initialMessage - Optional initial message to send
  */
-export async function openAiContact(router, contact, { routeName = "chat-session", targetLang } = {}) {
+export async function openAiContact(router, contact, { routeName = "chat-session", targetLang, initialMessage } = {}) {
   let sessions = [];
   try {
     sessions = await getChatSessions(targetLang);
@@ -24,6 +30,7 @@ export async function openAiContact(router, contact, { routeName = "chat-session
     }
   }
 
-  await router.push({ name: routeName, params: { sessionId: session.id } });
+  const query = initialMessage ? { message: initialMessage } : {};
+  await router.push({ name: routeName, params: { sessionId: session.id }, query });
   return true;
 }

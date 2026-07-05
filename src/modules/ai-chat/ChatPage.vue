@@ -275,6 +275,16 @@ onMounted(async () => {
 
   await loadMessages();
   focusInput();
+
+  // Check for initial message from query parameter
+  const initialMessage = route.query.message;
+  if (initialMessage && typeof initialMessage === 'string' && initialMessage.trim()) {
+    inputText.value = initialMessage.trim();
+    // Clear the query parameter to avoid re-sending on navigation
+    router.replace({ query: {} });
+    // Auto-send the message
+    await sendMessage();
+  }
 });
 </script>
 

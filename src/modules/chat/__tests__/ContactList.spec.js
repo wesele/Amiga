@@ -124,6 +124,7 @@ describe("ContactList", () => {
     expect(pushSpy).toHaveBeenCalledWith({
       name: "chat-session",
       params: { sessionId: "translator-session-id" },
+      query: {},
     });
   });
 
@@ -155,6 +156,7 @@ describe("ContactList", () => {
     expect(pushSpy).toHaveBeenCalledWith({
       name: "chat-session",
       params: { sessionId: "amiga-session-id" },
+      query: {},
     });
   });
 
@@ -183,6 +185,7 @@ describe("ContactList", () => {
     expect(pushSpy).toHaveBeenCalledWith({
       name: "chat-session",
       params: { sessionId: "existing-sess" },
+      query: {},
     });
   });
 
