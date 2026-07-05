@@ -117,12 +117,17 @@ export function startSocialInboxListener({ userId, friends = [] }) {
   async function start() {
     try {
       const config = await getSocialConfig();
+      if (stopped) return;
       const friendIds = new Set(
         friends.map((f) => f.friendUserId || f.peerId).filter(Boolean),
       );
+      if (stopped) return;
       await connectPublicSocket(config, friendIds);
+      if (stopped) return;
       await connectDirectSockets(config);
+      if (stopped) return;
       await pollOffline(config);
+      if (stopped) return;
       offlineTimer = setInterval(() => {
         pollOffline(config).catch(() => {});
       }, 15000);
