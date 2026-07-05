@@ -92,11 +92,10 @@ function emitClose() {
 
 async function openAiTranslate() {
   try {
-    const message = `请翻译并解释这个单词：${props.word}`;
     await openAiContact(
       router,
       { name: t("chat.translator"), contactType: "translator" },
-      { routeName: "learn-translator", targetLang: props.sourceLang, initialMessage: message },
+      { routeName: "learn-translator", targetLang: props.sourceLang, initialMessage: props.word },
     );
     emitClose();
   } catch (e) {
