@@ -136,6 +136,61 @@ Output a JSON object (no extra prose):
 Conversation:
 {{CONVERSATION}}"#,
     ),
+    (
+        "generate-reading-article",
+        "阅读文章生成",
+        "学习功能",
+        "You are a language learning content creator. Generate a short reading passage. Output only JSON, no extra prose.",
+        r#"Generate a short reading passage in {{TARGET_LANG}} for a CEFR {{CEFR_LEVEL}} language learner.
+
+Topic: {{TOPIC}}
+Native language: {{NATIVE_LANG}}
+
+Requirements:
+1. Write 150-300 words in {{TARGET_LANG}}
+2. Use vocabulary and grammar appropriate for CEFR {{CEFR_LEVEL}}
+3. The passage should be a natural conversation, story, or description about: {{TOPIC}}
+4. Include a short title (2-8 words)
+
+Return strict JSON:
+{"title": "...", "body": "..."}"#,
+    ),
+    (
+        "generate-reading-test",
+        "阅读测试题生成",
+        "学习功能",
+        "You are a language learning assessment creator. Output only JSON, no extra prose.",
+        r#"Based on the following {{TARGET_LANG}} reading passage, generate 10 multiple-choice questions.
+
+Article: {{BODY}}
+
+Requirements:
+1. Each question tests comprehension of the article content
+2. Each question has exactly ONE correct answer
+3. Provide 4 options per question
+4. Write questions and options in {{TARGET_LANG}}
+5. Difficulty should match CEFR {{CEFR_LEVEL}}
+
+Return strict JSON array:
+[
+  {"question": "...", "options": ["A", "B", "C", "D"], "correct": 0},
+  ...
+]"#,
+    ),
+    (
+        "explain-reading-answer",
+        "阅读理解错题解析",
+        "学习功能",
+        "You are a patient language tutor. Explain wrong answers concisely.",
+        r#"Explain why the selected answer is wrong, in {{NATIVE_LANG}}.
+
+Article: {{BODY}}
+Question: {{QUESTION}}
+Your answer: {{USER_ANSWER}}
+Correct answer: {{CORRECT_ANSWER}}
+
+Keep it concise (2-3 sentences). Focus on the key information from the article that supports the correct answer."#,
+    ),
 ];
 
 /// Ensure default prompts are up-to-date (upserts on every startup)
@@ -272,7 +327,7 @@ mod tests {
         let pool = test_pool();
         ensure_default_prompts(&pool);
         let prompts = get_all_prompts(&pool).unwrap();
-        assert_eq!(prompts.len(), 8, "Should have 8 default prompts");
+        assert_eq!(prompts.len(), 11, "Should have 11 default prompts");
     }
 
     #[test]
@@ -281,7 +336,7 @@ mod tests {
         ensure_default_prompts(&pool);
         ensure_default_prompts(&pool);
         let prompts = get_all_prompts(&pool).unwrap();
-        assert_eq!(prompts.len(), 8, "Second call should not add duplicates");
+        assert_eq!(prompts.len(), 11, "Second call should not add duplicates");
     }
 
     #[test]
@@ -379,6 +434,6 @@ mod tests {
         save_prompt(&pool, "extra", "额外", "x", "s", "u").unwrap();
         reset_all_prompts(&pool).unwrap();
         let prompts = get_all_prompts(&pool).unwrap();
-        assert_eq!(prompts.len(), 8, "Should restore to exactly 8 defaults");
+        assert_eq!(prompts.len(), 11, "Should restore to exactly 11 defaults");
     }
 }

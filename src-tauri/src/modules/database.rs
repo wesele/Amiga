@@ -113,6 +113,10 @@ mod tests {
             "learning_goals",
             "news_articles",
             "news_reading_log",
+            "reading_articles",
+            "reading_test_attempts",
+            "reading_tests",
+            "reading_topics",
             "schema_version",
             "streak_records",
             "user_vocab",
@@ -146,7 +150,7 @@ mod tests {
         let count: i32 = conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(count, 16, "Should have 16 migrations applied");
+        assert_eq!(count, 17, "Should have 17 migrations applied");
     }
 
     #[test]

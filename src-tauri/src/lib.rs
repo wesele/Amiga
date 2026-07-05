@@ -26,6 +26,9 @@ pub fn run() {
     // Insert default prompts if not already present
     modules::prompts::ensure_default_prompts(&db_pool);
 
+    // Seed reading topics if not already seeded
+    modules::reading::ensure_default_topics(&db_pool);
+
     // Create LLM client
     let llm_state = LlmState {
         client: LlmClient::new(),
@@ -97,6 +100,15 @@ pub fn run() {
             commands::news::save_reading_log_cmd,
             commands::news::get_read_article_count_cmd,
             commands::news::get_learning_days_cmd,
+            // Reading commands
+            commands::reading::get_reading_articles_cmd,
+            commands::reading::ensure_reading_article_cmd,
+            commands::reading::get_reading_article_cmd,
+            commands::reading::mark_reading_article_read_cmd,
+            commands::reading::get_or_generate_reading_test_cmd,
+            commands::reading::explain_reading_answer_cmd,
+            commands::reading::submit_reading_test_cmd,
+            commands::reading::get_reading_test_explanations_cmd,
             // Prompt commands
             commands::prompts::get_all_prompts_cmd,
             commands::prompts::get_prompt_cmd,

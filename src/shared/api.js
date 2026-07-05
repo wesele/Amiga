@@ -144,6 +144,24 @@ export function createApiClient(invoke) {
 
     shareText: (text) => call("share_text_cmd", { text }),
 
+    // Reading
+    getReadingArticles: (userId, targetLanguage) =>
+      call("get_reading_articles_cmd", { userId, targetLanguage }),
+    ensureReadingArticle: (userId, targetLanguage, cefrLevel, nativeLang) =>
+      call("ensure_reading_article_cmd", { userId, targetLanguage, cefrLevel, nativeLang }),
+    getReadingArticle: (articleId) =>
+      call("get_reading_article_cmd", { articleId }),
+    markReadingArticleRead: (articleId) =>
+      call("mark_reading_article_read_cmd", { articleId }),
+    getOrGenerateReadingTest: (articleId, targetLanguage, cefrLevel) =>
+      call("get_or_generate_reading_test_cmd", { articleId, targetLanguage, cefrLevel }),
+    explainReadingAnswer: (articleId, questionIndex, questionJson, userAnswer, correctAnswer, targetLanguage, nativeLang) =>
+      call("explain_reading_answer_cmd", { articleId, questionIndex, questionJson, userAnswer, correctAnswer, targetLanguage, nativeLang }),
+    submitReadingTest: (articleId, userId, answersJson, correctCount, totalCount) =>
+      call("submit_reading_test_cmd", { articleId, userId, answersJson, correctCount, totalCount }),
+    getReadingTestExplanations: (articleId) =>
+      call("get_reading_test_explanations_cmd", { articleId }),
+
     // Cloud sync
     testCloudSync: () => call("test_cloud_sync_cmd"),
     getCloudSyncStatus: () => call("get_cloud_sync_status_cmd"),
@@ -271,3 +289,15 @@ export const testCloudSync = (...args) => defaultApiClient.testCloudSync(...args
 export const getCloudSyncStatus = (...args) => defaultApiClient.getCloudSyncStatus(...args);
 export const setCloudSyncEnabled = (...args) => defaultApiClient.setCloudSyncEnabled(...args);
 export const runCloudSync = (...args) => defaultApiClient.runCloudSync(...args);
+
+// --- Reading ---
+export const getReadingArticles = (...args) => defaultApiClient.getReadingArticles(...args);
+export const ensureReadingArticle = (...args) => defaultApiClient.ensureReadingArticle(...args);
+export const getReadingArticle = (...args) => defaultApiClient.getReadingArticle(...args);
+export const markReadingArticleRead = (...args) => defaultApiClient.markReadingArticleRead(...args);
+export const getOrGenerateReadingTest = (...args) =>
+  defaultApiClient.getOrGenerateReadingTest(...args);
+export const explainReadingAnswer = (...args) => defaultApiClient.explainReadingAnswer(...args);
+export const submitReadingTest = (...args) => defaultApiClient.submitReadingTest(...args);
+export const getReadingTestExplanations = (...args) =>
+  defaultApiClient.getReadingTestExplanations(...args);

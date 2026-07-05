@@ -66,6 +66,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add path_grammar_explain_cache for LLM grammar teaching cache",
             MIGRATION_V16,
         ),
+        (
+            17,
+            "Add reading module tables: reading_topics, reading_articles, reading_tests, reading_test_attempts",
+            MIGRATION_V17,
+        ),
     ]
 }
 
@@ -347,5 +352,53 @@ CREATE TABLE IF NOT EXISTS path_grammar_explain_cache (
     explanation TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (pair_key, cefr, unit_id, point_text)
+);
+"#;
+
+const MIGRATION_V17: &str = r#"
+-- Reading module: daily AI-generated reading articles with tests
+CREATE TABLE IF NOT EXISTS reading_topics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    topic TEXT NOT NULL,
+    scene TEXT NOT NULL DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS reading_articles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    target_language TEXT NOT NULL,
+    cefr_level TEXT NOT NULL,
+    local_date TEXT NOT NULL,
+    slot TEXT NOT NULL CHECK(slot IN ('AM', 'PM')),
+    topic TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'unread',
+    test_correct_count INTEGER,
+    test_total_count INTEGER,
+    generated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reading_article_slot
+    ON reading_articles(user_id, target_language, local_date, slot);
+
+CREATE TABLE IF NOT EXISTS reading_tests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL REFERENCES reading_articles(id) ON DELETE CASCADE,
+    questions_json TEXT NOT NULL,
+    explanations_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS reading_test_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL REFERENCES reading_articles(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    answers_json TEXT NOT NULL,
+    correct_count INTEGER NOT NULL DEFAULT 0,
+    total_count INTEGER NOT NULL DEFAULT 10,
+    completed_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 "#;

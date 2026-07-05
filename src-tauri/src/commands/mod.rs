@@ -4,6 +4,7 @@ pub mod greeting;
 pub mod llm;
 pub mod news;
 pub mod path;
+pub mod reading;
 pub mod prompts;
 pub mod share;
 pub mod sync;

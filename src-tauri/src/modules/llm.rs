@@ -395,7 +395,7 @@ impl LlmClient {
     }
 }
 
-fn build_chat_messages(
+pub fn build_chat_messages(
     db: &DatabasePool,
     prompt_key: &str,
     vars: &[(&str, &str)],
@@ -462,7 +462,7 @@ fn sanitize_llm_plaintext(raw: &str) -> String {
     text.trim().to_string()
 }
 
-fn build_chat_messages_fallback(system: &str, user: &str) -> Vec<ChatMessage> {
+pub fn build_chat_messages_fallback(system: &str, user: &str) -> Vec<ChatMessage> {
     vec![
         ChatMessage {
             role: "system".to_string(),
