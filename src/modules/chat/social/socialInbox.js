@@ -28,6 +28,8 @@ function normalizeIncoming(payload) {
   };
 }
 
+const recentDirectMessages = new Set();
+
 function handleIncomingMessage(payload, userId) {
   const normalized = normalizeIncoming(payload);
   const contactKey = payload.mode === "direct"
@@ -47,15 +49,16 @@ export function startSocialInboxListener({ userId, friends = [] }) {
   const sockets = [];
   let offlineTimer = null;
   let stopped = false;
+  const directPeerIds = new Set();
 
-  async function connectPublicSocket(config, friendIds) {
+  async function connectPublicSocket(config) {
     const socket = createSocialSocket(config, {
       userId,
       mode: "public",
       peerId: "",
       onMessage: (payload) => {
         if (!isIncomingMessage(payload, userId)) return;
-        if (friendIds.has(payload.senderId)) return;
+        if (directPeerIds.has(payload.senderId)) return;
         handleIncomingMessage({ ...payload, mode: "public" }, userId);
       },
     });
@@ -66,12 +69,21 @@ export function startSocialInboxListener({ userId, friends = [] }) {
     for (const friend of friends) {
       const peerId = friend.friendUserId || friend.peerId;
       if (!peerId) continue;
+      directPeerIds.add(peerId);
       const socket = createSocialSocket(config, {
         userId,
         mode: "direct",
         peerId,
       onMessage: (payload) => {
         if (isIncomingMessage(payload, userId)) {
+          const key = `${payload.senderId}|${payload.text}|${payload.createdAt || ""}`;
+          if (recentDirectMessages.has(key)) return;
+          recentDirectMessages.add(key);
+          if (recentDirectMessages.size > 500) {
+            const entries = [...recentDirectMessages];
+            recentDirectMessages.clear();
+            entries.slice(-250).forEach((k) => recentDirectMessages.add(k));
+          }
           handleIncomingMessage({ ...payload, mode: "direct" }, userId);
         }
       },
@@ -118,11 +130,7 @@ export function startSocialInboxListener({ userId, friends = [] }) {
     try {
       const config = await getSocialConfig();
       if (stopped) return;
-      const friendIds = new Set(
-        friends.map((f) => f.friendUserId || f.peerId).filter(Boolean),
-      );
-      if (stopped) return;
-      await connectPublicSocket(config, friendIds);
+      await connectPublicSocket(config);
       if (stopped) return;
       await connectDirectSockets(config);
       if (stopped) return;
