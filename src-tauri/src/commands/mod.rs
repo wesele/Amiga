@@ -6,6 +6,7 @@ pub mod news;
 pub mod path;
 pub mod prompts;
 pub mod reading;
+pub mod speaking;
 pub mod share;
 pub mod sync;
 pub mod update;

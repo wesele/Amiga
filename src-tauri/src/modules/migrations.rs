@@ -71,6 +71,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add reading module tables: reading_topics, reading_articles, reading_tests, reading_test_attempts",
             MIGRATION_V17,
         ),
+        (
+            18,
+            "Add speaking practice sessions and turns",
+            MIGRATION_V18,
+        ),
     ]
 }
 
@@ -400,5 +405,36 @@ CREATE TABLE IF NOT EXISTS reading_test_attempts (
     correct_count INTEGER NOT NULL DEFAULT 0,
     total_count INTEGER NOT NULL DEFAULT 10,
     completed_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+"#;
+
+const MIGRATION_V18: &str = r#"
+CREATE TABLE IF NOT EXISTS speaking_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    topic_id TEXT NOT NULL,
+    target_lang TEXT NOT NULL,
+    native_lang TEXT NOT NULL,
+    cefr_level TEXT NOT NULL,
+    current_turn INTEGER NOT NULL DEFAULT 1,
+    current_ai_text TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'active',
+    total_turns INTEGER NOT NULL DEFAULT 8,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS speaking_turns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL REFERENCES speaking_sessions(id) ON DELETE CASCADE,
+    turn_number INTEGER NOT NULL,
+    ai_text TEXT NOT NULL,
+    user_transcript TEXT NOT NULL,
+    scores_json TEXT NOT NULL,
+    total_score INTEGER NOT NULL,
+    used_hint INTEGER NOT NULL DEFAULT 0,
+    attempt_count INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 "#;

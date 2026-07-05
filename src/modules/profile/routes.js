@@ -1,6 +1,7 @@
 import ProfilePage from "./ProfilePage.vue";
 import SettingsPage from "./SettingsPage.vue";
 import LlmConfigPage from "./LlmConfigPage.vue";
+import MultimodalConfigPage from "./MultimodalConfigPage.vue";
 
 // See src/modules/news/routes.js for the meta.parent convention.
 export default [
@@ -19,6 +20,12 @@ export default [
     path: "/profile/llm-config",
     name: "llm-config",
     component: LlmConfigPage,
+    meta: { parent: "settings" },
+  },
+  {
+    path: "/profile/multimodal-config",
+    name: "multimodal-config",
+    component: MultimodalConfigPage,
     meta: { parent: "settings" },
   },
 ];

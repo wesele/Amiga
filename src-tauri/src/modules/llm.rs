@@ -11,9 +11,12 @@ pub const BUILTIN_BASE_URL: &str = "https://integrate.api.nvidia.com/v1";
 pub const BUILTIN_API_KEY: &str =
     "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";
 pub const BUILTIN_MODEL: &str = "google/diffusiongemma-26b-a4b-it";
+/// Default multimodal model for speaking scoring (transcribe + rubric).
+pub const MULTIMODAL_BUILTIN_MODEL: &str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning";
 const ENV_BUILTIN_BASE_URL: &str = "IDIOMA_BUILTIN_LLM_BASE_URL";
 const ENV_BUILTIN_API_KEY: &str = "IDIOMA_BUILTIN_LLM_API_KEY";
 const ENV_BUILTIN_MODEL: &str = "IDIOMA_BUILTIN_LLM_MODEL";
+const ENV_MULTIMODAL_BUILTIN_MODEL: &str = "IDIOMA_BUILTIN_MULTIMODAL_MODEL";
 
 fn setting_or_default(value: Option<&str>, default: &str) -> String {
     value
@@ -43,6 +46,18 @@ pub fn builtin_config() -> ModelConfig {
         std::env::var(ENV_BUILTIN_API_KEY).ok().as_deref(),
         std::env::var(ENV_BUILTIN_MODEL).ok().as_deref(),
     )
+}
+
+pub fn multimodal_builtin_config() -> ModelConfig {
+    let base = builtin_config();
+    ModelConfig {
+        base_url: base.base_url,
+        api_key: base.api_key,
+        model: setting_or_default(
+            std::env::var(ENV_MULTIMODAL_BUILTIN_MODEL).ok().as_deref(),
+            MULTIMODAL_BUILTIN_MODEL,
+        ),
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -97,6 +112,24 @@ impl LlmConfig {
             LlmMode::Builtin => Ok(&self.builtin),
             LlmMode::Custom => self.primary.as_ref().ok_or_else(|| {
                 "未配置自定义大模型 API。请填写 API Key、Base URL 和模型后保存。".to_string()
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MultimodalConfig {
+    pub mode: LlmMode,
+    pub custom: Option<ModelConfig>,
+    pub builtin: ModelConfig,
+}
+
+impl MultimodalConfig {
+    pub fn active(&self) -> Result<&ModelConfig, String> {
+        match self.mode {
+            LlmMode::Builtin => Ok(&self.builtin),
+            LlmMode::Custom => self.custom.as_ref().ok_or_else(|| {
+                "未配置自定义多模态模型 API。请填写 API Key、Base URL 和模型后保存。".to_string()
             }),
         }
     }
@@ -322,6 +355,35 @@ impl LlmClient {
             .await
     }
 
+    /// Reading articles need a larger completion budget; reasoning models may
+    /// consume tokens before emitting JSON.
+    pub async fn chat_for_reading_content(
+        &self,
+        db: &DatabasePool,
+        messages: Vec<ChatMessage>,
+    ) -> Result<String, String> {
+        const MAX_TOKENS: u32 = 8192;
+        const TIMEOUT_SECS: u64 = 120;
+
+        let config = get_llm_config(db)?;
+        let active = config.active()?;
+        match self
+            .call_with_options(active, messages.clone(), MAX_TOKENS, TIMEOUT_SECS, true)
+            .await
+        {
+            Ok(response) => Ok(response),
+            Err(err) if err.contains("max_completion_tokens") || err.contains("HTTP 400") => {
+                log::warn!(
+                    "Reading content retrying without max_completion_tokens: {}",
+                    &err[..err.len().min(120)]
+                );
+                self.call_with_options(active, messages, MAX_TOKENS, TIMEOUT_SECS, false)
+                    .await
+            }
+            Err(err) => Err(err),
+        }
+    }
+
     /// Grammar explanations are short but may need extra time on mobile networks.
     /// Try with `max_completion_tokens` first (NVIDIA builtin), then fall back
     /// without it for older OpenAI-compatible endpoints.
@@ -392,6 +454,100 @@ impl LlmClient {
                 message: format!("连接失败: {}", e),
             },
         }
+    }
+
+    /// Multimodal scoring: audio + rubric text → JSON string response.
+    pub async fn score_speaking_audio(
+        &self,
+        config: &ModelConfig,
+        audio_base64: &str,
+        audio_format: &str,
+        system_prompt: &str,
+        user_text: &str,
+    ) -> Result<String, String> {
+        let url = format!("{}/chat/completions", config.base_url.trim_end_matches('/'));
+        let format = if audio_format.trim().is_empty() {
+            "webm"
+        } else {
+            audio_format.trim()
+        };
+
+        let body = serde_json::json!({
+            "model": config.model,
+            "temperature": 0.2,
+            "max_tokens": 1024,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": user_text
+                        },
+                        {
+                            "type": "input_audio",
+                            "input_audio": {
+                                "data": audio_base64,
+                                "format": format
+                            }
+                        }
+                    ]
+                }
+            ]
+        });
+
+        log::debug!(
+            "Multimodal score request: model={} format={}",
+            config.model,
+            format
+        );
+
+        let response = self
+            .http
+            .post(&url)
+            .timeout(std::time::Duration::from_secs(120))
+            .header("Authorization", format!("Bearer {}", config.api_key))
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| format!("Multimodal HTTP failed: {e}"))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            return Err(format!(
+                "Multimodal API error {}: {}",
+                status,
+                &text[..text.len().min(300)]
+            ));
+        }
+
+        let raw_text = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read multimodal response: {e}"))?;
+
+        let json: serde_json::Value = serde_json::from_str(&raw_text)
+            .map_err(|e| format!("Invalid multimodal JSON: {e}"))?;
+
+        if let Some(content) = json
+            .pointer("/choices/0/message/content")
+            .and_then(|v| v.as_str())
+        {
+            if !content.is_empty() {
+                return Ok(content.to_string());
+            }
+        }
+
+        Err(format!(
+            "Multimodal returned empty content: {}",
+            &raw_text[..raw_text.len().min(500)]
+        ))
     }
 }
 
@@ -827,6 +983,49 @@ pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
     })
 }
 
+pub fn get_multimodal_config(db: &DatabasePool) -> Result<MultimodalConfig, String> {
+    let conn = db.conn()?;
+
+    let get_setting = |key: &str| -> Option<String> {
+        conn.query_row(
+            "SELECT value FROM app_settings WHERE key = ?1",
+            params![key],
+            |row| row.get(0),
+        )
+        .ok()
+    };
+
+    let mode = LlmMode::from_setting(get_setting("multimodal_mode").as_deref());
+    let custom = {
+        let base_url = get_setting("multimodal_base_url");
+        let api_key = get_setting("multimodal_api_key");
+        let model_name = get_setting("multimodal_model");
+        match (base_url, api_key, model_name) {
+            (Some(b), Some(k), Some(m)) if !b.is_empty() && !k.is_empty() && !m.is_empty() => {
+                Some(ModelConfig {
+                    base_url: b,
+                    api_key: k,
+                    model: m,
+                })
+            }
+            _ => None,
+        }
+    };
+
+    Ok(MultimodalConfig {
+        mode,
+        custom,
+        builtin: multimodal_builtin_config(),
+    })
+}
+
+pub fn save_multimodal_config(db: &DatabasePool, config: &ModelConfig) -> Result<(), String> {
+    save_llm_setting(db, "multimodal_base_url", &config.base_url)?;
+    save_llm_setting(db, "multimodal_api_key", &config.api_key)?;
+    save_llm_setting(db, "multimodal_model", &config.model)?;
+    Ok(())
+}
+
 pub fn save_llm_setting(db: &DatabasePool, key: &str, value: &str) -> Result<(), String> {
     let conn = db.conn()?;
     conn.execute(
@@ -1046,6 +1245,28 @@ mod tests {
         let truncated = truncate_chars(text, 40);
         assert!(truncated.is_char_boundary(truncated.len()));
         assert!(truncated.chars().count() <= 41);
+    }
+
+    #[test]
+    fn multimodal_builtin_shares_builtin_endpoint() {
+        let text = builtin_config();
+        let mm = multimodal_builtin_config();
+        assert_eq!(mm.base_url, text.base_url);
+        assert_eq!(mm.api_key, text.api_key);
+        assert_eq!(mm.model, MULTIMODAL_BUILTIN_MODEL);
+    }
+
+    #[tokio::test]
+    #[ignore = "live multimodal call — run with: cargo test multimodal_builtin_connection_live -- --ignored --nocapture"]
+    async fn multimodal_builtin_connection_live() {
+        let client = LlmClient::new();
+        let cfg = multimodal_builtin_config();
+        let result = client.test_connection(&cfg).await;
+        assert!(
+            result.success,
+            "multimodal builtin unavailable: {}",
+            result.message
+        );
     }
 
     #[tokio::test]

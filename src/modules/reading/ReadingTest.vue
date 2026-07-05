@@ -8,9 +8,6 @@
       </button>
       <div class="header-info">
         <div class="header-title">{{ t('reading.test') }}</div>
-        <div class="header-progress" v-if="questions.length > 0">
-          {{ answeredCount }}/{{ questions.length }}
-        </div>
       </div>
     </header>
 
@@ -31,7 +28,19 @@
           <div class="question-progress">{{ currentQuestionIndex + 1 }}/{{ questions.length }}</div>
         </div>
 
-        <p class="question-text">{{ currentQuestion.question }}</p>
+        <div v-if="isListeningQuestion" class="audio-panel">
+          <button
+            type="button"
+            class="audio-btn"
+            :disabled="audioBusy"
+            @click="playAudio"
+          >
+            <span class="audio-icon" aria-hidden="true">♪</span>
+            <span>{{ t('path.playAudio') }}</span>
+          </button>
+        </div>
+
+        <p class="question-text">{{ questionPrompt }}</p>
 
         <div class="options">
           <button
@@ -100,7 +109,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
@@ -130,6 +139,18 @@ const submitting = ref(false);
 const submitted = ref(false);
 const correctCount = ref(0);
 const currentQuestionIndex = ref(0);
+const audioBusy = ref(false);
+
+let speechUtterance = null;
+let pendingNativeRead = null;
+
+const SPEECH_LANG_MAP = {
+  es: "es-ES",
+  en: "en-US",
+  zh: "zh-CN",
+};
+
+const NATIVE_TTS_OK = new Set(["ok", "initializing"]);
 
 let userId = "";
 let targetLang = "";
@@ -139,6 +160,15 @@ let nativeLang = "";
 const answeredCount = computed(() => Object.keys(answers.value).length);
 const allAnswered = computed(() => questions.value.length > 0 && answeredCount.value === questions.value.length);
 const currentQuestion = computed(() => questions.value[currentQuestionIndex.value] || null);
+const isListeningQuestion = computed(() => currentQuestion.value?.question_type === "listening");
+const questionPrompt = computed(() => {
+  const question = currentQuestion.value;
+  if (!question) return "";
+  if (isListeningQuestion.value) {
+    return question.question || t("path.listenChoose");
+  }
+  return question.question;
+});
 const isLastQuestion = computed(() => currentQuestionIndex.value === questions.value.length - 1);
 const isCurrentAnswerWrong = computed(() => {
   const answer = answers.value[currentQuestionIndex.value];
@@ -147,6 +177,8 @@ const isCurrentAnswerWrong = computed(() => {
 });
 
 onMounted(async () => {
+  window.__amigaTtsDone = onTtsDone;
+  window.__amigaTtsError = onTtsError;
   await loadTest();
 });
 
@@ -172,12 +204,29 @@ function normalizeQuestion(raw, useOneBasedIndex) {
   if (useOneBasedIndex && !rawCorrectIsLetter(raw) && Number.isInteger(correctIndex)) {
     correctIndex -= 1;
   }
+  const questionType = raw?.question_type || raw?.type || "reading";
+  const audioText = raw?.audio_text || raw?.audioText || "";
   return {
     ...raw,
     question: String(raw?.question || ""),
     options,
     correct_index: Number.isInteger(correctIndex) ? correctIndex : -1,
+    question_type: questionType,
+    audio_text: audioText ? String(audioText) : "",
   };
+}
+
+function isValidQuestion(question) {
+  const baseValid =
+    question.question_type === "listening"
+      ? Boolean(question.audio_text)
+      : Boolean(question.question);
+  return (
+    baseValid &&
+    question.options.length === 4 &&
+    question.correct_index >= 0 &&
+    question.correct_index < question.options.length
+  );
 }
 
 function normalizeQuestions(rawQuestions) {
@@ -185,12 +234,7 @@ function normalizeQuestions(rawQuestions) {
   const useOneBasedIndex = list.some((question) => rawCorrectIndex(question) === question?.options?.length);
   return list
     .map((question) => normalizeQuestion(question, useOneBasedIndex))
-    .filter((question) =>
-      question.question &&
-      question.options.length === 4 &&
-      question.correct_index >= 0 &&
-      question.correct_index < question.options.length,
-    );
+    .filter(isValidQuestion);
 }
 
 function optionClass(qi, oi) {
@@ -346,8 +390,107 @@ async function submitTest() {
 }
 
 function goBack() {
+  stopAudio();
   router.push(`/learn/reading/${props.id}`);
 }
+
+function getSpeechLang(lang) {
+  return SPEECH_LANG_MAP[lang] || lang || "en-US";
+}
+
+function pickSpeechVoice(lang) {
+  if (typeof window === "undefined" || !window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices?.() || [];
+  const langLower = lang.toLowerCase();
+  const family = langLower.split("-")[0];
+  return (
+    voices.find((voice) => voice.lang.toLowerCase() === langLower) ||
+    voices.find((voice) => voice.lang.toLowerCase().startsWith(`${family}-`)) ||
+    voices.find((voice) => voice.lang.toLowerCase() === family) ||
+    null
+  );
+}
+
+function speakWithWeb(text, speechLang) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    return false;
+  }
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = speechLang;
+  utterance.voice = pickSpeechVoice(speechLang);
+  utterance.rate = 0.9;
+  utterance.onend = () => {
+    if (speechUtterance === utterance) {
+      audioBusy.value = false;
+      speechUtterance = null;
+    }
+  };
+  utterance.onerror = utterance.onend;
+  speechUtterance = utterance;
+  audioBusy.value = true;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+  return true;
+}
+
+function onTtsDone() {
+  pendingNativeRead = null;
+  audioBusy.value = false;
+  speechUtterance = null;
+}
+
+function onTtsError() {
+  const pending = pendingNativeRead;
+  pendingNativeRead = null;
+  audioBusy.value = false;
+  speechUtterance = null;
+  if (pending) speakWithWeb(pending.text, pending.speechLang);
+}
+
+function stopAudio() {
+  pendingNativeRead = null;
+  if (typeof window !== "undefined" && window.__amigaTts && typeof window.__amigaTts.stop === "function") {
+    window.__amigaTts.stop();
+  }
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+  audioBusy.value = false;
+  speechUtterance = null;
+}
+
+function playAudio() {
+  const text = currentQuestion.value?.audio_text;
+  if (!text || audioBusy.value) return;
+  stopAudio();
+  const speechLang = getSpeechLang(targetLang);
+
+  if (window.__amigaTts && typeof window.__amigaTts.speak === "function") {
+    let result = "failed";
+    try {
+      result = window.__amigaTts.speak(text, speechLang);
+    } catch (err) {
+      console.warn("Native TTS failed:", err);
+    }
+    if (NATIVE_TTS_OK.has(result)) {
+      pendingNativeRead = { text, speechLang };
+      audioBusy.value = true;
+      return;
+    }
+  }
+
+  speakWithWeb(text, speechLang);
+}
+
+watch(currentQuestionIndex, () => {
+  stopAudio();
+});
+
+onBeforeUnmount(() => {
+  delete window.__amigaTtsDone;
+  delete window.__amigaTtsError;
+  stopAudio();
+});
 </script>
 
 <style scoped>
@@ -398,10 +541,38 @@ function goBack() {
   font-weight: 700;
 }
 
-.header-progress {
-  font-size: 13px;
-  color: var(--text-light);
-  font-weight: 600;
+.audio-panel {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.audio-btn {
+  min-height: 52px;
+  padding: 0 20px;
+  border: 2px solid #84d8ff;
+  border-radius: 999px;
+  background: var(--blue-bg);
+  color: var(--blue-hover);
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 4px 0 #b9e9ff;
+  font-family: inherit;
+}
+
+.audio-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.audio-icon {
+  font-size: 18px;
+  line-height: 1;
 }
 
 .loading-center,

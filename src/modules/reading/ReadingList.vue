@@ -21,10 +21,19 @@
         v-for="article in articles"
         :key="article.id"
         class="article-card"
+        :class="{
+          'is-regenerating': regeneratingId === article.id,
+          'is-long-pressing': longPressArticleId === article.id,
+        }"
         role="button"
         tabindex="0"
-        @click="openArticle(article.id)"
+        @click="onCardClick(article)"
         @keydown.enter="openArticle(article.id)"
+        @pointerdown="onCardPointerDown(article, $event)"
+        @pointerup="onCardPointerUp"
+        @pointerleave="onCardPointerUp"
+        @pointercancel="onCardPointerUp"
+        @contextmenu.prevent="onCardContextMenu(article)"
       >
         <div class="card-header">
           <h3 class="card-title">{{ article.title }}</h3>
@@ -45,8 +54,25 @@
             {{ t('reading.testScore') }}: {{ article.test_correct_count }}/{{ article.test_total_count }}
           </span>
         </div>
+        <div v-if="regeneratingId === article.id" class="card-overlay">
+          <span>{{ t('reading.regenerating') }}</span>
+        </div>
       </div>
     </div>
+
+    <ConfirmDialog
+      :show="!!confirmArticle"
+      :title="t('reading.regenerateTitle')"
+      :message="t('reading.regenerateMessage')"
+      :confirm-text="t('reading.regenerateBtn')"
+      :confirm-disabled="!!regeneratingId"
+      @confirm="confirmRegenerate"
+      @cancel="confirmArticle = null"
+    />
+
+    <Transition name="popup">
+      <div v-if="statusText" class="status-toast">{{ statusText }}</div>
+    </Transition>
   </div>
 </template>
 
@@ -55,9 +81,12 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
-import { getReadingArticles, ensureReadingArticle } from "@/shared/api.js";
+import { getReadingArticles, ensureReadingArticle, regenerateReadingArticle } from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
+import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
+
+const LONG_PRESS_MS = 500;
 
 const { t } = useI18n();
 const router = useRouter();
@@ -66,6 +95,15 @@ const targetLangStore = useTargetLangStore();
 const articles = ref([]);
 const loading = ref(true);
 const error = ref("");
+const confirmArticle = ref(null);
+const regeneratingId = ref(null);
+const longPressArticleId = ref(null);
+const statusText = ref("");
+const longPressTriggered = ref(false);
+
+let pressTimer = null;
+let statusTimer = null;
+let learningContext = null;
 
 onMounted(async () => {
   await init();
@@ -105,23 +143,34 @@ function formatDate(article) {
   return article.local_date || "";
 }
 
+function showStatus(text) {
+  statusText.value = text;
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => {
+    statusText.value = "";
+  }, 2500);
+}
+
 async function init() {
   loading.value = true;
   error.value = "";
   try {
-    const ctx = await loadLearningContext({ targetLangStore, fallbackToFirstGoal: true, loadGoals: true });
-    if (ctx.user?.id && ctx.targetLang) {
-      // Ensure today's article exists (handles generation if needed)
+    learningContext = await loadLearningContext({ targetLangStore, fallbackToFirstGoal: true, loadGoals: true });
+    if (learningContext.user?.id && learningContext.targetLang) {
       try {
-        await ensureReadingArticle(ctx.user.id, ctx.targetLang, ctx.cefr, ctx.nativeLang);
+        await ensureReadingArticle(
+          learningContext.user.id,
+          learningContext.targetLang,
+          learningContext.cefr,
+          learningContext.nativeLang,
+        );
       } catch (e) {
         console.error("Failed to ensure reading article:", e);
-        // Non-fatal: user can still see old articles and tap retry
         if (articles.value.length === 0) {
           error.value = t("reading.generatingFail");
         }
       }
-      articles.value = await getReadingArticles(ctx.user.id, ctx.targetLang);
+      articles.value = await getReadingArticles(learningContext.user.id, learningContext.targetLang);
     }
   } catch (e) {
     console.error("Failed to load reading list:", e);
@@ -133,6 +182,70 @@ async function init() {
 
 function openArticle(id) {
   router.push(`/learn/reading/${id}`);
+}
+
+function onCardPointerDown(article, event) {
+  if (regeneratingId.value) return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+
+  longPressTriggered.value = false;
+  longPressArticleId.value = article.id;
+  clearTimeout(pressTimer);
+  pressTimer = setTimeout(() => {
+    longPressTriggered.value = true;
+    longPressArticleId.value = null;
+    confirmArticle.value = article;
+  }, LONG_PRESS_MS);
+}
+
+function onCardPointerUp() {
+  clearTimeout(pressTimer);
+  longPressArticleId.value = null;
+}
+
+function onCardContextMenu(article) {
+  if (regeneratingId.value) return;
+  longPressTriggered.value = true;
+  confirmArticle.value = article;
+}
+
+function onCardClick(article) {
+  if (longPressTriggered.value) {
+    longPressTriggered.value = false;
+    return;
+  }
+  openArticle(article.id);
+}
+
+function invokeErrorMessage(e) {
+  if (typeof e === "string") return e;
+  return e?.message || String(e);
+}
+
+async function confirmRegenerate() {
+  const article = confirmArticle.value;
+  if (!article || !learningContext?.user?.id) return;
+
+  confirmArticle.value = null;
+  regeneratingId.value = article.id;
+  try {
+    const updated = await regenerateReadingArticle(
+      article.id,
+      learningContext.cefr,
+      learningContext.nativeLang,
+    );
+    const index = articles.value.findIndex((item) => item.id === article.id);
+    if (index >= 0) {
+      articles.value[index] = updated;
+    }
+    showStatus(t("reading.regenerateSuccess"));
+  } catch (e) {
+    console.error("Failed to regenerate reading article:", e);
+    showStatus(invokeErrorMessage(e) || t("reading.regenerateFail"));
+  } finally {
+    regeneratingId.value = null;
+    longPressTriggered.value = false;
+  }
 }
 </script>
 
@@ -195,6 +308,7 @@ function openArticle(id) {
 }
 
 .article-card {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
@@ -207,12 +321,38 @@ function openArticle(id) {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background var(--transition), box-shadow var(--transition);
+  transition: background var(--transition), box-shadow var(--transition), border-color var(--transition);
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .article-card:hover {
   background: var(--green-bg);
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.article-card.is-long-pressing {
+  border-color: var(--green);
+  background: var(--green-bg);
+}
+
+.article-card.is-regenerating {
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .card-header {
@@ -341,5 +481,32 @@ function openArticle(id) {
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
+}
+
+.status-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(30, 30, 30, 0.92);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 1100;
+  pointer-events: none;
+}
+
+.popup-enter-active,
+.popup-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.popup-enter-from,
+.popup-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
 }
 </style>

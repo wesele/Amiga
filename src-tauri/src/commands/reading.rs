@@ -13,6 +13,24 @@ pub async fn get_reading_articles_cmd(
 }
 
 #[tauri::command]
+pub async fn regenerate_reading_article_cmd(
+    db: State<'_, DatabasePool>,
+    llm: State<'_, LlmState>,
+    article_id: i64,
+    cefr_level: String,
+    native_lang: String,
+) -> Result<reading_mod::ReadingArticle, String> {
+    reading_mod::regenerate_reading_article(
+        &llm.client,
+        &db,
+        article_id,
+        &cefr_level,
+        &native_lang,
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn ensure_reading_article_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,

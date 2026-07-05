@@ -29,10 +29,12 @@
 
     <div v-else-if="article" class="article-body">
       <div v-if="!bilingualMode" class="article-text">
-        <template v-for="(token, idx) in tokens" :key="idx">
-          <span v-if="token.isWord" class="word" @click.stop="onWordTap(token)">{{ token.text }}</span>
-          <span v-else>{{ token.text }}</span>
-        </template>
+        <p v-for="(para, pidx) in bodyParagraphs" :key="pidx" class="para">
+          <template v-for="(token, idx) in para" :key="idx">
+            <span v-if="token.isWord" class="word" @click.stop="onWordTap(token)">{{ token.text }}</span>
+            <span v-else>{{ token.text }}</span>
+          </template>
+        </p>
       </div>
 
       <div v-else-if="translations.length > 0" class="article-text bilingual">
@@ -118,7 +120,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
@@ -150,7 +152,14 @@ const paraTokens = ref([]);
 const titleTranslation = ref("");
 const loadingTranslation = ref(false);
 const translationError = ref("");
-const tokens = ref([]);
+const bodyParagraphs = computed(() => {
+  const body = article.value?.body || "";
+  return body
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => tokenizeArticleText(p));
+});
 const selectedWord = ref(null);
 const testLoading = ref(false);
 
@@ -211,10 +220,6 @@ onBeforeUnmount(() => {
   cleanupSelectionTranslation();
 });
 
-watch(() => article.value?.body, (val) => {
-  if (val) tokens.value = tokenizeArticleText(val);
-});
-
 async function loadArticle() {
   loading.value = true;
   loadError.value = "";
@@ -224,7 +229,6 @@ async function loadArticle() {
     targetLang = ctx.targetLang;
     const art = await getReadingArticle(Number(props.id));
     article.value = art;
-    tokens.value = tokenizeArticleText(art?.body || "");
     await markReadingArticleRead(Number(props.id));
   } catch (e) {
     console.error("Failed to load article:", e);
@@ -443,9 +447,8 @@ function goTest() {
 
 .article-text {
   font-size: 17px;
-  line-height: 2;
+  line-height: 1.4;
   color: var(--text);
-  white-space: pre-wrap;
   overflow-wrap: break-word;
   word-wrap: break-word;
   -webkit-user-select: text;
@@ -455,10 +458,20 @@ function goTest() {
   touch-action: auto;
 }
 
+.article-text .para {
+  margin: 0 0 1.2em;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.article-text .para:last-child {
+  margin-bottom: 0;
+}
+
 .article-text.bilingual {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 7px;
 }
 
 .para-original {
@@ -470,8 +483,8 @@ function goTest() {
 .para-translation {
   color: var(--text-lighter);
   font-size: 14px;
-  line-height: 1.7;
-  margin: 0 0 20px;
+  line-height: 1.19;
+  margin: 0 0 12px;
   padding-left: 12px;
   border-left: 2px solid var(--border);
   white-space: pre-wrap;

@@ -147,6 +147,8 @@ export function createApiClient(invoke) {
     // Reading
     getReadingArticles: (userId, targetLanguage) =>
       call("get_reading_articles_cmd", { userId, targetLanguage }),
+    regenerateReadingArticle: (articleId, cefrLevel, nativeLang) =>
+      call("regenerate_reading_article_cmd", { articleId, cefrLevel, nativeLang }),
     ensureReadingArticle: (userId, targetLanguage, cefrLevel, nativeLang) =>
       call("ensure_reading_article_cmd", { userId, targetLanguage, cefrLevel, nativeLang }),
     getReadingArticle: (articleId) =>
@@ -163,6 +165,31 @@ export function createApiClient(invoke) {
       call("get_reading_test_explanations_cmd", { articleId }),
     getCompletedReadingCount: (userId) =>
       call("get_completed_reading_count_cmd", { userId }),
+
+    // Speaking
+    speakingListTopics: () => call("speaking_list_topics_cmd"),
+    speakingStartSession: (userId, topicId, targetLang, nativeLang, cefrLevel) =>
+      call("speaking_start_session_cmd", {
+        userId,
+        topicId,
+        targetLang,
+        nativeLang,
+        cefrLevel,
+      }),
+    speakingScoreTurn: (sessionId, audioBase64, audioFormat, usedHint) =>
+      call("speaking_score_turn_cmd", {
+        sessionId,
+        audioBase64,
+        audioFormat,
+        usedHint,
+      }),
+    speakingHint: (sessionId) => call("speaking_hint_cmd", { sessionId }),
+    speakingTranslate: (sessionId) => call("speaking_translate_cmd", { sessionId }),
+    speakingFinish: (sessionId) => call("speaking_finish_cmd", { sessionId }),
+    getMultimodalConfig: () => call("get_multimodal_config_cmd"),
+    saveMultimodalConfig: (config) => call("save_multimodal_config_cmd", { config }),
+    testMultimodalConnection: (config) =>
+      call("test_multimodal_connection_cmd", { config }),
 
     // Cloud sync
     testCloudSync: () => call("test_cloud_sync_cmd"),
@@ -294,6 +321,8 @@ export const runCloudSync = (...args) => defaultApiClient.runCloudSync(...args);
 
 // --- Reading ---
 export const getReadingArticles = (...args) => defaultApiClient.getReadingArticles(...args);
+export const regenerateReadingArticle = (...args) =>
+  defaultApiClient.regenerateReadingArticle(...args);
 export const ensureReadingArticle = (...args) => defaultApiClient.ensureReadingArticle(...args);
 export const getReadingArticle = (...args) => defaultApiClient.getReadingArticle(...args);
 export const markReadingArticleRead = (...args) => defaultApiClient.markReadingArticleRead(...args);
@@ -305,3 +334,15 @@ export const getReadingTestExplanations = (...args) =>
   defaultApiClient.getReadingTestExplanations(...args);
 export const getCompletedReadingCount = (...args) =>
   defaultApiClient.getCompletedReadingCount(...args);
+
+// --- Speaking ---
+export const speakingListTopics = (...args) => defaultApiClient.speakingListTopics(...args);
+export const speakingStartSession = (...args) => defaultApiClient.speakingStartSession(...args);
+export const speakingScoreTurn = (...args) => defaultApiClient.speakingScoreTurn(...args);
+export const speakingHint = (...args) => defaultApiClient.speakingHint(...args);
+export const speakingTranslate = (...args) => defaultApiClient.speakingTranslate(...args);
+export const speakingFinish = (...args) => defaultApiClient.speakingFinish(...args);
+export const getMultimodalConfig = (...args) => defaultApiClient.getMultimodalConfig(...args);
+export const saveMultimodalConfig = (...args) => defaultApiClient.saveMultimodalConfig(...args);
+export const testMultimodalConnection = (...args) =>
+  defaultApiClient.testMultimodalConnection(...args);

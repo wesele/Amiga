@@ -160,20 +160,21 @@ Return strict JSON:
         "阅读测试题生成",
         "学习功能",
         "You are a language learning assessment creator. Output only JSON, no extra prose.",
-        r#"Based on the following {{TARGET_LANG}} reading passage, generate 10 multiple-choice questions.
+        r#"Based on the following {{TARGET_LANG}} reading passage, generate exactly 10 multiple-choice questions: 5 reading and 5 listening.
 
 Article: {{BODY}}
 
 Requirements:
-1. Each question tests comprehension of the article content
-2. Each question has exactly ONE correct answer
-3. Provide 4 options per question
-4. Write questions and options in {{TARGET_LANG}}
-5. Difficulty should match CEFR {{CEFR_LEVEL}}
+1. Each question has exactly ONE correct answer and 4 options
+2. Difficulty should match CEFR {{CEFR_LEVEL}}
+3. Reading questions (type "reading"): test comprehension of the article; write question and options in {{TARGET_LANG}}; omit audio_text
+4. Listening questions (type "listening"): provide audio_text as a short sentence (1-2 sentences) in {{TARGET_LANG}} related to the article; write question and options in {{TARGET_LANG}}; the correct answer must follow from audio_text alone
+5. Put all 5 reading questions first, then all 5 listening questions
 
 Return strict JSON array:
 [
-  {"question": "...", "options": ["A", "B", "C", "D"], "correct": 0},
+  {"type": "reading", "question": "...", "options": ["A", "B", "C", "D"], "correct": 0},
+  {"type": "listening", "audio_text": "...", "question": "...", "options": ["A", "B", "C", "D"], "correct": 0},
   ...
 ]"#,
     ),
@@ -190,6 +191,67 @@ Your answer: {{USER_ANSWER}}
 Correct answer: {{CORRECT_ANSWER}}
 
 Keep it concise (2-3 sentences). Focus on the key information from the article that supports the correct answer."#,
+    ),
+    (
+        "speaking-opening",
+        "口语对话开场",
+        "学习功能",
+        r#"You are {{ROLE}} in a speaking practice scene: {{SCENE}}.
+The learner is practicing {{TARGET_LANG}}. Scene/role metadata may be in English — your spoken lines must NOT be.
+You MUST speak ONLY in {{TARGET_LANG}} at CEFR {{CEFR}} level. Never use English unless {{TARGET_LANG}} is English.
+Output 1-2 short natural sentences. No translation, no markdown, no explanations."#,
+        r#"Start the conversation about topic "{{TOPIC}}". This is turn 1 of {{TOTAL_TURNS}}. Open naturally in character in {{TARGET_LANG}}."#,
+    ),
+    (
+        "speaking-reply",
+        "口语对话接话",
+        "学习功能",
+        r#"You are {{ROLE}} in a speaking practice scene: {{SCENE}}.
+The learner is practicing {{TARGET_LANG}}. Scene/role metadata may be in English — your spoken lines must NOT be.
+You MUST speak ONLY in {{TARGET_LANG}} at CEFR {{CEFR}} level. Never use English unless {{TARGET_LANG}} is English.
+Output 1-2 short natural sentences. No translation, no markdown, no explanations."#,
+        r#"Turn {{TURN}} of {{TOTAL_TURNS}}. The learner just said: "{{USER_TRANSCRIPT}}"
+Reply naturally in character in {{TARGET_LANG}} and move the conversation forward with one clear question or statement."#,
+    ),
+    (
+        "speaking-hint",
+        "口语对话提示",
+        "学习功能",
+        "Output only one suggested reply sentence in {{TARGET_LANG}}. No quotes, no explanation. Never use English unless {{TARGET_LANG}} is English.",
+        r#"Suggest ONE short sentence the learner could say in {{TARGET_LANG}} to reply to:
+"{{AI_TEXT}}"
+Scene: {{SCENE}}. Your role: {{ROLE}}. CEFR {{CEFR}}."#,
+    ),
+    (
+        "speaking-score",
+        "口语录音评分",
+        "学习功能",
+        r#"You evaluate spoken language practice from audio input.
+Transcribe what the learner said in {{TARGET_LANG}}.
+Score 0-100 on: relevance (answers the AI line), grammar, pronunciation.
+If used_hint=yes, relevance means completeness of a reasonable reply; focus scoring on pronunciation and grammar.
+Return STRICT JSON only:
+{"transcript":"...","scores":{"relevance":0,"grammar":0,"pronunciation":0},"total":0,"pass":true,"feedback":"one sentence in {{NATIVE_LANG}}","feedback_target":"optional corrected sentence in {{TARGET_LANG}}"}
+Set pass=true when total>=60."#,
+        r#"AI line: "{{AI_TEXT}}"
+Topic: {{TOPIC}}. Turn {{TURN}}. Target language: {{TARGET_LANG}}. Learner CEFR: {{CEFR}}. used_hint: {{USED_HINT}}.
+Listen to the attached audio and score the learner's reply."#,
+    ),
+    (
+        "speaking-summary",
+        "口语练习总结",
+        "学习功能",
+        r#"You summarize a speaking practice session for the learner. Write in {{NATIVE_LANG}}. Be encouraging and concrete. No JSON."#,
+        r#"Topic: {{TOPIC}}. Target language: {{TARGET_LANG}}. CEFR: {{CEFR}}. Total retries (scoring attempts): {{RETRY_COUNT}}.
+
+Conversation log:
+{{CONVERSATION}}
+
+Write a short summary with:
+1. What was practiced
+2. How many turns were completed
+3. Three specific improvement tips based on the log
+4. Two useful sentences worth reviewing (show in {{TARGET_LANG}} with {{NATIVE_LANG}} gloss)"#,
     ),
 ];
 
@@ -327,7 +389,12 @@ mod tests {
         let pool = test_pool();
         ensure_default_prompts(&pool);
         let prompts = get_all_prompts(&pool).unwrap();
-        assert_eq!(prompts.len(), 11, "Should have 11 default prompts");
+        assert_eq!(
+            prompts.len(),
+            DEFAULTS.len(),
+            "Should have {} default prompts",
+            DEFAULTS.len()
+        );
     }
 
     #[test]
@@ -336,7 +403,11 @@ mod tests {
         ensure_default_prompts(&pool);
         ensure_default_prompts(&pool);
         let prompts = get_all_prompts(&pool).unwrap();
-        assert_eq!(prompts.len(), 11, "Second call should not add duplicates");
+        assert_eq!(
+            prompts.len(),
+            DEFAULTS.len(),
+            "Second call should not add duplicates"
+        );
     }
 
     #[test]
@@ -434,6 +505,11 @@ mod tests {
         save_prompt(&pool, "extra", "额外", "x", "s", "u").unwrap();
         reset_all_prompts(&pool).unwrap();
         let prompts = get_all_prompts(&pool).unwrap();
-        assert_eq!(prompts.len(), 11, "Should restore to exactly 11 defaults");
+        assert_eq!(
+            prompts.len(),
+            DEFAULTS.len(),
+            "Should restore to exactly {} defaults",
+            DEFAULTS.len()
+        );
     }
 }

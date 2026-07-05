@@ -93,6 +93,7 @@ const pathModule = { id: "path", labelKey: "learn.path", icon: "🛤️", route:
 const modules = [
   { id: "news", labelKey: "learn.news", icon: "📰", route: { name: "news" } },
   { id: "reading", labelKey: "learn.reading", icon: "📖", route: { name: "reading" } },
+  { id: "speaking", labelKey: "learn.speaking", icon: "🎙️", route: { name: "speaking" } },
   { id: "translator", labelKey: "chat.translator", icon: "🌐", action: "translator" },
 ];
 

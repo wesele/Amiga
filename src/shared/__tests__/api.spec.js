@@ -336,6 +336,17 @@ describe("API module", () => {
     });
   });
 
+  describe("Reading API", () => {
+    it("regenerateReadingArticle calls invoke with articleId, cefrLevel, nativeLang", () => {
+      api.regenerateReadingArticle(7, "A2", "zh");
+      expect(mockInvoke).toHaveBeenCalledWith("regenerate_reading_article_cmd", {
+        articleId: 7,
+        cefrLevel: "A2",
+        nativeLang: "zh",
+      });
+    });
+  });
+
   describe("Mock integration", () => {
     it("returns mocked values from invoke", async () => {
       mockInvoke.mockResolvedValue({ id: "123", nickname: "Test" });

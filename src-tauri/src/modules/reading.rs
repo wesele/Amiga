@@ -61,6 +61,8 @@ mod tests {
                 "D".to_string(),
             ],
             correct_index: 4,
+            question_type: "reading".to_string(),
+            audio_text: None,
         }];
 
         let normalized = normalize_reading_questions(questions).unwrap();
@@ -78,6 +80,8 @@ mod tests {
                 "D".to_string(),
             ],
             correct_index: 5,
+            question_type: "reading".to_string(),
+            audio_text: None,
         }];
 
         assert!(normalize_reading_questions(questions).is_err());
@@ -231,6 +235,82 @@ mod tests {
     }
 
     #[test]
+    fn test_clear_article_test_data() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        insert_user(&conn);
+        drop(conn);
+
+        let aid = save_reading_article(
+            &pool,
+            "u1",
+            "es",
+            "A2",
+            "2025-07-05",
+            "AM",
+            "Topic",
+            "Title",
+            "Body",
+        )
+        .unwrap();
+        submit_reading_test(&pool, aid, "u1", "[]", 7, 10).unwrap();
+
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO reading_tests (article_id, questions_json) VALUES (?1, '[]')",
+            params![aid],
+        )
+        .unwrap();
+        drop(conn);
+
+        clear_article_test_data(&pool, aid).unwrap();
+        update_reading_article_content(&pool, aid, "New topic", "New title", "New body", "B1")
+            .unwrap();
+
+        let article = get_reading_article(&pool, aid).unwrap();
+        assert_eq!(article.title, "New title");
+        assert_eq!(article.topic, "New topic");
+        assert_eq!(article.cefr_level, "B1");
+        assert_eq!(article.status, "unread");
+        assert!(article.test_correct_count.is_none());
+        assert!(article.test_total_count.is_none());
+
+        let conn = pool.conn().unwrap();
+        let test_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM reading_tests WHERE article_id = ?1",
+                params![aid],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let attempt_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM reading_test_attempts WHERE article_id = ?1",
+                params![aid],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(test_count, 0);
+        assert_eq!(attempt_count, 0);
+    }
+
+    #[test]
+    fn test_parse_generated_article_json_accepts_fenced_response() {
+        let raw = r#"```json
+{"title": "Un dia en el mercado", "body": "Hoy voy al mercado con mi madre. Compramos fruta fresca, pan recien horneado y queso local. El vendedor nos saluda con una sonrisa y recomienda las naranjas dulces de la temporada."}
+```"#;
+        let (title, body) = parse_generated_article_json(raw).unwrap();
+        assert_eq!(title, "Un dia en el mercado");
+        assert!(body.contains("mercado"));
+    }
+
+    #[test]
+    fn test_parse_generated_article_json_rejects_truncated_object() {
+        let raw = r#"{"title": "Test", "body": "This body ends without closing quote}"#;
+        assert!(parse_generated_article_json(raw).is_err());
+    }
+
+    #[test]
     fn test_get_article_for_slot() {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
@@ -276,12 +356,20 @@ pub struct ReadingArticle {
     pub generated_at: String,
 }
 
+fn default_question_type() -> String {
+    "reading".to_string()
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ReadingQuestion {
     pub question: String,
     pub options: Vec<String>,
     #[serde(rename = "correct")]
     pub correct_index: usize,
+    #[serde(default = "default_question_type", rename = "type")]
+    pub question_type: String,
+    #[serde(default, rename = "audio_text")]
+    pub audio_text: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -467,6 +555,21 @@ fn normalize_reading_questions(
                 question.correct_index
             ));
         }
+        if question.question_type == "listening" {
+            if question
+                .audio_text
+                .as_ref()
+                .map(|text| text.trim().is_empty())
+                .unwrap_or(true)
+            {
+                return Err(format!("Question {} is listening but missing audio_text", idx + 1));
+            }
+        } else if question.question_type != "reading" {
+            return Err(format!(
+                "Question {} has invalid type {}",
+                idx + 1, question.question_type
+            ));
+        }
     }
 
     Ok(questions)
@@ -609,6 +712,42 @@ pub fn save_reading_article(
     Ok(conn.last_insert_rowid())
 }
 
+fn clear_article_test_data(db: &DatabasePool, article_id: i64) -> Result<(), String> {
+    let conn = db.conn()?;
+    conn.execute(
+        "DELETE FROM reading_test_attempts WHERE article_id = ?1",
+        params![article_id],
+    )
+    .map_err(|e| format!("Failed to clear reading test attempts: {}", e))?;
+    conn.execute(
+        "DELETE FROM reading_tests WHERE article_id = ?1",
+        params![article_id],
+    )
+    .map_err(|e| format!("Failed to clear reading tests: {}", e))?;
+    Ok(())
+}
+
+fn update_reading_article_content(
+    db: &DatabasePool,
+    article_id: i64,
+    topic: &str,
+    title: &str,
+    body: &str,
+    cefr_level: &str,
+) -> Result<(), String> {
+    let conn = db.conn()?;
+    conn.execute(
+        "UPDATE reading_articles
+         SET topic = ?1, title = ?2, body = ?3, cefr_level = ?4,
+             status = 'unread', test_correct_count = NULL, test_total_count = NULL,
+             generated_at = datetime('now', 'localtime')
+         WHERE id = ?5",
+        params![topic, title, body, cefr_level, article_id],
+    )
+    .map_err(|e| format!("Failed to update reading article: {}", e))?;
+    Ok(())
+}
+
 pub fn mark_article_read(db: &DatabasePool, article_id: i64) -> Result<(), String> {
     let conn = db.conn()?;
     conn.execute(
@@ -673,6 +812,61 @@ fn pick_unused_topic(db: &DatabasePool, user_id: &str) -> Result<String, String>
 
 // ── LLM generation ─────────────────────────────────────────────────
 
+fn clean_json_response(raw: &str) -> &str {
+    raw.trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim()
+}
+
+fn parse_generated_article_json(raw: &str) -> Result<(String, String), String> {
+    let cleaned = clean_json_response(raw);
+
+    if let Ok(result) = serde_json::from_str::<GeneratedArticle>(cleaned) {
+        return validate_generated_article(result);
+    }
+
+    let start = cleaned
+        .find('{')
+        .ok_or_else(|| format!("Failed to parse article JSON: no JSON object found. Raw: {}", raw))?;
+    let end = cleaned.rfind('}').ok_or_else(|| {
+        format!(
+            "Failed to parse article JSON: response looks truncated. Raw: {}",
+            &raw[..raw.len().min(200)]
+        )
+    })?;
+    if end <= start {
+        return Err(format!(
+            "Failed to parse article JSON: response looks truncated. Raw: {}",
+            &raw[..raw.len().min(200)]
+        ));
+    }
+
+    let slice = &cleaned[start..=end];
+    let result: GeneratedArticle = serde_json::from_str(slice).map_err(|e| {
+        format!("Failed to parse article JSON: {}. Raw: {}", e, &raw[..raw.len().min(200)])
+    })?;
+    validate_generated_article(result)
+}
+
+fn validate_generated_article(article: GeneratedArticle) -> Result<(String, String), String> {
+    let title = article.title.trim().to_string();
+    let body = article.body.trim().to_string();
+
+    if title.is_empty() {
+        return Err("AI 返回的文章标题为空，请重试".to_string());
+    }
+    if body.is_empty() {
+        return Err("AI 返回的文章正文为空，请重试".to_string());
+    }
+    if body.len() < 80 {
+        return Err("AI 返回的文章正文过短，可能生成不完整，请重试".to_string());
+    }
+
+    Ok((title, body))
+}
+
 async fn generate_article_via_llm(
     llm: &llm_mod::LlmClient,
     db: &DatabasePool,
@@ -681,6 +875,40 @@ async fn generate_article_via_llm(
     cefr_level: &str,
     native_lang: &str,
 ) -> Result<(String, String), String> {
+    let messages = build_reading_article_messages(db, topic, target_lang, cefr_level, native_lang);
+    let mut last_err = String::new();
+
+    for attempt in 1..=2 {
+        let response = llm.chat_for_reading_content(db, messages.clone()).await;
+        match response {
+            Ok(raw) => match parse_generated_article_json(&raw) {
+                Ok(parsed) => return Ok(parsed),
+                Err(err) => {
+                    log::warn!("Reading article JSON parse failed (attempt {}): {}", attempt, err);
+                    last_err = err;
+                }
+            },
+            Err(err) => {
+                log::warn!("Reading article LLM call failed (attempt {}): {}", attempt, err);
+                last_err = err;
+            }
+        }
+    }
+
+    Err(if last_err.is_empty() {
+        "文章生成失败，请重试".to_string()
+    } else {
+        last_err
+    })
+}
+
+fn build_reading_article_messages(
+    db: &DatabasePool,
+    topic: &str,
+    target_lang: &str,
+    cefr_level: &str,
+    native_lang: &str,
+) -> Vec<llm_mod::ChatMessage> {
     let vars = [
         ("TARGET_LANG", target_lang),
         ("CEFR_LEVEL", cefr_level),
@@ -689,7 +917,7 @@ async fn generate_article_via_llm(
     ];
 
     let messages = crate::modules::llm::build_chat_messages(db, "generate-reading-article", &vars);
-    let messages = if messages.is_empty() {
+    if messages.is_empty() {
         let prompt = format!(
             "Generate a short reading passage in {target_lang} for a CEFR {cefr_level} language learner.\n\n\
              Topic: {topic}\nNative language: {native_lang}\n\n\
@@ -697,7 +925,8 @@ async fn generate_article_via_llm(
              1. Write 150-300 words in {target_lang}\n\
              2. Use vocabulary and grammar appropriate for CEFR {cefr_level}\n\
              3. The passage should be a natural conversation, story, or description about: {topic}\n\
-             4. Include a short title (2-8 words)\n\n\
+             4. Include a short title (2-8 words)\n\
+             5. Output one complete JSON object only; do not truncate the body field\n\n\
              Return strict JSON:\n{{\"title\": \"...\", \"body\": \"...\"}}"
         );
         crate::modules::llm::build_chat_messages_fallback(
@@ -706,19 +935,7 @@ async fn generate_article_via_llm(
         )
     } else {
         messages
-    };
-
-    let response = llm.chat(db, messages).await?;
-    let cleaned = response
-        .trim()
-        .trim_start_matches("```json")
-        .trim_start_matches("```")
-        .trim_end_matches("```")
-        .trim();
-
-    let result: GeneratedArticle = serde_json::from_str(cleaned)
-        .map_err(|e| format!("Failed to parse article JSON: {}. Raw: {}", e, response))?;
-    Ok((result.title, result.body))
+    }
 }
 
 async fn generate_test_via_llm(
@@ -737,16 +954,17 @@ async fn generate_test_via_llm(
     let messages = crate::modules::llm::build_chat_messages(db, "generate-reading-test", &vars);
     let messages = if messages.is_empty() {
         let prompt = format!(
-            "Based on the following {target_lang} reading passage, generate 10 multiple-choice questions.\n\n\
+            "Based on the following {target_lang} reading passage, generate exactly 10 multiple-choice questions: 5 reading and 5 listening.\n\n\
              Article: {body}\n\n\
              Requirements:\n\
-             1. Each question tests comprehension of the article content\n\
-             2. Each question has exactly ONE correct answer\n\
-             3. Provide 4 options per question\n\
-             4. Write questions and options in {target_lang}\n\
-             5. Difficulty should match CEFR {cefr_level}\n\n\
+             1. Each question has exactly ONE correct answer and 4 options\n\
+             2. Difficulty should match CEFR {cefr_level}\n\
+             3. Reading questions (type \"reading\"): test comprehension of the article; write question and options in {target_lang}; omit audio_text\n\
+             4. Listening questions (type \"listening\"): provide audio_text as a short sentence (1-2 sentences) in {target_lang} related to the article; write question and options in {target_lang}; the correct answer must follow from audio_text alone\n\
+             5. Put all 5 reading questions first, then all 5 listening questions\n\n\
              Return strict JSON array:\n\
-             [\n  {{\"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct\": 0}},\n  ...\n]"
+             [\n  {{\"type\": \"reading\", \"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct\": 0}},\n\
+             {{\"type\": \"listening\", \"audio_text\": \"...\", \"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct\": 0}},\n  ...\n]"
         );
         crate::modules::llm::build_chat_messages_fallback(
             "You are a language learning assessment creator. Output only JSON, no extra prose.",
@@ -870,6 +1088,39 @@ pub async fn ensure_reading_article(
         article_id,
         user_id
     );
+    get_reading_article(db, article_id)
+}
+
+pub async fn regenerate_reading_article(
+    llm: &llm_mod::LlmClient,
+    db: &DatabasePool,
+    article_id: i64,
+    cefr_level: &str,
+    native_lang: &str,
+) -> Result<ReadingArticle, String> {
+    let article = get_reading_article(db, article_id)?;
+    let topic = pick_unused_topic(db, &article.user_id)?;
+    log::info!(
+        "Regenerating reading article id={} user={} topic={}",
+        article_id,
+        article.user_id,
+        topic
+    );
+
+    let (title, body) = generate_article_via_llm(
+        llm,
+        db,
+        &topic,
+        &article.target_language,
+        cefr_level,
+        native_lang,
+    )
+    .await?;
+
+    clear_article_test_data(db, article_id)?;
+    update_reading_article_content(db, article_id, &topic, &title, &body, cefr_level)?;
+
+    log::info!("Reading article regenerated: id={}", article_id);
     get_reading_article(db, article_id)
 }
 

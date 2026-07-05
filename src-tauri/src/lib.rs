@@ -102,6 +102,7 @@ pub fn run() {
             commands::news::get_learning_days_cmd,
             // Reading commands
             commands::reading::get_reading_articles_cmd,
+            commands::reading::regenerate_reading_article_cmd,
             commands::reading::ensure_reading_article_cmd,
             commands::reading::get_reading_article_cmd,
             commands::reading::mark_reading_article_read_cmd,
@@ -110,6 +111,16 @@ pub fn run() {
             commands::reading::submit_reading_test_cmd,
             commands::reading::get_reading_test_explanations_cmd,
             commands::reading::get_completed_reading_count_cmd,
+            // Speaking commands
+            commands::speaking::speaking_list_topics_cmd,
+            commands::speaking::speaking_start_session_cmd,
+            commands::speaking::speaking_score_turn_cmd,
+            commands::speaking::speaking_hint_cmd,
+            commands::speaking::speaking_translate_cmd,
+            commands::speaking::speaking_finish_cmd,
+            commands::speaking::get_multimodal_config_cmd,
+            commands::speaking::save_multimodal_config_cmd,
+            commands::speaking::test_multimodal_connection_cmd,
             // Prompt commands
             commands::prompts::get_all_prompts_cmd,
             commands::prompts::get_prompt_cmd,

@@ -15,6 +15,7 @@
       <h3 class="section-header">{{ t('settings.ai') }}</h3>
       <div class="settings-card">
         <SettingsItem :title="t('settings.primaryModel')" :subtitle="t('settings.primaryModelSub')" to="/profile/llm-config" />
+        <SettingsItem :title="t('settings.multimodalModel')" :subtitle="t('settings.multimodalModelSub')" to="/profile/multimodal-config" />
         <SettingsItem :title="t('settings.prompts')" :subtitle="t('settings.promptsSub')" to="/prompts" :showDivider="false" />
       </div>
     </section>

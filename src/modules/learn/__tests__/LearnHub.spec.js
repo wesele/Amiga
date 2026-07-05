@@ -86,10 +86,11 @@ describe("LearnHubPage", () => {
     expect(pathCard.text()).toContain("★ 7");
     expect(pathCard.find(".path-progress-fill").attributes("style")).toContain("width: 30%");
     const tiles = wrapper.findAll(".module-tile");
-    expect(tiles.length).toBe(3);
+    expect(tiles.length).toBe(4);
     const labels = tiles.map((t) => t.find(".module-label").text());
     expect(labels).toContain("新闻");
     expect(labels).toContain("阅读");
+    expect(labels).toContain("AI Speaking");
     expect(labels).toContain("AI 翻译");
   });
 

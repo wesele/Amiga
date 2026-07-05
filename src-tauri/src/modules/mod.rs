@@ -8,6 +8,7 @@ pub mod news;
 pub mod path;
 pub mod prompts;
 pub mod reading;
+pub mod speaking;
 pub mod sync;
 pub mod translation;
 pub mod user;
