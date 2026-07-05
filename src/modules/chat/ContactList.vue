@@ -43,14 +43,9 @@ import { eventBus } from "@/shared/eventBus.js";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
 import GroupChatIcon from "@/shared/components/GroupChatIcon.vue";
 import AvatarEmoji from "@/shared/components/AvatarEmoji.vue";
-import { getCachedSocialAvatar, rememberSocialAvatars } from "./social/socialAvatars.js";
+import { getCachedSocialAvatar } from "./social/socialAvatars.js";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
-import {
-  getSocialConfig,
-  getSocialFriendships,
-  getSocialUserId,
-} from "./social/socialService.js";
-import { startSocialInboxListener } from "./social/socialInbox.js";
+import { bootSocialInbox, getInboxFriends, SOCIAL_FRIENDS_UPDATED } from "./social/socialInboxService.js";
 import {
   getSocialContactKey,
   getSocialPreview,
@@ -61,13 +56,12 @@ const router = useRouter();
 const { t, locale } = useI18n();
 const targetLangStore = useTargetLangStore();
 const sessions = ref([]);
-const friends = ref([]);
+const friends = ref(getInboxFriends());
 const previewVersion = ref(0);
 const flashingIds = ref(new Set());
-const socialUserId = ref("");
 let unsubscribeLang = null;
 let unsubscribePreview = null;
-let stopInbox = null;
+let unsubscribeFriends = null;
 let flashTimers = new Map();
 
 function formatTime(dateStr) {
@@ -200,28 +194,14 @@ async function refreshSessions() {
 }
 
 async function refreshFriends() {
+  // The social inbox service is the single source of truth for the
+  // friend list and for live messages. We just sync our local copy
+  // from it (the service also re-emits via SOCIAL_FRIENDS_UPDATED).
   try {
-    const config = await getSocialConfig();
-    if (!socialUserId.value) {
-      socialUserId.value = await getSocialUserId();
-    }
-    const friendships = await getSocialFriendships(config, socialUserId.value);
-    friends.value = friendships?.items || [];
-    const avatarMap = Object.fromEntries(
-      friends.value
-        .filter((friend) => friend.friendUserId && friend.friendAvatar)
-        .map((friend) => [friend.friendUserId, friend.friendAvatar]),
-    );
-    rememberSocialAvatars(avatarMap);
-    stopInbox?.();
-    stopInbox = startSocialInboxListener({
-      userId: socialUserId.value,
-      friends: friends.value,
-    });
+    await bootSocialInbox();
+    friends.value = getInboxFriends();
   } catch {
     friends.value = [];
-    stopInbox?.();
-    stopInbox = null;
   }
 }
 
@@ -253,7 +233,7 @@ function openContact(contact) {
 onUnmounted(() => {
   unsubscribeLang?.();
   unsubscribePreview?.();
-  stopInbox?.();
+  unsubscribeFriends?.();
   for (const timer of flashTimers.values()) {
     clearTimeout(timer);
   }
@@ -267,6 +247,9 @@ onMounted(async () => {
     refreshSessions();
   });
   unsubscribePreview = eventBus.on(SOCIAL_PREVIEW_UPDATED, handlePreviewUpdated);
+  unsubscribeFriends = eventBus.on(SOCIAL_FRIENDS_UPDATED, (next) => {
+    friends.value = next || [];
+  });
 });
 </script>
 

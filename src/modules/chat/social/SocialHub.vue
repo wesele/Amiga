@@ -61,6 +61,7 @@ import { useI18n } from "@/shared/i18n";
 import AvatarEmoji from "@/shared/components/AvatarEmoji.vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { rememberSocialAvatars } from "./socialAvatars.js";
+import { refreshSocialInboxFriends } from "./socialInboxService.js";
 import {
   acceptFriendRequest,
   getPendingFriendRequests,
@@ -166,6 +167,7 @@ async function submitFriendRequest() {
     friendIdInput.value = "";
     statusText.value = t("chat.requestSent");
     await loadSummary(config);
+    await refreshSocialInboxFriends();
   } catch (error) {
     statusText.value = error?.message ? `${t("chat.requestFailed")} (${error.message})` : t("chat.requestFailed");
   }
@@ -178,6 +180,7 @@ async function acceptRequest(fromUserId) {
     await acceptFriendRequest(config, userId.value, fromUserId);
     statusText.value = t("chat.requestAccepted");
     await loadSummary(config);
+    await refreshSocialInboxFriends();
   } catch (error) {
     statusText.value = error?.message ? `${t("chat.acceptFailed")} (${error.message})` : t("chat.acceptFailed");
   }
@@ -190,6 +193,7 @@ async function removeFriend(friendUserId) {
     await removeFriendRequest(config, userId.value, friendUserId);
     statusText.value = t("chat.friendRemoved");
     await loadSummary(config);
+    await refreshSocialInboxFriends();
   } catch (error) {
     statusText.value = error?.message ? `${t("chat.removeFriendFailed")} (${error.message})` : t("chat.removeFriendFailed");
   }

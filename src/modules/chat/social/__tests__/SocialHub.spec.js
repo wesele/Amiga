@@ -4,6 +4,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
+import { _resetSocialInboxServiceForTests } from "@/modules/chat/social/socialInboxService.js";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
@@ -27,6 +28,7 @@ describe("SocialHub", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     setLocale("en", { persist: false });
+    _resetSocialInboxServiceForTests();
     mockInvoke = vi.fn();
     api.__setInvoke(mockInvoke);
     fetchMock = vi.fn();

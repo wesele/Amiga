@@ -4,6 +4,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
+import { _resetSocialInboxServiceForTests } from "@/modules/chat/social/socialInboxService.js";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({}));
 
@@ -65,6 +66,7 @@ describe("ContactList", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     setLocale("zh", { persist: false });
+    _resetSocialInboxServiceForTests();
   });
 
   it("renders public group, Amiga and AI Translator in the top-level list", async () => {
