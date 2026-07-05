@@ -54,9 +54,9 @@ export function startSocialInboxListener({ userId, friends = [] }) {
       mode: "public",
       peerId: "",
       onMessage: (payload) => {
-        if (isIncomingMessage(payload, userId)) {
-          handleIncomingMessage({ ...payload, mode: "public" }, userId);
-        }
+        if (!isIncomingMessage(payload, userId)) return;
+        if (payload.mode === "direct") return;
+        handleIncomingMessage({ ...payload, mode: "public" }, userId);
       },
     });
     sockets.push(socket);
@@ -70,11 +70,11 @@ export function startSocialInboxListener({ userId, friends = [] }) {
         userId,
         mode: "direct",
         peerId,
-        onMessage: (payload) => {
-          if (isIncomingMessage(payload, userId)) {
-            handleIncomingMessage({ ...payload, mode: "direct" }, userId);
-          }
-        },
+      onMessage: (payload) => {
+        if (!isIncomingMessage(payload, userId)) return;
+        if (payload.mode && payload.mode !== "direct") return;
+        handleIncomingMessage({ ...payload, mode: "direct" }, userId);
+      },
       });
       sockets.push(socket);
     }
