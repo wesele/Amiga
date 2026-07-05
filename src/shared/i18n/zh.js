@@ -480,6 +480,16 @@ export default {
     hoursAgo: "{n} 小时前",
   },
 
+  weekday: {
+    sun: "周日",
+    mon: "周一",
+    tue: "周二",
+    wed: "周三",
+    thu: "周四",
+    fri: "周五",
+    sat: "周六",
+  },
+
   country: {
     CN: "中国",
     ES: "西班牙",

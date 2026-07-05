@@ -29,7 +29,7 @@
         <div class="card-header">
           <h3 class="card-title">{{ article.title }}</h3>
           <span class="card-date">
-            <span class="date-weekday">{{ formatWeekday(article) }}</span>
+            <span class="date-weekday" :class="weekdayClass(article)">{{ formatWeekday(article) }}</span>
             <span class="date-day">{{ formatDate(article) }}</span>
           </span>
         </div>
@@ -88,8 +88,17 @@ function parseLocalDate(localDate) {
 
 function formatWeekday(article) {
   const date = parseLocalDate(article.local_date);
-  const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-  return date ? weekdays[date.getDay()] : "";
+  if (!date) return "";
+  const weekdayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+  return t(`weekday.${weekdayKeys[date.getDay()]}`);
+}
+
+function weekdayClass(article) {
+  const date = parseLocalDate(article.local_date);
+  if (!date) return "";
+  const day = date.getDay();
+  const classMap = ["weekday-sun", "weekday-mon", "weekday-tue", "weekday-wed", "weekday-thu", "weekday-fri", "weekday-sat"];
+  return classMap[day];
 }
 
 function formatDate(article) {
@@ -232,10 +241,38 @@ function openArticle(id) {
 }
 
 .date-weekday {
-  font-size: 30px;
+  font-size: 18px;
   font-weight: 800;
   line-height: 1;
   color: var(--text);
+}
+
+.date-weekday.weekday-sun {
+  color: #e74c3c;
+}
+
+.date-weekday.weekday-mon {
+  color: #e67e22;
+}
+
+.date-weekday.weekday-tue {
+  color: #f1c40f;
+}
+
+.date-weekday.weekday-wed {
+  color: #2ecc71;
+}
+
+.date-weekday.weekday-thu {
+  color: #3498db;
+}
+
+.date-weekday.weekday-fri {
+  color: #9b59b6;
+}
+
+.date-weekday.weekday-sat {
+  color: #1abc9c;
 }
 
 .date-day {

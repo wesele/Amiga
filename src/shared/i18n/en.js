@@ -477,6 +477,16 @@ export default {
     hoursAgo: "{n}h ago",
   },
 
+  weekday: {
+    sun: "Sun",
+    mon: "Mon",
+    tue: "Tue",
+    wed: "Wed",
+    thu: "Thu",
+    fri: "Fri",
+    sat: "Sat",
+  },
+
   country: {
     CN: "China",
     ES: "Spain",
