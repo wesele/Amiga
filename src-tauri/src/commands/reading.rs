@@ -118,3 +118,11 @@ pub async fn get_reading_test_explanations_cmd(
 ) -> Result<Vec<String>, String> {
     reading_mod::get_reading_test_explanations(&db, article_id)
 }
+
+#[tauri::command]
+pub async fn get_completed_reading_count_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+) -> Result<i32, String> {
+    reading_mod::get_completed_reading_count(&db, &user_id)
+}

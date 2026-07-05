@@ -7,6 +7,11 @@
     <section class="status-section">
       <div class="status-card">
         <div class="stat-cell">
+          <div class="stat-value">{{ learningDays }}</div>
+          <div class="stat-label">{{ t("learn.days") }}</div>
+        </div>
+        <div class="stat-divider" />
+        <div class="stat-cell">
           <div class="stat-value">{{ vocabStats?.total_known || 0 }}</div>
           <div class="stat-label">{{ t("profile.words") }}</div>
         </div>
@@ -17,8 +22,8 @@
         </div>
         <div class="stat-divider" />
         <div class="stat-cell">
-          <div class="stat-value">{{ learningDays }}</div>
-          <div class="stat-label">{{ t("learn.days") }}</div>
+          <div class="stat-value">{{ completedReadingCount }}</div>
+          <div class="stat-label">{{ t("profile.reading") }}</div>
         </div>
       </div>
     </section>
@@ -69,6 +74,7 @@ import {
   getReadArticleCount,
   getLearningDays,
   getPathCurriculum,
+  getCompletedReadingCount,
 } from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 
@@ -79,6 +85,7 @@ const opening = ref(null);
 const vocabStats = ref(null);
 const readArticleCount = ref(0);
 const learningDays = ref(0);
+const completedReadingCount = ref(0);
 const pathCurriculum = ref(null);
 const pathCefr = ref("A1");
 
@@ -122,6 +129,7 @@ onMounted(async () => {
       vocabStats.value = await getUserVocabStats(user.id, lang);
       readArticleCount.value = await getReadArticleCount(user.id);
       learningDays.value = await getLearningDays(user.id);
+      completedReadingCount.value = await getCompletedReadingCount(user.id);
       pathCurriculum.value = await getPathCurriculum(
         ctx.nativeLang || user.native_language,
         lang,

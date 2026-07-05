@@ -109,6 +109,7 @@ pub fn run() {
             commands::reading::explain_reading_answer_cmd,
             commands::reading::submit_reading_test_cmd,
             commands::reading::get_reading_test_explanations_cmd,
+            commands::reading::get_completed_reading_count_cmd,
             // Prompt commands
             commands::prompts::get_all_prompts_cmd,
             commands::prompts::get_prompt_cmd,

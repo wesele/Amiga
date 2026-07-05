@@ -296,8 +296,9 @@ export default {
 
   profile: {
     title: "Ajustes",
-    words: "Palabras dominadas",
-    articles: "Artículos leídos",
+    words: "Palabras",
+    articles: "Noticias",
+    reading: "Lectura",
     general: "General",
     about: "Acerca de",
     checkUpdate: "Buscar actualizaciones",
@@ -442,6 +443,7 @@ export default {
     known: "Conozco",
     unknown: "No conozco",
     fail: "Traducción no disponible",
+    aiTranslate: "Traducción IA",
   },
 
   external: {

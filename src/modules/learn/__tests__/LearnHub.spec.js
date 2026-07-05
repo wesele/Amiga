@@ -154,11 +154,12 @@ describe("LearnHubPage", () => {
     const card = wrapper.find(".status-card");
     expect(card.exists()).toBe(true);
     const cells = wrapper.findAll(".stat-cell");
-    expect(cells.length).toBe(3);
+    expect(cells.length).toBe(4);
     const labels = cells.map((c) => c.find(".stat-label").text());
-    expect(labels).toContain("已掌握词汇");
-    expect(labels).toContain("已读文章");
+    expect(labels).toContain("词汇");
+    expect(labels).toContain("新闻");
     expect(labels).toContain("学习天数");
+    expect(labels).toContain("阅读");
   });
 
   it("shows values returned by the stats APIs in the status panel", async () => {
@@ -169,6 +170,7 @@ describe("LearnHubPage", () => {
       if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 42, total_learning: 5, total: 1000 });
       if (cmd === "get_read_article_count_cmd") return Promise.resolve(7);
       if (cmd === "get_learning_days_cmd") return Promise.resolve(9);
+      if (cmd === "get_completed_reading_count_cmd") return Promise.resolve(5);
       return Promise.resolve(null);
     });
     const router = makeRouter();
@@ -179,12 +181,14 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     const cells = wrapper.findAll(".stat-cell");
-    const vocabCell = cells.find((c) => c.text().includes("已掌握词汇"));
-    const readCell = cells.find((c) => c.text().includes("已读文章"));
+    const vocabCell = cells.find((c) => c.text().includes("词汇"));
+    const readCell = cells.find((c) => c.text().includes("新闻"));
     const daysCell = cells.find((c) => c.text().includes("学习天数"));
+    const readingCell = cells.find((c) => c.text().includes("阅读"));
     expect(vocabCell.find(".stat-value").text()).toBe("42");
     expect(readCell.find(".stat-value").text()).toBe("7");
     expect(daysCell.find(".stat-value").text()).toBe("9");
+    expect(readingCell.find(".stat-value").text()).toBe("5");
   });
 
   it("falls back to 0 when the stats APIs fail", async () => {

@@ -984,3 +984,18 @@ pub fn get_reading_test_explanations(
         .unwrap_or_else(|_| "[]".to_string());
     serde_json::from_str(&json).map_err(|e| format!("Failed to parse explanations: {}", e))
 }
+
+/// Count distinct articles a user has completed reading tests for.
+/// Returns the number of articles where the user has submitted at least one test attempt.
+pub fn get_completed_reading_count(db: &DatabasePool, user_id: &str) -> Result<i32, String> {
+    let conn = db.conn()?;
+    let count: i32 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT article_id) FROM reading_test_attempts
+             WHERE user_id = ?1",
+            params![user_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    Ok(count)
+}

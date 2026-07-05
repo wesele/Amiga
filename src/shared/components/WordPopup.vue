@@ -19,9 +19,14 @@
           <span v-if="translation.ipa" class="tag-ipa">{{ translation.ipa }}</span>
         </div>
         <div v-if="translation.example" class="popup-example">{{ translation.example }}</div>
-        <div v-if="!alwaysShowActions" class="popup-actions">
-          <button class="act-known" @click="$emit('known'); emitClose()">✅ {{ t('popup.known') }}</button>
-          <button class="act-unknown" @click="$emit('unknown'); emitClose()">❌ {{ t('popup.unknown') }}</button>
+        <div class="popup-actions-row">
+          <button class="act-ai-translate" @click="openAiTranslate" :title="t('popup.aiTranslate')">
+            🤖
+          </button>
+          <div class="popup-actions-main">
+            <button class="act-known" @click="$emit('known'); emitClose()">✅ {{ t('popup.known') }}</button>
+            <button class="act-unknown" @click="$emit('unknown'); emitClose()">❌ {{ t('popup.unknown') }}</button>
+          </div>
         </div>
       </template>
 
@@ -43,8 +48,10 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import { translateText, translateWord } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
+import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
 
 const props = defineProps({
   word: { type: String, required: true },
@@ -56,6 +63,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["close", "known", "unknown"]);
+const router = useRouter();
 const { t } = useI18n();
 
 const translation = ref(null);
@@ -80,6 +88,20 @@ onMounted(async () => {
 
 function emitClose() {
   setTimeout(() => emit("close"), 200);
+}
+
+async function openAiTranslate() {
+  try {
+    const message = `请翻译并解释这个单词：${props.word}`;
+    await openAiContact(
+      router,
+      { name: t("chat.translator"), contactType: "translator" },
+      { routeName: "learn-translator", targetLang: props.sourceLang, initialMessage: message },
+    );
+    emitClose();
+  } catch (e) {
+    console.error("Failed to open AI translator:", e);
+  }
 }
 </script>
 
@@ -162,6 +184,39 @@ function emitClose() {
   line-height: 1.45;
   color: var(--text-light);
   margin: 2px 0 12px;
+}
+
+.popup-actions-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  align-items: center;
+}
+
+.act-ai-translate {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--purple);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition);
+  flex-shrink: 0;
+}
+
+.act-ai-translate:hover {
+  background: var(--purple-hover);
+}
+
+.popup-actions-main {
+  flex: 1;
+  display: flex;
+  gap: 10px;
 }
 
 .tag-pos {

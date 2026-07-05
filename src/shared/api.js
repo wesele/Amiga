@@ -161,6 +161,8 @@ export function createApiClient(invoke) {
       call("submit_reading_test_cmd", { articleId, userId, answersJson, correctCount, totalCount }),
     getReadingTestExplanations: (articleId) =>
       call("get_reading_test_explanations_cmd", { articleId }),
+    getCompletedReadingCount: (userId) =>
+      call("get_completed_reading_count_cmd", { userId }),
 
     // Cloud sync
     testCloudSync: () => call("test_cloud_sync_cmd"),
@@ -301,3 +303,5 @@ export const explainReadingAnswer = (...args) => defaultApiClient.explainReading
 export const submitReadingTest = (...args) => defaultApiClient.submitReadingTest(...args);
 export const getReadingTestExplanations = (...args) =>
   defaultApiClient.getReadingTestExplanations(...args);
+export const getCompletedReadingCount = (...args) =>
+  defaultApiClient.getCompletedReadingCount(...args);

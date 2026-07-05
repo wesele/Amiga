@@ -299,8 +299,9 @@ export default {
 
   profile: {
     title: "学习设置",
-    words: "已掌握词汇",
-    articles: "已读文章",
+    words: "词汇",
+    articles: "新闻",
+    reading: "阅读",
     general: "通用",
     about: "关于",
     checkUpdate: "检查更新",
@@ -445,6 +446,7 @@ export default {
     known: "认识",
     unknown: "不认识",
     fail: "翻译暂不可用",
+    aiTranslate: "AI 翻译",
   },
 
   external: {

@@ -296,8 +296,9 @@ export default {
 
   profile: {
     title: "Settings",
-    words: "Words mastered",
-    articles: "Articles read",
+    words: "Words",
+    articles: "News",
+    reading: "Reading",
     general: "General",
     about: "About",
     checkUpdate: "Check for updates",
@@ -442,6 +443,7 @@ export default {
     known: "Known",
     unknown: "Unknown",
     fail: "Translation unavailable",
+    aiTranslate: "AI Translate",
   },
 
   external: {
