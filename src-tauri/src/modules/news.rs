@@ -474,7 +474,9 @@ mod tests {
         assert!(article.rewritten_body.is_none());
         assert!(article.rewrite_level.is_none());
         assert!(article.new_words.is_none());
-        assert!(get_bilingual_cache(&pool, existing_id, "zh").unwrap().is_none());
+        assert!(get_bilingual_cache(&pool, existing_id, "zh")
+            .unwrap()
+            .is_none());
     }
 
     fn insert_test_word(conn: &Connection, word: &str, lang: &str) -> i64 {

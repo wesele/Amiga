@@ -56,18 +56,18 @@
           </button>
         </div>
 
-        <div v-if="loadingExplanation[currentQuestionIndex]" class="explanation-loading">
+        <div v-if="isCurrentAnswerWrong && loadingExplanation[currentQuestionIndex]" class="explanation-loading">
           <div class="spinner-small" />
           <span>{{ t('reading.loadingExplanation') }}</span>
         </div>
 
-        <div v-else-if="explanationErrors[currentQuestionIndex]" class="explanation-box explanation-error-box">
+        <div v-else-if="isCurrentAnswerWrong && explanationErrors[currentQuestionIndex]" class="explanation-box explanation-error-box">
           <div class="explanation-header">{{ t('reading.explanation') }}</div>
           <p class="explanation-text">{{ explanations[currentQuestionIndex] || t('reading.generateFail') }}</p>
           <button class="retry-link" @click="retryExplanation(currentQuestionIndex)">{{ t('reading.retry') }}</button>
         </div>
 
-        <div v-else-if="explanations[currentQuestionIndex]" class="explanation-box">
+        <div v-else-if="isCurrentAnswerWrong && explanations[currentQuestionIndex]" class="explanation-box">
           <div class="explanation-header">{{ t('reading.explanation') }}</div>
           <p class="explanation-text">{{ explanations[currentQuestionIndex] }}</p>
         </div>
@@ -437,14 +437,14 @@ function goBack() {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 12px 16px 88px;
+  padding: 18px 16px 104px;
 }
 
 .question-card {
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 14px;
+  padding: 18px 16px 20px;
 }
 
 .question-toolbar {
@@ -452,7 +452,7 @@ function goBack() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
 }
 
 .question-number {
@@ -475,32 +475,34 @@ function goBack() {
 }
 
 .question-text {
-  margin: 0 0 10px;
-  font-size: 14px;
+  margin: 0 0 18px;
+  font-size: 15px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.55;
   color: var(--text);
 }
 
 .options {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
 
 .option-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 10px 12px;
+  min-height: 52px;
+  padding: 12px 14px;
   border: 1px solid var(--border);
   background: var(--white);
   border-radius: var(--radius-sm);
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.4;
   transition: background var(--transition), border-color var(--transition);
 }
 
@@ -527,14 +529,14 @@ function goBack() {
 }
 
 .option-key {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: var(--surface-variant);
   text-align: center;
   font-size: 12px;
   font-weight: 700;
-  line-height: 22px;
+  line-height: 24px;
   flex-shrink: 0;
   color: var(--text-light);
 }
@@ -557,8 +559,8 @@ function goBack() {
 }
 
 .answer-feedback {
-  margin-top: 10px;
-  padding: 10px 12px;
+  margin-top: 16px;
+  padding: 12px 14px;
   border: 1px solid #ffc9c9;
   border-radius: var(--radius-sm);
   background: #fff5f5;
@@ -585,8 +587,8 @@ function goBack() {
 }
 
 .explanation-box {
-  margin-top: 10px;
-  padding: 10px 12px;
+  margin-top: 16px;
+  padding: 14px;
   background: #fff8e1;
   border: 1px solid #ffe082;
   border-radius: var(--radius-sm);
@@ -600,13 +602,13 @@ function goBack() {
   font-size: 12px;
   font-weight: 700;
   color: #856404;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .explanation-text {
   margin: 0;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.6;
   color: #5a4a00;
 }
 
@@ -621,7 +623,7 @@ function goBack() {
 }
 
 .explanation-loading {
-  margin-top: 10px;
+  margin-top: 16px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -642,21 +644,21 @@ function goBack() {
   position: sticky;
   bottom: 0;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
   box-sizing: border-box;
-  padding: 12px 16px;
-  background: var(--white);
-  border-top: 1px solid var(--border);
+  padding: 14px 16px 16px;
 }
 
 .nav-btn {
   flex: 1 1 0;
   min-width: 0;
+  min-height: 48px;
 }
 
 .btn-submit {
-  padding: 12px 16px;
+  min-height: 48px;
+  padding: 13px 16px;
   border: none;
   background: var(--green);
   color: var(--white);

@@ -186,9 +186,13 @@ function openArticle(id) {
 }
 
 .article-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "title date"
+    "meta date";
+  column-gap: 10px;
+  row-gap: 8px;
   padding: 14px;
   background: var(--white);
   border: 1px solid var(--border);
@@ -203,13 +207,11 @@ function openArticle(id) {
 }
 
 .card-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: flex-start;
-  gap: 10px;
+  display: contents;
 }
 
 .card-title {
+  grid-area: title;
   margin: 0;
   font-size: 15px;
   font-weight: 700;
@@ -220,19 +222,19 @@ function openArticle(id) {
 }
 
 .card-date {
+  grid-area: date;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   align-items: flex-end;
-  gap: 2px;
   white-space: nowrap;
-  margin-top: 1px;
 }
 
 .date-weekday {
-  font-size: 15px;
+  font-size: 30px;
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1;
   color: var(--text);
 }
 
@@ -244,6 +246,7 @@ function openArticle(id) {
 }
 
 .card-meta {
+  grid-area: meta;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
