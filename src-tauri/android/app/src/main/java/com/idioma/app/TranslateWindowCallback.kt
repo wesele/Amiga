@@ -87,14 +87,19 @@ class TranslateWindowCallback(
     }
 
     override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
-        if (item.itemId != MENU_TRANSLATE_ID) return false
-        onTranslateClicked()
-        // Defer mode.finish() so the JS dispatch lands first; the Vue
-        // handler clears the page selection on its end (see
-        // NewsReader.vue handleNativeTranslate), so the WebView's
-        // onDestroyActionMode sees an empty selection and exits cleanly.
-        webView.post { mode.finish() }
-        return true
+        if (item.itemId == MENU_TRANSLATE_ID) {
+            onTranslateClicked()
+            // Defer mode.finish() so the JS dispatch lands first; the Vue
+            // handler clears the page selection on its end (see
+            // NewsReader.vue handleNativeTranslate), so the WebView's
+            // onDestroyActionMode sees an empty selection and exits cleanly.
+            webView.post { mode.finish() }
+            return true
+        }
+        // For other menu items (Copy, Share, etc.), let the system handle them
+        // and finish the mode immediately
+        mode.finish()
+        return false
     }
 
     override fun onDestroyActionMode(mode: ActionMode) {
@@ -112,17 +117,18 @@ class TranslateWindowCallback(
             return
         }
         val sizeBefore = menu.size()
+        // Add our "Amiga" item FIRST at the top
+        val item = menu.add(0, MENU_TRANSLATE_ID, Menu.FIRST, "Amiga")
+        // SHOW_AS_ACTION_ALWAYS is required for TYPE_FLOATING: without it
+        // the item is treated as overflow and is never rendered.
+        MenuItemCompat.setShowAsAction(item, MenuItemCompat.SHOW_AS_ACTION_ALWAYS)
         // Re-add the items the system callback had already populated
         // (Copy, Share, etc.). They keep their original IDs so any
         // framework or OEM handling still matches.
         for (orig in originalItems) {
-            menu.add(orig.groupId, orig.itemId, orig.order, orig.title)
+            menu.add(orig.groupId, orig.itemId, orig.order + 1, orig.title)
         }
-        val item = menu.add(0, MENU_TRANSLATE_ID, Menu.FIRST, "翻译")
-        // SHOW_AS_ACTION_ALWAYS is required for TYPE_FLOATING: without it
-        // the item is treated as overflow and is never rendered.
-        MenuItemCompat.setShowAsAction(item, MenuItemCompat.SHOW_AS_ACTION_ALWAYS)
-        Log.d(TAG, "Injected 翻译 item; menu size $sizeBefore -> ${menu.size()}")
+        Log.d(TAG, "Injected Amiga item; menu size $sizeBefore -> ${menu.size()}")
         // Force the floating toolbar to re-measure and pick up the new
         // item. invalidate() is deprecated as of API 27 in favour of
         // invalidateContent(), but it is still functional on every API

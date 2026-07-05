@@ -99,25 +99,6 @@
       </div>
     </Transition>
 
-    <!--
-      Custom Android "translate" affordance. The Chromium WebView on
-      API 34+ removed setCustomSelectionActionModeCallback, so we
-      cannot inject a "翻译" item into the system selection toolbar
-      (see MainActivity.kt onActionModeStarted hook — it does fire
-      for some action modes, but the selection action mode the
-      WebView creates is TYPE_FLOATING and the system bypasses the
-      activity hook for it on this build). The fallback below is
-      pure JS: when the user has a multi-word selection in the
-      article body, show a small floating button near the
-      selection. Tapping it triggers translation.
-    -->
-    <button
-      v-if="showTranslateButton"
-      class="translate-fab"
-      :style="{ top: translateButtonY + 'px', left: translateButtonX + 'px' }"
-      @click="onTranslateButtonClick"
-    >{{ t('news.translate') }}</button>
-
     <!-- Fixed bottom bar -->
     <div v-if="article?.rewritten_body" class="bottom-bar">
       <div class="mode-bar">

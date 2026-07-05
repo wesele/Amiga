@@ -84,13 +84,6 @@
       </div>
     </Transition>
 
-    <button
-      v-if="showTranslateButton"
-      class="translate-fab"
-      :style="{ top: translateButtonY + 'px', left: translateButtonX + 'px' }"
-      @click="onTranslateButtonClick"
-    >{{ t('news.translate') }}</button>
-
     <div v-if="article" class="bottom-bar">
       <div class="bottom-actions">
         <button class="btn-mode" :class="{ active: bilingualMode }" @click="toggleBilingual">
