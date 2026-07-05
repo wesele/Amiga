@@ -48,14 +48,14 @@ export function startSocialInboxListener({ userId, friends = [] }) {
   let offlineTimer = null;
   let stopped = false;
 
-  async function connectPublicSocket(config) {
+  async function connectPublicSocket(config, friendIds) {
     const socket = createSocialSocket(config, {
       userId,
       mode: "public",
       peerId: "",
       onMessage: (payload) => {
         if (!isIncomingMessage(payload, userId)) return;
-        if (payload.mode === "direct") return;
+        if (friendIds.has(payload.senderId)) return;
         handleIncomingMessage({ ...payload, mode: "public" }, userId);
       },
     });
@@ -117,7 +117,10 @@ export function startSocialInboxListener({ userId, friends = [] }) {
   async function start() {
     try {
       const config = await getSocialConfig();
-      await connectPublicSocket(config);
+      const friendIds = new Set(
+        friends.map((f) => f.friendUserId || f.peerId).filter(Boolean),
+      );
+      await connectPublicSocket(config, friendIds);
       await connectDirectSockets(config);
       await pollOffline(config);
       offlineTimer = setInterval(() => {
