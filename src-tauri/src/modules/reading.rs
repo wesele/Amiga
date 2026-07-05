@@ -15,9 +15,8 @@ mod tests {
     }
 
     fn insert_user(conn: &Connection) {
-        conn.execute(
-            "INSERT INTO users (id, nickname) VALUES ('u1', 'Test')", [],
-        ).ok();
+        conn.execute("INSERT INTO users (id, nickname) VALUES ('u1', 'Test')", [])
+            .ok();
     }
 
     #[test]
@@ -52,6 +51,39 @@ mod tests {
     }
 
     #[test]
+    fn test_normalize_questions_accepts_one_based_indexes() {
+        let questions = vec![ReadingQuestion {
+            question: "Question?".to_string(),
+            options: vec![
+                "A".to_string(),
+                "B".to_string(),
+                "C".to_string(),
+                "D".to_string(),
+            ],
+            correct_index: 4,
+        }];
+
+        let normalized = normalize_reading_questions(questions).unwrap();
+        assert_eq!(normalized[0].correct_index, 3);
+    }
+
+    #[test]
+    fn test_normalize_questions_rejects_out_of_range_indexes() {
+        let questions = vec![ReadingQuestion {
+            question: "Question?".to_string(),
+            options: vec![
+                "A".to_string(),
+                "B".to_string(),
+                "C".to_string(),
+                "D".to_string(),
+            ],
+            correct_index: 5,
+        }];
+
+        assert!(normalize_reading_questions(questions).is_err());
+    }
+
+    #[test]
     fn test_save_and_get_article() {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
@@ -59,9 +91,17 @@ mod tests {
         drop(conn);
 
         let aid = save_reading_article(
-            &pool, "u1", "es", "A2", "2025-07-05", "AM", "Test topic",
-            "Test Title", "Test body content here",
-        ).unwrap();
+            &pool,
+            "u1",
+            "es",
+            "A2",
+            "2025-07-05",
+            "AM",
+            "Test topic",
+            "Test Title",
+            "Test body content here",
+        )
+        .unwrap();
 
         let article = get_reading_article(&pool, aid).unwrap();
         assert_eq!(article.title, "Test Title");
@@ -76,8 +116,17 @@ mod tests {
         drop(conn);
 
         let aid = save_reading_article(
-            &pool, "u1", "es", "A2", "2025-07-05", "AM", "Topic", "Title", "Body",
-        ).unwrap();
+            &pool,
+            "u1",
+            "es",
+            "A2",
+            "2025-07-05",
+            "AM",
+            "Topic",
+            "Title",
+            "Body",
+        )
+        .unwrap();
         mark_article_read(&pool, aid).unwrap();
         assert_eq!(get_reading_article(&pool, aid).unwrap().status, "read");
     }
@@ -90,8 +139,17 @@ mod tests {
         drop(conn);
 
         let aid = save_reading_article(
-            &pool, "u1", "es", "A2", "2025-07-05", "AM", "Topic", "Title", "Body",
-        ).unwrap();
+            &pool,
+            "u1",
+            "es",
+            "A2",
+            "2025-07-05",
+            "AM",
+            "Topic",
+            "Title",
+            "Body",
+        )
+        .unwrap();
         submit_reading_test(&pool, aid, "u1", "[]", 8, 10).unwrap();
         let article = get_reading_article(&pool, aid).unwrap();
         assert_eq!(article.status, "completed");
@@ -107,11 +165,29 @@ mod tests {
         drop(conn);
 
         let a1 = save_reading_article(
-            &pool, "u1", "es", "A2", "2025-07-04", "AM", "Topic A", "Old", "Body",
-        ).unwrap();
+            &pool,
+            "u1",
+            "es",
+            "A2",
+            "2025-07-04",
+            "AM",
+            "Topic A",
+            "Old",
+            "Body",
+        )
+        .unwrap();
         let a2 = save_reading_article(
-            &pool, "u1", "es", "A2", "2025-07-05", "AM", "Topic B", "New", "Body",
-        ).unwrap();
+            &pool,
+            "u1",
+            "es",
+            "A2",
+            "2025-07-05",
+            "AM",
+            "Topic B",
+            "New",
+            "Body",
+        )
+        .unwrap();
 
         let articles = get_reading_articles(&pool, "u1", "es").unwrap();
         assert_eq!(articles.len(), 2);
@@ -126,8 +202,30 @@ mod tests {
         insert_user(&conn);
         drop(conn);
 
-        save_reading_article(&pool, "u1", "es", "A1", "2025-07-05", "AM", "T1", "ES", "Body").unwrap();
-        save_reading_article(&pool, "u1", "en", "A1", "2025-07-05", "AM", "T2", "EN", "Body").unwrap();
+        save_reading_article(
+            &pool,
+            "u1",
+            "es",
+            "A1",
+            "2025-07-05",
+            "AM",
+            "T1",
+            "ES",
+            "Body",
+        )
+        .unwrap();
+        save_reading_article(
+            &pool,
+            "u1",
+            "en",
+            "A1",
+            "2025-07-05",
+            "AM",
+            "T2",
+            "EN",
+            "Body",
+        )
+        .unwrap();
 
         assert_eq!(get_reading_articles(&pool, "u1", "es").unwrap().len(), 1);
     }
@@ -140,11 +238,24 @@ mod tests {
         drop(conn);
 
         save_reading_article(
-            &pool, "u1", "es", "A2", "2025-07-05", "AM", "Topic", "Title", "Body",
-        ).unwrap();
+            &pool,
+            "u1",
+            "es",
+            "A2",
+            "2025-07-05",
+            "AM",
+            "Topic",
+            "Title",
+            "Body",
+        )
+        .unwrap();
 
-        assert!(get_article_for_slot(&pool, "u1", "es", "2025-07-05", "AM").unwrap().is_some());
-        assert!(get_article_for_slot(&pool, "u1", "es", "2025-07-05", "PM").unwrap().is_none());
+        assert!(get_article_for_slot(&pool, "u1", "es", "2025-07-05", "AM")
+            .unwrap()
+            .is_some());
+        assert!(get_article_for_slot(&pool, "u1", "es", "2025-07-05", "PM")
+            .unwrap()
+            .is_none());
     }
 }
 
@@ -290,7 +401,10 @@ pub fn ensure_default_topics(db: &DatabasePool) {
     let conn = match db.conn() {
         Ok(c) => c,
         Err(e) => {
-            log::error!("Failed to get DB connection for ensure_default_topics: {}", e);
+            log::error!(
+                "Failed to get DB connection for ensure_default_topics: {}",
+                e
+            );
             return;
         }
     };
@@ -312,7 +426,50 @@ pub fn ensure_default_topics(db: &DatabasePool) {
 }
 
 pub fn determine_slot(hour: i32) -> &'static str {
-    if hour < 12 { "AM" } else { "PM" }
+    if hour < 12 {
+        "AM"
+    } else {
+        "PM"
+    }
+}
+
+fn normalize_reading_questions(
+    mut questions: Vec<ReadingQuestion>,
+) -> Result<Vec<ReadingQuestion>, String> {
+    let use_one_based_index = questions
+        .iter()
+        .any(|q| q.correct_index == q.options.len() && !q.options.is_empty());
+
+    for (idx, question) in questions.iter_mut().enumerate() {
+        if question.question.trim().is_empty() {
+            return Err(format!("Question {} is empty", idx + 1));
+        }
+        if question.options.len() != 4 {
+            return Err(format!(
+                "Question {} expected 4 options, got {}",
+                idx + 1,
+                question.options.len()
+            ));
+        }
+        if use_one_based_index {
+            if question.correct_index == 0 {
+                return Err(format!(
+                    "Question {} has invalid 1-based answer index 0",
+                    idx + 1
+                ));
+            }
+            question.correct_index -= 1;
+        }
+        if question.correct_index >= question.options.len() {
+            return Err(format!(
+                "Question {} answer index {} is out of range",
+                idx + 1,
+                question.correct_index
+            ));
+        }
+    }
+
+    Ok(questions)
 }
 
 pub fn get_reading_articles(
@@ -321,33 +478,37 @@ pub fn get_reading_articles(
     target_language: &str,
 ) -> Result<Vec<ReadingArticle>, String> {
     let conn = db.conn()?;
-    let mut stmt = conn.prepare(
-        "SELECT id, user_id, target_language, cefr_level, local_date, slot,
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, user_id, target_language, cefr_level, local_date, slot,
                 topic, title, body, status, test_correct_count, test_total_count, generated_at
          FROM reading_articles
          WHERE user_id = ?1 AND target_language = ?2
-         ORDER BY local_date DESC, slot DESC, id DESC"
-    ).map_err(|e| format!("Query error: {}", e))?;
+         ORDER BY local_date DESC, slot DESC, id DESC",
+        )
+        .map_err(|e| format!("Query error: {}", e))?;
 
-    let articles = stmt.query_map(params![user_id, target_language], |row| {
-        Ok(ReadingArticle {
-            id: row.get(0)?,
-            user_id: row.get(1)?,
-            target_language: row.get(2)?,
-            cefr_level: row.get(3)?,
-            local_date: row.get(4)?,
-            slot: row.get(5)?,
-            topic: row.get(6)?,
-            title: row.get(7)?,
-            body: row.get(8)?,
-            status: row.get(9)?,
-            test_correct_count: row.get(10)?,
-            test_total_count: row.get(11)?,
-            generated_at: row.get(12)?,
+    let articles = stmt
+        .query_map(params![user_id, target_language], |row| {
+            Ok(ReadingArticle {
+                id: row.get(0)?,
+                user_id: row.get(1)?,
+                target_language: row.get(2)?,
+                cefr_level: row.get(3)?,
+                local_date: row.get(4)?,
+                slot: row.get(5)?,
+                topic: row.get(6)?,
+                title: row.get(7)?,
+                body: row.get(8)?,
+                status: row.get(9)?,
+                test_correct_count: row.get(10)?,
+                test_total_count: row.get(11)?,
+                generated_at: row.get(12)?,
+            })
         })
-    }).map_err(|e| format!("Query map error: {}", e))?
-    .filter_map(|r| r.ok())
-    .collect();
+        .map_err(|e| format!("Query map error: {}", e))?
+        .filter_map(|r| r.ok())
+        .collect();
 
     Ok(articles)
 }
@@ -359,22 +520,25 @@ pub fn get_reading_article(db: &DatabasePool, article_id: i64) -> Result<Reading
                 topic, title, body, status, test_correct_count, test_total_count, generated_at
          FROM reading_articles WHERE id = ?1",
         params![article_id],
-        |row| Ok(ReadingArticle {
-            id: row.get(0)?,
-            user_id: row.get(1)?,
-            target_language: row.get(2)?,
-            cefr_level: row.get(3)?,
-            local_date: row.get(4)?,
-            slot: row.get(5)?,
-            topic: row.get(6)?,
-            title: row.get(7)?,
-            body: row.get(8)?,
-            status: row.get(9)?,
-            test_correct_count: row.get(10)?,
-            test_total_count: row.get(11)?,
-            generated_at: row.get(12)?,
-        }),
-    ).map_err(|e| format!("Article not found: {}", e))
+        |row| {
+            Ok(ReadingArticle {
+                id: row.get(0)?,
+                user_id: row.get(1)?,
+                target_language: row.get(2)?,
+                cefr_level: row.get(3)?,
+                local_date: row.get(4)?,
+                slot: row.get(5)?,
+                topic: row.get(6)?,
+                title: row.get(7)?,
+                body: row.get(8)?,
+                status: row.get(9)?,
+                test_correct_count: row.get(10)?,
+                test_total_count: row.get(11)?,
+                generated_at: row.get(12)?,
+            })
+        },
+    )
+    .map_err(|e| format!("Article not found: {}", e))
 }
 
 pub fn get_article_for_slot(
@@ -385,28 +549,32 @@ pub fn get_article_for_slot(
     slot: &str,
 ) -> Result<Option<ReadingArticle>, String> {
     let conn = db.conn()?;
-    let result = conn.query_row(
-        "SELECT id, user_id, target_language, cefr_level, local_date, slot,
+    let result = conn
+        .query_row(
+            "SELECT id, user_id, target_language, cefr_level, local_date, slot,
                 topic, title, body, status, test_correct_count, test_total_count, generated_at
          FROM reading_articles
          WHERE user_id = ?1 AND target_language = ?2 AND local_date = ?3 AND slot = ?4",
-        params![user_id, target_language, local_date, slot],
-        |row| Ok(ReadingArticle {
-            id: row.get(0)?,
-            user_id: row.get(1)?,
-            target_language: row.get(2)?,
-            cefr_level: row.get(3)?,
-            local_date: row.get(4)?,
-            slot: row.get(5)?,
-            topic: row.get(6)?,
-            title: row.get(7)?,
-            body: row.get(8)?,
-            status: row.get(9)?,
-            test_correct_count: row.get(10)?,
-            test_total_count: row.get(11)?,
-            generated_at: row.get(12)?,
-        }),
-    ).ok();
+            params![user_id, target_language, local_date, slot],
+            |row| {
+                Ok(ReadingArticle {
+                    id: row.get(0)?,
+                    user_id: row.get(1)?,
+                    target_language: row.get(2)?,
+                    cefr_level: row.get(3)?,
+                    local_date: row.get(4)?,
+                    slot: row.get(5)?,
+                    topic: row.get(6)?,
+                    title: row.get(7)?,
+                    body: row.get(8)?,
+                    status: row.get(9)?,
+                    test_correct_count: row.get(10)?,
+                    test_total_count: row.get(11)?,
+                    generated_at: row.get(12)?,
+                })
+            },
+        )
+        .ok();
     Ok(result)
 }
 
@@ -426,8 +594,18 @@ pub fn save_reading_article(
         "INSERT INTO reading_articles
             (user_id, target_language, cefr_level, local_date, slot, topic, title, body)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        params![user_id, target_language, cefr_level, local_date, slot, topic, title, body],
-    ).map_err(|e| format!("Failed to save reading article: {}", e))?;
+        params![
+            user_id,
+            target_language,
+            cefr_level,
+            local_date,
+            slot,
+            topic,
+            title,
+            body
+        ],
+    )
+    .map_err(|e| format!("Failed to save reading article: {}", e))?;
     Ok(conn.last_insert_rowid())
 }
 
@@ -436,7 +614,8 @@ pub fn mark_article_read(db: &DatabasePool, article_id: i64) -> Result<(), Strin
     conn.execute(
         "UPDATE reading_articles SET status = 'read' WHERE id = ?1 AND status = 'unread'",
         params![article_id],
-    ).map_err(|e| format!("Failed to mark article read: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to mark article read: {}", e))?;
     Ok(())
 }
 
@@ -460,9 +639,16 @@ pub fn submit_reading_test(
          SET status = 'completed', test_correct_count = ?1, test_total_count = ?2
          WHERE id = ?3",
         params![correct_count, total_count, article_id],
-    ).map_err(|e| format!("Failed to update article after test: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to update article after test: {}", e))?;
 
-    log::info!("Reading test submitted: article={} user={} score={}/{}", article_id, user_id, correct_count, total_count);
+    log::info!(
+        "Reading test submitted: article={} user={} score={}/{}",
+        article_id,
+        user_id,
+        correct_count,
+        total_count
+    );
     Ok(())
 }
 
@@ -474,12 +660,14 @@ fn pick_unused_topic(db: &DatabasePool, user_id: &str) -> Result<String, String>
          ORDER BY RANDOM() LIMIT 1",
         params![user_id],
         |row| row.get(0),
-    ).or_else(|_| {
+    )
+    .or_else(|_| {
         conn.query_row(
             "SELECT topic FROM reading_topics WHERE enabled = 1 ORDER BY RANDOM() LIMIT 1",
             [],
             |row| row.get(0),
-        ).map_err(|e| format!("No enabled reading topics: {}", e))
+        )
+        .map_err(|e| format!("No enabled reading topics: {}", e))
     })
 }
 
@@ -582,7 +770,7 @@ async fn generate_test_via_llm(
     if questions.len() != 10 {
         return Err(format!("Expected 10 questions, got {}", questions.len()));
     }
-    Ok(questions)
+    normalize_reading_questions(questions)
 }
 
 async fn explain_answer_via_llm(
@@ -646,17 +834,42 @@ pub async fn ensure_reading_article(
     let slot = determine_slot(hour);
 
     if let Some(article) = get_article_for_slot(db, user_id, target_lang, &local_date, slot)? {
-        log::info!("Reading article already exists for {}/{} {}", local_date, slot, user_id);
+        log::info!(
+            "Reading article already exists for {}/{} {}",
+            local_date,
+            slot,
+            user_id
+        );
         return Ok(article);
     }
 
     let topic = pick_unused_topic(db, user_id)?;
-    log::info!("Generating reading article for {}/{}: topic={}", local_date, slot, topic);
+    log::info!(
+        "Generating reading article for {}/{}: topic={}",
+        local_date,
+        slot,
+        topic
+    );
 
-    let (title, body) = generate_article_via_llm(llm, db, &topic, target_lang, cefr_level, native_lang).await?;
-    let article_id = save_reading_article(db, user_id, target_lang, cefr_level, &local_date, slot, &topic, &title, &body)?;
+    let (title, body) =
+        generate_article_via_llm(llm, db, &topic, target_lang, cefr_level, native_lang).await?;
+    let article_id = save_reading_article(
+        db,
+        user_id,
+        target_lang,
+        cefr_level,
+        &local_date,
+        slot,
+        &topic,
+        &title,
+        &body,
+    )?;
 
-    log::info!("Reading article generated: id={} user={}", article_id, user_id);
+    log::info!(
+        "Reading article generated: id={} user={}",
+        article_id,
+        user_id
+    );
     get_reading_article(db, article_id)
 }
 
@@ -677,19 +890,23 @@ pub async fn get_or_generate_reading_test(
         .ok();
 
     if let Some(json) = cached {
-        return serde_json::from_str(&json).map_err(|e| format!("Failed to parse cached questions: {}", e));
+        let questions: Vec<ReadingQuestion> = serde_json::from_str(&json)
+            .map_err(|e| format!("Failed to parse cached questions: {}", e))?;
+        return normalize_reading_questions(questions);
     }
     drop(conn);
 
     let article = get_reading_article(db, article_id)?;
     let questions = generate_test_via_llm(llm, db, &article.body, target_lang, cefr_level).await?;
-    let questions_json = serde_json::to_string(&questions).map_err(|e| format!("Failed to serialize questions: {}", e))?;
+    let questions_json = serde_json::to_string(&questions)
+        .map_err(|e| format!("Failed to serialize questions: {}", e))?;
 
     let conn = db.conn()?;
     conn.execute(
         "INSERT INTO reading_tests (article_id, questions_json) VALUES (?1, ?2)",
         params![article_id, questions_json],
-    ).map_err(|e| format!("Failed to cache questions: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to cache questions: {}", e))?;
 
     Ok(questions)
 }
@@ -714,7 +931,8 @@ pub async fn explain_reading_answer(
         )
         .unwrap_or_else(|_| "[]".to_string());
 
-    let mut explanations: Vec<String> = serde_json::from_str(&explanations_json).unwrap_or_default();
+    let mut explanations: Vec<String> =
+        serde_json::from_str(&explanations_json).unwrap_or_default();
     while explanations.len() <= question_index {
         explanations.push(String::new());
     }
@@ -723,13 +941,20 @@ pub async fn explain_reading_answer(
     }
     drop(conn);
 
-    let q: ReadingQuestion = serde_json::from_str(question_json)
-        .map_err(|e| format!("Invalid question JSON: {}", e))?;
+    let q: ReadingQuestion =
+        serde_json::from_str(question_json).map_err(|e| format!("Invalid question JSON: {}", e))?;
     let article = get_reading_article(db, article_id)?;
 
     let explanation = explain_answer_via_llm(
-        llm, db, &article.body, &q.question, user_answer, correct_answer, native_lang,
-    ).await?;
+        llm,
+        db,
+        &article.body,
+        &q.question,
+        user_answer,
+        correct_answer,
+        native_lang,
+    )
+    .await?;
 
     explanations[question_index] = explanation.clone();
     let updated_json = serde_json::to_string(&explanations)
@@ -739,12 +964,16 @@ pub async fn explain_reading_answer(
     conn.execute(
         "UPDATE reading_tests SET explanations_json = ?1 WHERE article_id = ?2",
         params![updated_json, article_id],
-    ).ok();
+    )
+    .ok();
 
     Ok(explanation)
 }
 
-pub fn get_reading_test_explanations(db: &DatabasePool, article_id: i64) -> Result<Vec<String>, String> {
+pub fn get_reading_test_explanations(
+    db: &DatabasePool,
+    article_id: i64,
+) -> Result<Vec<String>, String> {
     let conn = db.conn()?;
     let json: String = conn
         .query_row(

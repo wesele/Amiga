@@ -24,53 +24,71 @@
       <button class="btn-secondary" @click="loadTest">{{ t('reading.retry') }}</button>
     </div>
 
-    <div v-else class="questions-list">
-      <div
-        v-for="(q, qi) in questions"
-        :key="qi"
-        class="question-card"
-        :class="{ answered: answers[qi] !== undefined }"
-      >
-        <div class="question-number">{{ qi + 1 }}</div>
-        <p class="question-text">{{ q.question }}</p>
+    <div v-else class="question-stage">
+      <div v-if="currentQuestion" class="question-card" :class="{ answered: answers[currentQuestionIndex] !== undefined }">
+        <div class="question-toolbar">
+          <div class="question-number">{{ currentQuestionIndex + 1 }}</div>
+          <div class="question-progress">{{ currentQuestionIndex + 1 }}/{{ questions.length }}</div>
+        </div>
+
+        <p class="question-text">{{ currentQuestion.question }}</p>
 
         <div class="options">
           <button
-            v-for="(opt, oi) in q.options"
+            v-for="(opt, oi) in currentQuestion.options"
             :key="oi"
             class="option-btn"
-            :class="optionClass(qi, oi)"
-            :disabled="answers[qi] !== undefined"
-            @click="selectAnswer(qi, oi)"
+            :class="optionClass(currentQuestionIndex, oi)"
+            :disabled="answers[currentQuestionIndex] !== undefined"
+            @click="selectAnswer(currentQuestionIndex, oi)"
           >
             <span class="option-key">{{ optionLabels[oi] }}</span>
             <span class="option-text">{{ opt }}</span>
-            <span v-if="answers[qi] !== undefined && oi === q.correct_index" class="option-mark correct-mark">✓</span>
-            <span v-else-if="answers[qi] === oi && oi !== q.correct_index" class="option-mark wrong-mark">✗</span>
+            <span v-if="answers[currentQuestionIndex] !== undefined && oi === currentQuestion.correct_index" class="option-mark correct-mark">✓</span>
+            <span v-else-if="answers[currentQuestionIndex] === oi && oi !== currentQuestion.correct_index" class="option-mark wrong-mark">×</span>
           </button>
         </div>
 
-        <Transition name="expand">
-          <div v-if="explanations[qi]" class="explanation-box">
-            <div class="explanation-header">{{ t('reading.explanation') }}</div>
-            <p class="explanation-text">{{ explanations[qi] }}</p>
-          </div>
-          <div v-else-if="loadingExplanation[qi]" class="explanation-loading">
-            <div class="spinner-small" />
-            <span>{{ t('reading.loadingExplanation') }}</span>
-          </div>
-        </Transition>
-      </div>
-    </div>
+        <div v-if="isCurrentAnswerWrong" class="answer-feedback">
+          <span>{{ t('reading.wrong') }}</span>
+          <button class="retry-answer-btn" @click="retryQuestion(currentQuestionIndex)">
+            {{ t('reading.retry') }}
+          </button>
+        </div>
 
-    <div v-if="questions.length > 0 && allAnswered" class="bottom-bar">
-      <button
-        class="btn-submit"
-        :disabled="submitting"
-        @click="submitTest"
-      >
-        {{ t('reading.submitTest') }}
-      </button>
+        <div v-if="loadingExplanation[currentQuestionIndex]" class="explanation-loading">
+          <div class="spinner-small" />
+          <span>{{ t('reading.loadingExplanation') }}</span>
+        </div>
+
+        <div v-else-if="explanationErrors[currentQuestionIndex]" class="explanation-box explanation-error-box">
+          <div class="explanation-header">{{ t('reading.explanation') }}</div>
+          <p class="explanation-text">{{ explanations[currentQuestionIndex] || t('reading.generateFail') }}</p>
+          <button class="retry-link" @click="retryExplanation(currentQuestionIndex)">{{ t('reading.retry') }}</button>
+        </div>
+
+        <div v-else-if="explanations[currentQuestionIndex]" class="explanation-box">
+          <div class="explanation-header">{{ t('reading.explanation') }}</div>
+          <p class="explanation-text">{{ explanations[currentQuestionIndex] }}</p>
+        </div>
+      </div>
+
+      <div v-if="currentQuestion" class="bottom-bar">
+        <button class="btn-secondary nav-btn" :disabled="currentQuestionIndex === 0" @click="goPrev">
+          {{ t('common.previous') }}
+        </button>
+        <button v-if="!isLastQuestion" class="btn-submit nav-btn" @click="goNext">
+          {{ t('reading.next') }}
+        </button>
+        <button v-else class="btn-submit nav-btn" :disabled="submitting || !allAnswered" @click="submitTest">
+          {{ t('reading.submitTest') }}
+        </button>
+      </div>
+
+      <div v-else class="error-container">
+        <p class="error-text">{{ t('reading.generatingFail') }}</p>
+        <button class="btn-secondary" @click="loadTest">{{ t('reading.retry') }}</button>
+      </div>
     </div>
 
     <Transition name="popup">
@@ -91,14 +109,12 @@ import {
   explainReadingAnswer,
   submitReadingTest,
   getReadingTestExplanations,
-  getReadingArticle,
 } from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 
 const { t } = useI18n();
 const router = useRouter();
 const targetLangStore = useTargetLangStore();
-
 const props = defineProps({ id: [String, Number] });
 
 const optionLabels = ["A", "B", "C", "D"];
@@ -107,11 +123,13 @@ const questions = ref([]);
 const answers = ref({});
 const explanations = ref({});
 const loadingExplanation = ref({});
+const explanationErrors = ref({});
 const loading = ref(true);
 const error = ref("");
 const submitting = ref(false);
 const submitted = ref(false);
 const correctCount = ref(0);
+const currentQuestionIndex = ref(0);
 
 let userId = "";
 let targetLang = "";
@@ -120,10 +138,60 @@ let nativeLang = "";
 
 const answeredCount = computed(() => Object.keys(answers.value).length);
 const allAnswered = computed(() => questions.value.length > 0 && answeredCount.value === questions.value.length);
+const currentQuestion = computed(() => questions.value[currentQuestionIndex.value] || null);
+const isLastQuestion = computed(() => currentQuestionIndex.value === questions.value.length - 1);
+const isCurrentAnswerWrong = computed(() => {
+  const answer = answers.value[currentQuestionIndex.value];
+  const question = currentQuestion.value;
+  return question && answer !== undefined && answer !== question.correct_index;
+});
 
 onMounted(async () => {
   await loadTest();
 });
+
+function rawCorrectIndex(raw) {
+  let correctIndex = raw?.correct_index ?? raw?.correct;
+  if (typeof correctIndex === "string") {
+    const trimmed = correctIndex.trim();
+    const letterIndex = optionLabels.indexOf(trimmed.toUpperCase());
+    if (letterIndex >= 0) return letterIndex;
+    correctIndex = Number(trimmed);
+  }
+  return Number(correctIndex);
+}
+
+function rawCorrectIsLetter(raw) {
+  const correctIndex = raw?.correct_index ?? raw?.correct;
+  return typeof correctIndex === "string" && optionLabels.includes(correctIndex.trim().toUpperCase());
+}
+
+function normalizeQuestion(raw, useOneBasedIndex) {
+  const options = Array.isArray(raw?.options) ? raw.options.map((option) => String(option)) : [];
+  let correctIndex = rawCorrectIndex(raw);
+  if (useOneBasedIndex && !rawCorrectIsLetter(raw) && Number.isInteger(correctIndex)) {
+    correctIndex -= 1;
+  }
+  return {
+    ...raw,
+    question: String(raw?.question || ""),
+    options,
+    correct_index: Number.isInteger(correctIndex) ? correctIndex : -1,
+  };
+}
+
+function normalizeQuestions(rawQuestions) {
+  const list = Array.isArray(rawQuestions) ? rawQuestions : [];
+  const useOneBasedIndex = list.some((question) => rawCorrectIndex(question) === question?.options?.length);
+  return list
+    .map((question) => normalizeQuestion(question, useOneBasedIndex))
+    .filter((question) =>
+      question.question &&
+      question.options.length === 4 &&
+      question.correct_index >= 0 &&
+      question.correct_index < question.options.length,
+    );
+}
 
 function optionClass(qi, oi) {
   if (answers.value[qi] === undefined) return "";
@@ -136,6 +204,13 @@ function optionClass(qi, oi) {
 async function loadTest() {
   loading.value = true;
   error.value = "";
+  submitted.value = false;
+  correctCount.value = 0;
+  answers.value = {};
+  explanations.value = {};
+  loadingExplanation.value = {};
+  explanationErrors.value = {};
+  currentQuestionIndex.value = 0;
   try {
     const ctx = await loadLearningContext({ targetLangStore, fallbackToFirstGoal: true });
     targetLang = ctx.targetLang;
@@ -143,18 +218,19 @@ async function loadTest() {
     nativeLang = ctx.nativeLang;
     userId = ctx.user?.id || "";
 
-    questions.value = await getOrGenerateReadingTest(Number(props.id), targetLang, cefrLevel);
+    const rawQuestions = await getOrGenerateReadingTest(Number(props.id), targetLang, cefrLevel);
+    questions.value = normalizeQuestions(rawQuestions);
+    if (questions.value.length === 0) {
+      throw new Error(t("reading.generatingFail"));
+    }
 
-    // Load cached explanations (if returning after leaving)
     try {
       const cached = await getReadingTestExplanations(Number(props.id));
       cached.forEach((exp, i) => {
-        if (exp) {
-          explanations.value[i] = exp;
-        }
+        if (exp) explanations.value[i] = exp;
       });
     } catch (e) {
-      // ignore
+      // ignore cached explanation load errors
     }
   } catch (e) {
     console.error("Failed to load test:", e);
@@ -164,6 +240,14 @@ async function loadTest() {
   }
 }
 
+function goPrev() {
+  if (currentQuestionIndex.value > 0) currentQuestionIndex.value -= 1;
+}
+
+function goNext() {
+  if (currentQuestionIndex.value < questions.value.length - 1) currentQuestionIndex.value += 1;
+}
+
 async function selectAnswer(qi, oi) {
   if (answers.value[qi] !== undefined) return;
 
@@ -171,25 +255,66 @@ async function selectAnswer(qi, oi) {
 
   const q = questions.value[qi];
   if (oi !== q.correct_index) {
-    // Wrong answer - generate explanation
     loadingExplanation.value = { ...loadingExplanation.value, [qi]: true };
+    explanationErrors.value = { ...explanationErrors.value, [qi]: false };
     try {
-      const userAnswerText = q.options[oi];
-      const correctAnswerText = q.options[q.correct_index];
-      const questionJson = JSON.stringify(q);
-      const exp = await explainReadingAnswer(
-        Number(props.id), qi, questionJson,
-        userAnswerText, correctAnswerText,
-        targetLang, nativeLang,
-      );
-      explanations.value = { ...explanations.value, [qi]: exp };
+      await generateExplanation(qi);
     } catch (e) {
       console.error("Failed to get explanation:", e);
       explanations.value = { ...explanations.value, [qi]: t("reading.generateFail") };
+      explanationErrors.value = { ...explanationErrors.value, [qi]: true };
     } finally {
       loadingExplanation.value = { ...loadingExplanation.value, [qi]: false };
     }
   }
+}
+
+async function retryExplanation(qi) {
+  if (loadingExplanation.value[qi]) return;
+  loadingExplanation.value = { ...loadingExplanation.value, [qi]: true };
+  explanationErrors.value = { ...explanationErrors.value, [qi]: false };
+  try {
+    await generateExplanation(qi);
+  } catch (e) {
+    console.error("Failed to retry explanation:", e);
+    explanations.value = { ...explanations.value, [qi]: t("reading.generateFail") };
+    explanationErrors.value = { ...explanationErrors.value, [qi]: true };
+  } finally {
+    loadingExplanation.value = { ...loadingExplanation.value, [qi]: false };
+  }
+}
+
+function retryQuestion(qi) {
+  const nextAnswers = { ...answers.value };
+  delete nextAnswers[qi];
+  answers.value = nextAnswers;
+
+  const nextExplanations = { ...explanations.value };
+  delete nextExplanations[qi];
+  explanations.value = nextExplanations;
+
+  const nextLoading = { ...loadingExplanation.value };
+  delete nextLoading[qi];
+  loadingExplanation.value = nextLoading;
+
+  const nextErrors = { ...explanationErrors.value };
+  delete nextErrors[qi];
+  explanationErrors.value = nextErrors;
+}
+
+async function generateExplanation(qi) {
+  const q = questions.value[qi];
+  const answer = answers.value[qi];
+  const userAnswerText = q.options[answer];
+  const correctAnswerText = q.options[q.correct_index];
+  const questionJson = JSON.stringify(q);
+  const exp = await explainReadingAnswer(
+    Number(props.id), qi, questionJson,
+    userAnswerText, correctAnswerText,
+    targetLang, nativeLang,
+  );
+  explanations.value = { ...explanations.value, [qi]: exp };
+  explanationErrors.value = { ...explanationErrors.value, [qi]: false };
 }
 
 async function submitTest() {
@@ -198,9 +323,7 @@ async function submitTest() {
 
   let correct = 0;
   questions.value.forEach((q, qi) => {
-    if (answers.value[qi] === q.correct_index) {
-      correct++;
-    }
+    if (answers.value[qi] === q.correct_index) correct++;
   });
   correctCount.value = correct;
 
@@ -258,11 +381,16 @@ function goBack() {
   color: var(--text-light);
 }
 
+.back-btn:hover {
+  background: var(--surface-variant);
+}
+
 .header-info {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
 }
 
 .header-title {
@@ -276,7 +404,8 @@ function goBack() {
   font-weight: 600;
 }
 
-.loading-center, .error-container {
+.loading-center,
+.error-container {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -304,12 +433,11 @@ function goBack() {
   to { transform: rotate(360deg); }
 }
 
-.questions-list {
-  padding: 12px 16px;
+.question-stage {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding-bottom: 80px;
+  padding: 12px 16px 88px;
 }
 
 .question-card {
@@ -317,6 +445,14 @@ function goBack() {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 14px;
+}
+
+.question-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .question-number {
@@ -330,7 +466,12 @@ function goBack() {
   font-size: 12px;
   font-weight: 700;
   line-height: 24px;
-  margin-bottom: 8px;
+}
+
+.question-progress {
+  font-size: 12px;
+  color: var(--text-lighter);
+  font-weight: 600;
 }
 
 .question-text {
@@ -415,12 +556,44 @@ function goBack() {
   color: #dc3545;
 }
 
+.answer-feedback {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #ffc9c9;
+  border-radius: var(--radius-sm);
+  background: #fff5f5;
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.retry-answer-btn {
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: #dc3545;
+  color: #fff;
+  padding: 7px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .explanation-box {
   margin-top: 10px;
   padding: 10px 12px;
   background: #fff8e1;
   border: 1px solid #ffe082;
   border-radius: var(--radius-sm);
+}
+
+.explanation-error-box {
+  border-color: #ffd49d;
 }
 
 .explanation-header {
@@ -435,6 +608,16 @@ function goBack() {
   font-size: 13px;
   line-height: 1.5;
   color: #5a4a00;
+}
+
+.retry-link {
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--green);
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .explanation-loading {
@@ -456,22 +639,24 @@ function goBack() {
 }
 
 .bottom-bar {
-  position: fixed;
+  position: sticky;
   bottom: 0;
-  left: 0;
-  right: 0;
   display: flex;
-  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 12px 16px;
   background: var(--white);
   border-top: 1px solid var(--border);
 }
 
+.nav-btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .btn-submit {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 32px;
+  padding: 12px 16px;
   border: none;
   background: var(--green);
   color: var(--white);
@@ -501,22 +686,15 @@ function goBack() {
   z-index: 100;
 }
 
-.popup-enter-active, .popup-leave-active {
+.popup-enter-active,
+.popup-leave-active {
   transition: opacity 0.3s, transform 0.3s;
 }
 
-.popup-enter-from, .popup-leave-to {
+.popup-enter-from,
+.popup-leave-to {
   opacity: 0;
   transform: translateX(-50%) translateY(10px);
-}
-
-.expand-enter-active, .expand-leave-active {
-  transition: all 0.3s ease;
-}
-
-.expand-enter-from, .expand-leave-to {
-  opacity: 0;
-  max-height: 0;
 }
 
 .btn-secondary {

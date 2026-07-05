@@ -1,6 +1,6 @@
 <template>
   <div class="reading-list">
-    <PageHeader :title="t('reading.title')" variant="reading" :back-label="t('common.back')" />
+    <PageHeader :title="t('reading.title')" variant="news" :back-label="t('common.back')" />
 
     <div v-if="error" class="error-container">
       <p class="error-text">{{ error }}</p>
@@ -28,7 +28,10 @@
       >
         <div class="card-header">
           <h3 class="card-title">{{ article.title }}</h3>
-          <span class="card-date">{{ formatDate(article) }}</span>
+          <span class="card-date">
+            <span class="date-weekday">{{ formatWeekday(article) }}</span>
+            <span class="date-day">{{ formatDate(article) }}</span>
+          </span>
         </div>
         <div class="card-meta">
           <span class="badge-level">{{ article.cefr_level }}</span>
@@ -77,9 +80,20 @@ function statusLabel(status) {
   }
 }
 
+function parseLocalDate(localDate) {
+  const [year, month, day] = String(localDate || "").split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function formatWeekday(article) {
+  const date = parseLocalDate(article.local_date);
+  const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  return date ? weekdays[date.getDay()] : "";
+}
+
 function formatDate(article) {
-  const slot = article.slot === "AM" ? t("reading.slotAm") : t("reading.slotPm");
-  return `${article.local_date} ${slot}`;
+  return article.local_date || "";
 }
 
 async function init() {
@@ -189,10 +203,10 @@ function openArticle(id) {
 }
 
 .card-header {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
 }
 
 .card-title {
@@ -200,15 +214,33 @@ function openArticle(id) {
   font-size: 15px;
   font-weight: 700;
   line-height: 1.3;
-  flex: 1;
+  min-width: 0;
   color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 .card-date {
-  font-size: 11px;
-  color: var(--text-lighter);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
   white-space: nowrap;
-  margin-top: 2px;
+  margin-top: 1px;
+}
+
+.date-weekday {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.date-day {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--text-lighter);
 }
 
 .card-meta {
