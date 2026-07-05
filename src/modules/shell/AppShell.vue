@@ -7,6 +7,7 @@
       <nav class="bottom-nav">
         <button v-for="tab in tabs" :key="tab.name" class="nav-item" :class="{ active: isTabActive(tab) }" @click="switchTab(tab)">
           <div class="nav-icon" v-html="tab.icon" />
+          <span v-if="tab.name === 'chat' && totalUnread > 0" class="nav-dot" />
           <span class="nav-label">{{ t(tab.label) }}</span>
         </button>
       </nav>
@@ -16,13 +17,17 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
+import { eventBus } from "@/shared/eventBus.js";
+import { getTotalUnreadCount, SOCIAL_TOTAL_UNREAD_CHANGED } from "@/modules/chat/social/socialPreview.js";
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const totalUnread = ref(0);
+let unsubscribeTotalUnread = null;
 
 const tabs = [
   {
@@ -74,6 +79,17 @@ function switchTab(tab) {
 const showNav = computed(() => {
   const noNavRoutes = ["wizard", "reader", "chat-session", "social-chat", "learn-translator"];
   return !noNavRoutes.includes(route.name);
+});
+
+onMounted(() => {
+  totalUnread.value = getTotalUnreadCount();
+  unsubscribeTotalUnread = eventBus.on(SOCIAL_TOTAL_UNREAD_CHANGED, (count) => {
+    totalUnread.value = count;
+  });
+});
+
+onUnmounted(() => {
+  unsubscribeTotalUnread?.();
 });
 </script>
 
@@ -169,6 +185,17 @@ const showNav = computed(() => {
   width: 28px;
   height: 28px;
   transition: transform var(--transition);
+}
+
+.nav-dot {
+  position: absolute;
+  top: 5px;
+  right: calc(50% - 20px);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 2px solid var(--surface);
 }
 
 .nav-label {

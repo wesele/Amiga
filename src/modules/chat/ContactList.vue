@@ -20,6 +20,7 @@
           <GroupChatIcon v-else-if="contact.contactType === 'social-public'" :size="40" />
           <AvatarEmoji v-else-if="contact.avatarEmoji" :value="contact.avatarEmoji" :size="40" />
           <span v-else>{{ contact.avatar }}</span>
+          <span v-if="contact.unreadCount > 0" class="contact-badge">{{ formatBadge(contact.unreadCount) }}</span>
         </div>
         <div class="contact-info">
           <div class="contact-name">{{ contact.name }}</div>
@@ -84,12 +85,20 @@ function applySocialPreview(contact) {
   const contactKey = getSocialContactKey(contact.contactType, contact.peerId);
   const preview = getSocialPreview(contactKey);
   if (!preview) return contact;
+  const raw = preview.unread;
+  const unreadCount = typeof raw === "number" ? raw : (raw ? 1 : 0);
   return {
     ...contact,
     desc: preview.text || contact.desc,
     lastTime: preview.createdAt ? formatTime(preview.createdAt) : contact.lastTime,
-    unread: Boolean(preview.unread),
+    unread: unreadCount > 0,
+    unreadCount,
   };
+}
+
+function formatBadge(count) {
+  if (count > 99) return "99+";
+  return String(count);
 }
 
 const aiContacts = computed(() => {
@@ -341,6 +350,25 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  position: relative;
+}
+
+.contact-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--red, #e53935);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  padding: 0 4px;
+  box-sizing: border-box;
+  pointer-events: none;
 }
 
 .contact-info {
