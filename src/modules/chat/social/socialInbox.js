@@ -71,9 +71,9 @@ export function startSocialInboxListener({ userId, friends = [] }) {
         mode: "direct",
         peerId,
       onMessage: (payload) => {
-        if (!isIncomingMessage(payload, userId)) return;
-        if (payload.mode && payload.mode !== "direct") return;
-        handleIncomingMessage({ ...payload, mode: "direct" }, userId);
+        if (isIncomingMessage(payload, userId)) {
+          handleIncomingMessage({ ...payload, mode: "direct" }, userId);
+        }
       },
       });
       sockets.push(socket);
@@ -86,13 +86,13 @@ export function startSocialInboxListener({ userId, friends = [] }) {
       const offline = await pullOfflineMessages(config, userId);
       for (const item of offline?.items || []) {
         if (!item?.content || !item?.senderId || item.senderId === userId) continue;
-        const contactKey = getSocialContactKey("social-direct", item.senderId);
         const normalized = {
           id: item.id ? String(item.id) : `${item.senderId}-${item.createdAt}-${item.content}`,
           senderId: item.senderId,
           text: item.content,
           createdAt: item.createdAt,
         };
+        const contactKey = getSocialContactKey("social-direct", item.senderId);
         mergeSocialMessages(contactKey, [normalized]);
         updateSocialPreview({
           contactKey,
