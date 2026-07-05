@@ -6,6 +6,37 @@ export const SOCIAL_TOTAL_UNREAD_CHANGED = "social-total-unread-changed";
 
 const STORAGE_KEY = "idioma.social.previews";
 
+/** Contact key for the conversation currently open in SocialChatPage, if any. */
+let activeSocialContactKey = null;
+
+/** Prevents duplicate unread increments when the same message is delivered twice. */
+const recentUnreadIncrements = new Set();
+const RECENT_UNREAD_MAX = 500;
+
+function messageFingerprint({ messageId, senderId, createdAt, text }) {
+  if (messageId) return String(messageId);
+  return `${senderId}|${createdAt}|${text}`;
+}
+
+function trimRecentSet(set, maxSize, keepCount) {
+  if (set.size <= maxSize) return;
+  const entries = [...set];
+  set.clear();
+  entries.slice(-keepCount).forEach((key) => set.add(key));
+}
+
+export function _resetSocialPreviewDedupForTests() {
+  recentUnreadIncrements.clear();
+}
+
+export function setActiveSocialContact(contactKey) {
+  activeSocialContactKey = contactKey || null;
+}
+
+export function getActiveSocialContact() {
+  return activeSocialContactKey;
+}
+
 export function getSocialContactKey(contactType, peerId = "") {
   if (contactType === "social-public") return "public";
   if (contactType === "social-direct" && peerId) return `direct:${peerId}`;
@@ -25,15 +56,27 @@ export function updateSocialPreview({
   senderId,
   currentUserId,
   markUnread = true,
+  messageId = "",
 }) {
   if (!contactKey || !text) return;
   const store = readLocalJson(STORAGE_KEY);
   const previous = store[contactKey] || {};
   const isOwn = senderId && senderId === currentUserId;
+  let incrementUnread = markUnread && !isOwn;
+  if (incrementUnread) {
+    const fingerprint = messageFingerprint({ messageId, senderId, createdAt, text });
+    const dedupeKey = `${contactKey}|${fingerprint}`;
+    if (recentUnreadIncrements.has(dedupeKey)) {
+      incrementUnread = false;
+    } else {
+      recentUnreadIncrements.add(dedupeKey);
+      trimRecentSet(recentUnreadIncrements, RECENT_UNREAD_MAX, 250);
+    }
+  }
   store[contactKey] = {
     text,
     createdAt: createdAt || new Date().toISOString(),
-    unread: markUnread && !isOwn
+    unread: incrementUnread
       ? (typeof previous.unread === "number" ? previous.unread : 0) + 1
       : (typeof previous.unread === "number" ? previous.unread : 0),
   };

@@ -7,7 +7,9 @@ import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
 import {
+  getActiveSocialContact,
   getSocialPreview,
+  setActiveSocialContact,
   updateSocialPreview,
 } from "@/modules/chat/social/socialPreview.js";
 
@@ -39,6 +41,7 @@ describe("SocialChatPage", () => {
 
   beforeEach(() => {
     localStorage.clear();
+    setActiveSocialContact(null);
     setActivePinia(createPinia());
     setLocale("en", { persist: false });
     mockInvoke = vi.fn();
@@ -169,6 +172,26 @@ describe("SocialChatPage", () => {
     expect(wrapper.findAll(".msg-bubble")).toHaveLength(1);
     expect(getSocialPreview("public").unread).toBe(0);
     expect(getSocialPreview("public").text).toBe("Visible in the open room");
+  });
+
+  it("clears active direct conversation on leave so inbox can mark unread again", async () => {
+    const { wrapper } = await mountPage("direct", "Bob");
+    expect(getActiveSocialContact()).toBe("direct:Bob");
+
+    wrapper.unmount();
+    await flushPromises();
+
+    expect(getActiveSocialContact()).toBe(null);
+
+    updateSocialPreview({
+      contactKey: "direct:Bob",
+      text: "After leaving",
+      createdAt: "2026-01-01T12:05:00Z",
+      senderId: "Bob",
+      currentUserId: "Alice",
+      messageId: "after-leave",
+    });
+    expect(getSocialPreview("direct:Bob").unread).toBe(1);
   });
 
   it("displays history messages on connect", async () => {

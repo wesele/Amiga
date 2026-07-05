@@ -6,7 +6,7 @@ import {
 } from "./socialService.js";
 import { rememberSocialAvatar } from "./socialAvatars.js";
 import { appendSocialMessage, mergeSocialMessages } from "./socialMessages.js";
-import { getSocialContactKey, updateSocialPreview } from "./socialPreview.js";
+import { getActiveSocialContact, getSocialContactKey, updateSocialPreview } from "./socialPreview.js";
 
 function isIncomingMessage(payload, userId) {
   return payload?.type === "message"
@@ -28,13 +28,27 @@ function normalizeIncoming(payload) {
   };
 }
 
-const recentDirectMessages = new Set();
+const recentIncoming = new Set();
+const RECENT_INCOMING_MAX = 500;
+
+function rememberIncoming(contactKey, normalized) {
+  const key = `${contactKey}|${normalized.id}`;
+  if (recentIncoming.has(key)) return false;
+  recentIncoming.add(key);
+  if (recentIncoming.size > RECENT_INCOMING_MAX) {
+    const entries = [...recentIncoming];
+    recentIncoming.clear();
+    entries.slice(-250).forEach((k) => recentIncoming.add(k));
+  }
+  return true;
+}
 
 function handleIncomingMessage(payload, userId) {
   const normalized = normalizeIncoming(payload);
   const contactKey = payload.mode === "direct"
     ? getSocialContactKey("social-direct", payload.senderId)
     : getSocialContactKey("social-public");
+  if (!rememberIncoming(contactKey, normalized)) return;
   appendSocialMessage(contactKey, normalized);
   updateSocialPreview({
     contactKey,
@@ -42,6 +56,8 @@ function handleIncomingMessage(payload, userId) {
     createdAt: normalized.createdAt,
     senderId: normalized.senderId,
     currentUserId: userId,
+    messageId: normalized.id,
+    markUnread: contactKey !== getActiveSocialContact(),
   });
 }
 
@@ -128,14 +144,6 @@ export function startSocialInboxListener({ userId, friends = [] }) {
         peerId,
         onMessage: (payload) => {
           if (!isIncomingMessage(payload, userId)) return;
-          const key = `${payload.senderId}|${payload.text}|${payload.createdAt || ""}`;
-          if (recentDirectMessages.has(key)) return;
-          recentDirectMessages.add(key);
-          if (recentDirectMessages.size > 500) {
-            const entries = [...recentDirectMessages];
-            recentDirectMessages.clear();
-            entries.slice(-250).forEach((k) => recentDirectMessages.add(k));
-          }
           handleIncomingMessage({ ...payload, mode: "direct" }, userId);
         },
       });
@@ -162,6 +170,8 @@ export function startSocialInboxListener({ userId, friends = [] }) {
           createdAt: normalized.createdAt,
           senderId: normalized.senderId,
           currentUserId: userId,
+          messageId: normalized.id,
+          markUnread: contactKey !== getActiveSocialContact(),
         });
       }
     } catch {

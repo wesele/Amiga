@@ -1,5 +1,9 @@
 # GitHub Actions: 构建发布 + 同步 Cloudflare Pages 教程
 
+> **Last verified**: `.github/workflows/release.yml` @ v0.4.x。当前 workflow 用 GitHub **Variables** `CF_PROJECT_NAME` / `CF_PAGES_BRANCH`。
+>
+> **日常发版**：看文末 [§发布流程](#发布流程) + [release-and-scripts.md](./release-and-scripts.md) 即可。下文为 CI/CD 教程与历史踩坑，非 Amiga 应用开发必读。
+
 本文档以 Amiga 项目为实例，完整说明如何用一条 GitHub Actions workflow 实现：**打 tag → 构建 Android APK + Windows 安装包 → 发布 GitHub Release → 同步部署到 Cloudflare Pages**。
 
 ---
@@ -251,34 +255,35 @@ Windows 构建比 Android 简单——无需签名、无需 Android SDK，`npx t
 | v0.3.14 | `amiga` | 成功（但靠的是 wrangler 模糊匹配） |
 | v0.3.15 | `amiga` + `--branch=master` | 稳定成功 |
 
-**正确做法**：从 Cloudflare API 或 Dashboard 确认真实项目名，然后硬编码到 workflow 环境变量中：
+**正确做法**：在 repo → Settings → Secrets and variables → Actions → **Variables** 配置：
+
+| Variable | 示例 | 说明 |
+|----------|------|------|
+| `CF_PROJECT_NAME` | `amiga` 或 `amiga-7xz` | Cloudflare Dashboard 中的**真实**项目名 |
+| `CF_PAGES_BRANCH` | `master` | Pages production branch，须与 Dashboard 一致 |
+
+workflow 中：
 
 ```yaml
-  deploy-pages:
-    env:
-      CF_PROJECT_NAME: amiga-7xz    # 真实项目名，不是你想要的那个
+env:
+  CF_PROJECT_NAME: ${{ vars.CF_PROJECT_NAME || 'amiga' }}
+  CF_PAGES_BRANCH: ${{ vars.CF_PAGES_BRANCH || 'master' }}
 ```
 
-> **如何确认真实项目名**：
-> ```bash
-> curl -H "Authorization: Bearer $CF_API_TOKEN" \
->   "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects" \
->   | python -c "import json,sys; [print(p['name']) for p in json.load(sys.stdin)['result']]"
-> ```
-> 或者在 Cloudflare Dashboard → Workers & Pages → 你的项目 → Settings 里看。
+> 历史踩坑：硬编码 `amiga-7xz` 在部分账号会 `Project not found`；用 API 或 Dashboard 确认真实名后写入 Variables。
 
 ### 5.2 `--branch` 的坑
 
 **问题**：打 tag 触发 workflow 时，`github.ref` 是 `refs/tags/v0.4.0`，此时 HEAD 处于 detached 状态，当前分支不是 `master`。如果不指定 `--branch`，wrangler 会使用一个不存在的分支名，导致部署变成 **preview** 而非 **production**。
 
-**正确做法**：显式指定 `--branch=master`（即你在 Cloudflare Pages 项目设置中配置的 production branch）：
+**正确做法**：显式指定 production branch（workflow 用 `CF_PAGES_BRANCH` variable，默认 `master`）。打 tag 时 HEAD detached，不指定会走 preview：
 
 ```yaml
         run: |
           npx wrangler@latest pages deploy pages-dist \
             --project-name="$CF_PROJECT_NAME" \
             --commit-dirty=true \
-            --branch=master
+            --branch="$CF_PAGES_BRANCH"
 ```
 
 ### 5.3 wrangler-action vs 原生 npx wrangler
@@ -301,7 +306,7 @@ Windows 构建比 Android 简单——无需签名、无需 Android SDK，`npx t
           npx wrangler@latest pages deploy pages-dist \
             --project-name="$CF_PROJECT_NAME" \
             --commit-dirty=true \
-            --branch=master
+            --branch="$CF_PAGES_BRANCH"
 ```
 
 > wrangler CLI 读取 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID` 环境变量，无需在命令行里传 `--token` 或 `--account-id`。
@@ -324,7 +329,7 @@ Creating Github Deployment failed
       deployments: write
 ```
 
-### 5.5 完整的 deploy-pages job
+### 5.5 完整的 deploy-pages job（与 release.yml 对齐）
 
 ```yaml
   deploy-pages:
@@ -336,7 +341,8 @@ Creating Github Deployment failed
       contents: read
       deployments: write
     env:
-      CF_PROJECT_NAME: amiga-7xz
+      CF_PROJECT_NAME: ${{ vars.CF_PROJECT_NAME || 'amiga' }}
+      CF_PAGES_BRANCH: ${{ vars.CF_PAGES_BRANCH || 'master' }}
     steps:
       - uses: actions/checkout@v4
       - name: Download APK from GitHub Release
@@ -347,11 +353,8 @@ Creating Github Deployment failed
           gh release download "$GITHUB_REF_NAME" \
             --pattern "amiga-v*.apk" \
             --dir pages-dist
-          APK=$(ls pages-dist/amiga-v*.apk | head-1)
-          if [ -z "$APK" ]; then
-            echo "::error::No APK asset found in release $GITHUB_REF_NAME"
-            exit 1
-          fi
+          APK=$(ls pages-dist/amiga-v*.apk | head -1)
+          test -n "$APK" || { echo "::error::No APK"; exit 1; }
           mv "$APK" pages-dist/Amiga.apk
       - name: Stage static assets
         run: |
@@ -360,8 +363,7 @@ Creating Github Deployment failed
       - name: Inject version into HTML
         env:
           VERSION: ${{ github.ref_name }}
-        run: |
-          sed -i "s|__AMIGA_VERSION__|${VERSION}|g" pages-dist/index.html
+        run: sed -i "s|__AMIGA_VERSION__|${VERSION}|g" pages-dist/index.html
       - name: Deploy to Cloudflare Pages (production)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
@@ -370,7 +372,7 @@ Creating Github Deployment failed
           npx wrangler@latest pages deploy pages-dist \
             --project-name="$CF_PROJECT_NAME" \
             --commit-dirty=true \
-            --branch=master
+            --branch="$CF_PAGES_BRANCH"
 ```
 
 设计要点：
@@ -422,7 +424,7 @@ Cloudflare Dashboard → 任意域名 Overview 页面右下角，或 URL 中 `ht
 
 Cloudflare Dashboard → Workers & Pages → 你的项目 → Settings → Builds & deployments → Production branch。
 
-这个值必须和 workflow 里 `--branch=` 参数一致。默认通常是 `main` 或 `master`，如果和 workflow 不一致，pages 部署会走 preview 而非 production。
+这个值必须和 workflow 里 `CF_PAGES_BRANCH` variable 一致。默认通常是 `main` 或 `master`。
 
 ---
 
@@ -430,8 +432,8 @@ Cloudflare Dashboard → Workers & Pages → 你的项目 → Settings → Build
 
 | 问题 | 症状 | 原因 | 解法 |
 |------|------|------|------|
-| 项目名不存在 | `Project not found [code: 8000007]` | CF Pages 真实名有随机后缀 | 从 API 获取真实名，硬编码到 `env.CF_PROJECT_NAME` |
-| 部署走 preview 而非 production | 页面更新了但不是 production | tag push 时 HEAD detached，wrangler 用了错误的 branch | 加 `--branch=master` |
+| 项目名不存在 | `Project not found [code: 8000007]` | CF Pages 真实名有随机后缀 | 设 `vars.CF_PROJECT_NAME` 为 Dashboard 真实名 |
+| 部署走 preview 而非 production | 页面更新了但不是 production | tag push 时 HEAD detached | 设 `vars.CF_PAGES_BRANCH` 与 Dashboard production branch 一致 |
 | wrangler-action 降级安装旧版 | 每次安装 wrangler 3.x（10s+） | action v3 内部写死了 `wrangler@3.90.0` | 去掉 action，直接 `npx wrangler@latest` |
 | GitHub Deployment warning | `Creating Github Deployment failed` | job 只有 `contents: read`，缺少 `deployments: write` | 加 `deployments: write` 到 permissions |
 | workflow_dispatch 触发也部署 | `gh release download` 找不到 APK | 手动触发没有 tag 对应的 Release | 用 `if: startsWith(github.ref, 'refs/tags/v')` 过滤 |

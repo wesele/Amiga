@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startSocialInboxListener } from "@/modules/chat/social/socialInbox.js";
 import { getSocialMessages } from "@/modules/chat/social/socialMessages.js";
-import { getSocialPreview } from "@/modules/chat/social/socialPreview.js";
+import { getSocialPreview, setActiveSocialContact } from "@/modules/chat/social/socialPreview.js";
 
 class FakeWebSocket {
   static OPEN = 1;
@@ -56,6 +56,7 @@ describe("socialInbox", () => {
   afterEach(() => {
     stopListener?.();
     stopListener = null;
+    setActiveSocialContact(null);
     vi.unstubAllGlobals();
   });
 
@@ -81,6 +82,55 @@ describe("socialInbox", () => {
     expect(getSocialMessages("public")).toHaveLength(1);
     expect(getSocialMessages("public")[0].text).toBe("hello group");
     expect(getSocialPreview("public")?.text).toBe("hello group");
+    expect(getSocialPreview("public")?.unread).toBe(1);
+  });
+
+  it("does not increment unread while the public group conversation is open", async () => {
+    setActiveSocialContact("public");
+    stopListener = startSocialInboxListener({
+      userId: "Alice",
+      friends: [{ friendUserId: "Bob" }],
+    });
+
+    await vi.waitFor(() => {
+      expect(FakeWebSocket.instances.some((socket) => socket.url.includes("mode=public"))).toBe(true);
+    });
+    const publicSocket = FakeWebSocket.instances.find((socket) => socket.url.includes("mode=public"));
+
+    publicSocket.emitMessage({
+      type: "message",
+      mode: "public",
+      senderId: "Bob",
+      text: "seen live",
+      createdAt: "2026-07-05T10:02:00.000Z",
+    });
+
+    expect(getSocialPreview("public")?.text).toBe("seen live");
+    expect(getSocialPreview("public")?.unread).toBe(0);
+  });
+
+  it("does not double-count unread when the same public message is delivered twice", async () => {
+    stopListener = startSocialInboxListener({
+      userId: "Alice",
+      friends: [{ friendUserId: "Bob" }],
+    });
+
+    await vi.waitFor(() => {
+      expect(FakeWebSocket.instances.some((socket) => socket.url.includes("mode=public"))).toBe(true);
+    });
+    const publicSocket = FakeWebSocket.instances.find((socket) => socket.url.includes("mode=public"));
+
+    const payload = {
+      type: "message",
+      mode: "public",
+      id: "dup-1",
+      senderId: "Bob",
+      text: "once only",
+      createdAt: "2026-07-05T10:03:00.000Z",
+    };
+    publicSocket.emitMessage(payload);
+    publicSocket.emitMessage(payload);
+
     expect(getSocialPreview("public")?.unread).toBe(1);
   });
 

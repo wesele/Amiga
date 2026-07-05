@@ -11,7 +11,7 @@ import { installAndroidBridge } from "@/app/androidBridge.js";
  * The native side (see src-tauri/android/.../MainActivity.kt)
  * intercepts the system back press and evaluates
  * `window.__amigaGoBack()`, which in turn calls into the Vue Router
- * to push the *parent* route (declared via `meta.parent` on each
+ * to replace with the *parent* route (declared via `meta.parent` on each
  * route). The function returns:
  *   - "navigated" → Kotlin does nothing more (we already pushed)
  *   - "at-root"   → Kotlin calls finish() on the activity
@@ -49,8 +49,18 @@ function routeFileForName(name) {
     case "learn":
     case "learn-translator":
       return "src/modules/learn/routes.js";
+    case "path":
+    case "path-teaching":
+    case "path-lesson":
+      return "src/modules/path/routes.js";
+    case "reading":
+    case "reading-article":
+    case "reading-test":
+      return "src/modules/reading/routes.js";
     case "chat-session":
     case "chat-preview":
+    case "social-hub":
+    case "social-chat":
     case "chat":
       return "src/modules/chat/routes.js";
     case "settings":
@@ -233,6 +243,14 @@ describe("__amigaGoBack bridge", () => {
       { name: "news", parent: "learn" },
       { name: "reader", parent: "news" },
       { name: "learn-translator", parent: "learn" },
+      { name: "path", parent: "learn" },
+      { name: "path-teaching", parent: "path" },
+      { name: "path-lesson", parent: "path" },
+      { name: "reading", parent: "learn" },
+      { name: "reading-article", parent: "learn" },
+      { name: "reading-test", parent: "learn" },
+      { name: "social-hub", parent: "chat" },
+      { name: "social-chat", parent: "chat" },
       { name: "chat-session", parent: "chat" },
       { name: "chat-preview", parent: "chat" },
       { name: "settings", parent: "profile" },

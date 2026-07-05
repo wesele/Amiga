@@ -1,52 +1,79 @@
 # Content Studio — 内容生产系统
 
-独立内部工具集，位于 `content-studio/`，用于课程设计和题目生产。
+独立内部工具集，位于 `content-studio/`，用于课程设计和题目生产。主应用 agent 仅在内容/词库/题目相关任务时进入。
+
+## 启动
+
+```bash
+cd content-studio
+npm install
+npm run dev    # http://localhost:5180 ，hash 路由
+```
+
+Windows PowerShell 用 `npm.cmd run dev`（见 [Codex.md](../Codex.md)）。
+
+配置含 API key 的 `studio.config.json` 在本地生成，**已 gitignore**，勿提交。
 
 ## 技术栈
-- Vue 3 + Vite + Pinia + vue-router (hash), port 5180
-- 存储: `localStorage` + Vite dev server 中间件持久化 JSON 文件
-- LLM: SSE 流式 + 非流式调用，支持 reasoning 模型
+
+- Vue 3 + Vite + Pinia + vue-router (hash)，port **5180**
+- 存储：`localStorage` + Vite dev server 中间件持久化 JSON 到 `content-studio/data/`
+- LLM：SSE 流式 + 非流式，支持 reasoning 模型
 
 ## 目录结构
+
 ```
 content-studio/
+├── data/                      # 持久化 JSON（dev server 读写）
+│   ├── vocabulary.json        # ⚠️ 主应用 Rust include_str! 编译引用；fresh clone 可能不存在
+│   ├── questions.json
+│   ├── prompts.json
+│   ├── system-config.json
+│   └── images/
 ├── src/
-│   ├── App.vue                # AppLayout + AsyncLoading 遮罩
-│   ├── main.js                # 6 个异步初始化器引导
-│   ├── components/
-│   │   ├── AppLayout.vue
-│   │   └── AsyncLoading.vue   # 全局加载遮罩 + 进度日志
-│   ├── composables/           # 9 个 composable
-│   │   ├── useAsyncOperation.js      # 全局异步操作状态管理（单例）
-│   │   ├── useLLM.js                 # SSE 流式 + 非流式 LLM 调用
-│   │   ├── useStorage.js             # localStorage + API 持久化
+│   ├── main.js                # 6 个异步 init + migrate
+│   ├── composables/           # 10 个
+│   │   ├── useAsyncOperation.js
+│   │   ├── useLLM.js
+│   │   ├── useStorage.js
 │   │   ├── useVocabStorage.js
 │   │   ├── usePromptStorage.js
 │   │   ├── useQuestionTypeStorage.js
-│   │   ├── useUnitFramework.js       # 单元框架设计
-│   │   ├── useSystemConfig.js        # 系统配置（语言对）
-│   │   └── useValidator.js           # 数据校验
-│   ├── data/
-│   │   ├── question-types.js         # ⚠️ 生产用词库位于 content-studio/data/vocabulary.json（被 Rust 后端 include_str! 编译引用）
-│   │   └── units.js
-│   ├── router/index.js        # 7 个 hash 路由
+│   │   ├── useUnitFramework.js
+│   │   ├── useSystemConfig.js
+│   │   ├── useValidator.js
+│   │   └── useImageGen.js
+│   ├── data/                  # 静态种子（question-types.js, units.js）
+│   ├── router/index.js        # 6 条业务路由 + / → /bank redirect
 │   └── views/                 # 7 个页面
-│       ├── SystemConfig.vue       # 语言对管理
-│       ├── VocabManager.vue       # 词库管理
-│       ├── QuestionBank.vue       # AI 题目生成（含流式日志范例）
-│       ├── QuestionTypeManager.vue
-│       ├── PromptManager.vue
-│       ├── PromptEditor.vue
-│       └── Settings.vue           # API 配置
-├── vite.config.js             # Vite 插件：API 代理 + 配置/数据持久化中间件
-├── package.json
-└── README.md
+├── vite.config.js             # 配置 API + /api/data 持久化中间件
+└── README.md                  # 指向本文件
 ```
 
 ## 核心约定
+
 | 约定 | 说明 |
 |------|------|
-| 异步操作 | 必须通过 `useAsyncOperation` 触发，在 `AsyncLoading` 中显示状态 + 进度日志（参考 `QuestionBank.vue` 的 AI 生成实现） |
-| 数据持久化 | Vite dev server 的 `/api/data/:type` 中间件读写 JSON 文件 |
-| LLM 调用 | `useLLM.js` 封装 SSE 流式解析、JSON 提取、自动降级 |
-| 词库数据 | `content-studio/data/vocabulary.json` 同时被主应用 Rust 后端编译引用 |
+| 异步操作 | 必须通过 `useAsyncOperation`，在 `AsyncLoading` 显示进度（参考 `QuestionBank.vue`） |
+| 数据持久化 | `/api/data/:type` 中间件读写 `data/*.json` |
+| LLM | `useLLM.js`：SSE 解析、JSON 提取、自动降级 |
+| 词库 | `data/vocabulary.json` 被主应用 `src-tauri/src/modules/vocabulary.rs` `include_str!` 引用 |
+
+## vocabulary.json 说明
+
+- **Fresh clone 可能没有此文件**；CI 会生成 minimal fixture 供 Rust 编译/测试。
+- 本地开发：在 Content Studio「词库管理」维护，或用 `content-studio/scripts/` 下 seed 脚本（如 `seed-zh-es-a2.mjs`）生成。
+- 发版前须在开发者机器上生成完整词库，确保 Rust 编译 bundle 正确。
+- 路径：`content-studio/data/vocabulary.json`（非 `src/data/`）。
+
+## 路由
+
+| path | name | 页面 |
+|------|------|------|
+| `/bank` | bank | QuestionBank |
+| `/system-config` | system-config | SystemConfig |
+| `/vocab` | vocab | VocabManager |
+| `/type-manager` | type-manager | QuestionTypeManager |
+| `/prompt-manager` | prompt-manager | PromptManager |
+| `/prompt-manager/edit/:id` | prompt-editor | PromptEditor |
+| `/settings` | settings | Settings |

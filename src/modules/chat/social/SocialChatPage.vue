@@ -63,7 +63,7 @@
 
 <script setup>
 import { computed, markRaw, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { getCurrentUser } from "@/shared/api.js";
 import AvatarEmoji from "@/shared/components/AvatarEmoji.vue";
@@ -91,7 +91,9 @@ import {
 import {
   clearSocialPreview,
   clearSocialUnread,
+  getActiveSocialContact,
   getSocialContactKey,
+  setActiveSocialContact,
   updateSocialPreview,
 } from "./socialPreview.js";
 
@@ -112,6 +114,8 @@ const reconnectTimer = ref(null);
 const sendError = ref("");
 const initialised = ref(false);
 const showMenu = ref(false);
+/** Stable contact key for the open room; route params may clear before unmount. */
+const activeConversationKey = ref("");
 const mode = computed(() => route.params.mode || "public");
 const peerId = computed(() => route.params.peerId || "");
 const roomTitle = computed(() => {
@@ -136,7 +140,15 @@ function avatarForSender(senderId, senderAvatar = "") {
   return getCachedSocialAvatar(senderId, "😊");
 }
 
+function releaseActiveConversation() {
+  if (getActiveSocialContact() === activeConversationKey.value) {
+    setActiveSocialContact(null);
+  }
+  activeConversationKey.value = "";
+}
+
 function goBack() {
+  releaseActiveConversation();
   disconnectSocket();
   const parent = route?.meta?.parent;
   if (parent) {
@@ -173,6 +185,7 @@ function recordPreview(message, { markUnread = false } = {}) {
     createdAt: message.createdAt,
     senderId: message.senderId,
     currentUserId: userId.value,
+    messageId: message.id,
     markUnread,
   });
 }
@@ -195,7 +208,12 @@ function pushMessage(message, { persist = true } = {}) {
   if (persist) {
     persistMessages();
   }
-  recordPreview(normalized, { markUnread: false });
+  const isOwn = normalized.senderId === userId.value;
+  const isActiveConversation = getActiveSocialContact() === activeConversationKey.value;
+  // Inbox owns unread for background delivery; chat page only refreshes preview while open.
+  if (isOwn || isActiveConversation) {
+    recordPreview(normalized, { markUnread: false });
+  }
   nextTick(() => {
     if (messageListEl.value) {
       messageListEl.value.scrollTop = messageListEl.value.scrollHeight;
@@ -368,7 +386,12 @@ async function enterConversation() {
   sendError.value = "";
   connectionState.value = "connecting";
   disconnectSocket();
-  clearSocialUnread(previewContactKey.value);
+  activeConversationKey.value = getSocialContactKey(
+    mode.value === "public" ? "social-public" : "social-direct",
+    peerId.value,
+  );
+  setActiveSocialContact(activeConversationKey.value);
+  clearSocialUnread(activeConversationKey.value);
   loadCachedMessages();
   await loadInitialState();
   await connectSocket();
@@ -390,8 +413,16 @@ watch(
   }
 );
 
+onBeforeRouteLeave((to) => {
+  disconnectSocket();
+  if (to.name !== "social-chat") {
+    releaseActiveConversation();
+  }
+});
+
 onUnmounted(() => {
   document.removeEventListener("visibilitychange", handleVisibility);
+  releaseActiveConversation();
   disconnectSocket();
 });
 </script>

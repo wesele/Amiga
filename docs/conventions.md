@@ -2,7 +2,7 @@
 
 ## Git 提交规范
 
-任务收尾时自动 commit 到**本地 git**（用户不要求也要做）；push / 发版仍需用户明确要求。
+**仅用户明确要求时**才本地 commit（格式见下）；push / 发版仍需用户明确要求。与 [AGENTS.md](../AGENTS.md) 一致。
 
 提交前确认 `git status` / `git diff` 干净、无敏感信息。
 
@@ -39,6 +39,10 @@ Add src/shared/external.js as single entry for opening external URLs.
 ### type 前缀
 
 `feat` / `fix` / `refactor` / `docs` / `test` / `ci` / `chore` / `build` / `perf` / `style`
+
+## 前端模块注册
+
+新增功能模块：建 `src/modules/<name>/`（`index.js`、`routes.js`、组件），并在 `src/app/modules.js` 的 `APP_MODULES` 注册。挂主布局用 `{ parent: "shell" }`。
 
 ## Tauri 命令命名约定
 

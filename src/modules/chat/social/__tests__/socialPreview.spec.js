@@ -9,17 +9,34 @@ import {
   SOCIAL_PREVIEW_UPDATED,
   SOCIAL_TOTAL_UNREAD_CHANGED,
   updateSocialPreview,
+  _resetSocialPreviewDedupForTests,
 } from "@/modules/chat/social/socialPreview.js";
 
 describe("socialPreview", () => {
   beforeEach(() => {
     localStorage.clear();
+    _resetSocialPreviewDedupForTests();
     vi.restoreAllMocks();
   });
 
   it("maps contact types to stable preview keys", () => {
     expect(getSocialContactKey("social-public")).toBe("public");
     expect(getSocialContactKey("social-direct", "Bob")).toBe("direct:Bob");
+  });
+
+  it("does not double-count unread when the same message is processed twice", () => {
+    const opts = {
+      contactKey: "public",
+      text: "Hello room",
+      createdAt: "2026-06-01T12:00:00Z",
+      senderId: "Bob",
+      currentUserId: "Alice",
+      messageId: "msg-1",
+    };
+    updateSocialPreview(opts);
+    updateSocialPreview(opts);
+
+    expect(getSocialPreview("public").unread).toBe(1);
   });
 
   it("stores last message preview and increments unread count for incoming messages", () => {
