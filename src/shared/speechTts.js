@@ -31,7 +31,7 @@ export function speakText(text, lang, { onStart, onEnd } = {}) {
     const speechLang = getSpeechLang(lang);
     onStart?.();
     const result = window.__amigaTts.speak(text, speechLang);
-    if (result === "started" || result === "queued") {
+    if (result === "started" || result === "queued" || result === "ok" || result === "initializing") {
       const prevDone = window.__amigaTtsDone;
       const prevErr = window.__amigaTtsError;
       window.__amigaTtsDone = () => {

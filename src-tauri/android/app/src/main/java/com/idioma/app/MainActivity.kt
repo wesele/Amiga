@@ -12,9 +12,11 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
+import android.media.AudioAttributes
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.provider.Settings
@@ -83,6 +85,10 @@ class MainActivity : TauriActivity() {
     private var textToSpeechReady = false
     private var ttsPendingChunks: MutableList<String> = mutableListOf()
     private var ttsSessionWebView: WebView? = null
+    private val ttsHandler = Handler(Looper.getMainLooper())
+    private var ttsWatchdog: Runnable? = null
+    private var ttsInitPending: Triple<WebView, String, String>? = null
+    private var ttsInitGeneration = 0
 
     // Disable the WryActivity's stock back navigation (which calls
     // mWebView.goBack()). We install our own hierarchical back handler
@@ -162,12 +168,11 @@ class MainActivity : TauriActivity() {
         apkDownloadReceiver?.let { unregisterReceiver(it) }
         apkDownloadReceiver = null
         pendingApkDownloads.clear()
+        cancelTtsWatchdog()
         ttsPendingChunks.clear()
         ttsSessionWebView = null
-        textToSpeech?.stop()
-        textToSpeech?.shutdown()
-        textToSpeech = null
-        textToSpeechReady = false
+        ttsInitPending = null
+        shutdownTtsEngine()
         super.onDestroy()
     }
 
@@ -432,6 +437,114 @@ class MainActivity : TauriActivity() {
         return if (latch.await(timeoutSeconds, TimeUnit.SECONDS)) result else "timeout"
     }
 
+    private fun configureTtsEngine(engine: TextToSpeech) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            engine.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build(),
+            )
+        }
+    }
+
+    private fun cancelTtsWatchdog() {
+        ttsWatchdog?.let { ttsHandler.removeCallbacks(it) }
+        ttsWatchdog = null
+    }
+
+    private fun scheduleTtsWatchdog(webView: WebView) {
+        cancelTtsWatchdog()
+        val watchdog = Runnable {
+            if (ttsSessionWebView == null) return@Runnable
+            Log.w(TAG, "TTS watchdog: playback did not start within 4s")
+            clearTtsSession()
+            notifyTtsError(webView, "playback-timeout")
+        }
+        ttsWatchdog = watchdog
+        ttsHandler.postDelayed(watchdog, 4000)
+    }
+
+    private fun preferredTtsEngines(): List<String?> {
+        // ColorOS/Oppo often defaults to com.yuemeng.speechsuite. Prefer Google
+        // when installed, then explicit ColorOS engines, then system default.
+        return listOf(
+            "com.google.android.tts",
+            "com.yuemeng.speechsuite",
+            "com.oplus.ttsaccessibilityengine",
+            null,
+        )
+    }
+
+    private fun shutdownTtsEngine() {
+        cancelTtsWatchdog()
+        val engine = textToSpeech ?: return
+        try {
+            engine.stop()
+        } catch (_: Throwable) {
+        }
+        try {
+            engine.shutdown()
+        } catch (_: Throwable) {
+        }
+        textToSpeech = null
+        textToSpeechReady = false
+    }
+
+    private fun beginTtsInit(webView: WebView, text: String, langTag: String, engineIndex: Int) {
+        val engines = preferredTtsEngines()
+        if (engineIndex >= engines.size) {
+            Log.w(TAG, "TTS init failed: no engine available")
+            ttsInitPending = null
+            notifyTtsError(webView, "init-failed")
+            return
+        }
+
+        val enginePackage = engines[engineIndex]
+        val generation = ++ttsInitGeneration
+        val onInit = TextToSpeech.OnInitListener { status ->
+            if (generation != ttsInitGeneration) {
+                Log.d(TAG, "Ignoring stale TTS init callback for engine=${enginePackage ?: "default"}")
+                return@OnInitListener
+            }
+            if (status != TextToSpeech.SUCCESS) {
+                Log.w(TAG, "TTS init failed for engine=${enginePackage ?: "default"} status=$status")
+                shutdownTtsEngine()
+                beginTtsInit(webView, text, langTag, engineIndex + 1)
+                return@OnInitListener
+            }
+
+            val engine = textToSpeech ?: return@OnInitListener
+            textToSpeechReady = true
+            configureTtsEngine(engine)
+            installTtsProgressListener(engine, webView)
+            Log.d(TAG, "TTS ready via engine=${enginePackage ?: "default"}")
+            val speakResult = speakNativeText(webView, text, langTag)
+            if (speakResult != "ok" && speakResult != "initializing") {
+                notifyTtsError(webView, speakResult)
+            }
+            ttsInitPending = null
+        }
+
+        textToSpeech = if (enginePackage != null) {
+            TextToSpeech(applicationContext, onInit, enginePackage)
+        } else {
+            TextToSpeech(applicationContext, onInit)
+        }
+    }
+
+    private fun ensureTtsEngine(webView: WebView, text: String, langTag: String): String {
+        if (textToSpeech != null && textToSpeechReady) {
+            return "ready"
+        }
+        if (ttsInitPending != null) {
+            return "initializing"
+        }
+        ttsInitPending = Triple(webView, text, langTag)
+        beginTtsInit(webView, text, langTag, 0)
+        return "initializing"
+    }
+
     private fun localeCandidates(langTag: String): List<String> {
         val tag = langTag.ifBlank { "en-US" }
         val family = tag.substringBefore('-').lowercase(Locale.ROOT)
@@ -487,6 +600,7 @@ class MainActivity : TauriActivity() {
     }
 
     private fun clearTtsSession() {
+        cancelTtsWatchdog()
         ttsPendingChunks.clear()
         ttsSessionWebView = null
     }
@@ -495,7 +609,7 @@ class MainActivity : TauriActivity() {
         val safeReason = reason.replace("\\", "\\\\").replace("'", "\\'")
         webView.post {
             webView.evaluateJavascript(
-                "window.__amigaTtsError&&window.__amigaTtsError('$safeReason');window.__amigaTtsDone&&window.__amigaTtsDone()",
+                "window.__amigaTtsError&&window.__amigaTtsError('$safeReason')",
                 null,
             )
         }
@@ -510,7 +624,9 @@ class MainActivity : TauriActivity() {
 
     private fun installTtsProgressListener(engine: TextToSpeech, webView: WebView) {
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {}
+            override fun onStart(utteranceId: String?) {
+                cancelTtsWatchdog()
+            }
 
             override fun onDone(utteranceId: String?) {
                 val activeWebView = ttsSessionWebView ?: return
@@ -554,25 +670,14 @@ class MainActivity : TauriActivity() {
             notifyTtsError(webView, "speak-failed")
             return "speak-failed"
         }
+        scheduleTtsWatchdog(webView)
         return "ok"
     }
 
     private fun speakNativeText(webView: WebView, text: String, langTag: String): String {
         val engine = textToSpeech
         if (engine == null || !textToSpeechReady) {
-            textToSpeech = TextToSpeech(this) { status ->
-                textToSpeechReady = status == TextToSpeech.SUCCESS
-                if (textToSpeechReady) {
-                    val speakResult = speakNativeText(webView, text, langTag)
-                    if (speakResult != "ok" && speakResult != "initializing") {
-                        notifyTtsError(webView, speakResult)
-                    }
-                } else {
-                    Log.w(TAG, "TextToSpeech init failed with status=$status")
-                    notifyTtsError(webView, "init-failed")
-                }
-            }
-            return "initializing"
+            return ensureTtsEngine(webView, text, langTag)
         }
 
         val locale = applyBestLocale(engine, langTag)
@@ -589,7 +694,6 @@ class MainActivity : TauriActivity() {
         clearTtsSession()
         ttsPendingChunks = chunks.toMutableList()
         ttsSessionWebView = webView
-        installTtsProgressListener(engine, webView)
         return speakNextChunk(engine, webView, TextToSpeech.QUEUE_FLUSH)
     }
 

@@ -138,6 +138,13 @@ pub struct SyncUserVocabRow {
     pub mastery: i32,
     pub source: Option<String>,
     pub updated_at: String,
+    /// Stable identity for cross-device restore (vocab_bank ids differ per install).
+    #[serde(default)]
+    pub word: Option<String>,
+    #[serde(default)]
+    pub cefr_level: Option<String>,
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -384,8 +391,11 @@ pub fn export_sync_payload(db: &DatabasePool) -> Result<SyncPayload, String> {
 
     let mut stmt = conn
         .prepare(
-            "SELECT word_id, mastery, source, updated_at
-             FROM user_vocab WHERE user_id = ?1",
+            "SELECT uv.word_id, uv.mastery, uv.source, uv.updated_at,
+                    vb.word, vb.cefr_level, vb.language
+             FROM user_vocab uv
+             JOIN vocab_bank vb ON vb.id = uv.word_id
+             WHERE uv.user_id = ?1",
         )
         .map_err(|e| e.to_string())?;
     let user_vocab = stmt
@@ -395,6 +405,9 @@ pub fn export_sync_payload(db: &DatabasePool) -> Result<SyncPayload, String> {
                 mastery: row.get(1)?,
                 source: row.get(2)?,
                 updated_at: row.get(3)?,
+                word: Some(row.get(4)?),
+                cefr_level: Some(row.get(5)?),
+                language: Some(row.get(6)?),
             })
         })
         .map_err(|e| e.to_string())?
@@ -561,7 +574,7 @@ pub fn export_sync_payload(db: &DatabasePool) -> Result<SyncPayload, String> {
         .collect();
 
     Ok(SyncPayload {
-        version: 2,
+        version: 3,
         users,
         learning_goals,
         user_vocab,
@@ -577,12 +590,108 @@ pub fn export_sync_payload(db: &DatabasePool) -> Result<SyncPayload, String> {
 
 pub fn import_sync_payload(db: &DatabasePool, payload: &SyncPayload) -> Result<(), String> {
     let mut conn = db.conn()?;
+    // Ensure the built-in vocab bank exists before resolving user_vocab rows.
+    drop(conn);
+    if let Err(e) = crate::modules::vocabulary::import_vocab_bank(db) {
+        log::warn!("Vocab bank import before sync restore failed (continuing): {}", e);
+    }
+
+    let mut conn = db.conn()?;
     let tx = conn
         .transaction()
         .map_err(|e| format!("Failed to start sync import transaction: {}", e))?;
+    // Belt-and-suspenders: row-level resolution should prevent FK violations,
+    // but never abort an entire restore because of one stale reference.
+    tx.execute_batch("PRAGMA foreign_keys = OFF;")
+        .map_err(|e| format!("Failed to relax foreign keys for sync import: {}", e))?;
     import_sync_payload_tx(&tx, payload)?;
+    tx.execute_batch("PRAGMA foreign_keys = ON;")
+        .map_err(|e| format!("Failed to re-enable foreign keys after sync import: {}", e))?;
     tx.commit()
         .map_err(|e| format!("Failed to commit sync import: {}", e))
+}
+
+fn resolve_vocab_word_id_tx(tx: &Transaction<'_>, row: &SyncUserVocabRow) -> Option<i32> {
+    if let (Some(word), Some(cefr_level), Some(language)) = (
+        row.word.as_deref().filter(|s| !s.is_empty()),
+        row.cefr_level.as_deref().filter(|s| !s.is_empty()),
+        row.language.as_deref().filter(|s| !s.is_empty()),
+    ) {
+        let lookup_exact = |w: &str| {
+            tx.query_row(
+                "SELECT id FROM vocab_bank WHERE word = ?1 AND cefr_level = ?2 AND language = ?3 LIMIT 1",
+                params![w, cefr_level, language],
+                |r| r.get(0),
+            )
+            .ok()
+        };
+        let lookup_insensitive = |w: &str| {
+            tx.query_row(
+                "SELECT id FROM vocab_bank WHERE LOWER(word) = LOWER(?1) AND cefr_level = ?2 AND language = ?3 LIMIT 1",
+                params![w, cefr_level, language],
+                |r| r.get(0),
+            )
+            .ok()
+        };
+        let lookup_any_level = |w: &str| {
+            tx.query_row(
+                "SELECT id FROM vocab_bank WHERE LOWER(word) = LOWER(?1) AND language = ?2
+                 ORDER BY CASE WHEN cefr_level = ?3 THEN 0 ELSE 1 END, id
+                 LIMIT 1",
+                params![w, language, cefr_level],
+                |r| r.get(0),
+            )
+            .ok()
+        };
+        let lookup_discovered = |w: &str| {
+            tx.query_row(
+                "SELECT id FROM vocab_bank WHERE LOWER(word) = LOWER(?1) AND language = ?2 AND cefr_level = 'D' LIMIT 1",
+                params![w, language],
+                |r| r.get(0),
+            )
+            .ok()
+        };
+
+        if let Some(id) = lookup_exact(word).or_else(|| lookup_insensitive(word)) {
+            return Some(id);
+        }
+
+        if cefr_level == "D" {
+            if let Some(id) = lookup_discovered(word) {
+                return Some(id);
+            }
+        } else if let Some(id) = lookup_any_level(word) {
+            return Some(id);
+        }
+
+        if tx
+            .execute(
+                "INSERT OR IGNORE INTO vocab_bank (word, lemma, cefr_level, language, frequency)
+                 VALUES (?1, ?1, ?2, ?3, 0)",
+                params![word, cefr_level, language],
+            )
+            .is_err()
+        {
+            return None;
+        }
+
+        return lookup_exact(word)
+            .or_else(|| lookup_insensitive(word))
+            .or_else(|| {
+                if cefr_level == "D" {
+                    lookup_discovered(word)
+                } else {
+                    lookup_any_level(word)
+                }
+            });
+    }
+
+    tx.query_row(
+        "SELECT id FROM vocab_bank WHERE id = ?1",
+        params![row.word_id],
+        |r| r.get(0),
+    )
+    .ok()
 }
 
 fn import_sync_payload_tx(tx: &Transaction<'_>, payload: &SyncPayload) -> Result<(), String> {
@@ -632,8 +741,14 @@ fn import_sync_payload_tx(tx: &Transaction<'_>, payload: &SyncPayload) -> Result
         .map_err(|e| format!("Failed to import learning goal: {}", e))?;
     }
 
+    let mut vocab_imported = 0usize;
+    let mut vocab_skipped = 0usize;
     for row in &payload.user_vocab {
-        tx.execute(
+        let Some(local_word_id) = resolve_vocab_word_id_tx(tx, row) else {
+            vocab_skipped += 1;
+            continue;
+        };
+        match tx.execute(
             "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(user_id, word_id) DO UPDATE SET
@@ -643,13 +758,25 @@ fn import_sync_payload_tx(tx: &Transaction<'_>, payload: &SyncPayload) -> Result
              WHERE excluded.updated_at >= user_vocab.updated_at",
             params![
                 local_user_id,
-                row.word_id,
+                local_word_id,
                 row.mastery,
                 row.source,
                 row.updated_at,
             ],
-        )
-        .map_err(|e| format!("Failed to import user_vocab: {}", e))?;
+        ) {
+            Ok(_) => vocab_imported += 1,
+            Err(e) => {
+                vocab_skipped += 1;
+                log::warn!("Skipped user_vocab row during sync import: {}", e);
+            }
+        }
+    }
+    if vocab_skipped > 0 {
+        log::warn!(
+            "Sync import user_vocab: imported={}, skipped={}",
+            vocab_imported,
+            vocab_skipped
+        );
     }
 
     for row in &payload.news_reading_log {
@@ -736,12 +863,15 @@ fn import_sync_payload_tx(tx: &Transaction<'_>, payload: &SyncPayload) -> Result
             .map(|_| "?")
             .collect::<Vec<_>>()
             .join(", ");
-        let sql = format!("DELETE FROM chat_sessions WHERE id IN ({placeholders})");
         let params: Vec<&dyn rusqlite::ToSql> = remote_session_ids
             .iter()
             .map(|id| id as &dyn rusqlite::ToSql)
             .collect();
-        tx.execute(&sql, params.as_slice()).ok();
+        let delete_messages =
+            format!("DELETE FROM chat_messages WHERE session_id IN ({placeholders})");
+        tx.execute(&delete_messages, params.as_slice()).ok();
+        let delete_sessions = format!("DELETE FROM chat_sessions WHERE id IN ({placeholders})");
+        tx.execute(&delete_sessions, params.as_slice()).ok();
     }
 
     for session in &payload.chat_sessions {
@@ -1260,6 +1390,206 @@ mod tests {
             )
             .unwrap();
         assert_eq!(stars, 3);
+    }
+
+    #[test]
+    fn import_user_vocab_resolves_word_identity_across_different_local_ids() {
+        let pool_a = test_pool();
+        let user_a = seed_user(&pool_a);
+        let pool_b = test_pool();
+        let user_b = seed_user(&pool_b);
+
+        let word_a: i32 = {
+            let conn = pool_a.conn().unwrap();
+            conn.execute(
+                "INSERT INTO vocab_bank (word, lemma, pos, cefr_level, language, frequency)
+                 VALUES ('hola', 'hola', 'interj', 'A1', 'es', 100)",
+                [],
+            )
+            .unwrap();
+            conn.query_row(
+                "SELECT id FROM vocab_bank WHERE word = 'hola' AND cefr_level = 'A1' AND language = 'es'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap()
+        };
+        let word_b: i32 = {
+            let conn = pool_b.conn().unwrap();
+            conn.execute(
+                "INSERT INTO vocab_bank (word, lemma, pos, cefr_level, language, frequency)
+                 VALUES ('dummy', 'dummy', 'noun', 'A1', 'es', 1)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO vocab_bank (word, lemma, pos, cefr_level, language, frequency)
+                 VALUES ('hola', 'hola', 'interj', 'A1', 'es', 100)",
+                [],
+            )
+            .unwrap();
+            conn.query_row(
+                "SELECT id FROM vocab_bank WHERE word = 'hola' AND cefr_level = 'A1' AND language = 'es'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap()
+        };
+        assert_ne!(word_a, word_b);
+
+        {
+            let conn = pool_a.conn().unwrap();
+            conn.execute(
+                "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
+                 VALUES (?1, ?2, 2, 'news', '2026-07-01 10:00:00')",
+                params![user_a, word_a],
+            )
+            .unwrap();
+        }
+
+        let payload = export_sync_payload(&pool_a).unwrap();
+        assert_eq!(payload.user_vocab.len(), 1);
+        assert_eq!(payload.user_vocab[0].word.as_deref(), Some("hola"));
+
+        import_sync_payload(&pool_b, &payload).unwrap();
+
+        let conn = pool_b.conn().unwrap();
+        let (imported_word_id, mastery): (i32, i32) = conn
+            .query_row(
+                "SELECT word_id, mastery FROM user_vocab WHERE user_id = ?1",
+                params![user_b],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(imported_word_id, word_b);
+        assert_eq!(mastery, 2);
+    }
+
+    #[test]
+    fn import_user_vocab_creates_discovered_words_from_cloud() {
+        let pool_a = test_pool();
+        let user_a = seed_user(&pool_a);
+        let pool_b = test_pool();
+        let user_b = seed_user(&pool_b);
+
+        let word_a: i32 = {
+            let conn = pool_a.conn().unwrap();
+            conn.execute(
+                "INSERT INTO vocab_bank (word, lemma, cefr_level, language, frequency)
+                 VALUES ('mariposa', 'mariposa', 'D', 'es', 0)",
+                [],
+            )
+            .unwrap();
+            conn.last_insert_rowid() as i32
+        };
+        {
+            let conn = pool_a.conn().unwrap();
+            conn.execute(
+                "INSERT INTO user_vocab (user_id, word_id, mastery, source, updated_at)
+                 VALUES (?1, ?2, 1, 'news_reading', '2026-07-01 10:00:00')",
+                params![user_a, word_a],
+            )
+            .unwrap();
+        }
+
+        import_sync_payload(&pool_b, &export_sync_payload(&pool_a).unwrap()).unwrap();
+
+        let conn = pool_b.conn().unwrap();
+        let mastery: i32 = conn
+            .query_row(
+                "SELECT uv.mastery FROM user_vocab uv
+                 JOIN vocab_bank vb ON vb.id = uv.word_id
+                 WHERE uv.user_id = ?1 AND vb.word = 'mariposa' AND vb.cefr_level = 'D'",
+                params![user_b],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(mastery, 1);
+    }
+
+    #[test]
+    fn import_user_vocab_creates_stub_when_graded_word_missing_locally() {
+        let pool_a = test_pool();
+        let user_a = seed_user(&pool_a);
+        let pool_b = test_pool();
+        let user_b = seed_user(&pool_b);
+
+        {
+            let conn = pool_a.conn().unwrap();
+            conn.execute(
+                "INSERT INTO vocab_bank (word, lemma, pos, cefr_level, language, frequency)
+                 VALUES ('nuevo', 'nuevo', 'adj', 'B1', 'es', 10)",
+                [],
+            )
+            .unwrap();
+            let word_id = conn.last_insert_rowid() as i32;
+            conn.execute(
+                "INSERT INTO user_vocab (user_id, word_id, mastery, updated_at)
+                 VALUES (?1, ?2, 2, '2026-07-01 10:00:00')",
+                params![user_a, word_id],
+            )
+            .unwrap();
+        }
+
+        import_sync_payload(&pool_b, &export_sync_payload(&pool_a).unwrap()).unwrap();
+
+        let conn = pool_b.conn().unwrap();
+        let mastery: i32 = conn
+            .query_row(
+                "SELECT uv.mastery FROM user_vocab uv
+                 JOIN vocab_bank vb ON vb.id = uv.word_id
+                 WHERE uv.user_id = ?1 AND LOWER(vb.word) = 'nuevo'",
+                params![user_b],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(mastery, 2);
+    }
+
+    #[test]
+    fn import_user_vocab_matches_case_insensitive() {
+        let pool_a = test_pool();
+        let user_a = seed_user(&pool_a);
+        let pool_b = test_pool();
+        let user_b = seed_user(&pool_b);
+
+        {
+            let conn = pool_a.conn().unwrap();
+            conn.execute(
+                "INSERT INTO vocab_bank (word, lemma, pos, cefr_level, language, frequency)
+                 VALUES ('Hola', 'hola', 'interj', 'A1', 'es', 100)",
+                [],
+            )
+            .unwrap();
+            let word_id = conn.last_insert_rowid() as i32;
+            conn.execute(
+                "INSERT INTO user_vocab (user_id, word_id, mastery, updated_at)
+                 VALUES (?1, ?2, 2, '2026-07-01 10:00:00')",
+                params![user_a, word_id],
+            )
+            .unwrap();
+        }
+        {
+            let conn = pool_b.conn().unwrap();
+            conn.execute(
+                "INSERT INTO vocab_bank (word, lemma, pos, cefr_level, language, frequency)
+                 VALUES ('hola', 'hola', 'interj', 'A1', 'es', 100)",
+                [],
+            )
+            .unwrap();
+        }
+
+        import_sync_payload(&pool_b, &export_sync_payload(&pool_a).unwrap()).unwrap();
+
+        let conn = pool_b.conn().unwrap();
+        let mastery: i32 = conn
+            .query_row(
+                "SELECT mastery FROM user_vocab WHERE user_id = ?1",
+                params![user_b],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(mastery, 2);
     }
 
     #[test]
