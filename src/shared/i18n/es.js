@@ -33,7 +33,7 @@ export default {
     path: "Camino de progreso",
     news: "Noticias",
     reading: "Lectura",
-    speaking: "AI Speaking",
+    speaking: "Práctica oral IA",
     days: "Días de Estudio",
   },
 

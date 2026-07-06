@@ -36,7 +36,7 @@ export default {
     path: "晋级之路",
     news: "新闻",
     reading: "阅读",
-    speaking: "AI Speaking",
+    speaking: "AI 口语",
     days: "学习天数",
   },
 

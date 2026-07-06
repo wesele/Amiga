@@ -90,7 +90,7 @@ describe("LearnHubPage", () => {
     const labels = tiles.map((t) => t.find(".module-label").text());
     expect(labels).toContain("新闻");
     expect(labels).toContain("阅读");
-    expect(labels).toContain("AI Speaking");
+    expect(labels).toContain("AI 口语");
     expect(labels).toContain("AI 翻译");
   });
 
