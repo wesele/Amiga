@@ -18,7 +18,7 @@
         <div class="contact-avatar">
           <component v-if="contact.component" :is="contact.component" :size="40" />
           <GroupChatIcon v-else-if="contact.contactType === 'social-public'" :size="40" />
-          <AvatarEmoji v-else-if="contact.avatarEmoji" :value="contact.avatarEmoji" :size="40" />
+          <StylizedAvatar v-else-if="contact.avatarEmoji" :id="getAvatarId(contact.avatarEmoji)" :size="40" />
           <span v-else>{{ contact.avatar }}</span>
           <span v-if="contact.unreadCount > 0" class="contact-badge">{{ formatBadge(contact.unreadCount) }}</span>
         </div>
@@ -41,8 +41,10 @@ import { useI18n } from "@/shared/i18n";
 import { displayLang } from "@/shared/constants.js";
 import { eventBus } from "@/shared/eventBus.js";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
+import TranslatorIcon from "@/shared/components/TranslatorIcon.vue";
 import GroupChatIcon from "@/shared/components/GroupChatIcon.vue";
 import AvatarEmoji from "@/shared/components/AvatarEmoji.vue";
+import StylizedAvatar from "@/shared/components/StylizedAvatar.vue";
 import { getCachedSocialAvatar } from "./social/socialAvatars.js";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { bootSocialInbox, getInboxFriends, SOCIAL_FRIENDS_UPDATED } from "./social/socialInboxService.js";
@@ -63,6 +65,13 @@ let unsubscribeLang = null;
 let unsubscribePreview = null;
 let unsubscribeFriends = null;
 let flashTimers = new Map();
+
+const avatarMapping = {
+  "😊": 0, "😎": 1, "🤓": 2, "🌸": 3, "🦊": 4, "🐱": 5, "🐶": 6, "🐻": 7, "🦉": 8, "🌟": 9, "🎯": 10, "🎨": 11
+};
+function getAvatarId(emoji) {
+  return avatarMapping[emoji] ?? 0;
+}
 
 function formatTime(dateStr) {
   if (!dateStr) return "";
@@ -114,13 +123,13 @@ const aiContacts = computed(() => {
       contactType: "amiga",
       desc: t("chat.amigaDesc", { target: targetLabel }),
     },
-    {
-      id: "translator",
-      name: t("chat.translator"),
-      avatar: "🌐",
-      contactType: "translator",
-      desc: t("chat.translatorDesc", { target: targetLabel }),
-    },
+     {
+       id: "translator",
+       name: t("chat.translator"),
+       component: markRaw(TranslatorIcon),
+       contactType: "translator",
+       desc: t("chat.translatorDesc", { target: targetLabel }),
+     },
   ];
 });
 

@@ -4,15 +4,15 @@
     <p class="step-sub">{{ t('wizard.step4Sub') }}</p>
 
     <div class="avatar-grid">
-      <button
-        v-for="emoji in avatars"
-        :key="emoji"
-        class="avatar-circle"
-        :class="{ selected: form.avatar === emoji }"
-        @click="selectAndFinish(emoji)"
-      >
-        {{ emoji }}
-      </button>
+       <button
+         v-for="id in avatars"
+         :key="id"
+         class="avatar-circle"
+         :class="{ selected: form.avatar === id }"
+         @click="selectAndFinish(id)"
+       >
+         <StylizedAvatar :id="id" :size="32" />
+       </button>
     </div>
 
     <div class="wizard-footer">
@@ -26,26 +26,14 @@
 <script setup>
 import { reactive } from "vue";
 import { useI18n } from "@/shared/i18n";
+import StylizedAvatar from "@/shared/components/StylizedAvatar.vue";
 
 const emit = defineEmits(["next"]);
 const { t } = useI18n();
 
-const avatars = [
-  "😊",
-  "😎",
-  "🤓",
-  "🌸",
-  "🦊",
-  "🐱",
-  "🐶",
-  "🐻",
-  "🦉",
-  "🌟",
-  "🎯",
-  "🎨",
-];
+const avatars = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
-const form = reactive({ avatar: "😊" });
+const form = reactive({ avatar: 0 });
 
 function selectAndFinish(emoji) {
   form.avatar = emoji;

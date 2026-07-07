@@ -35,8 +35,8 @@
         @click="openModule(pathModule)"
       >
         <div class="path-progress-main">
-          <span class="path-progress-icon">{{ pathModule.icon }}</span>
-          <span class="path-progress-title">{{ t(pathModule.labelKey) }}</span>
+           <span class="path-progress-icon" v-html="pathModule.icon"></span>
+           <span class="path-progress-title">{{ t(pathModule.labelKey) }}</span>
           <span class="path-progress-level">{{ pathCefr }}</span>
         </div>
         <div class="path-progress-sub">{{ pathProgressLabel }}</div>
@@ -56,8 +56,8 @@
         :disabled="opening === mod.id"
         @click="openModule(mod)"
       >
-        <span class="module-icon">{{ mod.icon }}</span>
-        <span class="module-label">{{ t(mod.labelKey) }}</span>
+         <span class="module-icon" v-html="mod.icon"></span>
+         <span class="module-label">{{ t(mod.labelKey) }}</span>
       </button>
     </div>
   </div>
@@ -89,12 +89,12 @@ const completedReadingCount = ref(0);
 const pathCurriculum = ref(null);
 const pathCefr = ref("A1");
 
-const pathModule = { id: "path", labelKey: "learn.path", icon: "🛤️", route: { name: "path" } };
+const pathModule = { id: "path", labelKey: "learn.path", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M4 20l4-4" stroke="#58cc02"/><path d="M8 16l4-4" stroke="#1cb0f6"/><path d="M12 12l4-4" stroke="#58cc02"/><path d="M16 8l4-4" stroke="#1cb0f6"/></svg>', route: { name: "path" } };
 const modules = [
-  { id: "news", labelKey: "learn.news", icon: "📰", route: { name: "news" } },
-  { id: "reading", labelKey: "learn.reading", icon: "📖", route: { name: "reading" } },
-  { id: "speaking", labelKey: "learn.speaking", icon: "🎙️", route: { name: "speaking" } },
-  { id: "translator", labelKey: "chat.translator", icon: "🌐", action: "translator" },
+  { id: "news", labelKey: "learn.news", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><rect x="4" y="4" width="16" height="16" rx="2" stroke="#58cc02"/><path d="M4 12h16" stroke="#1cb0f6"/><path d="M12 4v16" stroke="#58cc02"/><path d="M8 8h8" stroke="#1cb0f6"/></svg>', route: { name: "news" } },
+  { id: "reading", labelKey: "learn.reading", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="#58cc02"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="#1cb0f6"/></svg>', route: { name: "reading" } },
+  { id: "speaking", labelKey: "learn.speaking", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><circle cx="8" cy="8" r="3" stroke="#58cc02"/><circle cx="16" cy="8" r="3" stroke="#1cb0f6"/><path d="M7 15c0-2 2-3 4-3s4 1 4 3" stroke="#58cc02"/><path d="M13 15c0-2 2-3 4-3s4 1 4 3" stroke="#1cb0f6"/></svg>', route: { name: "speaking" } },
+  { id: "translator", labelKey: "chat.translator", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><circle cx="12" cy="12" r="10" stroke="#58cc02"/><line x1="2" y1="12" x2="22" y2="12" stroke="#1cb0f6"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="#58cc02"/></svg>', action: "translator" },
 ];
 
 const pathProgressDone = computed(() => pathCurriculum.value?.completed_sections || 0);

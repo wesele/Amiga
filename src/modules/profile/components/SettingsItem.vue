@@ -74,7 +74,7 @@ defineProps({
   font-size: 20px;
   margin-right: 8px;
   border-radius: 50%;
-  background: var(--gray-light);
+  background: transparent;
 }
 
 .si-text {

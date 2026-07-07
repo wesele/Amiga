@@ -8,7 +8,9 @@
     <section class="settings-section">
       <div class="account-card">
         <div class="account-row">
-          <div class="account-avatar">{{ user?.avatar || '😊' }}</div>
+          <div class="account-avatar">
+            <StylizedAvatar :id="avatarId" :size="32" />
+          </div>
           <div class="account-info">
             <div class="account-name">{{ user?.nickname || t('common.learner') }}</div>
             <div class="account-detail">
@@ -60,7 +62,9 @@
     <section class="settings-section">
       <h3 class="section-header">{{ t('profile.general') }}</h3>
       <div class="settings-card">
-        <SettingsItem icon="⚙️" :title="t('settings.title')" :subtitle="t('profile.learnSettingsSub')" to="/profile/settings" />
+        <SettingsItem :subtitle="t('profile.learnSettingsSub')" to="/profile/settings">
+          <template #icon><SettingsIcon /></template>
+        </SettingsItem>
       </div>
     </section>
 
@@ -68,7 +72,9 @@
     <section class="settings-section">
       <h3 class="section-header">{{ t('profile.about') }}</h3>
       <div class="settings-card">
-        <SettingsItem icon="🔄" :title="t('profile.checkUpdate')" :subtitle="t('profile.checkUpdateSub')" :showArrow="true" @click="handleCheckUpdate" :showDivider="false" />
+        <SettingsItem :subtitle="t('profile.checkUpdateSub')" :showArrow="true" @click="handleCheckUpdate" :showDivider="false">
+          <template #icon><UpdateIcon /></template>
+        </SettingsItem>
       </div>
     </section>
 
@@ -134,6 +140,9 @@ import {
 import { openExternalUrl } from "@/shared/external.js";
 import { canAutoInstallUpdate, pickPreferredUpdateAsset, startAppUpdate } from "@/shared/update.js";
 import SettingsItem from "./components/SettingsItem.vue";
+import SettingsIcon from "@/shared/components/SettingsIcon.vue";
+import UpdateIcon from "@/shared/components/UpdateIcon.vue";
+import StylizedAvatar from "@/shared/components/StylizedAvatar.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { AVAILABLE_LANGUAGES, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
@@ -146,6 +155,14 @@ const user = ref(null);
 const goals = ref([]);
 const currentTargetLang = computed(() => targetLangStore.code || "");
 const currentLevel = ref("A1");
+const avatarMapping = {
+  "😊": 0, "😎": 1, "🤓": 2, "🌸": 3, "🦊": 4, "🐱": 5, "🐶": 6, "🐻": 7, "🦉": 8, "🌟": 9, "🎯": 10, "🎨": 11
+};
+const avatarId = computed(() => {
+  const av = user.value?.avatar;
+  if (typeof av === "number") return av;
+  return avatarMapping[av] ?? 0;
+});
 const levelSwitching = ref(false);
 const switching = computed(() => targetLangStore.updating);
 const availableLanguages = AVAILABLE_LANGUAGES;
