@@ -373,29 +373,29 @@ function goTest() {
   min-width: 0;
 }
 
-.header-title {
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.3;
-  color: var(--text);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  overflow-wrap: break-word;
-}
+ .header-title {
+ font-size: 14px;
+ font-weight: 700;
+ line-height: 1.3;
+ color: var(--text);
+ display: -webkit-box;
+ -webkit-line-clamp: 5;
+ -webkit-box-orient: vertical;
+ overflow: hidden;
+ overflow-wrap: break-word;
+ }
 
-.header-title-translation {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--text-lighter);
-  line-height: 1.3;
-  margin-top: 2px;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+ .header-title-translation {
+ font-size: 12px;
+ font-weight: 400;
+ color: var(--text-lighter);
+ line-height: 1.3;
+ margin-top: 2px;
+ display: -webkit-box;
+ -webkit-line-clamp: 2;
+ -webkit-box-orient: vertical;
+ overflow: hidden;
+ }
 
 .header-meta {
   font-size: 12px;
