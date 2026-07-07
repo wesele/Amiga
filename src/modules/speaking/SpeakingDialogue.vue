@@ -79,7 +79,7 @@ import {
   speakingHint,
   speakingTranslate,
   speakingFinish,
-} from "@/shared/api.js";
+} from "@/shared/backend/speaking.js";
 
 const props = defineProps({
   topicId: { type: String, required: true },

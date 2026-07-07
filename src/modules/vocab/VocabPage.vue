@@ -110,7 +110,13 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
-import { getCurrentUser, getUserVocabByLevel, getUserVocabStatsByLevel, updateWordMastery, resetUserVocabByLevel } from "@/shared/api.js";
+import { getCurrentUser } from "@/shared/backend/user.js";
+import {
+  getUserVocabByLevel,
+  getUserVocabStatsByLevel,
+  resetUserVocabByLevel,
+  updateWordMastery,
+} from "@/shared/backend/vocabulary.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";

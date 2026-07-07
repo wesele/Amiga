@@ -104,7 +104,9 @@ describe("ChatPage", () => {
     // "进去后是Amiga" bug.
     expect(sessionsArgs).toMatchObject({ targetLang: "en" });
     expect(wrapper.find(".header-name").text()).toBe("AI 翻译");
-    expect(wrapper.find(".contact-avatar").text()).toBe("🌐");
+    const translatorAvatar = wrapper.find(".contact-avatar svg");
+    expect(translatorAvatar.exists()).toBe(true);
+    expect(translatorAvatar.attributes("viewBox")).toBe("0 0 24 24");
     expect(wrapper.text()).toContain("你好！我是 AI 翻译");
   });
 

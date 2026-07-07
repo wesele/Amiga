@@ -6,10 +6,10 @@
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
       </button>
-      <div class="contact-avatar">
-        <GroupChatIcon v-if="mode === 'public'" :size="32" />
-        <AvatarEmoji v-else :value="peerAvatar" :size="32" />
-      </div>
+       <div class="contact-avatar">
+         <GroupChatIcon v-if="mode === 'public'" :size="32" />
+         <StylizedAvatar v-else :id="getAvatarId(peerAvatar)" :size="32" />
+       </div>
       <div class="header-info">
         <div class="header-name">{{ roomTitle }}</div>
       </div>
@@ -32,18 +32,18 @@
         class="msg-row"
         :class="message.senderId === userId ? 'msg-user' : 'msg-other'"
       >
-        <div v-if="message.senderId !== userId" class="msg-avatar">
-          <AvatarEmoji :value="avatarForSender(message.senderId, message.senderAvatar)" :size="28" />
-        </div>
+         <div v-if="message.senderId !== userId" class="msg-avatar">
+           <StylizedAvatar :id="getAvatarId(avatarForSender(message.senderId, message.senderAvatar))" :size="28" />
+         </div>
         <div class="msg-bubble">
           <div v-if="mode === 'public' && message.senderId !== userId" class="msg-sender">
             {{ message.senderId }}
           </div>
           <div class="msg-text msg-text-plain">{{ message.text }}</div>
         </div>
-        <div v-if="message.senderId === userId" class="msg-avatar user-avatar">
-          <AvatarEmoji :value="selfAvatar" :size="28" />
-        </div>
+         <div v-if="message.senderId === userId" class="msg-avatar user-avatar">
+           <StylizedAvatar :id="getAvatarId(selfAvatar)" :size="28" />
+         </div>
       </div>
     </div>
 
@@ -65,8 +65,8 @@
 import { computed, markRaw, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
-import { getCurrentUser } from "@/shared/api.js";
-import AvatarEmoji from "@/shared/components/AvatarEmoji.vue";
+import { getCurrentUser } from "@/shared/backend/user.js";
+import StylizedAvatar from "@/shared/components/StylizedAvatar.vue";
 import GroupChatIcon from "@/shared/components/GroupChatIcon.vue";
 import {
   createSocialSocket,
@@ -102,6 +102,12 @@ const router = useRouter();
 const { t } = useI18n();
 
 const userId = ref("");
+const avatarMapping = {
+  "😊": 0, "😎": 1, "🤓": 2, "🌸": 3, "🦊": 4, "🐱": 5, "🐶": 6, "🐻": 7, "🦉": 8, "🌟": 9, "🎯": 10, "🎨": 11
+};
+function getAvatarId(emoji) {
+  return avatarMapping[emoji] ?? 0;
+}
 const selfAvatar = ref("😊");
 const peerAvatar = ref("😊");
 const connectionState = ref("connecting");

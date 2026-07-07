@@ -35,8 +35,8 @@
 <script setup>
 import { computed, markRaw, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { getChatSessions } from "@/shared/api.js";
-import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
+import { getChatSessions } from "@/shared/backend/chat.js";
+import { openAiContact } from "@/shared/aiContact.js";
 import { useI18n } from "@/shared/i18n";
 import { displayLang } from "@/shared/constants.js";
 import { eventBus } from "@/shared/eventBus.js";

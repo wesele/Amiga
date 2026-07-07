@@ -109,9 +109,11 @@ import {
   explainGrammarPoint,
   getGrammarExplanationCached,
   getTeachingContent,
+} from "@/shared/backend/path.js";
+import {
   getUserVocabByLevel,
   updateWordMastery,
-} from "@/shared/api.js";
+} from "@/shared/backend/vocabulary.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { promiseWithTimeout } from "@/shared/promiseTimeout.js";

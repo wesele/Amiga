@@ -72,7 +72,11 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getPrompt, savePrompt as apiSavePrompt, resetPrompt as apiResetPrompt } from "@/shared/api.js";
+import {
+  getPrompt,
+  resetPrompt as apiResetPrompt,
+  savePrompt as apiSavePrompt,
+} from "@/shared/backend/prompts.js";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";

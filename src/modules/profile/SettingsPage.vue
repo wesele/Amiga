@@ -127,13 +127,9 @@
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
-import {
-  resetWizard as resetWizardApi,
-  getSetting,
-  saveSetting,
-  getCloudSyncStatus,
-  setCloudSyncEnabled,
-} from "@/shared/api.js";
+import { getSetting, saveSetting } from "@/shared/backend/settings.js";
+import { getCloudSyncStatus, setCloudSyncEnabled } from "@/shared/backend/sync.js";
+import { resetWizard as resetWizardApi } from "@/shared/backend/user.js";
 import SettingsItem from "./components/SettingsItem.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import ModalShell from "@/shared/components/ModalShell.vue";

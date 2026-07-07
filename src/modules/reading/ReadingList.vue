@@ -81,7 +81,11 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
-import { getReadingArticles, ensureReadingArticle, regenerateReadingArticle } from "@/shared/api.js";
+import {
+  ensureReadingArticle,
+  getReadingArticles,
+  regenerateReadingArticle,
+} from "@/shared/backend/reading.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";

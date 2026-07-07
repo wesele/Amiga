@@ -1,11 +1,7 @@
+use crate::commands::syncable::after_syncable_write;
 use crate::modules::database::DatabasePool;
-use crate::modules::sync;
 use crate::modules::vocabulary as vocab_mod;
 use tauri::State;
-
-fn after_syncable_write(db: &DatabasePool) {
-    sync::schedule_cloud_sync(db);
-}
 
 #[tauri::command]
 pub async fn import_vocab_bank_cmd(db: State<'_, DatabasePool>) -> Result<i32, String> {

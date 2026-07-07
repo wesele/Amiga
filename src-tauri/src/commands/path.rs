@@ -1,13 +1,9 @@
 use crate::commands::llm::LlmState;
+use crate::commands::syncable::after_syncable_write;
 use crate::modules::database::DatabasePool;
 use crate::modules::path as path_mod;
-use crate::modules::sync;
 use crate::modules::user as user_mod;
 use tauri::State;
-
-fn after_syncable_write(db: &DatabasePool) {
-    sync::schedule_cloud_sync(db);
-}
 
 #[tauri::command]
 pub async fn get_path_curriculum_cmd(

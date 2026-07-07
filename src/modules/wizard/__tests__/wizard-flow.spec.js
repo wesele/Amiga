@@ -154,7 +154,7 @@ describe("WizardFlow", () => {
     expect(createUserCall).toBeTruthy();
     expect(createUserCall[1].request).toMatchObject({
       nickname: "TestUser",
-      avatar: expect.any(String),
+      avatar: expect.any(Number),
       age_range: null,
     });
     expect(mockInvoke).toHaveBeenCalledWith("save_learning_goal_cmd", expect.any(Object));
@@ -308,6 +308,6 @@ describe("StepAvatar", () => {
     const wrapper = mount(StepAvatar);
     await wrapper.find("button.btn-link").trigger("click");
     const emitted = wrapper.emitted("next");
-    expect(emitted[0][0]).toMatchObject({ avatar: "😊" });
+    expect(emitted[0][0]).toMatchObject({ avatar: 0 });
   });
 });

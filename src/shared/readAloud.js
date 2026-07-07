@@ -1,12 +1,11 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { isNativeTtsAvailable, speakNativeTts, stopNativeTts } from "@/shared/ttsBridge.js";
 
 const SPEECH_LANG_MAP = {
   es: "es-ES",
   en: "en-US",
   zh: "zh-CN",
 };
-
-const NATIVE_TTS_OK = new Set(["ok", "initializing"]);
 
 function getSpeechLang(lang) {
   return SPEECH_LANG_MAP[lang] || lang || "en-US";
@@ -31,6 +30,7 @@ export function useReadAloud({ getText, getTargetLang, t }) {
   let speechUtterance = null;
   let readStatusTimer = null;
   let pendingNativeRead = null;
+  let nativeToken = null;
   const nativeTtsAvailable = ref(false);
 
   const canRead = computed(() => {
@@ -50,6 +50,7 @@ export function useReadAloud({ getText, getTargetLang, t }) {
 
   function onTtsDone() {
     pendingNativeRead = null;
+    nativeToken = null;
     reading.value = false;
     speechUtterance = null;
   }
@@ -57,6 +58,7 @@ export function useReadAloud({ getText, getTargetLang, t }) {
   function onTtsError(code) {
     const pending = pendingNativeRead;
     pendingNativeRead = null;
+    nativeToken = null;
     reading.value = false;
     speechUtterance = null;
     if (!pending) return;
@@ -96,20 +98,19 @@ export function useReadAloud({ getText, getTargetLang, t }) {
     const text = String(getText()).trim();
     const speechLang = getSpeechLang(getTargetLang());
 
-    if (window.__amigaTts && typeof window.__amigaTts.speak === "function") {
-      let result = "failed";
-      try {
-        result = window.__amigaTts.speak(text, speechLang);
-      } catch (err) {
-        console.warn("Native TTS failed:", err);
-      }
-      if (NATIVE_TTS_OK.has(result)) {
-        pendingNativeRead = { text, speechLang };
-        reading.value = true;
-        return;
-      }
+    const native = speakNativeTts(text, speechLang, {
+      onDone: onTtsDone,
+      onError: onTtsError,
+    });
+    if (native.started) {
+      nativeToken = native.token;
+      pendingNativeRead = { text, speechLang };
+      reading.value = true;
+      return;
+    }
+    if (native.result !== "unavailable") {
       if (speakWithWeb(text, speechLang)) return;
-      if (result === "missing-language") {
+      if (native.result === "missing-language") {
         showReadStatus(t("news.readAloudMissingLanguage"));
       } else {
         showReadStatus(t("news.readAloudFail"));
@@ -124,9 +125,8 @@ export function useReadAloud({ getText, getTargetLang, t }) {
 
   function stopReading() {
     pendingNativeRead = null;
-    if (typeof window !== "undefined" && window.__amigaTts && typeof window.__amigaTts.stop === "function") {
-      window.__amigaTts.stop();
-    }
+    stopNativeTts(nativeToken);
+    nativeToken = null;
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
@@ -143,14 +143,10 @@ export function useReadAloud({ getText, getTargetLang, t }) {
   }
 
   onMounted(() => {
-    window.__amigaTtsDone = onTtsDone;
-    window.__amigaTtsError = onTtsError;
-    nativeTtsAvailable.value = !!(window.__amigaTts && typeof window.__amigaTts.speak === "function");
+    nativeTtsAvailable.value = isNativeTtsAvailable();
   });
 
   onBeforeUnmount(() => {
-    delete window.__amigaTtsDone;
-    delete window.__amigaTtsError;
     if (readStatusTimer) {
       clearTimeout(readStatusTimer);
       readStatusTimer = null;

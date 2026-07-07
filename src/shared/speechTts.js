@@ -1,3 +1,5 @@
+import { speakNativeTts, stopNativeTts } from "@/shared/ttsBridge.js";
+
 const SPEECH_LANG_MAP = {
   es: "es-ES",
   en: "en-US",
@@ -27,25 +29,13 @@ export function speakText(text, lang, { onStart, onEnd } = {}) {
     return false;
   }
 
-  if (window.__amigaTts && typeof window.__amigaTts.speak === "function") {
-    const speechLang = getSpeechLang(lang);
+  const native = speakNativeTts(text, getSpeechLang(lang), {
+    onDone: onEnd,
+    onError: onEnd,
+  });
+  if (native.started) {
     onStart?.();
-    const result = window.__amigaTts.speak(text, speechLang);
-    if (result === "started" || result === "queued" || result === "ok" || result === "initializing") {
-      const prevDone = window.__amigaTtsDone;
-      const prevErr = window.__amigaTtsError;
-      window.__amigaTtsDone = () => {
-        window.__amigaTtsDone = prevDone;
-        onEnd?.();
-        prevDone?.();
-      };
-      window.__amigaTtsError = () => {
-        window.__amigaTtsError = prevErr;
-        onEnd?.();
-        prevErr?.();
-      };
-      return true;
-    }
+    return true;
   }
 
   if (!("speechSynthesis" in window)) {
@@ -65,9 +55,7 @@ export function speakText(text, lang, { onStart, onEnd } = {}) {
 }
 
 export function stopSpeech() {
-  if (typeof window !== "undefined" && window.__amigaTts?.stop) {
-    window.__amigaTts.stop();
-  }
+  stopNativeTts();
   if (typeof window !== "undefined" && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }

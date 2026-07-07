@@ -76,7 +76,8 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { useRouter } from "vue-router";
-import { getArticles, fetchNews, getCurrentUser } from "@/shared/api.js";
+import { fetchNews, getArticles } from "@/shared/backend/news.js";
+import { getCurrentUser } from "@/shared/backend/user.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { openSourceUrl } from "./utils.js";
 import { useI18n } from "@/shared/i18n";

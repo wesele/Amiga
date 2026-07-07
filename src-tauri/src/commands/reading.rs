@@ -20,14 +20,8 @@ pub async fn regenerate_reading_article_cmd(
     cefr_level: String,
     native_lang: String,
 ) -> Result<reading_mod::ReadingArticle, String> {
-    reading_mod::regenerate_reading_article(
-        &llm.client,
-        &db,
-        article_id,
-        &cefr_level,
-        &native_lang,
-    )
-    .await
+    reading_mod::regenerate_reading_article(&llm.client, &db, article_id, &cefr_level, &native_lang)
+        .await
 }
 
 #[tauri::command]

@@ -1,0 +1,15 @@
+export {
+  addDiscoveredWord,
+  ensureWordsSeen,
+  getUnknownWords,
+  getUserVocabByLevel,
+  getUserVocabStats,
+  getUserVocabStatsByLevel,
+  importVocabBank,
+  initUserVocab,
+  lookupWordIds,
+  markWordsSeen,
+  reimportVocabBank,
+  resetUserVocabByLevel,
+  updateWordMastery,
+} from "@/shared/api.js";

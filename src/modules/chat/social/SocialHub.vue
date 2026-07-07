@@ -56,7 +56,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getCurrentUser } from "@/shared/api.js";
+import { getCurrentUser } from "@/shared/backend/user.js";
 import { useI18n } from "@/shared/i18n";
 import AvatarEmoji from "@/shared/components/AvatarEmoji.vue";
 import PageHeader from "@/shared/components/PageHeader.vue";

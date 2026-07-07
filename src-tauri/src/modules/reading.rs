@@ -562,12 +562,16 @@ fn normalize_reading_questions(
                 .map(|text| text.trim().is_empty())
                 .unwrap_or(true)
             {
-                return Err(format!("Question {} is listening but missing audio_text", idx + 1));
+                return Err(format!(
+                    "Question {} is listening but missing audio_text",
+                    idx + 1
+                ));
             }
         } else if question.question_type != "reading" {
             return Err(format!(
                 "Question {} has invalid type {}",
-                idx + 1, question.question_type
+                idx + 1,
+                question.question_type
             ));
         }
     }
@@ -827,9 +831,12 @@ fn parse_generated_article_json(raw: &str) -> Result<(String, String), String> {
         return validate_generated_article(result);
     }
 
-    let start = cleaned
-        .find('{')
-        .ok_or_else(|| format!("Failed to parse article JSON: no JSON object found. Raw: {}", raw))?;
+    let start = cleaned.find('{').ok_or_else(|| {
+        format!(
+            "Failed to parse article JSON: no JSON object found. Raw: {}",
+            raw
+        )
+    })?;
     let end = cleaned.rfind('}').ok_or_else(|| {
         format!(
             "Failed to parse article JSON: response looks truncated. Raw: {}",
@@ -845,7 +852,11 @@ fn parse_generated_article_json(raw: &str) -> Result<(String, String), String> {
 
     let slice = &cleaned[start..=end];
     let result: GeneratedArticle = serde_json::from_str(slice).map_err(|e| {
-        format!("Failed to parse article JSON: {}. Raw: {}", e, &raw[..raw.len().min(200)])
+        format!(
+            "Failed to parse article JSON: {}. Raw: {}",
+            e,
+            &raw[..raw.len().min(200)]
+        )
     })?;
     validate_generated_article(result)
 }
@@ -884,12 +895,20 @@ async fn generate_article_via_llm(
             Ok(raw) => match parse_generated_article_json(&raw) {
                 Ok(parsed) => return Ok(parsed),
                 Err(err) => {
-                    log::warn!("Reading article JSON parse failed (attempt {}): {}", attempt, err);
+                    log::warn!(
+                        "Reading article JSON parse failed (attempt {}): {}",
+                        attempt,
+                        err
+                    );
                     last_err = err;
                 }
             },
             Err(err) => {
-                log::warn!("Reading article LLM call failed (attempt {}): {}", attempt, err);
+                log::warn!(
+                    "Reading article LLM call failed (attempt {}): {}",
+                    attempt,
+                    err
+                );
                 last_err = err;
             }
         }

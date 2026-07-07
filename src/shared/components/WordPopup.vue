@@ -49,9 +49,9 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { translateText, translateWord } from "@/shared/api.js";
+import { translateText, translateWord } from "@/shared/backend/llm.js";
 import { useI18n } from "@/shared/i18n";
-import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
+import { openAiContact } from "@/shared/aiContact.js";
 
 const props = defineProps({
   word: { type: String, required: true },

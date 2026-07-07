@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { getTargetLanguage, setTargetLanguage } from "@/shared/api.js";
+import { getTargetLanguage, setTargetLanguage } from "@/shared/backend/user.js";
 import { eventBus } from "@/shared/eventBus.js";
 
 export const TARGET_LANG_CHANGED = "targetLang:changed";

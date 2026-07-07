@@ -31,7 +31,7 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";
-import { speakingListTopics } from "@/shared/api.js";
+import { speakingListTopics } from "@/shared/backend/speaking.js";
 
 const { t } = useI18n();
 const router = useRouter();

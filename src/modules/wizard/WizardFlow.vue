@@ -40,11 +40,8 @@ import StepProfile from "./steps/StepProfile.vue";
 import StepLearning from "./steps/StepLearning.vue";
 import StepDemographics from "./steps/StepDemographics.vue";
 import StepAvatar from "./steps/StepAvatar.vue";
-import {
-  createUser,
-  saveLearningGoal,
-  initUserVocab,
-} from "@/shared/api.js";
+import { createUser, saveLearningGoal } from "@/shared/backend/user.js";
+import { initUserVocab } from "@/shared/backend/vocabulary.js";
 import { useI18n, setLocale } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 

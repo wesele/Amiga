@@ -1,5 +1,6 @@
 use crate::modules::database::DatabasePool;
 use crate::modules::llm::{self, GrammarExplainResult, LlmClient};
+use crate::modules::path_content::{load_framework, load_questions, pair_langs};
 use crate::modules::user;
 use log;
 use rusqlite::params;
@@ -9,9 +10,6 @@ use std::collections::HashMap;
 
 pub const PRIMARY_PAIR_KEY: &str = "zh-es";
 const CEFR_LEVELS: &[&str] = &["A0", "A1", "A2", "B1", "B2", "C1"];
-
-const QUESTIONS_JSON: &str = include_str!("../../../content-studio/data/questions.json");
-const FRAMEWORK_JSON: &str = include_str!("../../../content-studio/data/unit-framework.json");
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathSectionProgress {
@@ -124,26 +122,6 @@ struct FrameworkUnit {
     #[serde(default)]
     scenarios: Vec<String>,
     sections: Vec<FrameworkSection>,
-}
-
-fn load_questions() -> Result<Vec<Value>, String> {
-    serde_json::from_str(QUESTIONS_JSON).map_err(|e| format!("parse questions.json: {e}"))
-}
-
-fn load_framework() -> Result<Value, String> {
-    serde_json::from_str(FRAMEWORK_JSON).map_err(|e| format!("parse unit-framework.json: {e}"))
-}
-
-fn pair_langs(pair_key: &str) -> Option<(String, String)> {
-    match pair_key {
-        "zh-es" => Some(("zh".to_string(), "es".to_string())),
-        "pair_1781451962486" => Some(("es".to_string(), "zh".to_string())),
-        "pair_1782569237717" => Some(("zh".to_string(), "en".to_string())),
-        _ => {
-            let (from, to) = pair_key.split_once('-')?;
-            Some((from.to_string(), to.to_string()))
-        }
-    }
 }
 
 /// Resolve the content pair for a native→target language combo.

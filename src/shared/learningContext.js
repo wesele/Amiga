@@ -1,5 +1,5 @@
 import { ref, computed } from "vue";
-import { getCurrentUser, getLearningGoals } from "@/shared/api.js";
+import { getCurrentUser, getLearningGoals } from "@/shared/backend/user.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
 

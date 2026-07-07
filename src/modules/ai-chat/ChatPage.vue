@@ -6,10 +6,10 @@
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
       </button>
-      <div class="contact-avatar">
-        <component v-if="isAmiga" :is="amigaIcon" :size="32" />
-        <span v-else>{{ contactAvatar }}</span>
-      </div>
+       <div class="contact-avatar">
+         <component v-if="isAmiga" :is="amigaIcon" :size="32" />
+         <component v-else :is="translatorIcon" :size="32" />
+       </div>
       <div class="header-info">
         <div class="header-name">{{ contactName }}</div>
       </div>
@@ -37,21 +37,23 @@
         class="msg-row"
         :class="msg.role === 'user' ? 'msg-user' : 'msg-other'"
       >
-        <div v-if="msg.role !== 'user'" class="msg-avatar">
-          <component v-if="isAmiga" :is="amigaIcon" :size="28" />
-          <span v-else>{{ contactAvatar }}</span>
-        </div>
+         <div v-if="msg.role !== 'user'" class="msg-avatar">
+           <component v-if="isAmiga" :is="amigaIcon" :size="28" />
+           <component v-else :is="translatorIcon" :size="28" />
+         </div>
         <div class="msg-bubble">
           <MarkdownText v-if="msg.role !== 'user'" class="msg-text" :content="msg.content" />
           <div v-else class="msg-text msg-text-plain">{{ msg.content }}</div>
         </div>
-        <div v-if="msg.role === 'user'" class="msg-avatar user-avatar">😊</div>
+         <div v-if="msg.role === 'user'" class="msg-avatar user-avatar">
+           <StylizedAvatar :id="getAvatarId(userAvatar)" :size="28" />
+         </div>
       </div>
-      <div v-if="loading" class="msg-row msg-other">
-        <div class="msg-avatar">
-          <component v-if="isAmiga" :is="amigaIcon" :size="28" />
-          <span v-else>{{ contactAvatar }}</span>
-        </div>
+         <div v-if="loading" class="msg-row msg-other">
+           <div class="msg-avatar">
+             <component v-if="isAmiga" :is="amigaIcon" :size="28" />
+             <component v-else :is="translatorIcon" :size="28" />
+           </div>
         <div class="msg-bubble typing">
           <span class="dot" /><span class="dot" /><span class="dot" />
         </div>
@@ -77,13 +79,16 @@
 import { ref, nextTick, onMounted, onUnmounted, computed, markRaw } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
-  getCurrentUser,
   chatCompletionWithSession,
-  getChatMessages,
   deleteChatSession,
-} from "@/shared/api.js";
+  getChatMessages,
+  getChatSessions,
+} from "@/shared/backend/chat.js";
+import { getCurrentUser } from "@/shared/backend/user.js";
 import MarkdownText from "@/shared/components/MarkdownText.vue";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
+import TranslatorIcon from "@/shared/components/TranslatorIcon.vue";
+import StylizedAvatar from "@/shared/components/StylizedAvatar.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -94,6 +99,15 @@ const route = useRoute();
 const router = useRouter();
 const targetLangStore = useTargetLangStore();
 const amigaIcon = markRaw(AmigaIcon);
+const translatorIcon = markRaw(TranslatorIcon);
+const userAvatar = ref("😊");
+
+const avatarMapping = {
+  "😊": 0, "😎": 1, "🤓": 2, "🌸": 3, "🦊": 4, "🐱": 5, "🐶": 6, "🐻": 7, "🦉": 8, "🌟": 9, "🎯": 10, "🎨": 11
+};
+function getAvatarId(emoji) {
+  return avatarMapping[emoji] ?? 0;
+}
 
 function goBack() {
   const parent = route?.meta?.parent;
@@ -243,10 +257,11 @@ onMounted(async () => {
   }
   sessionId.value = route.params.sessionId;
 
-  try {
-    const user = await getCurrentUser();
-    targetLang.value = (await targetLangStore.load()) || "es";
-  } catch { /* use defaults */ }
+   try {
+     const user = await getCurrentUser();
+     userAvatar.value = user?.avatar || "😊";
+     targetLang.value = (await targetLangStore.load()) || "es";
+   } catch { /* use defaults */ }
 
   // Determine contact type from session list. Sessions are isolated by
   // (user, target_language, contact_type) (see chat.rs::get_sessions),
@@ -255,14 +270,12 @@ onMounted(async () => {
   // causing the header to silently fall back to the amiga defaults
   // even when the user opened the translator contact.
   try {
-    const { getChatSessions } = await import("@/shared/api.js");
     const sessions = await getChatSessions(targetLang.value);
     const sess = sessions.find((s) => s.id === sessionId.value);
     if (sess) {
       contactType.value = sess.contact_type;
       if (sess.contact_type === "translator") {
         contactName.value = t("chat.translator");
-        contactAvatar.value = "🌐";
       }
     }
   } catch { /* default amiga */ }
@@ -414,6 +427,7 @@ onMounted(async () => {
 }
 .msg-other {
   align-self: flex-start;
+  max-width: 92%;
 }
 
 .msg-avatar {
@@ -432,6 +446,9 @@ onMounted(async () => {
   border-radius: 16px 16px 16px 4px;
   padding: 10px 14px;
   box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.msg-other .msg-bubble {
+  padding: 10px 10px 10px 12px;
 }
 .msg-user .msg-bubble {
   background: var(--green);

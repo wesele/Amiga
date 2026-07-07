@@ -357,17 +357,14 @@ pub async fn score_turn(
     }
 
     let raw = llm
-        .score_speaking_audio(
-            mm,
-            audio_base64,
-            audio_format,
-            &score_sys,
-            &user_text,
-        )
+        .score_speaking_audio(mm, audio_base64, audio_format, &score_sys, &user_text)
         .await?;
     let cleaned = clean_json_response(&raw);
     let mut parsed: RawScorePayload = serde_json::from_str(cleaned).map_err(|e| {
-        format!("Failed to parse score JSON: {e}. Raw: {}", &raw[..raw.len().min(200)])
+        format!(
+            "Failed to parse score JSON: {e}. Raw: {}",
+            &raw[..raw.len().min(200)]
+        )
     })?;
 
     if parsed.transcript.trim().is_empty() {

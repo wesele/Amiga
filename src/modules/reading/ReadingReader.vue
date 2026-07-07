@@ -127,15 +127,17 @@ import { useTargetLangStore } from "@/stores/targetLang.js";
 import {
   getReadingArticle,
   markReadingArticleRead,
-  translateText,
+} from "@/shared/backend/reading.js";
+import { translateText } from "@/shared/backend/llm.js";
+import {
   lookupWordIds,
   updateWordMastery,
   addDiscoveredWord,
-} from "@/shared/api.js";
+} from "@/shared/backend/vocabulary.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { tokenizeArticleText } from "../news/articleText.js";
-import { useSelectionTranslation } from "../news/selectionTranslation.js";
+import { tokenizeArticleText } from "@/shared/articleText.js";
+import { useSelectionTranslation } from "@/shared/selectionTranslation.js";
 import { useReadAloud } from "@/shared/readAloud.js";
 
 const { t } = useI18n();

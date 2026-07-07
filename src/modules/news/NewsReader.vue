@@ -58,7 +58,7 @@
               <span v-else>{{ token.text }}</span>
             </template>
           </p>
-          <p class="para-translation">{{ translations[pidx] || '…' }}</p>
+          <p class="para-translation">{{ translations[pidx] || "..." }}</p>
         </template>
       </div>
       <div v-else-if="loadingTranslation" class="loading-center">
@@ -94,7 +94,7 @@
           <div v-if="selectionLoading" class="sel-loading">{{ t('news.translating') }}</div>
           <div v-else-if="selectionResult" class="sel-result">{{ selectionResult }}</div>
           <div v-else-if="selectionError" class="sel-error">{{ selectionError }}</div>
-          <button class="sel-close" @click="clearSelection">✕</button>
+          <button class="sel-close" @click="clearSelection">x</button>
         </div>
       </div>
     </Transition>
@@ -153,7 +153,9 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, rewriteArticle, saveReadingLog, updateWordMastery, getBilingual, translateText, lookupWordIds, ensureWordsSeen, addDiscoveredWord, shareText as nativeShareText } from "@/shared/api.js";
+import { getArticle, saveReadingLog } from "@/shared/backend/news.js";
+import { getBilingual, rewriteArticle, translateText } from "@/shared/backend/llm.js";
+import { shareText as nativeShareText } from "@/shared/backend/share.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -161,10 +163,11 @@ import { eventBus } from "@/shared/eventBus.js";
 import { openSourceUrl } from "./utils.js";
 import { displayLang } from "@/shared/constants.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { extractWordTexts, tokenizeArticleText } from "./articleText.js";
+import { tokenizeArticleText } from "./articleText.js";
 import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
 import { useReadAloud } from "@/shared/readAloud.js";
+import { useNewsArticleWords } from "./useNewsArticleWords.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -174,10 +177,6 @@ const targetLangStore = useTargetLangStore();
 const article = ref(null);
 const rewriting = ref(false);
 const rewriteError = ref("");
-const selectedWord = ref(null);
-const knownWordIds = ref(new Set());
-const wordsKnownSet = ref(new Set());
-const wordsUnknownSet = ref(new Set());
 const startTime = ref(Date.now());
 let targetLang = "es";
 let userId = "";
@@ -197,6 +196,22 @@ const translationError = ref("");
 const sharing = ref(false);
 const shareStatus = ref("");
 let shareStatusTimer = null;
+
+const {
+  selectedWord,
+  knownWordIds,
+  wordsKnownSet,
+  wordsUnknownSet,
+  processArticleWords,
+  ensureArticleWordsSeenIfNeeded,
+  onWordTap,
+  onWordKnown,
+  onWordUnknown,
+} = useNewsArticleWords({
+  getUserId: () => userId,
+  getTargetLang: () => targetLang,
+  getArticle: () => article.value,
+});
 
 function getReadableArticleText() {
   if (!article.value) return "";
@@ -243,7 +258,7 @@ onMounted(async () => {
   document.addEventListener("selectionchange", onSelectionChange);
   document.addEventListener("pointerup", onPointerUp);
   // Android: the system text-selection toolbar calls this global function
-  // when the user taps the "翻译" menu item (see MainActivity.kt).
+  // when the user taps the "缈昏瘧" menu item (see MainActivity.kt).
   window.__amigaTranslateSelection = handleNativeTranslate;
   try {
     const ctx = await loadLearningContext({ targetLangStore });
@@ -297,44 +312,9 @@ onBeforeUnmount(async () => {
       console.error("Failed to save reading log:", e);
     }
 
-    // Mark article words as "seen" — if not already processed after rewrite.
-    if (!wordsProcessed) {
-      try {
-        const body = article.value?.rewritten_body || article.value?.original_body || "";
-        const title = article.value?.original_title || "";
-        const allText = `${title} ${body}`;
-        const wordTokens = extractWordTexts(allText);
-        if (wordTokens.length > 0) {
-          await ensureWordsSeen(userId, wordTokens, targetLang);
-        }
-      } catch (e) {
-        console.error("Failed to mark words as seen:", e);
-      }
-    }
+    await ensureArticleWordsSeenIfNeeded();
   }
 });
-
-// After an article is generated (or loaded already-rewritten), ensure every
-// word in the article is tracked for the user. Words already in the CEFR-
-// graded vocabulary (A1–C2) are marked as "seen" (mastery=1); words NOT in
-// the bank are automatically added to the "D" (Discovered) level and also
-// marked seen. This runs automatically — the user does not need to tap
-// each unknown word.
-let wordsProcessed = false;
-async function processArticleWords() {
-  if (wordsProcessed || !userId || !article.value) return;
-  const body = article.value?.rewritten_body || article.value?.original_body || "";
-  const title = article.value?.original_title || "";
-  const allText = `${title} ${body}`;
-  const wordTokens = extractWordTexts(allText);
-  if (wordTokens.length === 0) return;
-  try {
-    await ensureWordsSeen(userId, wordTokens, targetLang);
-    wordsProcessed = true;
-  } catch (e) {
-    console.error("Failed to process article words:", e);
-  }
-}
 
 async function doRewrite() {
   rewriting.value = true;
@@ -398,50 +378,6 @@ watch(() => article.value?.rewritten_body, (val) => {
 watch(() => article.value?.original_body, (val) => {
   if (val && !article.value?.rewritten_body) parseText(val);
 });
-
-function onWordTap(token) {
-  if (!token.isWord) return;
-  // If there's an active multi-character text selection, this click likely
-  // resulted from the user finishing a drag-selection — don't open the word
-  // popup; let the selectionchange handler process the selection instead.
-  const sel = window.getSelection();
-  if (sel && sel.toString().trim().length > 0) return;
-  selectedWord.value = token;
-  knownWordIds.value.add(token.text);
-}
-
-async function onWordKnown() {
-  if (selectedWord.value) {
-    knownWordIds.value.add(selectedWord.value.text);
-    wordsKnownSet.value.add(selectedWord.value.text);
-    try {
-      const ids = await lookupWordIds([selectedWord.value.text], targetLang);
-      if (ids.length > 0) {
-        await updateWordMastery(userId, ids[0], 2, "news_reading");
-      } else {
-        const newId = await addDiscoveredWord(userId, selectedWord.value.text, targetLang, selectedWord.value.context);
-        await updateWordMastery(userId, newId, 2, "news_reading");
-      }
-    } catch (_) {}
-  }
-  selectedWord.value = null;
-}
-
-async function onWordUnknown() {
-  if (selectedWord.value) {
-    knownWordIds.value.add(selectedWord.value.text);
-    wordsUnknownSet.value.add(selectedWord.value.text);
-    try {
-      const ids = await lookupWordIds([selectedWord.value.text], targetLang);
-      if (ids.length > 0) {
-        await updateWordMastery(userId, ids[0], 1, "news_reading");
-      } else {
-        await addDiscoveredWord(userId, selectedWord.value.text, targetLang, selectedWord.value.context);
-      }
-    } catch (_) {}
-  }
-  selectedWord.value = null;
-}
 
 function showShareStatus(msg) {
   shareStatus.value = msg;
@@ -699,7 +635,7 @@ function formatSource(source) {
 }
 
 .mode-toggle {
-  /* The single "原文/双语" toggle. Show the current mode and a
+  /* The single "鍘熸枃/鍙岃" toggle. Show the current mode and a
      chevron hint to suggest it can be switched. */
   color: var(--blue);
   border-color: var(--blue);
@@ -805,7 +741,7 @@ function formatSource(source) {
   padding-bottom: calc(20px + 80px);
 }
 
-/* Floating "翻译" button that appears over the user's text
+/* Floating "缈昏瘧" button that appears over the user's text
    selection. Pure-JS fallback for Android (system selection
    toolbar doesn't have a translate item). */
 .translate-fab {

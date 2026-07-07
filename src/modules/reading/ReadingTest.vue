@@ -109,7 +109,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
@@ -118,15 +118,15 @@ import {
   explainReadingAnswer,
   submitReadingTest,
   getReadingTestExplanations,
-} from "@/shared/api.js";
+} from "@/shared/backend/reading.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
+import { normalizeQuestions, optionLabels, readingOptionClass } from "./readingTestQuestions.js";
+import { useListeningQuestionAudio } from "./useListeningQuestionAudio.js";
 
 const { t } = useI18n();
 const router = useRouter();
 const targetLangStore = useTargetLangStore();
 const props = defineProps({ id: [String, Number] });
-
-const optionLabels = ["A", "B", "C", "D"];
 
 const questions = ref([]);
 const answers = ref({});
@@ -139,18 +139,6 @@ const submitting = ref(false);
 const submitted = ref(false);
 const correctCount = ref(0);
 const currentQuestionIndex = ref(0);
-const audioBusy = ref(false);
-
-let speechUtterance = null;
-let pendingNativeRead = null;
-
-const SPEECH_LANG_MAP = {
-  es: "es-ES",
-  en: "en-US",
-  zh: "zh-CN",
-};
-
-const NATIVE_TTS_OK = new Set(["ok", "initializing"]);
 
 let userId = "";
 let targetLang = "";
@@ -176,73 +164,18 @@ const isCurrentAnswerWrong = computed(() => {
   return question && answer !== undefined && answer !== question.correct_index;
 });
 
+const { audioBusy, playAudio, stopAudio } = useListeningQuestionAudio({
+  currentQuestion,
+  currentQuestionIndex,
+  getTargetLang: () => targetLang,
+});
+
 onMounted(async () => {
-  window.__amigaTtsDone = onTtsDone;
-  window.__amigaTtsError = onTtsError;
   await loadTest();
 });
 
-function rawCorrectIndex(raw) {
-  let correctIndex = raw?.correct_index ?? raw?.correct;
-  if (typeof correctIndex === "string") {
-    const trimmed = correctIndex.trim();
-    const letterIndex = optionLabels.indexOf(trimmed.toUpperCase());
-    if (letterIndex >= 0) return letterIndex;
-    correctIndex = Number(trimmed);
-  }
-  return Number(correctIndex);
-}
-
-function rawCorrectIsLetter(raw) {
-  const correctIndex = raw?.correct_index ?? raw?.correct;
-  return typeof correctIndex === "string" && optionLabels.includes(correctIndex.trim().toUpperCase());
-}
-
-function normalizeQuestion(raw, useOneBasedIndex) {
-  const options = Array.isArray(raw?.options) ? raw.options.map((option) => String(option)) : [];
-  let correctIndex = rawCorrectIndex(raw);
-  if (useOneBasedIndex && !rawCorrectIsLetter(raw) && Number.isInteger(correctIndex)) {
-    correctIndex -= 1;
-  }
-  const questionType = raw?.question_type || raw?.type || "reading";
-  const audioText = raw?.audio_text || raw?.audioText || "";
-  return {
-    ...raw,
-    question: String(raw?.question || ""),
-    options,
-    correct_index: Number.isInteger(correctIndex) ? correctIndex : -1,
-    question_type: questionType,
-    audio_text: audioText ? String(audioText) : "",
-  };
-}
-
-function isValidQuestion(question) {
-  const baseValid =
-    question.question_type === "listening"
-      ? Boolean(question.audio_text)
-      : Boolean(question.question);
-  return (
-    baseValid &&
-    question.options.length === 4 &&
-    question.correct_index >= 0 &&
-    question.correct_index < question.options.length
-  );
-}
-
-function normalizeQuestions(rawQuestions) {
-  const list = Array.isArray(rawQuestions) ? rawQuestions : [];
-  const useOneBasedIndex = list.some((question) => rawCorrectIndex(question) === question?.options?.length);
-  return list
-    .map((question) => normalizeQuestion(question, useOneBasedIndex))
-    .filter(isValidQuestion);
-}
-
 function optionClass(qi, oi) {
-  if (answers.value[qi] === undefined) return "";
-  const correct = questions.value[qi].correct_index;
-  if (oi === correct) return "correct";
-  if (answers.value[qi] === oi) return "wrong";
-  return "dimmed";
+  return readingOptionClass(questions.value[qi], answers.value[qi], oi);
 }
 
 async function loadTest() {
@@ -393,104 +326,6 @@ function goBack() {
   stopAudio();
   router.push(`/learn/reading/${props.id}`);
 }
-
-function getSpeechLang(lang) {
-  return SPEECH_LANG_MAP[lang] || lang || "en-US";
-}
-
-function pickSpeechVoice(lang) {
-  if (typeof window === "undefined" || !window.speechSynthesis) return null;
-  const voices = window.speechSynthesis.getVoices?.() || [];
-  const langLower = lang.toLowerCase();
-  const family = langLower.split("-")[0];
-  return (
-    voices.find((voice) => voice.lang.toLowerCase() === langLower) ||
-    voices.find((voice) => voice.lang.toLowerCase().startsWith(`${family}-`)) ||
-    voices.find((voice) => voice.lang.toLowerCase() === family) ||
-    null
-  );
-}
-
-function speakWithWeb(text, speechLang) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-    return false;
-  }
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = speechLang;
-  utterance.voice = pickSpeechVoice(speechLang);
-  utterance.rate = 0.9;
-  utterance.onend = () => {
-    if (speechUtterance === utterance) {
-      audioBusy.value = false;
-      speechUtterance = null;
-    }
-  };
-  utterance.onerror = utterance.onend;
-  speechUtterance = utterance;
-  audioBusy.value = true;
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utterance);
-  return true;
-}
-
-function onTtsDone() {
-  pendingNativeRead = null;
-  audioBusy.value = false;
-  speechUtterance = null;
-}
-
-function onTtsError() {
-  const pending = pendingNativeRead;
-  pendingNativeRead = null;
-  audioBusy.value = false;
-  speechUtterance = null;
-  if (pending) speakWithWeb(pending.text, pending.speechLang);
-}
-
-function stopAudio() {
-  pendingNativeRead = null;
-  if (typeof window !== "undefined" && window.__amigaTts && typeof window.__amigaTts.stop === "function") {
-    window.__amigaTts.stop();
-  }
-  if (typeof window !== "undefined" && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-  }
-  audioBusy.value = false;
-  speechUtterance = null;
-}
-
-function playAudio() {
-  const text = currentQuestion.value?.audio_text;
-  if (!text || audioBusy.value) return;
-  stopAudio();
-  const speechLang = getSpeechLang(targetLang);
-
-  if (window.__amigaTts && typeof window.__amigaTts.speak === "function") {
-    let result = "failed";
-    try {
-      result = window.__amigaTts.speak(text, speechLang);
-    } catch (err) {
-      console.warn("Native TTS failed:", err);
-    }
-    if (NATIVE_TTS_OK.has(result)) {
-      pendingNativeRead = { text, speechLang };
-      audioBusy.value = true;
-      return;
-    }
-  }
-
-  speakWithWeb(text, speechLang);
-}
-
-watch(currentQuestionIndex, () => {
-  stopAudio();
-});
-
-onBeforeUnmount(() => {
-  delete window.__amigaTtsDone;
-  delete window.__amigaTtsError;
-  stopAudio();
-});
 </script>
 
 <style scoped>

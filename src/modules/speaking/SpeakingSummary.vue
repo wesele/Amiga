@@ -19,7 +19,7 @@ import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";
-import { speakingFinish } from "@/shared/api.js";
+import { speakingFinish } from "@/shared/backend/speaking.js";
 
 defineProps({
   topicId: { type: String, required: true },

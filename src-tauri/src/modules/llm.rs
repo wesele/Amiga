@@ -532,8 +532,8 @@ impl LlmClient {
             .await
             .map_err(|e| format!("Failed to read multimodal response: {e}"))?;
 
-        let json: serde_json::Value = serde_json::from_str(&raw_text)
-            .map_err(|e| format!("Invalid multimodal JSON: {e}"))?;
+        let json: serde_json::Value =
+            serde_json::from_str(&raw_text).map_err(|e| format!("Invalid multimodal JSON: {e}"))?;
 
         if let Some(content) = json
             .pointer("/choices/0/message/content")

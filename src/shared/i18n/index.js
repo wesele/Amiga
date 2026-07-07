@@ -14,7 +14,8 @@
 //     to the key itself, so untranslated keys are visible in the UI.
 
 import { readonly, ref } from "vue";
-import { getSetting, saveSetting, getCurrentUser, updateUser } from "@/shared/api.js";
+import { getSetting, saveSetting } from "@/shared/backend/settings.js";
+import { getCurrentUser, updateUser } from "@/shared/backend/user.js";
 import zh from "./zh.js";
 import en from "./en.js";
 import es from "./es.js";

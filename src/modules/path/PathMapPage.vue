@@ -140,11 +140,8 @@ import { CEFR_LEVELS, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";
-import {
-  getPathCurriculum,
-  getCurrentUser,
-  updateLearningGoalCefr,
-} from "@/shared/api.js";
+import { getPathCurriculum } from "@/shared/backend/path.js";
+import { getCurrentUser, updateLearningGoalCefr } from "@/shared/backend/user.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 

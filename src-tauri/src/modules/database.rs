@@ -151,10 +151,7 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
             .unwrap();
         let expected = crate::modules::migrations::all_migrations().len() as i32;
-        assert_eq!(
-            count, expected,
-            "Should have {expected} migrations applied"
-        );
+        assert_eq!(count, expected, "Should have {expected} migrations applied");
     }
 
     #[test]

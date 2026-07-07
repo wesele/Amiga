@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/shared/api.js";
+import { getCurrentUser } from "@/shared/backend/user.js";
 import { eventBus } from "@/shared/eventBus.js";
 import { rememberSocialAvatars } from "./socialAvatars.js";
 import { startSocialInboxListener } from "./socialInbox.js";

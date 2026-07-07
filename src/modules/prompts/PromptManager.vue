@@ -47,7 +47,7 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { getAllPrompts, resetAllPrompts as apiResetAll } from "@/shared/api.js";
+import { getAllPrompts, resetAllPrompts as apiResetAll } from "@/shared/backend/prompts.js";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";

@@ -68,14 +68,11 @@ import { computed, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
-import { openAiContact } from "@/modules/ai-chat/openAiContact.js";
-import {
-  getUserVocabStats,
-  getReadArticleCount,
-  getLearningDays,
-  getPathCurriculum,
-  getCompletedReadingCount,
-} from "@/shared/api.js";
+import { openAiContact } from "@/shared/aiContact.js";
+import { getLearningDays, getReadArticleCount } from "@/shared/backend/news.js";
+import { getPathCurriculum } from "@/shared/backend/path.js";
+import { getCompletedReadingCount } from "@/shared/backend/reading.js";
+import { getUserVocabStats } from "@/shared/backend/vocabulary.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 
 const router = useRouter();
@@ -93,8 +90,8 @@ const pathModule = { id: "path", labelKey: "learn.path", icon: '<svg viewBox="0 
 const modules = [
   { id: "news", labelKey: "learn.news", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><rect x="4" y="4" width="16" height="16" rx="2" stroke="#58cc02"/><path d="M4 12h16" stroke="#1cb0f6"/><path d="M12 4v16" stroke="#58cc02"/><path d="M8 8h8" stroke="#1cb0f6"/></svg>', route: { name: "news" } },
   { id: "reading", labelKey: "learn.reading", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="#58cc02"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="#1cb0f6"/></svg>', route: { name: "reading" } },
-  { id: "speaking", labelKey: "learn.speaking", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><circle cx="8" cy="8" r="3" stroke="#58cc02"/><circle cx="16" cy="8" r="3" stroke="#1cb0f6"/><path d="M7 15c0-2 2-3 4-3s4 1 4 3" stroke="#58cc02"/><path d="M13 15c0-2 2-3 4-3s4 1 4 3" stroke="#1cb0f6"/></svg>', route: { name: "speaking" } },
-  { id: "translator", labelKey: "chat.translator", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><circle cx="12" cy="12" r="10" stroke="#58cc02"/><line x1="2" y1="12" x2="22" y2="12" stroke="#1cb0f6"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="#58cc02"/></svg>', action: "translator" },
+  { id: "speaking", labelKey: "learn.speaking", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M7 8a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" stroke="#58cc02"/><path d="M17 8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" stroke="#1cb0f6"/><path d="M6 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="#58cc02"/><path d="M14 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="#1cb0f6"/></svg>', route: { name: "speaking" } },
+  { id: "translator", labelKey: "chat.translator", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><circle cx="12" cy="12" r="9" stroke="#58cc02"/><line x1="3" y1="12" x2="21" y2="12" stroke="#1cb0f6"/><path d="M12 3a9 9 0 0 1 3 9 9 9 0 0 1-3 9 9 9 0 0 1-3-9 9 9 0 0 1 3-9z" stroke="#58cc02"/></svg>', action: "translator" },
 ];
 
 const pathProgressDone = computed(() => pathCurriculum.value?.completed_sections || 0);

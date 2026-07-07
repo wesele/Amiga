@@ -1,25 +1,8 @@
-import { getCurrentUser } from "@/shared/api.js";
-
-const SOCIAL_API_BASE_URL = "https://amiga-chat-social.wh1018.workers.dev";
-
-function trimSlash(value) {
-  return (value || "").trim().replace(/\/+$/, "");
-}
-
-function toWebSocketBase(value) {
-  const base = trimSlash(value);
-  if (!base) return "";
-  if (base.startsWith("ws://") || base.startsWith("wss://")) return base;
-  if (base.startsWith("https://")) return `wss://${base.slice("https://".length)}`;
-  if (base.startsWith("http://")) return `ws://${base.slice("http://".length)}`;
-  return base;
-}
+import { getCurrentUser } from "@/shared/backend/user.js";
+import { getSocialConfigDefaults, toWebSocketBase, trimSlash } from "@/shared/socialConfig.js";
 
 export async function getSocialConfig() {
-  return {
-    apiBaseUrl: trimSlash(SOCIAL_API_BASE_URL),
-    wsBaseUrl: toWebSocketBase(SOCIAL_API_BASE_URL),
-  };
+  return getSocialConfigDefaults();
 }
 
 const ANONYMOUS_ID_KEY = "idioma.social.anonymousId";

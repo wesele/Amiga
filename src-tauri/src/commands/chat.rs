@@ -1,13 +1,9 @@
 use crate::commands::llm::LlmState;
+use crate::commands::syncable::after_syncable_write;
 use crate::modules::chat as chat_mod;
 use crate::modules::database::DatabasePool;
 use crate::modules::llm as llm_mod;
-use crate::modules::sync;
 use tauri::State;
-
-fn after_syncable_write(db: &DatabasePool) {
-    sync::schedule_cloud_sync(db);
-}
 
 #[tauri::command]
 pub async fn chat_completion_cmd(

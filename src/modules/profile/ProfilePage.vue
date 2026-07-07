@@ -132,11 +132,8 @@
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import {
-  getLearningGoals,
-  checkUpdate,
-  updateLearningGoalCefr,
-} from "@/shared/api.js";
+import { checkUpdate } from "@/shared/backend/update.js";
+import { getLearningGoals, updateLearningGoalCefr } from "@/shared/backend/user.js";
 import { openExternalUrl } from "@/shared/external.js";
 import { canAutoInstallUpdate, pickPreferredUpdateAsset, startAppUpdate } from "@/shared/update.js";
 import SettingsItem from "./components/SettingsItem.vue";

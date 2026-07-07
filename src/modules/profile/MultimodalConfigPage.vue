@@ -79,8 +79,10 @@ import {
   getMultimodalConfig,
   saveMultimodalConfig,
   testMultimodalConnection,
+} from "@/shared/backend/llm.js";
+import {
   saveSetting,
-} from "@/shared/api.js";
+} from "@/shared/backend/settings.js";
 import { useI18n } from "@/shared/i18n";
 
 const { t } = useI18n();
