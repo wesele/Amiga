@@ -153,7 +153,9 @@ struct RawScorePayload {
 }
 
 struct SessionRow {
+    #[allow(dead_code)]
     id: String,
+    #[allow(dead_code)]
     user_id: String,
     topic_id: String,
     target_lang: String,

@@ -103,8 +103,10 @@ struct FrameworkSection {
     #[serde(rename = "coveredWords", default)]
     covered_words: Vec<String>,
     #[serde(rename = "grammarPoint", default)]
+    #[allow(dead_code)]
     grammar_point: String,
     #[serde(default)]
+    #[allow(dead_code)]
     scenario: String,
 }
 
@@ -154,6 +156,7 @@ fn resolve_pair_key(native_lang: &str, target_lang: &str) -> Option<String> {
     None
 }
 
+#[allow(dead_code)]
 pub fn is_path_supported(native_lang: &str, target_lang: &str) -> bool {
     resolve_pair_key(native_lang, target_lang).is_some()
 }

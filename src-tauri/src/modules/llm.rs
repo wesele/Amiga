@@ -342,6 +342,7 @@ impl LlmClient {
         self.call(active, messages).await
     }
 
+    #[allow(dead_code)]
     pub async fn chat_with_limits(
         &self,
         db: &DatabasePool,
