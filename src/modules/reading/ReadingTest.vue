@@ -40,7 +40,8 @@
           </button>
         </div>
 
-        <p class="question-text">{{ questionPrompt }}</p>
+        <p v-if="!isListeningQuestion" class="question-text">{{ questionPrompt }}</p>
+        <p v-else class="question-text listening-hint">{{ questionPrompt }}</p>
 
         <div class="options">
           <button
@@ -60,9 +61,6 @@
 
         <div v-if="isCurrentAnswerWrong" class="answer-feedback">
           <span>{{ t('reading.wrong') }}</span>
-          <button class="retry-answer-btn" @click="retryQuestion(currentQuestionIndex)">
-            {{ t('reading.retry') }}
-          </button>
         </div>
 
         <div v-if="isCurrentAnswerWrong && loadingExplanation[currentQuestionIndex]" class="explanation-loading">
@@ -106,7 +104,6 @@
         <div class="result-score">{{ correctCount }}<span class="result-total">/{{ questions.length }}</span></div>
         <div class="result-actions">
           <button class="btn-secondary result-btn" @click="goBack">{{ t('reading.backToList') }}</button>
-          <button class="btn-submit result-btn" @click="redoTest">{{ t('reading.redoTest') }}</button>
         </div>
       </div>
     </Transition>
@@ -158,7 +155,7 @@ const questionPrompt = computed(() => {
   const question = currentQuestion.value;
   if (!question) return "";
   if (isListeningQuestion.value) {
-    return question.question || t("path.listenChoose");
+    return t("path.listenChoose");
   }
   return question.question;
 });
@@ -281,24 +278,6 @@ async function retryExplanation(qi) {
   }
 }
 
-function retryQuestion(qi) {
-  const nextAnswers = { ...answers.value };
-  delete nextAnswers[qi];
-  answers.value = nextAnswers;
-
-  const nextExplanations = { ...explanations.value };
-  delete nextExplanations[qi];
-  explanations.value = nextExplanations;
-
-  const nextLoading = { ...loadingExplanation.value };
-  delete nextLoading[qi];
-  loadingExplanation.value = nextLoading;
-
-  const nextErrors = { ...explanationErrors.value };
-  delete nextErrors[qi];
-  explanationErrors.value = nextErrors;
-}
-
 async function generateExplanation(qi) {
   const q = questions.value[qi];
   const answer = answers.value[qi];
@@ -337,11 +316,6 @@ async function submitTest() {
   } finally {
     submitting.value = false;
   }
-}
-
-function redoTest() {
-  submitted.value = false;
-  loadTest();
 }
 
 function goBack() {
@@ -510,6 +484,11 @@ function goBack() {
   color: var(--text);
 }
 
+.listening-hint {
+  font-weight: 600;
+  color: var(--text-light);
+}
+
 .options {
   display: flex;
   flex-direction: column;
@@ -599,19 +578,6 @@ function goBack() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-}
-
-.retry-answer-btn {
-  flex-shrink: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: #dc3545;
-  color: #fff;
-  padding: 7px 12px;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
 }
 
 .explanation-box {

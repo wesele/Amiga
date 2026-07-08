@@ -50,8 +50,19 @@
           <span class="badge-status" :class="article.status">
             {{ statusLabel(article.status) }}
           </span>
-          <span v-if="article.test_total_count != null" class="badge-score">
-            {{ t('reading.testScore') }}: {{ article.test_correct_count }}/{{ article.test_total_count }}
+          <span
+            v-if="article.test_total_count != null"
+            class="badge-score score-stars"
+            :title="t('reading.testScore') + ': ' + article.test_correct_count + '/' + article.test_total_count"
+          >
+            <span
+              v-for="(s, i) in scoreStars(article)"
+              :key="i"
+              class="star"
+              :class="'star-' + s"
+            >
+              <span class="star-base">★</span><span class="star-fill">★</span>
+            </span>
           </span>
         </div>
         <div v-if="regeneratingId === article.id" class="card-overlay">
@@ -120,6 +131,19 @@ function statusLabel(status) {
     case "completed": return t("reading.statusCompleted");
     default: return status;
   }
+}
+
+function scoreStars(article) {
+  const correct = Number(article.test_correct_count) || 0;
+  const fullStars = Math.floor(correct / 2);
+  const hasHalf = correct % 2 === 1;
+  const stars = [];
+  for (let i = 0; i < 5; i++) {
+    if (i < fullStars) stars.push("full");
+    else if (i === fullStars && hasHalf) stars.push("half");
+    else stars.push("empty");
+  }
+  return stars;
 }
 
 function parseLocalDate(localDate) {
@@ -473,8 +497,46 @@ async function confirmRegenerate() {
 }
 
 .badge-score {
-  background: #e8dfff;
-  color: #5a3ea1;
+  background: #fff4d6;
+  color: #9a7400;
+}
+
+.score-stars {
+  display: inline-flex;
+  gap: 1px;
+  letter-spacing: 0;
+}
+
+.star {
+  position: relative;
+  display: inline-block;
+  width: 1em;
+  line-height: 1;
+}
+
+.star-base {
+  color: #e6e0c8;
+}
+
+.star-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #f5b301;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.star-full .star-fill {
+  width: 100%;
+}
+
+.star-half .star-fill {
+  width: 50%;
+}
+
+.star-empty .star-fill {
+  width: 0;
 }
 
 .btn-secondary {
