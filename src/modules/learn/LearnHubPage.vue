@@ -2,15 +2,13 @@
   <div class="learn-hub">
     <header class="page-header">
       <h1 class="page-title">{{ t("learn.title") }}</h1>
+      <div class="header-days">
+        {{ t("learn.learnedPrefix") }}<span class="days-num">{{ learningDays }}</span>{{ t("learn.learnedSuffix") }}
+      </div>
     </header>
 
     <section class="status-section">
       <div class="status-card">
-        <div class="stat-cell">
-          <div class="stat-value">{{ learningDays }}</div>
-          <div class="stat-label">{{ t("learn.days") }}</div>
-        </div>
-        <div class="stat-divider" />
         <div class="stat-cell">
           <div class="stat-value">{{ vocabStats?.total_known || 0 }}</div>
           <div class="stat-label">{{ t("profile.words") }}</div>
@@ -24,6 +22,11 @@
         <div class="stat-cell">
           <div class="stat-value">{{ completedReadingCount }}</div>
           <div class="stat-label">{{ t("profile.reading") }}</div>
+        </div>
+        <div class="stat-divider" />
+        <div class="stat-cell">
+          <div class="stat-value">{{ completedSpeakingCount }}</div>
+          <div class="stat-label">{{ t("learn.speakingCount") }}</div>
         </div>
       </div>
     </section>
@@ -72,6 +75,7 @@ import { openAiContact } from "@/shared/aiContact.js";
 import { getLearningDays, getReadArticleCount } from "@/shared/backend/news.js";
 import { getPathCurriculum } from "@/shared/backend/path.js";
 import { getCompletedReadingCount } from "@/shared/backend/reading.js";
+import { getCompletedSpeakingCount } from "@/shared/backend/speaking.js";
 import { getUserVocabStats } from "@/shared/backend/vocabulary.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 
@@ -83,6 +87,7 @@ const vocabStats = ref(null);
 const readArticleCount = ref(0);
 const learningDays = ref(0);
 const completedReadingCount = ref(0);
+const completedSpeakingCount = ref(0);
 const pathCurriculum = ref(null);
 const pathCefr = ref("A1");
 
@@ -128,6 +133,7 @@ onMounted(async () => {
       readArticleCount.value = await getReadArticleCount(user.id);
       learningDays.value = await getLearningDays(user.id);
       completedReadingCount.value = await getCompletedReadingCount(user.id);
+      completedSpeakingCount.value = await getCompletedSpeakingCount(user.id);
       pathCurriculum.value = await getPathCurriculum(
         ctx.nativeLang || user.native_language,
         lang,
@@ -167,6 +173,10 @@ async function openModule(mod) {
 }
 
 .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 16px 20px 12px;
   background: var(--white);
 }
@@ -175,6 +185,20 @@ async function openModule(mod) {
   margin: 0;
   font-size: 22px;
   font-weight: 700;
+}
+
+.header-days {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-light);
+  white-space: nowrap;
+}
+
+.days-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--green);
 }
 
 .status-section {

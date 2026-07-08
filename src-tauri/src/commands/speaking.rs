@@ -10,6 +10,14 @@ pub fn speaking_list_topics_cmd() -> Vec<speaking_mod::SpeakingTopic> {
 }
 
 #[tauri::command]
+pub fn get_completed_speaking_count_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+) -> Result<i32, String> {
+    speaking_mod::get_completed_speaking_count(&db, &user_id)
+}
+
+#[tauri::command]
 pub async fn speaking_start_session_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,

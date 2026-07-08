@@ -14,8 +14,9 @@ setlocal EnableDelayedExpansion
 ::
 ::  Fast start (no code changes):
 ::    - Reuses a running Vite server on :1420 when possible
-::    - Skips Rust rebuild when target\debug\idioma.exe is fresh
+::    - Skips Rust rebuild when target\release\idioma.exe is fresh
 ::    Use --full to force a clean restart of ports + Vite + Rust.
+::    Use --debug to build and run the debug profile instead of release.
 ::
 ::  For a SECOND, FULLY ISOLATED instance (separate DB, logs,
 ::  build cache, process, etc.) use run-windows-2.bat instead.
@@ -26,15 +27,21 @@ set "PROJECT_DIR=%~dp0"
 if "%PROJECT_DIR:~-1%"=="\" set "PROJECT_DIR=%PROJECT_DIR:~0,-1%"
 cd /d "%PROJECT_DIR%"
 
-set "FORCE_ARG="
-if /i "%~1"=="--full" set "FORCE_ARG=-ForceFull"
-if /i "%~1"=="/full" set "FORCE_ARG=-ForceFull"
+set "ARGS="
+:parse_args
+if "%~1"=="" goto run
+if /i "%~1"=="--full" set "ARGS=%ARGS% -ForceFull"
+if /i "%~1"=="/full" set "ARGS=%ARGS% -ForceFull"
+if /i "%~1"=="--debug" set "ARGS=%ARGS% -Debug"
+shift
+goto parse_args
+:run
 
 set "PS_EXE=powershell"
 where pwsh >nul 2>&1
 if %errorlevel% equ 0 set "PS_EXE=pwsh"
 
-"%PS_EXE%" -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%\scripts\start-windows-dev.ps1" %FORCE_ARG%
+"%PS_EXE%" -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%\scripts\start-windows-dev.ps1" %ARGS%
 set "RC=%ERRORLEVEL%"
 pause
 exit /b %RC%

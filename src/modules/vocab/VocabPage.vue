@@ -92,7 +92,6 @@
           @close="selectedWord = null"
           @known="onKnown"
           @unknown="onUnknown"
-          :always-show-actions="true"
         />
       </Transition>
     </template>

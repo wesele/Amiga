@@ -15,6 +15,16 @@
           {{ formatDate(article) }} · {{ article.cefr_level }}
         </div>
       </div>
+      <button
+        class="regen-btn"
+        :disabled="regenerating"
+        :title="t('reading.regenerate')"
+        @click="regenerateArticle"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M17.65 6.35A8 8 0 1 0 19.73 14h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+        </svg>
+      </button>
     </header>
 
     <div v-if="loading && !article" class="loading-center">
@@ -127,16 +137,18 @@ import { useTargetLangStore } from "@/stores/targetLang.js";
 import {
   getReadingArticle,
   markReadingArticleRead,
+  regenerateReadingArticle,
 } from "@/shared/backend/reading.js";
 import { translateText } from "@/shared/backend/llm.js";
 import {
   lookupWordIds,
   updateWordMastery,
   addDiscoveredWord,
+  ensureWordsSeen,
 } from "@/shared/backend/vocabulary.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { tokenizeArticleText } from "@/shared/articleText.js";
+import { tokenizeArticleText, extractWordTexts } from "@/shared/articleText.js";
 import { useSelectionTranslation } from "@/shared/selectionTranslation.js";
 import { useReadAloud } from "@/shared/readAloud.js";
 
@@ -164,6 +176,38 @@ const bodyParagraphs = computed(() => {
 });
 const selectedWord = ref(null);
 const testLoading = ref(false);
+const wordsProcessed = ref(false);
+const regenerating = ref(false);
+
+function articleWordTexts() {
+  const title = article.value?.title || "";
+  const body = article.value?.body || "";
+  return extractWordTexts(`${title} ${body}`);
+}
+
+async function processArticleWords() {
+  if (wordsProcessed.value || !userId || !article.value) return;
+  const wordTokens = articleWordTexts();
+  if (wordTokens.length === 0) return;
+  try {
+    await ensureWordsSeen(userId, wordTokens, targetLang);
+    wordsProcessed.value = true;
+  } catch (e) {
+    console.error("Failed to process article words:", e);
+  }
+}
+
+async function ensureArticleWordsSeenIfNeeded() {
+  if (wordsProcessed.value) return;
+  try {
+    const wordTokens = articleWordTexts();
+    if (wordTokens.length > 0) {
+      await ensureWordsSeen(userId, wordTokens, targetLang);
+    }
+  } catch (e) {
+    console.error("Failed to mark words as seen:", e);
+  }
+}
 
 // Read aloud state
 function getReadableArticleText() {
@@ -186,6 +230,8 @@ const {
 
 let targetLang = "es";
 let userId = "";
+let cefrLevel = "";
+let nativeLang = "";
 
 const {
   selectionText,
@@ -220,6 +266,7 @@ onBeforeUnmount(() => {
   document.removeEventListener("pointerup", onPointerUp);
   delete window.__amigaTranslateSelection;
   cleanupSelectionTranslation();
+  ensureArticleWordsSeenIfNeeded();
 });
 
 async function loadArticle() {
@@ -229,14 +276,41 @@ async function loadArticle() {
     const ctx = await loadLearningContext({ targetLangStore });
     userId = ctx.user?.id || "";
     targetLang = ctx.targetLang;
+    cefrLevel = ctx.cefr || "";
+    nativeLang = ctx.nativeLang || "";
     const art = await getReadingArticle(Number(props.id));
     article.value = art;
     await markReadingArticleRead(Number(props.id));
+    await processArticleWords();
   } catch (e) {
     console.error("Failed to load article:", e);
     loadError.value = e?.message || String(e);
   } finally {
     loading.value = false;
+  }
+}
+
+async function regenerateArticle() {
+  if (regenerating.value || !article.value) return;
+  regenerating.value = true;
+  try {
+    const art = await regenerateReadingArticle(
+      Number(props.id),
+      cefrLevel,
+      nativeLang,
+    );
+    article.value = art;
+    selectedWord.value = null;
+    wordsProcessed.value = false;
+    bilingualMode.value = false;
+    translations.value = [];
+    paraTokens.value = [];
+    titleTranslation.value = "";
+    await processArticleWords();
+  } catch (e) {
+    console.error("Failed to regenerate article:", e);
+  } finally {
+    regenerating.value = false;
   }
 }
 
@@ -368,6 +442,30 @@ function goTest() {
 
 .back-btn:hover {
   background: var(--surface-variant);
+}
+
+.regen-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-light);
+  transition: background var(--transition);
+}
+
+.regen-btn:hover:not(:disabled) {
+  background: var(--surface-variant);
+}
+
+.regen-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
 }
 
 .header-info {

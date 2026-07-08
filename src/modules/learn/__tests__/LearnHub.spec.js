@@ -146,7 +146,7 @@ describe("LearnHubPage", () => {
     });
   });
 
-  it("renders the learning status panel with three stat cells", async () => {
+  it("renders the learning status panel with stat cells", async () => {
     const router = makeRouter();
     const wrapper = mount(LearnHubPage, {
       global: { plugins: [router] },
@@ -160,8 +160,12 @@ describe("LearnHubPage", () => {
     const labels = cells.map((c) => c.find(".stat-label").text());
     expect(labels).toContain("词汇");
     expect(labels).toContain("新闻");
-    expect(labels).toContain("学习天数");
     expect(labels).toContain("阅读");
+    expect(labels).toContain("口语");
+
+    const headerDays = wrapper.find(".header-days");
+    expect(headerDays.exists()).toBe(true);
+    expect(headerDays.find(".days-num").exists()).toBe(true);
   });
 
   it("shows values returned by the stats APIs in the status panel", async () => {
@@ -173,6 +177,7 @@ describe("LearnHubPage", () => {
       if (cmd === "get_read_article_count_cmd") return Promise.resolve(7);
       if (cmd === "get_learning_days_cmd") return Promise.resolve(9);
       if (cmd === "get_completed_reading_count_cmd") return Promise.resolve(5);
+      if (cmd === "get_completed_speaking_count_cmd") return Promise.resolve(3);
       return Promise.resolve(null);
     });
     const router = makeRouter();
@@ -185,12 +190,14 @@ describe("LearnHubPage", () => {
     const cells = wrapper.findAll(".stat-cell");
     const vocabCell = cells.find((c) => c.text().includes("词汇"));
     const readCell = cells.find((c) => c.text().includes("新闻"));
-    const daysCell = cells.find((c) => c.text().includes("学习天数"));
     const readingCell = cells.find((c) => c.text().includes("阅读"));
+    const speakingCell = cells.find((c) => c.text().includes("口语"));
     expect(vocabCell.find(".stat-value").text()).toBe("42");
     expect(readCell.find(".stat-value").text()).toBe("7");
-    expect(daysCell.find(".stat-value").text()).toBe("9");
     expect(readingCell.find(".stat-value").text()).toBe("5");
+    expect(speakingCell.find(".stat-value").text()).toBe("3");
+
+    expect(wrapper.find(".header-days").find(".days-num").text()).toBe("9");
   });
 
   it("falls back to 0 when the stats APIs fail", async () => {

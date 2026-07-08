@@ -101,8 +101,13 @@
     </div>
 
     <Transition name="popup">
-      <div v-if="submitted" class="result-toast">
-        {{ t('reading.testScore') }}: {{ correctCount }}/{{ questions.length }}
+      <div v-if="submitted" class="result-panel">
+        <div class="result-title">{{ t('reading.testScore') }}</div>
+        <div class="result-score">{{ correctCount }}<span class="result-total">/{{ questions.length }}</span></div>
+        <div class="result-actions">
+          <button class="btn-secondary result-btn" @click="goBack">{{ t('reading.backToList') }}</button>
+          <button class="btn-submit result-btn" @click="redoTest">{{ t('reading.redoTest') }}</button>
+        </div>
       </div>
     </Transition>
   </div>
@@ -243,7 +248,22 @@ async function selectAnswer(qi, oi) {
     } finally {
       loadingExplanation.value = { ...loadingExplanation.value, [qi]: false };
     }
+  } else {
+    scheduleAutoAdvance(qi);
   }
+}
+
+function scheduleAutoAdvance(qi) {
+  if (qi !== currentQuestionIndex.value) return;
+  const isLast = currentQuestionIndex.value === questions.value.length - 1;
+  setTimeout(() => {
+    if (currentQuestionIndex.value !== qi) return;
+    if (isLast) {
+      submitTest();
+    } else {
+      goNext();
+    }
+  }, 700);
 }
 
 async function retryExplanation(qi) {
@@ -311,15 +331,17 @@ async function submitTest() {
       correct, questions.value.length,
     );
     submitted.value = true;
-    setTimeout(() => {
-      router.push("/learn/reading");
-    }, 2000);
   } catch (e) {
     console.error("Failed to submit test:", e);
     error.value = e?.message || String(e);
   } finally {
     submitting.value = false;
   }
+}
+
+function redoTest() {
+  submitted.value = false;
+  loadTest();
 }
 
 function goBack() {
@@ -679,19 +701,52 @@ function goBack() {
   cursor: wait;
 }
 
-.result-toast {
+.result-panel {
   position: fixed;
-  top: 20%;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  background: var(--green);
-  color: var(--white);
-  padding: 12px 24px;
-  border-radius: var(--radius-md);
+  transform: translate(-50%, -50%);
+  background: var(--white);
+  color: var(--text);
+  padding: 28px 24px;
+  border-radius: var(--radius-lg);
   font-weight: 700;
   font-size: 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-lg);
   z-index: 100;
+  width: calc(100% - 48px);
+  max-width: 320px;
+  text-align: center;
+}
+
+.result-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.result-score {
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--green);
+  line-height: 1.2;
+  margin: 8px 0 20px;
+}
+
+.result-total {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-lighter);
+}
+
+.result-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.result-btn {
+  flex: 1;
+  min-height: 48px;
 }
 
 .popup-enter-active,

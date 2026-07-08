@@ -35,6 +35,9 @@ export default {
     reading: "Lectura",
     speaking: "Práctica oral IA",
     days: "Días de Estudio",
+    learnedPrefix: "Estudiado ",
+    learnedSuffix: " días",
+    speakingCount: "Oral",
   },
 
   speaking: {
@@ -118,6 +121,8 @@ export default {
     regenerating: "Regenerando…",
     regenerateFail: "Regeneración fallida. Revisa la configuración de la API y reintenta.",
     regenerateSuccess: "Artículo regenerado",
+    regenerate: "Regenerar artículo",
+    redoTest: "Repetir examen",
   },
 
   path: {

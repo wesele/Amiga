@@ -118,6 +118,7 @@ pub fn run() {
             commands::speaking::speaking_hint_cmd,
             commands::speaking::speaking_translate_cmd,
             commands::speaking::speaking_finish_cmd,
+            commands::speaking::get_completed_speaking_count_cmd,
             commands::speaking::get_multimodal_config_cmd,
             commands::speaking::save_multimodal_config_cmd,
             commands::speaking::test_multimodal_connection_cmd,

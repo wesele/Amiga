@@ -1,6 +1,7 @@
 # Amiga Windows dev launcher with fast-start when sources are unchanged.
 param(
     [switch]$ForceFull,
+    [switch]$Debug,
     [string]$WorkingDir = "",
     [int]$DevPort = 1420,
     [int]$HmrPort = 1421,
@@ -22,7 +23,11 @@ if ([string]::IsNullOrWhiteSpace($WorkingDir)) {
 Set-Location $WorkingDir
 
 if ([string]::IsNullOrWhiteSpace($ExePath)) {
-    $ExePath = Join-Path $WorkingDir "src-tauri\target\debug\idioma.exe"
+    if ($Debug) {
+        $ExePath = Join-Path $WorkingDir "src-tauri\target\debug\idioma.exe"
+    } else {
+        $ExePath = Join-Path $WorkingDir "src-tauri\target\release\idioma.exe"
+    }
 } else {
     $requestedExe = $ExePath
     $resolvedExe = Resolve-Path $requestedExe -ErrorAction SilentlyContinue
@@ -188,6 +193,9 @@ function Invoke-TauriDev {
     )
 
     $args = @("tauri", "dev")
+    if (-not $Debug) {
+        $args += "--release"
+    }
     if ($TauriConfig) {
         $args += @("--config", $TauriConfig)
     }
@@ -229,7 +237,7 @@ if ($rustFresh) {
     exit $exitCode
 }
 
-Write-AmigaLine "Full start: Rust sources changed or debug binary missing."
+Write-AmigaLine "Full start: Rust sources changed or binary missing."
 Clear-Port -Port $DevPort
 Clear-Port -Port $HmrPort
 $exitCode = Invoke-TauriDev

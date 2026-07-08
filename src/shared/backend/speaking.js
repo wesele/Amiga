@@ -2,6 +2,7 @@ export {
   getMultimodalConfig,
   saveMultimodalConfig,
   speakingFinish,
+  getCompletedSpeakingCount,
   speakingHint,
   speakingListTopics,
   speakingScoreTurn,

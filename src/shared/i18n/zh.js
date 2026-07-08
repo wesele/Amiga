@@ -38,6 +38,9 @@ export default {
     reading: "阅读",
     speaking: "AI 口语",
     days: "学习天数",
+    learnedPrefix: "已学 ",
+    learnedSuffix: " 天",
+    speakingCount: "口语",
   },
 
   speaking: {
@@ -121,6 +124,8 @@ export default {
     regenerating: "正在重新生成…",
     regenerateFail: "重新生成失败，请检查 API 配置后重试",
     regenerateSuccess: "文章已重新生成",
+    regenerate: "重新生成文章",
+    redoTest: "再做一次",
   },
 
   path: {

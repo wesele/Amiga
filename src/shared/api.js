@@ -186,6 +186,8 @@ export function createApiClient(invoke) {
     speakingHint: (sessionId) => call("speaking_hint_cmd", { sessionId }),
     speakingTranslate: (sessionId) => call("speaking_translate_cmd", { sessionId }),
     speakingFinish: (sessionId) => call("speaking_finish_cmd", { sessionId }),
+    getCompletedSpeakingCount: (userId) =>
+      call("get_completed_speaking_count_cmd", { userId }),
     getMultimodalConfig: () => call("get_multimodal_config_cmd"),
     saveMultimodalConfig: (config) => call("save_multimodal_config_cmd", { config }),
     testMultimodalConnection: (config) =>
@@ -342,6 +344,8 @@ export const speakingScoreTurn = (...args) => defaultApiClient.speakingScoreTurn
 export const speakingHint = (...args) => defaultApiClient.speakingHint(...args);
 export const speakingTranslate = (...args) => defaultApiClient.speakingTranslate(...args);
 export const speakingFinish = (...args) => defaultApiClient.speakingFinish(...args);
+export const getCompletedSpeakingCount = (...args) =>
+  defaultApiClient.getCompletedSpeakingCount(...args);
 export const getMultimodalConfig = (...args) => defaultApiClient.getMultimodalConfig(...args);
 export const saveMultimodalConfig = (...args) => defaultApiClient.saveMultimodalConfig(...args);
 export const testMultimodalConnection = (...args) =>

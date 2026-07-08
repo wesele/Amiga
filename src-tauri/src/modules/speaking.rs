@@ -98,6 +98,19 @@ pub fn get_topic(id: &str) -> Option<&'static SpeakingTopic> {
     TOPICS.iter().find(|t| t.id == id)
 }
 
+/// Count the number of completed AI speaking practice sessions for a user.
+pub fn get_completed_speaking_count(db: &DatabasePool, user_id: &str) -> Result<i32, String> {
+    let conn = db.conn()?;
+    let count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM speaking_sessions WHERE user_id = ?1 AND status = 'completed'",
+            params![user_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    Ok(count)
+}
+
 #[derive(Debug, Serialize, Clone)]
 pub struct SpeakingSessionView {
     pub session_id: String,

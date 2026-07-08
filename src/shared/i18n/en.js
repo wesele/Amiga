@@ -35,6 +35,9 @@ export default {
     reading: "Reading",
     speaking: "AI Speaking",
     days: "Days Learned",
+    learnedPrefix: "Studied ",
+    learnedSuffix: " days",
+    speakingCount: "Speaking",
   },
 
   speaking: {
@@ -118,6 +121,8 @@ export default {
     regenerating: "Regenerating…",
     regenerateFail: "Regeneration failed. Check API settings and retry.",
     regenerateSuccess: "Article regenerated",
+    regenerate: "Regenerate article",
+    redoTest: "Redo test",
   },
 
   path: {
