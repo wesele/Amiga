@@ -41,7 +41,8 @@ set "PS_EXE=powershell"
 where pwsh >nul 2>&1
 if %errorlevel% equ 0 set "PS_EXE=pwsh"
 
+set "CARGO_INCREMENTAL=1"
 "%PS_EXE%" -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%\scripts\start-windows-dev.ps1" %ARGS%
 set "RC=%ERRORLEVEL%"
-pause
+if %RC% neq 0 pause
 exit /b %RC%

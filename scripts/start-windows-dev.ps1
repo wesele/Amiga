@@ -70,8 +70,12 @@ function Write-AmigaLine {
 
 function Test-PortListening {
     param([int]$Port)
-    $matches = netstat -ano | Select-String ":$Port\s" | Select-String "LISTENING"
-    return [bool]$matches
+    try {
+        $conn = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+        return [bool]$conn
+    } catch {
+        return $false
+    }
 }
 
 function Clear-Port {
@@ -84,16 +88,11 @@ function Clear-Port {
 
     Write-AmigaLine "Port $Port in use. Cleaning up previous session..."
     $killed = $false
-    $pids = @()
 
-    netstat -ano | Select-String ":$Port\s" | Select-String "LISTENING" | ForEach-Object {
-        $parts = ($_ -split "\s+") | Where-Object { $_ -ne "" }
-        if ($parts.Length -ge 5) {
-            $pids += [int]$parts[-1]
-        }
-    }
+    $pids = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+        ForEach-Object { $_.OwningProcess } | Sort-Object -Unique)
 
-    foreach ($processId in ($pids | Sort-Object -Unique)) {
+    foreach ($processId in $pids) {
         try {
             Stop-Process -Id $processId -Force -ErrorAction Stop
             $killed = $true
@@ -204,6 +203,12 @@ function Invoke-TauriDev {
     Write-AmigaLine ("Running: npx " + ($args -join " "))
     & npx @args
     return $LASTEXITCODE
+}
+
+if (Get-Command sccache -ErrorAction SilentlyContinue) {
+    Write-AmigaLine "sccache detected but left disabled: this project's cdylib/proc-macro and native (-L native) deps make every crate non-cacheable (verified: 0 cache writes). Rust rebuild speed comes from CARGO_INCREMENTAL instead."
+} else {
+    Write-AmigaLine "sccache not found on PATH."
 }
 
 Write-AmigaLine "Starting Windows dev session on port $DevPort..."
