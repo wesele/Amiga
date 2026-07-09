@@ -8,8 +8,16 @@ use serde::{Deserialize, Serialize};
 /// NVIDIA; offered out of the box so new users have a working AI without
 /// having to bring their own API key.
 pub const BUILTIN_BASE_URL: &str = "https://integrate.api.nvidia.com/v1";
-pub const BUILTIN_API_KEY: &str =
-    "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";
+/// Built-in API key. NEVER hardcode a real credential here — it would leak
+/// in the committed source and every shipped binary. Official release builds
+/// bake the key in at compile time via the `IDIOMA_BUILTIN_LLM_API_KEY`
+/// environment variable (set from a CI secret); it can also be supplied at
+/// runtime through the same variable (see `builtin_config`). When neither is
+/// present the key is empty and the app falls back to user-configured models.
+pub const BUILTIN_API_KEY: &str = match option_env!("IDIOMA_BUILTIN_LLM_API_KEY") {
+    Some(key) => key,
+    None => "",
+};
 pub const BUILTIN_MODEL: &str = "google/diffusiongemma-26b-a4b-it";
 /// Default multimodal model for speaking scoring (transcribe + rubric).
 pub const MULTIMODAL_BUILTIN_MODEL: &str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning";
