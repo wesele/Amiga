@@ -11,8 +11,9 @@ use crate::modules::sync::settings::{
     SETTING_LAST_ERROR, SETTING_LAST_PUSHED, SETTING_LAST_SYNCED,
 };
 use crate::modules::sync::types::{RemoteSnapshot, SyncPayload};
-use crate::modules::user::{create_user_from_wizard, get_learning_goals, get_or_create_user,
-    CreateUserRequest};
+use crate::modules::user::{
+    create_user_from_wizard, get_learning_goals, get_or_create_user, CreateUserRequest,
+};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 use tokio::sync::Mutex as AsyncMutex;
@@ -24,7 +25,7 @@ pub use settings::{
     mark_restore_after_wizard, should_allow_restore_pull,
 };
 pub use types::{
-    CloudSyncStatus, CloudSyncTestResult, CloudRestoreResult, RunCloudSyncResult,
+    CloudRestoreResult, CloudSyncStatus, CloudSyncTestResult, RunCloudSyncResult,
     SetCloudSyncEnabledResult,
 };
 
