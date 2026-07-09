@@ -42,3 +42,4 @@ screenshots/
 # See run-windows-2.bat and AGENTS.md
 windows-2/
 windows-2/**
+coverage/

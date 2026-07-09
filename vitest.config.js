@@ -17,5 +17,10 @@ export default defineConfig({
     ],
     globals: true,
     setupFiles: [],
+    coverage: {
+      provider: "v8",
+      include: ["src/**", "scripts/**"],
+      reporter: ["text", "html"],
+    },
   },
 });
