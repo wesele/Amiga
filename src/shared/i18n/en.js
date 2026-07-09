@@ -225,6 +225,10 @@ export default {
     finish: "Finish",
     skip: "Skip",
     saveFail: "Save failed, please try again",
+    cloudChecking: "Checking the cloud for recoverable data…",
+    cloudRestoring: "Restoring your data from the cloud…",
+    cloudRestoreFailed: "Failed to restore cloud data. Continuing with the regular setup.",
+    cloudRestoreContinue: "Continue setup",
   },
 
   shell: {

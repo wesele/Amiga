@@ -154,6 +154,8 @@ pub fn run() {
             commands::sync::get_cloud_sync_status_cmd,
             commands::sync::set_cloud_sync_enabled_cmd,
             commands::sync::run_cloud_sync_cmd,
+            commands::sync::check_cloud_restore_cmd,
+            commands::sync::restore_from_cloud_wizard_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

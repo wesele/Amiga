@@ -11,7 +11,8 @@ use crate::modules::sync::settings::{
     SETTING_LAST_ERROR, SETTING_LAST_PUSHED, SETTING_LAST_SYNCED,
 };
 use crate::modules::sync::types::{RemoteSnapshot, SyncPayload};
-use crate::modules::user::get_or_create_user;
+use crate::modules::user::{create_user_from_wizard, get_learning_goals, get_or_create_user,
+    CreateUserRequest};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 use tokio::sync::Mutex as AsyncMutex;
@@ -23,7 +24,8 @@ pub use settings::{
     mark_restore_after_wizard, should_allow_restore_pull,
 };
 pub use types::{
-    CloudSyncStatus, CloudSyncTestResult, RunCloudSyncResult, SetCloudSyncEnabledResult,
+    CloudSyncStatus, CloudSyncTestResult, CloudRestoreResult, RunCloudSyncResult,
+    SetCloudSyncEnabledResult,
 };
 
 const SYNC_DEBOUNCE_MS: u64 = 3000;
@@ -160,6 +162,110 @@ pub async fn run_cloud_sync(db: &DatabasePool) -> Result<RunCloudSyncResult, Str
     Err(err)
 }
 
+/// Returns whether a restorable cloud snapshot exists for the given nickname.
+/// Used by the first wizard step to decide whether to offer cloud restore.
+/// Network/parse errors are surfaced so the caller can fall back to the
+/// regular wizard instead of blocking onboarding.
+pub async fn check_cloud_restore_available(nickname: &str) -> Result<bool, String> {
+    let nickname = nickname.trim();
+    if nickname.is_empty() {
+        return Ok(false);
+    }
+    let remote = pull_remote_snapshot(nickname).await?;
+    Ok(remote.is_some())
+}
+
+/// Restores a user's data from the cloud during the first wizard step.
+///
+/// Flow: pull the remote snapshot for `nickname`; if none exists, return
+/// `restored: false` so the regular wizard proceeds. Otherwise create a
+/// placeholder local user (wizard NOT completed yet), import the remote
+/// payload on top of it, mark the wizard completed, and record sync
+/// timestamps. On import failure the placeholder user is left with an
+/// uncompleted wizard so the caller can continue the regular wizard.
+pub async fn restore_from_cloud_during_wizard(
+    db: &DatabasePool,
+    nickname: &str,
+) -> Result<CloudRestoreResult, String> {
+    let nickname = nickname.trim().to_string();
+    if nickname.is_empty() {
+        return Err("Nickname is required to restore from cloud".to_string());
+    }
+
+    let remote = match pull_remote_snapshot(&nickname).await? {
+        Some(remote) => remote,
+        None => {
+            return Ok(CloudRestoreResult {
+                restored: false,
+                nickname,
+                target_language: None,
+                cefr_level: None,
+                message: "no_remote_data".to_string(),
+            });
+        }
+    };
+
+    // Create a placeholder local user (NOT completed) so import_sync_payload
+    // has a target user to reconcile against.
+    let request = CreateUserRequest {
+        nickname: nickname.clone(),
+        avatar: "😊".to_string(),
+        native_language: "zh".to_string(),
+        country: "CN".to_string(),
+        gender: None,
+        birth_year: None,
+        age_range: None,
+        wizard_completed: Some(false),
+    };
+    let user = create_user_from_wizard(db, request)?;
+
+    let import_result: Result<(), String> = (|| {
+        let payload: SyncPayload = serde_json::from_str(&remote.payload)
+            .map_err(|e| format!("Invalid remote sync payload: {}", e))?;
+        import_sync_payload(db, &payload)
+    })();
+
+    if let Err(e) = import_result {
+        // Roll back the placeholder to an uncompleted wizard so the user is not
+        // dropped into the app with a half-restored profile.
+        if let Ok(conn) = db.conn() {
+            let _ = conn.execute(
+                "UPDATE users SET wizard_completed = 0 WHERE id = (SELECT id FROM users LIMIT 1)",
+                [],
+            );
+        }
+        return Err(e);
+    }
+
+    // The remote payload carries its own wizard_completed flag; force it on so
+    // onboarding is considered done once data is restored.
+    {
+        let conn = db.conn()?;
+        conn.execute(
+            "UPDATE users SET wizard_completed = 1 WHERE id = (SELECT id FROM users LIMIT 1)",
+            [],
+        )
+        .map_err(|e| format!("Failed to mark wizard completed: {}", e))?;
+    }
+
+    save_setting(db, SETTING_LAST_SYNCED, &remote.updated_at)?;
+    save_setting(db, SETTING_LAST_PUSHED, &remote.updated_at)?;
+    save_setting(db, SETTING_LAST_ERROR, "")?;
+    clear_restore_mode(db)?;
+
+    let goal = get_learning_goals(db, &user.id)
+        .ok()
+        .and_then(|goals| goals.into_iter().next());
+
+    Ok(CloudRestoreResult {
+        restored: true,
+        nickname: user.nickname,
+        target_language: goal.as_ref().map(|g| g.target_language.clone()),
+        cefr_level: goal.as_ref().map(|g| g.cefr_level.clone()),
+        message: "restored".to_string(),
+    })
+}
+
 pub async fn set_cloud_sync_enabled(
     db: &DatabasePool,
     enabled: bool,
@@ -251,6 +357,7 @@ mod tests {
                 gender: None,
                 birth_year: None,
                 age_range: None,
+                wizard_completed: None,
             },
         )
         .unwrap();
@@ -676,6 +783,7 @@ mod tests {
                 gender: None,
                 birth_year: None,
                 age_range: None,
+                wizard_completed: None,
             },
         )
         .expect("seed user");
@@ -713,6 +821,7 @@ mod tests {
                 gender: None,
                 birth_year: None,
                 age_range: None,
+                wizard_completed: None,
             },
         )
         .expect("recreate user after wipe");

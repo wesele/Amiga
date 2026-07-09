@@ -32,6 +32,20 @@ pub struct RunCloudSyncResult {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CloudRestoreResult {
+    /// Whether a cloud snapshot was found and restored into the local DB.
+    pub restored: bool,
+    /// Final nickname after restore (may differ from the requested one).
+    pub nickname: String,
+    /// Restored target language, if a learning goal was present.
+    pub target_language: Option<String>,
+    /// Restored CEFR level, if a learning goal was present.
+    pub cefr_level: Option<String>,
+    /// Machine-readable status: "restored" | "no_remote_data" | "error".
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SyncPayload {
     pub version: i32,
     pub users: Vec<SyncUserRow>,

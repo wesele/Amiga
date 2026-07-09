@@ -228,6 +228,10 @@ export default {
     finish: "完成",
     skip: "跳过",
     saveFail: "保存失败，请重试",
+    cloudChecking: "正在检查云端是否有可恢复的数据…",
+    cloudRestoring: "正在从云端恢复你的数据…",
+    cloudRestoreFailed: "云端数据恢复失败，将使用常规设置继续。",
+    cloudRestoreContinue: "继续设置",
   },
 
   shell: {
