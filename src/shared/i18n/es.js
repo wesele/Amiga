@@ -225,6 +225,10 @@ export default {
     finish: "Listo",
     skip: "Omitir",
     saveFail: "Error al guardar, inténtalo de nuevo",
+    cloudChecking: "Comprobando si hay datos recuperables en la nube…",
+    cloudRestoring: "Restaurando tus datos desde la nube…",
+    cloudRestoreFailed: "No se pudieron restaurar los datos de la nube. Continuando con la configuración normal.",
+    cloudRestoreContinue: "Continuar configuración",
   },
 
   shell: {

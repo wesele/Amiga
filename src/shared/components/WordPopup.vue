@@ -38,7 +38,7 @@
         </div>
       </div>
 
-      <div v-if="alwaysShowActions" class="popup-actions">
+      <div v-if="alwaysShowActions && !loading && !translation" class="popup-actions">
         <button class="act-known" @click="$emit('known'); emitClose()">✅ {{ t('popup.known') }}</button>
         <button class="act-unknown" @click="$emit('unknown'); emitClose()">❌ {{ t('popup.unknown') }}</button>
       </div>

@@ -101,6 +101,71 @@ describe("WizardFlow", () => {
     expect(getLocale()).toBe("zh");
   });
 
+  it("restores from cloud and skips the wizard when data is available", async () => {
+    const router = makeRouter();
+    const replaceSpy = vi.spyOn(router, "replace");
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "check_cloud_restore_cmd") return Promise.resolve(true);
+      if (cmd === "restore_from_cloud_wizard_cmd")
+        return Promise.resolve({
+          restored: true,
+          nickname: "TestUser",
+          target_language: "es",
+          cefr_level: "A1",
+        });
+      return Promise.resolve(undefined);
+    });
+    const wrapper = mount(WizardFlow, { global: { plugins: [router] } });
+    await router.push("/wizard");
+    await flushPromises();
+    await wrapper.find("input#nickname").setValue("TestUser");
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    await flushPromises();
+    expect(mockInvoke).toHaveBeenCalledWith("check_cloud_restore_cmd", { nickname: "TestUser" });
+    expect(mockInvoke).toHaveBeenCalledWith("restore_from_cloud_wizard_cmd", {
+      nickname: "TestUser",
+    });
+    expect(replaceSpy).toHaveBeenCalledWith({ name: "learn" });
+  });
+
+  it("shows a prompt and continues the wizard when cloud restore fails", async () => {
+    const wrapper = mountWizard();
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "check_cloud_restore_cmd") return Promise.resolve(true);
+      if (cmd === "restore_from_cloud_wizard_cmd")
+        return Promise.resolve({ restored: false, message: "no_remote_data" });
+      return Promise.resolve(undefined);
+    });
+    await wrapper.find("input#nickname").setValue("TestUser");
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    await flushPromises();
+    // Failure overlay should be visible with a continue button.
+    expect(wrapper.find(".restore-overlay").exists()).toBe(true);
+    const continueBtn = wrapper.find(".restore-btn");
+    expect(continueBtn.exists()).toBe(true);
+    await continueBtn.trigger("click");
+    await flushPromises();
+    // After acknowledging, the regular wizard proceeds to Step 2.
+    expect(wrapper.find(".restore-overlay").exists()).toBe(false);
+    expect(wrapper.findComponent(StepLearning).exists()).toBe(true);
+  });
+
+  it("continues the regular wizard when no cloud data is found", async () => {
+    const wrapper = mountWizard();
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "check_cloud_restore_cmd") return Promise.resolve(false);
+      return Promise.resolve(undefined);
+    });
+    await wrapper.find("input#nickname").setValue("TestUser");
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    await flushPromises();
+    expect(wrapper.find(".restore-overlay").exists()).toBe(false);
+    expect(wrapper.findComponent(StepLearning).exists()).toBe(true);
+  });
+
   it("advances to StepDemographics after Step 2 selection", async () => {
     const wrapper = mountWizard();
     await wrapper.find("input#nickname").setValue("TestUser");

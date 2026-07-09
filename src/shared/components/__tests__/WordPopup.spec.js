@@ -59,4 +59,28 @@ describe("WordPopup", () => {
       nativeLang: "zh",
     });
   });
+
+  it("hides the know/unknown buttons while the translation is loading", async () => {
+    const wrapper = mount(WordPopup, {
+      props: {
+        word: "hola",
+        context: "hola amigo",
+        sourceLang: "es",
+        nativeLang: "zh",
+        alwaysShowActions: true,
+      },
+    });
+
+    // Before the async translation resolves, only the loading spinner shows.
+    expect(wrapper.find(".popup-loading").exists()).toBe(true);
+    expect(wrapper.find(".act-known").exists()).toBe(false);
+    expect(wrapper.find(".act-unknown").exists()).toBe(false);
+
+    await flushPromises();
+
+    // After loading, the buttons are present and not duplicated.
+    expect(wrapper.find(".popup-loading").exists()).toBe(false);
+    expect(wrapper.findAll(".act-known")).toHaveLength(1);
+    expect(wrapper.findAll(".act-unknown")).toHaveLength(1);
+  });
 });

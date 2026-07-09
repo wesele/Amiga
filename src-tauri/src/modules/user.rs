@@ -41,6 +41,7 @@ mod tests {
             gender: Some("male".to_string()),
             birth_year: Some(1990),
             age_range: Some("37_54".to_string()),
+            wizard_completed: None,
         };
         let user = create_user_from_wizard(&pool, request).unwrap();
         assert_eq!(user.nickname, "TestUser");
@@ -60,6 +61,7 @@ mod tests {
             gender: None,
             birth_year: None,
             age_range: None,
+            wizard_completed: None,
         };
         let user = create_user_from_wizard(&pool, request).unwrap();
         assert_eq!(user.wizard_completed, true);
@@ -83,10 +85,30 @@ mod tests {
             gender: None,
             birth_year: None,
             age_range: None,
+            wizard_completed: None,
         };
         create_user_from_wizard(&pool, request).unwrap();
         let completed = is_wizard_completed(&pool).unwrap();
         assert_eq!(completed, true);
+    }
+
+    #[test]
+    fn test_create_user_from_wizard_respects_wizard_completed_flag() {
+        let pool = test_pool();
+        let request = CreateUserRequest {
+            nickname: "Restore".to_string(),
+            avatar: "😊".to_string(),
+            native_language: "zh".to_string(),
+            country: "CN".to_string(),
+            gender: None,
+            birth_year: None,
+            age_range: None,
+            wizard_completed: Some(false),
+        };
+        let user = create_user_from_wizard(&pool, request).unwrap();
+        assert_eq!(user.wizard_completed, false);
+        // And the persisted flag is reflected in is_wizard_completed.
+        assert_eq!(is_wizard_completed(&pool).unwrap(), false);
     }
 
     #[test]
@@ -211,6 +233,7 @@ mod tests {
             gender: None,
             birth_year: None,
             age_range: None,
+            wizard_completed: None,
         };
         create_user_from_wizard(&pool, request).unwrap();
         assert_eq!(is_wizard_completed(&pool).unwrap(), true);
@@ -299,6 +322,11 @@ pub struct CreateUserRequest {
     pub gender: Option<String>,
     pub birth_year: Option<i32>,
     pub age_range: Option<String>,
+    /// When omitted (the common wizard flow) the user is created as fully
+    /// onboarded. Set to `false` to create a placeholder user that the cloud
+    /// restore step can reconcile against without prematurely completing setup.
+    #[serde(default)]
+    pub wizard_completed: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -409,10 +437,16 @@ pub fn create_user_from_wizard(
         .clone()
         .unwrap_or_else(|| "private".to_string());
 
+    let wizard_completed_flag = if request.wizard_completed.unwrap_or(true) {
+        1
+    } else {
+        0
+    };
+
     conn.execute(
         "INSERT OR REPLACE INTO users (id, nickname, avatar, native_language, country, gender, birth_year, age_range,
          wizard_completed, created_at, last_active_date)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, ?10)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             id,
             request.nickname,
@@ -422,6 +456,7 @@ pub fn create_user_from_wizard(
             gender_value,
             request.birth_year,
             request.age_range,
+            wizard_completed_flag,
             today,
             today,
         ],
@@ -438,7 +473,7 @@ pub fn create_user_from_wizard(
         gender: gender_value,
         birth_year: request.birth_year,
         age_range: request.age_range,
-        wizard_completed: true,
+        wizard_completed: wizard_completed_flag != 0,
         created_at: today.clone(),
         last_active_date: Some(today),
     })

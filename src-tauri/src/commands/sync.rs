@@ -1,6 +1,7 @@
 use crate::modules::database::DatabasePool;
 use crate::modules::sync::{
-    self, CloudSyncStatus, CloudSyncTestResult, RunCloudSyncResult, SetCloudSyncEnabledResult,
+    self, CloudRestoreResult, CloudSyncStatus, CloudSyncTestResult, RunCloudSyncResult,
+    SetCloudSyncEnabledResult,
 };
 use tauri::State;
 
@@ -26,4 +27,17 @@ pub async fn set_cloud_sync_enabled_cmd(
 #[tauri::command]
 pub async fn run_cloud_sync_cmd(db: State<'_, DatabasePool>) -> Result<RunCloudSyncResult, String> {
     sync::run_cloud_sync(&db).await
+}
+
+#[tauri::command]
+pub async fn check_cloud_restore_cmd(nickname: String) -> Result<bool, String> {
+    sync::check_cloud_restore_available(&nickname).await
+}
+
+#[tauri::command]
+pub async fn restore_from_cloud_wizard_cmd(
+    db: State<'_, DatabasePool>,
+    nickname: String,
+) -> Result<CloudRestoreResult, String> {
+    sync::restore_from_cloud_during_wizard(&db, &nickname).await
 }

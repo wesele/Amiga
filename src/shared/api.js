@@ -199,6 +199,10 @@ export function createApiClient(invoke) {
     setCloudSyncEnabled: (enabled, forceEnable = false) =>
       call("set_cloud_sync_enabled_cmd", { enabled, forceEnable }),
     runCloudSync: () => call("run_cloud_sync_cmd"),
+    checkCloudRestore: (nickname) =>
+      call("check_cloud_restore_cmd", { nickname }),
+    restoreFromCloudWizard: (nickname) =>
+      call("restore_from_cloud_wizard_cmd", { nickname }),
   };
 }
 
@@ -320,6 +324,9 @@ export const testCloudSync = (...args) => defaultApiClient.testCloudSync(...args
 export const getCloudSyncStatus = (...args) => defaultApiClient.getCloudSyncStatus(...args);
 export const setCloudSyncEnabled = (...args) => defaultApiClient.setCloudSyncEnabled(...args);
 export const runCloudSync = (...args) => defaultApiClient.runCloudSync(...args);
+export const checkCloudRestore = (...args) => defaultApiClient.checkCloudRestore(...args);
+export const restoreFromCloudWizard = (...args) =>
+  defaultApiClient.restoreFromCloudWizard(...args);
 
 // --- Reading ---
 export const getReadingArticles = (...args) => defaultApiClient.getReadingArticles(...args);

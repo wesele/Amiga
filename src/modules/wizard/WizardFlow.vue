@@ -30,6 +30,22 @@
         />
       </Transition>
     </div>
+
+    <!-- Cloud restore overlay (shown after step 1 when checking/restoring) -->
+    <div v-if="restoreState" class="restore-overlay">
+      <div class="restore-card">
+        <div v-if="restoreState !== 'failed'" class="restore-spinner" />
+        <div v-else class="restore-warn">!</div>
+        <p class="restore-text">{{ restoreText }}</p>
+        <button
+          v-if="restoreState === 'failed'"
+          class="btn-primary restore-btn"
+          @click="continueAfterRestoreFailure"
+        >
+          {{ t("wizard.cloudRestoreContinue") }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -44,6 +60,7 @@ import { createUser, saveLearningGoal } from "@/shared/backend/user.js";
 import { initUserVocab } from "@/shared/backend/vocabulary.js";
 import { useI18n, setLocale } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
+import { checkCloudRestore, restoreFromCloudWizard } from "@/shared/api.js";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -83,6 +100,10 @@ const avatar = ref({ avatar: "😊" });
 const emitted = ref(false);
 const saveError = ref(false);
 
+// Cloud-restore overlay state: null | "checking" | "restoring" | "failed".
+const restoreState = ref(null);
+const restoreText = ref("");
+
 async function onNext(data) {
   if (emitted.value) return;
 
@@ -94,6 +115,14 @@ async function onNext(data) {
     if (data.nativeLanguage) {
       setLocale(data.nativeLanguage, { persist: true });
     }
+    const nickname = (data.nickname || "").trim();
+    if (nickname.length > 0) {
+      await handleProfileNext(nickname);
+      return;
+    }
+    // No nickname (guard; canNext normally prevents this) — just advance.
+    advanceStep();
+    return;
   } else if (current.value === 1) {
     learning.value = { ...learning.value, ...data };
   } else if (current.value === 2) {
@@ -109,8 +138,60 @@ async function onNext(data) {
     router.replace({ name: "learn" });
     return;
   }
+  advanceStep();
+}
+
+function advanceStep() {
+  restoreState.value = null;
   prevStep.value = current.value;
   current.value++;
+}
+
+// After the first step, check the cloud for restorable data tied to the
+// entered nickname. If data exists, restore it (and skip the rest of the
+// wizard). On any failure, prompt the user and continue the regular wizard.
+async function handleProfileNext(nickname) {
+  restoreState.value = "checking";
+  restoreText.value = t("wizard.cloudChecking");
+
+  let available = false;
+  try {
+    available = await checkCloudRestore(nickname);
+  } catch (e) {
+    console.warn("Cloud restore check failed, continuing wizard:", e);
+  }
+
+  if (!available) {
+    advanceStep();
+    return;
+  }
+
+  restoreState.value = "restoring";
+  restoreText.value = t("wizard.cloudRestoring");
+  try {
+    const res = await restoreFromCloudWizard(nickname);
+    if (res && res.restored) {
+      if (res.target_language) {
+        try {
+          await targetLangStore.set(res.target_language);
+        } catch (e) {
+          console.warn("setTargetLanguage after cloud restore failed:", e);
+        }
+      }
+      emitted.value = true;
+      router.replace({ name: "learn" });
+      return;
+    }
+    throw new Error(res ? res.message || "no_remote_data" : "no_remote_data");
+  } catch (e) {
+    console.error("Cloud restore failed, continuing wizard:", e);
+    restoreState.value = "failed";
+    restoreText.value = t("wizard.cloudRestoreFailed");
+  }
+}
+
+function continueAfterRestoreFailure() {
+  advanceStep();
 }
 
 async function saveToBackend() {
@@ -254,5 +335,66 @@ async function saveToBackend() {
 .slide-right-leave-to {
   opacity: 0;
   transform: translateX(30px);
+}
+
+/* Cloud restore overlay */
+.restore-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 24px;
+}
+
+.restore-card {
+  background: var(--surface);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 300px;
+  padding: 28px 24px;
+  text-align: center;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.restore-spinner {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto 16px;
+  border: 3px solid var(--border);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: restore-spin 0.8s linear infinite;
+}
+
+.restore-warn {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 40px;
+}
+
+@keyframes restore-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.restore-text {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.restore-btn {
+  margin-top: 18px;
 }
 </style>
