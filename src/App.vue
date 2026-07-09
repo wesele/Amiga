@@ -72,12 +72,14 @@ async function checkDatabaseHealth() {
     } else if (!status.schema_compatible) {
       showSchemaDialog.value = true;
     }
-  } catch {
+  } catch (e) {
     // Browser dev and early Tauri startup can both miss the backend.
     // Try legacy path as last resort (may still work for soft case).
     try {
       showSchemaDialog.value = !(await isSchemaCompatible());
-    } catch {}
+    } catch (legacyErr) {
+      console.warn("Database health check unavailable", e, legacyErr);
+    }
   }
 }
 
@@ -93,7 +95,8 @@ async function handleSchemaReset() {
   try {
     await resetDatabase();
     window.location.reload();
-  } catch {
+  } catch (e) {
+    console.error("Failed to reset database", e);
     resettingSchema.value = false;
   }
 }
@@ -104,15 +107,19 @@ async function handleDeleteAndRestart() {
   try {
     await deleteDatabaseAndRestart();
     // app will restart; unreachable
-  } catch {
+  } catch (e) {
+    console.error("Failed to delete data and restart", e);
     deletingData.value = false;
   }
 }
 
 function handleExitApp() {
-  exitApp().catch(() => {
+  exitApp().catch((e) => {
+    console.warn("exitApp command failed, falling back to window.close()", e);
     // Last resort
-    try { window.close(); } catch {}
+    try { window.close(); } catch (closeErr) {
+      console.error("window.close() failed", closeErr);
+    }
   });
 }
 

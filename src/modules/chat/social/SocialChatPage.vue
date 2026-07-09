@@ -260,7 +260,9 @@ function scheduleReconnect() {
   reconnectTimer.value = setTimeout(() => {
     reconnectTimer.value = null;
     if (socketRef.value || connectionState.value === "connected") return;
-    connectSocket().catch(() => {});
+    connectSocket().catch((e) => {
+      console.debug("Social chat reconnect failed", e);
+    });
   }, delay);
 }
 
@@ -269,7 +271,9 @@ function handleVisibility() {
     disconnectSocket();
   } else if (document.visibilityState === "visible" && (connectionState.value === "error" || connectionState.value === "closed")) {
     reconnectAttempt.value = 0;
-    connectSocket().catch(() => {});
+    connectSocket().catch((e) => {
+      console.debug("Social chat reconnect on visibility failed", e);
+    });
   }
 }
 

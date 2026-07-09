@@ -231,7 +231,9 @@ async function onKnown() {
   try {
     await updateWordMastery(userId.value, w.id, 2, "vocab_review");
     w.mastery = 2;
-  } catch (_) {}
+  } catch (e) {
+    console.error("Failed to update word mastery (known)", e);
+  }
   selectedWord.value = null;
 }
 
@@ -241,7 +243,9 @@ async function onUnknown() {
   try {
     await updateWordMastery(userId.value, w.id, 1, "vocab_review");
     w.mastery = 1;
-  } catch (_) {}
+  } catch (e) {
+    console.error("Failed to update word mastery (unknown)", e);
+  }
   selectedWord.value = null;
 }
 
@@ -255,7 +259,10 @@ async function confirmReset() {
     await resetUserVocabByLevel(userId.value, userLang.value, drilledLevel.value);
     await loadWords(drilledLevel.value);
     await loadStats();
-  } catch (_) {}
+  } catch (e) {
+    error.value = t("common.fail");
+    console.error("Failed to reset vocab level", e);
+  }
 }
 
 onMounted(async () => {

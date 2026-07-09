@@ -381,11 +381,16 @@ pub fn get_or_create_user(db: &DatabasePool) -> Result<User, String> {
         Ok(user) => {
             // Update last active date
             let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-            conn.execute(
+            if let Err(e) = conn.execute(
                 "UPDATE users SET last_active_date = ?1 WHERE id = ?2",
                 params![today, user.id],
-            )
-            .ok();
+            ) {
+                log::warn!(
+                    "Failed to update last_active_date for user {}: {}",
+                    user.id,
+                    e
+                );
+            }
             log::debug!("Existing user loaded: {}", user.id);
             Ok(user)
         }

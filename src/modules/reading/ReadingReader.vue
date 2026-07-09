@@ -336,8 +336,9 @@ async function loadBilingual() {
     if (title) {
       try {
         titleTranslation.value = await translateText(title, targetLang, getLocale());
-      } catch (_) {
+      } catch (titleErr) {
         titleTranslation.value = "";
+        console.debug("Failed to translate reading title", titleErr);
       }
     }
   } catch (e) {
@@ -373,7 +374,9 @@ async function onWordKnown() {
       const newId = await addDiscoveredWord(userId, selectedWord.value.text, targetLang, selectedWord.value.context);
       await updateWordMastery(userId, newId, 2, "reading");
     }
-  } catch (_) {}
+  } catch (e) {
+    console.error("Failed to mark reading word known", e);
+  }
   selectedWord.value = null;
 }
 
@@ -389,7 +392,9 @@ async function onWordUnknown() {
     } else {
       await addDiscoveredWord(userId, selectedWord.value.text, targetLang, selectedWord.value.context);
     }
-  } catch (_) {}
+  } catch (e) {
+    console.error("Failed to mark reading word unknown", e);
+  }
   selectedWord.value = null;
 }
 

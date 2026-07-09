@@ -226,7 +226,9 @@ async function loadTeachingWords(words, targetLang, cefr) {
     masteryByWord = new Map(
       vocab.map((v) => [v.word.toLowerCase(), { id: v.id, mastery: v.mastery }]),
     );
-  } catch (_) {}
+  } catch (e) {
+    console.error("Failed to load teaching vocab mastery", e);
+  }
   teachingWords.value = words.map((item) => {
     const match = masteryByWord.get(item.word.toLowerCase());
     return {
@@ -246,7 +248,9 @@ async function onKnown() {
   try {
     await updateWordMastery(userId.value, w.id, 2, "path_vocab");
     w.mastery = 2;
-  } catch (_) {}
+  } catch (e) {
+    console.error("Failed to update word mastery (known)", e);
+  }
   selectedWord.value = null;
 }
 
@@ -259,7 +263,9 @@ async function onUnknown() {
   try {
     await updateWordMastery(userId.value, w.id, 1, "path_vocab");
     w.mastery = 1;
-  } catch (_) {}
+  } catch (e) {
+    console.error("Failed to update word mastery (unknown)", e);
+  }
   selectedWord.value = null;
 }
 

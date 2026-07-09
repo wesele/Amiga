@@ -6,7 +6,9 @@ export function installSocialInboxService(targetWindow = typeof window === "unde
   if (installed) return;
   installed = true;
 
-  bootSocialInbox().catch(() => {});
+  bootSocialInbox().catch((e) => {
+    console.debug("Social inbox boot failed", e);
+  });
 
   if (targetWindow) {
     targetWindow.addEventListener("beforeunload", () => {

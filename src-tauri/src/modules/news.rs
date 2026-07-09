@@ -995,13 +995,18 @@ pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(),
 
     // Update streak record
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-    conn.execute(
+    if let Err(e) = conn.execute(
         "INSERT INTO streak_records (user_id, date, articles_read)
          VALUES (?1, ?2, 1)
          ON CONFLICT(user_id, date) DO UPDATE SET articles_read = articles_read + 1",
         params![log_entry.user_id, today],
-    )
-    .ok();
+    ) {
+        log::warn!(
+            "Failed to update streak record for user {}: {}",
+            log_entry.user_id,
+            e
+        );
+    }
 
     log::info!(
         "Reading log saved: user={} article={}",
