@@ -123,6 +123,12 @@ describe("LearnHubPage", () => {
     expect(pushSpy).toHaveBeenCalledWith({ name: "news" });
   });
 
+  it("keeps the path card top inset equal to its horizontal inset", async () => {
+    const source = readFileSync(resolve(__dirname, "../LearnHubPage.vue"), "utf8");
+    expect(source).toMatch(/\.module-grid\s*\{[^}]*padding:\s*var\(--module-grid-x\)\s+var\(--module-grid-x\)/s);
+    expect(source).toMatch(/\.status-section\s*\{[^}]*padding:\s*0;/s);
+  });
+
   it("opens the word list from the vocabulary counter", async () => {
     const router = makeRouter();
     const pushSpy = vi.spyOn(router, "push");

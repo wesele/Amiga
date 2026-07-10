@@ -210,8 +210,8 @@ onMounted(async () => {
   display: grid;
   grid-template-rows: repeat(3, minmax(0, 1fr));
   min-height: 0;
-  gap: 6px;
-  padding: 6px 14px 10px;
+  gap: 14px;
+  padding: 14px 14px 20px;
 }
 
 .achievement-group {
@@ -347,7 +347,8 @@ onMounted(async () => {
   grid-template-rows: repeat(2, 1fr);
   gap: clamp(1px, 0.25vw, 3px);
   width: 100%;
-  aspect-ratio: 1.45 / 1;
+  /* 1.45 / 1.3 keeps the matrix cells 1.3x taller than the compact layout. */
+  aspect-ratio: 1.12 / 1;
   padding: clamp(1px, 0.35vw, 3px);
   box-sizing: border-box;
   border-radius: 4px;

@@ -79,7 +79,8 @@ describe("AchievementsPage", () => {
     expect(source).toMatch(/\.matrix-layout\s*\{[^}]*width:\s*100%/s);
     expect(source).toMatch(/\.achievements-page\s*\{[^}]*height:\s*100%[^}]*overflow:\s*hidden/s);
     expect(source).toMatch(/\.achievement-groups\s*\{[^}]*grid-template-rows:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/s);
-    expect(source).toMatch(/\.day-cell\s*\{[^}]*width:\s*100%[^}]*aspect-ratio:\s*1\.45\s*\/\s*1/s);
+    expect(source).toMatch(/\.achievement-groups\s*\{[^}]*gap:\s*14px[^}]*padding:\s*14px\s+14px\s+20px/s);
+    expect(source).toMatch(/\.day-cell\s*\{[^}]*width:\s*100%[^}]*aspect-ratio:\s*1\.12\s*\/\s*1/s);
     expect(source).not.toMatch(/\.matrix-scroll\s*\{/);
   });
 });

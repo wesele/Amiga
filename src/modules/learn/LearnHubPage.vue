@@ -206,7 +206,7 @@ function openVocab() {
 }
 
 .status-section {
-  padding: 0 0 4px;
+  padding: 0;
 }
 
 .status-card {
@@ -270,7 +270,7 @@ function openVocab() {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--module-grid-row-gap) var(--module-grid-col-gap);
-  padding: var(--module-grid-row-gap) var(--module-grid-x) 14vw;
+  padding: var(--module-grid-x) var(--module-grid-x) 14vw;
   box-sizing: border-box;
 }
 
