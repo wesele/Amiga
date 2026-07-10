@@ -49,6 +49,10 @@ pub fn run() {
         .manage(db_pool)
         .manage(llm_state)
         .invoke_handler(tauri::generate_handler![
+            // Achievement commands
+            commands::achievements::get_achievement_days_cmd,
+            commands::achievements::record_app_open_cmd,
+            commands::achievements::get_achievement_progress_cmd,
             // Greeting (legacy)
             commands::greeting::greet,
             // Database commands

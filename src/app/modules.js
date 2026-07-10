@@ -1,6 +1,7 @@
 export const APP_MODULES = [
   { name: "wizard" },
   { name: "learn", parent: "shell" },
+  { name: "achievements", parent: "shell" },
   { name: "path", parent: "shell" },
   { name: "news", parent: "shell" },
   { name: "reading", parent: "shell" },

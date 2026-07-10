@@ -2,7 +2,12 @@
   <div class="vocab-page">
     <!-- Stats overview -->
     <template v-if="!drilledLevel">
-      <header class="page-header">
+      <header class="page-header overview-header">
+        <button class="back-btn" type="button" :aria-label="t('common.back')" @click="backToLearn">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+          </svg>
+        </button>
         <h1 class="page-title">{{ t('vocab.title') }}</h1>
       </header>
 
@@ -109,6 +114,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { useRouter } from "vue-router";
 import { getCurrentUser } from "@/shared/backend/user.js";
 import {
   getUserVocabByLevel,
@@ -124,6 +130,7 @@ import WordPopup from "@/shared/components/WordPopup.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 
 const { t, locale } = useI18n();
+const router = useRouter();
 const targetLangStore = useTargetLangStore();
 const loading = ref(true);
 const error = ref("");
@@ -190,6 +197,10 @@ function exitLevel() {
   drilledLevel.value = "";
   words.value = [];
   selectedWord.value = null;
+}
+
+function backToLearn() {
+  router.replace({ name: "learn" });
 }
 
 function syncAndroidBackHook() {
@@ -309,6 +320,12 @@ watch(drilledLevel, () => {
 .page-header {
   padding: 16px 20px 12px;
   flex-shrink: 0;
+}
+
+.overview-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .detail-header {

@@ -300,8 +300,11 @@ async function playAudio() {
 }
 
 watch(
-  () => props.question?.id,
+  () => props.question,
   () => {
+    // Questions from generated lessons do not always have an id. Watch the
+    // question object so internal answer state is reset whenever the lesson
+    // advances, regardless of the question schema.
     resetMatching();
     resetWordOrder();
     shuffleRights();

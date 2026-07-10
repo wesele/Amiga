@@ -9,10 +9,10 @@
 
     <section class="status-section">
       <div class="status-card">
-        <div class="stat-cell">
+        <button class="stat-cell stat-cell-link" type="button" @click="openVocab">
           <div class="stat-value">{{ vocabStats?.total_known || 0 }}</div>
           <div class="stat-label">{{ t("profile.words") }}</div>
-        </div>
+        </button>
         <div class="stat-divider" />
         <div class="stat-cell">
           <div class="stat-value">{{ readArticleCount }}</div>
@@ -164,6 +164,10 @@ async function openModule(mod) {
     }
   }
 }
+
+function openVocab() {
+  router.push({ name: "vocab" });
+}
 </script>
 
 <style scoped>
@@ -221,6 +225,21 @@ async function openModule(mod) {
   flex: 1;
   text-align: center;
   padding: 12px 4px;
+}
+
+.stat-cell-link {
+  align-self: stretch;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--transition);
+}
+
+.stat-cell-link:hover,
+.stat-cell-link:focus-visible {
+  background: var(--green-bg);
+  outline: none;
 }
 
 .stat-value {

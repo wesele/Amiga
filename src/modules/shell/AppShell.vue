@@ -36,9 +36,9 @@ const tabs = [
     icon: '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h5V7h-5v10zm-2 0V7H5v10h5z"/></svg>',
   },
   {
-    name: "vocab",
-    label: "nav.vocab",
-    icon: '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12zm-7-1h2v-4h4V9h-4V5h-2v4H9v2h4v4z"/></svg>',
+    name: "achievements",
+    label: "nav.achievements",
+    icon: '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M17 3V2H7v1H2v5c0 2.21 1.79 4 4 4h.35A6.02 6.02 0 0 0 11 15.91V19H7v2h10v-2h-4v-3.09A6.02 6.02 0 0 0 17.65 12H18c2.21 0 4-1.79 4-4V3h-5zM6 10c-1.1 0-2-.9-2-2V5h3v3c0 .7.12 1.37.35 2H6zm14-2c0 1.1-.9 2-2 2h-1.35c.23-.63.35-1.3.35-2V5h3v3z"/></svg>',
   },
   {
     name: "chat",

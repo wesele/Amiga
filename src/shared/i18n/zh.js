@@ -26,6 +26,7 @@ export default {
   nav: {
     learn: "学习",
     vocab: "单词",
+    achievements: "成就",
     chat: "聊天",
     profile: "我的",
   },
@@ -41,6 +42,40 @@ export default {
     learnedPrefix: "已学 ",
     learnedSuffix: " 天",
     speakingCount: "口语",
+  },
+
+  achievements: {
+    title: "成就",
+    subtitle: "最近 12 周学习轨迹",
+    matrixLabel: "学习活动矩阵",
+    readingAm: "上午阅读",
+    readingPm: "下午阅读",
+    news: "新闻阅读",
+    speaking: "AI 口语",
+    less: "较少",
+    more: "完成",
+    daySummary: "{date}：上午阅读 {am}，下午阅读 {pm}，新闻 {news}，口语 {speaking}",
+    badgesLabel: "成就徽章",
+    unlocked: "已解锁",
+    streakProgress: "当前 {current} 天 · 最佳 {best} 天",
+    totalProgress: "累计 {total} 天",
+    groups: {
+      checkIn: {
+        title: "连续打卡",
+        description: "每天打开阿米加，中断后重新累计",
+        milestones: ["连续一周", "连续一个月", "连续三个月", "连续一年"],
+      },
+      fullLearning: {
+        title: "连续学习",
+        description: "每天四格全绿，中断后重新累计",
+        milestones: ["连续三天", "连续一周", "连续一个月", "连续三个月"],
+      },
+      totalLearning: {
+        title: "累计学习",
+        description: "当天任意一格不是灰色即计入",
+        milestones: ["累计一个月", "累计三个月", "累计一年", "累计三年"],
+      },
+    },
   },
 
   speaking: {

@@ -9,7 +9,7 @@
       <div class="account-card">
         <div class="account-row">
           <div class="account-avatar">
-            <StylizedAvatar :id="avatarId" :size="32" />
+            <StylizedAvatar :id="avatarId" :size="48" />
           </div>
           <div class="account-info">
             <div class="account-name">{{ user?.nickname || t('common.learner') }}</div>
@@ -377,7 +377,7 @@ async function handleInstallUpdate() {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--green-bg);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;

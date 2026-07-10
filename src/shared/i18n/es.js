@@ -23,6 +23,7 @@ export default {
   nav: {
     learn: "Aprender",
     vocab: "Palabras",
+    achievements: "Logros",
     chat: "Chat",
     profile: "Yo",
   },
@@ -38,6 +39,40 @@ export default {
     learnedPrefix: "Estudiado ",
     learnedSuffix: " días",
     speakingCount: "Oral",
+  },
+
+  achievements: {
+    title: "Logros",
+    subtitle: "Tu actividad de aprendizaje de las últimas 12 semanas",
+    matrixLabel: "Matriz de actividad de aprendizaje",
+    readingAm: "Lectura matutina",
+    readingPm: "Lectura vespertina",
+    news: "Lectura de noticias",
+    speaking: "Conversación con IA",
+    less: "Menos",
+    more: "Completo",
+    daySummary: "{date}: lectura AM {am}, lectura PM {pm}, noticias {news}, conversación {speaking}",
+    badgesLabel: "Insignias de logros",
+    unlocked: "Desbloqueado",
+    streakProgress: "Actual: {current} días · Récord: {best} días",
+    totalProgress: "{total} días en total",
+    groups: {
+      checkIn: {
+        title: "Racha de acceso",
+        description: "Abre Amiga cada día; si faltas, la racha se reinicia",
+        milestones: ["Una semana", "Un mes", "Tres meses", "Un año"],
+      },
+      fullLearning: {
+        title: "Racha de estudio",
+        description: "Completa las cuatro actividades cada día",
+        milestones: ["Tres días", "Una semana", "Un mes", "Tres meses"],
+      },
+      totalLearning: {
+        title: "Estudio acumulado",
+        description: "Cuenta cualquier día con actividad",
+        milestones: ["Un mes", "Tres meses", "Un año", "Tres años"],
+      },
+    },
   },
 
   speaking: {

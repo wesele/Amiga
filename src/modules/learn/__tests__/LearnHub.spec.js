@@ -22,6 +22,7 @@ function makeRouter() {
     routes: [
       { path: "/learn", name: "learn", component: LearnHubPage },
       { path: "/learn/path", name: "path", component: { template: "<div/>" } },
+      { path: "/learn/vocab", name: "vocab", component: { template: "<div/>" } },
       { path: "/news", name: "news", component: { template: "<div/>" } },
       {
         path: "/learn/translator/:sessionId",
@@ -120,6 +121,19 @@ describe("LearnHubPage", () => {
     await newsTile.trigger("click");
 
     expect(pushSpy).toHaveBeenCalledWith({ name: "news" });
+  });
+
+  it("opens the word list from the vocabulary counter", async () => {
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    await wrapper.find(".stat-cell-link").trigger("click");
+
+    expect(pushSpy).toHaveBeenCalledWith({ name: "vocab" });
   });
 
   it("opens translator session via learn-translator route", async () => {

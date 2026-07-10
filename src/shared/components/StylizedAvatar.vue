@@ -1,5 +1,13 @@
 <template>
+  <div
+    v-if="useSprite"
+    class="avatar-sprite"
+    :style="spriteStyle"
+    role="img"
+    :aria-label="`Avatar ${avatarIndex + 1}`"
+  />
   <svg 
+    v-else
     viewBox="0 0 24 24" 
     fill="none" 
     stroke-width="2" 
@@ -88,15 +96,41 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from "vue";
+
+const props = defineProps({
   id: { type: [Number, String], default: 0 },
   size: { type: [Number, String], default: 40 },
 });
+
+const avatarIndex = computed(() => {
+  const value = Number(props.id);
+  return Number.isInteger(value) ? Math.max(0, Math.min(11, value)) : 0;
+});
+
+const useSprite = computed(() => avatarIndex.value >= 0 && avatarIndex.value <= 11);
+
+const spriteStyle = computed(() => ({
+  width: `${props.size}px`,
+  height: `${props.size}px`,
+  backgroundPosition: `${(avatarIndex.value % 4) * 33.333333}% ${Math.floor(avatarIndex.value / 4) * 50}%`,
+}));
 </script>
 
 <style scoped>
 svg {
   display: inline-block;
   vertical-align: middle;
+}
+
+.avatar-sprite {
+  display: inline-block;
+  flex: 0 0 auto;
+  vertical-align: middle;
+  border-radius: 50%;
+  background-image: url("/avatars/amiga-avatar-sprite.png");
+  background-repeat: no-repeat;
+  background-size: 400% 300%;
+  box-shadow: 0 2px 0 rgba(51, 51, 51, 0.12);
 }
 </style>

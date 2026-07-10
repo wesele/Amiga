@@ -12,6 +12,7 @@ import { loadFeatureModules, loadShellModule } from "./app/modules.js";
 import { applyQueryLocale } from "./app/queryLocale.js";
 import { installWizardGuard } from "./app/routeGuards.js";
 import { installSocialInboxService } from "./app/socialInbox.js";
+import { installAppOpenTracker } from "./shared/appOpenTracker.js";
 
 async function bootstrap() {
   // Browser-dev escape hatch: `?locale=en` (or `es` / `zh`) overrides the
@@ -54,6 +55,7 @@ async function bootstrap() {
 
   // Global background service: messages can arrive outside the chat tab.
   installSocialInboxService();
+  installAppOpenTracker(router);
 
   app.mount("#app");
 

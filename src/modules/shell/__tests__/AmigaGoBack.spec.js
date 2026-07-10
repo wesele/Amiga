@@ -49,6 +49,8 @@ function routeFileForName(name) {
     case "learn":
     case "learn-translator":
       return "src/modules/learn/routes.js";
+    case "vocab":
+      return "src/modules/vocab/routes.js";
     case "path":
     case "path-teaching":
     case "path-lesson":
@@ -159,10 +161,10 @@ describe("__amigaGoBack bridge", () => {
 
   it("lets an in-page handler consume the back press before route-level parents", async () => {
     const router = makeRouter([
-      { path: "/vocab", name: "vocab", component: { template: "<div />" } },
+      { path: "/learn/vocab", name: "vocab", component: { template: "<div />" }, meta: { parent: "learn" } },
     ]);
     installAndroidBridge({ router });
-    await router.push("/vocab");
+    await router.push("/learn/vocab");
 
     const replaceSpy = vi.spyOn(router, "replace");
     const inPage = vi.fn(() => "navigated");
@@ -243,6 +245,7 @@ describe("__amigaGoBack bridge", () => {
       { name: "news", parent: "learn" },
       { name: "reader", parent: "news" },
       { name: "learn-translator", parent: "learn" },
+      { name: "vocab", parent: "learn" },
       { name: "path", parent: "learn" },
       { name: "path-teaching", parent: "path" },
       { name: "path-lesson", parent: "path" },

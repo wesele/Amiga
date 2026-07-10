@@ -1,3 +1,4 @@
+pub mod achievements;
 pub mod chat;
 pub mod database;
 pub mod greeting;

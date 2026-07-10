@@ -99,6 +99,13 @@ export function createApiClient(invoke) {
     getReadArticleCount: (userId) => call("get_read_article_count_cmd", { userId }),
     getLearningDays: (userId) => call("get_learning_days_cmd", { userId }),
 
+    // Achievements
+    getAchievementDays: (userId, startDate, endDate) =>
+      call("get_achievement_days_cmd", { userId, startDate, endDate }),
+    recordAppOpen: () => call("record_app_open_cmd"),
+    getAchievementProgress: (userId) =>
+      call("get_achievement_progress_cmd", { userId }),
+
     // LLM
     rewriteArticle: (articleId, cefrLevel, userId, targetLang) =>
       call("rewrite_article_cmd", { articleId, cefrLevel, userId, targetLang }),
@@ -281,6 +288,11 @@ export const getArticle = (...args) => defaultApiClient.getArticle(...args);
 export const saveReadingLog = (...args) => defaultApiClient.saveReadingLog(...args);
 export const getReadArticleCount = (...args) => defaultApiClient.getReadArticleCount(...args);
 export const getLearningDays = (...args) => defaultApiClient.getLearningDays(...args);
+
+// --- Achievements ---
+export const getAchievementDays = (...args) => defaultApiClient.getAchievementDays(...args);
+export const recordAppOpen = (...args) => defaultApiClient.recordAppOpen(...args);
+export const getAchievementProgress = (...args) => defaultApiClient.getAchievementProgress(...args);
 
 // --- LLM ---
 export const rewriteArticle = (...args) => defaultApiClient.rewriteArticle(...args);

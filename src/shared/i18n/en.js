@@ -23,6 +23,7 @@ export default {
   nav: {
     learn: "Learn",
     vocab: "Words",
+    achievements: "Achievements",
     chat: "Chat",
     profile: "Me",
   },
@@ -38,6 +39,40 @@ export default {
     learnedPrefix: "Studied ",
     learnedSuffix: " days",
     speakingCount: "Speaking",
+  },
+
+  achievements: {
+    title: "Achievements",
+    subtitle: "Your learning activity over the last 12 weeks",
+    matrixLabel: "Learning activity matrix",
+    readingAm: "Morning reading",
+    readingPm: "Afternoon reading",
+    news: "News reading",
+    speaking: "AI speaking",
+    less: "Less",
+    more: "Complete",
+    daySummary: "{date}: AM reading {am}, PM reading {pm}, news {news}, speaking {speaking}",
+    badgesLabel: "Achievement badges",
+    unlocked: "Unlocked",
+    streakProgress: "Current {current} days · Best {best} days",
+    totalProgress: "{total} days total",
+    groups: {
+      checkIn: {
+        title: "Check-in streak",
+        description: "Open Amiga every day; a missed day resets the streak",
+        milestones: ["One week", "One month", "Three months", "One year"],
+      },
+      fullLearning: {
+        title: "Learning streak",
+        description: "Complete all four activities every day",
+        milestones: ["Three days", "One week", "One month", "Three months"],
+      },
+      totalLearning: {
+        title: "Total learning",
+        description: "Any activity on a day counts",
+        milestones: ["One month", "Three months", "One year", "Three years"],
+      },
+    },
   },
 
   speaking: {
