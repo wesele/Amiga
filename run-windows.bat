@@ -15,8 +15,8 @@ setlocal EnableDelayedExpansion
 ::  Fast start (no code changes):
 ::    - Reuses a running Vite server on :1420 when possible
 ::    - Skips Rust rebuild when target\release\idioma.exe is fresh
-::    Use --full to force a clean restart of ports + Vite + Rust.
-::    Use --debug to build and run the debug profile instead of release.
+::    Use --full to force a restart of ports + Vite and check the Rust build.
+::    This launcher intentionally supports the release profile only.
 ::
 ::  For a SECOND, FULLY ISOLATED instance (separate DB, logs,
 ::  build cache, process, etc.) use run-windows-2.bat instead.
@@ -32,7 +32,6 @@ set "ARGS="
 if "%~1"=="" goto run
 if /i "%~1"=="--full" set "ARGS=%ARGS% -ForceFull"
 if /i "%~1"=="/full" set "ARGS=%ARGS% -ForceFull"
-if /i "%~1"=="--debug" set "ARGS=%ARGS% -Debug"
 shift
 goto parse_args
 :run

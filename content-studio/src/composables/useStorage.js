@@ -6,24 +6,73 @@
 
 import { migrateQuestionSectionIds } from '../utils/sectionId.js'
 import { migrateQuestionFields } from '../utils/normalizeQuestion.js'
+import {
+  loadQuestionIndex, loadQuestionShard, replaceSectionQuestions as replaceSectionRemote,
+  saveQuestionShard
+} from '../services/questionClient.js'
+import { shouldPersistQuestionLevelClear } from '../utils/questionPersistence.js'
+import { createKeyedSerialQueue } from '../utils/keyedSerialQueue.js'
 
-const DEFAULT_CONFIG = { baseUrl: '', apiKey: '', model: 'gpt-4o-mini', reviewModel: 'gpt-4o' }
+const DEFAULT_CONFIG = {
+  baseUrl: '',
+  apiKey: '',
+  model: 'gpt-4o-mini',
+  imageModel: 'gpt-4o-mini',
+  reviewModel: 'gpt-4o',
+  temperature: 0.3,
+  topP: null,
+  maxTokens: null,
+  frequencyPenalty: null,
+  presencePenalty: null,
+  minUnits: 5,
+  maxUnits: 8,
+  minSectionsPerUnit: 3,
+  maxSectionsPerUnit: 5,
+  questionsPerSection: 5,
+  maxQuestionTypesPerSection: 3
+}
 
 // 模块级内存缓存
 let _tasks = []
 let _questions = []
+const questionRevisions = new Map()
+const questionSaveQueue = createKeyedSerialQueue()
 let _productionLog = []
+const saveQueues = new Map()
+const saveErrors = new Map()
 
 async function saveData(type, data) {
   try {
-    await fetch(`/api/data/${type}`, {
+    const res = await fetch(`/api/data/${type}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     })
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}))
+      throw new Error(detail.error || `${type} 保存失败 (${res.status})`)
+    }
+    saveErrors.delete(type)
   } catch (e) {
     console.warn(`[${type}] 保存到服务端失败:`, e.message)
+    saveErrors.set(type, e)
+    throw e
   }
+}
+
+function enqueueSave(type, data) {
+  const previous = saveQueues.get(type) || Promise.resolve()
+  const current = previous.catch(() => {}).then(() => saveData(type, data))
+  saveQueues.set(type, current)
+  const cleanup = () => {
+    if (saveQueues.get(type) === current) saveQueues.delete(type)
+  }
+  current.then(cleanup, cleanup)
+  return current
+}
+
+function flushData(type) {
+  return saveQueues.get(type) || Promise.resolve()
 }
 
 async function loadData(type, fallback) {
@@ -40,6 +89,14 @@ async function loadData(type, fallback) {
 }
 
 export function useStorage() {
+  async function ensureQuestionRevision(pairId, cefr) {
+    const key = `${pairId}\u0000${cefr}`
+    if (questionRevisions.has(key)) return questionRevisions.get(key)
+    const result = await loadQuestionShard(pairId, cefr)
+    questionRevisions.set(key, result.revision)
+    return result.revision
+  }
+
   // ---- API 配置（仍走 /api/config → studio.config.json）----
   function getApiConfig() {
     try {
@@ -65,11 +122,12 @@ export function useStorage() {
     const data = { ...DEFAULT_CONFIG, ...config }
     localStorage.setItem('idioma-studio:api-config-cache', JSON.stringify(data))
     try {
-      await fetch('/api/config', {
+      const res = await fetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       })
+      if (!res.ok) throw new Error(`API 配置保存失败 (${res.status})`)
     } catch (e) {
       console.warn('服务端配置保存失败:', e.message)
     }
@@ -87,13 +145,13 @@ export function useStorage() {
     } else {
       _tasks.push({ ...task, createdAt: Date.now(), updatedAt: Date.now() })
     }
-    saveData('tasks', _tasks)
+    void enqueueSave('tasks', _tasks).catch(() => {})
     return task
   }
 
   function deleteTask(taskId) {
     _tasks = _tasks.filter(t => t.taskId !== taskId)
-    saveData('tasks', _tasks)
+    void enqueueSave('tasks', _tasks).catch(() => {})
   }
 
   // ---- 题目 ----
@@ -110,23 +168,72 @@ export function useStorage() {
   }
 
   function saveQuestions(newQuestions) {
-    _questions = [..._questions, ...newQuestions]
-    saveData('questions', _questions)
-    return _questions
+    const byId = new Map(_questions.map(question => [question.id, question]))
+    for (const question of (Array.isArray(newQuestions) ? newQuestions : [])) {
+      if (!question || typeof question !== 'object') continue
+      if (question.id) byId.set(question.id, question)
+    }
+    _questions = [...byId.values()]
+    return persistAffectedShards(newQuestions).then(() => _questions)
   }
 
   function deleteQuestions(ids) {
+    const removed = _questions.filter(q => ids.includes(q.id))
     _questions = _questions.filter(q => !ids.includes(q.id))
-    saveData('questions', _questions)
+    return persistAffectedShards(removed)
   }
 
   function clearAllQuestions() {
+    const affected = [..._questions]
     _questions = []
-    saveData('questions', _questions)
+    return persistAffectedShards(affected)
+  }
+
+  async function clearQuestionLevel(pairId, cefr) {
+    const removed = _questions.filter(q => q.pairId === pairId && q.cefr === cefr)
+    const key = `${pairId}\u0000${cefr}`
+    if (!shouldPersistQuestionLevelClear(removed.length, questionRevisions.has(key))) return
+    _questions = _questions.filter(q => q.pairId !== pairId || q.cefr !== cefr)
+    await persistAffectedShards(removed.length ? removed : [{ pairId, cefr }])
+  }
+
+  function replaceQuestions(newQuestions) {
+    const affected = [..._questions, ...(Array.isArray(newQuestions) ? newQuestions : [])]
+    _questions = Array.isArray(newQuestions) ? [...newQuestions] : []
+    return persistAffectedShards(affected)
   }
 
   function persistQuestions() {
-    saveData('questions', _questions)
+    return persistAffectedShards(_questions)
+  }
+
+  function persistQuestion(question) {
+    return persistAffectedShards(question ? [question] : [])
+  }
+
+  async function persistAffectedShards(questions) {
+    const keys = new Set((questions || []).filter(q => q?.pairId && q?.cefr).map(q => `${q.pairId}\u0000${q.cefr}`))
+    for (const key of keys) {
+      const [pairId, cefr] = key.split('\u0000')
+      await questionSaveQueue.enqueue(key, async () => {
+        await ensureQuestionRevision(pairId, cefr)
+        const shard = _questions.filter(q => q.pairId === pairId && q.cefr === cefr)
+        const result = await saveQuestionShard(pairId, cefr, shard, questionRevisions.get(key))
+        questionRevisions.set(key, result.revision)
+      })
+    }
+  }
+
+  async function replaceSectionQuestions(pairId, cefr, unitId, sectionId, questions) {
+    const key = `${pairId}\u0000${cefr}`
+    return questionSaveQueue.enqueue(key, async () => {
+      await ensureQuestionRevision(pairId, cefr)
+      const result = await replaceSectionRemote(pairId, cefr, unitId, sectionId, questions, questionRevisions.get(key))
+      _questions = _questions.filter(q => !(q.pairId === pairId && q.cefr === cefr))
+      _questions.push(...result.data)
+      questionRevisions.set(key, result.revision)
+      return result
+    })
   }
 
   // ---- 生产日志 ----
@@ -137,7 +244,7 @@ export function useStorage() {
   function addLogEntry(entry) {
     _productionLog.unshift({ ...entry, timestamp: Date.now() })
     if (_productionLog.length > 100) _productionLog.length = 100
-    saveData('production-log', _productionLog)
+    void enqueueSave('production-log', _productionLog).catch(() => {})
   }
 
   // ---- 导出 ----
@@ -158,10 +265,11 @@ export function useStorage() {
     return {
       totalQuestions: _questions.length,
       totalTasks: _tasks.length,
-      byCEFR: {
-        A1: _questions.filter(q => q.cefr === 'A1').length,
-        A2: _questions.filter(q => q.cefr === 'A2').length
-      },
+      byCEFR: Object.fromEntries(
+        [...new Set(_questions.map(q => q.cefr).filter(Boolean))]
+          .sort()
+          .map(level => [level, _questions.filter(q => q.cefr === level).length])
+      ),
       byType: Object.fromEntries(
         [...new Set(_questions.map(q => q.type))].map(t => [t, _questions.filter(q => q.type === t).length])
       ),
@@ -220,7 +328,8 @@ export function useStorage() {
   return {
     getApiConfig, fetchApiConfig, saveApiConfig,
     getTasks, saveTask, deleteTask,
-    getQuestions, saveQuestions, deleteQuestions, clearAllQuestions, persistQuestions,
+    getQuestions, saveQuestions, replaceQuestions, deleteQuestions, clearAllQuestions, clearQuestionLevel, persistQuestions, persistQuestion, replaceSectionQuestions,
+    flushData, getLastSaveError: type => saveErrors.get(type) || null,
     getProductionLog, addLogEntry,
     exportQuestionsJSON, getStats, getVocabCoverage
   }
@@ -239,13 +348,19 @@ export async function init() {
 
   // 加载其他数据
   _tasks = await loadData('tasks', [])
-  _questions = await loadData('questions', [])
+  _questions = []
+  const { data: questionIndex } = await loadQuestionIndex()
+  for (const shard of questionIndex.shards || []) {
+    const result = await loadQuestionShard(shard.pairId, shard.cefr)
+    _questions.push(...result.data)
+    questionRevisions.set(`${shard.pairId}\u0000${shard.cefr}`, result.revision)
+  }
   _productionLog = await loadData('production-log', [])
 
   const { questions: sectionMigrated, changed: sectionChanged } = migrateQuestionSectionIds(_questions)
   if (sectionChanged > 0) {
     _questions = sectionMigrated
-    await saveData('questions', _questions)
+    await persistMigratedQuestions(_questions)
     console.log(`[questions] 已迁移 ${sectionChanged} 道题目的 sectionId / pairId`)
   }
 
@@ -259,8 +374,19 @@ export async function init() {
   const { questions: normalized, changed: normChanged, stats } = migrateQuestionFields(_questions, pairConfigMap)
   if (normChanged > 0) {
     _questions = normalized
-    await saveData('questions', _questions)
+    await persistMigratedQuestions(_questions)
     console.log(`[questions] 已归一化 ${normChanged}/${_questions.length} 道题目`, stats)
+  }
+}
+
+async function persistMigratedQuestions(questions) {
+  const keys = new Set(questions.filter(q => q?.pairId && q?.cefr).map(q => `${q.pairId}\u0000${q.cefr}`))
+  for (const key of keys) {
+    const [pairId, cefr] = key.split('\u0000')
+    const result = await saveQuestionShard(
+      pairId, cefr, questions.filter(q => q.pairId === pairId && q.cefr === cefr), questionRevisions.get(key)
+    )
+    questionRevisions.set(key, result.revision)
   }
 }
 

@@ -6,6 +6,7 @@ import { ref } from 'vue'
 import { useLLM } from './useLLM.js'
 import { usePromptStorage } from './usePromptStorage.js'
 import { useAsyncOperation } from './useAsyncOperation.js'
+import { enqueueJsonSave } from '../utils/dataPersistence.js'
 
 // 工具：流式调用直到拿到完整内容
 async function streamPrompt(llm, prompt, options = {}) {
@@ -16,7 +17,6 @@ async function streamPrompt(llm, prompt, options = {}) {
 
   await llm.callLLMStream(prompt, {
     signal: options.signal,
-    temperature: 0.7,
     onContent: (token, full) => {
       accumulated = full
       tokens++
@@ -54,17 +54,63 @@ const framework = ref({})
 
 async function saveToServer() {
   try {
-    await fetch('/api/data/unit-framework', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(framework.value)
-    })
+    await enqueueJsonSave('unit-framework', framework.value)
   } catch (e) {
     console.warn('[unit-framework] 保存到服务端失败:', e.message)
   }
 }
 
-export function useUnitFramework() {
+// 槽位级保存：只写入指定 (语言, 级别) 的小节，读取磁盘最新内容后合并，
+// 避免多标签页并行生成不同级别时互相覆盖整份 unit-framework.json
+async function saveFrameworkLevel(lang, level, units) {
+  try {
+    const response = await fetch(`/api/data/unit-framework/${encodeURIComponent(lang)}/${encodeURIComponent(level)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ units })
+    })
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}))
+      throw new Error(detail.error || `级别 ${lang}/${level} 保存失败 (${response.status})`)
+    }
+    } catch (e) {
+      console.warn('[unit-framework] 级别保存失败:', e.message)
+    }
+  }
+
+  // 将 (语言, 级别) 槽位同步到内存，保证生成过程中 getFramework 反映最新进度
+  function syncMemoryFramework(lang, level, units) {
+    if (!framework.value[lang]) framework.value[lang] = {}
+    framework.value[lang][level] = { units }
+  }
+
+  // 查询某级别的框架生成进度：已完成（含小节）单元数 / 总单元数
+  function getFrameworkStatus(lang, level) {
+    const units = framework.value[lang]?.[level]?.units || []
+    const total = units.length
+    const completed = units.filter(u => Array.isArray(u.sections) && u.sections.length > 0).length
+    return { total, completed }
+  }
+
+  // 清除某级别的框架槽位（同时移除内存中的对应数据）
+  async function clearFrameworkLevel(lang, level) {
+    try {
+      const response = await fetch(`/api/data/unit-framework/${encodeURIComponent(lang)}/${encodeURIComponent(level)}`, {
+        method: 'DELETE'
+      })
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}))
+        throw new Error(detail.error || `级别 ${lang}/${level} 删除失败 (${response.status})`)
+      }
+    } catch (e) {
+      console.warn('[unit-framework] 级别删除失败:', e.message)
+      throw e
+    } finally {
+      if (framework.value[lang]) delete framework.value[lang][level]
+    }
+  }
+
+  export function useUnitFramework() {
   const llm = useLLM()
   const promptStorage = usePromptStorage()
   const asyncOp = useAsyncOperation()
@@ -73,10 +119,10 @@ export function useUnitFramework() {
     return framework.value[lang]?.[level]?.units || []
   }
 
-  function setFramework(lang, level, units) {
+  async function setFramework(lang, level, units) {
     if (!framework.value[lang]) framework.value[lang] = {}
     framework.value[lang][level] = { units }
-    saveToServer()
+    await saveFrameworkLevel(lang, level, units)
   }
 
   let _signal = null
@@ -93,69 +139,114 @@ export function useUnitFramework() {
       ? vocabulary.split(',').map(v => v.trim()).filter(Boolean)
       : []
 
-    // ======= Step 1: 设计整体框架 =======
-    asyncOp.addLog(`Step 1/2: 设计 ${toLang} ${level} 级别的单元框架...`, 'info')
-    asyncOp.setMessage('正在设计整体框架结构...')
-
-    const step1Prompt = buildStep1Prompt(fromLang, toLang, level, vocabList)
-    asyncOp.addLog('第 1 步：调用大模型设计关卡框架...', 'info')
-
-    const step1Raw = await streamPrompt(llm, step1Prompt, { signal: _signal })
+    const generationConfig = options.generationConfig || {}
+    const resume = !!options.resume
     let units
-    try {
-      units = extractJSON(step1Raw)
-    } catch (e) {
-      asyncOp.addLog('解析框架 JSON 失败，尝试降级...', 'warning')
-      const fallback = await llm.callLLM(step1Prompt, { signal: _signal })
-      units = extractJSON(fallback.content)
+    let startUnitIndex = 0
+
+    // 续生成：复用已有骨架，跳过 Step 1，从第一个未完成单元继续
+    if (resume) {
+      const existing = getFramework(pairId, level)
+      if (existing && existing.length > 0) {
+        units = existing.map(u => ({ ...u }))
+        startUnitIndex = units.findIndex(u => !Array.isArray(u.sections) || u.sections.length === 0)
+        if (startUnitIndex < 0) startUnitIndex = units.length
+        asyncOp.addLog(`续生成模式：已有 ${units.length - startUnitIndex}/${units.length} 个单元完成，从第 ${startUnitIndex + 1} 个继续`, 'info')
+      }
     }
 
-    asyncOp.addLog(`第 1 步完成，共 ${units.length} 个关卡`, 'success')
+    if (!resume || !units) {
+      // ======= Step 1: 设计整体框架 =======
+      asyncOp.addLog(`Step 1/2: 设计 ${toLang} ${level} 级别的单元框架...`, 'info')
+      asyncOp.setMessage('正在设计整体框架结构...')
 
-    // ======= Step 2: 循环为每个单元生成小节 =======
-    let remainingVocab = [...vocabList]
+      const step1Prompt = buildStep1Prompt(fromLang, toLang, level, vocabList, generationConfig)
+      asyncOp.addLog('第 1 步：调用大模型设计关卡框架...', 'info')
 
-    for (let i = 0; i < units.length; i++) {
-      if (_signal?.aborted) {
-        asyncOp.addLog(`第 ${i + 1} 个关卡生成被取消`, 'warning')
-        break
-      }
-
-      const unit = units[i]
-      asyncOp.addLog(`Step 2/2 - 关卡 ${i + 1}/${units.length}: ${unit.titleNative || unit.titleTarget}`, 'info')
-      asyncOp.setMessage(`正在生成第 ${i + 1}/${units.length} 个关卡的细节...`)
-
-      const step2Prompt = buildStep2Prompt(fromLang, toLang, level, unit, i + 1, vocabList, remainingVocab)
-      asyncOp.addLog(`传入 ${remainingVocab.length} 个未覆盖单词供参考...`, 'info')
-
-      const step2Raw = await streamPrompt(llm, step2Prompt, { signal: _signal })
-      let sections
+      const step1Raw = await streamPrompt(llm, step1Prompt, { signal: _signal })
       try {
-        sections = extractJSON(step2Raw)
+        units = extractJSON(step1Raw)
       } catch (e) {
-        asyncOp.addLog(`解析小节 JSON 失败，尝试降级...`, 'warning')
-        const fallback = await llm.callLLM(step2Prompt, { signal: _signal })
-        sections = extractJSON(fallback.content)
+        asyncOp.addLog('解析框架 JSON 失败，尝试降级...', 'warning')
+        const fallback = await llm.callLLM(step1Prompt, { signal: _signal })
+        units = extractJSON(fallback.content)
       }
 
-      // 规范化小节字段
-      unit.sections = sections.map((s, idx) => ({
-        id: s.id || `S${String(idx + 1).padStart(2, '0')}`,
-        titleNative: s.titleNative || s.titleCN || s.title || '',
-        titleTarget: s.titleTarget || s.title || '',
-        coveredWords: Array.isArray(s.coveredWords) ? s.coveredWords : [],
-        grammarPoint: s.grammarPoint || s.grammar || '',
-        scenario: s.scenario || ''
-      }))
+      asyncOp.addLog(`第 1 步完成，共 ${units.length} 个关卡`, 'success')
+      // 增量保存骨架
+      await saveFrameworkLevel(pairId, level, units)
+      syncMemoryFramework(pairId, level, units)
+    }
 
-      // 从剩余词汇中移除本单元已覆盖的单词
-      const thisUnitWords = new Set()
-      unit.sections.forEach(sec => {
-        sec.coveredWords.forEach(w => thisUnitWords.add(w))
-      })
-      remainingVocab = remainingVocab.filter(w => !thisUnitWords.has(w))
+    // ======= Step 2: 串行生成每个单元的小节（保持串行以保证单词覆盖）=======
+    let remainingVocab = [...vocabList]
+    // 续生成：先扣除已完成单元已覆盖的词
+    if (resume && startUnitIndex > 0) {
+      const covered = new Set()
+      for (let k = 0; k < startUnitIndex; k++) {
+        (units[k].sections || []).forEach(s => (s.coveredWords || []).forEach(w => covered.add(w)))
+      }
+      remainingVocab = remainingVocab.filter(w => !covered.has(w))
+    }
 
-      asyncOp.addLog(`关卡 ${i + 1} 完成：${unit.sections.length} 个小节，覆盖 ${thisUnitWords.size} 个单词`, 'success')
+    try {
+      for (let i = startUnitIndex; i < units.length; i++) {
+        if (_signal?.aborted) {
+          asyncOp.addLog(`第 ${i + 1} 个关卡生成被取消`, 'warning')
+          break
+        }
+
+        const unit = units[i]
+        asyncOp.addLog(`Step 2/2 - 关卡 ${i + 1}/${units.length}: ${unit.titleNative || unit.titleTarget}`, 'info')
+        asyncOp.setMessage(`正在生成第 ${i + 1}/${units.length} 个关卡的细节...`)
+
+        const step2Prompt = buildStep2Prompt(fromLang, toLang, level, unit, i + 1, vocabList, remainingVocab, generationConfig)
+        asyncOp.addLog(`传入 ${remainingVocab.length} 个未覆盖单词供参考...`, 'info')
+
+        try {
+          const step2Raw = await streamPrompt(llm, step2Prompt, { signal: _signal })
+          let sections
+          try {
+            sections = extractJSON(step2Raw)
+          } catch (e) {
+            asyncOp.addLog(`解析小节 JSON 失败，尝试降级...`, 'warning')
+            const fallback = await llm.callLLM(step2Prompt, { signal: _signal })
+            sections = extractJSON(fallback.content)
+          }
+
+          // 规范化小节字段
+          unit.sections = sections.map((s, idx) => ({
+            id: s.id || `S${String(idx + 1).padStart(2, '0')}`,
+            titleNative: s.titleNative || s.titleCN || s.title || '',
+            titleTarget: s.titleTarget || s.title || '',
+            coveredWords: Array.isArray(s.coveredWords) ? s.coveredWords : [],
+            grammarPoint: s.grammarPoint || s.grammar || '',
+            scenario: s.scenario || ''
+          }))
+
+          // 从剩余词汇中移除本单元已覆盖的单词
+          const thisUnitWords = new Set()
+          unit.sections.forEach(sec => {
+            sec.coveredWords.forEach(w => thisUnitWords.add(w))
+          })
+          remainingVocab = remainingVocab.filter(w => !thisUnitWords.has(w))
+
+          asyncOp.addLog(`关卡 ${i + 1} 完成：${unit.sections.length} 个小节，覆盖 ${thisUnitWords.size} 个单词`, 'success')
+        } catch (e) {
+          if (e.name === 'AbortError') throw e
+          // 单个单元失败不应中断整个生成：跳过该单元，保留已完成的进度，稍后可续
+          asyncOp.addLog(`关卡 ${i + 1} 生成失败，已跳过（可稍后继续生成）：${e.message}`, 'error')
+          unit.sections = unit.sections || []
+        }
+
+        // 增量保存：每个单元处理后即落盘，中断/失败后也可续
+        await saveFrameworkLevel(pairId, level, units)
+        syncMemoryFramework(pairId, level, units)
+      }
+    } finally {
+      // 循环结束（正常完成 / 取消 / 部分失败）后确保已完成单元落盘
+      await saveFrameworkLevel(pairId, level, units)
+      syncMemoryFramework(pairId, level, units)
     }
 
     // 规范化单元字段
@@ -172,28 +263,30 @@ export function useUnitFramework() {
     })
 
     asyncOp.addLog(`全部完成！共 ${units.length} 个关卡`, 'success')
-    asyncOp.setMessage('保存框架数据...')
-
-    setFramework(pairId, level, units)
     return units
   }
 
   function updateUnit(lang, level, unitId, updates) {
-    const units = framework.value[lang]?.[level]?.units || []
+    const levelData = framework.value[lang]?.[level]
+    if (!levelData) return
+    const units = levelData.units || []
     const idx = units.findIndex(u => u.id === unitId)
     if (idx >= 0) {
       units[idx] = { ...units[idx], ...updates }
       framework.value[lang][level] = { units }
-      saveToServer()
+      saveFrameworkLevel(lang, level, units)
     }
   }
 
   return {
     framework,
     getFramework,
+    getFrameworkStatus,
     setFramework,
     updateUnit,
     generateFrameworkWithAI,
+    saveFrameworkLevel,
+    clearFrameworkLevel,
     saveFramework: saveToServer
   }
 }
@@ -233,19 +326,26 @@ export async function migrateKeys(languagePairs) {
 }
 
 function buildLangToPairIdMap(languagePairs) {
-  const map = {}
+  const owners = {}
   for (const pair of languagePairs) {
     if (pair.to) {
-      map[pair.to] = pair.id
+      owners[pair.to] = owners[pair.to] === undefined ? pair.id : null
     }
   }
-  return map
+  return Object.fromEntries(Object.entries(owners).filter(([, id]) => id))
 }
 
 // ---- Prompt 构建 ----
 
-function buildStep1Prompt(fromLang, toLang, level, vocabList) {
+function positiveInt(value, fallback) {
+  const parsed = Math.round(Number(value))
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function buildStep1Prompt(fromLang, toLang, level, vocabList, config = {}) {
   const vocabText = vocabList.length > 0 ? vocabList.join(', ') : '（未指定）'
+  const minUnits = positiveInt(config.minUnits, 5)
+  const maxUnits = Math.max(minUnits, positiveInt(config.maxUnits, 8))
   return `你是一位专业的语言课程设计师，负责设计从 ${fromLang} 学习 ${toLang} 的 CEFR ${level} 级别课程。
 
 【重要约束 - 语言绝对要求】
@@ -256,7 +356,7 @@ function buildStep1Prompt(fromLang, toLang, level, vocabList) {
 
 词汇库（全部为 ${toLang} 单词）：${vocabText}
 
-请设计 5-8 个关卡（units），确保词汇库中的所有单词都能被覆盖。
+请设计 ${minUnits}-${maxUnits} 个关卡（units），确保词汇库中的所有单词都能被覆盖。
 
 每个关卡必须包含以下字段（使用 JSON 格式返回）：
 - id: 编号，如 "U01", "U02"
@@ -278,11 +378,13 @@ function buildStep1Prompt(fromLang, toLang, level, vocabList) {
 输出要求：一个合法的 JSON 数组，包含所有关卡对象。只输出 JSON，不要 markdown。`
 }
 
-function buildStep2Prompt(fromLang, toLang, level, unit, unitIndex, allVocab, remainingVocab) {
+function buildStep2Prompt(fromLang, toLang, level, unit, unitIndex, allVocab, remainingVocab, config = {}) {
   const remainingText = remainingVocab.length > 0 ? remainingVocab.join(', ') : '（全部覆盖）'
   const allVocabText = allVocab.length > 0 ? allVocab.join(', ') : '（未指定）'
   const grammarText = unit.grammarPoints?.join(', ') || '（未指定）'
   const scenarioText = unit.scenarios?.join(', ') || '（未指定）'
+  const minSections = positiveInt(config.minSectionsPerUnit, 3)
+  const maxSections = Math.max(minSections, positiveInt(config.maxSectionsPerUnit, 5))
 
   return `你是一位专业的语言课程设计师。请为 ${toLang} ${level} 级别的课程设计"${unit.titleNative}（${unit.titleTarget}）"这一关卡的详细小节。
 
@@ -305,7 +407,7 @@ function buildStep2Prompt(fromLang, toLang, level, unit, unitIndex, allVocab, re
 
 尚未被其他关卡覆盖的剩余词汇：${remainingText}
 
-请设计 3-5 个小节（sections）。每个小节必须包含：
+请设计 ${minSections}-${maxSections} 个小节（sections）。每个小节必须包含：
 - id: 编号，如 "S01", "S02"
 - titleNative: ${fromLang} 小节标题
 - titleTarget: ${toLang} 小节标题（必须使用 ${toLang} 书写）

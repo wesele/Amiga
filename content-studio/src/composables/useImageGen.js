@@ -3,6 +3,7 @@
  */
 import { useLLM } from './useLLM.js'
 import { usePromptStorage } from './usePromptStorage.js'
+import { useStorage } from './useStorage.js'
 import {
   SVG_SYSTEM_PROMPT,
   IMAGE_SVG_GEN_PROMPT,
@@ -22,6 +23,10 @@ const DANGEROUS_SVG_RE = new RegExp(
   '<script[\\s>]|</' + 'script>|on\\w+\\s*=|javascript:|data:text/html|foreignObject|<iframe|<embed|<object',
   'i'
 )
+
+function emitProgress(options, stage, detail, step, total = 6, type = 'info') {
+  options.onProgress?.({ stage, detail, step, total, percent: Math.round((step / total) * 100), type })
+}
 
 export function isPlausibleSvg(svg) {
   if (!svg || svg.length < 80) return false
@@ -149,6 +154,7 @@ function fillTemplate(template, vars) {
 export function useImageGen() {
   const llm = useLLM()
   const promptStorage = usePromptStorage()
+  const storage = useStorage()
 
   function pickSvgSource(result) {
     const content = result?.content?.trim() || ''
@@ -165,7 +171,7 @@ export function useImageGen() {
   }
 
   async function callLlm(userPrompt, llmOpts, options) {
-    options.onProgress?.('正在流式调用 LLM 生成 SVG...')
+    emitProgress(options, '请求模型', '正在建立 SVG 流式请求', 2)
 
     let contentLen = 0
     let reasoningLen = 0
@@ -176,9 +182,9 @@ export function useImageGen() {
       if (!force && now - lastReportAt < 600) return
       lastReportAt = now
       if (contentLen > 0) {
-        options.onProgress?.(`正在接收 SVG 内容... (${contentLen} 字符)`)
+        emitProgress(options, '接收 SVG', `已接收 ${contentLen} 字符`, 3)
       } else if (reasoningLen > 0) {
-        options.onProgress?.(`模型思考中... (${reasoningLen} 字符)`)
+        emitProgress(options, '模型思考', `${reasoningLen} 字符`, 2)
       }
     }
 
@@ -186,7 +192,7 @@ export function useImageGen() {
     const streamHeartbeat = setInterval(() => {
       const secs = Math.round((Date.now() - streamT0) / 1000)
       if (contentLen === 0 && reasoningLen === 0) {
-        options.onProgress?.(`等待模型响应... (${secs}s)`)
+        emitProgress(options, '等待响应', `已等待 ${secs}s`, 2)
       } else {
         reportProgress(true)
       }
@@ -210,14 +216,12 @@ export function useImageGen() {
     }
 
     reportProgress(true)
-    options.onProgress?.(
-      `流式接收完成 (content ${contentLen} / reasoning ${reasoningLen} 字符)`,
-      'success'
-    )
+    emitProgress(options, '解析 SVG', `内容 ${contentLen} / 思考 ${reasoningLen} 字符`, 4, 6, 'success')
     return result
   }
 
   async function buildSceneBrief(desc, prompt, options = {}) {
+    const config = storage.getApiConfig()
     const refineTemplate = promptStorage.getPrompt('image-refine') || DEFAULT_REFINE_PROMPT
     const filled = fillTemplate(refineTemplate, {
       desc: desc || 'educational illustration',
@@ -226,19 +230,20 @@ export function useImageGen() {
       distractors: options.distractors || 'none'
     })
 
-    options.onProgress?.('正在分解场景为 SVG 绘制要点...')
+    emitProgress(options, '准备提示词', '正在分解场景和绘制要点', 1)
     const result = await llm.callLLM(filled, {
-      temperature: 0.3,
+      model: config.imageModel || config.model,
       signal: options.signal,
       systemPrompt: 'You write concise SVG drawing briefs for educational apps. Output plain text only.'
     })
     const brief = result?.content?.trim()
     if (!brief) throw new Error('场景分解未返回内容')
-    options.onProgress?.('场景要点已就绪', 'success')
+    emitProgress(options, '准备提示词', '场景绘制要点已就绪', 1, 6, 'success')
     return brief
   }
 
   async function generateSvg(desc, prompt = '', options = {}) {
+    const config = storage.getApiConfig()
     const sceneBrief = options.skipRefine
       ? (prompt || desc || 'simple flat vector educational illustration')
       : await buildSceneBrief(desc, prompt, options)
@@ -251,8 +256,8 @@ export function useImageGen() {
     }
 
     const llmOpts = {
+      model: config.imageModel || config.model,
       systemPrompt: SVG_SYSTEM_PROMPT,
-      temperature: 0.2,
       signal: options.signal
     }
 
@@ -270,7 +275,7 @@ export function useImageGen() {
         lastError = e
         if (e.name === 'AbortError') throw e
         if (attempt < 2) {
-          options.onProgress?.(`第 ${attempt} 次生成失败: ${e.message}，正在重试...`, 'warning')
+          emitProgress(options, '重试 SVG', `第 ${attempt} 次失败：${e.message}`, 2, 6, 'warning')
         }
       }
     }
@@ -279,9 +284,9 @@ export function useImageGen() {
 
   async function generateAndPersist(desc, prompt, filename, options = {}) {
     const svg = await generateSvg(desc, prompt, options)
-    options.onProgress?.('正在将 SVG 转为 JPEG...')
+    emitProgress(options, '渲染图片', '正在将 SVG 转为 JPEG', 5)
     const dataUrl = await svgToJpegDataUrl(svg)
-    options.onProgress?.('正在保存图片文件...')
+    emitProgress(options, '保存文件', '正在持久化 JPEG 文件', 6)
     const url = await persistImage(filename, dataUrl)
     return { svg, url }
   }

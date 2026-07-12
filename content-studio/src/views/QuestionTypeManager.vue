@@ -103,6 +103,11 @@ function saveType() {
     return
   }
 
+  if (types.some(type => type.id === form.id && type.id !== editingId.value)) {
+    alert('题型 ID 已存在，请使用新的 ID')
+    return
+  }
+
   const typeData = {
     id: form.id,
     title: form.title,
@@ -113,14 +118,27 @@ function saveType() {
   if (editingId.value) {
     updateType(editingId.value, typeData)
   } else {
-    addType(typeData)
+    if (!addType(typeData)) {
+      alert('题型 ID 已存在，请使用新的 ID')
+      return
+    }
   }
   
   closeModal()
 }
 
-function deleteType(id) {
+async function deleteType(id) {
   if (confirm(`确认删除题型 ${id}？`)) {
+    const res = await fetch('/api/data/questions')
+    if (!res.ok) {
+      alert('无法读取题目数据，已取消删除')
+      return
+    }
+    const questions = res.ok ? await res.json() : []
+    if (Array.isArray(questions) && questions.some(question => question.type === id)) {
+      alert(`题型 ${id} 仍被题目使用，不能删除`)
+      return
+    }
     storageDeleteType(id)
   }
 }

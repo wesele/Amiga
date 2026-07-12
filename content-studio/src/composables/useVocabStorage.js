@@ -7,6 +7,7 @@
  * }
  */
 import { ref } from 'vue'
+import { enqueueJsonSave } from '../utils/dataPersistence.js'
 
 const state = ref({ languages: [], data: {}, pairLangMap: {} })
 
@@ -22,11 +23,7 @@ function _resolveLang(langOrPairId) {
 
 async function saveToServer() {
   try {
-    await fetch('/api/data/vocabulary', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state.value)
-    })
+    await enqueueJsonSave('vocabulary', state.value)
   } catch (e) {
     console.warn('[vocabulary] 保存到服务端失败:', e.message)
   }

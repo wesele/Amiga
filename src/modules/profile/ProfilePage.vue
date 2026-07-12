@@ -142,7 +142,7 @@ import UpdateIcon from "@/shared/components/UpdateIcon.vue";
 import StylizedAvatar from "@/shared/components/StylizedAvatar.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
-import { AVAILABLE_LANGUAGES, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
+import { AVAILABLE_LANGUAGES, learningCefrLevels } from "@/shared/constants.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
 
@@ -163,7 +163,7 @@ const avatarId = computed(() => {
 const levelSwitching = ref(false);
 const switching = computed(() => targetLangStore.updating);
 const availableLanguages = AVAILABLE_LANGUAGES;
-const learningLevels = LEARNING_CEFR_LEVELS;
+const learningLevels = computed(() => learningCefrLevels(currentTargetLang.value));
 
 onMounted(async () => {
   try {

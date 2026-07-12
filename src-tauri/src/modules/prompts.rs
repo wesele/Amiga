@@ -268,6 +268,24 @@ Write a short summary with:
 3. Three specific improvement tips based on the log
 4. Two useful sentences worth reviewing (show in {{TARGET_LANG}} with {{NATIVE_LANG}} gloss)"#,
     ),
+    (
+        "grade-translation",
+        "翻译题评判",
+        "学习功能",
+        "You are an expert language teacher and assessment assistant. Evaluate if a user's translation is correct and natural. Output a strict JSON object with a single boolean field: {\"correct\": true/false}",
+        r#"Evaluate the user's translation to see if it is correct.
+Source sentence (in user's native language): {{SOURCE_TEXT}}
+Reference translations (in target language {{TARGET_LANG}}):
+{{ACCEPTED_ANSWERS}}
+
+User's translation: {{USER_ANSWER}}
+
+Requirements:
+1. Determine if the user's translation is grammatically correct and accurately translates the source sentence.
+2. Allow for natural variations in word choice, phrasing, and word order as long as they are correct in the target language and capture the same meaning.
+3. Be lenient with minor typos or punctuation/capitalization differences.
+4. Output a strict JSON object: {"correct": true} or {"correct": false}"#,
+    ),
 ];
 
 /// Ensure default prompts are up-to-date (upserts on every startup)

@@ -61,7 +61,7 @@
           :disabled="!canCheck"
           @click="onPrimaryAction"
         >
-          {{ primaryLabel }}
+          {{ checking ? t("path.checking") : primaryLabel }}
         </button>
       </footer>
     </template>
@@ -79,7 +79,7 @@ import {
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
-import { checkAnswer } from "./checkAnswer.js";
+import { checkAnswer, checkAnswerAsync } from "./checkAnswer.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -97,6 +97,7 @@ const lastCorrect = ref(false);
 const correctCount = ref(0);
 const finished = ref(false);
 const result = ref(null);
+const checking = ref(false);
 
 const userMeta = ref({ nativeLang: "zh", targetLang: "es", cefr: "A1" });
 
@@ -108,6 +109,7 @@ const progressPct = computed(() => {
 });
 
 const canCheck = computed(() => {
+  if (checking.value) return false;
   if (showResult.value) return true;
   const q = currentQuestion.value;
   if (!q) return false;
@@ -207,15 +209,33 @@ function goToNextQuestion() {
   submitLesson();
 }
 
-function onPrimaryAction() {
+async function onPrimaryAction() {
   if (!showResult.value) {
-    lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
-    if (lastCorrect.value) correctCount.value += 1;
-    if (lastCorrect.value) {
-      goToNextQuestion();
-      return;
+    checking.value = true;
+    try {
+      lastCorrect.value = await checkAnswerAsync(
+        currentQuestion.value,
+        currentAnswer.value,
+        userMeta.value.targetLang
+      );
+      if (lastCorrect.value) correctCount.value += 1;
+      if (lastCorrect.value) {
+        goToNextQuestion();
+        return;
+      }
+      showResult.value = true;
+    } catch (e) {
+      console.error(e);
+      lastCorrect.value = checkAnswer(currentQuestion.value, currentAnswer.value);
+      if (lastCorrect.value) correctCount.value += 1;
+      if (lastCorrect.value) {
+        goToNextQuestion();
+        return;
+      }
+      showResult.value = true;
+    } finally {
+      checking.value = false;
     }
-    showResult.value = true;
     return;
   }
 

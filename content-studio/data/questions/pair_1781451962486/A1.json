@@ -1,0 +1,148 @@
+[
+  {
+    "id": "中文-a1-u02-s05-01",
+    "type": "T01",
+    "typeName": "图片识词",
+    "language": "zh",
+    "cefr": "A1",
+    "unit": "日常生活与家庭",
+    "unitTheme": "需求与可能性",
+    "difficulty": 1,
+    "tags": [
+      "阅读",
+      "词汇"
+    ],
+    "imageDesc": "Una persona que quiere beber agua",
+    "imagePrompt": "A person reaching for a glass of water, modern, clean, flat vector illustration, white background",
+    "options": [
+      "我想喝水",
+      "我能喝水",
+      "我会喝水",
+      "我要喝水"
+    ],
+    "answerIdx": 0,
+    "sectionId": "pair_1781451962486/U02-S05",
+    "pairId": "pair_1781451962486",
+    "imageSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <rect x=\"50\" y=\"290\" width=\"300\" height=\"20\" rx=\"2\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"160\" y=\"220\" width=\"80\" height=\"70\" rx=\"4\" fill=\"#FFFFFF\" stroke=\"#4A90D9\" stroke-width=\"3\"/>\n  <rect x=\"165\" y=\"255\" width=\"70\" height=\"30\" fill=\"#4A90D9\"/>\n  <ellipse cx=\"200\" cy=\"255\" rx=\"15\" ry=\"3\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"165\" y=\"225\" width=\"10\" height=\"30\" rx=\"2\" fill=\"#FFFFFF\"/>\n  <circle cx=\"200\" cy=\"115\" r=\"45\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <circle cx=\"185\" cy=\"110\" r=\"4\" fill=\"#333333\"/>\n  <circle cx=\"215\" cy=\"110\" r=\"4\" fill=\"#333333\"/>\n  <path d=\"M190 130 Q200 137 210 130\" fill=\"none\" stroke=\"#333333\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n  <rect x=\"170\" y=\"160\" width=\"60\" height=\"90\" rx=\"8\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <path d=\"M230 180 Q245 195 235 220 L225 225 Q220 215 225 190 Z\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"225\" cy=\"225\" r=\"6\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <path d=\"M170 180 Q160 210 160 240 L155 240 Q155 210 165 180 Z\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"155\" cy=\"240\" r=\"6\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"175\" y=\"250\" width=\"22\" height=\"40\" rx=\"3\" fill=\"#333333\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"203\" y=\"250\" width=\"22\" height=\"40\" rx=\"3\" fill=\"#333333\" stroke=\"#333333\" stroke-width=\"3\"/>\n</svg>",
+    "imageUrl": "/api/images/__-a1-u02-s05-01.jpg?v=1782943996775"
+  },
+  {
+    "id": "中文-a1-u02-s05-02",
+    "type": "T02",
+    "typeName": "听音选图",
+    "language": "zh",
+    "cefr": "A1",
+    "unit": "日常生活与家庭",
+    "unitTheme": "需求与可能性",
+    "difficulty": 2,
+    "tags": [
+      "听力",
+      "词汇"
+    ],
+    "audioText": "我可以去公园。",
+    "imageOptions": [
+      {
+        "desc": "一个人在图书馆读书",
+        "prompt": "A person reading in a library, modern, clean, flat vector illustration, white background",
+        "imageSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <rect x=\"20\" y=\"40\" width=\"60\" height=\"320\" rx=\"4\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <rect x=\"320\" y=\"40\" width=\"60\" height=\"320\" rx=\"4\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <rect x=\"25\" y=\"60\" width=\"10\" height=\"40\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"40\" y=\"60\" width=\"10\" height=\"50\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"55\" y=\"60\" width=\"10\" height=\"35\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"325\" y=\"70\" width=\"10\" height=\"45\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"340\" y=\"70\" width=\"10\" height=\"55\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"355\" y=\"70\" width=\"10\" height=\"40\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"120\" y=\"320\" width=\"160\" height=\"20\" rx=\"4\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <circle cx=\"200\" cy=\"150\" r=\"50\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <circle cx=\"185\" cy=\"145\" r=\"5\" fill=\"#333333\"/>\n  <circle cx=\"215\" cy=\"145\" r=\"5\" fill=\"#333333\"/>\n  <path d=\"M185 165 Q200 178 215 165\" fill=\"none\" stroke=\"#333333\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n  <path d=\"M160 200 L240 200 L235 280 L165 280 Z\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <path d=\"M165 280 Q200 310 235 280 L245 340 Q200 300 155 340 Z\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <rect x=\"138\" y=\"248\" width=\"59\" height=\"74\" rx=\"4\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"203\" y=\"248\" width=\"59\" height=\"74\" rx=\"4\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"198\" y=\"248\" width=\"4\" height=\"74\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"143\" y=\"253\" width=\"49\" height=\"64\" fill=\"#FFFFFF\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"208\" y=\"253\" width=\"49\" height=\"64\" fill=\"#FFFFFF\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <circle cx=\"175\" cy=\"270\" r=\"7\" fill=\"none\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <circle cx=\"225\" cy=\"270\" r=\"7\" fill=\"none\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <path d=\"M182 270 L218 270\" fill=\"none\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <path d=\"M168 270 L158 265\" fill=\"none\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <path d=\"M232 270 L242 265\" fill=\"none\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <ellipse cx=\"300\" cy=\"300\" rx=\"25\" ry=\"8\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"295\" y=\"280\" width=\"10\" height=\"20\" fill=\"#333333\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <line x1=\"300\" y1=\"250\" x2=\"300\" y2=\"280\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M285 240 L315 240 L310 280 L290 280 Z\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"300\" cy=\"280\" r=\"3\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"2\"/>\n</svg>",
+        "imageUrl": "/api/images/__-a1-u02-s05-02-opt3.jpg?v=1782944302726"
+      },
+      {
+        "desc": "一个人在厨房做饭",
+        "prompt": "A person cooking in a kitchen, modern, clean, flat vector illustration, white background",
+        "imageSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <rect x=\"140\" y=\"60\" width=\"120\" height=\"100\" rx=\"4\" fill=\"#FFFFFF\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"150\" y=\"50\" width=\"100\" height=\"90\" rx=\"2\" fill=\"#F8F8F8\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <line x1=\"120\" y1=\"30\" x2=\"280\" y2=\"30\" stroke=\"#FFC107\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n  <line x1=\"240\" y1=\"30\" x2=\"240\" y2=\"60\" stroke=\"#FFC107\" stroke-width=\"3\"/>\n  <rect x=\"220\" y=\"60\" width=\"40\" height=\"30\" rx=\"2\" fill=\"#C0C0C0\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"50\" y=\"270\" width=\"300\" height=\"20\" rx=\"2\" fill=\"#E0E0E0\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"130\" y=\"290\" width=\"140\" height=\"70\" rx=\"4\" fill=\"#F5F5F5\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"170\" cy=\"325\" r=\"12\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <circle cx=\"230\" cy=\"325\" r=\"12\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"160\" y=\"250\" width=\"80\" height=\"50\" rx=\"6\" fill=\"#C0C0C0\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"150\" y=\"265\" width=\"10\" height=\"20\" rx=\"2\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"240\" y=\"265\" width=\"10\" height=\"20\" rx=\"2\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"60\" y=\"240\" width=\"70\" height=\"40\" rx=\"3\" fill=\"#D7CCC8\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"75\" cy=\"255\" r=\"4\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"1\"/>\n  <circle cx=\"90\" cy=\"260\" r=\"4\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"1\"/>\n  <circle cx=\"80\" cy=\"270\" r=\"4\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"1\"/>\n  <circle cx=\"100\" cy=\"265\" r=\"4\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"1\"/>\n  <circle cx=\"200\" cy=\"170\" r=\"45\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <circle cx=\"185\" cy=\"165\" r=\"4\" fill=\"#333333\"/>\n  <circle cx=\"215\" cy=\"165\" r=\"4\" fill=\"#333333\"/>\n  <path d=\"M185 185 Q200 198 215 185\" fill=\"none\" stroke=\"#333333\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n  <rect x=\"165\" y=\"215\" width=\"70\" height=\"90\" rx=\"8\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <path d=\"M165 235 L120 265 L130 280\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M235 235 L270 255 L260 270\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <line x1=\"120\" y1=\"265\" x2=\"160\" y2=\"250\" stroke=\"#FFC107\" stroke-width=\"6\" stroke-linecap=\"round\"/>\n  <ellipse cx=\"115\" cy=\"270\" rx=\"8\" ry=\"5\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"2\"/>\n</svg>",
+        "imageUrl": "/api/images/__-a1-u02-s05-02-opt2.jpg?v=1782944201569"
+      },
+      {
+        "desc": "一个人在家里看电视",
+        "prompt": "A person watching TV at home, modern, clean, flat vector illustration, white background",
+        "imageSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <rect x=\"50\" y=\"30\" width=\"300\" height=\"250\" rx=\"4\" fill=\"#F5F5F5\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"120\" y=\"40\" width=\"160\" height=\"100\" rx=\"6\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <rect x=\"130\" y=\"50\" width=\"140\" height=\"80\" rx=\"4\" fill=\"#E0F7FA\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"160\" cy=\"70\" r=\"12\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <path d=\"M130 130 Q200 90 270 130 L270 130 L130 130 Z\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"100\" y=\"210\" width=\"30\" height=\"140\" rx=\"8\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <rect x=\"270\" y=\"210\" width=\"30\" height=\"140\" rx=\"8\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <rect x=\"130\" y=\"230\" width=\"140\" height=\"120\" rx=\"8\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <rect x=\"130\" y=\"150\" width=\"140\" height=\"80\" rx=\"8\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <path d=\"M140 170 L180 170 L175 230 L145 230 Z\" fill=\"#FFC107\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"300\" y=\"250\" width=\"40\" height=\"80\" rx=\"4\" fill=\"#FFFFFF\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M310 260 L330 260 L328 290 L312 290 Z\" fill=\"#E53935\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M330 270 Q340 270 340 280 Q340 290 330 290\" fill=\"none\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"200\" cy=\"120\" r=\"45\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <circle cx=\"185\" cy=\"115\" r=\"4\" fill=\"#333333\"/>\n  <circle cx=\"215\" cy=\"115\" r=\"4\" fill=\"#333333\"/>\n  <path d=\"M185 135 Q200 148 215 135\" fill=\"none\" stroke=\"#333333\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n  <path d=\"M170 165 L230 165 L225 240 L175 240 Z\" fill=\"#FFFFFF\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M170 170 L140 210 L150 220 L180 180 Z\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M230 170 L260 210 L250 220 L220 180 Z\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M175 240 L160 290 L200 300 L210 250 Z\" fill=\"#FFFFFF\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M225 240 L240 290 L200 300 L190 250 Z\" fill=\"#FFFFFF\" stroke=\"#333333\" stroke-width=\"3\"/>\n</svg>",
+        "imageUrl": "/api/images/__-a1-u02-s05-02-opt1.jpg?v=1782944148782"
+      },
+      {
+        "desc": "一个人在公园散步",
+        "prompt": "A person walking in a park, modern, clean, flat vector illustration, white background",
+        "imageSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\" width=\"400\" height=\"400\">\n  <rect width=\"400\" height=\"400\" fill=\"#FFFFFF\"/>\n  <path d=\"M30 370 Q200 320 370 370 L370 400 L30 400 Z\" fill=\"#E0E0E0\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"95\" y=\"220\" width=\"10\" height=\"60\" rx=\"2\" fill=\"#8D6E63\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <circle cx=\"100\" cy=\"200\" r=\"35\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"260\" y=\"250\" width=\"60\" height=\"30\" rx=\"3\" fill=\"#8D6E63\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"260\" y=\"280\" width=\"60\" height=\"10\" rx=\"3\" fill=\"#8D6E63\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <rect x=\"265\" y=\"290\" width=\"5\" height=\"20\" fill=\"#333333\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <rect x=\"310\" y=\"290\" width=\"5\" height=\"20\" fill=\"#333333\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <ellipse cx=\"140\" cy=\"340\" rx=\"15\" ry=\"10\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <ellipse cx=\"300\" cy=\"330\" rx=\"12\" ry=\"8\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <ellipse cx=\"220\" cy=\"350\" rx=\"10\" ry=\"7\" fill=\"#4CAF50\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <circle cx=\"200\" cy=\"120\" r=\"40\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <circle cx=\"190\" cy=\"115\" r=\"4\" fill=\"#333333\"/>\n  <circle cx=\"210\" cy=\"115\" r=\"4\" fill=\"#333333\"/>\n  <path d=\"M190 130 Q200 140 210 130\" fill=\"none\" stroke=\"#333333\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n  <rect x=\"170\" y=\"160\" width=\"60\" height=\"70\" rx=\"8\" fill=\"#4A90D9\" stroke=\"#333333\" stroke-width=\"4\"/>\n  <path d=\"M170 170 L140 200 L150 210 L180 180 Z\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M230 170 L260 200 L250 210 L220 180 Z\" fill=\"#FFD1A9\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M180 230 L170 300 L190 300 L200 230 Z\" fill=\"#333333\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M220 230 L230 300 L210 300 L200 230 Z\" fill=\"#333333\" stroke=\"#333333\" stroke-width=\"3\"/>\n  <path d=\"M165 300 L195 300 L195 310 L165 310 Z\" fill=\"#333333\" stroke=\"#333333\" stroke-width=\"2\"/>\n  <path d=\"M205 300 L235 300 L235 310 L205 310 Z\" fill=\"#333333\" stroke=\"#333333\" stroke-width=\"2\"/>\n</svg>",
+        "imageUrl": "/api/images/__-a1-u02-s05-02-opt0.jpg?v=1782944049652"
+      }
+    ],
+    "answerIdx": 3,
+    "sectionId": "pair_1781451962486/U02-S05",
+    "pairId": "pair_1781451962486"
+  },
+  {
+    "id": "中文-a1-u02-s05-03",
+    "type": "T08",
+    "typeName": "听力选择",
+    "language": "zh",
+    "cefr": "A1",
+    "unit": "日常生活与家庭",
+    "unitTheme": "需求与可能性",
+    "difficulty": 2,
+    "tags": [
+      "听力",
+      "理解"
+    ],
+    "audioText": "我没有钱。",
+    "question": "¿Qué está diciendo la persona?",
+    "options": [
+      "No tengo dinero.",
+      "Tengo dinero.",
+      "Quiero dinero."
+    ],
+    "answerIdx": 0,
+    "sectionId": "pair_1781451962486/U02-S05",
+    "pairId": "pair_1781451962486"
+  },
+  {
+    "id": "中文-a1-u02-s05-04",
+    "type": "T07",
+    "typeName": "翻译选择",
+    "language": "zh",
+    "cefr": "A1",
+    "unit": "日常生活与家庭",
+    "unitTheme": "需求与可能性",
+    "difficulty": 1,
+    "tags": [
+      "翻译",
+      "词汇"
+    ],
+    "sourceText": "Quiero comer",
+    "options": [
+      "我会吃",
+      "我能吃",
+      "我没有吃",
+      "我想吃"
+    ],
+    "answerIdx": 3,
+    "sectionId": "pair_1781451962486/U02-S05",
+    "pairId": "pair_1781451962486",
+    "sourceLang": "es"
+  },
+  {
+    "id": "中文-a1-u02-s05-05",
+    "type": "T05",
+    "typeName": "补全句子",
+    "language": "zh",
+    "cefr": "A1",
+    "unit": "日常生活与家庭",
+    "unitTheme": "需求与可能性",
+    "difficulty": 1,
+    "tags": [
+      "语法",
+      "词汇"
+    ],
+    "sentence": "我 ___ 去超市。",
+    "hint": "使用表示‘想要’的词，表达个人需求。",
+    "options": [
+      "想",
+      "没有",
+      "会",
+      "能"
+    ],
+    "answerIdx": 0,
+    "sectionId": "pair_1781451962486/U02-S05",
+    "pairId": "pair_1781451962486",
+    "blank": "想"
+  }
+]

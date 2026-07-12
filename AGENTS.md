@@ -30,7 +30,7 @@
 
 **截图**（详见 [docs/testing.md](./docs/testing.md)）：首选 `pwsh scripts/screenshot.ps1 -OutFile screenshots/<name>.png`；Android 用 adb screencap；测完删图。
 
-**浏览器 dev**：裸 `npm run dev` 无 Tauri shell，invoke 会 reject；验 IPC 用 `run-windows.bat` / `run-android.bat`。
+**浏览器 dev**：裸 `npm run dev` 无 Tauri shell，invoke 会 reject；验 IPC 用 `run-windows.bat` / `run-android-x86.bat` / `run-android-arm.bat`。
 
 **Android 安装**：`adb install -r -g` 覆盖安装，勿先卸载。JS-Kotlin 桥见 [docs/android-native.md](./docs/android-native.md)。
 

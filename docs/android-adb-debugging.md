@@ -22,7 +22,7 @@ rustup target list --installed       # 应有 aarch64-linux-android
 
 ## 2. 构建与安装（推荐路径）
 
-**Windows 日常**：`run-android.bat`（dev）或 `build-android.bat`（release APK）。两者都会跑 `android-patch.cjs`，dev/release 均用 `amiga-release.keystore` 签名，可直接 `adb install -r -g`。
+**Windows 日常**：模拟器用 `run-android-x86.bat`，ARM64 真机用 `run-android-arm.bat`，仅构建 APK 用 `build-android.bat`。运行脚本都会执行 `android-patch.cjs`，并通过 `adb install -r -g` 保留数据覆盖安装。
 
 **Linux 手动等价**（与 `build-android.bat` 一致）：
 
@@ -107,7 +107,7 @@ Release build 默认不转发 `console.log()` 到 logcat；需要时用 Chrome D
 ## 9. 完整调试 checklist
 
 - [ ] `adb devices` → device authorized
-- [ ] `build-android.bat` 或 `run-android.bat` dev 循环正常
+- [ ] `build-android.bat` 或对应设备的 `run-android-x86.bat` / `run-android-arm.bat` 正常
 - [ ] `adb install -r -g <apk>` → Success（**不要先 uninstall**）
 - [ ] 截屏验证 UI
 - [ ] logcat 确认 Kotlin / Rust 行为

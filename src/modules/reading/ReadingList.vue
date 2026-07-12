@@ -18,22 +18,23 @@
 
     <div v-else class="article-list">
       <div
-        v-for="article in articles"
+        v-for="article in displayedArticles"
         :key="article.id"
         class="article-card"
         :class="{
+          'is-generating': article.isGenerating,
           'is-regenerating': regeneratingId === article.id,
           'is-long-pressing': longPressArticleId === article.id,
         }"
-        role="button"
-        tabindex="0"
-        @click="onCardClick(article)"
-        @keydown.enter="openArticle(article.id)"
-        @pointerdown="onCardPointerDown(article, $event)"
+        :role="article.isGenerating ? undefined : 'button'"
+        :tabindex="article.isGenerating ? undefined : 0"
+        @click="!article.isGenerating && onCardClick(article)"
+        @keydown.enter="!article.isGenerating && openArticle(article.id)"
+        @pointerdown="!article.isGenerating && onCardPointerDown(article, $event)"
         @pointerup="onCardPointerUp"
         @pointerleave="onCardPointerUp"
         @pointercancel="onCardPointerUp"
-        @contextmenu.prevent="onCardContextMenu(article)"
+        @contextmenu.prevent="!article.isGenerating && onCardContextMenu(article)"
       >
         <div class="card-header">
           <h3 class="card-title">{{ article.title }}</h3>
@@ -65,8 +66,9 @@
             </span>
           </span>
         </div>
-        <div v-if="regeneratingId === article.id" class="card-overlay">
-          <span>{{ t('reading.regenerating') }}</span>
+        <div v-if="article.isGenerating || regeneratingId === article.id" class="card-overlay">
+          <span class="generation-spinner" aria-hidden="true" />
+          <span>{{ article.isGenerating ? t('reading.generatingArticle') : t('reading.regenerating') }}</span>
         </div>
       </div>
     </div>
@@ -88,7 +90,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
@@ -110,6 +112,7 @@ const targetLangStore = useTargetLangStore();
 const articles = ref([]);
 const loading = ref(true);
 const error = ref("");
+const generatingSlot = ref(null);
 const confirmArticle = ref(null);
 const regeneratingId = ref(null);
 const longPressArticleId = ref(null);
@@ -119,6 +122,21 @@ const longPressTriggered = ref(false);
 let pressTimer = null;
 let statusTimer = null;
 let learningContext = null;
+
+const displayedArticles = computed(() => {
+  if (!generatingSlot.value) return articles.value;
+
+  return [
+    {
+      id: `generating-${generatingSlot.value}`,
+      title: t("reading.generatingArticle"),
+      local_date: localDate(),
+      slot: generatingSlot.value,
+      isGenerating: true,
+    },
+    ...articles.value,
+  ];
+});
 
 onMounted(async () => {
   await init();
@@ -182,29 +200,57 @@ function showStatus(text) {
 async function init() {
   loading.value = true;
   error.value = "";
+  generatingSlot.value = null;
   try {
     learningContext = await loadLearningContext({ targetLangStore, fallbackToFirstGoal: true, loadGoals: true });
     if (learningContext.user?.id && learningContext.targetLang) {
-      try {
-        await ensureReadingArticle(
-          learningContext.user.id,
-          learningContext.targetLang,
-          learningContext.cefr,
-          learningContext.nativeLang,
-        );
-      } catch (e) {
-        console.error("Failed to ensure reading article:", e);
-        if (articles.value.length === 0) {
-          error.value = t("reading.generatingFail");
-        }
-      }
       articles.value = await getReadingArticles(learningContext.user.id, learningContext.targetLang);
+      ensureCurrentSlotArticle();
     }
   } catch (e) {
     console.error("Failed to load reading list:", e);
     error.value = e?.message || String(e);
   } finally {
     loading.value = false;
+  }
+}
+
+function localDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function currentSlot() {
+  return new Date().getHours() < 12 ? "AM" : "PM";
+}
+
+async function ensureCurrentSlotArticle() {
+  if (!learningContext?.user?.id) return;
+
+  const date = localDate();
+  const slot = currentSlot();
+  const hasCurrentArticle = articles.value.some(
+    (article) => article.local_date === date && article.slot === slot,
+  );
+  if (hasCurrentArticle) return;
+
+  generatingSlot.value = slot;
+  try {
+    await ensureReadingArticle(
+      learningContext.user.id,
+      learningContext.targetLang,
+      learningContext.cefr,
+      learningContext.nativeLang,
+    );
+    articles.value = await getReadingArticles(learningContext.user.id, learningContext.targetLang);
+  } catch (e) {
+    console.error("Failed to ensure reading article:", e);
+    showStatus(invokeErrorMessage(e) || t("reading.generatingFail"));
+  } finally {
+    generatingSlot.value = null;
   }
 }
 
@@ -370,6 +416,10 @@ async function confirmRegenerate() {
   opacity: 0.85;
 }
 
+.article-card.is-generating {
+  cursor: default;
+}
+
 .card-overlay {
   position: absolute;
   inset: 0;
@@ -381,6 +431,20 @@ async function confirmRegenerate() {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
+}
+
+.generation-spinner {
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border: 2px solid var(--border);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .card-header {

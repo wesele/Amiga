@@ -142,7 +142,7 @@ const UNITS = [
           q05("espanol-a2-u01-s02-1", "María ___ español en la universidad el año pasado.", ["estudió", "estudia", "estudiará", "estudiaba"], 0, "Experiencias pasadas"),
           q07("espanol-a2-u01-s02-2", "Trabajé ocho horas ayer.", ["我昨天工作了八小时", "我明天工作八小时", "我每天工作", "我不想工作"], 0, "Experiencias pasadas"),
           q12("espanol-a2-u01-s02-3", "同事问你是否完成了报告，你想说昨天完成了。", ["Terminé el informe ayer.", "Termino el informe ahora.", "Terminaré el informe mañana.", "No tengo informe."], 0, "Experiencias pasadas"),
-          q10("espanol-a2-u01-s02-4", "Anoche cociné pasta.", ["昨晚我做了意大利面", "昨晚我点了外卖", "我每晚都做饭"], 0, "Experiencias pasadas"),
+          q10("espanol-a2-u01-s02-4", "Anoche cociné pasta.", ["昨晚我做了意大利面", "昨晚我点了外卖", "我每晚都做饭"], "Experiencias pasadas"),
         ],
       },
       {
@@ -200,7 +200,7 @@ const UNITS = [
           q05("espanol-a2-u02-s02-1", "El médico me ___ que descanse más.", ["dijo", "dice", "dirá", "decía"], 0, "Salud y el cuerpo"),
           q07("espanol-a2-u02-s02-2", "Debes tomar esta medicina tres veces al día.", ["你应该一天吃三次这个药", "你应该每天运动", "你不舒服吗", "药很贵"], 0, "Salud y el cuerpo"),
           q12("espanol-a2-u02-s02-3", "医生建议你多喝水、少熬夜，你想确认会照做。", ["De acuerdo, beberé más agua y dormiré mejor.", "No quiero agua.", "Mañana empiezo a correr.", "No tengo tiempo."], 0, "Salud y el cuerpo"),
-          q10("espanol-a2-u02-s02-4", "Necesito una cita con el doctor.", ["我需要预约医生", "我是医生", "医院很远"], 0, "Salud y el cuerpo"),
+          q10("espanol-a2-u02-s02-4", "Necesito una cita con el doctor.", ["我需要预约医生", "我是医生", "医院很远"], "Salud y el cuerpo"),
         ],
       },
       {
@@ -258,7 +258,7 @@ const UNITS = [
           q05("espanol-a2-u03-s02-1", "Hoy hace ___ frío que ayer.", ["menos", "más", "muy", "tan"], 0, "Comparaciones"),
           q07("espanol-a2-u03-s02-2", "Corro tan rápido como mi amigo.", ["我跑得和朋友一样快", "我比朋友快", "我不跑步", "朋友很慢"], 0, "Comparaciones"),
           q06("espanol-a2-u03-s02-3", ["Este", "libro", "es", "menos", "difícil", "que", "el", "otro."], "Este libro es menos difícil que el otro.", "Comparaciones"),
-          q10("espanol-a2-u03-s02-4", "Mi casa es tan cómoda como la tuya.", ["我家和你家一样舒适", "我家更大", "我喜欢你家"], 0, "Comparaciones"),
+          q10("espanol-a2-u03-s02-4", "Mi casa es tan cómoda como la tuya.", ["我家和你家一样舒适", "我家更大", "我喜欢你家"], "Comparaciones"),
         ],
       },
       {
@@ -316,7 +316,7 @@ const UNITS = [
           q05("espanol-a2-u04-s02-1", "El año que viene ___ a Londres.", ["viajaré", "viajé", "viajo", "viajaba"], 0, "Planes y futuro"),
           q07("espanol-a2-u04-s02-2", "Te llamaré cuando llegue a casa.", ["我到家后会给你打电话", "昨天给你打电话了", "不想打电话", "正在打电话"], 0, "Planes y futuro"),
           q06("espanol-a2-u04-s02-3", ["El", "próximo", "verano", "viajaré", "a", "Italia."], "El próximo verano viajaré a Italia.", "Planes y futuro"),
-          q10("espanol-a2-u04-s02-4", "¿Qué harás este fin de semana?", ["这个周末你要做什么", "昨天做了什么", "我喜欢周末"], 0, "Planes y futuro"),
+          q10("espanol-a2-u04-s02-4", "¿Qué harás este fin de semana?", ["这个周末你要做什么", "昨天做了什么", "我喜欢周末"], "Planes y futuro"),
         ],
       },
       {
@@ -373,7 +373,7 @@ const UNITS = [
         questions: [
           q05("espanol-a2-u05-s02-1", "Te ___ que pruebes este plato.", ["recomiendo", "recomendé", "recomendar", "recomendaba"], 0, "Opiniones y consejos"),
           q07("espanol-a2-u05-s02-2", "Deberías llevar un paraguas.", ["你应该带伞", "今天很热", "我不需要伞", "下雨了"], 0, "Opiniones y consejos"),
-          q10("espanol-a2-u05-s02-3", "Es mejor tomar el metro.", ["最好坐地铁", "最好打车", "走路就行"], 0, "Opiniones y consejos"),
+          q10("espanol-a2-u05-s02-3", "Es mejor tomar el metro.", ["最好坐地铁", "最好打车", "走路就行"], "Opiniones y consejos"),
           q12("espanol-a2-u05-s02-4", "新同事迷路了，你想建议他用手机地图。", ["Te recomiendo usar el mapa del móvil.", "Sigue recto siempre.", "No sé la dirección.", "Vuelve a casa."], 0, "Opiniones y consejos"),
         ],
       },
@@ -431,7 +431,7 @@ const UNITS = [
         questions: [
           q05("espanol-a2-u06-s02-1", "¿___ llamarme más tarde, por favor?", ["Puedes", "Pudiste", "Podrás", "Podías"], 0, "Socializar e invitaciones"),
           q07("espanol-a2-u06-s02-2", "No puedo contestar ahora, te escribo luego.", ["现在接不了，稍后回你", "请立即回复", "我在打电话", "手机坏了"], 0, "Socializar e invitaciones"),
-          q10("espanol-a2-u06-s02-3", "¿Está disponible la señora García?", ["加西亚夫人在吗", "加西亚夫人出去了", "我是加西亚"], 0, "Socializar e invitaciones"),
+          q10("espanol-a2-u06-s02-3", "¿Está disponible la señora García?", ["加西亚夫人在吗", "加西亚夫人出去了", "我是加西亚"], "Socializar e invitaciones"),
           q12("espanol-a2-u06-s02-4", "接电话时你想说自己是李明，找安娜。", ["Hola, soy Li Ming, busco a Ana.", "Soy Ana.", "No conozco a Ana.", "Adiós."], 0, "Socializar e invitaciones"),
         ],
       },

@@ -30,6 +30,8 @@ vite-log.txt
 
 # Content Studio config (contains API keys)
 content-studio/studio.config.json
+content-studio/studio.config.json.bak
+content-studio/data/*.bak
 
 # Release keystore
 src-tauri/amiga-release.keystore

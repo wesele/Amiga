@@ -15,7 +15,7 @@
 >
 > PowerShell 下用 `npm.cmd run ...`，避免执行策略拦截 `npm.ps1`（见 [Codex.md](../Codex.md)）。
 >
-> 裸 `npm run dev` 无 Tauri shell，invoke 会 reject；验证 IPC 须用 `run-windows.bat` / `run-android.bat`。
+> 裸 `npm run dev` 无 Tauri shell，invoke 会 reject；验证 IPC 须用 `run-windows.bat` / `run-android-x86.bat` / `run-android-arm.bat`。
 
 ## 规范
 

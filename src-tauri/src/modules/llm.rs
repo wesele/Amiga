@@ -942,6 +942,75 @@ pub async fn explain_grammar_point(
     Ok(explanation)
 }
 
+pub async fn grade_translation(
+    client: &LlmClient,
+    db: &DatabasePool,
+    source_text: &str,
+    accepted_answers: &[String],
+    user_answer: &str,
+    target_lang: &str,
+) -> Result<bool, String> {
+    let target_label = lang_name_zh(target_lang);
+    let accepted_answers_str = accepted_answers
+        .iter()
+        .map(|ans| format!("- {}", ans))
+        .collect::<Vec<String>>()
+        .join("\n");
+
+    let vars = [
+        ("SOURCE_TEXT", source_text),
+        ("ACCEPTED_ANSWERS", &accepted_answers_str),
+        ("USER_ANSWER", user_answer),
+        ("TARGET_LANG", target_label),
+    ];
+
+    let messages = build_chat_messages(db, "grade-translation", &vars);
+    let messages = if messages.is_empty() {
+        let fallback_sys = "You are an expert language teacher and assessment assistant. Evaluate if a user's translation is correct and natural. Output a strict JSON object with a single boolean field: {\"correct\": true/false}";
+        let fallback_usr = format!(
+            "Evaluate the user's translation to see if it is correct.\n\
+             Source sentence (in user's native language): {}\n\
+             Reference translations (in target language {}):\n\
+             {}\n\n\
+             User's translation: {}\n\n\
+             Requirements:\n\
+             1. Determine if the user's translation is grammatically correct and accurately translates the source sentence.\n\
+             2. Allow for natural variations in word choice, phrasing, and word order as long as they are correct in the target language and capture the same meaning.\n\
+             3. Be lenient with minor typos or punctuation/capitalization differences.\n\
+             4. Output a strict JSON object: {{\"correct\": true}} or {{\"correct\": false}}",
+            source_text, target_label, accepted_answers_str, user_answer
+        );
+        build_chat_messages_fallback(fallback_sys, &fallback_usr)
+    } else {
+        messages
+    };
+
+    let response = client.chat(db, messages).await?;
+    let cleaned = response
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+
+    #[derive(serde::Deserialize)]
+    struct GradeResult {
+        correct: bool,
+    }
+
+    let result: GradeResult = serde_json::from_str(cleaned).map_err(|e| {
+        log::error!(
+            "Failed to parse grade_translation response: {}. Raw: {}",
+            e,
+            response
+        );
+        format!("Grade translation response format error: {}", e)
+    })?;
+
+    log::info!("Translation graded: correct={}", result.correct);
+    Ok(result.correct)
+}
+
 // --- Settings persistence ---
 // NOTE: API keys (primary_api_key / backup_api_key) are stored in plaintext
 // in the app_settings table by design. This is a single-user local app; the

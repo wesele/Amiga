@@ -107,8 +107,35 @@ function editPair(pair) {
   showAddPairModal.value = true
 }
 
-function savePair() {
-  const levels = pairForm.cefrString.split(',').map(s => s.trim()).filter(Boolean)
+async function savePair() {
+  if (!pairForm.from.trim() || !pairForm.to.trim()) {
+    alert('请填写起始语言和目标语言')
+    return
+  }
+  const levels = [...new Set(pairForm.cefrString.split(',').map(s => s.trim()).filter(Boolean))]
+  if (!levels.length) {
+    alert('至少配置一个 CEFR 等级')
+    return
+  }
+  if (editingPairId.value) {
+    const existing = config.value.languagePairs.find(pair => pair.id === editingPairId.value)
+    if (existing && (existing.from !== pairForm.from.trim() || existing.to !== pairForm.to.trim())) {
+      const [questionsRes, frameworkRes] = await Promise.all([
+        fetch('/api/data/questions'),
+        fetch('/api/data/unit-framework')
+      ])
+      if (!questionsRes.ok || !frameworkRes.ok) {
+        alert('无法读取关联数据，已取消修改')
+        return
+      }
+      const questions = questionsRes.ok ? await questionsRes.json() : []
+      const framework = frameworkRes.ok ? await frameworkRes.json() : {}
+      if ((Array.isArray(questions) && questions.some(question => question.pairId === existing.id)) || framework[existing.id]) {
+        alert('该语言组合已有题目或课程框架，不能直接修改方向；请新建语言组合')
+        return
+      }
+    }
+  }
   
   if (editingPairId.value) {
     updateLanguagePair(editingPairId.value, {
@@ -135,9 +162,14 @@ function closeModal() {
   pairForm.cefrString = 'A1, A2, B1, B2, C1, C2'
 }
 
-function deletePair(id) {
+async function deletePair(id) {
   if (confirm('确认删除此语言组合及其所有配置？')) {
-    deleteLanguagePair(id)
+    try {
+      await deleteLanguagePair(id)
+      window.location.reload()
+    } catch (e) {
+      alert(`删除失败: ${e.message}`)
+    }
   }
 }
 
@@ -149,8 +181,14 @@ function addNewLevel(pairId) {
   }
 }
 
-function removeLevel(pairId, level) {
-  removeCEFRLevel(pairId, level)
+async function removeLevel(pairId, level) {
+  if (!confirm(`删除 ${level} 将同时删除该等级的题目、框架和图片，继续吗？`)) return
+  try {
+    await removeCEFRLevel(pairId, level)
+    window.location.reload()
+  } catch (e) {
+    alert(`删除等级失败: ${e.message}`)
+  }
 }
 </script>
 

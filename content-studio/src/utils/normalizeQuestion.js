@@ -114,7 +114,8 @@ export function normalizeQuestion(q, ctx = {}) {
   if (pairId) out.pairId = pairId
   if (sectionId) out.sectionId = sectionId
   if (unit) out.unit = unit
-  if (level && !out.cefr) out.cefr = level
+  // 归属字段由当前生成上下文决定，不能信任模型返回的值。
+  if (level) out.cefr = level
 
   out.language = normalizeLanguage(out.language, targetLang)
 

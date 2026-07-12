@@ -26,7 +26,7 @@ Windows PowerShell 用 `npm.cmd run dev`（见 [Codex.md](../Codex.md)）。
 content-studio/
 ├── data/                      # 持久化 JSON（dev server 读写）
 │   ├── vocabulary.json        # ⚠️ 主应用 Rust include_str! 编译引用；fresh clone 可能不存在
-│   ├── questions.json
+│   ├── questions/             # 按 pairId/CEFR 分片的题库 + index.json
 │   ├── prompts.json
 │   ├── system-config.json
 │   └── images/
@@ -56,8 +56,18 @@ content-studio/
 |------|------|
 | 异步操作 | 必须通过 `useAsyncOperation`，在 `AsyncLoading` 显示进度（参考 `QuestionBank.vue`） |
 | 数据持久化 | `/api/data/:type` 中间件读写 `data/*.json` |
+| 题库持久化 | `/api/questions` 使用分片 revision；题目按 `pairId/CEFR` 存储 |
 | LLM | `useLLM.js`：SSE 解析、JSON 提取、自动降级 |
 | 词库 | `data/vocabulary.json` 被主应用 `src-tauri/src/modules/vocabulary.rs` `include_str!` 引用 |
+
+## 题库分片
+
+- 入口清单：`data/questions/index.json`。
+- 分片路径：`data/questions/<pairId>/<CEFR>.json`。
+- Studio 使用分片 revision 防止多窗口和外部脚本互相覆盖。
+- 小节重新生成通过服务端原子替换，失败时保留旧题。
+- Amiga 的 `src-tauri/build.rs` 在编译时根据清单聚合所有分片。
+- 根目录旧 `data/questions.json` 仅为迁移源，不再被 Studio 或 Amiga 读取；重新迁移可运行 `node scripts/migrate-question-shards.mjs`。
 
 ## vocabulary.json 说明
 

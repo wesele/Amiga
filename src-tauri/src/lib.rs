@@ -97,6 +97,7 @@ pub fn run() {
             commands::llm::get_setting_cmd,
             commands::llm::get_bilingual_cmd,
             commands::llm::translate_text_cmd,
+            commands::llm::grade_translation_cmd,
             // News commands
             commands::news::fetch_news_cmd,
             commands::news::get_articles_cmd,

@@ -4,6 +4,7 @@
  * 数据持久化到服务端 data/system-config.json
  */
 import { ref } from 'vue'
+import { enqueueJsonSave } from '../utils/dataPersistence.js'
 
 const DEFAULT_CONFIG = {
   languagePairs: [
@@ -21,11 +22,7 @@ const config = ref({ ...DEFAULT_CONFIG })
 
 async function saveToServer() {
   try {
-    await fetch('/api/data/system-config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config.value)
-    })
+    await enqueueJsonSave('system-config', config.value)
   } catch (e) {
     console.warn('[system-config] 保存到服务端失败:', e.message)
   }
@@ -52,12 +49,64 @@ export function useSystemConfig() {
     }
   }
 
-  function deleteLanguagePair(id) {
-    config.value.languagePairs = config.value.languagePairs.filter(p => p.id !== id)
-    if (config.value.activePairId === id) {
-      config.value.activePairId = config.value.languagePairs[0]?.id || ''
+  async function deleteLanguagePair(id) {
+    const pair = config.value.languagePairs.find(p => p.id === id)
+    if (!pair) return false
+    const remainingPairs = config.value.languagePairs.filter(p => p.id !== id)
+    const [questionsRes, frameworkRes, vocabularyRes] = await Promise.all([
+      fetch('/api/data/questions'),
+      fetch('/api/data/unit-framework'),
+      fetch('/api/data/vocabulary')
+    ])
+    if (!questionsRes.ok || !frameworkRes.ok || !vocabularyRes.ok) throw new Error('读取关联数据失败')
+    const questions = await questionsRes.json()
+    const framework = await frameworkRes.json()
+    const vocabulary = await vocabularyRes.json()
+    const removedQuestions = Array.isArray(questions)
+      ? questions.filter(q => q.pairId === id || String(q.sectionId || '').startsWith(`${id}/`))
+      : []
+    const nextQuestions = Array.isArray(questions)
+      ? questions.filter(q => q.pairId !== id && !String(q.sectionId || '').startsWith(`${id}/`))
+      : []
+    const nextFramework = { ...(framework || {}) }
+    delete nextFramework[id]
+    const nextVocabulary = { ...(vocabulary || {}), pairLangMap: { ...(vocabulary?.pairLangMap || {}) } }
+    delete nextVocabulary.pairLangMap[id]
+    if (!remainingPairs.some(p => p.to === pair.to)) {
+      nextVocabulary.languages = (nextVocabulary.languages || []).filter(lang => lang !== pair.to)
+      if (nextVocabulary.data) {
+        nextVocabulary.data = { ...nextVocabulary.data }
+        delete nextVocabulary.data[pair.to]
+      }
     }
-    saveToServer()
+    await Promise.all([
+      enqueueJsonSave('questions', nextQuestions),
+      enqueueJsonSave('unit-framework', nextFramework),
+      enqueueJsonSave('vocabulary', nextVocabulary)
+    ])
+    const imageNames = new Set()
+    for (const question of removedQuestions) {
+      const targets = question.type === 'T01'
+        ? [question]
+        : question.type === 'T02' && Array.isArray(question.imageOptions)
+          ? question.imageOptions
+          : []
+      for (const target of targets) {
+        const filename = target.imageUrl?.split('/').pop()?.split('?')[0]
+        if (filename) imageNames.add(filename)
+      }
+    }
+    if (imageNames.size) {
+      await fetch('/api/images/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filenames: [...imageNames] })
+      })
+    }
+    config.value.languagePairs = remainingPairs
+    if (config.value.activePairId === id) config.value.activePairId = remainingPairs[0]?.id || ''
+    await saveToServer()
+    return true
   }
 
   // ---- CEFR 级别管理 ----
@@ -70,12 +119,53 @@ export function useSystemConfig() {
     }
   }
 
-  function removeCEFRLevel(pairId, level) {
+  async function removeCEFRLevel(pairId, level) {
     const pair = config.value.languagePairs.find(p => p.id === pairId)
-    if (pair) {
-      pair.cefrLevels = pair.cefrLevels.filter(l => l !== level)
-      saveToServer()
+    if (!pair) return false
+    const [questionsRes, frameworkRes] = await Promise.all([
+      fetch('/api/data/questions'),
+      fetch('/api/data/unit-framework')
+    ])
+    if (!questionsRes.ok || !frameworkRes.ok) throw new Error('读取等级关联数据失败')
+    const questions = await questionsRes.json()
+    const framework = await frameworkRes.json()
+    const removedQuestions = Array.isArray(questions)
+      ? questions.filter(q => q.pairId === pairId && q.cefr === level)
+      : []
+    const nextQuestions = Array.isArray(questions)
+      ? questions.filter(q => !(q.pairId === pairId && q.cefr === level))
+      : []
+    const nextFramework = { ...(framework || {}) }
+    if (nextFramework[pairId]) {
+      nextFramework[pairId] = { ...nextFramework[pairId] }
+      delete nextFramework[pairId][level]
     }
+    await Promise.all([
+      enqueueJsonSave('questions', nextQuestions),
+      enqueueJsonSave('unit-framework', nextFramework)
+    ])
+    const imageNames = new Set()
+    for (const question of removedQuestions) {
+      const targets = question.type === 'T01'
+        ? [question]
+        : question.type === 'T02' && Array.isArray(question.imageOptions)
+          ? question.imageOptions
+          : []
+      for (const target of targets) {
+        const filename = target.imageUrl?.split('/').pop()?.split('?')[0]
+        if (filename) imageNames.add(filename)
+      }
+    }
+    if (imageNames.size) {
+      await fetch('/api/images/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filenames: [...imageNames] })
+      })
+    }
+    pair.cefrLevels = pair.cefrLevels.filter(l => l !== level)
+    await saveToServer()
+    return true
   }
 
   function updateCEFRLevels(pairId, levels) {

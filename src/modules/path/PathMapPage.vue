@@ -136,7 +136,7 @@
 
 <script setup>
 import { computed, nextTick, onMounted, ref } from "vue";
-import { CEFR_LEVELS, LEARNING_CEFR_LEVELS } from "@/shared/constants.js";
+import { CEFR_LEVELS, learningCefrLevels } from "@/shared/constants.js";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";
@@ -160,7 +160,7 @@ const currentCefr = ref("A1");
 const levelSwitching = ref(false);
 const showLevelPicker = ref(false);
 const pathScroll = ref(null);
-const learningLevels = LEARNING_CEFR_LEVELS;
+const learningLevels = computed(() => learningCefrLevels(targetLangStore.code));
 
 const completedLevelLabel = computed(() => {
   const current = curriculum.value?.cefr;

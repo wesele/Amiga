@@ -78,7 +78,7 @@ describe("ProfilePage", () => {
     expect(active.text()).toContain("西班牙语");
   });
 
-  it("renders level pills and updates cefr via update_learning_goal_cefr_cmd", async () => {
+  it("renders B1 and B2 level pills for Spanish and updates the selected level", async () => {
     let updatedLevel = "";
     mockInvoke.mockImplementation((cmd, args) => {
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
@@ -97,11 +97,11 @@ describe("ProfilePage", () => {
     const wrapper = mountPage();
     await flushPromises();
     const levelPills = wrapper.findAll(".level-pill");
-    expect(levelPills.length).toBe(2);
-    const a2 = levelPills.find((p) => p.text().includes("A2"));
-    await a2.trigger("click");
+    expect(levelPills.length).toBe(4);
+    const b2 = levelPills.find((p) => p.text().includes("B2"));
+    await b2.trigger("click");
     await flushPromises();
-    expect(updatedLevel).toBe("A2");
+    expect(updatedLevel).toBe("B2");
   });
 
   it("clicking another language calls set_target_language_cmd and updates the active pill", async () => {

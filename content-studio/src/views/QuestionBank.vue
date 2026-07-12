@@ -60,6 +60,16 @@
                   <span class="stat-label">词汇覆盖</span>
                 </div>
               </div>
+              <div class="generation-status">
+                <div class="generation-status-row">
+                  <span>题目</span>
+                  <strong>{{ getGenerationStats(selectedPair, level).generatedQuestions }} / {{ getGenerationStats(selectedPair, level).totalQuestions }}</strong>
+                </div>
+                <div class="generation-status-row">
+                  <span>插图</span>
+                  <strong>{{ getGenerationStats(selectedPair, level).generatedImages }} / {{ getGenerationStats(selectedPair, level).totalImages }}</strong>
+                </div>
+              </div>
               <button class="btn btn-sm btn-primary" @click="selectLevel(selectedPair, level)">管理设计</button>
             </div>
           </div>
@@ -75,6 +85,18 @@
               <button class="btn btn-primary" @click="generateAI()" :disabled="isAsyncBusy">✨ AI 生成框架</button>
               <button class="btn btn-secondary" @click="generateQuestions()" :disabled="isAsyncBusy">🤖 AI 生成题目</button>
               <button class="btn btn-secondary" @click="generateAllImages()" :disabled="isAsyncBusy">🎨 AI 生成插图</button>
+              <button class="btn btn-danger" @click="clearLevel()" :disabled="isAsyncBusy">🗑 清除该级别</button>
+            </div>
+          </div>
+
+          <div class="level-generation-status">
+            <div class="level-generation-item">
+              <span class="level-generation-icon">📝</span>
+              <div><span>题目生成</span><strong>{{ currentGenerationStats.generatedQuestions }} / {{ currentGenerationStats.totalQuestions }}</strong></div>
+            </div>
+            <div class="level-generation-item">
+              <span class="level-generation-icon">🎨</span>
+              <div><span>插图生成</span><strong>{{ currentGenerationStats.generatedImages }} / {{ currentGenerationStats.totalImages }}</strong></div>
             </div>
           </div>
 
@@ -241,19 +263,36 @@
         <div class="preview-editor">
           <template v-if="currentQuestion">
             <div class="editor-header">
-              <div class="editor-title">
-                <span class="editor-type-badge">{{ currentQuestion.typeName || currentQuestion.type }}</span>
-                <span class="editor-id">{{ currentQuestion.id }}</span>
-              </div>
-              <div class="editor-actions">
-                <button
-                  v-if="currentQuestion.type === 'T01' || currentQuestion.type === 'T02'"
-                  class="btn btn-sm btn-secondary"
-                  :disabled="isAsyncBusy"
-                  @click="generateImagesForCurrent"
-                >🎨 生成图片</button>
-                <button class="btn btn-sm btn-primary" @click="saveCurrentQuestion" :disabled="!isDirty">💾 保存</button>
-                <button class="btn btn-sm btn-danger" @click="deleteCurrentQuestion">🗑️</button>
+              <div class="editor-header-top">
+                <div class="editor-title">
+                  <span class="editor-type-badge">{{ currentQuestion.typeName || currentQuestion.type }}</span>
+                  <span class="editor-id">{{ currentQuestion.id }}</span>
+                </div>
+                <div class="editor-actions">
+                  <button
+                    v-if="currentQuestion.type === 'T01' || currentQuestion.type === 'T02'"
+                    class="btn btn-sm btn-secondary"
+                    :disabled="isAsyncBusy"
+                    @click="generateImagesForCurrent"
+                  >🎨 生成图片</button>
+                  <button class="btn btn-sm btn-primary" @click="saveCurrentQuestion" :disabled="!isDirty">💾 保存</button>
+                  <button class="btn btn-sm btn-danger" @click="deleteCurrentQuestion">🗑️</button>
+                  <div class="preview-question-nav" aria-label="题目翻页">
+                    <button
+                      class="preview-nav-btn"
+                      :disabled="preview.currentIndex <= 0"
+                      @click="prevQuestion"
+                      title="上一题"
+                    >‹ 上一题</button>
+                    <span class="preview-nav-count">第 {{ preview.currentIndex + 1 }} / {{ preview.questions.length }} 题</span>
+                    <button
+                      class="preview-nav-btn"
+                      :disabled="preview.currentIndex >= preview.questions.length - 1"
+                      @click="nextQuestion"
+                      title="下一题"
+                    >下一题 ›</button>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="editor-body">
@@ -572,11 +611,23 @@
                 </div>
               </div>
             </div>
-            <div class="phone-footer">
-              <button class="phone-nav-btn" :disabled="preview.currentIndex <= 0" @click="prevQuestion">‹</button>
-              <button class="phone-nav-btn" :disabled="preview.currentIndex >= preview.questions.length - 1" @click="nextQuestion">›</button>
-            </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="generationConfirm.show" class="modal-overlay">
+      <div class="modal generation-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="generation-confirm-title">
+        <h3 id="generation-confirm-title" class="modal-title">确认{{ generationConfirm.title }}</h3>
+        <p class="generation-confirm-desc">{{ generationConfirm.description }}</p>
+        <div class="generation-confirm-stats">
+          <div class="generation-confirm-stat"><strong>{{ generationConfirm.total }}</strong><span>总数</span></div>
+          <div class="generation-confirm-stat completed"><strong>{{ generationConfirm.completed }}</strong><span>已完成</span></div>
+          <div class="generation-confirm-stat pending"><strong>{{ generationConfirm.pending }}</strong><span>即将处理</span></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="answerGenerationConfirmation(false)">取消</button>
+          <button class="btn btn-primary" @click="answerGenerationConfirmation(true)">确认开始</button>
         </div>
       </div>
     </div>
@@ -599,6 +650,9 @@ import { CEFR_TYPE_MAP, QUESTION_SCHEMAS } from '../data/question-types.js'
 import QuestionImage from '../components/QuestionImage.vue'
 import { buildSectionId, questionMatchesSection } from '../utils/sectionId.js'
 import { normalizeQuestion, shuffleOptions } from '../utils/normalizeQuestion.js'
+import { missingQuestionCount } from '../utils/questionGeneration.js'
+import { calculateGenerationStats } from '../utils/generationStats.js'
+import { isTransientConcurrencyError, runAdaptivePool } from '../utils/adaptivePool.js'
 
 const route = useRoute()
 const storage = useStorage()
@@ -618,6 +672,21 @@ const framework = ref([])
 const coverage = ref({ vocab: 0, topic: 0, knowledge: 0 })
 const errorMessage = ref('')
 const expandedSections = ref(new Set())
+// useStorage 的题目缓存不是响应式数据；插图增量更新后显式刷新各级别统计。
+const generationStatsRevision = ref(0)
+const generationConfirm = ref({ show: false, title: '', description: '', total: 0, completed: 0, pending: 0, resolve: null })
+
+function requestGenerationConfirmation({ title, description, total, completed, pending }) {
+  return new Promise(resolve => {
+    generationConfirm.value = { show: true, title, description, total, completed, pending, resolve }
+  })
+}
+
+function answerGenerationConfirmation(confirmed) {
+  const resolve = generationConfirm.value.resolve
+  generationConfirm.value = { show: false, title: '', description: '', total: 0, completed: 0, pending: 0, resolve: null }
+  resolve?.(confirmed)
+}
 
 const coverageDetail = ref({
   show: false,
@@ -649,6 +718,26 @@ const selectedPair = computed(() => {
 
 const currentQuestion = computed(() => {
   return preview.value.questions[preview.value.currentIndex] || null
+})
+
+function getGenerationStats(pair, level) {
+  generationStatsRevision.value
+  if (!pair?.id || !level) {
+    return { generatedQuestions: 0, totalQuestions: 0, generatedImages: 0, totalImages: 0 }
+  }
+  return calculateGenerationStats({
+    pairId: pair.id,
+    cefr: level,
+    units: unitFramework.getFramework(pair.id, level),
+    questions: storage.getQuestions({ pairId: pair.id, cefr: level }),
+    questionsPerSection: questionsPerSectionTarget()
+  })
+}
+
+const currentGenerationStats = computed(() => {
+  asyncOp.progress.value.current
+  preview.value.questions.length
+  return getGenerationStats(selectedPair.value, selectedLevel.value)
 })
 
 // ---- 编辑器状态 ----
@@ -687,7 +776,7 @@ function onMistakesChange() { if (!currentQuestion.value) return; currentQuestio
 function onAcceptedChange() { if (!currentQuestion.value) return; currentQuestion.value.acceptedAnswers = editor.value.acceptedStr.split('\n').map(s => s.trim()).filter(Boolean); markDirty() }
 function onDimensionsChange() { if (!currentQuestion.value) return; currentQuestion.value.scoringDimensions = editor.value.dimensionsStr.split('\n').map(s => s.trim()).filter(Boolean); markDirty() }
 
-function saveCurrentQuestion() {
+async function saveCurrentQuestion() {
   const q = currentQuestion.value
   if (!q) return
   const normalized = normalizeQuestion(q, {
@@ -700,8 +789,14 @@ function saveCurrentQuestion() {
     pairFrom: selectedPair.value?.from
   })
   Object.assign(q, normalized)
-  storage.persistQuestions()
-  isDirty.value = false
+  try {
+    await storage.persistQuestion(q)
+    isDirty.value = false
+  } catch (error) {
+    errorMessage.value = error.name === 'QuestionConflictError'
+      ? '保存冲突：题库已被其他窗口或脚本修改。请刷新页面后重新编辑。'
+      : `题目保存失败：${error.message}`
+  }
 }
 
 function imageFilename(questionId, slot = '') {
@@ -740,9 +835,16 @@ function getImageGenContext(q, optIndex = null) {
   return { correctConcept: q.imageDesc || '', distractors: 'none' }
 }
 
-function imageGenProgress(msg, type = 'info') {
-  asyncOp.setMessage(msg)
-  asyncOp.addLog(msg, type)
+function imageWorkerProgress(workerId, event) {
+  if (event && typeof event === 'object') {
+    asyncOp.updateWorker(workerId, {
+      stage: event.stage,
+      detail: event.detail,
+      step: event.step,
+      steps: event.total,
+      percent: event.percent
+    })
+  }
 }
 
 function clearQuestionImages(q) {
@@ -763,6 +865,7 @@ async function applyGeneratedImage(target, svg, url) {
   target.imageUrl = ''
   await nextTick()
   target.imageUrl = url
+  generationStatsRevision.value++
 }
 
 function hasExistingImage(target) {
@@ -815,68 +918,61 @@ async function generateAllImages() {
     return
   }
 
-  const controller = asyncOp.start(`正在批量生成插图 (0/${pending})...`)
+  if (!await requestGenerationConfirmation({
+    title: 'AI 生成插图', description: `${sourceLang} → ${targetLang} · ${level}`,
+    total: pending + skipped, completed: skipped, pending
+  })) return
+
+  const controller = asyncOp.start('准备生成插图...', {
+    label: '插图生成总进度',
+    unit: '张',
+    total: pending,
+    questionTotal: questions.length,
+    existing: skipped
+  })
   asyncOp.addLog(`开始为 ${sourceLang} → ${targetLang} · ${level} 生成插图`, 'info')
   asyncOp.addLog(`待生成 ${pending} 张，跳过已有 ${skipped} 张`, 'info')
 
   let done = 0
   let errors = 0
+  let processed = 0
+  const markImageDone = (success = true) => {
+    processed++
+    if (success) done++
+    asyncOp.setProgress(processed, pending, { generated: done, failed: errors })
+  }
 
   try {
+    const tasks = []
     for (const q of questions) {
-      if (controller.signal.aborted) break
-
-      if (q.type === 'T01') {
-        if (hasExistingImage(q)) {
-          asyncOp.addLog(`跳过 T01 [${q.id}]（已有插图）`, 'info')
-          continue
-        }
-        asyncOp.setMessage(`正在生成插图 (${done + 1}/${pending}): ${q.id}`)
-        asyncOp.addLog(`生成 T01 [${q.id}]: ${q.imageDesc || ''}`, 'info')
-        try {
-          const { svg, url } = await imageGen.generateAndPersist(
-            q.imageDesc,
-            q.imagePrompt,
-            imageFilename(q.id),
-            { signal: controller.signal, onProgress: imageGenProgress, ...getImageGenContext(q) }
-          )
-          await applyGeneratedImage(q, svg, url)
-          done++
-          storage.persistQuestions()
-        } catch (e) {
-          if (e.name === 'AbortError') throw e
-          errors++
-          asyncOp.addLog(`  ✗ T01 [${q.id}] 失败: ${e.message}`, 'error')
-        }
-      } else if (q.type === 'T02' && Array.isArray(q.imageOptions)) {
-        for (let i = 0; i < q.imageOptions.length; i++) {
-          if (controller.signal.aborted) break
-          const opt = q.imageOptions[i]
-          if (hasExistingImage(opt)) {
-            asyncOp.addLog(`跳过 T02 [${q.id}] 选项 ${i + 1}（已有插图）`, 'info')
-            continue
-          }
-          asyncOp.setMessage(`正在生成插图 (${done + 1}/${pending}): ${q.id} 选项${i + 1}`)
-          asyncOp.addLog(`生成 T02 [${q.id}] 选项 ${i + 1}: ${opt.desc || ''}`, 'info')
-          try {
-            const { svg, url } = await imageGen.generateAndPersist(
-              opt.desc,
-              getImagePrompt(opt),
-              imageFilename(q.id, `opt${i}`),
-              { signal: controller.signal, onProgress: imageGenProgress, ...getImageGenContext(q, i) }
-            )
-            await applyGeneratedImage(opt, svg, url)
-            done++
-            storage.persistQuestions()
-          } catch (e) {
-            if (e.name === 'AbortError') throw e
-            errors++
-            asyncOp.addLog(`  ✗ T02 [${q.id}] 选项 ${i + 1} 失败: ${e.message}`, 'error')
-          }
+      if (q.type === 'T01' && !hasExistingImage(q)) {
+        tasks.push({ q, target: q, desc: q.imageDesc, prompt: q.imagePrompt, filename: imageFilename(q.id), context: getImageGenContext(q), label: `T01 [${q.id}]` })
+      } else if (q.type === 'T02') {
+        for (let i = 0; i < (q.imageOptions || []).length; i++) {
+          const target = q.imageOptions[i]
+          if (!hasExistingImage(target)) tasks.push({ q, target, desc: target.desc, prompt: getImagePrompt(target), filename: imageFilename(q.id, `opt${i}`), context: getImageGenContext(q, i), label: `T02 [${q.id}] 选项 ${i + 1}` })
         }
       }
     }
-
+    await runAdaptivePool(tasks, async (task, { workerId }) => {
+      const { svg, url } = await imageGen.generateAndPersist(task.desc, task.prompt, task.filename, {
+        signal: controller.signal, onProgress: event => imageWorkerProgress(workerId, event), ...task.context
+      })
+      await applyGeneratedImage(task.target, svg, url)
+      // 每张成功后立即保存所属级别分片。persistQuestion 内部按分片串行，
+      // 因此取消时 runAdaptivePool 会等待已开始的保存完成，不会丢失已完成引用。
+      await storage.persistQuestion(task.q)
+      markImageDone(true)
+      return task.q
+    }, {
+      maxConcurrency: 5, maxRetries: 2, recoverySuccesses: 5, signal: controller.signal,
+      describeTask: task => task.label,
+      onPoolStart: count => asyncOp.configureWorkers(count),
+      onWorkerState: (id, state) => asyncOp.updateWorker(id, state),
+      onConcurrencyChange: value => { asyncOp.setActiveConcurrency(value); asyncOp.addLog(`SVG 并发数调整为 ${value}`, 'warning') },
+      onRetry: (task, attempt, error) => asyncOp.addLog(`${task.label} 第 ${attempt} 次重试: ${error.message}`, 'warning'),
+      onTaskError: (task, error) => { errors++; markImageDone(false); asyncOp.addLog(`  ✗ ${task.label} 失败: ${error.message}`, 'error') }
+    })
     const summary = `完成！新生成 ${done} 张，跳过 ${skipped} 张${errors ? `，失败 ${errors} 张` : ''}`
     asyncOp.addLog(summary, errors ? 'warning' : 'success')
     if (done > 0 || errors > 0) {
@@ -898,8 +994,14 @@ async function generateImagesForCurrent() {
   const q = currentQuestion.value
   if (!q) return
 
+  const total = q.type === 'T02' ? (q.imageOptions?.length || 0) : 1
+  if (!await requestGenerationConfirmation({
+    title: 'AI 生成插图', description: `将重新生成题目 ${q.id} 的插图`,
+    total, completed: 0, pending: total
+  })) return
   const controller = asyncOp.start(
-    q.type === 'T02' ? '正在为各选项生成图片...' : '正在生成题目图片...'
+    '准备生成插图...',
+    { label: '插图生成总进度', unit: '张', total, questionTotal: 1 }
   )
 
   try {
@@ -907,35 +1009,46 @@ async function generateImagesForCurrent() {
     await nextTick()
 
     if (q.type === 'T01') {
+      asyncOp.configureWorkers(1)
+      asyncOp.updateWorker(0, { status: 'running', task: `T01 [${q.id}]`, stage: '准备提示词', detail: q.imageDesc || '', step: 1, steps: 6, percent: 17 })
+      asyncOp.setMessage('正在生成第 1/1 张插图')
       asyncOp.addLog(`生成 T01 图片: ${q.imageDesc || q.id}`, 'info')
       const { svg, url } = await imageGen.generateAndPersist(
         q.imageDesc,
         q.imagePrompt,
         imageFilename(q.id),
-        { signal: controller.signal, onProgress: imageGenProgress, ...getImageGenContext(q) }
+        { signal: controller.signal, onProgress: event => imageWorkerProgress(0, event), ...getImageGenContext(q) }
       )
       await applyGeneratedImage(q, svg, url)
+      await storage.persistQuestion(q)
+      asyncOp.updateWorker(0, { status: 'completed', stage: '完成', detail: '图片与题目引用已更新', step: 6, steps: 6, percent: 100, finishedAt: Date.now() })
+      asyncOp.setProgress(1, total, { generated: 1 })
       asyncOp.addLog('T01 图片生成完成', 'success')
     } else if (q.type === 'T02') {
       const opts = q.imageOptions || []
-      for (let i = 0; i < opts.length; i++) {
-        const opt = opts[i]
-        asyncOp.addLog(`生成选项 ${i + 1}/${opts.length}: ${opt.desc || ''}`, 'info')
-        asyncOp.setMessage(`正在生成选项 ${i + 1}/${opts.length}...`)
-        const { svg, url } = await imageGen.generateAndPersist(
-          opt.desc,
-          getImagePrompt(opt),
-          imageFilename(q.id, `opt${i}`),
-          { signal: controller.signal, onProgress: imageGenProgress, ...getImageGenContext(q, i) }
-        )
+      let completed = 0
+      const pool = await runAdaptivePool(opts.map((opt, i) => ({ opt, i })), async ({ opt, i }, { workerId }) => {
+        const { svg, url } = await imageGen.generateAndPersist(opt.desc, getImagePrompt(opt), imageFilename(q.id, `opt${i}`), {
+          signal: controller.signal, onProgress: event => imageWorkerProgress(workerId, event), ...getImageGenContext(q, i)
+        })
         await applyGeneratedImage(opt, svg, url)
-      }
-      asyncOp.addLog(`T02 全部 ${opts.length} 张图片生成完成`, 'success')
+        await storage.persistQuestion(q)
+        completed++
+        asyncOp.setProgress(completed, total, { generated: completed })
+      }, {
+        maxConcurrency: 5, maxRetries: 2, recoverySuccesses: 5, signal: controller.signal,
+        describeTask: task => `T02 [${q.id}] 选项 ${task.i + 1}`,
+        onPoolStart: count => asyncOp.configureWorkers(count),
+        onWorkerState: (id, state) => asyncOp.updateWorker(id, state),
+        onConcurrencyChange: value => { asyncOp.setActiveConcurrency(value); asyncOp.addLog(`SVG 并发数调整为 ${value}`, 'warning') },
+        onRetry: (task, attempt, error) => asyncOp.addLog(`选项 ${task.i + 1} 第 ${attempt} 次重试: ${error.message}`, 'warning')
+      })
+      const failed = pool.errors.filter(Boolean).length
+      asyncOp.addLog(`T02 图片生成完成：成功 ${completed} 张${failed ? `，失败 ${failed} 张` : ''}`, failed ? 'warning' : 'success')
     } else {
       return
     }
 
-    storage.persistQuestions()
     isDirty.value = false
   } catch (e) {
     if (e.name === 'AbortError') {
@@ -949,12 +1062,17 @@ async function generateImagesForCurrent() {
   }
 }
 
-function deleteCurrentQuestion() {
+async function deleteCurrentQuestion() {
   if (!currentQuestion.value) return
   const qId = currentQuestion.value.id
   if (!confirm('确认删除此题目？此操作不可恢复。')) return
   // remove from server + memory
-  storage.deleteQuestions([qId])
+  try {
+    await storage.deleteQuestions([qId])
+  } catch (error) {
+    errorMessage.value = `删除失败：${error.message}`
+    return
+  }
   preview.value.questions = preview.value.questions.filter(q => q.id !== qId)
   // rebuild grouped
   preview.value.groupedQuestions.forEach(g => {
@@ -1152,6 +1270,19 @@ async function generateAI() {
     return
   }
   const level = selectedLevel.value
+  const pairId = selectedPair.value.id
+  const status = unitFramework.getFrameworkStatus(pairId, level)
+  const resumable = status.total > 0 && status.completed < status.total
+
+  let resume = false
+  if (resumable) {
+    resume = confirm(`检测到上次生成未完成（已完成 ${status.completed}/${status.total} 个单元）。是否继续生成剩余单元？（不删除已有题目）`)
+    if (!resume) return
+  } else {
+    const existingCount = storage.getQuestions({ pairId, cefr: level }).length
+    const warning = `重新生成框架将重建 ${sourceLang} → ${targetLang} · ${level} 的全部单元与小节，并删除该级别现有的 ${existingCount} 道题目。此操作不可撤销。是否继续？`
+    if (!confirm(warning)) return
+  }
   console.log('generateAI: starting for', sourceLang, '→', targetLang, level)
   
   const vocab = getVocabForLevel(selectedPair.value, level)
@@ -1164,11 +1295,23 @@ async function generateAI() {
   }
   
   try {
+    const generationConfig = storage.getApiConfig()
     const units = await unitFramework.generateFrameworkWithAI(sourceLang, targetLang, level, vocab, {
-      pairId: selectedPair.value.id,
-      signal: controller.signal
+      pairId,
+      signal: controller.signal,
+      generationConfig,
+      resume
     })
     console.log('generateAI: success, units:', units?.length)
+    await unitFramework.setFramework(pairId, level, units)
+    if (!resume) {
+      const allComplete = units.every(u => Array.isArray(u.sections) && u.sections.length > 0)
+      if (allComplete) {
+        await storage.clearQuestionLevel(pairId, level)
+      } else {
+        asyncOp.addLog('框架未完全生成，保留该级别现有题目（可继续生成补全）', 'warning')
+      }
+    }
     asyncOp.addLog(`单元框架已生成，共 ${units.length} 个关卡`, 'success')
     framework.value = units
     updateCoverage()
@@ -1180,6 +1323,27 @@ async function generateAI() {
       asyncOp.addLog(`AI 生成失败: ${e.message}`, 'error')
       alert('AI 生成失败: ' + e.message)
     }
+  } finally {
+    asyncOp.stop()
+  }
+}
+
+async function clearLevel() {
+  const pairId = selectedPair.value?.id
+  const level = selectedLevel.value
+  if (!pairId || !level) return
+  if (!confirm(`确认清除该级别（${selectedPair.value.from} → ${selectedPair.value.to} · ${level}）的全部框架与题目？此操作不可撤销。`)) return
+  const controller = asyncOp.start(`正在清除 ${level} 级别内容...`)
+  try {
+    await storage.clearQuestionLevel(pairId, level)
+    await unitFramework.clearFrameworkLevel(pairId, level)
+    framework.value = []
+    updateCoverage()
+    asyncOp.addLog(`已清除 ${level} 级别的框架与题目`, 'success')
+  } catch (e) {
+    console.error('clearLevel error:', e)
+    asyncOp.addLog(`清除失败: ${e.message}`, 'error')
+    alert('清除失败: ' + e.message)
   } finally {
     asyncOp.stop()
   }
@@ -1242,11 +1406,16 @@ function toggleSectionDetail(uIdx, sIdx) {
 function getExistingSectionQuestions(unit, sec) {
   const pairId = selectedPairId.value
   if (!pairId) return []
-  return storage.getQuestions().filter(q => questionMatchesSection(q, pairId, unit.id, sec.id))
+  return storage.getQuestions().filter(q => questionMatchesSelectedSection(q, pairId, unit.id, sec.id))
 }
 
 function hasSectionQuestions(unit, sec) {
   return getExistingSectionQuestions(unit, sec).length > 0
+}
+
+function questionMatchesSelectedSection(q, pairId, unitId, secId) {
+  if (!selectedLevel.value || q?.cefr !== selectedLevel.value) return false
+  return questionMatchesSection(q, pairId, unitId, secId)
 }
 
 function normalizeWords(sec) {
@@ -1265,39 +1434,50 @@ function calculateCoverage(pair, level) {
   return { vocab: vocabCoveragePercent(vocabList, coveredVocab) }
 }
 
-function prepareQuestionsForSave(questions, unit, sec, sourceLang, targetLang, level) {
+function normalizeAndValidateGeneratedQuestion(question, unit, sec, sourceLang, targetLang, level) {
   const pairId = selectedPairId.value
   const sectionId = buildSectionId(pairId, unit.id, sec.id)
+  const normalized = normalizeQuestion(question, {
+    pairId,
+    sectionId,
+    unit: unit.id,
+    level,
+    sourceLang,
+    targetLang,
+    pairFrom: sourceLang
+  })
+  const { errors, warnings } = validateQuestion(normalized)
+  const label = normalized.id || '生成题目'
+
+  for (const warning of warnings) asyncOp.addLog(`  ⚠ ${label}: ${warning}`, 'warning')
+  for (const error of errors) asyncOp.addLog(`  ✗ ${label}: ${error}`, 'error')
+  return { normalized, errors }
+}
+
+function prepareQuestionsForSave(questions, unit, sec, sourceLang, targetLang, level, existing = []) {
+  const pairId = selectedPairId.value
   const total = questions.length
   const valid = []
 
   for (let i = 0; i < questions.length; i++) {
-    const normalized = normalizeQuestion(questions[i], {
-      pairId,
-      sectionId,
-      unit: unit.id,
-      level,
-      sourceLang,
-      targetLang,
-      pairFrom: sourceLang
-    })
-    const { errors, warnings } = validateQuestion(normalized)
-    const label = normalized.id || `题目${i + 1}`
-
-    for (const w of warnings) {
-      asyncOp.addLog(`  ⚠ ${label}: ${w}`, 'warning')
-    }
+    const { normalized, errors } = normalizeAndValidateGeneratedQuestion(
+      questions[i], unit, sec, sourceLang, targetLang, level
+    )
     if (errors.length > 0) {
-      for (const e of errors) {
-        asyncOp.addLog(`  ✗ ${label}: ${e}`, 'error')
-      }
       continue
     }
 
     const shuffled = shuffleOptions(normalized)
+    let sequence = existing.length + valid.length + 1
+    let id = `${pairId}-${level}-${unit.id}-${sec.id}-${String(sequence).padStart(3, '0')}`
+    const existingIds = new Set(existing.map(q => q.id))
+    while (existingIds.has(id)) {
+      sequence++
+      id = `${pairId}-${level}-${unit.id}-${sec.id}-${String(sequence).padStart(3, '0')}`
+    }
     valid.push({
       ...shuffled,
-      id: shuffled.id || `${targetLang.toLowerCase()}-${level.toLowerCase()}-${unit.id.toLowerCase()}-${sec.id.toLowerCase()}-${String(valid.length + 1).padStart(3, '0')}`
+      id
     })
   }
 
@@ -1305,6 +1485,140 @@ function prepareQuestionsForSave(questions, unit, sec, sourceLang, targetLang, l
     asyncOp.addLog(`  校验通过 ${valid.length}/${total} 道`, valid.length === total ? 'success' : 'warning')
   }
   return valid
+}
+
+function questionsPerSectionTarget() {
+  const config = storage.getApiConfig()
+  return Math.max(1, Math.round(Number(config.questionsPerSection) || 5))
+}
+
+function buildQuestionGenerationPlan(units, onlySection = null) {
+  const sections = onlySection
+    ? [{ unit: units[0], sec: onlySection }]
+    : units.flatMap(unit => (unit.sections || []).map(sec => ({ unit, sec })))
+      .filter(({ sec }) => sec.titleTarget || sec.titleNative)
+  let total = 0
+  let existing = 0
+  for (const { unit, sec } of sections) {
+    const count = getExistingSectionQuestions(unit, sec).length
+    existing += count
+    total += missingQuestionCount(count, questionsPerSectionTarget())
+  }
+  return { total, existing, sections: sections.length }
+}
+
+async function generateMissingQuestions(sections, sourceLang, targetLang, level, signal) {
+  const sectionMetas = new Map()
+  const allTasks = []
+  const flushQueue = new Map()
+
+  // 某小节题目全部就绪后，或取消兜底时，把已生成的题目增量写入存储。
+  // 同一小节用 promise 链串行化，避免并发 replaceSectionQuestions 触发 revision 409。
+  const flushSection = (meta) => {
+    const run = async () => {
+      if (!meta.allGenerated.length) return
+      const generated = prepareQuestionsForSave(meta.allGenerated, meta.unit, meta.sec, sourceLang, targetLang, level, meta.existing).slice(0, meta.total)
+      if (!generated.length) return
+      await storage.replaceSectionQuestions(selectedPairId.value, level, meta.unit.id, meta.sec.id, [...meta.existing, ...generated])
+      asyncOp.addLog(`  ✓ [${meta.unit.id}-${meta.sec.id}] 已实时保存 ${generated.length} 道题目，现有 ${meta.existing.length + generated.length} 道`, 'success')
+    }
+    const prev = flushQueue.get(meta.key) || Promise.resolve()
+    const next = prev.then(run, run)
+    flushQueue.set(meta.key, next)
+    return next
+  }
+
+  for (const { unit, sec } of sections) {
+    const existing = getExistingSectionQuestions(unit, sec)
+    const missing = missingQuestionCount(existing.length, questionsPerSectionTarget())
+    if (missing === 0) {
+      asyncOp.addLog(`  ↷ [${unit.id}-${sec.id}] 已有 ${existing.length} 道题，跳过`, 'info')
+      continue
+    }
+    const typeIds = CEFR_TYPE_MAP[level] || CEFR_TYPE_MAP.A1
+    const availableTypes = typeStorage.types.value.filter(type => typeIds.includes(type.id))
+    if (!availableTypes.length) {
+      asyncOp.addLog(`  [${unit.id}-${sec.id}] 无可用题型，跳过 ${missing} 道`, 'warning')
+      asyncOp.advanceProgress(false, missing)
+      continue
+    }
+    const existingSummary = existing
+      .map(q => `${q.type}: ${q.question || q.sourceText || q.audioText || q.sentence || q.imageDesc || ''}`)
+      .filter(Boolean)
+    const key = `${unit.id}/${sec.id}`
+    sectionMetas.set(key, { key, unit, sec, existing, existingSummary, missing, total: missing, allGenerated: [], done: 0 })
+    for (let index = 0; index < missing; index++) {
+      allTasks.push({
+        key,
+        slot: existing.length + index + 1,
+        type: availableTypes[(existing.length + index) % availableTypes.length]
+      })
+    }
+    asyncOp.addLog(`  [${unit.id}-${sec.id}] 已有 ${existing.length} 道，补充 ${missing} 道`, 'info')
+  }
+
+  if (!allTasks.length) return 0
+
+  try {
+    await runAdaptivePool(allTasks, async (task, { workerId }) => {
+      const meta = sectionMetas.get(task.key)
+      const workerLabel = `[${meta.unit.id}-${meta.sec.id}] 槽位 ${task.slot} · ${task.type.id}`
+      const questions = await generateQuestionsForSection(meta.unit, meta.sec, sourceLang, targetLang, level, signal, {
+        questionCount: 1, forcedType: task.type, slot: task.slot, existingSummary: meta.existingSummary, workerId, workerLabel
+      })
+      if (!questions?.length) {
+        const error = new Error(`题目槽位 ${task.slot} · ${task.type.id} 未返回有效题目`)
+        error.retryable = true
+        throw error
+      }
+      const { normalized, errors } = normalizeAndValidateGeneratedQuestion(
+        questions[0], meta.unit, meta.sec, sourceLang, targetLang, level
+      )
+      if (normalized.type !== task.type.id) errors.push(`题型应为 ${task.type.id}，实际为 ${normalized.type || '空'}`)
+      if (errors.length) {
+        const error = new Error(`题目槽位 ${task.slot} · ${task.type.id} 校验失败：${errors.join('；')}`)
+        error.retryable = true
+        throw error
+      }
+      return normalized
+    }, {
+      maxConcurrency: 5, maxRetries: 2, recoverySuccesses: 5, signal,
+      describeTask: task => { const m = sectionMetas.get(task.key); return `[${m.unit.id}-${m.sec.id}] 槽位 ${task.slot} · ${task.type.id}` },
+      onPoolStart: count => asyncOp.configureWorkers(count),
+      onWorkerState: (id, state) => asyncOp.updateWorker(id, state),
+      onConcurrencyChange: value => { asyncOp.setActiveConcurrency(value); asyncOp.addLog(`  并发数调整为 ${value}`, 'warning') },
+      onRetry: (task, attempt, error) => asyncOp.addLog(`  ${task.key} 槽位 ${task.slot} 第 ${attempt} 次重试: ${error.message}`, 'warning'),
+      onTaskComplete: (task, result) => {
+        const meta = sectionMetas.get(task.key)
+        if (result) meta.allGenerated.push(result)
+        meta.done++
+        asyncOp.advanceProgress(true)
+        // 每道题成功后立即排入该小节的串行保存队列；取消不再依赖最后一次兜底保存。
+        void flushSection(meta).catch(error => {
+          asyncOp.addLog(`  ✗ [${meta.unit.id}-${meta.sec.id}] 实时保存失败: ${error.message}`, 'error')
+        })
+      },
+      onTaskError: (task, error) => { asyncOp.advanceProgress(false); asyncOp.addLog(`  ✗ ${task.key} 槽位 ${task.slot} 失败: ${error.message}`, 'error') }
+    })
+  } catch (e) {
+    if (e?.name === 'AbortError') {
+      asyncOp.addLog('题目生成已被取消，正在保存已生成的题目...', 'warning')
+    } else {
+      asyncOp.addLog(`生成失败: ${e?.message || e}`, 'error')
+      console.error(e)
+    }
+  }
+
+  // 兜底：把取消/出错前已生成但尚未落盘的题目全部写入（含未跑完的小节）
+  for (const meta of sectionMetas.values()) await flushSection(meta)
+  await Promise.all([...flushQueue.values()])
+
+  let totalGenerated = 0
+  for (const meta of sectionMetas.values()) {
+    const saved = prepareQuestionsForSave(meta.allGenerated, meta.unit, meta.sec, sourceLang, targetLang, level, meta.existing).slice(0, meta.total)
+    totalGenerated += saved.length
+  }
+  return totalGenerated
 }
 
 // ---- AI 生成题目 ----
@@ -1321,37 +1635,36 @@ async function generateQuestions() {
     return
   }
 
-  const controller = asyncOp.start(`正在生成题目...`)
+  const plan = buildQuestionGenerationPlan(framework.value)
+  if (plan.total === 0) {
+    alert('所有小节的题目数量均已满足配置，无需生成')
+    return
+  }
+  if (!await requestGenerationConfirmation({
+    title: 'AI 生成题目', description: `${sourceLang} → ${targetLang} · ${level}，共 ${plan.sections} 个小节`,
+    total: plan.existing + plan.total, completed: plan.existing, pending: plan.total
+  })) return
+  const controller = asyncOp.start(`正在生成题目...`, {
+    label: '题目生成总进度', unit: '道', total: plan.total, existing: plan.existing, questionTotal: plan.sections
+  })
   asyncOp.addLog(`开始为 ${sourceLang} → ${targetLang} · ${level} 生成题目`, 'info')
 
   let totalSections = 0
   let totalGenerated = 0
 
   try {
-    for (const unit of framework.value) {
-      for (const sec of (unit.sections || [])) {
-        if (!sec.titleTarget && !sec.titleNative) continue
-        totalSections++
-        asyncOp.addLog(`生成 [${unit.id}-${sec.id}] ${sec.titleTarget || sec.titleNative} 的题目...`, 'info')
+    const sections = framework.value
+      .flatMap(unit => (unit.sections || []).map(sec => ({ unit, sec })))
+      .filter(({ sec }) => sec.titleTarget || sec.titleNative)
+    totalSections = sections.length
+    asyncOp.addLog(`开始为 ${sections.length} 个小节生成题目（统一并发池）`, 'info')
 
-        const questions = await generateQuestionsForSection(unit, sec, sourceLang, targetLang, level, controller.signal)
-        if (questions && questions.length) {
-          const questionsWithSection = prepareQuestionsForSave(questions, unit, sec, sourceLang, targetLang, level)
-          if (questionsWithSection.length) {
-            const existing = getExistingSectionQuestions(unit, sec)
-            if (existing.length) storage.deleteQuestions(existing.map(q => q.id))
-            storage.saveQuestions(questionsWithSection)
-            totalGenerated += questionsWithSection.length
-            asyncOp.addLog(`  ✓ 已保存 ${questionsWithSection.length} 道题目`, 'success')
-          }
-        }
-      }
-    }
+    totalGenerated = await generateMissingQuestions(sections, sourceLang, targetLang, level, controller.signal)
     asyncOp.addLog(`完成！共为 ${totalSections} 个小节生成 ${totalGenerated} 道题目`, 'success')
     if (totalGenerated > 0) {
       alert(`AI 生成完成！共为 ${totalSections} 个小节生成 ${totalGenerated} 道题目`)
     } else {
-      alert('未生成任何题目，请检查 API 配置和日志详情')
+      alert('生成失败：AI 返回的题目未通过校验，请查看处理日志')
     }
   } catch (e) {
     if (e.name === 'AbortError') {
@@ -1380,30 +1693,31 @@ async function generateQuestionsForUnit(uIdx) {
     return
   }
 
-  const controller = asyncOp.start(`正在生成 [${unit.id}] 的题目...`)
+  const plan = buildQuestionGenerationPlan([unit])
+  if (plan.total === 0) {
+    alert('该单元所有小节的题目数量均已满足配置，无需生成')
+    return
+  }
+  if (!await requestGenerationConfirmation({
+    title: 'AI 生成题目', description: `${unit.titleTarget || unit.titleNative}，共 ${plan.sections} 个小节`,
+    total: plan.existing + plan.total, completed: plan.existing, pending: plan.total
+  })) return
+  const controller = asyncOp.start(`正在生成 [${unit.id}] 的题目...`, {
+    label: '题目生成总进度', unit: '道', total: plan.total, existing: plan.existing, questionTotal: plan.sections
+  })
   asyncOp.addLog(`开始为 ${unit.titleTarget || unit.titleNative} 生成题目`, 'info')
 
   let totalGenerated = 0
   try {
-    for (const sec of unit.sections) {
-      if (!sec.titleTarget && !sec.titleNative) continue
-      asyncOp.addLog(`生成 [${unit.id}-${sec.id}] ${sec.titleTarget || sec.titleNative} 的题目...`, 'info')
+    const sections = (unit.sections || [])
+      .filter(sec => sec.titleTarget || sec.titleNative)
+      .map(sec => ({ unit, sec }))
+    asyncOp.addLog(`开始为 ${unit.titleTarget || unit.titleNative} 的 ${sections.length} 个小节生成题目（统一并发池）`, 'info')
 
-      const questions = await generateQuestionsForSection(unit, sec, sourceLang, targetLang, level, controller.signal)
-      if (questions?.length) {
-        const questionsWithSection = prepareQuestionsForSave(questions, unit, sec, sourceLang, targetLang, level)
-        if (questionsWithSection.length) {
-          const existing = getExistingSectionQuestions(unit, sec)
-          if (existing.length) storage.deleteQuestions(existing.map(q => q.id))
-          storage.saveQuestions(questionsWithSection)
-          totalGenerated += questionsWithSection.length
-          asyncOp.addLog(`  ✓ 已保存 ${questionsWithSection.length} 道题目`, 'success')
-        }
-      }
-    }
+    totalGenerated = await generateMissingQuestions(sections, sourceLang, targetLang, level, controller.signal)
     asyncOp.addLog(`完成！共生成 ${totalGenerated} 道题目`, 'success')
     if (totalGenerated === 0) {
-      alert('未生成任何题目，请检查 API 配置和日志详情')
+      alert('生成失败：AI 返回的题目未通过校验，请查看处理日志')
     }
   } catch (e) {
     if (e.name === 'AbortError') {
@@ -1429,27 +1743,23 @@ async function generateQuestionsForSectionOnly(uIdx, sIdx) {
     return
   }
 
-  const controller = asyncOp.start(`正在生成 [${unit.id}-${sec.id}] 的题目...`)
+  const plan = buildQuestionGenerationPlan([unit], sec)
+  if (plan.total === 0) {
+    alert('该小节题目数量已满足配置，无需生成')
+    return
+  }
+  if (!await requestGenerationConfirmation({
+    title: 'AI 生成题目', description: `${unit.titleTarget || unit.titleNative} · ${sec.titleTarget || sec.titleNative}`,
+    total: plan.existing + plan.total, completed: plan.existing, pending: plan.total
+  })) return
+  const controller = asyncOp.start(`正在生成 [${unit.id}-${sec.id}] 的题目...`, {
+    label: '题目生成总进度', unit: '道', total: plan.total, existing: plan.existing, questionTotal: 1
+  })
   asyncOp.addLog(`开始为 ${sec.titleTarget || sec.titleNative} 生成题目`, 'info')
 
   try {
-    const questions = await generateQuestionsForSection(unit, sec, sourceLang, targetLang, level, controller.signal)
-    if (questions?.length) {
-      const questionsWithSection = prepareQuestionsForSave(questions, unit, sec, sourceLang, targetLang, level)
-      if (questionsWithSection.length) {
-        const existing = getExistingSectionQuestions(unit, sec)
-        if (existing.length) storage.deleteQuestions(existing.map(q => q.id))
-        storage.saveQuestions(questionsWithSection)
-        asyncOp.addLog(`完成！生成了 ${questionsWithSection.length} 道题目`, 'success')
-        alert(`已生成 ${questionsWithSection.length} 道题目`)
-      } else {
-        asyncOp.addLog('全部题目未通过校验，未保存', 'warning')
-        alert('生成的题目均未通过校验，请查看日志详情')
-      }
-    } else {
-      asyncOp.addLog('未生成任何题目', 'warning')
-      alert('未生成任何题目，请检查 API 配置和日志详情')
-    }
+    const generated = await generateMissingQuestions([{ unit, sec }], sourceLang, targetLang, level, controller.signal)
+    alert(generated > 0 ? `已补充 ${generated} 道题目` : '生成失败：AI 返回的题目未通过校验，请查看处理日志')
   } catch (e) {
     if (e.name === 'AbortError') {
       asyncOp.addLog('题目生成已被取消', 'warning')
@@ -1462,7 +1772,7 @@ async function generateQuestionsForSectionOnly(uIdx, sIdx) {
   }
 }
 
-async function generateQuestionsForSection(unit, sec, sourceLang, targetLang, level, signal) {
+async function generateQuestionsForSection(unit, sec, sourceLang, targetLang, level, signal, options = {}) {
   const typeIds = CEFR_TYPE_MAP[level] || CEFR_TYPE_MAP['A1']
   const suitableTypes = typeStorage.types.value.filter(t => typeIds.includes(t.id))
   if (!suitableTypes.length) {
@@ -1470,8 +1780,20 @@ async function generateQuestionsForSection(unit, sec, sourceLang, targetLang, le
     return []
   }
 
-  const selectedTypes = [...suitableTypes].sort(() => Math.random() - 0.5).slice(0, 3)
+  const generationConfig = storage.getApiConfig()
+  const questionCount = options.questionCount ?? Math.max(1, Math.round(Number(generationConfig.questionsPerSection) || 5))
+  const typeLimit = Math.max(1, Math.round(Number(generationConfig.maxQuestionTypesPerSection) || 3))
+  const selectedTypes = options.forcedType
+    ? suitableTypes.filter(type => type.id === options.forcedType.id)
+    : [...suitableTypes].sort(() => Math.random() - 0.5).slice(0, typeLimit)
   const vocabWords = Array.isArray(sec.coveredWords) ? sec.coveredWords.join(', ') : (sec.coveredWords || '')
+  const typeSchemas = selectedTypes.map(type => {
+    const schema = QUESTION_SCHEMAS[type.id] || { required: [], types: {} }
+    return `- ${type.id}: 必填字段 ${schema.required.join(', ') || '无'}；字段类型 ${JSON.stringify(schema.types)}`
+  }).join('\n')
+  const typeInstruction = options.forcedType
+    ? `【唯一题型】本任务只能生成 ${options.forcedType.id}，每道题的 type 必须严格等于 "${options.forcedType.id}"。禁止输出任何其他题型。`
+    : '请在以下可用题型中混合使用不同题型。'
 
   const prompt = `你是一位专业的语言教学专家。请为以下语言课程小节生成练习题。
 
@@ -1484,12 +1806,19 @@ async function generateQuestionsForSection(unit, sec, sourceLang, targetLang, le
 语法点: ${sec.grammarPoint || '通用'}
 场景: ${sec.scenario || '日常对话'}
 词汇范围: ${vocabWords || '基础词汇'}
+题目槽位: ${options.slot || '批量'}
+已有题目摘要（禁止生成语义重复题目）: ${(options.existingSummary || []).join('；') || '无'}
 
 【绝对语言约束 - 违反此约束的输出将被拒绝】
 目标语言是 ${targetLang}，所有要求用"${targetLang}"书写的字段，必须且只能使用 ${targetLang}，严禁混入任何其他语言（如西班牙语、法语、德语等）。如果你输出了非 ${targetLang} 的内容，该题目将被判定为错误。
 
-可用题型（请混合使用不同题型）：
+${typeInstruction}
+
+可用题型：
 ${selectedTypes.map(t => `- ${t.id} (${t.title}): ${t.description}`).join('\n')}
+
+【题型 JSON 字段约束 - 字段名和类型必须完全一致】
+${typeSchemas}
 
 【重要 - 双语要求】
 学习者是${sourceLang}母语者学习${targetLang}，因此题目必须包含双语内容：
@@ -1501,6 +1830,7 @@ ${selectedTypes.map(t => `- ${t.id} (${t.title}): ${t.description}`).join('\n')}
 - T08 听力选择: audioText 用${targetLang}，question 和 options 用${sourceLang}
 - T09 拼写输入: audioText/hint 用${sourceLang}说明，answer 为${targetLang}单词
 - T10 翻译输入: sourceText 用${sourceLang}，acceptedAnswers 为${targetLang}
+- T11 语音跟读: audioText 用${targetLang}，scoringDimensions 必须是字符串数组（如 ["发音", "流利度", "完整度"]），difficultyNotes 用${sourceLang}
 - T12 情景回应: scenario 用${sourceLang}描述情景，选项用${targetLang}
 
 要求：
@@ -1514,20 +1844,28 @@ ${selectedTypes.map(t => `- ${t.id} (${t.title}): ${t.description}`).join('\n')}
 4. tags 为字符串数组
 5. id 格式: "${targetLang.toLowerCase()}-${level.toLowerCase()}-${unit.id.toLowerCase()}-${sec.id.toLowerCase()}-{序号}"
 
-请生成 5 道练习题，混合使用不同题型，返回 JSON 数组。
+请生成 ${questionCount} 道练习题，${options.forcedType ? `全部使用 ${options.forcedType.id}` : '混合使用上述可用题型'}，返回 JSON 数组。
 只输出 JSON 数组，不包含任何其他文字。`
 
   try {
     let tokensReceived = 0
     const result = await llm.callLLMForJSON(prompt, { 
       signal, 
-      temperature: 0.3, 
       onStreamProgress: (content, reasoning) => {
         const currentLength = (content || '').length + (reasoning || '').length
         if (currentLength > tokensReceived) {
           tokensReceived = currentLength
           if (tokensReceived % 5 === 0 || tokensReceived <= 3) {
-            asyncOp.setMessage(`生成中... 已接收 ${tokensReceived} 个 token`)
+            if (options.workerId != null) {
+              const isReceiving = !!content
+              asyncOp.updateWorker(options.workerId, {
+                stage: isReceiving ? '接收题目 JSON' : '模型思考',
+                detail: `${tokensReceived} 字符`,
+                step: isReceiving ? 3 : 2,
+                steps: 4,
+                percent: isReceiving ? 75 : 50
+              })
+            }
           }
         }
       }
@@ -1537,6 +1875,7 @@ ${selectedTypes.map(t => `- ${t.id} (${t.title}): ${t.description}`).join('\n')}
     if (e.name !== 'AbortError') {
       asyncOp.addLog(`  生成 [${sec.id}] 失败: ${e.message}`, 'error')
     }
+    if (e.name === 'AbortError' || isTransientConcurrencyError(e)) throw e
     return []
   }
 }
@@ -1552,7 +1891,7 @@ function previewUnit(uIdx, sIdx = -1) {
   
   unit.sections.forEach((sec, idx) => {
     const sectionId = buildSectionId(pairId, unit.id, sec.id)
-    const secsQs = allQuestions.filter(q => questionMatchesSection(q, pairId, unit.id, sec.id))
+    const secsQs = allQuestions.filter(q => questionMatchesSelectedSection(q, pairId, unit.id, sec.id))
     if (secsQs.length) {
       grouped.push({
         id: sectionId,
@@ -1566,7 +1905,7 @@ function previewUnit(uIdx, sIdx = -1) {
   let startIdx = 0
   if (sIdx !== -1) {
     const targetSec = unit.sections[sIdx]
-    const firstIdx = flat.findIndex(q => questionMatchesSection(q, pairId, unit.id, targetSec.id))
+    const firstIdx = flat.findIndex(q => questionMatchesSelectedSection(q, pairId, unit.id, targetSec.id))
     if (firstIdx !== -1) startIdx = firstIdx
   }
 
@@ -1783,6 +2122,21 @@ onMounted(() => {
 }
 .stat-val { font-size: 18px; font-weight: 700; color: var(--green); }
 .stat-label { font-size: 11px; color: var(--text-light); }
+.generation-status {
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.generation-status-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-light);
+}
+.generation-status-row strong { color: var(--text); }
 
 /* 详情视图 */
 .detail-header {
@@ -1794,6 +2148,35 @@ onMounted(() => {
 .header-actions {
   display: flex;
   gap: 10px;
+}
+.level-generation-status {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.level-generation-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.level-generation-icon { font-size: 22px; }
+.level-generation-item div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  color: var(--text-light);
+  font-size: 13px;
+}
+.level-generation-item strong {
+  color: var(--green);
+  font-size: 18px;
 }
 .coverage-panel {
   display: grid;
@@ -1923,6 +2306,28 @@ onMounted(() => {
   border-radius: 12px;
   width: 400px;
 }
+.generation-confirm-modal { width: min(440px, calc(100vw - 32px)); }
+.generation-confirm-desc { margin: 8px 0 20px; color: var(--text-light); }
+.generation-confirm-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.generation-confirm-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 8px;
+  border-radius: 10px;
+  background: var(--bg);
+}
+.generation-confirm-stat strong { font-size: 24px; color: var(--text); }
+.generation-confirm-stat span { font-size: 12px; color: var(--text-light); }
+.generation-confirm-stat.completed strong { color: var(--green); }
+.generation-confirm-stat.pending strong { color: #d97706; }
+.generation-confirm-modal .modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
 .detail-list {
   display: flex;
   flex-direction: column;
@@ -2052,9 +2457,16 @@ onMounted(() => {
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.editor-header-top {
+  display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-shrink: 0;
+  gap: 12px;
 }
 .editor-title {
   display: flex;
@@ -2078,6 +2490,38 @@ onMounted(() => {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+}
+.preview-question-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.preview-nav-btn {
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--white);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+.preview-nav-btn:not(:disabled):hover {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-bg);
+}
+.preview-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.preview-nav-count {
+  min-width: 70px;
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
 }
 .btn-sm {
   padding: 5px 10px;
@@ -2561,31 +3005,6 @@ onMounted(() => {
   transition: all 0.2s;
 }
 .btn-answer:hover { filter: brightness(1.1); }
-.phone-footer {
-  padding: 20px;
-  background: var(--white);
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.phone-nav-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--white);
-  cursor: pointer;
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-.phone-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.phone-nav-btn:not(:disabled):hover { background: var(--bg); }
-
-
 /* 单元编辑器新样式 */
 .unit-title-group {
   display: flex;

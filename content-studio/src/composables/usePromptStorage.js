@@ -5,6 +5,7 @@
  */
 import { ref } from 'vue'
 import { IMAGE_PROMPTS_EXPORT } from '../prompts/image-prompts.js'
+import { enqueueJsonSave } from '../utils/dataPersistence.js'
 
 const DEFAULT_PROMPTS = {
   'unit-framework': {
@@ -63,11 +64,7 @@ const prompts = ref({ ...DEFAULT_PROMPTS })
 
 async function saveToServer() {
   try {
-    await fetch('/api/data/prompts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(prompts.value)
-    })
+    await enqueueJsonSave('prompts', prompts.value)
   } catch (e) {
     console.warn('[prompts] 保存到服务端失败:', e.message)
   }
@@ -113,7 +110,7 @@ export async function init() {
   // 图片类提示词始终升级到内置最新版（SVG 模板迭代频繁）
   let imageUpgraded = false
   for (const [id, val] of Object.entries(IMAGE_PROMPTS_EXPORT)) {
-    if (prompts.value[id]?.content !== val.content || prompts.value[id]?.title !== val.title) {
+    if (!prompts.value[id]) {
       prompts.value[id] = val
       imageUpgraded = true
     }

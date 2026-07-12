@@ -1,6 +1,6 @@
 <template>
   <div class="q-image-wrap" :class="size">
-    <img v-if="displayUrl" :key="displayUrl" :src="displayUrl" :alt="fallback" class="q-image-img" />
+    <img v-if="displayUrl" :key="displayUrl" :src="displayUrl" :alt="fallback" class="q-image-img" @error="onImageError" />
     <div v-else-if="imageSvg" :key="imageSvg.slice(0, 64)" class="q-image-svg" v-html="imageSvg" />
     <div v-else class="q-image-placeholder" :class="{ small: size === 'small' }">
       🖼️ {{ fallback || '暂无图片' }}
@@ -9,7 +9,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
   imageUrl: { type: String, default: '' },
@@ -18,7 +18,16 @@ const props = defineProps({
   size: { type: String, default: 'normal' }
 })
 
-const displayUrl = computed(() => props.imageUrl || '')
+const imageFailed = ref(false)
+const displayUrl = computed(() => props.imageUrl && !imageFailed.value ? props.imageUrl : '')
+
+function onImageError() {
+  imageFailed.value = true
+}
+
+watch(() => props.imageUrl, () => {
+  imageFailed.value = false
+})
 </script>
 
 <style scoped>

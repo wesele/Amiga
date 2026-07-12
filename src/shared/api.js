@@ -118,6 +118,8 @@ export function createApiClient(invoke) {
       call("get_bilingual_cmd", { articleId, sourceLang, nativeLang }),
     translateText: (text, sourceLang, nativeLang) =>
       call("translate_text_cmd", { text, sourceLang, nativeLang }),
+    gradeTranslation: (sourceText, acceptedAnswers, userAnswer, targetLang) =>
+      call("grade_translation_cmd", { sourceText, acceptedAnswers, userAnswer, targetLang }),
 
     // Settings
     saveSetting: (key, value) => call("save_setting_cmd", { key, value }),
@@ -302,6 +304,7 @@ export const saveLlmConfig = (...args) => defaultApiClient.saveLlmConfig(...args
 export const getLlmConfig = (...args) => defaultApiClient.getLlmConfig(...args);
 export const getBilingual = (...args) => defaultApiClient.getBilingual(...args);
 export const translateText = (...args) => defaultApiClient.translateText(...args);
+export const gradeTranslation = (...args) => defaultApiClient.gradeTranslation(...args);
 
 // --- Settings ---
 export const saveSetting = (...args) => defaultApiClient.saveSetting(...args);

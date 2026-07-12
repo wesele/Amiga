@@ -130,8 +130,18 @@ function addNewLevel(lang) {
   }
 }
 
-function removeLevel(lang, level) {
+async function removeLevel(lang, level) {
   if (confirm(`确认删除级别 ${level}？相关词库将被清除。`)) {
+    const res = await fetch('/api/data/system-config')
+    if (!res.ok) {
+      alert('无法读取语言组合，已取消删除')
+      return
+    }
+    const systemConfig = res.ok ? await res.json() : { languagePairs: [] }
+    if (systemConfig.languagePairs?.some(pair => pair.to === lang && pair.cefrLevels?.includes(level))) {
+      alert(`等级 ${level} 仍被语言组合使用，请先从语言组合中移除该等级`)
+      return
+    }
     storageRemoveLevel(lang, level)
     if (selectedLevel.value === level) {
       selectedLevel.value = ''
@@ -140,8 +150,18 @@ function removeLevel(lang, level) {
   }
 }
 
-function deleteLanguage(lang) {
+async function deleteLanguage(lang) {
   if (confirm(`确认删除语言 ${lang}？所有相关级别和词库将被清除。`)) {
+    const res = await fetch('/api/data/system-config')
+    if (!res.ok) {
+      alert('无法读取语言组合，已取消删除')
+      return
+    }
+    const systemConfig = res.ok ? await res.json() : { languagePairs: [] }
+    if (systemConfig.languagePairs?.some(pair => pair.to === lang)) {
+      alert(`语言 ${lang} 仍被语言组合使用，请先删除对应语言组合`)
+      return
+    }
     removeLanguage(lang)
     if (selectedLang.value === lang) {
       selectedLang.value = ''
@@ -386,4 +406,3 @@ function saveLanguage() {
   gap: 12px;
 }
 </style>
-

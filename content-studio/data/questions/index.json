@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "shards": [
+    {
+      "pairId": "pair_1781451962486",
+      "cefr": "A1",
+      "file": "pair_1781451962486/A1.json"
+    },
+    {
+      "pairId": "pair_1781451962486",
+      "cefr": "A2",
+      "file": "pair_1781451962486/A2.json"
+    },
+    {
+      "pairId": "pair_1782569237717",
+      "cefr": "A1",
+      "file": "pair_1782569237717/A1.json"
+    },
+    {
+      "pairId": "pair_1782569237717",
+      "cefr": "A2",
+      "file": "pair_1782569237717/A2.json"
+    },
+    {
+      "pairId": "pair_1782569237717",
+      "cefr": "B1",
+      "file": "pair_1782569237717/B1.json"
+    },
+    {
+      "pairId": "pair_1782569237717",
+      "cefr": "B2",
+      "file": "pair_1782569237717/B2.json"
+    },
+    {
+      "pairId": "zh-es",
+      "cefr": "A1",
+      "file": "zh-es/A1.json"
+    },
+    {
+      "pairId": "zh-es",
+      "cefr": "A2",
+      "file": "zh-es/A2.json"
+    },
+    {
+      "pairId": "zh-es",
+      "cefr": "B1",
+      "file": "zh-es/B1.json"
+    },
+    {
+      "pairId": "zh-es",
+      "cefr": "B2",
+      "file": "zh-es/B2.json"
+    }
+  ]
+}

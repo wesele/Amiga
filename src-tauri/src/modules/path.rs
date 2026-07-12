@@ -173,9 +173,16 @@ fn framework_units(pair_key: &str, cefr: &str) -> Result<Vec<FrameworkUnit>, Str
     serde_json::from_value(units.clone()).map_err(|e| format!("parse framework units: {e}"))
 }
 
-fn next_cefr_level(current: &str) -> Option<String> {
+fn next_cefr_level(native_lang: &str, target_lang: &str, current: &str) -> Option<String> {
+    let pair_key = resolve_pair_key(native_lang, target_lang)?;
+    let framework = load_framework().ok()?;
+    let levels = framework.get(pair_key)?.as_object()?;
     let idx = CEFR_LEVELS.iter().position(|l| *l == current)?;
-    CEFR_LEVELS.get(idx + 1).map(|l| l.to_string())
+    CEFR_LEVELS
+        .iter()
+        .skip(idx + 1)
+        .find(|level| levels.contains_key(**level))
+        .map(|level| (*level).to_string())
 }
 
 fn is_level_fully_completed(curriculum: &PathCurriculum) -> bool {
@@ -185,10 +192,11 @@ fn is_level_fully_completed(curriculum: &PathCurriculum) -> bool {
 fn try_upgrade_cefr_level(
     pool: &DatabasePool,
     user_id: &str,
+    native_lang: &str,
     target_lang: &str,
     current_cefr: &str,
 ) -> Result<Option<String>, String> {
-    let Some(next) = next_cefr_level(current_cefr) else {
+    let Some(next) = next_cefr_level(native_lang, target_lang, current_cefr) else {
         return Ok(None);
     };
     user::update_learning_goal_cefr(pool, user_id, target_lang, &next)?;
@@ -800,7 +808,9 @@ pub fn complete_teaching_node(
     let mut new_cefr_level = None;
     let refreshed = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
     if is_level_fully_completed(&refreshed) {
-        if let Some(upgraded) = try_upgrade_cefr_level(pool, user_id, target_lang, cefr)? {
+        if let Some(upgraded) =
+            try_upgrade_cefr_level(pool, user_id, native_lang, target_lang, cefr)?
+        {
             level_upgraded = true;
             new_cefr_level = Some(upgraded);
         }
@@ -909,7 +919,9 @@ pub fn complete_section(
     if passed {
         let refreshed = get_path_curriculum(pool, user_id, native_lang, target_lang, cefr)?;
         if is_level_fully_completed(&refreshed) {
-            if let Some(upgraded) = try_upgrade_cefr_level(pool, user_id, target_lang, cefr)? {
+            if let Some(upgraded) =
+                try_upgrade_cefr_level(pool, user_id, native_lang, target_lang, cefr)?
+            {
                 level_upgraded = true;
                 new_cefr_level = Some(upgraded);
             }
@@ -977,6 +989,14 @@ mod tests {
     }
 
     #[test]
+    fn next_cefr_level_only_uses_levels_with_course_content() {
+        assert_eq!(next_cefr_level("zh", "es", "A2").as_deref(), Some("B1"));
+        assert_eq!(next_cefr_level("zh", "es", "B1").as_deref(), Some("B2"));
+        assert_eq!(next_cefr_level("zh", "es", "B2"), None);
+        assert_eq!(next_cefr_level("zh", "zh", "A2"), None);
+    }
+
+    #[test]
     fn stars_from_score_thresholds() {
         assert_eq!(stars_from_score(100), 3);
         assert_eq!(stars_from_score(90), 2);
@@ -991,7 +1011,10 @@ mod tests {
         let curriculum = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
         assert_eq!(curriculum.pair_key, "zh-es");
         assert_eq!(curriculum.status, "active");
-        assert_eq!(curriculum.units.len(), 6);
+        assert_eq!(
+            curriculum.units.len(),
+            framework_units("zh-es", "A1").unwrap().len()
+        );
         let nodes = &curriculum.units[0].sections;
         assert_eq!(nodes[0].kind, "grammar");
         assert!(!nodes[0].locked);
@@ -1027,7 +1050,10 @@ mod tests {
         let user = test_user(&pool);
         let curriculum = get_path_curriculum(&pool, &user, "zh", "es", "A2").unwrap();
         assert_eq!(curriculum.status, "active");
-        assert_eq!(curriculum.units.len(), 6);
+        assert_eq!(
+            curriculum.units.len(),
+            framework_units("zh-es", "A2").unwrap().len()
+        );
         assert!(curriculum.total_sections >= 24);
     }
 

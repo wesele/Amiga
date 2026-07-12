@@ -50,7 +50,6 @@ pub async fn translate_word_cmd(
     )
     .await
 }
-
 #[tauri::command]
 pub async fn test_llm_connection_cmd(
     llm: State<'_, LlmState>,
@@ -137,4 +136,24 @@ pub async fn translate_text_cmd(
     use crate::modules::translation as translation_mod;
 
     translation_mod::translate_text(&llm.client, &db, &text, &source_lang, &native_lang).await
+}
+
+#[tauri::command]
+pub async fn grade_translation_cmd(
+    db: State<'_, DatabasePool>,
+    llm: State<'_, LlmState>,
+    source_text: String,
+    accepted_answers: Vec<String>,
+    user_answer: String,
+    target_lang: String,
+) -> Result<bool, String> {
+    llm_mod::grade_translation(
+        &llm.client,
+        &db,
+        &source_text,
+        &accepted_answers,
+        &user_answer,
+        &target_lang,
+    )
+    .await
 }

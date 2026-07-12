@@ -1,7 +1,6 @@
 # Amiga Windows dev launcher with fast-start when sources are unchanged.
 param(
     [switch]$ForceFull,
-    [switch]$Debug,
     [string]$WorkingDir = "",
     [int]$DevPort = 1420,
     [int]$HmrPort = 1421,
@@ -23,11 +22,7 @@ if ([string]::IsNullOrWhiteSpace($WorkingDir)) {
 Set-Location $WorkingDir
 
 if ([string]::IsNullOrWhiteSpace($ExePath)) {
-    if ($Debug) {
-        $ExePath = Join-Path $WorkingDir "src-tauri\target\debug\idioma.exe"
-    } else {
-        $ExePath = Join-Path $WorkingDir "src-tauri\target\release\idioma.exe"
-    }
+    $ExePath = Join-Path $WorkingDir "src-tauri\target\release\idioma.exe"
 } else {
     $requestedExe = $ExePath
     $resolvedExe = Resolve-Path $requestedExe -ErrorAction SilentlyContinue
@@ -40,7 +35,7 @@ if ([string]::IsNullOrWhiteSpace($ExePath)) {
     }
 }
 
-$DevUrl = "http://127.0.0.1:$DevPort"
+$DevUrl = "http://localhost:$DevPort"
 $ViteCacheDir = Join-Path $WorkingDir "node_modules\.vite-cache"
 
 $RustWatchRoots = @(
@@ -70,12 +65,20 @@ function Write-AmigaLine {
 
 function Test-PortListening {
     param([int]$Port)
-    try {
-        $conn = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
-        return [bool]$conn
-    } catch {
-        return $false
+    foreach ($address in [System.Net.Dns]::GetHostAddresses("localhost")) {
+        $client = [System.Net.Sockets.TcpClient]::new($address.AddressFamily)
+        try {
+            $connected = $client.ConnectAsync($address, $Port).Wait(250)
+            if ($connected -and $client.Connected) {
+                return $true
+            }
+        } catch {
+            continue
+        } finally {
+            $client.Dispose()
+        }
     }
+    return $false
 }
 
 function Clear-Port {
@@ -186,22 +189,55 @@ function Stop-AmigaProcess {
         }
 }
 
-function Invoke-TauriDev {
-    param(
-        [string[]]$ExtraArgs
-    )
-
-    $args = @("tauri", "dev")
-    if (-not $Debug) {
-        $args += "--release"
+function Start-ViteServer {
+    if (Test-ViteReady) {
+        Write-AmigaLine "Reusing Vite dev server on port $DevPort."
+        return
     }
+
+    $env:VITE_PORT = $DevPort
+    $env:VITE_HMR_PORT = $HmrPort
+    Write-AmigaLine "Starting Vite dev server on port $DevPort..."
+    $viteCli = Join-Path $WorkingDir "node_modules\vite\bin\vite.js"
+    if (-not (Test-Path $viteCli)) {
+        throw "Vite CLI not found at $viteCli. Run npm install first."
+    }
+    Start-Process -FilePath "node.exe" -ArgumentList @($viteCli) -WorkingDirectory $WorkingDir -WindowStyle Hidden
+
+    for ($i = 0; $i -lt 60; $i++) {
+        Start-Sleep -Milliseconds 250
+        if (Test-PortListening -Port $DevPort) {
+            if (-not (Test-ViteReady)) {
+                throw "Port $DevPort opened, but Vite did not respond successfully at $DevUrl."
+            }
+            Write-AmigaLine "Vite dev server is ready."
+            return
+        }
+    }
+
+    throw "Vite did not become ready at $DevUrl within 15 seconds."
+}
+
+function Build-ReleaseBinary {
+    Write-AmigaLine "Building changed Rust sources (release profile)..."
+    $args = @("build", "--release", "--no-default-features", "--bin", "idioma")
     if ($TauriConfig) {
-        $args += @("--config", $TauriConfig)
+        $configPath = $TauriConfig
+        if (-not [System.IO.Path]::IsPathRooted($configPath)) {
+            $configPath = Join-Path $WorkingDir $configPath
+        }
+        $env:TAURI_CONFIG = Get-Content -Raw (Resolve-Path $configPath)
     }
-    $args += $ExtraArgs
+    & cargo @args --manifest-path (Join-Path $WorkingDir "src-tauri\Cargo.toml")
+    if ($LASTEXITCODE -ne 0) {
+        throw "Cargo release build failed with exit code $LASTEXITCODE."
+    }
+}
 
-    Write-AmigaLine ("Running: npx " + ($args -join " "))
-    & npx @args
+function Start-ReleaseApp {
+    Stop-AmigaProcess
+    Write-AmigaLine "Launching cached release binary directly."
+    & $ExePath
     return $LASTEXITCODE
 }
 
@@ -218,32 +254,24 @@ if ($ForceFull -or $env:AMIGA_FULL_DEV -eq "1") {
     Write-AmigaLine "Full restart requested."
     Clear-Port -Port $DevPort
     Clear-Port -Port $HmrPort
-    $exitCode = Invoke-TauriDev
-    exit $exitCode
 }
 
 $rustFresh = Test-RustBinaryFresh
-$viteReady = Test-ViteReady
 $viteConfigFresh = Test-ViteConfigFresh
 
-if ($rustFresh -and $viteReady -and $viteConfigFresh) {
-    Write-AmigaLine "Fast start: reusing Vite dev server and cached Rust binary."
-    Stop-AmigaProcess
-    $env:TAURI_CLI_NO_DEV_SERVER_WAIT = "1"
-    $exitCode = Invoke-TauriDev -ExtraArgs @("--no-dev-server")
-    exit $exitCode
-}
-
-if ($rustFresh) {
-    Write-AmigaLine "Quick start: Rust binary is up to date; rebuilding only Vite if needed."
+if (-not $viteConfigFresh -and (Test-PortListening -Port $DevPort)) {
+    Write-AmigaLine "Frontend configuration changed; restarting Vite."
     Clear-Port -Port $DevPort
     Clear-Port -Port $HmrPort
-    $exitCode = Invoke-TauriDev
-    exit $exitCode
 }
 
-Write-AmigaLine "Full start: Rust sources changed or binary missing."
-Clear-Port -Port $DevPort
-Clear-Port -Port $HmrPort
-$exitCode = Invoke-TauriDev
+Start-ViteServer
+
+if (-not $rustFresh) {
+    Build-ReleaseBinary
+} else {
+    Write-AmigaLine "Rust release binary is up to date; skipping Cargo entirely."
+}
+
+$exitCode = Start-ReleaseApp
 exit $exitCode

@@ -310,12 +310,24 @@ describe("StepLearning", () => {
     setActivePinia(createPinia());
   });
 
-  it("only shows A1 and A2 levels", () => {
+  it("shows B1 and B2 for Spanish and English, but keeps Chinese at A1 and A2", async () => {
     const wrapper = mount(StepLearning);
-    const levelPills = wrapper.findAll(".form-group").at(1).findAll(".pill");
-    expect(levelPills).toHaveLength(2);
-    expect(levelPills[0].text()).toContain("A1");
-    expect(levelPills[1].text()).toContain("A2");
+    const groups = wrapper.findAll(".form-group");
+    expect(groups.at(1).findAll(".pill")).toHaveLength(4);
+    expect(groups.at(1).text()).toContain("B1");
+    expect(groups.at(1).text()).toContain("B2");
+
+    await groups.at(0).findAll(".pill")[1].trigger("click");
+    expect(groups.at(1).findAll(".pill")).toHaveLength(4);
+    await groups.at(1).findAll(".pill")[3].trigger("click");
+    expect(wrapper.vm.form.cefrLevel).toBe("B2");
+
+    await groups.at(0).findAll(".pill")[2].trigger("click");
+    const chineseLevels = groups.at(1).findAll(".pill");
+    expect(chineseLevels).toHaveLength(2);
+    expect(chineseLevels[0].text()).toContain("A1");
+    expect(chineseLevels[1].text()).toContain("A2");
+    expect(wrapper.vm.form.cefrLevel).toBe("A1");
   });
 
   it("shows all available target languages", () => {

@@ -11,6 +11,39 @@ content 中只允许输出 JSON 数组，不允许包含任何解释、分析、
 每个题目对象都要符合给定的字段格式要求。
 JSON 必须完整、合法，可被 JSON.parse() 正确解析。`
 
+const REQUEST_PARAMETERS = [
+  ['temperature', 'temperature'],
+  ['topP', 'top_p'],
+  ['maxTokens', 'max_tokens'],
+  ['frequencyPenalty', 'frequency_penalty'],
+  ['presencePenalty', 'presence_penalty']
+]
+
+function configuredNumber(options, config, key) {
+  const value = options[key] ?? config[key]
+  if (value === '' || value === null || value === undefined) return null
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+export function buildLLMRequestBody(config, prompt, options = {}) {
+  const body = {
+    model: options.model || config.model || 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: options.systemPrompt ?? SYSTEM_PROMPT_JSON },
+      { role: 'user', content: prompt }
+    ]
+  }
+
+  for (const [configKey, apiKey] of REQUEST_PARAMETERS) {
+    const value = configuredNumber(options, config, configKey)
+    if (value !== null) body[apiKey] = value
+  }
+  if (options.jsonMode) body.response_format = { type: 'json_object' }
+  if (options.stream) body.stream = true
+  return body
+}
+
 export function useLLM() {
   const storage = useStorage()
 
@@ -25,21 +58,7 @@ export function useLLM() {
   }
 
   function buildRequestBody(config, prompt, options = {}) {
-    const body = {
-      model: options.model || config.model || 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: options.systemPrompt || SYSTEM_PROMPT_JSON },
-        { role: 'user', content: prompt }
-      ],
-      temperature: options.temperature ?? 0.7
-    }
-    if (options.jsonMode) {
-      body.response_format = { type: 'json_object' }
-    }
-    if (options.stream) {
-      body.stream = true
-    }
-    return body
+    return buildLLMRequestBody(config, prompt, options)
   }
 
   // ==================== SSE 流式解析 ====================
@@ -255,8 +274,7 @@ export function useLLM() {
 
     const jsonOptions = {
       ...llmOptions,
-      systemPrompt: SYSTEM_PROMPT_JSON,
-      temperature: 0.1
+      systemPrompt: SYSTEM_PROMPT_JSON
     }
 
     let result

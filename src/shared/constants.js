@@ -19,8 +19,15 @@ export function isAvailableLanguage(code) {
 // CEFR levels in display order. Used by the wizard and vocab stats.
 export const CEFR_LEVELS = ["A0", "A1", "A2", "B1", "B2", "C1"];
 
-// Levels with path curriculum content for zh-es (wizard + profile picker).
-export const LEARNING_CEFR_LEVELS = ["A1", "A2"];
+// Levels with bundled vocabulary and path curriculum content, by target language.
+const BASE_LEARNING_CEFR_LEVELS = ["A1", "A2"];
+const EXTENDED_LEARNING_CEFR_LEVELS = ["A1", "A2", "B1", "B2"];
+
+export function learningCefrLevels(targetLanguage) {
+  return targetLanguage === "es" || targetLanguage === "en"
+    ? EXTENDED_LEARNING_CEFR_LEVELS
+    : BASE_LEARNING_CEFR_LEVELS;
+}
 
 // Map a language code to a display name in the given UI locale.
 // This is a non-i18n escape hatch used by the Rust system prompts (which

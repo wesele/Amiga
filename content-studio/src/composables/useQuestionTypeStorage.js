@@ -5,6 +5,7 @@
  */
 import { ref } from 'vue'
 import { QUESTION_TYPES, CEFR_TYPE_MAP } from '../data/question-types.js'
+import { enqueueJsonSave } from '../utils/dataPersistence.js'
 
 function buildDefaultTypes() {
   return Object.entries(QUESTION_TYPES).map(([id, info]) => {
@@ -27,11 +28,7 @@ const types = ref([])
 
 async function saveToServer() {
   try {
-    await fetch('/api/data/question-types', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(types.value)
-    })
+    await enqueueJsonSave('question-types', types.value)
   } catch (e) {
     console.warn('[question-types] 保存到服务端失败:', e.message)
   }
@@ -52,8 +49,10 @@ export function useQuestionTypeStorage() {
   }
 
   function addType(type) {
+    if (!type?.id || types.value.some(item => item.id === type.id)) return false
     types.value.push(type)
     saveToServer()
+    return true
   }
 
   return {
@@ -72,7 +71,20 @@ export async function init() {
     if (res.ok) {
       const data = await res.json()
       if (Array.isArray(data) && data.length > 0) {
-        types.value = data
+        const defaults = buildDefaultTypes()
+        const stored = new Map(data.filter(item => item?.id).map(item => [item.id, item]))
+        const builtins = defaults.map(def => {
+          const saved = stored.get(def.id)
+          if (!saved) return def
+          return {
+            ...def,
+            ...saved,
+            levels: def.levels
+          }
+        })
+        const custom = data.filter(item => item?.id && !QUESTION_TYPES[item.id])
+        types.value = [...builtins, ...custom]
+        if (JSON.stringify(types.value) !== JSON.stringify(data)) await saveToServer()
         return
       }
     }
