@@ -5,7 +5,6 @@ import android.os.Looper
 import android.util.Log
 import android.view.ActionMode
 import android.view.Menu
-import android.view.MenuItem
 import android.webkit.WebView
 import androidx.core.view.MenuItemCompat
 
@@ -14,35 +13,18 @@ import androidx.core.view.MenuItemCompat
  * floating toolbar.
  *
  * The official Android extension point for customising the WebView's text
- * selection menu is [WebView.setCustomSelectionActionModeCallback]. We
- * implement [ActionMode.Callback] and forward the lifecycle so the system
- * items (Copy / Share / Select all / system Translate) are preserved; our
- * "翻译" item is added in [onCreateActionMode] AFTER the system has
- * populated its own items.
+ * selection menu is the [ActionMode] that WebView creates. We leave that
+ * native ActionMode in place and add our item to its existing menu, so OEM
+ * actions (Copy / Share / Select all / system Translate) keep their original
+ * callbacks and the toolbar keeps the OEM's positioning behavior.
  *
  * The injected item needs [MenuItemCompat.SHOW_AS_ACTION_ALWAYS] so it is
  * laid out as a button on the floating toolbar (TYPE_FLOATING). Without
  * this the item is treated as overflow and silently dropped because the
  * floating toolbar has no overflow chevron on most Android 12+ devices.
  *
- * Why this is the only reliable hook (vs. wrapping Window.Callback):
- * modern WebView (API 23+) creates the selection ActionMode as
- * TYPE_FLOATING via WebView.startActionMode(...) and may bypass
- * Window.Callback.onActionModeStarted entirely on some OEMs. Using
- * setCustomSelectionActionModeCallback is the path the platform supports.
  */
-class TranslateWindowCallback(
-    private val webView: WebView,
-    /**
-     * Menu items that the system callback added before we took over
-     * the ActionMode (Copy, Share, Select all, etc.). We re-add them
-     * to our replacement mode so the user still sees the system
-     * items alongside our "翻译" item. Empty when this callback is
-     * installed via the legacy `setCustomSelectionActionModeCallback`
-     * path (which doesn't take pre-existing items).
-     */
-    private val originalItems: List<MenuItem> = emptyList(),
-) : ActionMode.Callback {
+class TranslateWindowCallback(private val webView: WebView) {
 
     /**
      * Snapshot of the page selection text, taken at the moment
@@ -53,57 +35,15 @@ class TranslateWindowCallback(
     @Volatile
     private var lastSelectionText: String = ""
 
-    override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
-        Log.d(TAG, "onCreateActionMode: type=${mode.type}, menuNull=${menu == null}")
-        // Take a snapshot of the selection BEFORE we touch the menu.
+    /** Add Amiga to the existing WebView selection menu without replacing it. */
+    fun injectInto(mode: ActionMode) {
+        // Take a snapshot before the user can dismiss the native toolbar.
         captureSelectionNow()
-        // The system populates its own items asynchronously. Post our
-        // injection so it lands after the system has finished.
-        Handler(Looper.getMainLooper()).post {
-            try {
-                injectTranslateItem(mode)
-            } catch (t: Throwable) {
-                Log.e(TAG, "Failed to inject 翻译 menu item", t)
-            }
+        try {
+            injectTranslateItem(mode)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to inject Amiga menu item", t)
         }
-        return true
-    }
-
-    override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
-        Log.d(TAG, "onPrepareActionMode: type=${mode.type}, menuSize=${menu.size()}")
-        // onPrepareActionMode is called after menu invalidation. Use it
-        // as a defensive re-injection point in case our item was dropped
-        // (e.g. on rotation, text change, or other menu rebuilds).
-        if (menu.findItem(MENU_TRANSLATE_ID) == null) {
-            Handler(Looper.getMainLooper()).post {
-                try {
-                    injectTranslateItem(mode)
-                } catch (t: Throwable) {
-                    Log.e(TAG, "Failed to re-inject 翻译 menu item", t)
-                }
-            }
-        }
-        return false
-    }
-
-    override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
-        if (item.itemId == MENU_TRANSLATE_ID) {
-            onTranslateClicked()
-            // Defer mode.finish() so the JS dispatch lands first; the Vue
-            // handler clears the page selection on its end (see
-            // NewsReader.vue handleNativeTranslate), so the WebView's
-            // onDestroyActionMode sees an empty selection and exits cleanly.
-            webView.post { mode.finish() }
-            return true
-        }
-        // For other menu items (Copy, Share, etc.), let the system handle them
-        // and finish the mode immediately
-        mode.finish()
-        return false
-    }
-
-    override fun onDestroyActionMode(mode: ActionMode) {
-        Log.d(TAG, "onDestroyActionMode: type=${mode.type}")
     }
 
     private fun injectTranslateItem(mode: ActionMode) {
@@ -122,11 +62,12 @@ class TranslateWindowCallback(
         // SHOW_AS_ACTION_ALWAYS is required for TYPE_FLOATING: without it
         // the item is treated as overflow and is never rendered.
         MenuItemCompat.setShowAsAction(item, MenuItemCompat.SHOW_AS_ACTION_ALWAYS)
-        // Re-add the items the system callback had already populated
-        // (Copy, Share, etc.). They keep their original IDs so any
-        // framework or OEM handling still matches.
-        for (orig in originalItems) {
-            menu.add(orig.groupId, orig.itemId, orig.order + 1, orig.title)
+        item.setOnMenuItemClickListener {
+            onTranslateClicked()
+            // Let JavaScript dispatch to Vue before the system clears the
+            // selection. Other items keep their native callbacks unchanged.
+            webView.post { mode.finish() }
+            true
         }
         Log.d(TAG, "Injected Amiga item; menu size $sizeBefore -> ${menu.size()}")
         // Force the floating toolbar to re-measure and pick up the new
