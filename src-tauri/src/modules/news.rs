@@ -260,6 +260,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(get_read_article_count(&pool, "user-r").unwrap(), 1);
+        let reread_log_count: i64 = pool
+            .conn()
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM news_reading_log WHERE user_id = ?1 AND article_id = ?2",
+                params!["user-r", a1],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(reread_log_count, 2);
 
         // completed a2
         save_reading_log(
@@ -976,7 +986,7 @@ pub fn save_rewritten_article(
 pub fn save_reading_log(db: &DatabasePool, log_entry: &ReadingLog) -> Result<(), String> {
     let conn = db.conn()?;
     let read_at = chrono::Local::now()
-        .format("%Y-%m-%d %H:%M:%S%.3f")
+        .format("%Y-%m-%d %H:%M:%S%.9f")
         .to_string();
     conn.execute(
         "INSERT INTO news_reading_log (user_id, article_id, words_looked_up, words_known, words_unknown, reading_time_sec, completed, read_at)

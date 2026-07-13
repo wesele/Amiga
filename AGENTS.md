@@ -18,6 +18,7 @@
 
 - **仅用户明确要求时**才本地 commit；格式见 [docs/conventions.md](./docs/conventions.md)。
 - 不要 push，除非用户明确要求。
+- 本地 `gh` 认证失效时，**不要要求用户重复登录**；优先使用 Codex 系统 GitHub 连接器读取仓库、Actions job/step/log，并使用现有 Git remote 凭据完成已授权的 push。仅在系统连接器、公开 API 与现有 Git 凭据都无法完成任务时再报告认证阻塞。
 
 ## 非快捷模式检查清单
 
