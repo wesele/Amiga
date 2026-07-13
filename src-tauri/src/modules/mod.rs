@@ -1,4 +1,6 @@
 pub mod achievements;
+#[cfg(any(test, target_os = "android"))]
+mod android_paths;
 pub mod chat;
 pub mod database;
 pub mod greeting;

@@ -461,6 +461,7 @@ mod tests {
         assert!(!is_syncable_setting("primary_api_key"));
         assert!(!is_syncable_setting("cloud_sync_enabled"));
         assert!(!is_syncable_setting("cloud_sync_restore_mode"));
+        assert!(!is_syncable_setting("vocab_bank_content_fingerprint"));
     }
 
     #[test]

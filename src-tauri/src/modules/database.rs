@@ -6,15 +6,14 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
+#[cfg(target_os = "android")]
+use super::android_paths;
 use super::migrations;
 
 /// Android external path (now used only for legacy migration / MediaStore backup
 /// copy in Kotlin; live DB is always the private internal path).
 #[cfg(target_os = "android")]
 const ANDROID_EXTERNAL_DB: &str = "/storage/emulated/0/Documents/Amiga/idioma.db";
-
-#[cfg(target_os = "android")]
-const ANDROID_INTERNAL_DB: &str = "/data/data/com.idioma.app/files/idioma/idioma.db";
 
 /// Copy a SQLite database and its WAL sidecar files (-wal, -shm).
 #[cfg(any(test, target_os = "android"))]
@@ -48,7 +47,7 @@ fn copy_sqlite_bundle(src: &Path, dst: &Path) -> Result<(), String> {
 /// scoped storage can still block direct file writes from native code even
 /// when the folder is present — probe with a real write instead of only
 /// checking `create_dir_all`.
-#[cfg(any(test, target_os = "android"))]
+#[cfg(target_os = "android")]
 fn is_directory_writable(dir: &Path) -> bool {
     if std::fs::create_dir_all(dir).is_err() {
         return false;
@@ -339,8 +338,8 @@ impl Clone for DatabasePool {
 impl DatabasePool {
     /// Open (or create) the real persistent database.
     ///
-    /// On Android prefers external Documents/Amiga (survives uninstall).
-    /// Falls back to internal path when external is not writable.
+    /// On Android the live database is always private. MainActivity handles
+    /// legacy/MediaStore restoration before Rust starts.
     ///
     /// IMPORTANT: this NEVER panics and always returns a usable pool.
     /// If the real file cannot be opened (corrupt retained data after reinstall,
@@ -349,24 +348,12 @@ impl DatabasePool {
     pub fn new() -> Self {
         let db_path = Self::db_path();
         match Self::open_at(&db_path) {
-            Ok(db) => {
-                // On Android, if we ended up with internal but retained external parent writable,
-                // publish a copy for uninstall survival.
-                #[cfg(target_os = "android")]
-                {
-                    let ext = PathBuf::from(ANDROID_EXTERNAL_DB);
-                    let int = PathBuf::from(ANDROID_INTERNAL_DB);
-                    if db.file_path == int {
-                        let _ = Self::publish_to_external_if_possible(&int, &ext);
-                    }
-                }
-                db
-            }
+            Ok(db) => db,
             Err(e) => {
                 #[cfg(target_os = "android")]
                 {
                     let external = PathBuf::from(ANDROID_EXTERNAL_DB);
-                    let internal = PathBuf::from(ANDROID_INTERNAL_DB);
+                    let internal = android_internal_db_path();
                     if db_path != internal {
                         log::warn!(
                             "Failed to open database at {:?} ({}), will try to recover from retained external if possible",
@@ -528,7 +515,7 @@ impl DatabasePool {
     /// If we are using internal but external parent is writable, publish a
     /// copy of current DB to the public location so it survives future
     /// uninstall + reinstall.
-    #[cfg(any(test, target_os = "android"))]
+    #[cfg(target_os = "android")]
     fn publish_to_external_if_possible(internal: &Path, external: &Path) -> Result<(), String> {
         if !internal.exists() {
             return Ok(());
@@ -645,10 +632,8 @@ impl DatabasePool {
     fn db_path() -> PathBuf {
         #[cfg(target_os = "android")]
         {
-            return resolve_android_db_path(
-                Path::new(ANDROID_EXTERNAL_DB),
-                Path::new(ANDROID_INTERNAL_DB),
-            );
+            let internal = android_internal_db_path();
+            return resolve_android_db_path(Path::new(ANDROID_EXTERNAL_DB), &internal);
         }
 
         #[cfg(not(target_os = "android"))]
@@ -737,4 +722,11 @@ impl DatabasePool {
 
         Ok(())
     }
+}
+
+#[cfg(target_os = "android")]
+fn android_internal_db_path() -> PathBuf {
+    android_paths::app_files_dir()
+        .join("idioma")
+        .join("idioma.db")
 }

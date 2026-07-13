@@ -102,22 +102,40 @@ class MainActivity : TauriActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
-        // Try to restore from MediaStore backup (survives uninstall) before
-        // Rust starts. This is the new retention mechanism that does not
-        // require MANAGE_EXTERNAL_STORAGE.
-        tryRestoreFromMediaStoreBackup()
-        // Prepare (legacy) dir; public path is now only for optional backup.
-        ensurePersistentDataDir()
-        // Publish a fresh backup copy via MediaStore (no broad storage perm needed).
-        exportBackupToMediaStore()
+        // Public-storage backup is optional. OEM MediaStore implementations
+        // can throw while resolving duplicate names or stale URIs, and no
+        // backup failure may prevent the Activity from reaching onCreate.
+        runOptionalStartupTask("restore MediaStore backup") {
+            tryRestoreFromMediaStoreBackup()
+        }
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.navigationBarColor = Color.TRANSPARENT
     }
 
+    private fun runOptionalStartupTask(name: String, task: () -> Unit) {
+        try {
+            task()
+        } catch (t: Throwable) {
+            Log.w(TAG, "Optional startup task failed: $name", t)
+        }
+    }
+
     @SuppressLint("NewApi")
     override fun onWebViewCreate(webView: WebView) {
         mainWebView = webView
+
+        // Neither legacy-directory preparation nor backup export is required
+        // to render the Activity. Keep OEM storage providers off the launch
+        // thread; by this point Rust has opened/created the private database.
+        Thread({
+            runOptionalStartupTask("prepare legacy backup directory") {
+                ensurePersistentDataDir()
+            }
+            runOptionalStartupTask("export MediaStore backup") {
+                exportBackupToMediaStore()
+            }
+        }, "amiga-backup").start()
 
         // 1) Safe-area bridge: pass the real systemBars + IME inset
         //    values to the frontend via __amigaSetInsets, so CSS
@@ -907,31 +925,56 @@ class MainActivity : TauriActivity() {
         if (privateDb.exists()) return
 
         val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME)
-        val selection = "${MediaStore.Downloads.DISPLAY_NAME} = ?"
-        val selectionArgs = arrayOf("amiga_backup.db")
+        val selection =
+            "${MediaStore.Downloads.DISPLAY_NAME} = ? OR ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?"
+        val selectionArgs = arrayOf(BACKUP_DISPLAY_NAME, "$BACKUP_DISPLAY_NAME (%)")
+        val sortOrder = "${MediaStore.Downloads.DATE_MODIFIED} DESC, ${MediaStore.Downloads._ID} DESC"
         contentResolver.query(
             MediaStore.Downloads.EXTERNAL_CONTENT_URI,
             projection,
             selection,
             selectionArgs,
-            null
+            sortOrder,
         )?.use { cursor ->
-            if (cursor.moveToFirst()) {
+            while (cursor.moveToNext()) {
                 val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
                 val uri = ContentUris.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id)
+                val restoreFile = File(privateDbDir, "idioma.db.restore")
                 try {
                     contentResolver.openInputStream(uri)?.use { input ->
                         privateDbDir.mkdirs()
-                        FileOutputStream(privateDb).use { output ->
+                        FileOutputStream(restoreFile).use { output ->
                             input.copyTo(output)
                         }
-                        Log.i(TAG, "Restored DB from MediaStore backup to private storage")
                     }
-                } catch (e: IOException) {
-                    Log.w(TAG, "Failed to restore from MediaStore backup: ${e.message}")
-                    // leave corrupt backup for user to handle via dialog if needed
+                    if (!isSqliteDatabase(restoreFile)) {
+                        Log.w(TAG, "Skipping invalid MediaStore backup: $uri")
+                        continue
+                    }
+                    if (!restoreFile.renameTo(privateDb)) {
+                        restoreFile.copyTo(privateDb, overwrite = true)
+                        restoreFile.delete()
+                    }
+                    Log.i(TAG, "Restored latest DB from MediaStore backup: $uri")
+                    return
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Failed to restore MediaStore backup: $uri", t)
+                } finally {
+                    restoreFile.delete()
                 }
             }
+        }
+    }
+
+    private fun isSqliteDatabase(file: File): Boolean {
+        if (!file.isFile || file.length() < SQLITE_HEADER.size) return false
+        val header = ByteArray(SQLITE_HEADER.size)
+        return try {
+            FileInputStream(file).use { input ->
+                input.read(header) == header.size && header.contentEquals(SQLITE_HEADER)
+            }
+        } catch (_: IOException) {
+            false
         }
     }
 
@@ -944,29 +987,63 @@ class MainActivity : TauriActivity() {
         val privateDb = File(filesDir, "idioma/idioma.db")
         if (!privateDb.exists()) return
 
+        val preferences = getSharedPreferences(BACKUP_PREFERENCES, MODE_PRIVATE)
+        val storedUri = preferences.getString(BACKUP_URI_KEY, null)?.let { value ->
+            try {
+                Uri.parse(value)
+            } catch (_: Throwable) {
+                null
+            }
+        }
+        if (storedUri != null && writeBackupToUri(privateDb, storedUri)) {
+            Log.i(TAG, "Updated DB backup in MediaStore: $storedUri")
+            return
+        }
+        preferences.edit().remove(BACKUP_URI_KEY).commit()
+
         val values = ContentValues().apply {
-            put(MediaStore.Downloads.DISPLAY_NAME, "amiga_backup.db")
+            put(MediaStore.Downloads.DISPLAY_NAME, BACKUP_DISPLAY_NAME)
             put(MediaStore.Downloads.MIME_TYPE, "application/x-sqlite3")
             put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/Amiga")
         }
 
         val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-        uri?.let {
+        if (uri == null) {
+            Log.w(TAG, "MediaStore did not create a backup URI")
+            return
+        }
+        if (writeBackupToUri(privateDb, uri)) {
+            preferences.edit().putString(BACKUP_URI_KEY, uri.toString()).commit()
+            Log.i(TAG, "Created DB backup in MediaStore: $uri")
+        } else {
             try {
-                contentResolver.openOutputStream(it)?.use { output ->
-                    FileInputStream(privateDb).use { input ->
-                        input.copyTo(output)
-                    }
-                }
-                Log.i(TAG, "Exported DB backup to MediaStore Downloads/Amiga")
-            } catch (e: IOException) {
-                Log.w(TAG, "Failed to export backup to MediaStore: ${e.message}")
+                contentResolver.delete(uri, null, null)
+            } catch (_: Throwable) {
             }
+        }
+    }
+
+    private fun writeBackupToUri(privateDb: File, uri: Uri): Boolean {
+        return try {
+            val output = contentResolver.openOutputStream(uri, "wt") ?: return false
+            output.use {
+                FileInputStream(privateDb).use { input ->
+                    input.copyTo(it)
+                }
+            }
+            true
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to write MediaStore backup: $uri", t)
+            false
         }
     }
 
     companion object {
         private const val TAG = "Amiga/Main"
         private const val REQUEST_STORAGE = 1001
+        private const val BACKUP_DISPLAY_NAME = "amiga_backup.db"
+        private const val BACKUP_PREFERENCES = "amiga_media_store_backup"
+        private const val BACKUP_URI_KEY = "media_store_uri"
+        private val SQLITE_HEADER = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
     }
 }

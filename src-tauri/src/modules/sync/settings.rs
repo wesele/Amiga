@@ -31,6 +31,9 @@ const LOCAL_ONLY_SETTING_KEYS: &[&str] = &[
     SETTING_LAST_PUSHED,
     SETTING_LAST_ERROR,
     SETTING_RESTORE_MODE,
+    // Derived from the embedded app asset. Syncing it could make another
+    // installation skip its own required vocabulary import.
+    "vocab_bank_content_fingerprint",
 ];
 
 pub(crate) fn is_sensitive_setting(key: &str) -> bool {

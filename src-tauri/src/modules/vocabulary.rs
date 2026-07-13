@@ -1,7 +1,21 @@
 use crate::modules::database::DatabasePool;
 use log;
-use rusqlite::{params, types::ToSql};
+use rusqlite::{params, types::ToSql, OptionalExtension};
 use serde::{Deserialize, Serialize};
+
+const VOCAB_IMPORT_FINGERPRINT_KEY: &str = "vocab_bank_content_fingerprint";
+const VOCAB_JSON: &str = include_str!("../../../content-studio/data/vocabulary.json");
+
+fn vocabulary_fingerprint(content: &str) -> String {
+    // Stable FNV-1a: cheap enough to calculate on every launch and independent
+    // of Rust/compiler versions, unlike DefaultHasher.
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in content.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
 
 #[cfg(test)]
 mod tests {
@@ -46,10 +60,20 @@ mod tests {
         let pool = test_pool();
         let first = import_vocab_bank(&pool).unwrap();
         let second = import_vocab_bank(&pool).unwrap();
-        // First call inserts new rows; second call inserts nothing because
-        // the unique index turns INSERT OR IGNORE into a no-op.
+        // First call inserts new rows and records the source fingerprint;
+        // second call skips parsing and walking the full word list.
         assert!(first > 0, "First import should insert rows");
         assert_eq!(second, 0, "Second import should insert 0 new rows");
+
+        let conn = pool.conn().unwrap();
+        let stored: String = conn
+            .query_row(
+                "SELECT value FROM app_settings WHERE key = ?1",
+                params![VOCAB_IMPORT_FINGERPRINT_KEY],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stored, vocabulary_fingerprint(VOCAB_JSON));
     }
 
     #[test]
@@ -680,21 +704,41 @@ pub struct VocabStats {
     pub total: i32,
 }
 
-/// Import vocabulary bank from embedded JSON. Idempotent: uses
-/// `INSERT OR IGNORE` against the `idx_vocab_bank_unique` index, so calling
-/// this repeatedly only inserts words that aren't already present.
+/// Import vocabulary bank from embedded JSON. Idempotent: a content
+/// fingerprint avoids walking the full word list again until the embedded
+/// source changes, and `INSERT OR IGNORE` protects existing rows.
 ///
 /// This is invoked on every startup so that updating the JSON source
 /// (e.g. adding a new graded list) propagates to existing databases on the
 /// next launch. The function tolerates new top-level language keys — any
 /// language not in `language_label_to_code` is stored verbatim.
 pub fn import_vocab_bank(db: &DatabasePool) -> Result<i32, String> {
-    let conn = db.conn()?;
+    let fingerprint = vocabulary_fingerprint(VOCAB_JSON);
+    let mut conn = db.conn()?;
+    let imported_fingerprint: Option<String> = conn
+        .query_row(
+            "SELECT value FROM app_settings WHERE key = ?1",
+            params![VOCAB_IMPORT_FINGERPRINT_KEY],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| format!("Failed to read vocabulary import fingerprint: {e}"))?;
+
+    if imported_fingerprint.as_deref() == Some(fingerprint.as_str()) {
+        log::debug!("Vocab bank content unchanged; skipping import");
+        return Ok(0);
+    }
 
     // Parse embedded vocabulary JSON
-    let vocab_json: serde_json::Value =
-        serde_json::from_str(include_str!("../../../content-studio/data/vocabulary.json"))
-            .map_err(|e| format!("Failed to parse vocabulary JSON: {}", e))?;
+    let vocab_json: serde_json::Value = serde_json::from_str(VOCAB_JSON)
+        .map_err(|e| format!("Failed to parse vocabulary JSON: {}", e))?;
+
+    // A transaction turns thousands of individual durable writes into one
+    // commit. On Android this cuts a cold-start import from tens of seconds
+    // to well under a second on typical devices.
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to start vocabulary import transaction: {e}"))?;
 
     let mut total_inserted = 0i32;
 
@@ -719,7 +763,7 @@ pub fn import_vocab_bank(db: &DatabasePool) -> Result<i32, String> {
                 .collect();
 
             for (idx, word) in words.iter().enumerate() {
-                let inserted = conn
+                let inserted = tx
                     .execute(
                         "INSERT OR IGNORE INTO vocab_bank (word, lemma, pos, cefr_level, language, frequency)
                          VALUES (?1, ?2, NULL, ?3, ?4, ?5)",
@@ -731,9 +775,19 @@ pub fn import_vocab_bank(db: &DatabasePool) -> Result<i32, String> {
         }
     }
 
-    let total_in_db: i32 = conn
+    tx.execute(
+        "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![VOCAB_IMPORT_FINGERPRINT_KEY, fingerprint],
+    )
+    .map_err(|e| format!("Failed to save vocabulary import fingerprint: {e}"))?;
+
+    let total_in_db: i32 = tx
         .query_row("SELECT COUNT(*) FROM vocab_bank", [], |row| row.get(0))
         .unwrap_or(0);
+
+    tx.commit()
+        .map_err(|e| format!("Failed to commit vocabulary import: {e}"))?;
 
     log::info!(
         "Vocab bank import: inserted {} new, total in DB {}",
@@ -754,6 +808,11 @@ pub fn reimport_vocab_bank(db: &DatabasePool) -> Result<i32, String> {
     let cleared = conn
         .execute("DELETE FROM vocab_bank", [])
         .map_err(|e| format!("Failed to clear vocab_bank: {}", e))?;
+    conn.execute(
+        "DELETE FROM app_settings WHERE key = ?1",
+        params![VOCAB_IMPORT_FINGERPRINT_KEY],
+    )
+    .map_err(|e| format!("Failed to clear vocabulary import fingerprint: {e}"))?;
     log::info!("Reimport: cleared {} existing vocab rows", cleared);
 
     // Release the lock before re-importing (import_vocab_bank will re-acquire it).

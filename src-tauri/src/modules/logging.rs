@@ -4,6 +4,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+#[cfg(target_os = "android")]
+use super::android_paths;
+
 struct FileLogger {
     log_dir: PathBuf,
     current_file: Mutex<Option<(String, fs::File)>>,
@@ -107,9 +110,7 @@ impl Log for FileLogger {
 
 pub fn init_logging() {
     #[cfg(target_os = "android")]
-    let log_dir = PathBuf::from("/data/data/com.idioma.app/files")
-        .join("idioma")
-        .join("logs");
+    let log_dir = android_paths::app_files_dir().join("idioma").join("logs");
 
     #[cfg(not(target_os = "android"))]
     let log_dir = if let Ok(dir) = std::env::var("IDIOMA_LOG_DIR") {
