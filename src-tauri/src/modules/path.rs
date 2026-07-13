@@ -1184,15 +1184,27 @@ mod tests {
     }
 
     #[test]
-    fn a1_and_a2_question_counts_differ_for_same_section() {
+    fn a1_and_a2_use_level_specific_questions_for_equivalent_sections() {
         let pool = test_pool();
         let user = test_user(&pool);
         let a1 = get_path_curriculum(&pool, &user, "zh", "es", "A1").unwrap();
         let a2 = get_path_curriculum(&pool, &user, "zh", "es", "A2").unwrap();
-        let a1_count = a1.units[0].sections[2].question_count;
-        let a2_count = a2.units[0].sections[2].question_count;
-        assert!(a1_count > 0);
-        assert!(a2_count > 0);
-        assert_ne!(a1_count, a2_count);
+        let a1_section = &a1.units[0].sections[2];
+        let a2_section = &a2.units[0].sections[2];
+        let questions = load_questions().unwrap();
+
+        for (section, cefr) in [(a1_section, "A1"), (a2_section, "A2")] {
+            let count = questions
+                .iter()
+                .filter(|question| {
+                    question.get("pairId").and_then(|value| value.as_str()) == Some("zh-es")
+                        && question.get("sectionId").and_then(|value| value.as_str())
+                            == Some(section.id.as_str())
+                        && question.get("cefr").and_then(|value| value.as_str()) == Some(cefr)
+                })
+                .count();
+            assert_eq!(count, section.question_count as usize);
+            assert!(count > 0);
+        }
     }
 }

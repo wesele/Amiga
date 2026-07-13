@@ -280,6 +280,8 @@ export default {
   news: {
     title: "今日热搜",
     refresh: "刷新",
+    pullToRefresh: "下拉刷新",
+    releaseToRefresh: "松开刷新",
     refreshing: "刷新中…",
     refreshed: "已获取 {n} 条最新新闻",
     noNew: "暂无最新新闻，请检查网络连接",

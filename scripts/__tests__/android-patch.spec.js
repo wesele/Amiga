@@ -10,6 +10,7 @@ import {
   extractFragmentBody,
   mergeManifest,
   mergeBackupAttributes,
+  mergeMainActivityAttributes,
   mergeGradleDebugSigning,
   ensureGradleKeystore,
   shouldCopyFile,
@@ -239,6 +240,22 @@ describe("mergeBackupAttributes", () => {
     expect(patched).toContain('android:hasFragileUserData="true"');
     expect(patched).toContain('android:requestLegacyExternalStorage="true"');
     expect(patched.match(/android:allowBackup="true"/g)).toHaveLength(1);
+  });
+});
+
+describe("mergeMainActivityAttributes", () => {
+  it("locks the launcher activity to portrait orientation", () => {
+    const patched = mergeMainActivityAttributes(GENERATED);
+    const activity = patched.match(/<activity[\s\S]*?>/);
+
+    expect(activity).not.toBeNull();
+    expect(activity[0]).toContain('android:name=".MainActivity"');
+    expect(activity[0]).toContain('android:screenOrientation="portrait"');
+  });
+
+  it("is idempotent", () => {
+    const once = mergeMainActivityAttributes(GENERATED);
+    expect(mergeMainActivityAttributes(once)).toBe(once);
   });
 });
 

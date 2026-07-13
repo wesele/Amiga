@@ -235,6 +235,7 @@ describe("NewsList click handling", () => {
     expect(cards).toHaveLength(1);
     expect(cards[0].text()).toContain("Fresh headline");
   });
+
 });
 
 describe("NewsList localized date", () => {

@@ -62,4 +62,13 @@ describe("QuestionRenderer", () => {
     );
     expect(source).toContain('(props.imageSvg || "").trim()');
   });
+
+  it("plays the current question's audio text instead of background content", () => {
+    const source = readFileSync(
+      resolve(ROOT, "modules/path/components/QuestionRenderer.vue"),
+      "utf8",
+    );
+    expect(source).toContain("const text = props.question.audioText;");
+    expect(source).not.toMatch(/speechSynthesis\.speak\([^)]*background/);
+  });
 });

@@ -179,6 +179,22 @@ function mergeBackupAttributes(manifest) {
   return manifest.replace(appTagRe, "$1" + attrs + "$2");
 }
 
+/**
+ * Lock the app's launcher activity to portrait orientation.
+ *
+ * The generated Android manifest is not tracked, so this lives beside the
+ * other manifest patches and is re-applied after every Tauri regeneration.
+ */
+function mergeMainActivityAttributes(manifest) {
+  const attribute = 'android:screenOrientation="portrait"';
+  if (manifest.includes(attribute)) return manifest;
+
+  const mainActivityRe = /(<activity\b(?=[^>]*android:name="\.MainActivity")[^>]*)(>)/;
+  const match = manifest.match(mainActivityRe);
+  if (!match) return manifest;
+  return manifest.replace(mainActivityRe, "$1\n            " + attribute + "$2");
+}
+
 
 /**
  * Merge `fragmentBody` (a chunk of XML that should sit at the top level
@@ -391,6 +407,7 @@ module.exports = {
   extractFragmentBody,
   mergeManifest,
   mergeBackupAttributes,
+  mergeMainActivityAttributes,
   mergeGradleDebugSigning,
   ensureGradleKeystore,
   dedent,
@@ -520,8 +537,9 @@ if (require.main === module) {
     // Apply backup attributes on the (possibly merged) manifest.
     const afterFrag = manifestPatched ? fs.readFileSync(DST_MANIFEST, "utf8") : next;
     const withBackup = mergeBackupAttributes(afterFrag);
-    if (withBackup !== afterFrag) {
-      fs.writeFileSync(DST_MANIFEST, withBackup);
+    const withActivityAttrs = mergeMainActivityAttributes(withBackup);
+    if (withActivityAttrs !== afterFrag) {
+      fs.writeFileSync(DST_MANIFEST, withActivityAttrs);
       if (!manifestPatched) {
         manifestPatched = true;
         console.log("[android-patch] backup attributes patched");

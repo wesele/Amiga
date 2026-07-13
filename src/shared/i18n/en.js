@@ -277,6 +277,8 @@ export default {
   news: {
     title: "Trending today",
     refresh: "Refresh",
+    pullToRefresh: "Pull to refresh",
+    releaseToRefresh: "Release to refresh",
     refreshing: "Refreshing…",
     refreshed: "Fetched {n} latest articles",
     noNew: "No new articles — check your connection",

@@ -277,6 +277,8 @@ export default {
   news: {
     title: "Tendencias de hoy",
     refresh: "Actualizar",
+    pullToRefresh: "Desliza para actualizar",
+    releaseToRefresh: "Suelta para actualizar",
     refreshing: "Actualizando…",
     refreshed: "Se obtuvieron {n} artículos nuevos",
     noNew: "No hay artículos nuevos — revisa tu conexión",

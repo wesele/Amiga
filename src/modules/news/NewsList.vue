@@ -1,5 +1,11 @@
 <template>
-  <div class="news-list">
+  <div
+    class="news-list"
+    @touchstart="onPullStart"
+    @touchmove="onPullMove"
+    @touchend="onPullEnd"
+    @touchcancel="resetPull"
+  >
     <PageHeader
       :title="t('news.title')"
       variant="news"
@@ -16,6 +22,18 @@
         <span class="today-label">{{ formattedDate }}</span>
       </template>
     </PageHeader>
+
+    <div
+      class="pull-indicator"
+      :class="{ visible: pullDistance > 0, ready: pullReady, refreshing: loading }"
+      :style="{ height: `${pullDistance}px` }"
+      aria-live="polite"
+    >
+      <svg class="pull-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+        <path d="M12 4v11.17l-3.59-3.58L7 13l5 5 5-5-1.41-1.41L13 15.17V4h-2zm-6 14v2h12v-2H6z"/>
+      </svg>
+      <span>{{ loading ? t('news.refreshing') : pullReady ? t('news.releaseToRefresh') : t('news.pullToRefresh') }}</span>
+    </div>
 
     <!-- Loading skeleton -->
     <div v-if="loading && articles.length === 0" class="skeleton-list">
@@ -83,6 +101,7 @@ import { openSourceUrl } from "./utils.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
+import { usePullToRefresh } from "./usePullToRefresh.js";
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -197,6 +216,15 @@ function formatSource(source) {
     return source?.slice(0, 20) || "";
   }
 }
+
+const {
+  pullDistance,
+  pullReady,
+  onPullStart,
+  onPullMove,
+  onPullEnd,
+  resetPull,
+} = usePullToRefresh({ isRefreshing: loading, refresh: onRefresh });
 </script>
 
 <style scoped>
@@ -358,6 +386,30 @@ function formatSource(source) {
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
+}
+
+.pull-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  color: var(--text-lighter);
+  font-size: 12px;
+  font-weight: 600;
+  transition: height 0.16s ease;
+}
+
+.pull-icon {
+  transition: transform 0.16s ease;
+}
+
+.pull-indicator.ready {
+  color: var(--green);
+}
+
+.pull-indicator.ready .pull-icon {
+  transform: rotate(180deg);
 }
 
 .card-meta {
