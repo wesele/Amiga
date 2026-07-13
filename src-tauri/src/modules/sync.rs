@@ -4,7 +4,7 @@ mod settings;
 mod types;
 
 use crate::modules::database::DatabasePool;
-use crate::modules::llm::save_setting;
+use crate::modules::llm::{get_setting, save_setting};
 use crate::modules::sync::remote::{pull_remote_snapshot, push_remote_snapshot};
 use crate::modules::sync::settings::{
     clear_restore_mode, get_device_id, is_sync_conflict_error, now_iso, SETTING_ENABLED,
@@ -21,8 +21,8 @@ use tokio::sync::Mutex as AsyncMutex;
 pub use payload::{export_sync_payload, import_sync_payload};
 pub use remote::test_cloud_sync;
 pub use settings::{
-    get_cloud_sync_status, is_cloud_sync_enabled, is_syncable_setting, mark_restore_after_reset,
-    mark_restore_after_wizard, should_allow_restore_pull,
+    get_cloud_sync_status, is_cloud_sync_enabled, is_cloud_sync_ready, is_syncable_setting,
+    mark_restore_after_reset, mark_restore_after_wizard, should_allow_restore_pull,
 };
 pub use types::{
     CloudRestoreResult, CloudSyncStatus, CloudSyncTestResult, RunCloudSyncResult,
@@ -40,7 +40,7 @@ fn sync_mutex() -> &'static AsyncMutex<()> {
 }
 
 pub fn schedule_cloud_sync(db: &DatabasePool) {
-    if !is_cloud_sync_enabled(db).unwrap_or(false) {
+    if !is_cloud_sync_enabled(db).unwrap_or(false) || !is_cloud_sync_ready(db).unwrap_or(false) {
         return;
     }
 
@@ -63,7 +63,7 @@ async fn pull_remote_into_local(
 ) -> Result<RunCloudSyncResult, String> {
     let payload: SyncPayload = serde_json::from_str(&remote.payload)
         .map_err(|e| format!("Invalid remote sync payload: {}", e))?;
-    import_sync_payload(db, &payload)?;
+    let report = import_sync_payload(db, &payload)?;
     save_setting(db, SETTING_LAST_PUSHED, &remote.updated_at)?;
     save_setting(db, SETTING_LAST_SYNCED, &remote.updated_at)?;
     save_setting(db, SETTING_LAST_ERROR, "")?;
@@ -72,6 +72,8 @@ async fn pull_remote_into_local(
     Ok(RunCloudSyncResult {
         direction: "pull".to_string(),
         updated_at: remote.updated_at,
+        imported_items: report.imported_items,
+        skipped_items: report.skipped_items,
     })
 }
 
@@ -81,7 +83,28 @@ async fn push_local_snapshot(
     device_id: &str,
 ) -> Result<RunCloudSyncResult, String> {
     let remote = pull_remote_snapshot(nickname).await?;
-    let payload = export_sync_payload(db)?;
+    let local_payload = export_sync_payload(db)?;
+    let mut payload = local_payload.clone();
+    let mut imported_items = 0usize;
+    let mut skipped_items = 0usize;
+
+    // A snapshot changed by another device must be merged before upload.
+    // Re-importing the captured local payload afterwards gives local edits
+    // precedence while retaining remote-only rows.
+    if let Some(remote_row) = remote.as_ref() {
+        let last_synced = get_setting(db, SETTING_LAST_SYNCED)?;
+        if remote_row.device_id != device_id
+            && last_synced.as_deref() != Some(remote_row.updated_at.as_str())
+        {
+            let remote_payload: SyncPayload = serde_json::from_str(&remote_row.payload)
+                .map_err(|e| format!("Invalid remote sync payload: {}", e))?;
+            let remote_report = import_sync_payload(db, &remote_payload)?;
+            let local_report = import_sync_payload(db, &local_payload)?;
+            imported_items = remote_report.imported_items + local_report.imported_items;
+            skipped_items = remote_report.skipped_items + local_report.skipped_items;
+            payload = export_sync_payload(db)?;
+        }
+    }
     let payload_json = serde_json::to_string(&payload)
         .map_err(|e| format!("Failed to serialize sync payload: {}", e))?;
     let stamp = now_iso();
@@ -92,6 +115,15 @@ async fn push_local_snapshot(
             let remote = pull_remote_snapshot(nickname)
                 .await?
                 .ok_or_else(|| "Sync push conflict but remote disappeared".to_string())?;
+            let remote_payload: SyncPayload = serde_json::from_str(&remote.payload)
+                .map_err(|e| format!("Invalid remote sync payload after conflict: {}", e))?;
+            let remote_report = import_sync_payload(db, &remote_payload)?;
+            let local_report = import_sync_payload(db, &payload)?;
+            imported_items += remote_report.imported_items + local_report.imported_items;
+            skipped_items += remote_report.skipped_items + local_report.skipped_items;
+            payload = export_sync_payload(db)?;
+            let payload_json = serde_json::to_string(&payload)
+                .map_err(|e| format!("Failed to serialize merged sync payload: {}", e))?;
             push_remote_snapshot(
                 nickname,
                 &payload_json,
@@ -113,6 +145,8 @@ async fn push_local_snapshot(
     Ok(RunCloudSyncResult {
         direction: "push".to_string(),
         updated_at: stamp,
+        imported_items,
+        skipped_items,
     })
 }
 
@@ -137,6 +171,9 @@ async fn run_cloud_sync_attempt(db: &DatabasePool) -> Result<RunCloudSyncResult,
 pub async fn run_cloud_sync(db: &DatabasePool) -> Result<RunCloudSyncResult, String> {
     if !is_cloud_sync_enabled(db)? {
         return Err("Cloud sync is disabled".to_string());
+    }
+    if !is_cloud_sync_ready(db)? {
+        return Err("Cloud sync is waiting for onboarding to complete".to_string());
     }
 
     let _guard = sync_mutex().lock().await;
@@ -202,6 +239,8 @@ pub async fn restore_from_cloud_during_wizard(
                 target_language: None,
                 cefr_level: None,
                 message: "no_remote_data".to_string(),
+                imported_items: 0,
+                skipped_items: 0,
             });
         }
     };
@@ -220,23 +259,26 @@ pub async fn restore_from_cloud_during_wizard(
     };
     let user = create_user_from_wizard(db, request)?;
 
-    let import_result: Result<(), String> = (|| {
+    let import_result = (|| {
         let payload: SyncPayload = serde_json::from_str(&remote.payload)
             .map_err(|e| format!("Invalid remote sync payload: {}", e))?;
         import_sync_payload(db, &payload)
     })();
 
-    if let Err(e) = import_result {
-        // Roll back the placeholder to an uncompleted wizard so the user is not
-        // dropped into the app with a half-restored profile.
-        if let Ok(conn) = db.conn() {
-            let _ = conn.execute(
-                "UPDATE users SET wizard_completed = 0 WHERE id = (SELECT id FROM users LIMIT 1)",
-                [],
-            );
+    let report = match import_result {
+        Ok(report) => report,
+        Err(e) => {
+            // Roll back the placeholder to an uncompleted wizard so the user is not
+            // dropped into the app with a half-restored profile.
+            if let Ok(conn) = db.conn() {
+                let _ = conn.execute(
+                    "UPDATE users SET wizard_completed = 0 WHERE id = (SELECT id FROM users LIMIT 1)",
+                    [],
+                );
+            }
+            return Err(e);
         }
-        return Err(e);
-    }
+    };
 
     // The remote payload carries its own wizard_completed flag; force it on so
     // onboarding is considered done once data is restored.
@@ -252,6 +294,7 @@ pub async fn restore_from_cloud_during_wizard(
     save_setting(db, SETTING_LAST_SYNCED, &remote.updated_at)?;
     save_setting(db, SETTING_LAST_PUSHED, &remote.updated_at)?;
     save_setting(db, SETTING_LAST_ERROR, "")?;
+    save_setting(db, SETTING_ENABLED, "true")?;
     clear_restore_mode(db)?;
 
     let goal = get_learning_goals(db, &user.id)
@@ -264,6 +307,8 @@ pub async fn restore_from_cloud_during_wizard(
         target_language: goal.as_ref().map(|g| g.target_language.clone()),
         cefr_level: goal.as_ref().map(|g| g.cefr_level.clone()),
         message: "restored".to_string(),
+        imported_items: report.imported_items,
+        skipped_items: report.skipped_items,
     })
 }
 
@@ -402,9 +447,11 @@ mod tests {
     }
 
     #[test]
-    fn cloud_sync_disabled_by_default() {
+    fn cloud_sync_enabled_by_default_and_can_be_opted_out() {
         let pool = test_pool();
         seed_user(&pool);
+        assert!(is_cloud_sync_enabled(&pool).unwrap());
+        save_setting(&pool, "cloud_sync_enabled", "false").unwrap();
         assert!(!is_cloud_sync_enabled(&pool).unwrap());
     }
 
@@ -715,7 +762,7 @@ mod tests {
     }
 
     #[test]
-    fn import_skips_duplicate_reading_log_rows() {
+    fn legacy_news_history_is_intentionally_not_restored() {
         let pool = test_pool();
         let user_id = seed_user(&pool);
         {
@@ -750,7 +797,130 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(count, 1);
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn payload_decoder_tolerates_missing_future_and_malformed_rows() {
+        let payload: SyncPayload = serde_json::from_str(
+            r#"{
+                "version": 99,
+                "users": [{"nickname":"CompatUser"}, "bad-row"],
+                "learning_goals": "not-an-array",
+                "future_section": [{"anything":true}]
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(payload.version, 99);
+        assert_eq!(payload.users.len(), 1);
+        assert_eq!(payload.users[0].nickname, "CompatUser");
+        assert!(payload.learning_goals.is_empty());
+        assert!(payload.reading_articles.is_empty());
+    }
+
+    #[test]
+    fn export_import_restores_complete_daily_reading_and_speaking_data() {
+        let source = test_pool();
+        let source_user = seed_user(&source);
+        {
+            let conn = source.conn().unwrap();
+            conn.execute(
+                "INSERT INTO reading_articles
+                    (id, user_id, target_language, cefr_level, local_date, slot, topic, title,
+                     body, status, test_correct_count, test_total_count, generated_at)
+                 VALUES (41, ?1, 'es', 'B1', '2026-07-12', 'AM', 'Viajes', 'Un viaje',
+                         'Texto completo', 'completed', 8, 10, '2026-07-12 08:00:00')",
+                params![source_user],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO reading_tests
+                    (article_id, questions_json, explanations_json, created_at)
+                 VALUES (41, '[{\"question\":\"Q\"}]', '[\"E\"]', '2026-07-12 08:05:00')",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO reading_test_attempts
+                    (article_id, user_id, answers_json, correct_count, total_count, completed_at)
+                 VALUES (41, ?1, '[\"A\"]', 8, 10, '2026-07-12 08:10:00')",
+                params![source_user],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO speaking_sessions
+                    (id, user_id, topic_id, target_lang, native_lang, cefr_level, current_turn,
+                     current_ai_text, status, total_turns, retry_count, created_at, completed_at)
+                 VALUES ('s-restore', ?1, 'travel', 'es', 'zh', 'B1', 8, 'Adiós',
+                         'completed', 8, 1, '2026-07-12 09:00:00', '2026-07-12 09:20:00')",
+                params![source_user],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO speaking_turns
+                    (session_id, turn_number, ai_text, user_transcript, scores_json,
+                     total_score, used_hint, attempt_count, created_at)
+                 VALUES ('s-restore', 1, 'Hola', 'Buenos días', '{\"fluency\":8}',
+                         80, 0, 1, '2026-07-12 09:02:00')",
+                [],
+            )
+            .unwrap();
+        }
+
+        let payload = export_sync_payload(&source).unwrap();
+        assert_eq!(payload.version, 4);
+        assert_eq!(payload.reading_articles.len(), 1);
+        assert_eq!(payload.reading_tests.len(), 1);
+        assert_eq!(payload.reading_test_attempts.len(), 1);
+        assert_eq!(payload.speaking_sessions.len(), 1);
+        assert_eq!(payload.speaking_turns.len(), 1);
+        assert!(payload.news_reading_log.is_empty());
+
+        let target = test_pool();
+        let target_user = seed_user(&target);
+        let report = import_sync_payload(&target, &payload).unwrap();
+        assert!(report.imported_items >= 6);
+        assert_eq!(report.skipped_items, 0);
+
+        let conn = target.conn().unwrap();
+        let restored_article: (String, String, String) = conn
+            .query_row(
+                "SELECT title, body, status FROM reading_articles WHERE user_id = ?1",
+                params![target_user],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            restored_article,
+            (
+                "Un viaje".into(),
+                "Texto completo".into(),
+                "completed".into()
+            )
+        );
+        let test_count: i32 = conn
+            .query_row("SELECT COUNT(*) FROM reading_tests", [], |row| row.get(0))
+            .unwrap();
+        let attempt_count: i32 = conn
+            .query_row("SELECT COUNT(*) FROM reading_test_attempts", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        let speaking_count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM speaking_sessions WHERE user_id = ?1 AND status = 'completed'",
+                params![target_user],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let turn_count: i32 = conn
+            .query_row("SELECT COUNT(*) FROM speaking_turns", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(
+            (test_count, attempt_count, speaking_count, turn_count),
+            (1, 1, 1, 1)
+        );
     }
 
     /// Live E2E: push local data to Cloudflare, wipe local DB, pull restore.

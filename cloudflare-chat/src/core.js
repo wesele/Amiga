@@ -75,11 +75,49 @@ export function notifyUser(state, userId, payload) {
   }
 }
 
+export function validateSyncPayload(payload) {
+  if (typeof payload !== "string" || payload.length === 0) {
+    return { ok: false, error: "invalid-sync-payload" };
+  }
+  // Keep a defensive application-level ceiling while allowing multi-year
+  // daily-reading histories. D1 stores the payload in bounded chunks.
+  if (payload.length > 8_000_000) {
+    return { ok: false, error: "sync-payload-too-large" };
+  }
+  try {
+    const parsed = JSON.parse(payload);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { ok: false, error: "invalid-sync-payload" };
+    }
+    if (!Number.isInteger(parsed.version) || parsed.version < 1) {
+      return { ok: false, error: "invalid-sync-version" };
+    }
+    if (
+      !Array.isArray(parsed.users)
+      || !parsed.users.some((user) => typeof user?.nickname === "string" && user.nickname.trim())
+    ) {
+      return { ok: false, error: "sync-payload-missing-user" };
+    }
+    return { ok: true, version: parsed.version };
+  } catch {
+    return { ok: false, error: "invalid-sync-json" };
+  }
+}
+
+export function splitSyncPayload(payload, chunkCharacters = 100_000) {
+  const chunks = [];
+  for (let offset = 0; offset < payload.length; offset += chunkCharacters) {
+    chunks.push(payload.slice(offset, offset + chunkCharacters));
+  }
+  return chunks.length > 0 ? chunks : [""];
+}
+
 export function createMemoryRepository() {
   const users = new Map();
   const friendships = [];
   const offlineMessages = [];
   const syncSnapshots = new Map();
+  const syncHistory = new Map();
   let nextFriendshipId = 1;
   let nextOfflineId = 1;
 
@@ -178,8 +216,16 @@ export function createMemoryRepository() {
           return { conflict: true };
         }
       }
+      if (existing) {
+        const history = syncHistory.get(userId) || [];
+        history.unshift(existing);
+        syncHistory.set(userId, history.slice(0, 5));
+      }
       syncSnapshots.set(userId, { userId, payload, updatedAt, deviceId });
       return { ok: true };
+    },
+    async getSyncHistory(userId) {
+      return syncHistory.get(userId) || [];
     },
   };
 }

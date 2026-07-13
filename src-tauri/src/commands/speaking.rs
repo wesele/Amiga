@@ -1,4 +1,5 @@
 use crate::commands::llm::LlmState;
+use crate::commands::syncable::after_syncable_write;
 use crate::modules::database::DatabasePool;
 use crate::modules::llm as llm_mod;
 use crate::modules::speaking as speaking_mod;
@@ -27,7 +28,7 @@ pub async fn speaking_start_session_cmd(
     native_lang: String,
     cefr_level: String,
 ) -> Result<speaking_mod::SpeakingSessionView, String> {
-    speaking_mod::start_session(
+    let session = speaking_mod::start_session(
         &llm.client,
         &db,
         &user_id,
@@ -36,7 +37,9 @@ pub async fn speaking_start_session_cmd(
         &native_lang,
         &cefr_level,
     )
-    .await
+    .await?;
+    after_syncable_write(&db);
+    Ok(session)
 }
 
 #[tauri::command]
@@ -48,7 +51,7 @@ pub async fn speaking_score_turn_cmd(
     audio_format: String,
     used_hint: bool,
 ) -> Result<speaking_mod::SpeakingScoreResult, String> {
-    speaking_mod::score_turn(
+    let score = speaking_mod::score_turn(
         &llm.client,
         &db,
         &session_id,
@@ -56,7 +59,9 @@ pub async fn speaking_score_turn_cmd(
         &audio_format,
         used_hint,
     )
-    .await
+    .await?;
+    after_syncable_write(&db);
+    Ok(score)
 }
 
 #[tauri::command]
@@ -83,7 +88,9 @@ pub async fn speaking_finish_cmd(
     llm: State<'_, LlmState>,
     session_id: String,
 ) -> Result<String, String> {
-    speaking_mod::finish_session(&llm.client, &db, &session_id).await
+    let result = speaking_mod::finish_session(&llm.client, &db, &session_id).await?;
+    after_syncable_write(&db);
+    Ok(result)
 }
 
 #[tauri::command]

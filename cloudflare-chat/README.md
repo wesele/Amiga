@@ -32,6 +32,12 @@ This subproject contains the social chat backend for Amiga:
 wrangler d1 execute amiga-chat --file=./schema.sql
 ```
 
+For an existing deployment, apply tracked migrations instead:
+
+```bash
+wrangler d1 migrations apply amiga-chat-social-db --remote
+```
+
 4. Run tests:
 
 ```bash
@@ -51,3 +57,11 @@ wrangler deploy
 - If the recipient is offline, the message is written into `offline_messages`.
 - When the recipient opens the app, the client calls `GET /api/messages/offline` and the worker deletes the delivered rows immediately after returning them.
 - The cron trigger removes any offline message older than 3 days.
+
+## Cloud sync snapshots
+
+- New snapshots are validated before storage so an empty or malformed payload cannot replace a good backup.
+- Payloads are split across `user_sync_snapshot_chunks`, avoiding a single large D1 row as daily-reading history grows.
+- `user_sync_snapshot_heads` points to the active generation; six generations are retained (current plus five previous versions).
+- Pull automatically falls back to the newest valid retained generation if the active generation is incomplete.
+- `user_sync_snapshots` remains as a read-only compatibility source for snapshots written before versioned storage was introduced.

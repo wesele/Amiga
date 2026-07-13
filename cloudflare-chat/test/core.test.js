@@ -6,6 +6,8 @@ import {
   createMemoryRepository,
   deliverDirectMessage,
   registerSocket,
+  splitSyncPayload,
+  validateSyncPayload,
 } from "../src/core.js";
 
 function fakeSocket() {
@@ -96,7 +98,7 @@ test("sync snapshots round-trip by nickname", async () => {
   const repository = createMemoryRepository();
   await repository.pushSyncSnapshot({
     userId: "Alice",
-    payload: "{\"version\":1}",
+    payload: "{\"version\":1,\"users\":[{\"nickname\":\"Alice\"}]}",
     updatedAt: "2026-06-29T10:00:00.000Z",
     deviceId: "device-a",
   });
@@ -104,7 +106,52 @@ test("sync snapshots round-trip by nickname", async () => {
   const snapshot = await repository.pullSyncSnapshot("Alice");
   assert.equal(snapshot.userId, "Alice");
   assert.equal(snapshot.deviceId, "device-a");
-  assert.equal(snapshot.payload, "{\"version\":1}");
+  assert.equal(snapshot.payload, "{\"version\":1,\"users\":[{\"nickname\":\"Alice\"}]}");
+});
+
+test("sync payload validation rejects empty backups and accepts future sections", () => {
+  assert.equal(validateSyncPayload("{}").ok, false);
+  assert.equal(validateSyncPayload("not-json").ok, false);
+  assert.equal(
+    validateSyncPayload(JSON.stringify({
+      version: 99,
+      users: [{ nickname: "Alice" }],
+      future_section: [{ future_field: true }],
+    })).ok,
+    true,
+  );
+});
+
+test("large sync payloads split and reassemble without data loss", () => {
+  const payload = JSON.stringify({
+    version: 4,
+    users: [{ nickname: "Alice" }],
+    reading_articles: [{ body: "每日阅读".repeat(100_000) }],
+  });
+  const chunks = splitSyncPayload(payload);
+  assert.ok(chunks.length > 1);
+  assert.equal(chunks.join(""), payload);
+});
+
+test("sync repository retains the five most recent previous generations", async () => {
+  const repository = createMemoryRepository();
+  let baseUpdatedAt;
+  for (let index = 0; index < 7; index += 1) {
+    const updatedAt = `2026-07-0${index + 1}T10:00:00.000Z`;
+    const result = await repository.pushSyncSnapshot({
+      userId: "Alice",
+      payload: JSON.stringify({ version: 4, users: [{ nickname: "Alice" }], index }),
+      updatedAt,
+      deviceId: "device-a",
+      baseUpdatedAt,
+    });
+    assert.equal(result.ok, true);
+    baseUpdatedAt = updatedAt;
+  }
+  const history = await repository.getSyncHistory("Alice");
+  assert.equal(history.length, 5);
+  assert.match(history[0].payload, /\"index\":5/);
+  assert.match(history[4].payload, /\"index\":1/);
 });
 
 test("sync push rejects stale baseUpdatedAt", async () => {

@@ -1,4 +1,5 @@
 use crate::commands::llm::LlmState;
+use crate::commands::syncable::after_syncable_write;
 use crate::modules::database::DatabasePool;
 use crate::modules::reading as reading_mod;
 use tauri::State;
@@ -20,8 +21,16 @@ pub async fn regenerate_reading_article_cmd(
     cefr_level: String,
     native_lang: String,
 ) -> Result<reading_mod::ReadingArticle, String> {
-    reading_mod::regenerate_reading_article(&llm.client, &db, article_id, &cefr_level, &native_lang)
-        .await
+    let article = reading_mod::regenerate_reading_article(
+        &llm.client,
+        &db,
+        article_id,
+        &cefr_level,
+        &native_lang,
+    )
+    .await?;
+    after_syncable_write(&db);
+    Ok(article)
 }
 
 #[tauri::command]
@@ -33,7 +42,7 @@ pub async fn ensure_reading_article_cmd(
     cefr_level: String,
     native_lang: String,
 ) -> Result<reading_mod::ReadingArticle, String> {
-    reading_mod::ensure_reading_article(
+    let article = reading_mod::ensure_reading_article(
         &llm.client,
         &db,
         &user_id,
@@ -41,7 +50,9 @@ pub async fn ensure_reading_article_cmd(
         &cefr_level,
         &native_lang,
     )
-    .await
+    .await?;
+    after_syncable_write(&db);
+    Ok(article)
 }
 
 #[tauri::command]
@@ -57,7 +68,9 @@ pub async fn mark_reading_article_read_cmd(
     db: State<'_, DatabasePool>,
     article_id: i64,
 ) -> Result<(), String> {
-    reading_mod::mark_article_read(&db, article_id)
+    reading_mod::mark_article_read(&db, article_id)?;
+    after_syncable_write(&db);
+    Ok(())
 }
 
 #[tauri::command]
@@ -68,14 +81,16 @@ pub async fn get_or_generate_reading_test_cmd(
     target_language: String,
     cefr_level: String,
 ) -> Result<Vec<reading_mod::ReadingQuestion>, String> {
-    reading_mod::get_or_generate_reading_test(
+    let questions = reading_mod::get_or_generate_reading_test(
         &llm.client,
         &db,
         article_id,
         &target_language,
         &cefr_level,
     )
-    .await
+    .await?;
+    after_syncable_write(&db);
+    Ok(questions)
 }
 
 #[tauri::command]
@@ -90,7 +105,7 @@ pub async fn explain_reading_answer_cmd(
     target_language: String,
     native_lang: String,
 ) -> Result<String, String> {
-    reading_mod::explain_reading_answer(
+    let explanation = reading_mod::explain_reading_answer(
         &llm.client,
         &db,
         article_id,
@@ -101,7 +116,9 @@ pub async fn explain_reading_answer_cmd(
         &target_language,
         &native_lang,
     )
-    .await
+    .await?;
+    after_syncable_write(&db);
+    Ok(explanation)
 }
 
 #[tauri::command]
@@ -120,7 +137,9 @@ pub async fn submit_reading_test_cmd(
         &answers_json,
         correct_count,
         total_count,
-    )
+    )?;
+    after_syncable_write(&db);
+    Ok(())
 }
 
 #[tauri::command]

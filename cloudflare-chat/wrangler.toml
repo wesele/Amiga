@@ -6,6 +6,7 @@ compatibility_date = "2026-06-27"
 binding = "DB"
 database_name = "amiga-chat-social-db"
 database_id = "ddeee83d-fa48-453d-ab21-79ede1f57285"
+migrations_dir = "migrations"
 
 [triggers]
 crons = ["0 3 * * *"]

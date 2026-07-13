@@ -36,7 +36,10 @@ pub fn run() {
 
     let db_for_startup_sync = db_pool.clone();
     tauri::async_runtime::spawn(async move {
-        if let Ok(true) = modules::sync::is_cloud_sync_enabled(&db_for_startup_sync) {
+        if let (Ok(true), Ok(true)) = (
+            modules::sync::is_cloud_sync_enabled(&db_for_startup_sync),
+            modules::sync::is_cloud_sync_ready(&db_for_startup_sync),
+        ) {
             if let Err(e) = modules::sync::run_cloud_sync(&db_for_startup_sync).await {
                 log::warn!("Startup cloud sync failed: {}", e);
             }

@@ -61,10 +61,17 @@ pub fn get_device_id(db: &DatabasePool) -> Result<String, String> {
 }
 
 pub fn is_cloud_sync_enabled(db: &DatabasePool) -> Result<bool, String> {
-    Ok(matches!(
+    // Backups are opt-out. Missing means enabled so new and upgraded users
+    // are protected without having to discover a settings switch first.
+    Ok(!matches!(
         get_setting(db, SETTING_ENABLED)?.as_deref(),
-        Some("true")
+        Some("false")
     ))
+}
+
+pub fn is_cloud_sync_ready(db: &DatabasePool) -> Result<bool, String> {
+    let user = get_or_create_user(db)?;
+    Ok(user.wizard_completed && !user.nickname.trim().is_empty())
 }
 
 pub(crate) fn restore_mode(db: &DatabasePool) -> Result<Option<String>, String> {

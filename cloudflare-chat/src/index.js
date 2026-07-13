@@ -1,3 +1,5 @@
+import { splitSyncPayload, validateSyncPayload } from "./core.js";
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
@@ -193,36 +195,190 @@ function makeRepository(env) {
       return result.meta?.changes || 0;
     },
     async pullSyncSnapshot(userId) {
-      const row = await env.DB
+      const head = await env.DB
+        .prepare(
+          `SELECT user_id AS userId, updated_at AS updatedAt, device_id AS deviceId,
+                  snapshot_id AS snapshotId
+           FROM user_sync_snapshot_heads WHERE user_id = ?1`,
+        )
+        .bind(userId)
+        .first();
+      if (!head) {
+        const legacy = await env.DB
+          .prepare(
+            `SELECT user_id AS userId, payload, updated_at AS updatedAt, device_id AS deviceId
+             FROM user_sync_snapshots WHERE user_id = ?1`,
+          )
+          .bind(userId)
+          .first();
+        return legacy || null;
+      }
+
+      const payload = await this.loadSyncSnapshotPayload(head.snapshotId);
+      if (payload != null && validateSyncPayload(payload).ok) {
+        return { ...head, payload };
+      }
+
+      // Current metadata or chunks may be damaged. Fall back to the newest
+      // retained valid generation instead of making the whole backup unusable.
+      const versions = await env.DB
+        .prepare(
+          `SELECT snapshot_id AS snapshotId, updated_at AS updatedAt, device_id AS deviceId
+           FROM user_sync_snapshot_versions
+           WHERE user_id = ?1
+           ORDER BY updated_at DESC
+           LIMIT 6`,
+        )
+        .bind(userId)
+        .all();
+      for (const version of versions.results || []) {
+        const fallbackPayload = await this.loadSyncSnapshotPayload(version.snapshotId);
+        if (fallbackPayload != null && validateSyncPayload(fallbackPayload).ok) {
+          return { userId, payload: fallbackPayload, ...version };
+        }
+      }
+      return null;
+    },
+    async loadSyncSnapshotPayload(snapshotId) {
+      const rows = await env.DB
+        .prepare(
+          `SELECT payload_chunk AS payloadChunk
+           FROM user_sync_snapshot_chunks
+           WHERE snapshot_id = ?1
+           ORDER BY chunk_index ASC`,
+        )
+        .bind(snapshotId)
+        .all();
+      if (!rows.results?.length) return null;
+      return rows.results.map((row) => row.payloadChunk).join("");
+    },
+    async pushSyncSnapshot({ userId, payload, updatedAt, deviceId, baseUpdatedAt }) {
+      const head = await env.DB
+        .prepare(
+          `SELECT user_id AS userId, updated_at AS updatedAt, device_id AS deviceId,
+                  snapshot_id AS snapshotId
+           FROM user_sync_snapshot_heads WHERE user_id = ?1`,
+        )
+        .bind(userId)
+        .first();
+      const existing = head || await env.DB
         .prepare(
           `SELECT user_id AS userId, payload, updated_at AS updatedAt, device_id AS deviceId
            FROM user_sync_snapshots WHERE user_id = ?1`,
         )
         .bind(userId)
         .first();
-      return row || null;
-    },
-    async pushSyncSnapshot({ userId, payload, updatedAt, deviceId, baseUpdatedAt }) {
-      const existing = await this.pullSyncSnapshot(userId);
       if (existing) {
-        if (baseUpdatedAt && existing.updatedAt !== baseUpdatedAt) {
+        if (!baseUpdatedAt || existing.updatedAt !== baseUpdatedAt) {
           return { conflict: true };
         }
         if (Date.parse(existing.updatedAt) > Date.parse(updatedAt)) {
           return { conflict: true };
         }
       }
-      await env.DB
+
+      const snapshotId = crypto.randomUUID();
+      const statements = [];
+
+      // Preserve the pre-chunking legacy generation before replacing it.
+      if (existing && !head && existing.payload) {
+        const legacySnapshotId = crypto.randomUUID();
+        statements.push(
+          env.DB
+            .prepare(
+              `INSERT OR IGNORE INTO user_sync_snapshot_versions
+                 (snapshot_id, user_id, updated_at, device_id)
+               VALUES (?1, ?2, ?3, ?4)`,
+            )
+            .bind(legacySnapshotId, userId, existing.updatedAt, existing.deviceId),
+        );
+        splitSyncPayload(existing.payload).forEach((chunk, index) => {
+          statements.push(
+            env.DB
+              .prepare(
+                `INSERT OR IGNORE INTO user_sync_snapshot_chunks
+                   (snapshot_id, chunk_index, payload_chunk)
+                 VALUES (?1, ?2, ?3)`,
+              )
+              .bind(legacySnapshotId, index, chunk),
+          );
+        });
+      }
+
+      statements.push(
+        env.DB
+          .prepare(
+            `INSERT INTO user_sync_snapshot_versions
+               (snapshot_id, user_id, updated_at, device_id)
+             VALUES (?1, ?2, ?3, ?4)`,
+          )
+          .bind(snapshotId, userId, updatedAt, deviceId),
+      );
+      splitSyncPayload(payload).forEach((chunk, index) => {
+        statements.push(
+          env.DB
+            .prepare(
+              `INSERT INTO user_sync_snapshot_chunks
+                 (snapshot_id, chunk_index, payload_chunk)
+               VALUES (?1, ?2, ?3)`,
+            )
+            .bind(snapshotId, index, chunk),
+        );
+      });
+
+      if (head) {
+        statements.push(
+          env.DB
+            .prepare(
+              `UPDATE user_sync_snapshot_heads
+               SET updated_at = ?1, device_id = ?2, snapshot_id = ?3
+               WHERE user_id = ?4 AND updated_at = ?5`,
+            )
+            .bind(updatedAt, deviceId, snapshotId, userId, baseUpdatedAt),
+        );
+      } else {
+        statements.push(
+          env.DB
+            .prepare(
+              `INSERT INTO user_sync_snapshot_heads
+                 (user_id, updated_at, device_id, snapshot_id)
+               VALUES (?1, ?2, ?3, ?4)
+               ON CONFLICT(user_id) DO NOTHING`,
+            )
+            .bind(userId, updatedAt, deviceId, snapshotId),
+        );
+      }
+
+      const results = await env.DB.batch(statements);
+      const currentWrite = results[results.length - 1];
+      if (!currentWrite?.meta?.changes) {
+        await env.DB.batch([
+          env.DB.prepare("DELETE FROM user_sync_snapshot_chunks WHERE snapshot_id = ?1").bind(snapshotId),
+          env.DB.prepare("DELETE FROM user_sync_snapshot_versions WHERE snapshot_id = ?1").bind(snapshotId),
+        ]);
+        return { conflict: true };
+      }
+
+      const obsolete = await env.DB
         .prepare(
-          `INSERT INTO user_sync_snapshots (user_id, payload, updated_at, device_id)
-           VALUES (?1, ?2, ?3, ?4)
-           ON CONFLICT(user_id) DO UPDATE SET
-             payload = excluded.payload,
-             updated_at = excluded.updated_at,
-             device_id = excluded.device_id`,
+          `SELECT snapshot_id AS snapshotId
+           FROM user_sync_snapshot_versions
+           WHERE user_id = ?1
+           ORDER BY updated_at DESC
+           LIMIT -1 OFFSET 6`,
         )
-        .bind(userId, payload, updatedAt, deviceId)
-        .run();
+        .bind(userId)
+        .all();
+      for (const version of obsolete.results || []) {
+        await env.DB.batch([
+          env.DB
+            .prepare("DELETE FROM user_sync_snapshot_chunks WHERE snapshot_id = ?1")
+            .bind(version.snapshotId),
+          env.DB
+            .prepare("DELETE FROM user_sync_snapshot_versions WHERE snapshot_id = ?1")
+            .bind(version.snapshotId),
+        ]);
+      }
       return { ok: true };
     },
   };
@@ -474,6 +630,16 @@ async function handleApi(request, env) {
     const body = await readJson(request);
     if (!body.userId || body.payload == null || !body.updatedAt || !body.deviceId) {
       return badRequest("missing-sync-fields");
+    }
+    if (typeof body.userId !== "string" || body.userId.trim().length > 20) {
+      return badRequest("invalid-sync-user");
+    }
+    if (Number.isNaN(Date.parse(body.updatedAt))) {
+      return badRequest("invalid-sync-timestamp");
+    }
+    const validation = validateSyncPayload(body.payload);
+    if (!validation.ok) {
+      return badRequest(validation.error, 422);
     }
     const result = await repository.pushSyncSnapshot(body);
     if (result?.conflict) {
