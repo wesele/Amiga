@@ -56,7 +56,8 @@ getByName("debug") {
 - `OnBackPressedCallback` 拦截系统返回键，调用 `window.__amigaGoBack()`：JS 端读当前路由的 `meta.parent`，有父级就 `router.replace({ name: parent })`、无父级返回 `"at-root"`，Kotlin 收到 `"at-root"` 就 `finish()` Activity。这避开了 `history.back()` 走"上一个 URL"的死循环问题。
 
 ### `TranslateWindowCallback.kt`
-- 用 `WebView.setCustomSelectionActionModeCallback` 注入长按文本选区菜单的「翻译」项
+- 在 `MainActivity.onWindowStartingActionMode` 创建阶段包装 WebView/OEM 原始回调，注入长按文本选区菜单的「Amiga」项；完整转发原生菜单生命周期与定位回调
+- `MainActivity.onStop` 会结束仍存活的浮动选区菜单，避免 OEM 在应用回到前台时恢复失效的窗口状态
 - 点击后调 `window.__amigaTranslateSelection(text)`，由 `NewsReader.vue` / `ReadingReader.vue` 注册接收
 
 ## JS↔Kotlin 契约

@@ -1,10 +1,13 @@
 package com.idioma.app
 
+import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.ActionMode
 import android.view.Menu
+import android.view.MenuItem
+import android.view.View
 import android.webkit.WebView
 import androidx.core.view.MenuItemCompat
 
@@ -12,11 +15,11 @@ import androidx.core.view.MenuItemCompat
  * Injects a "翻译" (Translate) menu item into the WebView's text-selection
  * floating toolbar.
  *
- * The official Android extension point for customising the WebView's text
- * selection menu is the [ActionMode] that WebView creates. We leave that
- * native ActionMode in place and add our item to its existing menu, so OEM
- * actions (Copy / Share / Select all / system Translate) keep their original
- * callbacks and the toolbar keeps the OEM's positioning behavior.
+ * Wraps WebView's own [ActionMode.Callback] before the selection toolbar is
+ * created. Every lifecycle call is delegated to the original callback, so OEM
+ * actions (Copy / Share / Select all / system Translate), cleanup, and toolbar
+ * positioning retain their native behavior. We only add and handle Amiga's
+ * extra item.
  *
  * The injected item needs [MenuItemCompat.SHOW_AS_ACTION_ALWAYS] so it is
  * laid out as a button on the floating toolbar (TYPE_FLOATING). Without
@@ -24,7 +27,10 @@ import androidx.core.view.MenuItemCompat
  * floating toolbar has no overflow chevron on most Android 12+ devices.
  *
  */
-class TranslateWindowCallback(private val webView: WebView) {
+class TranslateWindowCallback(
+    private val webView: WebView,
+    private val delegate: ActionMode.Callback,
+) : ActionMode.Callback2() {
 
     /**
      * Snapshot of the page selection text, taken at the moment
@@ -34,27 +40,71 @@ class TranslateWindowCallback(private val webView: WebView) {
      */
     @Volatile
     private var lastSelectionText: String = ""
+    private var selectionCaptured = false
 
-    /** Add Amiga to the existing WebView selection menu without replacing it. */
-    fun injectInto(mode: ActionMode) {
-        // Take a snapshot before the user can dismiss the native toolbar.
-        captureSelectionNow()
-        try {
-            injectTranslateItem(mode)
-        } catch (t: Throwable) {
-            Log.e(TAG, "Failed to inject Amiga menu item", t)
+    override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
+        val created = delegate.onCreateActionMode(mode, menu)
+        if (!created) return false
+
+        captureSelectionOnce()
+        injectTranslateItemSafely(menu)
+        return true
+    }
+
+    override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
+        val prepared = delegate.onPrepareActionMode(mode, menu)
+        captureSelectionOnce()
+        val injected = injectTranslateItemSafely(menu)
+        return prepared || injected
+    }
+
+    override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
+        if (item.itemId != MENU_TRANSLATE_ID) {
+            return delegate.onActionItemClicked(mode, item)
+        }
+
+        onTranslateClicked()
+        // Let JavaScript dispatch to Vue before the system clears the
+        // selection and destroys its native callback state.
+        webView.post { mode.finish() }
+        return true
+    }
+
+    override fun onDestroyActionMode(mode: ActionMode) {
+        delegate.onDestroyActionMode(mode)
+    }
+
+    override fun onGetContentRect(mode: ActionMode, view: View, outRect: Rect) {
+        val callback2 = delegate as? ActionMode.Callback2
+        if (callback2 != null) {
+            callback2.onGetContentRect(mode, view, outRect)
+        } else {
+            super.onGetContentRect(mode, view, outRect)
         }
     }
 
-    private fun injectTranslateItem(mode: ActionMode) {
-        val menu = mode.menu
-        if (menu == null) {
-            Log.w(TAG, "mode.menu is null; cannot inject 翻译 item (type=${mode.type})")
-            return
+    private fun captureSelectionOnce() {
+        if (selectionCaptured) return
+        selectionCaptured = true
+        captureSelectionNow()
+    }
+
+    private fun injectTranslateItemSafely(menu: Menu): Boolean {
+        return try {
+            injectTranslateItem(menu)
+        } catch (t: Throwable) {
+            // Vendor Menu implementations are not always mutable at every
+            // callback phase. Keep the native toolbar usable even if Amiga's
+            // optional item cannot be added on a particular OEM build.
+            Log.e(TAG, "Failed to inject Amiga menu item", t)
+            false
         }
+    }
+
+    private fun injectTranslateItem(menu: Menu): Boolean {
         if (menu.findItem(MENU_TRANSLATE_ID) != null) {
             Log.d(TAG, "Translate item already present, skipping")
-            return
+            return false
         }
         val sizeBefore = menu.size()
         // Add our "Amiga" item FIRST at the top
@@ -62,21 +112,8 @@ class TranslateWindowCallback(private val webView: WebView) {
         // SHOW_AS_ACTION_ALWAYS is required for TYPE_FLOATING: without it
         // the item is treated as overflow and is never rendered.
         MenuItemCompat.setShowAsAction(item, MenuItemCompat.SHOW_AS_ACTION_ALWAYS)
-        item.setOnMenuItemClickListener {
-            onTranslateClicked()
-            // Let JavaScript dispatch to Vue before the system clears the
-            // selection. Other items keep their native callbacks unchanged.
-            webView.post { mode.finish() }
-            true
-        }
         Log.d(TAG, "Injected Amiga item; menu size $sizeBefore -> ${menu.size()}")
-        // Force the floating toolbar to re-measure and pick up the new
-        // item. invalidate() is deprecated as of API 27 in favour of
-        // invalidateContent(), but it is still functional on every API
-        // level we support and is the only call the Kotlin compiler can
-        // resolve when minSdk < 27.
-        @Suppress("DEPRECATION")
-        mode.invalidate()
+        return true
     }
 
     /**
