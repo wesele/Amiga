@@ -127,6 +127,47 @@ describe("Soul Mate MVP", () => {
     expect(router.currentRoute.value.name).toBe("soulmate");
   });
 
+  it("opens the news-style translation popup when a story word is tapped", async () => {
+    mockInvoke.mockImplementation((command) => {
+      if (command === "get_soulmate_episode_cmd") {
+        return Promise.resolve({
+          id: "e1",
+          day_number: 1,
+          title: "La llave",
+          teaser: "Una pista",
+          body: "Una llave antigua.",
+        });
+      }
+      if (command === "translate_word_cmd") {
+        return Promise.resolve({ translation: "一把古老的钥匙", pos: "noun" });
+      }
+      return baseInvoke(command);
+    });
+    const router = makeRouter();
+    await router.push({ name: "soulmate-story", params: { episodeId: "e1" } });
+    const wrapper = mount(SoulMateStory, {
+      props: { episodeId: "e1" },
+      global: { plugins: [router], stubs: { PageHeader: { template: "<header />" } } },
+    });
+    await flushPromises();
+
+    expect(wrapper.findAll("article .word").map((word) => word.text())).toEqual([
+      "Una",
+      "llave",
+      "antigua",
+    ]);
+    await wrapper.findAll("article .word")[1].trigger("click");
+    await flushPromises();
+
+    expect(mockInvoke).toHaveBeenCalledWith("translate_word_cmd", {
+      word: "llave",
+      context: "Una llave antigua.",
+      sourceLang: "es",
+      nativeLang: "zh",
+    });
+    expect(wrapper.find(".word-popup").text()).toContain("一把古老的钥匙");
+  });
+
   it("loads story chat and sends a learner reply", async () => {
     mockInvoke.mockImplementation((command) => {
       if (command === "get_soulmate_home_cmd") {
