@@ -262,7 +262,7 @@ describe("Soul Mate MVP", () => {
     expect(wrapper.find(".word-popup").text()).toContain("一把古老的钥匙");
   });
 
-  it("loads story chat and sends a learner reply", async () => {
+  it("lets the companion speak first on chat entry, then sends a learner reply", async () => {
     mockInvoke.mockImplementation((command) => {
       if (command === "get_soulmate_home_cmd") {
         return Promise.resolve({ world: { companion_name: "Sofía" } });
@@ -282,6 +282,9 @@ describe("Soul Mate MVP", () => {
       global: { plugins: [router], stubs: { PageHeader: { template: "<header />" } } },
     });
     await flushPromises();
+
+    expect(wrapper.find(".message-row.role-assistant .bubble").text()).toBe("¿Qué harías tú?");
+    expect(wrapper.find(".input-bar input").element.value).toBe("");
 
     await wrapper.find(".input-bar input").setValue("Yo buscaría la estación.");
     await wrapper.find(".input-bar").trigger("submit");

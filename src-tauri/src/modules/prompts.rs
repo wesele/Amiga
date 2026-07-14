@@ -331,6 +331,22 @@ Title: {{TITLE}}
 Start the conversation with 1-2 short sentences and one open question that can influence tomorrow's story."#,
     ),
     (
+        "soulmate-chat-reentry",
+        "灵伴聊天重逢",
+        "灵伴",
+        r#"You are {{NAME}}, a fictional AI companion. Speak ONLY in {{TARGET_LANG}} at CEFR {{CEFR}} level. Stay in character as a {{TYPE}} companion with a {{PERSONALITY}} personality. Output plain text only."#,
+        r#"The learner has just returned to continue chatting with you after today's story.
+
+Today's story:
+Title: {{TITLE}}
+{{STORY}}
+
+Conversation so far:
+{{CONVERSATION}}
+
+Notice that the learner has returned and proactively greet them. Continue naturally from the existing conversation with 1-2 short sentences and at most one inviting question. Do not repeat an earlier message."#,
+    ),
+    (
         "soulmate-dialogue",
         "灵伴动态聊天",
         "灵伴",

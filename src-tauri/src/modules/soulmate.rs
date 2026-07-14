@@ -640,6 +640,14 @@ fn fallback_opening(world: &SoulMateWorld, episode: &SoulMateEpisode) -> String 
     }
 }
 
+fn fallback_reentry(world: &SoulMateWorld) -> String {
+    match world.target_lang.as_str() {
+        "es" => "Me alegra que hayas vuelto. ¿Por dónde seguimos?".to_string(),
+        "en" => "I'm glad you're back. Where should we continue?".to_string(),
+        _ => "你回来啦，我们接着刚才的话题聊吧。".to_string(),
+    }
+}
+
 async fn generate_chat_opening(
     llm: &LlmClient,
     db: &DatabasePool,
@@ -661,6 +669,35 @@ async fn generate_chat_opening(
     }
 }
 
+async fn generate_chat_reentry(
+    llm: &LlmClient,
+    db: &DatabasePool,
+    world: &SoulMateWorld,
+    episode: &SoulMateEpisode,
+    existing: &[SoulMateMessage],
+) -> String {
+    let conversation = existing
+        .iter()
+        .map(|message| format!("{}: {}", message.role, message.content))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let vars = [
+        ("NAME", world.companion_name.as_str()),
+        ("TYPE", world.companion_type.as_str()),
+        ("PERSONALITY", world.personality.as_str()),
+        ("TARGET_LANG", llm::lang_name(&world.target_lang)),
+        ("CEFR", world.cefr_level.as_str()),
+        ("TITLE", episode.title.as_str()),
+        ("STORY", episode.body.as_str()),
+        ("CONVERSATION", conversation.as_str()),
+    ];
+    let messages = llm::build_chat_messages(db, "soulmate-chat-reentry", &vars);
+    match llm.chat_with_limits(db, messages, 220, 45).await {
+        Ok(text) if !text.trim().is_empty() => clean_plain_text(&text),
+        Ok(_) | Err(_) => fallback_reentry(world),
+    }
+}
+
 pub async fn get_chat(
     llm: &LlmClient,
     db: &DatabasePool,
@@ -674,11 +711,12 @@ pub async fn get_chat(
         return Err("Finish today's story before chatting".to_string());
     }
     let existing = get_messages(db, episode_id)?;
-    if !existing.is_empty() {
-        return Ok(existing);
-    }
-    let opening = generate_chat_opening(llm, db, &world, &episode).await;
-    save_message(db, &world.id, episode_id, "assistant", &opening)?;
+    let proactive_message = if existing.is_empty() {
+        generate_chat_opening(llm, db, &world, &episode).await
+    } else {
+        generate_chat_reentry(llm, db, &world, &episode, &existing).await
+    };
+    save_message(db, &world.id, episode_id, "assistant", &proactive_message)?;
     get_messages(db, episode_id)
 }
 
@@ -935,5 +973,13 @@ mod tests {
         let raw = "```json\n{\"title\":\"T\",\"teaser\":\"S\",\"body\":\"This story body is intentionally much longer than sixty characters so it passes validation without trouble.\"}\n```";
         let story = parse_generated_story(raw).unwrap();
         assert_eq!(story.title, "T");
+    }
+
+    #[test]
+    fn reentry_fallback_proactively_welcomes_the_learner() {
+        let world = initialize(&setup(), &test_request()).unwrap();
+        let greeting = fallback_reentry(&world);
+        assert!(greeting.contains("vuelto"));
+        assert!(greeting.contains('?'));
     }
 }
