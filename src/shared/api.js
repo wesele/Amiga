@@ -204,6 +204,8 @@ export function createApiClient(invoke) {
 
     // Soul Mate
     initializeSoulMate: (request) => call("initialize_soulmate_cmd", { request }),
+    getSoulMateWorld: (userId) => call("get_soulmate_world_cmd", { userId }),
+    updateSoulMate: (request) => call("update_soulmate_cmd", { request }),
     getSoulMateHome: (userId) => call("get_soulmate_home_cmd", { userId }),
     generateSoulMateEpisode: (userId) =>
       call("generate_soulmate_episode_cmd", { userId }),
@@ -390,6 +392,8 @@ export const testMultimodalConnection = (...args) =>
 
 // --- Soul Mate ---
 export const initializeSoulMate = (...args) => defaultApiClient.initializeSoulMate(...args);
+export const getSoulMateWorld = (...args) => defaultApiClient.getSoulMateWorld(...args);
+export const updateSoulMate = (...args) => defaultApiClient.updateSoulMate(...args);
 export const getSoulMateHome = (...args) => defaultApiClient.getSoulMateHome(...args);
 export const generateSoulMateEpisode = (...args) =>
   defaultApiClient.generateSoulMateEpisode(...args);

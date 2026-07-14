@@ -66,11 +66,10 @@
           <template #icon><SettingsIcon /></template>
         </SettingsItem>
         <SettingsItem
-          :title="t('soulmate.reset')"
-          :subtitle="resetStatus || t('soulmate.resetSub')"
-          :showArrow="true"
+          :title="t('soulmate.settingsTitle')"
+          :subtitle="t('soulmate.settingsSub')"
+          to="/profile/soulmate"
           :showDivider="false"
-          @click="showSoulMateReset = true"
         >
           <template #icon><span class="soulmate-settings-icon">💞</span></template>
         </SettingsItem>
@@ -137,16 +136,6 @@
       </div>
     </Teleport>
 
-    <ConfirmDialog
-      :show="showSoulMateReset"
-      :title="t('soulmate.resetTitle')"
-      :message="t('soulmate.resetMessage')"
-      :confirm-text="t('soulmate.resetConfirm')"
-      :confirm-disabled="resettingSoulMate"
-      danger
-      @confirm="handleResetSoulMate"
-      @cancel="showSoulMateReset = false"
-    />
   </div>
 </template>
 
@@ -154,11 +143,9 @@
 import { ref, onMounted, computed } from "vue";
 import { checkUpdate } from "@/shared/backend/update.js";
 import { getLearningGoals, updateLearningGoalCefr } from "@/shared/backend/user.js";
-import { resetSoulMate } from "@/shared/backend/soulmate.js";
 import { openExternalUrl } from "@/shared/external.js";
 import { canAutoInstallUpdate, pickPreferredUpdateAsset, startAppUpdate } from "@/shared/update.js";
 import SettingsItem from "./components/SettingsItem.vue";
-import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import SettingsIcon from "@/shared/components/SettingsIcon.vue";
 import UpdateIcon from "@/shared/components/UpdateIcon.vue";
 import StylizedAvatar from "@/shared/components/StylizedAvatar.vue";
@@ -183,9 +170,6 @@ const avatarId = computed(() => {
   return avatarMapping[av] ?? 0;
 });
 const levelSwitching = ref(false);
-const showSoulMateReset = ref(false);
-const resettingSoulMate = ref(false);
-const resetStatus = ref("");
 const switching = computed(() => targetLangStore.updating);
 const availableLanguages = AVAILABLE_LANGUAGES;
 const learningLevels = computed(() => learningCefrLevels(currentTargetLang.value));
@@ -278,20 +262,6 @@ async function handleInstallUpdate() {
   }
 }
 
-async function handleResetSoulMate() {
-  if (!user.value?.id || resettingSoulMate.value) return;
-  resettingSoulMate.value = true;
-  resetStatus.value = "";
-  try {
-    await resetSoulMate(user.value.id);
-    resetStatus.value = t("soulmate.resetDone");
-    showSoulMateReset.value = false;
-  } catch {
-    resetStatus.value = t("soulmate.resetFail");
-  } finally {
-    resettingSoulMate.value = false;
-  }
-}
 </script>
 
 <style scoped>

@@ -1,6 +1,7 @@
 import SoulMateChat from "./SoulMateChat.vue";
 import SoulMateHome from "./SoulMateHome.vue";
 import SoulMateSetup from "./SoulMateSetup.vue";
+import SoulMateSettings from "./SoulMateSettings.vue";
 import SoulMateStory from "./SoulMateStory.vue";
 
 export default [
@@ -15,6 +16,12 @@ export default [
     name: "soulmate-setup",
     component: SoulMateSetup,
     meta: { parent: "soulmate" },
+  },
+  {
+    path: "/profile/soulmate",
+    name: "soulmate-settings",
+    component: SoulMateSettings,
+    meta: { parent: "profile" },
   },
   {
     path: "/learn/soulmate/story/:episodeId",

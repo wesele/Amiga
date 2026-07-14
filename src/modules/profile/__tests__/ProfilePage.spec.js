@@ -145,24 +145,20 @@ describe("ProfilePage", () => {
     expect(css).toMatch(/\.lang-pill\.active:hover[^{]*\{[\s\S]*?color:\s*#fff/);
   });
 
-  it("resets only Soul Mate from the Me page", async () => {
+  it("links to Soul Mate settings from the Me page", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
       if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
       if (cmd === "get_target_language_cmd") return Promise.resolve("es");
-      if (cmd === "reset_soulmate_cmd") return Promise.resolve(true);
       return Promise.resolve(null);
     });
     const wrapper = mountPage({ realSettings: true });
     await flushPromises();
 
-    const resetItem = wrapper.findAll(".settings-item").find((item) => item.text().includes("重设灵伴"));
-    expect(resetItem).toBeTruthy();
-    await resetItem.trigger("click");
-    await wrapper.find(".confirm-btn.confirm").trigger("click");
-    await flushPromises();
-
-    expect(mockInvoke).toHaveBeenCalledWith("reset_soulmate_cmd", { userId: "u1" });
-    expect(wrapper.text()).toContain("灵伴已重设");
+    const settingsItem = wrapper.findAll(".settings-item")
+      .find((item) => item.text().includes("灵伴设置"));
+    expect(settingsItem).toBeTruthy();
+    const sfcPath = resolve(dirname(fileURLToPath(import.meta.url)), "..", "ProfilePage.vue");
+    expect(readFileSync(sfcPath, "utf8")).toContain('to="/profile/soulmate"');
   });
 });

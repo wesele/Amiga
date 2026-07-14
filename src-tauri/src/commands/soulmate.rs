@@ -15,6 +15,24 @@ pub async fn initialize_soulmate_cmd(
 }
 
 #[tauri::command]
+pub async fn get_soulmate_world_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+) -> Result<Option<soulmate_mod::SoulMateWorld>, String> {
+    soulmate_mod::get_world(&db, &user_id)
+}
+
+#[tauri::command]
+pub async fn update_soulmate_cmd(
+    db: State<'_, DatabasePool>,
+    request: soulmate_mod::InitializeSoulMateRequest,
+) -> Result<soulmate_mod::SoulMateWorld, String> {
+    let world = soulmate_mod::update(&db, &request)?;
+    after_syncable_write(&db);
+    Ok(world)
+}
+
+#[tauri::command]
 pub async fn get_soulmate_home_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,

@@ -9,6 +9,7 @@ import { setLocale } from "@/shared/i18n";
 import SoulMateChat from "../SoulMateChat.vue";
 import SoulMateHome from "../SoulMateHome.vue";
 import SoulMateSetup from "../SoulMateSetup.vue";
+import SoulMateSettings from "../SoulMateSettings.vue";
 import SoulMateStory from "../SoulMateStory.vue";
 
 function makeRouter() {
@@ -18,6 +19,7 @@ function makeRouter() {
       { path: "/learn", name: "learn", component: { template: "<div />" } },
       { path: "/learn/soulmate", name: "soulmate", component: SoulMateHome },
       { path: "/learn/soulmate/setup", name: "soulmate-setup", component: SoulMateSetup },
+      { path: "/profile/soulmate", name: "soulmate-settings", component: SoulMateSettings },
       { path: "/learn/soulmate/story/:episodeId", name: "soulmate-story", component: SoulMateStory, props: true },
       { path: "/learn/soulmate/chat/:episodeId", name: "soulmate-chat", component: SoulMateChat, props: true },
     ],
@@ -70,6 +72,96 @@ describe("Soul Mate MVP", () => {
       }),
     );
     expect(router.currentRoute.value.name).toBe("soulmate");
+  });
+
+  it("loads and updates existing Soul Mate settings", async () => {
+    mockInvoke.mockImplementation((command, args) => {
+      if (command === "get_soulmate_world_cmd") {
+        return Promise.resolve({
+          companion_type: "explore",
+          companion_name: "Sofía",
+          companion_gender: "female",
+          personality: "curious",
+          story_location: "Madrid",
+          intensity: 2,
+          romance_tension: 1,
+          surprise: 3,
+          knowledge: 2,
+        });
+      }
+      if (command === "update_soulmate_cmd") return Promise.resolve(args.request);
+      return baseInvoke(command);
+    });
+    const router = makeRouter();
+    await router.push({ name: "soulmate-settings" });
+    const wrapper = mount(SoulMateSettings, {
+      global: {
+        plugins: [router],
+        stubs: { PageHeader: { template: "<header />" }, Teleport: true },
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.find('.field-label input[maxlength="24"]').element.value).toBe("Sofía");
+    await wrapper.find('.field-label input[maxlength="24"]').setValue("Luna");
+    await wrapper.findAll('.slider-row input[type="range"]')[0].setValue("3");
+    await wrapper.find("form").trigger("submit");
+    await flushPromises();
+
+    expect(mockInvoke).toHaveBeenCalledWith("update_soulmate_cmd", {
+      request: {
+        user_id: "u1",
+        companion_type: "explore",
+        companion_name: "Luna",
+        companion_gender: "female",
+        personality: "curious",
+        story_location: "Madrid",
+        intensity: 3,
+        romance_tension: 1,
+        surprise: 3,
+        knowledge: 2,
+        target_lang: "es",
+        native_lang: "zh",
+        cefr_level: "A1",
+      },
+    });
+    expect(wrapper.text()).toContain("灵伴设置已保存");
+  });
+
+  it("resets Soul Mate from the settings page", async () => {
+    mockInvoke.mockImplementation((command) => {
+      if (command === "get_soulmate_world_cmd") {
+        return Promise.resolve({
+          companion_type: "soul",
+          companion_name: "Sofía",
+          companion_gender: "female",
+          personality: "warm",
+          story_location: "Madrid",
+          intensity: 2,
+          romance_tension: 1,
+          surprise: 2,
+          knowledge: 2,
+        });
+      }
+      if (command === "reset_soulmate_cmd") return Promise.resolve(true);
+      return baseInvoke(command);
+    });
+    const router = makeRouter();
+    await router.push({ name: "soulmate-settings" });
+    const wrapper = mount(SoulMateSettings, {
+      global: {
+        plugins: [router],
+        stubs: { PageHeader: { template: "<header />" }, Teleport: true },
+      },
+    });
+    await flushPromises();
+
+    await wrapper.find(".reset-btn").trigger("click");
+    await wrapper.find(".confirm-btn.confirm").trigger("click");
+    await flushPromises();
+
+    expect(mockInvoke).toHaveBeenCalledWith("reset_soulmate_cmd", { userId: "u1" });
+    expect(router.currentRoute.value.name).toBe("soulmate-setup");
   });
 
   it("uses the magic-wand action to generate today's first story", async () => {

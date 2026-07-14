@@ -132,6 +132,8 @@ pub fn run() {
             commands::speaking::test_multimodal_connection_cmd,
             // Soul Mate commands
             commands::soulmate::initialize_soulmate_cmd,
+            commands::soulmate::get_soulmate_world_cmd,
+            commands::soulmate::update_soulmate_cmd,
             commands::soulmate::get_soulmate_home_cmd,
             commands::soulmate::generate_soulmate_episode_cmd,
             commands::soulmate::get_soulmate_episode_cmd,

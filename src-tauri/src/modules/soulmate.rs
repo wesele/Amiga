@@ -136,6 +136,10 @@ fn get_world_optional(db: &DatabasePool, user_id: &str) -> Result<Option<SoulMat
     .map_err(|e| format!("Failed to query Soul Mate: {e}"))
 }
 
+pub fn get_world(db: &DatabasePool, user_id: &str) -> Result<Option<SoulMateWorld>, String> {
+    get_world_optional(db, user_id)
+}
+
 fn get_episode_for_date(
     db: &DatabasePool,
     world_id: &str,
@@ -239,6 +243,54 @@ pub fn initialize(
     .map_err(|e| format!("Failed to initialize Soul Mate: {e}"))?;
     drop(conn);
     get_world_optional(db, &request.user_id)?.ok_or_else(|| "Soul Mate was not saved".to_string())
+}
+
+pub fn update(
+    db: &DatabasePool,
+    request: &InitializeSoulMateRequest,
+) -> Result<SoulMateWorld, String> {
+    validate_request(request)?;
+    let conn = db.conn()?;
+    let changed = conn
+        .execute(
+            "UPDATE soulmate_worlds SET
+                companion_type = ?1,
+                companion_name = ?2,
+                companion_gender = ?3,
+                personality = ?4,
+                story_location = ?5,
+                intensity = ?6,
+                romance_tension = ?7,
+                surprise = ?8,
+                knowledge = ?9,
+                target_lang = ?10,
+                native_lang = ?11,
+                cefr_level = ?12,
+                updated_at = datetime('now')
+             WHERE user_id = ?13",
+            params![
+                request.companion_type,
+                request.companion_name.trim(),
+                request.companion_gender,
+                request.personality,
+                request.story_location.trim(),
+                request.intensity,
+                request.romance_tension,
+                request.surprise,
+                request.knowledge,
+                request.target_lang,
+                request.native_lang,
+                request.cefr_level,
+                request.user_id,
+            ],
+        )
+        .map_err(|e| format!("Failed to update Soul Mate: {e}"))?;
+    drop(conn);
+    if changed == 0 {
+        return Err("Soul Mate is not initialized".to_string());
+    }
+    get_world_optional(db, &request.user_id)?
+        .ok_or_else(|| "Soul Mate settings could not be reloaded".to_string())
 }
 
 fn home_state(db: &DatabasePool, episode: Option<&SoulMateEpisode>) -> Result<String, String> {
@@ -791,6 +843,33 @@ mod tests {
         let mut request = test_request();
         request.surprise = 4;
         assert!(initialize(&db, &request).is_err());
+    }
+
+    #[test]
+    fn updates_preferences_without_resetting_history() {
+        let db = setup();
+        let original = initialize(&db, &test_request()).unwrap();
+        let conn = db.conn().unwrap();
+        conn.execute(
+            "UPDATE soulmate_worlds
+             SET relationship_stage = 'trusted', story_summary = 'Day 1', memory_summary = 'Memory'
+             WHERE id = ?1",
+            params![original.id],
+        )
+        .unwrap();
+        drop(conn);
+
+        let mut request = test_request();
+        request.companion_name = "Luna".to_string();
+        request.intensity = 3;
+        let updated = update(&db, &request).unwrap();
+
+        assert_eq!(updated.id, original.id);
+        assert_eq!(updated.companion_name, "Luna");
+        assert_eq!(updated.intensity, 3);
+        assert_eq!(updated.relationship_stage, "trusted");
+        assert_eq!(updated.story_summary, "Day 1");
+        assert_eq!(updated.memory_summary, "Memory");
     }
 
     #[test]
