@@ -37,6 +37,14 @@ describe("QuestionRenderer", () => {
     expect(wrapper.findAll(".match-item")).toHaveLength(4);
   });
 
+  it("remounts the renderer for every lesson question", () => {
+    const source = readFileSync(
+      resolve(ROOT, "modules/path/LessonPage.vue"),
+      "utf8",
+    );
+    expect(source).toMatch(/<QuestionRenderer\s+\s*:key="index"/);
+  });
+
   it("uses learner-facing prompt for T01, not imageDesc metadata", () => {
     const source = readFileSync(
       resolve(ROOT, "modules/path/components/QuestionRenderer.vue"),

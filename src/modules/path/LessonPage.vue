@@ -42,6 +42,7 @@
       <div class="lesson-body">
         <p class="section-label">{{ lesson?.section_title_native }}</p>
         <QuestionRenderer
+          :key="index"
           :question="currentQuestion"
           v-model:answer="currentAnswer"
           :show-result="showResult"
