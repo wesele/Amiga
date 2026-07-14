@@ -76,6 +76,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add speaking practice sessions and turns",
             MIGRATION_V18,
         ),
+        (
+            19,
+            "Add Soul Mate worlds, daily episodes, and chat messages",
+            MIGRATION_V19,
+        ),
     ]
 }
 
@@ -437,4 +442,58 @@ CREATE TABLE IF NOT EXISTS speaking_turns (
     attempt_count INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+"#;
+
+const MIGRATION_V19: &str = r#"
+CREATE TABLE IF NOT EXISTS soulmate_worlds (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    companion_type TEXT NOT NULL,
+    companion_name TEXT NOT NULL,
+    companion_gender TEXT NOT NULL DEFAULT 'female',
+    personality TEXT NOT NULL DEFAULT 'warm',
+    story_location TEXT NOT NULL DEFAULT 'Madrid',
+    intensity INTEGER NOT NULL DEFAULT 2,
+    romance_tension INTEGER NOT NULL DEFAULT 1,
+    surprise INTEGER NOT NULL DEFAULT 2,
+    knowledge INTEGER NOT NULL DEFAULT 2,
+    target_lang TEXT NOT NULL,
+    native_lang TEXT NOT NULL,
+    cefr_level TEXT NOT NULL DEFAULT 'A1',
+    relationship_stage TEXT NOT NULL DEFAULT 'new',
+    story_summary TEXT NOT NULL DEFAULT '',
+    memory_summary TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS soulmate_episodes (
+    id TEXT PRIMARY KEY,
+    world_id TEXT NOT NULL REFERENCES soulmate_worlds(id) ON DELETE CASCADE,
+    story_date TEXT NOT NULL,
+    day_number INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    teaser TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'reading',
+    read_position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    read_at TEXT,
+    UNIQUE(world_id, story_date)
+);
+
+CREATE TABLE IF NOT EXISTS soulmate_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    world_id TEXT NOT NULL REFERENCES soulmate_worlds(id) ON DELETE CASCADE,
+    episode_id TEXT REFERENCES soulmate_episodes(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_soulmate_episodes_world_date
+ON soulmate_episodes(world_id, story_date DESC);
+
+CREATE INDEX IF NOT EXISTS idx_soulmate_messages_world_episode
+ON soulmate_messages(world_id, episode_id, id);
 "#;

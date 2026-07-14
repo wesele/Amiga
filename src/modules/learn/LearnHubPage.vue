@@ -97,6 +97,7 @@ const modules = [
   { id: "reading", labelKey: "learn.reading", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="#58cc02"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="#1cb0f6"/></svg>', route: { name: "reading" } },
   { id: "speaking", labelKey: "learn.speaking", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M7 8a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" stroke="#58cc02"/><path d="M17 8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" stroke="#1cb0f6"/><path d="M6 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="#58cc02"/><path d="M14 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="#1cb0f6"/></svg>', route: { name: "speaking" } },
   { id: "translator", labelKey: "chat.translator", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><circle cx="12" cy="12" r="9" stroke="#58cc02"/><line x1="3" y1="12" x2="21" y2="12" stroke="#1cb0f6"/><path d="M12 3a9 9 0 0 1 3 9 9 9 0 0 1-3 9 9 9 0 0 1-3-9 9 9 0 0 1 3-9z" stroke="#58cc02"/></svg>', action: "translator" },
+  { id: "soulmate", labelKey: "learn.soulmate", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M12 20s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 10c0 5.65-7 10-7 10z" stroke="#ff5d8f"/><path d="M18.5 3.5v4M16.5 5.5h4" stroke="#1cb0f6"/></svg>', route: { name: "soulmate" } },
 ];
 
 const pathProgressDone = computed(() => pathCurriculum.value?.completed_sections || 0);
@@ -268,7 +269,7 @@ function openVocab() {
   --module-grid-col-gap: 6vw;
 
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--module-grid-row-gap) var(--module-grid-col-gap);
   padding: var(--module-grid-x) var(--module-grid-x) 14vw;
   box-sizing: border-box;
@@ -281,6 +282,8 @@ function openVocab() {
   justify-content: space-between;
   gap: 8px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   height: calc((100vw - (var(--module-grid-x) * 2) - var(--module-grid-col-gap)) / 2);
   padding: 14px 16px;
   background: linear-gradient(135deg, #ffffff 0%, #eef8f0 100%);
@@ -373,6 +376,7 @@ function openVocab() {
   justify-content: center;
   gap: 0.6em;
   width: 100%;
+  min-width: 0;
   aspect-ratio: 1;
   padding: 0;
   background: var(--white);
@@ -394,12 +398,12 @@ function openVocab() {
 }
 
 .module-icon {
-  font-size: 12vw;
+  font-size: clamp(34px, 9vw, 44px);
   line-height: 1;
 }
 
 .module-label {
-  font-size: clamp(14px, 5vw, 18px);
+  font-size: clamp(12px, 3.6vw, 16px);
   font-weight: 600;
   color: var(--text);
   text-align: center;

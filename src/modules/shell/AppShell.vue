@@ -77,7 +77,16 @@ function switchTab(tab) {
 }
 
 const showNav = computed(() => {
-  const noNavRoutes = ["wizard", "reader", "chat-session", "social-chat", "learn-translator"];
+  const noNavRoutes = [
+    "wizard",
+    "reader",
+    "chat-session",
+    "social-chat",
+    "learn-translator",
+    "soulmate-setup",
+    "soulmate-story",
+    "soulmate-chat",
+  ];
   return !noNavRoutes.includes(route.name);
 });
 

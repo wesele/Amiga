@@ -8,6 +8,7 @@ pub mod path;
 pub mod prompts;
 pub mod reading;
 pub mod share;
+pub mod soulmate;
 pub mod speaking;
 pub mod sync;
 pub mod syncable;

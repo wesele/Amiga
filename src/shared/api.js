@@ -202,6 +202,21 @@ export function createApiClient(invoke) {
     testMultimodalConnection: (config) =>
       call("test_multimodal_connection_cmd", { config }),
 
+    // Soul Mate
+    initializeSoulMate: (request) => call("initialize_soulmate_cmd", { request }),
+    getSoulMateHome: (userId) => call("get_soulmate_home_cmd", { userId }),
+    generateSoulMateEpisode: (userId) =>
+      call("generate_soulmate_episode_cmd", { userId }),
+    getSoulMateEpisode: (episodeId) =>
+      call("get_soulmate_episode_cmd", { episodeId }),
+    markSoulMateStoryRead: (episodeId) =>
+      call("mark_soulmate_story_read_cmd", { episodeId }),
+    getSoulMateChat: (userId, episodeId) =>
+      call("get_soulmate_chat_cmd", { userId, episodeId }),
+    submitSoulMateTurn: (userId, episodeId, message) =>
+      call("submit_soulmate_turn_cmd", { userId, episodeId, message }),
+    resetSoulMate: (userId) => call("reset_soulmate_cmd", { userId }),
+
     // Cloud sync
     testCloudSync: () => call("test_cloud_sync_cmd"),
     getCloudSyncStatus: () => call("get_cloud_sync_status_cmd"),
@@ -372,3 +387,15 @@ export const getMultimodalConfig = (...args) => defaultApiClient.getMultimodalCo
 export const saveMultimodalConfig = (...args) => defaultApiClient.saveMultimodalConfig(...args);
 export const testMultimodalConnection = (...args) =>
   defaultApiClient.testMultimodalConnection(...args);
+
+// --- Soul Mate ---
+export const initializeSoulMate = (...args) => defaultApiClient.initializeSoulMate(...args);
+export const getSoulMateHome = (...args) => defaultApiClient.getSoulMateHome(...args);
+export const generateSoulMateEpisode = (...args) =>
+  defaultApiClient.generateSoulMateEpisode(...args);
+export const getSoulMateEpisode = (...args) => defaultApiClient.getSoulMateEpisode(...args);
+export const markSoulMateStoryRead = (...args) =>
+  defaultApiClient.markSoulMateStoryRead(...args);
+export const getSoulMateChat = (...args) => defaultApiClient.getSoulMateChat(...args);
+export const submitSoulMateTurn = (...args) => defaultApiClient.submitSoulMateTurn(...args);
+export const resetSoulMate = (...args) => defaultApiClient.resetSoulMate(...args);

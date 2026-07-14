@@ -130,6 +130,15 @@ pub fn run() {
             commands::speaking::get_multimodal_config_cmd,
             commands::speaking::save_multimodal_config_cmd,
             commands::speaking::test_multimodal_connection_cmd,
+            // Soul Mate commands
+            commands::soulmate::initialize_soulmate_cmd,
+            commands::soulmate::get_soulmate_home_cmd,
+            commands::soulmate::generate_soulmate_episode_cmd,
+            commands::soulmate::get_soulmate_episode_cmd,
+            commands::soulmate::mark_soulmate_story_read_cmd,
+            commands::soulmate::get_soulmate_chat_cmd,
+            commands::soulmate::submit_soulmate_turn_cmd,
+            commands::soulmate::reset_soulmate_cmd,
             // Prompt commands
             commands::prompts::get_all_prompts_cmd,
             commands::prompts::get_prompt_cmd,

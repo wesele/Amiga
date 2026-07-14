@@ -23,6 +23,7 @@ function makeRouter() {
       { path: "/learn", name: "learn", component: LearnHubPage },
       { path: "/learn/path", name: "path", component: { template: "<div/>" } },
       { path: "/learn/vocab", name: "vocab", component: { template: "<div/>" } },
+      { path: "/learn/soulmate", name: "soulmate", component: { template: "<div/>" } },
       { path: "/news", name: "news", component: { template: "<div/>" } },
       {
         path: "/learn/translator/:sessionId",
@@ -58,21 +59,22 @@ describe("LearnHubPage", () => {
     api.__setInvoke(mockInvoke);
   });
 
-  it("uses a 2-column tile grid with two icons per row", () => {
+  it("keeps the path card and uses a 3-column tile grid", () => {
     const source = readVue("src/modules/learn/LearnHubPage.vue");
-    expect(source).toMatch(/grid-template-columns:\s*repeat\(2/);
+    expect(source).toMatch(/grid-template-columns:\s*repeat\(3/);
     expect(source).toMatch(/grid-column:\s*1\s*\/\s*-1/);
+    expect(source).toMatch(/\.path-progress-card\s*\{[^}]*box-sizing:\s*border-box/s);
     expect(source).toMatch(/aspect-ratio:\s*1/);
     expect(source).not.toMatch(/width:\s*130px/);
-    expect(source).toMatch(/font-size:\s*12vw/);
+    expect(source).toMatch(/font-size:\s*clamp\(34px,\s*9vw,\s*44px\)/);
     expect(source).toMatch(/--module-grid-row-gap:\s*8vw/);
     expect(source).toMatch(/--module-grid-col-gap:\s*6vw/);
     expect(source).toMatch(/gap:\s*var\(--module-grid-row-gap\)\s+var\(--module-grid-col-gap\)/);
     expect(source).toMatch(/height:\s*calc\(\(100vw - \(var\(--module-grid-x\) \* 2\) - var\(--module-grid-col-gap\)\) \/ 2\)/);
-    expect(source).toMatch(/font-size:\s*clamp\(14px,\s*5vw,\s*18px\)/);
+    expect(source).toMatch(/font-size:\s*clamp\(12px,\s*3\.6vw,\s*16px\)/);
   });
 
-  it("renders a path progress bar above two module tiles", async () => {
+  it("renders the unchanged path card above five module tiles", async () => {
     const router = makeRouter();
     const wrapper = mount(LearnHubPage, {
       global: { plugins: [router] },
@@ -87,12 +89,13 @@ describe("LearnHubPage", () => {
     expect(pathCard.text()).toContain("★ 7");
     expect(pathCard.find(".path-progress-fill").attributes("style")).toContain("width: 30%");
     const tiles = wrapper.findAll(".module-tile");
-    expect(tiles.length).toBe(4);
+    expect(tiles.length).toBe(5);
     const labels = tiles.map((t) => t.find(".module-label").text());
     expect(labels).toContain("新闻");
     expect(labels).toContain("阅读");
     expect(labels).toContain("AI 口语");
     expect(labels).toContain("AI 翻译");
+    expect(labels).toContain("灵伴");
   });
 
   it("navigates to path when the path progress bar is clicked", async () => {
@@ -121,6 +124,19 @@ describe("LearnHubPage", () => {
     await newsTile.trigger("click");
 
     expect(pushSpy).toHaveBeenCalledWith({ name: "news" });
+  });
+
+  it("navigates to Soul Mate when the tile is clicked", async () => {
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, { global: { plugins: [router] } });
+    await flushPromises();
+
+    const tile = wrapper.findAll(".module-tile")
+      .find((item) => item.find(".module-label").text() === "灵伴");
+    await tile.trigger("click");
+
+    expect(pushSpy).toHaveBeenCalledWith({ name: "soulmate" });
   });
 
   it("keeps the path card top inset equal to its horizontal inset", async () => {

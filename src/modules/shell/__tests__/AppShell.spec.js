@@ -129,6 +129,9 @@ describe("AppShell render", () => {
     router.addRoute({ path: "/wizard", name: "wizard", component: { template: "<div />" } });
     router.addRoute({ path: "/news/:id", name: "reader", component: { template: "<div />" } });
     router.addRoute({ path: "/chat/:id", name: "chat-session", component: { template: "<div />" } });
+    router.addRoute({ path: "/learn/soulmate/setup", name: "soulmate-setup", component: { template: "<div />" } });
+    router.addRoute({ path: "/learn/soulmate/story/:episodeId", name: "soulmate-story", component: { template: "<div />" } });
+    router.addRoute({ path: "/learn/soulmate/chat/:episodeId", name: "soulmate-chat", component: { template: "<div />" } });
     router.addRoute({
       path: "/learn/translator/:sessionId",
       name: "learn-translator",
@@ -144,10 +147,10 @@ describe("AppShell render", () => {
     });
     await flushPromises();
 
-    for (const path of ["/learn", "/news", "/wizard", "/news/123", "/chat/abc", "/learn/translator/abc"]) {
+    for (const path of ["/learn", "/news", "/wizard", "/news/123", "/chat/abc", "/learn/translator/abc", "/learn/soulmate/setup", "/learn/soulmate/story/e1", "/learn/soulmate/chat/e1"]) {
       await router.push(path);
       await flushPromises();
-      const isHidden = path === "/wizard" || path === "/news/123" || path === "/chat/abc" || path === "/learn/translator/abc";
+      const isHidden = path === "/wizard" || path === "/news/123" || path === "/chat/abc" || path === "/learn/translator/abc" || path.startsWith("/learn/soulmate/");
       const has = wrapper.find(".bottom-nav").exists();
       expect({ path, has }).toEqual({ path, has: !isHidden });
     }

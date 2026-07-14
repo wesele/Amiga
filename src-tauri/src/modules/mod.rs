@@ -12,6 +12,7 @@ pub mod path;
 pub mod path_content;
 pub mod prompts;
 pub mod reading;
+pub mod soulmate;
 pub mod speaking;
 pub mod sync;
 pub mod sync_config;

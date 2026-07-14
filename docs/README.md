@@ -11,6 +11,7 @@
 | [testing.md](./testing.md) | 测试、截图 |
 | [android-native.md](./android-native.md) | Android 架构、JS↔Kotlin 桥 |
 | [android-adb-debugging.md](./android-adb-debugging.md) | ADB 深潜（按需） |
+| [soul-mate-implementation.md](./soul-mate-implementation.md) | Soul Mate / 灵伴故事功能与实现框架 |
 
 ## 周边子项目 / 非主应用
 

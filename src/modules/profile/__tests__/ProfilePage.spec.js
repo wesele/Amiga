@@ -33,11 +33,16 @@ describe("ProfilePage", () => {
     api.__setInvoke(mockInvoke);
   });
 
-  function mountPage() {
+  function mountPage({ realSettings = false } = {}) {
     return mount(ProfilePage, {
       global: {
         mocks: { $router: makeStubRouter(), $route: makeStubRoute() },
-        stubs: { SettingsItem: true, Teleport: true },
+        stubs: {
+          SettingsItem: realSettings ? false : true,
+          ConfirmDialog: realSettings ? false : true,
+          RouterLink: { template: "<a><slot /></a>" },
+          Teleport: true,
+        },
       },
     });
   }
@@ -138,5 +143,26 @@ describe("ProfilePage", () => {
     const sfcPath = resolve(dirname(fileURLToPath(import.meta.url)), "..", "ProfilePage.vue");
     const css = readFileSync(sfcPath, "utf8");
     expect(css).toMatch(/\.lang-pill\.active:hover[^{]*\{[\s\S]*?color:\s*#fff/);
+  });
+
+  it("resets only Soul Mate from the Me page", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "reset_soulmate_cmd") return Promise.resolve(true);
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage({ realSettings: true });
+    await flushPromises();
+
+    const resetItem = wrapper.findAll(".settings-item").find((item) => item.text().includes("重设灵伴"));
+    expect(resetItem).toBeTruthy();
+    await resetItem.trigger("click");
+    await wrapper.find(".confirm-btn.confirm").trigger("click");
+    await flushPromises();
+
+    expect(mockInvoke).toHaveBeenCalledWith("reset_soulmate_cmd", { userId: "u1" });
+    expect(wrapper.text()).toContain("灵伴已重设");
   });
 });
