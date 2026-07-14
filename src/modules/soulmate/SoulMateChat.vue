@@ -6,7 +6,12 @@
       <div v-else-if="loadError" class="chat-state error">{{ loadError }}</div>
       <template v-else>
         <div v-for="message in messages" :key="message.id" class="message-row" :class="`role-${message.role}`">
-          <div class="bubble">{{ message.content }}</div>
+          <div class="bubble">
+            <template v-for="(token, tokenIndex) in messageTokens(message)" :key="tokenIndex">
+              <span v-if="token.isWord" class="message-word" @click.stop="onWordTap(token)">{{ token.text }}</span>
+              <span v-else>{{ token.text }}</span>
+            </template>
+          </div>
         </div>
         <div v-if="sending" class="message-row role-assistant"><div class="bubble typing"><i/><i/><i/></div></div>
       </template>
@@ -15,15 +20,36 @@
       <input v-model="input" :placeholder="t('soulmate.chatPlaceholder')" :disabled="sending || loading" maxlength="1000" />
       <button type="submit" :disabled="!input.trim() || sending">{{ t("soulmate.send") }}</button>
     </form>
+
+    <Transition name="popup">
+      <WordPopup
+        v-if="selectedWord"
+        :word="selectedWord.text"
+        :context="selectedWord.context"
+        :source-lang="targetLang"
+        :native-lang="getLocale()"
+        mode="word"
+        @close="selectedWord = null"
+        @known="setWordMastery(2)"
+        @unknown="setWordMastery(1)"
+      />
+    </Transition>
   </div>
 </template>
 
 <script setup>
 import { computed, nextTick, onMounted, ref } from "vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
-import { useI18n } from "@/shared/i18n";
+import WordPopup from "@/shared/components/WordPopup.vue";
+import { tokenizeArticleText } from "@/shared/articleText.js";
+import { useI18n, getLocale } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { getSoulMateChat, getSoulMateHome, submitSoulMateTurn } from "@/shared/backend/soulmate.js";
+import {
+  addDiscoveredWord,
+  lookupWordIds,
+  updateWordMastery,
+} from "@/shared/backend/vocabulary.js";
 
 const props = defineProps({ episodeId: { type: String, required: true } });
 const { t } = useI18n();
@@ -33,7 +59,9 @@ const loading = ref(true);
 const sending = ref(false);
 const loadError = ref("");
 const userId = ref("");
+const targetLang = ref("es");
 const companionName = ref("");
+const selectedWord = ref(null);
 const messageList = ref(null);
 const chatTitle = computed(() => t("soulmate.chatTitle", { name: companionName.value || t("soulmate.title") }));
 
@@ -41,6 +69,7 @@ onMounted(async () => {
   try {
     const context = await loadLearningContext({ fallbackToFirstGoal: true });
     userId.value = context.user?.id || "";
+    targetLang.value = context.targetLang;
     const home = await getSoulMateHome(userId.value);
     companionName.value = home.world?.companion_name || "";
     messages.value = await getSoulMateChat(userId.value, props.episodeId);
@@ -51,6 +80,36 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
+function messageTokens(message) {
+  return tokenizeArticleText(message?.content || "");
+}
+
+function onWordTap(token) {
+  const selection = window.getSelection?.();
+  if (selection?.toString().trim()) return;
+  selectedWord.value = token;
+}
+
+async function setWordMastery(mastery) {
+  const word = selectedWord.value;
+  selectedWord.value = null;
+  if (!word || !userId.value) return;
+  try {
+    const ids = await lookupWordIds([word.text], targetLang.value);
+    const wordId = ids[0] || await addDiscoveredWord(
+      userId.value,
+      word.text,
+      targetLang.value,
+      word.context,
+    );
+    if (ids.length > 0 || mastery > 1) {
+      await updateWordMastery(userId.value, wordId, mastery, "soulmate_chat");
+    }
+  } catch (_) {
+    // Translation remains usable even when vocabulary tracking is unavailable.
+  }
+}
 
 async function scrollBottom() {
   await nextTick();
@@ -84,6 +143,8 @@ async function send() {
 .role-assistant { align-self: flex-start; }
 .role-user { align-self: flex-end; }
 .bubble { padding: 11px 14px; border-radius: 18px 18px 18px 5px; background: var(--surface); color: var(--text); font-size: 15px; line-height: 1.5; box-shadow: 0 2px 8px rgba(0,0,0,.05); white-space: pre-wrap; word-break: break-word; }
+.message-word { cursor: pointer; border-radius: 3px; user-select: text; -webkit-user-select: text; -webkit-tap-highlight-color: transparent; }
+.message-word:hover { background: var(--blue-bg); }
 .role-user .bubble { border-radius: 18px 18px 5px 18px; background: #ff5d8f; color: #fff; }
 /* AppShell owns the bottom safe-area strip, including the Android IME inset.
  * Adding --safe-bottom here would reserve it twice and push the input upward. */

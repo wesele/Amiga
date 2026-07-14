@@ -298,6 +298,44 @@ describe("Soul Mate MVP", () => {
     expect(wrapper.text()).toContain("Buena idea.");
   });
 
+  it("opens the news-style translation popup when a chat word is tapped", async () => {
+    mockInvoke.mockImplementation((command) => {
+      if (command === "get_soulmate_home_cmd") {
+        return Promise.resolve({ world: { companion_name: "Sofía" } });
+      }
+      if (command === "get_soulmate_chat_cmd") {
+        return Promise.resolve([{ id: 1, role: "assistant", content: "¿Qué harías tú?" }]);
+      }
+      if (command === "translate_word_cmd") {
+        return Promise.resolve({ translation: "做", pos: "verb" });
+      }
+      return baseInvoke(command);
+    });
+    const router = makeRouter();
+    await router.push({ name: "soulmate-chat", params: { episodeId: "e1" } });
+    const wrapper = mount(SoulMateChat, {
+      props: { episodeId: "e1" },
+      global: { plugins: [router], stubs: { PageHeader: { template: "<header />" } } },
+    });
+    await flushPromises();
+
+    expect(wrapper.findAll(".message-word").map((word) => word.text())).toEqual([
+      "Qué",
+      "harías",
+      "tú",
+    ]);
+    await wrapper.findAll(".message-word")[1].trigger("click");
+    await flushPromises();
+
+    expect(mockInvoke).toHaveBeenCalledWith("translate_word_cmd", {
+      word: "harías",
+      context: "¿Qué harías tú?",
+      sourceLang: "es",
+      nativeLang: "zh",
+    });
+    expect(wrapper.find(".word-popup").text()).toContain("做");
+  });
+
   it("keeps the chat input at the shell-owned safe-area boundary", () => {
     const source = readFileSync(resolve(__dirname, "../SoulMateChat.vue"), "utf8");
     const inputBarCss = source.match(/\.input-bar\s*\{[^}]+\}/);
