@@ -79,8 +79,8 @@ import org.json.JSONObject
  */
 class MainActivity : TauriActivity() {
     private var mainWebView: WebView? = null
+    private var translateCallback: TranslateWindowCallback? = null
     private var activeSelectionActionMode: ActionMode? = null
-    private var startingWrappedSelectionActionMode = false
     private var apkDownloadReceiver: BroadcastReceiver? = null
     private val pendingApkDownloads = mutableMapOf<Long, File>()
     private var textToSpeech: TextToSpeech? = null
@@ -152,6 +152,7 @@ class MainActivity : TauriActivity() {
         webView.setOnLongClickListener(null)
         webView.isLongClickable = true
         webView.isHapticFeedbackEnabled = true
+        translateCallback = TranslateWindowCallback(webView)
         // 4) Share bridge: expose __amigaShare.shareText() so the
         //    frontend can trigger the native Android share sheet.
         installShareBridge(webView)
@@ -171,6 +172,7 @@ class MainActivity : TauriActivity() {
 
     override fun onDestroy() {
         mainWebView = null
+        translateCallback = null
         activeSelectionActionMode = null
         apkDownloadReceiver?.let { unregisterReceiver(it) }
         apkDownloadReceiver = null
@@ -183,51 +185,13 @@ class MainActivity : TauriActivity() {
         super.onDestroy()
     }
 
-    /**
-     * Wrap WebView's own callback before the floating selection mode starts.
-     *
-     * Android 0.4.21 injected directly into [onActionModeStarted], which is
-     * only a lifecycle notification. Some OEM floating toolbars retain that
-     * already-started mode while the activity is stopped and then try to
-     * restore it with a stale window callback, preventing the activity from
-     * becoming visible again. Keeping the original callback in control of
-     * the complete ActionMode lifecycle avoids that invalid restored state.
-     */
-    override fun onWindowStartingActionMode(
-        callback: ActionMode.Callback,
-        type: Int,
-    ): ActionMode? {
-        val webView = mainWebView
-        if (
-            type != ActionMode.TYPE_FLOATING ||
-            webView == null ||
-            startingWrappedSelectionActionMode
-        ) {
-            return super.onWindowStartingActionMode(callback, type)
-        }
-
-        // DecorView keeps using its original callback when this hook returns
-        // null, so passing a wrapper to super() would not replace anything.
-        // Start the mode again from the originating WebView and return that
-        // concrete mode. The guard lets the nested start fall through to the
-        // framework without recursing back into this branch.
-        startingWrappedSelectionActionMode = true
-        return try {
-            webView.startActionMode(
-                TranslateWindowCallback(webView, callback),
-                type,
-            )
-        } finally {
-            startingWrappedSelectionActionMode = false
-        }
-    }
-
-    /** Track the mode for lifecycle cleanup; do not mutate its OEM-owned menu here. */
+    /** Add Amiga to the OEM-created menu and retain the mode for cleanup. */
     override fun onActionModeStarted(mode: ActionMode) {
         Log.d(TAG, "onActionModeStarted type=${mode.type} tag=${mode.tag}")
         super.onActionModeStarted(mode)
         if (mode.type == ActionMode.TYPE_FLOATING) {
             activeSelectionActionMode = mode
+            translateCallback?.injectInto(mode)
         }
     }
 
