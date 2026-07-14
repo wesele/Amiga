@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { createPinia, setActivePinia } from "pinia";
@@ -199,5 +201,14 @@ describe("Soul Mate MVP", () => {
       message: "Yo buscaría la estación.",
     });
     expect(wrapper.text()).toContain("Buena idea.");
+  });
+
+  it("keeps the chat input at the shell-owned safe-area boundary", () => {
+    const source = readFileSync(resolve(__dirname, "../SoulMateChat.vue"), "utf8");
+    const inputBarCss = source.match(/\.input-bar\s*\{[^}]+\}/);
+
+    expect(inputBarCss).toBeTruthy();
+    expect(inputBarCss[0]).toMatch(/padding:\s*10px 12px/);
+    expect(inputBarCss[0]).not.toContain("--safe-bottom");
   });
 });

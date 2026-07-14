@@ -85,7 +85,9 @@ async function send() {
 .role-user { align-self: flex-end; }
 .bubble { padding: 11px 14px; border-radius: 18px 18px 18px 5px; background: var(--surface); color: var(--text); font-size: 15px; line-height: 1.5; box-shadow: 0 2px 8px rgba(0,0,0,.05); white-space: pre-wrap; word-break: break-word; }
 .role-user .bubble { border-radius: 18px 18px 5px 18px; background: #ff5d8f; color: #fff; }
-.input-bar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding: 10px 12px calc(10px + var(--safe-bottom)); background: var(--surface); border-top: 1px solid var(--border); }
+/* AppShell owns the bottom safe-area strip, including the Android IME inset.
+ * Adding --safe-bottom here would reserve it twice and push the input upward. */
+.input-bar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding: 10px 12px; background: var(--surface); border-top: 1px solid var(--border); }
 .input-bar input { flex: 1; min-width: 0; border: none; border-radius: 21px; background: var(--bg); color: var(--text); padding: 11px 15px; font: inherit; outline: none; }
 .input-bar button { border: none; border-radius: 18px; background: #ff5d8f; color: white; padding: 9px 15px; font: inherit; font-weight: 700; }
 .input-bar button:disabled { opacity: .45; }
