@@ -298,6 +298,107 @@ describe("Soul Mate MVP", () => {
     expect(wrapper.text()).toContain("Buena idea.");
   });
 
+  it("scrolls to the latest message after chat history finishes rendering", async () => {
+    const scrollPositions = new WeakMap();
+    const scrollTopDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, "scrollTop");
+    const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, "scrollHeight");
+    Object.defineProperty(Element.prototype, "scrollTop", {
+      configurable: true,
+      get() { return scrollPositions.get(this) || 0; },
+      set(value) { scrollPositions.set(this, value); },
+    });
+    Object.defineProperty(Element.prototype, "scrollHeight", {
+      configurable: true,
+      get() { return this.querySelector?.(".message-row") ? 900 : 20; },
+    });
+    try {
+      mockInvoke.mockImplementation((command) => {
+        if (command === "get_soulmate_home_cmd") {
+          return Promise.resolve({ world: { companion_name: "Sofía" } });
+        }
+        if (command === "get_soulmate_chat_cmd") {
+          return Promise.resolve([
+            { id: 1, role: "assistant", content: "Primero" },
+            { id: 2, role: "user", content: "Después" },
+          ]);
+        }
+        return baseInvoke(command);
+      });
+      const router = makeRouter();
+      await router.push({ name: "soulmate-chat", params: { episodeId: "e1" } });
+      const wrapper = mount(SoulMateChat, {
+        props: { episodeId: "e1" },
+        global: { plugins: [router], stubs: { PageHeader: { template: "<header />" } } },
+      });
+      await flushPromises();
+
+      const list = wrapper.find(".message-list").element;
+      expect(list.querySelectorAll(".message-row")).toHaveLength(2);
+      expect(list.scrollTop).toBe(900);
+    } finally {
+      if (scrollTopDescriptor) {
+        Object.defineProperty(Element.prototype, "scrollTop", scrollTopDescriptor);
+      } else {
+        delete Element.prototype.scrollTop;
+      }
+      if (scrollHeightDescriptor) {
+        Object.defineProperty(Element.prototype, "scrollHeight", scrollHeightDescriptor);
+      } else {
+        delete Element.prototype.scrollHeight;
+      }
+    }
+  });
+
+  it("keeps the same message position above the keyboard when the viewport shrinks", async () => {
+    let resizeHandler;
+    const viewport = {
+      height: 700,
+      addEventListener: vi.fn((event, handler) => {
+        if (event === "resize") resizeHandler = handler;
+      }),
+      removeEventListener: vi.fn(),
+    };
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      value: viewport,
+    });
+    let animationFrame;
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback) => {
+      animationFrame = callback;
+      return 1;
+    }));
+    mockInvoke.mockImplementation((command) => {
+      if (command === "get_soulmate_home_cmd") {
+        return Promise.resolve({ world: { companion_name: "Sofía" } });
+      }
+      if (command === "get_soulmate_chat_cmd") {
+        return Promise.resolve([{ id: 1, role: "assistant", content: "¿Qué harías tú?" }]);
+      }
+      return baseInvoke(command);
+    });
+    const router = makeRouter();
+    await router.push({ name: "soulmate-chat", params: { episodeId: "e1" } });
+    const wrapper = mount(SoulMateChat, {
+      props: { episodeId: "e1" },
+      global: { plugins: [router], stubs: { PageHeader: { template: "<header />" } } },
+    });
+    await flushPromises();
+
+    const list = wrapper.find(".message-list").element;
+    let clientHeight = 400;
+    Object.defineProperty(list, "scrollHeight", { configurable: true, value: 1000 });
+    Object.defineProperty(list, "clientHeight", { configurable: true, get: () => clientHeight });
+    list.scrollTop = 350;
+    await wrapper.find(".input-bar input").trigger("focus");
+
+    clientHeight = 200;
+    viewport.height = 500;
+    resizeHandler();
+    animationFrame();
+
+    expect(list.scrollTop).toBe(550);
+  });
+
   it("opens the news-style translation popup when a chat word is tapped", async () => {
     mockInvoke.mockImplementation((command) => {
       if (command === "get_soulmate_home_cmd") {

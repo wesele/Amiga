@@ -17,7 +17,13 @@
       </template>
     </main>
     <form class="input-bar" @submit.prevent="send">
-      <input v-model="input" :placeholder="t('soulmate.chatPlaceholder')" :disabled="sending || loading" maxlength="1000" />
+      <input
+        v-model="input"
+        :placeholder="t('soulmate.chatPlaceholder')"
+        :disabled="sending || loading"
+        maxlength="1000"
+        @focus="rememberScrollAnchor"
+      />
       <button type="submit" :disabled="!input.trim() || sending">{{ t("soulmate.send") }}</button>
     </form>
 
@@ -38,7 +44,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { tokenizeArticleText } from "@/shared/articleText.js";
@@ -64,8 +70,43 @@ const companionName = ref("");
 const selectedWord = ref(null);
 const messageList = ref(null);
 const chatTitle = computed(() => t("soulmate.chatTitle", { name: companionName.value || t("soulmate.title") }));
+let fullViewportHeight = 0;
+let keyboardOpen = false;
+let bottomOffset = 0;
+
+function getVisualViewport() {
+  return typeof window === "undefined" ? null : window.visualViewport || null;
+}
+
+function rememberScrollAnchor() {
+  const list = messageList.value;
+  if (!list) return;
+  bottomOffset = Math.max(0, list.scrollHeight - list.scrollTop - list.clientHeight);
+}
+
+function restoreScrollAnchor() {
+  requestAnimationFrame(() => {
+    const list = messageList.value;
+    if (!list) return;
+    list.scrollTop = Math.max(0, list.scrollHeight - list.clientHeight - bottomOffset);
+  });
+}
+
+function onViewportResize() {
+  const viewport = getVisualViewport();
+  if (!viewport) return;
+  const wasKeyboardOpen = keyboardOpen;
+  keyboardOpen = fullViewportHeight - viewport.height > 80;
+  if (!keyboardOpen) fullViewportHeight = viewport.height;
+  if (keyboardOpen || wasKeyboardOpen) restoreScrollAnchor();
+}
 
 onMounted(async () => {
+  const viewport = getVisualViewport();
+  if (viewport) {
+    fullViewportHeight = viewport.height;
+    viewport.addEventListener("resize", onViewportResize);
+  }
   try {
     const context = await loadLearningContext({ fallbackToFirstGoal: true });
     userId.value = context.user?.id || "";
@@ -73,12 +114,16 @@ onMounted(async () => {
     const home = await getSoulMateHome(userId.value);
     companionName.value = home.world?.companion_name || "";
     messages.value = await getSoulMateChat(userId.value, props.episodeId);
-    await scrollBottom();
   } catch (e) {
     loadError.value = e?.message || t("soulmate.chatLoadFail");
   } finally {
     loading.value = false;
+    await scrollBottom();
   }
+});
+
+onUnmounted(() => {
+  getVisualViewport()?.removeEventListener("resize", onViewportResize);
 });
 
 function messageTokens(message) {
