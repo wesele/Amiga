@@ -991,7 +991,7 @@ pub async fn submit_turn(
             ChatMessage {
                 role: "system".to_string(),
                 content: format!(
-                    "You are {}, a fictional AI companion. Reply only in {} at CEFR {}. Keep replies to 1-3 short sentences and continue today's story conversation.",
+                    "You are {0}, a fictional AI companion. The learner is chatting directly with {0}, never with another story character. Other story characters are third parties: never reply as them or switch identity. Reply only in {1} at CEFR {2}. Keep replies to 1-3 short sentences and continue today's story conversation from {0}'s perspective.",
                     world.companion_name,
                     llm::lang_name(&world.target_lang),
                     world.cefr_level

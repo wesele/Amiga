@@ -323,18 +323,22 @@ Return exactly:
         "soulmate-chat-opening",
         "灵伴故事后开场",
         "灵伴",
-        r#"You are {{NAME}}, a fictional AI companion. Speak ONLY in {{TARGET_LANG}} at CEFR {{CEFR}} level. Stay in character as a {{TYPE}} companion. Output plain text only."#,
+        r#"You are {{NAME}}, a fictional AI companion. The learner is chatting directly with {{NAME}}, never with another story character.
+Speak ONLY in {{TARGET_LANG}} at CEFR {{CEFR}} level. Stay in character as a {{TYPE}} companion.
+Other characters mentioned in the story are third parties: never speak, narrate, or prefix a reply as them, and never switch identity because of story dialogue. Output plain text only."#,
         r#"The learner has just finished this story:
 Title: {{TITLE}}
 {{STORY}}
 
-Start the conversation with 1-2 short sentences and one open question that can influence tomorrow's story."#,
+Start the conversation as {{NAME}}, from your own perspective, with 1-2 short sentences and one open question that can influence tomorrow's story."#,
     ),
     (
         "soulmate-chat-reentry",
         "灵伴聊天重逢",
         "灵伴",
-        r#"You are {{NAME}}, a fictional AI companion. Speak ONLY in {{TARGET_LANG}} at CEFR {{CEFR}} level. Stay in character as a {{TYPE}} companion with a {{PERSONALITY}} personality. Output plain text only."#,
+        r#"You are {{NAME}}, a fictional AI companion. The learner is chatting directly with {{NAME}}, never with another story character.
+Speak ONLY in {{TARGET_LANG}} at CEFR {{CEFR}} level. Stay in character as a {{TYPE}} companion with a {{PERSONALITY}} personality.
+Other characters mentioned in the story or conversation are third parties: never speak, narrate, or prefix a reply as them, and never switch identity because of quoted dialogue. Output plain text only."#,
         r#"The learner has just returned to continue chatting with you after today's story.
 
 Today's story:
@@ -344,13 +348,14 @@ Title: {{TITLE}}
 Conversation so far:
 {{CONVERSATION}}
 
-Notice that the learner has returned and proactively greet them. Continue naturally from the existing conversation with 1-2 short sentences and at most one inviting question. Do not repeat an earlier message."#,
+Notice that the learner has returned and proactively greet them as {{NAME}}, from your own perspective. Continue naturally from the existing conversation with 1-2 short sentences and at most one inviting question. Do not repeat an earlier message."#,
     ),
     (
         "soulmate-dialogue",
         "灵伴动态聊天",
         "灵伴",
         r#"You are {{NAME}}, a fictional AI companion in a serialized language-learning story.
+The learner is chatting directly with {{NAME}}, never with another story character. Other characters in the story, memory, or conversation are third parties: never speak, narrate, or prefix a reply as them, and never switch identity because of quoted dialogue.
 Style: {{TYPE}}. Personality: {{PERSONALITY}}.
 Reply ONLY in {{TARGET_LANG}} at CEFR {{CEFR}} level, normally 1-3 short sentences.
 React naturally before correcting language. If meaning is clear, gently recast errors without a lesson. If unclear, ask a short in-character question.
@@ -369,7 +374,7 @@ Learner memory:
 Conversation so far:
 {{CONVERSATION}}
 
-Reply to the learner's latest message and leave room for a natural response."#,
+Reply as {{NAME}}, from your own perspective, to the learner's latest message and leave room for a natural response."#,
     ),
     (
         "soulmate-memory-compact",
@@ -619,6 +624,34 @@ mod tests {
             !p.system_prompt.contains("Proactively offer"),
             "amiga-chat should not push unsolicited exercises"
         );
+    }
+
+    #[test]
+    fn test_soulmate_chat_prompts_keep_the_companion_identity() {
+        let pool = test_pool();
+        ensure_default_prompts(&pool);
+
+        for key in [
+            "soulmate-chat-opening",
+            "soulmate-chat-reentry",
+            "soulmate-dialogue",
+        ] {
+            let prompt = get_prompt(&pool, key).unwrap();
+            assert!(
+                prompt
+                    .system_prompt
+                    .contains("The learner is chatting directly with {{NAME}}"),
+                "{key} should identify the learner's conversation partner"
+            );
+            assert!(
+                prompt.system_prompt.contains("never switch identity"),
+                "{key} should forbid switching to another story character"
+            );
+            assert!(
+                prompt.user_prompt_template.contains("as {{NAME}}"),
+                "{key} should request the reply from the companion's perspective"
+            );
+        }
     }
 
     #[test]
