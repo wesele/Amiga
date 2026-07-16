@@ -4,7 +4,7 @@
 >
 > **日常发版**：看文末 [§发布流程](#发布流程) + [release-and-scripts.md](./release-and-scripts.md) 即可。下文为 CI/CD 教程与历史踩坑，非 Amiga 应用开发必读。
 
-本文档以 Amiga 项目为实例，完整说明如何用一条 GitHub Actions workflow 实现：**打 tag → 构建 Android APK + Windows 安装包 → 发布 GitHub Release → 同步部署到 Cloudflare Pages**。
+本文档以 Amiga 项目为实例，完整说明如何用一条 GitHub Actions workflow 实现：**打 tag → 构建 Android APK + Windows 安装包 → 发布 GitHub Release → 同步下载页到 Cloudflare Pages**。
 
 ---
 
@@ -28,9 +28,8 @@ git tag v0.4.0 && git push --tags
 │   Create GitHub Release     │               │
 ├─────────────────────────────┤               │
 │       deploy-pages          │  (等待发布完成) │
-│   Download APK from Release │               │
 │   Stage HTML + icon         │               │
-│   Inject version            │               │
+│   Inject version + APK URL  │               │
 │   Deploy to CF Pages        │               │
 └─────────────────────────────┘
 ```
@@ -333,7 +332,7 @@ Creating Github Deployment failed
 
 ```yaml
   deploy-pages:
-    name: Deploy APK to Cloudflare Pages
+    name: Deploy download page to Cloudflare Pages
     if: startsWith(github.ref, 'refs/tags/v')
     needs: release
     runs-on: ubuntu-latest
@@ -345,25 +344,18 @@ Creating Github Deployment failed
       CF_PAGES_BRANCH: ${{ vars.CF_PAGES_BRANCH || 'master' }}
     steps:
       - uses: actions/checkout@v4
-      - name: Download APK from GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir -p pages-dist
-          gh release download "$GITHUB_REF_NAME" \
-            --pattern "amiga-v*.apk" \
-            --dir pages-dist
-          APK=$(ls pages-dist/amiga-v*.apk | head -1)
-          test -n "$APK" || { echo "::error::No APK"; exit 1; }
-          mv "$APK" pages-dist/Amiga.apk
       - name: Stage static assets
         run: |
+          mkdir -p pages-dist
           cp pages/amiga-icon.png pages-dist/amiga-icon.png
           cp pages/index.html pages-dist/index.html
-      - name: Inject version into HTML
+      - name: Inject release links into HTML
         env:
           VERSION: ${{ github.ref_name }}
-        run: sed -i "s|__AMIGA_VERSION__|${VERSION}|g" pages-dist/index.html
+        run: |
+          apk_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${VERSION}/amiga-${VERSION}.apk"
+          sed -i "s|__AMIGA_VERSION__|${VERSION}|g" pages-dist/index.html
+          sed -i "s|__AMIGA_APK_URL__|${apk_url}|g" pages-dist/index.html
       - name: Deploy to Cloudflare Pages (production)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
@@ -377,9 +369,9 @@ Creating Github Deployment failed
 
 设计要点：
 
-1. **`if: startsWith(github.ref, 'refs/tags/v')`** — `workflow_dispatch` 手动触发时没有 tag，不跑部署，避免下载不到 APK 出错
-2. **从 Release 下载而非用构建产物** — `needs: release` 确保 GitHub Release 已创建；用 `gh release download` 获取已发布的 APK，不依赖 build job 的 artifact 路径
-3. **版本注入** — `pages/index.html` 里的 `__AMIGA_VERSION__` 占位符在部署时被 `sed` 替换为真实 tag 名（如 `v0.4.0`），每个版本都会更新
+1. **`if: startsWith(github.ref, 'refs/tags/v')`** — `workflow_dispatch` 手动触发时没有发布 tag，不生成无效的 Release 下载链接
+2. **APK 由 GitHub Release 承载** — Cloudflare Pages 的单文件上限为 25 MiB；`needs: release` 确保 Release 与 APK 已创建，下载页只注入版本化的 Release 直链
+3. **版本与链接注入** — `pages/index.html` 里的 `__AMIGA_VERSION__` / `__AMIGA_APK_URL__` 占位符在部署时被替换为真实版本及 APK URL
 
 ---
 
@@ -436,7 +428,8 @@ Cloudflare Dashboard → Workers & Pages → 你的项目 → Settings → Build
 | 部署走 preview 而非 production | 页面更新了但不是 production | tag push 时 HEAD detached | 设 `vars.CF_PAGES_BRANCH` 与 Dashboard production branch 一致 |
 | wrangler-action 降级安装旧版 | 每次安装 wrangler 3.x（10s+） | action v3 内部写死了 `wrangler@3.90.0` | 去掉 action，直接 `npx wrangler@latest` |
 | GitHub Deployment warning | `Creating Github Deployment failed` | job 只有 `contents: read`，缺少 `deployments: write` | 加 `deployments: write` 到 permissions |
-| workflow_dispatch 触发也部署 | `gh release download` 找不到 APK | 手动触发没有 tag 对应的 Release | 用 `if: startsWith(github.ref, 'refs/tags/v')` 过滤 |
+| workflow_dispatch 触发也部署 | 下载链接没有对应 Release | 手动触发没有发布 tag | 用 `if: startsWith(github.ref, 'refs/tags/v')` 过滤 |
+| APK 超过 25 MiB | `Pages only supports files up to 25 MiB` | Pages 单文件大小硬限制 | Pages 仅部署页面，APK 下载链接指向 GitHub Release |
 
 ---
 

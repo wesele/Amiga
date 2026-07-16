@@ -5,8 +5,3 @@ debug = 0
 
 [profile.dev.package."*"]
 opt-level = 0
-
-[profile.release]
-strip = "symbols"
-lto = false
-codegen-units = 16

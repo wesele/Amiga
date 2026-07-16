@@ -293,6 +293,7 @@ impl LlmClient {
     pub fn new() -> Self {
         let http = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(120))
+            .danger_accept_invalid_certs(true)
             .build()
             .expect("Failed to create HTTP client");
         Self { http }
