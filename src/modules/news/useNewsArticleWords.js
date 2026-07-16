@@ -71,7 +71,9 @@ export function useNewsArticleWords({ getUserId, getTargetLang, getArticle }) {
       wordsKnownSet.value.add(selectedWord.value.text);
       try {
         await upsertWordMastery(selectedWord.value, 2, "news_reading");
-      } catch (_) {}
+      } catch (e) {
+        console.error("Failed to mark news word known", e);
+      }
     }
     selectedWord.value = null;
   }
@@ -82,7 +84,9 @@ export function useNewsArticleWords({ getUserId, getTargetLang, getArticle }) {
       wordsUnknownSet.value.add(selectedWord.value.text);
       try {
         await upsertWordMastery(selectedWord.value, 1, "news_reading");
-      } catch (_) {}
+      } catch (e) {
+        console.error("Failed to mark news word unknown", e);
+      }
     }
     selectedWord.value = null;
   }

@@ -215,7 +215,9 @@ async function onSwitchLang(code) {
       if (u) goals.value = await getLearningGoals(u.id);
       const g = pickLearningGoal(goals.value, code);
       if (g) currentLevel.value = g.cefr_level;
-    } catch (_) { /* ignore */ }
+    } catch (refreshErr) {
+      console.warn("Failed to refresh learning goals after language switch", refreshErr);
+    }
   } catch (e) {
     console.error("Failed to switch target language:", e);
   }

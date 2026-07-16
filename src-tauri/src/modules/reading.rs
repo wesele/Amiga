@@ -1231,11 +1231,16 @@ pub async fn explain_reading_answer(
         .map_err(|e| format!("Failed to serialize explanations: {}", e))?;
 
     let conn = db.conn()?;
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE reading_tests SET explanations_json = ?1 WHERE article_id = ?2",
         params![updated_json, article_id],
-    )
-    .ok();
+    ) {
+        log::warn!(
+            "Failed to persist reading test explanation for article {}: {}",
+            article_id,
+            e
+        );
+    }
 
     Ok(explanation)
 }

@@ -80,7 +80,9 @@ function syncNativeLanguage(lang) {
         });
       }
     })
-    .catch(() => {});
+    .catch((e) => {
+      console.warn("Failed to load current user for native_language sync", e);
+    });
 }
 
 export function getLocale() {

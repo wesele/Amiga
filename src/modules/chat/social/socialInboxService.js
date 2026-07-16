@@ -81,7 +81,9 @@ function handleVisibility() {
   if (document.visibilityState === "hidden" && shouldDisconnectSocialSocketOnHidden(state.boundUserAgent)) {
     stopSocialInbox({ keepBootable: true });
   } else if (document.visibilityState === "visible" && !state.booted && !state.bootPromise) {
-    bootSocialInbox().catch(() => {});
+    bootSocialInbox().catch((e) => {
+      console.debug("Social inbox re-boot on visibility failed", e);
+    });
   }
 }
 

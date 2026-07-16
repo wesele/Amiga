@@ -284,9 +284,12 @@ pub async fn chat_completion_with_session(
     if contact_type == "amiga" {
         let new_count = msg_count + 1;
         if new_count % PROFILE_UPDATE_INTERVAL == 0 {
-            let _ =
+            if let Err(e) =
                 update_profile_from_conversation(client, db, session_id, native_lang, target_lang)
-                    .await;
+                    .await
+            {
+                log::warn!("Background chat profile update failed: {}", e);
+            }
         }
     }
 
@@ -477,7 +480,9 @@ async fn update_profile_from_conversation(
                     .unwrap_or("")
                     .to_string();
 
-                update_profile(db, session_id, &merged, &summary).ok();
+                if let Err(e) = update_profile(db, session_id, &merged, &summary) {
+                    log::warn!("Failed to persist updated chat profile: {}", e);
+                }
             }
         }
         Err(e) => log::warn!("Profile update failed: {}", e),

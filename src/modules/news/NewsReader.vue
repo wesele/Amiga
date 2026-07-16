@@ -353,8 +353,9 @@ async function loadBilingual() {
     if (title) {
       try {
         titleTranslation.value = await translateText(title, targetLang, getLocale());
-      } catch (_) {
+      } catch (titleErr) {
         titleTranslation.value = "";
+        console.debug("Failed to translate news title", titleErr);
       }
     }
   } catch (e) {

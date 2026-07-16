@@ -189,7 +189,9 @@ export function startSocialInboxListener({ userId, friends = [] }) {
           connectPublicSocket(config);
           connectDirectSockets(config);
         }
-      }).catch(() => {});
+      }).catch((e) => {
+        console.debug("Social inbox reconnect on visibility failed", e);
+      });
     }
   }
 
@@ -204,13 +206,16 @@ export function startSocialInboxListener({ userId, friends = [] }) {
       await pollOffline(config);
       if (stopped) return;
       offlineTimer = setInterval(() => {
-        pollOffline(config).catch(() => {});
+        pollOffline(config).catch((e) => {
+          console.debug("Social inbox offline poll failed", e);
+        });
       }, 15000);
       if (typeof document !== "undefined") {
         document.addEventListener("visibilitychange", handleVisibility);
       }
-    } catch {
+    } catch (e) {
       /* inbox is best-effort */
+      console.debug("Social inbox start failed", e);
     }
   }
 
@@ -231,6 +236,8 @@ export function startSocialInboxListener({ userId, friends = [] }) {
     }
   }
 
-  start().catch(() => {});
+  start().catch((e) => {
+    console.debug("Social inbox start rejected", e);
+  });
   return stop;
 }
