@@ -296,6 +296,35 @@ mod tests {
         // The current setting still points at the last one.
         assert_eq!(get_target_language(&pool).unwrap(), "zh");
     }
+
+    #[test]
+    fn test_set_target_language_switches_soulmate_language_and_level() {
+        let pool = test_pool();
+        let user = get_or_create_user(&pool).unwrap();
+        {
+            let conn = pool.conn().unwrap();
+            conn.execute(
+                "INSERT INTO soulmate_worlds
+                 (id, user_id, companion_type, companion_name, target_lang, native_lang)
+                 VALUES ('world-1', ?1, 'soul', 'Luna', 'es', 'zh')",
+                params![user.id],
+            )
+            .unwrap();
+        }
+
+        set_target_language(&pool, "en").unwrap();
+
+        let conn = pool.conn().unwrap();
+        let (language, cefr): (String, String) = conn
+            .query_row(
+                "SELECT target_lang, cefr_level FROM soulmate_worlds WHERE user_id = ?1",
+                params![user.id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(language, "en");
+        assert_eq!(cefr, "A1");
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -622,6 +651,12 @@ pub fn update_learning_goal_cefr(
         };
         save_learning_goal(db, goal)?;
     }
+    conn.execute(
+        "UPDATE soulmate_worlds SET cefr_level = ?1, updated_at = datetime('now')
+         WHERE user_id = ?2 AND target_lang = ?3",
+        params![cefr_level, user_id, target_language],
+    )
+    .map_err(|e| format!("Failed to update Soul Mate language level: {}", e))?;
     Ok(())
 }
 
@@ -700,6 +735,23 @@ pub fn set_target_language(db: &DatabasePool, language: &str) -> Result<String, 
         .map_err(|e| format!("Failed to create learning goal: {}", e))?;
         log::info!("Created new learning goal for {} in {}", user_id, language);
     }
+
+    let cefr_level: String = conn
+        .query_row(
+            "SELECT cefr_level FROM learning_goals
+             WHERE user_id = ?1 AND target_language = ?2
+             ORDER BY id DESC LIMIT 1",
+            params![user_id, language],
+            |row| row.get(0),
+        )
+        .unwrap_or_else(|_| "A1".to_string());
+    conn.execute(
+        "UPDATE soulmate_worlds
+         SET target_lang = ?1, cefr_level = ?2, updated_at = datetime('now')
+         WHERE user_id = ?3",
+        params![language, cefr_level, user_id],
+    )
+    .map_err(|e| format!("Failed to switch Soul Mate language: {}", e))?;
 
     log::info!("Current target language set to {}", language);
     Ok(language.to_string())

@@ -46,6 +46,16 @@
       <template v-else>
         <div class="settings-card">
           <div class="field-group">
+            <label class="field-label">{{ t('llm.provider') }}</label>
+            <select v-model="provider" class="field-input provider-select">
+              <option value="openai">OpenAI</option>
+              <option value="gemini">Gemini</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="nvidia_nim">NVIDIA NIM</option>
+            </select>
+          </div>
+          <div class="field-divider" />
+          <div class="field-group">
             <label class="field-label">{{ t('llm.apiKey') }}</label>
             <div class="api-key-wrapper">
               <input
@@ -77,6 +87,17 @@
         </div>
       </template>
 
+      <div class="settings-card thinking-card">
+        <div class="thinking-copy">
+          <span class="thinking-title">{{ t('llm.thinking') }}</span>
+          <span class="thinking-desc">{{ t('llm.thinkingDesc') }}</span>
+        </div>
+        <label class="switch-control">
+          <input v-model="thinkingEnabled" type="checkbox" />
+          <span class="switch-track" />
+        </label>
+      </div>
+
       <!-- Test connection -->
       <button class="btn-test" :disabled="testing" @click="testConnection">
         <span v-if="testing" class="test-spinner" />
@@ -101,7 +122,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { computed, ref, onMounted } from "vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import {
   getLlmConfig,
@@ -119,10 +140,22 @@ const mode = ref("builtin");
 const apiKey = ref("");
 const baseUrl = ref("https://api.openai.com/v1");
 const modelName = ref("");
+const provider = ref("openai");
+const builtinThinkingEnabled = ref(false);
+const customThinkingEnabled = ref(false);
+const thinkingEnabled = computed({
+  get: () => mode.value === "builtin" ? builtinThinkingEnabled.value : customThinkingEnabled.value,
+  set: (value) => {
+    if (mode.value === "builtin") builtinThinkingEnabled.value = value;
+    else customThinkingEnabled.value = value;
+  },
+});
 const builtin = ref({
   baseUrl: "",
   apiKey: "",
   model: "",
+  provider: "nvidia_nim",
+  thinkingEnabled: false,
 });
 const showKey = ref(false);
 const testing = ref(false);
@@ -141,13 +174,18 @@ onMounted(async () => {
           baseUrl: config.builtin.base_url || "",
           apiKey: config.builtin.api_key || "",
           model: config.builtin.model || "",
+          provider: config.builtin.provider || "nvidia_nim",
+          thinkingEnabled: !!config.builtin.thinking_enabled,
         };
       }
       if (config.primary) {
         apiKey.value = config.primary.api_key || "";
         baseUrl.value = config.primary.base_url || "https://api.openai.com/v1";
         modelName.value = config.primary.model || "";
+        provider.value = config.primary.provider || "openai";
       }
+      builtinThinkingEnabled.value = builtin.value.thinkingEnabled;
+      customThinkingEnabled.value = !!config.primary?.thinking_enabled;
     }
   } catch (e) {
     console.error("Failed to load LLM config:", e);
@@ -160,12 +198,16 @@ function currentConfig() {
       api_key: builtin.value.apiKey,
       base_url: builtin.value.baseUrl,
       model: builtin.value.model,
+      provider: builtin.value.provider,
+      thinking_enabled: thinkingEnabled.value,
     };
   }
   return {
     api_key: apiKey.value,
     base_url: baseUrl.value,
     model: modelName.value,
+    provider: provider.value,
+    thinking_enabled: thinkingEnabled.value,
   };
 }
 
@@ -183,6 +225,7 @@ async function saveConfig() {
       await saveLlmConfig("primary", cfg);
       savedMessage.value = t("llm.saved");
     } else {
+      await saveSetting("builtin_thinking_enabled", thinkingEnabled.value ? "true" : "false");
       savedMessage.value = t("llm.savedBuiltin");
     }
     saved.value = true;
@@ -257,6 +300,17 @@ async function testConnection() {
 .field-input:focus {
   border-color: var(--blue);
 }
+.provider-select { appearance: auto; }
+.thinking-card { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px; box-sizing: border-box; }
+.thinking-copy { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.thinking-title { color: var(--text); font-size: 15px; font-weight: 700; }
+.thinking-desc { color: var(--text-lighter); font-size: 12px; line-height: 1.45; }
+.switch-control { position: relative; width: 48px; height: 28px; flex: 0 0 auto; cursor: pointer; }
+.switch-control input { position: absolute; opacity: 0; pointer-events: none; }
+.switch-track { display: block; width: 100%; height: 100%; border-radius: 999px; background: var(--border); transition: background var(--transition); }
+.switch-track::after { content: ""; position: absolute; width: 22px; height: 22px; top: 3px; left: 3px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.2); transition: transform var(--transition); }
+.switch-control input:checked + .switch-track { background: var(--blue); }
+.switch-control input:checked + .switch-track::after { transform: translateX(20px); }
 .field-divider {
   height: 1px;
   background: var(--border);

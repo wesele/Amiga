@@ -625,24 +625,24 @@ fn fallback_story(world: &SoulMateWorld, day_number: i32) -> GeneratedStory {
             title: "La llave sin puerta".to_string(),
             teaser: "Una llave antigua lleva tu nombre, pero no abre ninguna puerta conocida.".to_string(),
             body: format!(
-                "Hoy, {} te espera en una cafetería pequeña de {}. Sobre la mesa hay una llave antigua y una nota con tu nombre. Nadie sabe quién la dejó allí. {} cuenta que, en algunas ciudades españolas, las llaves antiguas se regalaban como símbolo de confianza. De pronto, el camarero mira la llave y deja caer una taza. Dice que vio otra igual en una estación cerrada hace veinte años. {} sonríe, acerca la nota y te pregunta: «¿Buscamos la estación juntos esta noche?» La lluvia empieza a golpear las ventanas. En el reverso de la nota aparece una hora: 23:17. Es el día {} de vuestra historia, y por primera vez parece que alguien más conoce vuestro secreto.",
-                world.companion_name, world.story_location, world.companion_name, world.companion_name, day_number
+                "Hola,\n\nHoy te escribo desde una cafetería pequeña de {}. Sobre mi mesa hay una llave antigua y una nota con tu nombre. Nadie sabe quién la dejó aquí. En algunas ciudades españolas, las llaves antiguas se regalaban como símbolo de confianza. De pronto, el camarero ha mirado la llave y ha dejado caer una taza. Dice que vio otra igual en una estación cerrada hace veinte años. ¿Buscarías la estación conmigo esta noche? La lluvia golpea las ventanas y, en el reverso de la nota, solo aparece una hora: 23:17. Es nuestra carta número {}, y por primera vez parece que alguien más conoce nuestro secreto. Quiero saber qué harías tú.\n\nCon cariño,\n{}",
+                world.story_location, day_number, world.companion_name
             ),
         },
         "en" => GeneratedStory {
             title: "The Key Without a Door".to_string(),
             teaser: "An old key carries your name, but it opens no known door.".to_string(),
             body: format!(
-                "Today, {} waits for you in a small café in {}. An old key and a note with your name lie on the table. Nobody knows who left them. {} explains that old keys were sometimes given as symbols of trust. Suddenly, the waiter sees the key and drops a cup. He says he saw another one at a station that closed twenty years ago. {} moves the note closer and asks, “Should we look for the station together tonight?” Rain begins to hit the windows. On the back of the note there is one time: 23:17. It is day {} of your story, and for the first time it seems that someone else knows your secret.",
-                world.companion_name, world.story_location, world.companion_name, world.companion_name, day_number
+                "Hello,\n\nI am writing from a small café in {}. An old key and a note with your name are lying on my table. Nobody knows who left them. Old keys were sometimes given as symbols of trust. Suddenly, the waiter saw the key and dropped a cup. He says he saw another one at a station that closed twenty years ago. Would you look for the station with me tonight? Rain is hitting the windows, and the back of the note shows only one time: 23:17. This is our letter number {}, and for the first time it seems that someone else knows our secret. Tell me what you would do.\n\nYours,\n{}",
+                world.story_location, day_number, world.companion_name
             ),
         },
         _ => GeneratedStory {
             title: "没有门的钥匙".to_string(),
             teaser: "一把写着你名字的旧钥匙，却打不开任何已知的门。".to_string(),
             body: format!(
-                "今天，{}在{}的一间小咖啡馆等你。桌上放着一把旧钥匙，还有一张写着你名字的纸条，没有人知道是谁留下的。{}告诉你，在一些古老城市里，钥匙曾经代表信任。服务员看到它时突然失手打碎了杯子，因为他曾在一座关闭二十年的车站见过同样的钥匙。{}把纸条推到你面前，问你今晚是否愿意一起寻找那座车站。窗外开始下雨，纸条背面只写着一个时间：23:17。这是你们故事的第{}天，而现在似乎还有另一个人知道这个秘密。",
-                world.companion_name, world.story_location, world.companion_name, world.companion_name, day_number
+                "你好：\n\n我正在{}的一间小咖啡馆里给你写信。桌上放着一把旧钥匙，还有一张写着你名字的纸条，没有人知道是谁留下的。在一些古老城市里，钥匙曾经代表信任。服务员看到它时突然失手打碎了杯子，因为他曾在一座关闭二十年的车站见过同样的钥匙。今晚，你愿意和我一起寻找那座车站吗？窗外开始下雨，纸条背面只写着一个时间：23:17。这是我们的第{}封信，而现在似乎还有另一个人知道这个秘密。我很想知道你会怎么做。\n\n想念你的，\n{}",
+                world.story_location, day_number, world.companion_name
             ),
         },
     }
@@ -690,9 +690,9 @@ pub async fn generate_today_episode(
     let mut messages = llm::build_chat_messages(db, "soulmate-story", &vars);
     if messages.is_empty() {
         messages = llm::build_chat_messages_fallback(
-            "You write serialized fiction for language learners and output strict JSON only.",
+            "You write serialized personal letters from a fictional companion to a language learner and output strict JSON only.",
             &format!(
-                "Write day {} in {} at CEFR {}. Companion: {}. Use suspense, a safe romantic spark, a surprise, and one natural cultural fact. Return JSON with title, teaser, body.",
+                "Write letter {} in {} at CEFR {} from companion {} directly to the learner. Share a first-person experience, use a warm pen-pal voice with a safe romantic spark, and ask one personal question. Include a salutation and sign-off. Return JSON with title, teaser, body.",
                 day_number,
                 llm::lang_name(&world.target_lang),
                 world.cefr_level,

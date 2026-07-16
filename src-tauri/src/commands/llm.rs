@@ -76,6 +76,16 @@ pub async fn save_llm_config_cmd(
     llm_mod::save_llm_setting(&db, "primary_base_url", &config.base_url)?;
     llm_mod::save_llm_setting(&db, "primary_api_key", &config.api_key)?;
     llm_mod::save_llm_setting(&db, "primary_model", &config.model)?;
+    llm_mod::save_llm_setting(&db, "primary_provider", config.provider.as_str())?;
+    llm_mod::save_llm_setting(
+        &db,
+        "primary_thinking_enabled",
+        if config.thinking_enabled {
+            "true"
+        } else {
+            "false"
+        },
+    )?;
     Ok(())
 }
 

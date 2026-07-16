@@ -37,6 +37,8 @@ fn builtin_config_from_values(
             .to_string(),
         api_key: setting_or_default(api_key, BUILTIN_API_KEY),
         model: setting_or_default(model, BUILTIN_MODEL),
+        provider: LlmProvider::NvidiaNim,
+        thinking_enabled: false,
     }
 }
 
@@ -57,6 +59,54 @@ pub fn multimodal_builtin_config() -> ModelConfig {
             std::env::var(ENV_MULTIMODAL_BUILTIN_MODEL).ok().as_deref(),
             MULTIMODAL_BUILTIN_MODEL,
         ),
+        provider: LlmProvider::NvidiaNim,
+        thinking_enabled: false,
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum LlmProvider {
+    #[default]
+    Openai,
+    Gemini,
+    Deepseek,
+    NvidiaNim,
+}
+
+impl LlmProvider {
+    fn from_setting(value: Option<&str>, base_url: &str, model: &str) -> Self {
+        match value {
+            Some("gemini") => Self::Gemini,
+            Some("deepseek") => Self::Deepseek,
+            Some("nvidia_nim") => Self::NvidiaNim,
+            Some("openai") => Self::Openai,
+            _ if base_url.contains("generativelanguage.googleapis.com")
+                || model.to_ascii_lowercase().contains("gemini") =>
+            {
+                Self::Gemini
+            }
+            _ if base_url.contains("deepseek.com")
+                || model.to_ascii_lowercase().contains("deepseek") =>
+            {
+                Self::Deepseek
+            }
+            _ if base_url.contains("nvidia.com")
+                || base_url.contains("integrate.api.nvidia.com") =>
+            {
+                Self::NvidiaNim
+            }
+            _ => Self::Openai,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Openai => "openai",
+            Self::Gemini => "gemini",
+            Self::Deepseek => "deepseek",
+            Self::NvidiaNim => "nvidia_nim",
+        }
     }
 }
 
@@ -65,6 +115,10 @@ pub struct ModelConfig {
     pub base_url: String,
     pub api_key: String,
     pub model: String,
+    #[serde(default)]
+    pub provider: LlmProvider,
+    #[serde(default)]
+    pub thinking_enabled: bool,
 }
 
 /// Which model the user wants the app to use right now. The "builtin" option
@@ -201,6 +255,40 @@ pub struct LlmClient {
     http: reqwest::Client,
 }
 
+fn apply_thinking_params(body: &mut serde_json::Value, config: &ModelConfig) {
+    match config.provider {
+        LlmProvider::Openai => {
+            if config.thinking_enabled {
+                body["reasoning_effort"] = serde_json::json!("high");
+            }
+        }
+        LlmProvider::Gemini => {
+            if config.thinking_enabled {
+                body["reasoning_effort"] = serde_json::json!("high");
+            } else if config.model.to_ascii_lowercase().contains("2.5")
+                && !config.model.to_ascii_lowercase().contains("pro")
+            {
+                body["reasoning_effort"] = serde_json::json!("none");
+            }
+        }
+        LlmProvider::Deepseek => {
+            body["thinking"] = serde_json::json!({
+                "type": if config.thinking_enabled { "enabled" } else { "disabled" }
+            });
+            if config.thinking_enabled {
+                body["reasoning_effort"] = serde_json::json!("high");
+                body.as_object_mut()
+                    .map(|object| object.remove("temperature"));
+            }
+        }
+        LlmProvider::NvidiaNim => {
+            body["chat_template_kwargs"] = serde_json::json!({
+                "enable_thinking": config.thinking_enabled
+            });
+        }
+    }
+}
+
 impl LlmClient {
     pub fn new() -> Self {
         let http = reqwest::Client::builder()
@@ -239,6 +327,7 @@ impl LlmClient {
         if include_completion_tokens {
             body["max_completion_tokens"] = serde_json::json!(max_tokens);
         }
+        apply_thinking_params(&mut body, config);
 
         log::debug!(
             "LLM request to {}: model={} max_tokens={} timeout={}s",
@@ -423,6 +512,9 @@ impl LlmClient {
             "messages": [{"role": "user", "content": "Hi"}],
             "max_tokens": 5
         });
+
+        let mut body = body;
+        apply_thinking_params(&mut body, config);
 
         match self
             .http
@@ -1036,20 +1128,34 @@ pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
         let model_name = get_setting("primary_model");
         match (base_url, api_key, model_name) {
             (Some(b), Some(k), Some(m)) if !b.is_empty() && !k.is_empty() && !m.is_empty() => {
+                let provider =
+                    LlmProvider::from_setting(get_setting("primary_provider").as_deref(), &b, &m);
+                let thinking_enabled = matches!(
+                    get_setting("primary_thinking_enabled").as_deref(),
+                    Some("true")
+                );
                 Some(ModelConfig {
                     base_url: b,
                     api_key: k,
                     model: m,
+                    provider,
+                    thinking_enabled,
                 })
             }
             _ => None,
         }
     };
 
+    let mut builtin = builtin_config();
+    builtin.thinking_enabled = matches!(
+        get_setting("builtin_thinking_enabled").as_deref(),
+        Some("true")
+    );
+
     Ok(LlmConfig {
         mode,
         primary,
-        builtin: builtin_config(),
+        builtin,
     })
 }
 
@@ -1076,6 +1182,8 @@ pub fn get_multimodal_config(db: &DatabasePool) -> Result<MultimodalConfig, Stri
                     base_url: b,
                     api_key: k,
                     model: m,
+                    provider: LlmProvider::Openai,
+                    thinking_enabled: false,
                 })
             }
             _ => None,
@@ -1196,6 +1304,8 @@ mod tests {
         save_llm_setting(&db, "primary_base_url", "https://api.example.com/v1").unwrap();
         save_llm_setting(&db, "primary_api_key", "sk-test").unwrap();
         save_llm_setting(&db, "primary_model", "gpt-4o-mini").unwrap();
+        save_llm_setting(&db, "primary_provider", "openai").unwrap();
+        save_llm_setting(&db, "primary_thinking_enabled", "true").unwrap();
 
         let cfg = get_llm_config(&db).unwrap();
         assert_eq!(cfg.mode, LlmMode::Custom);
@@ -1203,6 +1313,8 @@ mod tests {
         assert_eq!(primary.base_url, "https://api.example.com/v1");
         assert_eq!(primary.api_key, "sk-test");
         assert_eq!(primary.model, "gpt-4o-mini");
+        assert_eq!(primary.provider, LlmProvider::Openai);
+        assert!(primary.thinking_enabled);
         // Builtin is still populated for display.
         assert_eq!(cfg.builtin.model, BUILTIN_MODEL);
     }
@@ -1235,6 +1347,8 @@ mod tests {
                 base_url: "https://x".into(),
                 api_key: "k".into(),
                 model: "m".into(),
+                provider: LlmProvider::Openai,
+                thinking_enabled: false,
             }),
             builtin: builtin_config(),
         };
@@ -1254,6 +1368,35 @@ mod tests {
             err.contains("自定义"),
             "should mention custom config: {err}"
         );
+    }
+
+    #[test]
+    fn maps_thinking_toggle_to_each_provider_request_shape() {
+        let config = |provider, enabled| ModelConfig {
+            base_url: "https://example.test/v1".into(),
+            api_key: "key".into(),
+            model: "model".into(),
+            provider,
+            thinking_enabled: enabled,
+        };
+
+        let mut openai = serde_json::json!({"temperature": 0.3});
+        apply_thinking_params(&mut openai, &config(LlmProvider::Openai, false));
+        assert!(openai.get("reasoning_effort").is_none());
+
+        let mut gemini = serde_json::json!({});
+        apply_thinking_params(&mut gemini, &config(LlmProvider::Gemini, true));
+        assert_eq!(gemini["reasoning_effort"], "high");
+
+        let mut deepseek = serde_json::json!({"temperature": 0.3});
+        apply_thinking_params(&mut deepseek, &config(LlmProvider::Deepseek, true));
+        assert_eq!(deepseek["thinking"]["type"], "enabled");
+        assert_eq!(deepseek["reasoning_effort"], "high");
+        assert!(deepseek.get("temperature").is_none());
+
+        let mut nvidia = serde_json::json!({});
+        apply_thinking_params(&mut nvidia, &config(LlmProvider::NvidiaNim, false));
+        assert_eq!(nvidia["chat_template_kwargs"]["enable_thinking"], false);
     }
 
     #[test]

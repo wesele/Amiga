@@ -3,8 +3,10 @@
     <PageHeader :title="t('soulmate.storyTitle')" />
     <div v-if="loading" class="state-block">{{ t("app.loading") }}</div>
     <div v-else-if="error" class="state-block error">{{ error }}</div>
-    <main v-else-if="episode" class="story-content">
-      <div class="story-meta">{{ t("soulmate.day", { day: episode.day_number }) }}</div>
+    <main v-else-if="episode" class="story-content article-body">
+      <div class="letter-mark" aria-hidden="true">✉</div>
+      <div class="story-meta">{{ t("soulmate.letterFrom") }} · {{ t("soulmate.day", { day: episode.day_number }) }}</div>
+      <div class="subject-label">{{ t("soulmate.letterSubject") }}</div>
       <h1>{{ episode.title }}</h1>
       <p class="teaser">{{ episode.teaser }}</p>
       <div class="ornament">✦</div>
@@ -34,17 +36,31 @@
         @unknown="setWordMastery(1)"
       />
     </Transition>
+
+    <Transition name="popup">
+      <div v-if="selectionText" class="sel-overlay" @click.self="clearSelection">
+        <div class="sel-popup">
+          <div class="sel-source">{{ selectionText }}</div>
+          <div v-if="selectionLoading" class="sel-loading">{{ t("news.translating") }}</div>
+          <div v-else-if="selectionResult" class="sel-result">{{ selectionResult }}</div>
+          <div v-else-if="selectionError" class="sel-error">{{ selectionError }}</div>
+          <button class="sel-close" type="button" @click="clearSelection">×</button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { tokenizeArticleText } from "@/shared/articleText.js";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
+import { translateText } from "@/shared/backend/llm.js";
+import { useSelectionTranslation } from "@/shared/selectionTranslation.js";
 import { getSoulMateEpisode, markSoulMateStoryRead } from "@/shared/backend/soulmate.js";
 import {
   addDiscoveredWord,
@@ -69,7 +85,27 @@ const paragraphTokens = computed(() => (
     .map((paragraph) => tokenizeArticleText(paragraph)) || []
 ));
 
+const {
+  selectionText,
+  selectionResult,
+  selectionLoading,
+  selectionError,
+  onSelectionChange,
+  onPointerUp,
+  handleNativeTranslate,
+  clearSelection,
+  cleanup: cleanupSelectionTranslation,
+} = useSelectionTranslation({
+  translateText,
+  getTargetLang: () => targetLang.value,
+  getNativeLang: () => getLocale(),
+  t,
+});
+
 onMounted(async () => {
+  document.addEventListener("selectionchange", onSelectionChange);
+  document.addEventListener("pointerup", onPointerUp);
+  window.__amigaTranslateSelection = handleNativeTranslate;
   try {
     const [story, context] = await Promise.all([
       getSoulMateEpisode(props.episodeId),
@@ -83,6 +119,15 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("selectionchange", onSelectionChange);
+  document.removeEventListener("pointerup", onPointerUp);
+  if (window.__amigaTranslateSelection === handleNativeTranslate) {
+    delete window.__amigaTranslateSelection;
+  }
+  cleanupSelectionTranslation();
 });
 
 function onWordTap(token) {
@@ -128,7 +173,9 @@ async function finish() {
 <style scoped>
 .story-page { min-height: 100%; background: #fffdfb; }
 .story-content { max-width: 620px; margin: 0 auto; padding: 28px 25px calc(38px + var(--safe-bottom)); }
+.letter-mark { width: 42px; height: 42px; display: grid; place-items: center; margin: 0 0 13px auto; border: 1px solid #f3b5c8; border-radius: 8px; color: #d9366e; font-size: 22px; transform: rotate(3deg); }
 .story-meta { color: #d9366e; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.subject-label { margin-top: 17px; color: var(--text-lighter); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
 .story-content h1 { margin: 8px 0 9px; color: var(--text); font-family: Georgia, serif; font-size: 30px; line-height: 1.18; }
 .teaser { margin: 0; color: var(--text-light); font-size: 15px; font-style: italic; line-height: 1.55; }
 .ornament { margin: 22px 0; color: #ff5d8f; text-align: center; }
@@ -140,4 +187,11 @@ article p { margin: 0 0 18px; }
 .finish-btn:disabled { opacity: .65; }
 .state-block { min-height: 60vh; display: grid; place-content: center; padding: 24px; color: var(--text-lighter); text-align: center; }
 .state-block.error { color: var(--red); }
+.sel-overlay { position: fixed; inset: 0; z-index: 220; display: flex; align-items: flex-end; justify-content: center; padding: 16px 16px calc(16px + var(--safe-bottom)); background: rgba(0,0,0,.2); }
+.sel-popup { position: relative; width: min(100%, 560px); max-height: 65vh; overflow-y: auto; padding: 20px; box-sizing: border-box; border-radius: 18px; background: var(--surface); box-shadow: 0 18px 50px rgba(0,0,0,.2); }
+.sel-source { padding-right: 28px; color: var(--text-light); font-family: Georgia, serif; font-size: 15px; line-height: 1.6; }
+.sel-result { margin-top: 14px; color: var(--text); font-size: 16px; line-height: 1.65; }
+.sel-loading { margin-top: 14px; color: var(--text-lighter); }
+.sel-error { margin-top: 14px; color: var(--red); }
+.sel-close { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--bg); color: var(--text-light); font-size: 20px; cursor: pointer; }
 </style>

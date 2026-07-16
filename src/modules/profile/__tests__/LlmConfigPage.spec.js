@@ -126,6 +126,8 @@ describe("LlmConfigPage", () => {
     await inputs[0].setValue("sk-mykey");
     await inputs[1].setValue("https://api.openai.com/v1");
     await inputs[2].setValue("gpt-4o-mini");
+    await wrapper.find("select.provider-select").setValue("deepseek");
+    await wrapper.find('.switch-control input[type="checkbox"]').setValue(true);
     await flushPromises();
 
     const saveBtn = wrapper.findAll("button").find((b) => b.text().includes("保存配置"));
@@ -140,6 +142,8 @@ describe("LlmConfigPage", () => {
     expect(configSave.config.api_key).toBe("sk-mykey");
     expect(configSave.config.base_url).toBe("https://api.openai.com/v1");
     expect(configSave.config.model).toBe("gpt-4o-mini");
+    expect(configSave.config.provider).toBe("deepseek");
+    expect(configSave.config.thinking_enabled).toBe(true);
   });
 
   it("test-connection in built-in mode hits the built-in config (never the user's saved one)", async () => {

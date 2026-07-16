@@ -190,7 +190,7 @@ describe("Soul Mate MVP", () => {
     });
     await flushPromises();
 
-    expect(wrapper.find(".story-action").text()).toContain("今日故事");
+    expect(wrapper.find(".story-action").text()).toContain("今日来信");
     await wrapper.find(".story-action").trigger("click");
     await flushPromises();
 
@@ -260,6 +260,35 @@ describe("Soul Mate MVP", () => {
       nativeLang: "zh",
     });
     expect(wrapper.find(".word-popup").text()).toContain("一把古老的钥匙");
+  });
+
+  it("handles the Android Amiga selection action in a letter", async () => {
+    mockInvoke.mockImplementation((command) => {
+      if (command === "get_soulmate_episode_cmd") {
+        return Promise.resolve({ id: "e1", day_number: 1, title: "Una carta", teaser: "Para ti", body: "Tengo algo que contarte." });
+      }
+      if (command === "translate_text_cmd") return Promise.resolve("我有件事想告诉你。");
+      return baseInvoke(command);
+    });
+    const router = makeRouter();
+    await router.push({ name: "soulmate-story", params: { episodeId: "e1" } });
+    const wrapper = mount(SoulMateStory, {
+      props: { episodeId: "e1" },
+      global: { plugins: [router], stubs: { PageHeader: { template: "<header />" } } },
+    });
+    await flushPromises();
+
+    window.__amigaTranslateSelection("Tengo algo que contarte");
+    await flushPromises();
+
+    expect(mockInvoke).toHaveBeenCalledWith("translate_text_cmd", {
+      text: "Tengo algo que contarte",
+      sourceLang: "es",
+      nativeLang: "zh",
+    });
+    expect(wrapper.find(".sel-result").text()).toBe("我有件事想告诉你。");
+    wrapper.unmount();
+    expect(window.__amigaTranslateSelection).toBeUndefined();
   });
 
   it("lets the companion speak first on chat entry, then sends a learner reply", async () => {
