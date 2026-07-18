@@ -1,7 +1,8 @@
 <template>
   <component
-    :is="to ? 'router-link' : 'div'"
+    :is="componentType"
     :to="to"
+    :type="componentType === 'button' ? 'button' : undefined"
     class="settings-item"
     :class="{ danger, divider: showDivider }"
   >
@@ -26,7 +27,9 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed, useAttrs } from "vue";
+
+const props = defineProps({
   icon: String,
   title: String,
   subtitle: String,
@@ -35,6 +38,13 @@ defineProps({
   trailingText: String,
   showArrow: Boolean,
   showDivider: { type: Boolean, default: true },
+});
+
+const attrs = useAttrs();
+const componentType = computed(() => {
+  if (props.to) return "router-link";
+  if (attrs.onClick) return "button";
+  return "div";
 });
 </script>
 
@@ -50,6 +60,10 @@ defineProps({
   background: var(--surface);
   cursor: default;
   transition: background var(--transition);
+  width: 100%;
+  border: 0;
+  font: inherit;
+  text-align: left;
 }
 .settings-item:not(div) {
   cursor: pointer;

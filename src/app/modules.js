@@ -1,4 +1,6 @@
-export const APP_MODULES = [
+import { isTvMode } from "@/shared/appMode.js";
+
+export const DEFAULT_APP_MODULES = [
   { name: "wizard" },
   { name: "learn", parent: "shell" },
   { name: "achievements", parent: "shell" },
@@ -13,6 +15,20 @@ export const APP_MODULES = [
   { name: "chat", parent: "shell" },
   { name: "prompts", parent: "shell" },
 ];
+
+const TV_MODULE_NAMES = new Set([
+  "wizard",
+  "learn",
+  "achievements",
+  "path",
+  "news",
+  "reading",
+  "vocab",
+  "profile",
+]);
+
+export const TV_APP_MODULES = DEFAULT_APP_MODULES.filter((mod) => TV_MODULE_NAMES.has(mod.name));
+export const APP_MODULES = isTvMode ? TV_APP_MODULES : DEFAULT_APP_MODULES;
 
 export async function loadShellModule(kernel) {
   await kernel.loadModule("shell");

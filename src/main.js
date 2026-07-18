@@ -13,8 +13,11 @@ import { applyQueryLocale } from "./app/queryLocale.js";
 import { installWizardGuard } from "./app/routeGuards.js";
 import { installSocialInboxService } from "./app/socialInbox.js";
 import { installAppOpenTracker } from "./shared/appOpenTracker.js";
+import { applyAppMode, isTvMode } from "./shared/appMode.js";
+import { installTvRemoteNavigation } from "./app/tvRemoteNavigation.js";
 
 async function bootstrap() {
+  applyAppMode();
   // Browser-dev escape hatch: `?locale=en` (or `es` / `zh`) overrides the
   // persistent setting. Useful for headless screenshots and for previewing
   // translations without having a Tauri shell running.
@@ -53,11 +56,13 @@ async function bootstrap() {
   // Load feature modules
   await loadFeatureModules(kernel);
 
-  // Global background service: messages can arrive outside the chat tab.
-  installSocialInboxService();
+  // TV deliberately excludes chat and its background inbox connection.
+  if (!isTvMode) installSocialInboxService();
   installAppOpenTracker(router);
 
   app.mount("#app");
+
+  if (isTvMode) installTvRemoteNavigation({ router });
 
   // Fix: force re-resolve after mount to handle race condition
   // between async beforeEach guard and dynamic route registration

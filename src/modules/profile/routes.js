@@ -1,10 +1,9 @@
 import ProfilePage from "./ProfilePage.vue";
 import SettingsPage from "./SettingsPage.vue";
-import LlmConfigPage from "./LlmConfigPage.vue";
-import MultimodalConfigPage from "./MultimodalConfigPage.vue";
+import { isTvMode } from "@/shared/appMode.js";
 
 // See src/modules/news/routes.js for the meta.parent convention.
-export default [
+const routes = [
   {
     path: "/profile",
     name: "profile",
@@ -16,16 +15,21 @@ export default [
     component: SettingsPage,
     meta: { parent: "profile" },
   },
-  {
+];
+
+if (!isTvMode) {
+  routes.push({
     path: "/profile/llm-config",
     name: "llm-config",
-    component: LlmConfigPage,
+    component: () => import("./LlmConfigPage.vue"),
     meta: { parent: "settings" },
-  },
-  {
+  });
+  routes.push({
     path: "/profile/multimodal-config",
     name: "multimodal-config",
-    component: MultimodalConfigPage,
+    component: () => import("./MultimodalConfigPage.vue"),
     meta: { parent: "settings" },
-  },
-];
+  });
+}
+
+export default routes;

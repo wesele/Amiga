@@ -5,6 +5,7 @@ import * as api from "@/shared/api.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { i18n as i18nInstance, setLocale } from "@/shared/i18n/index.js";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({
   open: vi.fn(),
@@ -31,6 +32,7 @@ describe("ProfilePage", () => {
     setActivePinia(createPinia());
     mockInvoke = vi.fn();
     api.__setInvoke(mockInvoke);
+    setLocale("zh", { persist: false });
   });
 
   function mountPage({ realSettings = false } = {}) {
@@ -62,84 +64,68 @@ describe("ProfilePage", () => {
     expect(wrapper.findAll(".stat-cell").length).toBe(0);
   });
 
-  it("renders the learning language switcher with three pills", async () => {
+  it("does not render learning language / level switchers (moved to Settings)", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
       if (cmd === "get_learning_goals_cmd") return Promise.resolve([
         { id: 1, target_language: "es", cefr_level: "A1" },
       ]);
       if (cmd === "get_target_language_cmd") return Promise.resolve("es");
-      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 0, total_learning: 0, total: 0 });
-      if (cmd === "get_read_article_count_cmd") return Promise.resolve(0);
       return Promise.resolve(null);
     });
     const wrapper = mountPage();
     await flushPromises();
-    const pills = wrapper.findAll(".lang-pill").filter((p) => !p.classes().includes("level-pill"));
+    expect(wrapper.text()).not.toContain("学习语言");
+    expect(wrapper.text()).not.toContain("当前级别");
+    expect(wrapper.findAll(".level-pill").length).toBe(0);
+  });
+
+  it("renders the UI language switcher with three pills", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([
+        { id: 1, target_language: "es", cefr_level: "A1" },
+      ]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+    expect(wrapper.text()).toContain("界面语言");
+    const pills = wrapper.findAll(".lang-pill");
     expect(pills.length).toBe(3);
-    // The Spanish pill should be marked active (the wizard default).
     const active = pills.find((p) => p.classes().includes("active"));
     expect(active).toBeTruthy();
-    expect(active.text()).toContain("西班牙语");
+    expect(active.text()).toContain("中文");
   });
 
-  it("renders B1 and B2 level pills for Spanish and updates the selected level", async () => {
-    let updatedLevel = "";
+  it("clicking another UI language calls setLocale and persists ui_language", async () => {
+    let persistedLang = null;
     mockInvoke.mockImplementation((cmd, args) => {
-      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
-      if (cmd === "get_learning_goals_cmd") return Promise.resolve([
-        { id: 1, target_language: "es", cefr_level: "A1" },
-      ]);
-      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
-      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 0, total_learning: 0, total: 0 });
-      if (cmd === "get_read_article_count_cmd") return Promise.resolve(0);
-      if (cmd === "update_learning_goal_cefr_cmd") {
-        updatedLevel = args?.cefrLevel;
+      if (cmd === "save_setting_cmd") {
+        persistedLang = args?.value;
         return Promise.resolve(null);
       }
-      return Promise.resolve(null);
-    });
-    const wrapper = mountPage();
-    await flushPromises();
-    const levelPills = wrapper.findAll(".level-pill");
-    expect(levelPills.length).toBe(4);
-    const b2 = levelPills.find((p) => p.text().includes("B2"));
-    await b2.trigger("click");
-    await flushPromises();
-    expect(updatedLevel).toBe("B2");
-  });
-
-  it("clicking another language calls set_target_language_cmd and updates the active pill", async () => {
-    let switched = "";
-    mockInvoke.mockImplementation((cmd, args) => {
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
-      if (cmd === "get_learning_goals_cmd") return Promise.resolve([
-        { id: 1, target_language: "es", cefr_level: "A1" },
-        { id: 2, target_language: "en", cefr_level: "A1" },
-      ]);
+      if (cmd === "update_user_cmd") return Promise.resolve({ id: "u1", native_language: "en" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
       if (cmd === "get_target_language_cmd") return Promise.resolve("es");
-      if (cmd === "get_user_vocab_stats_cmd") return Promise.resolve({ total_known: 0, total_learning: 0, total: 0 });
-      if (cmd === "get_read_article_count_cmd") return Promise.resolve(0);
-      if (cmd === "set_target_language_cmd") { switched = args?.language; return Promise.resolve("en"); }
       return Promise.resolve(null);
     });
     const wrapper = mountPage();
     await flushPromises();
-    const pills = wrapper.findAll(".lang-pill").filter((p) => !p.classes().includes("level-pill"));
-    // Find the English pill (2nd one).
-    const enPill = pills.find((p) => p.text().includes("英语"));
+    const enPill = wrapper.findAll(".lang-pill").find((p) => p.text().includes("English"));
     expect(enPill).toBeTruthy();
     await enPill.trigger("click");
     await flushPromises();
-    expect(switched).toBe("en");
+    expect(i18nInstance.locale.value).toBe("en");
+    expect(persistedLang).toBe("en");
   });
 
   it("active language pill stays readable (white text) on hover", () => {
     // Regression for the green-on-green bug: the generic `.lang-pill:hover`
     // rule was more specific than `.lang-pill.active` and clobbered `color`,
     // making the text invisible against the green background.
-    // We assert the SFC source contains an `.active:hover` override that
-    // pins the text to white — guardrail against accidental CSS changes.
     const sfcPath = resolve(dirname(fileURLToPath(import.meta.url)), "..", "ProfilePage.vue");
     const css = readFileSync(sfcPath, "utf8");
     expect(css).toMatch(/\.lang-pill\.active:hover[^{]*\{[\s\S]*?color:\s*#fff/);

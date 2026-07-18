@@ -22,38 +22,21 @@
       </div>
     </section>
 
-    <!-- Learning language switcher -->
+    <!-- Interface language switcher (promoted from Settings) -->
     <section class="settings-section">
-      <h3 class="section-header">{{ t('learningLang.section') }}</h3>
-      <p class="section-desc">{{ t('learningLang.desc') }}</p>
+      <h3 class="section-header">{{ t('settings.uiLang') }}</h3>
+      <p class="section-desc">{{ t('settings.pickDesc') }}</p>
       <div class="lang-pills">
         <button
-          v-for="lang in availableLanguages"
+          v-for="lang in uiLocales"
           :key="lang.code"
           class="lang-pill"
-          :class="{ active: currentTargetLang === lang.code }"
-          :disabled="switching"
-          @click="onSwitchLang(lang.code)"
+          :class="{ active: locale === lang.code }"
+          @click="onSwitchUiLang(lang.code)"
         >
           <span class="lang-flag">{{ lang.flag }}</span>
           <span class="lang-name">{{ t(lang.nameKey) }}</span>
-          <span v-if="currentTargetLang === lang.code" class="lang-check">✓</span>
-        </button>
-      </div>
-
-      <h3 class="section-header level-header">{{ t('learningLang.levelSection') }}</h3>
-      <p class="section-desc">{{ t('learningLang.levelDesc') }}</p>
-      <div class="lang-pills level-pills">
-        <button
-          v-for="lvl in learningLevels"
-          :key="lvl"
-          class="lang-pill level-pill"
-          :class="{ active: currentLevel === lvl }"
-          :disabled="levelSwitching"
-          @click="onSwitchLevel(lvl)"
-        >
-          <span class="lang-name">{{ t(`wizard.levels.${lvl}`) }}</span>
-          <span v-if="currentLevel === lvl" class="lang-check">✓</span>
+          <span v-if="locale === lang.code" class="lang-check">✓</span>
         </button>
       </div>
     </section>
@@ -62,22 +45,35 @@
     <section class="settings-section">
       <h3 class="section-header">{{ t('profile.general') }}</h3>
       <div class="settings-card">
-        <SettingsItem :subtitle="t('profile.learnSettingsSub')" to="/profile/settings">
+        <SettingsItem :subtitle="t(learnSettingsSubKey)" to="/profile/settings">
           <template #icon><SettingsIcon /></template>
         </SettingsItem>
         <SettingsItem
+          v-if="!isTvMode"
           :title="t('soulmate.settingsTitle')"
           :subtitle="t('soulmate.settingsSub')"
           to="/profile/soulmate"
           :showDivider="false"
         >
-          <template #icon><span class="soulmate-settings-icon">💞</span></template>
+          <template #icon>
+            <span class="soulmate-settings-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" width="1em" height="1em">
+                <path d="M12 4 A8 8 0 0 1 19.6 9.5" stroke="#FF4D9A" stroke-width="2.6" stroke-linecap="round"/>
+                <path d="M19.6 9.5 A8 8 0 0 1 16.5 18.3" stroke="#FFC94D" stroke-width="2.6" stroke-linecap="round"/>
+                <path d="M16.5 18.3 A8 8 0 0 1 7.5 18.3" stroke="#58cc02" stroke-width="2.6" stroke-linecap="round"/>
+                <path d="M7.5 18.3 A8 8 0 0 1 4.4 9.5" stroke="#1cb0f6" stroke-width="2.6" stroke-linecap="round"/>
+                <path d="M4.4 9.5 A8 8 0 0 1 12 4" stroke="#9B6DFF" stroke-width="2.6" stroke-linecap="round"/>
+                <circle cx="12" cy="12" r="2.9" fill="#FF4D9A"/>
+                <circle cx="12" cy="12" r="1.35" fill="#FFC94D"/>
+              </svg>
+            </span>
+          </template>
         </SettingsItem>
       </div>
     </section>
 
     <!-- About -->
-    <section class="settings-section">
+    <section v-if="!isTvMode" class="settings-section">
       <h3 class="section-header">{{ t('profile.about') }}</h3>
       <div class="settings-card">
         <SettingsItem :subtitle="t('profile.checkUpdateSub')" :showArrow="true" @click="handleCheckUpdate" :showDivider="false">
@@ -142,7 +138,6 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { checkUpdate } from "@/shared/backend/update.js";
-import { getLearningGoals, updateLearningGoalCefr } from "@/shared/backend/user.js";
 import { openExternalUrl } from "@/shared/external.js";
 import { canAutoInstallUpdate, pickPreferredUpdateAsset, startAppUpdate } from "@/shared/update.js";
 import SettingsItem from "./components/SettingsItem.vue";
@@ -151,14 +146,14 @@ import UpdateIcon from "@/shared/components/UpdateIcon.vue";
 import StylizedAvatar from "@/shared/components/StylizedAvatar.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
-import { AVAILABLE_LANGUAGES, learningCefrLevels } from "@/shared/constants.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { pickLearningGoal } from "@/shared/learningGoal.js";
+import { isTvMode } from "@/shared/appMode.js";
+import { learnSettingsSubtitleKey } from "@/shared/tvPolicy.js";
 
-const { t } = useI18n();
+const { t, locale, setLocale } = useI18n();
+const learnSettingsSubKey = learnSettingsSubtitleKey(isTvMode);
 const targetLangStore = useTargetLangStore();
 const user = ref(null);
-const goals = ref([]);
 const currentTargetLang = computed(() => targetLangStore.code || "");
 const currentLevel = ref("A1");
 const avatarMapping = {
@@ -169,10 +164,12 @@ const avatarId = computed(() => {
   if (typeof av === "number") return av;
   return avatarMapping[av] ?? 0;
 });
-const levelSwitching = ref(false);
-const switching = computed(() => targetLangStore.updating);
-const availableLanguages = AVAILABLE_LANGUAGES;
-const learningLevels = computed(() => learningCefrLevels(currentTargetLang.value));
+
+const uiLocales = [
+  { code: "zh", flag: "🇨🇳", nameKey: "lang.zh" },
+  { code: "en", flag: "🇬🇧", nameKey: "lang.en" },
+  { code: "es", flag: "🇪🇸", nameKey: "lang.es" },
+];
 
 onMounted(async () => {
   try {
@@ -181,44 +178,15 @@ onMounted(async () => {
       fallbackToFirstGoal: true,
     });
     user.value = ctx.user;
-    goals.value = ctx.goals;
     if (ctx.currentGoal) currentLevel.value = ctx.cefr;
   } catch (e) {
     console.error("Failed to load profile:", e);
   }
 });
 
-async function onSwitchLevel(level) {
-  if (levelSwitching.value || level === currentLevel.value) return;
-  const lang = currentTargetLang.value;
-  const u = user.value;
-  if (!lang || !u) return;
-  levelSwitching.value = true;
-  try {
-    await updateLearningGoalCefr(lang, level);
-    currentLevel.value = level;
-    goals.value = await getLearningGoals(u.id);
-  } catch (e) {
-    console.error("Failed to update learning level:", e);
-  } finally {
-    levelSwitching.value = false;
-  }
-}
-
-async function onSwitchLang(code) {
-  if (switching.value || code === currentTargetLang.value) return;
-  try {
-    await targetLangStore.set(code);
-    // Refresh goals list so the level summary updates.
-    try {
-      const u = user.value;
-      if (u) goals.value = await getLearningGoals(u.id);
-      const g = pickLearningGoal(goals.value, code);
-      if (g) currentLevel.value = g.cefr_level;
-    } catch (_) { /* ignore */ }
-  } catch (e) {
-    console.error("Failed to switch target language:", e);
-  }
+function onSwitchUiLang(code) {
+  if (code === locale.value) return;
+  setLocale(code);
 }
 
 const showUpdateDialog = ref(false);
@@ -298,10 +266,6 @@ async function handleInstallUpdate() {
   color: var(--text-lighter);
   padding: 0 20px 8px;
   margin: 0;
-}
-
-.level-header {
-  margin-top: 16px;
 }
 
 .lang-pills {
@@ -519,7 +483,14 @@ async function handleInstallUpdate() {
   margin-bottom: 12px;
 }
 .soulmate-settings-icon {
-  font-size: 22px;
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  color: var(--text);
+}
+.soulmate-settings-icon svg {
+  width: 22px;
+  height: 22px;
 }
 .btn-update-primary {
   width: 100%;

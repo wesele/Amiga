@@ -122,6 +122,36 @@ const form = reactive({
   knowledge: 2,
 });
 
+/** Defaults that match the learning target language so LLM output is less biased. */
+function defaultsForLang(lang, gender = "female") {
+  const byLang = {
+    zh: {
+      female: { name: "小雨", location: "上海" },
+      male: { name: "阿辰", location: "北京" },
+      neutral: { name: "阿哲", location: "成都" },
+    },
+    en: {
+      female: { name: "Emma", location: "London" },
+      male: { name: "James", location: "New York" },
+      neutral: { name: "Alex", location: "Toronto" },
+    },
+    es: {
+      female: { name: "Sofía", location: "Madrid" },
+      male: { name: "Mateo", location: "Barcelona" },
+      neutral: { name: "Alex", location: "Valencia" },
+    },
+  };
+  const pack = byLang[lang] || byLang.es;
+  return pack[gender] || pack.female;
+}
+
+const stockNames = new Set([
+  "Sofía", "Mateo", "Alex", "Emma", "James", "小雨", "阿辰", "阿哲",
+]);
+const stockLocations = new Set([
+  "Madrid", "Barcelona", "Valencia", "London", "New York", "Toronto", "上海", "北京", "成都",
+]);
+
 const typeOptions = [
   { value: "soul", icon: "💞", title: "soulmate.typeSoul", subtitle: "soulmate.typeSoulSub" },
   { value: "comfort", icon: "☕", title: "soulmate.typeComfort", subtitle: "soulmate.typeComfortSub" },
@@ -149,13 +179,21 @@ const canStart = computed(() => Boolean(context.user?.id && form.companion_name 
 
 function selectGender(gender) {
   form.companion_gender = gender;
-  const defaults = { female: "Sofía", male: "Mateo", neutral: "Alex" };
-  if (["Sofía", "Mateo", "Alex"].includes(form.companion_name)) form.companion_name = defaults[gender];
+  if (stockNames.has(form.companion_name)) {
+    form.companion_name = defaultsForLang(context.targetLang, gender).name;
+  }
+}
+
+function applyLanguageDefaults(lang) {
+  const d = defaultsForLang(lang, form.companion_gender);
+  if (stockNames.has(form.companion_name)) form.companion_name = d.name;
+  if (stockLocations.has(form.story_location)) form.story_location = d.location;
 }
 
 onMounted(async () => {
   try {
     Object.assign(context, await loadLearningContext({ fallbackToFirstGoal: true }));
+    applyLanguageDefaults(context.targetLang || "es");
   } catch (e) {
     error.value = e?.message || t("soulmate.setupFail");
   }

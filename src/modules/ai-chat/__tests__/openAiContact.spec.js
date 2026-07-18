@@ -38,7 +38,7 @@ describe("openAiContact", () => {
 
     const ok = await openAiContact(
       router,
-      { name: "AI 翻译", contactType: "translator" },
+      { name: "翻译", contactType: "translator" },
       { targetLang: "es" },
     );
 
@@ -63,7 +63,7 @@ describe("openAiContact", () => {
 
     await openAiContact(
       router,
-      { name: "AI 翻译", contactType: "translator" },
+      { name: "翻译", contactType: "translator" },
       { targetLang: "es" },
     );
 
@@ -88,7 +88,7 @@ describe("openAiContact", () => {
 
     await openAiContact(
       router,
-      { name: "AI 翻译", contactType: "translator" },
+      { name: "翻译", contactType: "translator" },
       { routeName: "learn-translator", targetLang: "es" },
     );
 

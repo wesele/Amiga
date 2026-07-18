@@ -298,15 +298,28 @@ mod tests {
     }
 
     #[test]
-    fn test_set_target_language_switches_soulmate_language_and_level() {
+    fn test_set_target_language_keeps_soulmate_worlds_language_isolated() {
         let pool = test_pool();
         let user = get_or_create_user(&pool).unwrap();
         {
             let conn = pool.conn().unwrap();
             conn.execute(
                 "INSERT INTO soulmate_worlds
-                 (id, user_id, companion_type, companion_name, target_lang, native_lang)
-                 VALUES ('world-1', ?1, 'soul', 'Luna', 'es', 'zh')",
+                 (id, user_id, companion_type, companion_name, target_lang, native_lang, cefr_level)
+                 VALUES ('world-es', ?1, 'soul', 'Luna', 'es', 'zh', 'A2')",
+                params![user.id],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO soulmate_worlds
+                 (id, user_id, companion_type, companion_name, target_lang, native_lang, cefr_level)
+                 VALUES ('world-en', ?1, 'comfort', 'Emma', 'en', 'zh', 'A1')",
+                params![user.id],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO learning_goals (user_id, target_language, cefr_level, daily_minutes, objective)
+                 VALUES (?1, 'en', 'B1', 15, 'daily_conversation')",
                 params![user.id],
             )
             .unwrap();
@@ -315,15 +328,24 @@ mod tests {
         set_target_language(&pool, "en").unwrap();
 
         let conn = pool.conn().unwrap();
-        let (language, cefr): (String, String) = conn
+        let es: (String, String) = conn
             .query_row(
-                "SELECT target_lang, cefr_level FROM soulmate_worlds WHERE user_id = ?1",
+                "SELECT companion_name, cefr_level FROM soulmate_worlds
+                 WHERE user_id = ?1 AND target_lang = 'es'",
                 params![user.id],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .unwrap();
-        assert_eq!(language, "en");
-        assert_eq!(cefr, "A1");
+        let en: (String, String) = conn
+            .query_row(
+                "SELECT companion_name, cefr_level FROM soulmate_worlds
+                 WHERE user_id = ?1 AND target_lang = 'en'",
+                params![user.id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(es, ("Luna".to_string(), "A2".to_string()));
+        assert_eq!(en, ("Emma".to_string(), "B1".to_string()));
     }
 }
 
@@ -736,6 +758,9 @@ pub fn set_target_language(db: &DatabasePool, language: &str) -> Result<String, 
         log::info!("Created new learning goal for {} in {}", user_id, language);
     }
 
+    // Soul Mate worlds are isolated by target_lang. Switching the active
+    // learning language must not rewrite an existing companion into another
+    // language. Only refresh CEFR on the world that already matches.
     let cefr_level: String = conn
         .query_row(
             "SELECT cefr_level FROM learning_goals
@@ -747,11 +772,11 @@ pub fn set_target_language(db: &DatabasePool, language: &str) -> Result<String, 
         .unwrap_or_else(|_| "A1".to_string());
     conn.execute(
         "UPDATE soulmate_worlds
-         SET target_lang = ?1, cefr_level = ?2, updated_at = datetime('now')
-         WHERE user_id = ?3",
-        params![language, cefr_level, user_id],
+         SET cefr_level = ?1, updated_at = datetime('now')
+         WHERE user_id = ?2 AND target_lang = ?3",
+        params![cefr_level, user_id, language],
     )
-    .map_err(|e| format!("Failed to switch Soul Mate language: {}", e))?;
+    .map_err(|e| format!("Failed to refresh Soul Mate level: {}", e))?;
 
     log::info!("Current target language set to {}", language);
     Ok(language.to_string())

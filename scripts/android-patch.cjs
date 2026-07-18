@@ -47,6 +47,7 @@ const DST_RES = path.join(ROOT, "src-tauri", "gen", "android", "app", "src", "ma
 const SRC_MANIFEST = path.join(ROOT, "src-tauri", "android", "app", "src", "main", "AndroidManifest.xml");
 const DST_MANIFEST = path.join(ROOT, "src-tauri", "gen", "android", "app", "src", "main", "AndroidManifest.xml");
 const DST_GRADLE = path.join(ROOT, "src-tauri", "gen", "android", "app", "build.gradle.kts");
+const DST_STRINGS = path.join(ROOT, "src-tauri", "gen", "android", "app", "src", "main", "res", "values", "strings.xml");
 const SRC_PROGUARD = path.join(ROOT, "src-tauri", "android", "app", "proguard-rules.pro");
 const DST_PROGUARD = path.join(ROOT, "src-tauri", "gen", "android", "app", "proguard-rules.pro");
 
@@ -63,6 +64,7 @@ const PATCH_GRADLE_BEGIN = "// AMIGA-PATCH-BEGIN: debug-signing";
 const PATCH_GRADLE_END = "// AMIGA-PATCH-END: debug-signing";
 
 const FORCE = process.argv.includes("--force");
+const TV_MODE = process.env.AMIGA_TV === "1";
 
 /**
  * Whether a tracked source file should replace the generated copy.
@@ -180,19 +182,61 @@ function mergeBackupAttributes(manifest) {
 }
 
 /**
- * Lock the app's launcher activity to portrait orientation.
+ * Lock the launcher orientation for the active build mode.
  *
  * The generated Android manifest is not tracked, so this lives beside the
  * other manifest patches and is re-applied after every Tauri regeneration.
  */
-function mergeMainActivityAttributes(manifest) {
-  const attribute = 'android:screenOrientation="portrait"';
-  if (manifest.includes(attribute)) return manifest;
+function mergeMainActivityAttributes(manifest, tvMode = false) {
+  const orientation = tvMode ? "landscape" : "portrait";
+  const attribute = `android:screenOrientation="${orientation}"`;
+  const orientationRe = /android:screenOrientation="[^"]*"/;
+  if (orientationRe.test(manifest)) {
+    return manifest.replace(orientationRe, attribute);
+  }
 
   const mainActivityRe = /(<activity\b(?=[^>]*android:name="\.MainActivity")[^>]*)(>)/;
   const match = manifest.match(mainActivityRe);
   if (!match) return manifest;
   return manifest.replace(mainActivityRe, "$1\n            " + attribute + "$2");
+}
+
+const TV_FEATURE_BEGIN = "<!-- AMIGA-TV-BEGIN: device-features -->";
+const TV_FEATURE_END = "<!-- AMIGA-TV-END: device-features -->";
+
+function mergeTvManifestAttributes(manifest, tvMode = false) {
+  let result = manifest.replace(
+    new RegExp(`\\s*${escapeRegExp(TV_FEATURE_BEGIN)}[\\s\\S]*?${escapeRegExp(TV_FEATURE_END)}\\s*`, "g"),
+    "\n\n",
+  );
+
+  result = result.replace(
+    /(<uses-feature\b[^>]*android:name="android\.software\.leanback"[^>]*android:required=")[^"]*("[^>]*\/?>)/,
+    `$1${tvMode ? "true" : "false"}$2`,
+  );
+
+  result = result.replace(/\s*android:banner="@drawable\/tv_banner"/g, "");
+  if (!tvMode) return result;
+
+  const featureBlock = `    ${TV_FEATURE_BEGIN}\n    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />\n    ${TV_FEATURE_END}\n\n`;
+  result = result.replace(/(\s*<application\b)/, `\n${featureBlock}$1`);
+  result = result.replace(/(<application\b)/, '$1\n        android:banner="@drawable/tv_banner"');
+  return result;
+}
+
+function mergeGradleApplicationId(gradle, tvMode = false) {
+  const applicationId = tvMode ? "com.idioma.app.tv" : "com.idioma.app";
+  return gradle.replace(
+    /applicationId\s*=\s*"com\.idioma\.app(?:\.tv)?"/,
+    `applicationId = "${applicationId}"`,
+  );
+}
+
+function mergeAndroidAppName(stringsXml, tvMode = false) {
+  const name = tvMode ? "Amiga TV" : "Amiga";
+  return stringsXml
+    .replace(/(<string name="app_name">)[\s\S]*?(<\/string>)/, `$1${name}$2`)
+    .replace(/(<string name="main_activity_title">)[\s\S]*?(<\/string>)/, `$1${name}$2`);
 }
 
 
@@ -408,6 +452,9 @@ module.exports = {
   mergeManifest,
   mergeBackupAttributes,
   mergeMainActivityAttributes,
+  mergeTvManifestAttributes,
+  mergeGradleApplicationId,
+  mergeAndroidAppName,
   mergeGradleDebugSigning,
   ensureGradleKeystore,
   dedent,
@@ -420,7 +467,7 @@ module.exports = {
 // Tracked resource files to copy (relative to SRC_RES). The build system
 // uses the gen/ tree as the actual compilation source, so our custom res/
 // files must land there.
-const KNOWN_RES = ["xml/backup_rules.xml", "xml/data_extraction_rules.xml"];
+const KNOWN_RES = ["xml/backup_rules.xml", "xml/data_extraction_rules.xml", "drawable/tv_banner.xml"];
 
 if (require.main === module) {
   if (!fs.existsSync(SRC_JAVA)) {
@@ -537,9 +584,10 @@ if (require.main === module) {
     // Apply backup attributes on the (possibly merged) manifest.
     const afterFrag = manifestPatched ? fs.readFileSync(DST_MANIFEST, "utf8") : next;
     const withBackup = mergeBackupAttributes(afterFrag);
-    const withActivityAttrs = mergeMainActivityAttributes(withBackup);
-    if (withActivityAttrs !== afterFrag) {
-      fs.writeFileSync(DST_MANIFEST, withActivityAttrs);
+    const withActivityAttrs = mergeMainActivityAttributes(withBackup, TV_MODE);
+    const withTvAttrs = mergeTvManifestAttributes(withActivityAttrs, TV_MODE);
+    if (withTvAttrs !== afterFrag) {
+      fs.writeFileSync(DST_MANIFEST, withTvAttrs);
       if (!manifestPatched) {
         manifestPatched = true;
         console.log("[android-patch] backup attributes patched");
@@ -553,7 +601,7 @@ if (require.main === module) {
   let gradlePatched = false;
   if (fs.existsSync(DST_GRADLE)) {
     const genGradle = fs.readFileSync(DST_GRADLE, "utf8");
-    const nextGradle = mergeGradleDebugSigning(genGradle);
+    const nextGradle = mergeGradleApplicationId(mergeGradleDebugSigning(genGradle), TV_MODE);
     if (nextGradle !== genGradle) {
       fs.writeFileSync(DST_GRADLE, nextGradle);
       gradlePatched = true;
@@ -564,7 +612,13 @@ if (require.main === module) {
     process.exit(1);
   }
 
+  if (fs.existsSync(DST_STRINGS)) {
+    const strings = fs.readFileSync(DST_STRINGS, "utf8");
+    const nextStrings = mergeAndroidAppName(strings, TV_MODE);
+    if (nextStrings !== strings) fs.writeFileSync(DST_STRINGS, nextStrings);
+  }
+
   console.log(
-    `[android-patch] done. copied=${copied} skipped=${skipped} resCopied=${resCopied} resSkipped=${resSkipped} force=${FORCE} manifestPatched=${manifestPatched} gradlePatched=${gradlePatched}`,
+    `[android-patch] done. copied=${copied} skipped=${skipped} resCopied=${resCopied} resSkipped=${resSkipped} force=${FORCE} tv=${TV_MODE} manifestPatched=${manifestPatched} gradlePatched=${gradlePatched}`,
   );
 }

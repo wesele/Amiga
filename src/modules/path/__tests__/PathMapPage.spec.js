@@ -72,6 +72,16 @@ describe("PathMapPage unit guide layout", () => {
     expect(source).toMatch(/\.step-body\s*\{[\s\S]*gap:\s*6px/);
   });
 
+  it("keeps locked/empty nodes focusable so startNode can surface hints", () => {
+    const source = readVue("src/modules/path/PathMapPage.vue");
+    // Must not use HTML disabled (skips focus + click); use aria-disabled instead.
+    expect(source).toMatch(/:aria-disabled="isNodeDisabled\(section\) \? 'true' : 'false'"/);
+    expect(source).not.toMatch(/:disabled="isNodeDisabled\(section\)"/);
+    expect(source).toMatch(/nodeActionHint\.value = t\("path\.nodeLocked"\)/);
+    expect(source).toMatch(/nodeActionHint\.value = t\("path\.nodeEmpty"\)/);
+    expect(source).toMatch(/function startNode\(section\)/);
+  });
+
   it("scrolls the map to the current node after loading", () => {
     const source = readVue("src/modules/path/PathMapPage.vue");
     expect(source).toMatch(/ref="pathScroll"/);

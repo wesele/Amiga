@@ -2,8 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { createRouter, createMemoryHistory } from "vue-router";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import * as api from "@/shared/api.js";
-import { i18n as i18nInstance, setLocale } from "@/shared/i18n/index.js";
+import { setLocale } from "@/shared/i18n/index.js";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 
 const SettingsPage = (await import("@/modules/profile/SettingsPage.vue")).default;
@@ -35,79 +38,97 @@ describe("SettingsPage", () => {
     });
   }
 
-  it("clicking OK in the language dialog actually calls setLocale (regression for missing parens)", async () => {
-    let persistedLang = null;
-    mockInvoke.mockImplementation((cmd, args) => {
-      if (cmd === "save_setting_cmd") {
-        persistedLang = args?.value;
-        return Promise.resolve(null);
-      }
+  it("does not render the old UI language settings row (moved to Profile)", async () => {
+    mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_setting_cmd") return Promise.resolve(null);
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
-      if (cmd === "update_user_cmd") return Promise.resolve({ id: "u1", native_language: "en" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
       return Promise.resolve(null);
     });
-
     const wrapper = mountPage();
     await flushPromises();
-
     const langItem = wrapper
       .findAll(".settings-item")
       .find((el) => el.text().includes("界面语言"));
-    expect(langItem).toBeTruthy();
-    await langItem.trigger("click");
-    await flushPromises();
-
-    const radios = wrapper.findAll('input[type="radio"][value="en"]');
-    expect(radios.length).toBe(1);
-    await radios[0].setValue(true);
-    await flushPromises();
-
-    const okBtn = wrapper
-      .findAll(".dialog-btn.primary")
-      .find((b) => b.text() === "确定");
-    expect(okBtn).toBeTruthy();
-    await okBtn.trigger("click");
-    await flushPromises();
-
-    expect(i18nInstance.locale.value).toBe("en");
-    expect(persistedLang).toBe("en");
+    expect(langItem).toBeFalsy();
   });
 
-  it("switching language also syncs native_language to the user row", async () => {
-    let updateUserArgs = null;
-    mockInvoke.mockImplementation((cmd, args) => {
-      if (cmd === "save_setting_cmd") return Promise.resolve(null);
+  it("renders the learning language switcher with three pills", async () => {
+    mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_setting_cmd") return Promise.resolve(null);
       if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
-      if (cmd === "update_user_cmd") {
-        updateUserArgs = args;
-        return Promise.resolve({ id: "u1", native_language: "en" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([
+        { id: 1, target_language: "es", cefr_level: "A1" },
+      ]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+    expect(wrapper.text()).toContain("学习语言");
+    const pills = wrapper.findAll(".lang-pill").filter((p) => !p.classes().includes("level-pill"));
+    expect(pills.length).toBe(3);
+    const active = pills.find((p) => p.classes().includes("active"));
+    expect(active).toBeTruthy();
+    expect(active.text()).toContain("西班牙语");
+  });
+
+  it("renders B1 and B2 level pills for Spanish and updates the selected level", async () => {
+    let updatedLevel = "";
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([
+        { id: 1, target_language: "es", cefr_level: "A1" },
+      ]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "update_learning_goal_cefr_cmd") {
+        updatedLevel = args?.cefrLevel;
+        return Promise.resolve(null);
       }
       return Promise.resolve(null);
     });
-
     const wrapper = mountPage();
     await flushPromises();
-
-    const langItem = wrapper
-      .findAll(".settings-item")
-      .find((el) => el.text().includes("界面语言"));
-    await langItem.trigger("click");
+    const levelPills = wrapper.findAll(".level-pill");
+    expect(levelPills.length).toBe(4);
+    const b2 = levelPills.find((p) => p.text().includes("B2"));
+    await b2.trigger("click");
     await flushPromises();
+    expect(updatedLevel).toBe("B2");
+  });
 
-    const radios = wrapper.findAll('input[type="radio"][value="en"]');
-    await radios[0].setValue(true);
+  it("clicking another learning language calls set_target_language_cmd", async () => {
+    let switched = "";
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([
+        { id: 1, target_language: "es", cefr_level: "A1" },
+        { id: 2, target_language: "en", cefr_level: "A1" },
+      ]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "set_target_language_cmd") {
+        switched = args?.language;
+        return Promise.resolve("en");
+      }
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
     await flushPromises();
+    const pills = wrapper.findAll(".lang-pill").filter((p) => !p.classes().includes("level-pill"));
+    const enPill = pills.find((p) => p.text().includes("英语"));
+    expect(enPill).toBeTruthy();
+    await enPill.trigger("click");
+    await flushPromises();
+    expect(switched).toBe("en");
+  });
 
-    const okBtn = wrapper
-      .findAll(".dialog-btn.primary")
-      .find((b) => b.text() === "确定");
-    await okBtn.trigger("click");
-    await flushPromises();
-    await flushPromises();
-
-    expect(updateUserArgs).toMatchObject({ request: { id: "u1", native_language: "en" } });
+  it("active learning language pill stays readable (white text) on hover", () => {
+    const sfcPath = resolve(dirname(fileURLToPath(import.meta.url)), "..", "SettingsPage.vue");
+    const css = readFileSync(sfcPath, "utf8");
+    expect(css).toMatch(/\.lang-pill\.active:hover[^{]*\{[\s\S]*?color:\s*#fff/);
   });
 
   it("clicking OK in the news-limit dialog actually persists the value", async () => {
@@ -120,6 +141,9 @@ describe("SettingsPage", () => {
         return Promise.resolve(null);
       }
       if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
       return Promise.resolve(null);
     });
 
@@ -167,6 +191,9 @@ describe("SettingsPage", () => {
         return Promise.resolve({ enabled: true, remote_conflict: false });
       }
       if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
       return Promise.resolve(null);
     });
 
@@ -204,6 +231,9 @@ describe("SettingsPage", () => {
         return Promise.resolve({ enabled: true, remote_conflict: false });
       }
       if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
       return Promise.resolve(null);
     });
 
@@ -241,6 +271,9 @@ describe("SettingsPage", () => {
         return Promise.reject(new Error("network down"));
       }
       if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
       return Promise.resolve(null);
     });
 

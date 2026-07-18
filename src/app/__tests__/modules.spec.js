@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { APP_MODULES, loadFeatureModules, loadShellModule } from "../modules.js";
+import { APP_MODULES, TV_APP_MODULES, loadFeatureModules, loadShellModule } from "../modules.js";
 
 describe("app module loading", () => {
   it("loads shell before feature modules", async () => {
@@ -17,5 +17,11 @@ describe("app module loading", () => {
     const shellChildren = APP_MODULES.filter((mod) => mod.parent);
 
     expect(shellChildren.every((mod) => mod.parent === "shell")).toBe(true);
+  });
+
+  it("keeps chat, speaking, soulmate, and editors out of the TV module set", () => {
+    const names = TV_APP_MODULES.map((mod) => mod.name);
+
+    expect(names).toEqual(["wizard", "learn", "achievements", "path", "news", "reading", "vocab", "profile"]);
   });
 });

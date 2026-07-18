@@ -645,6 +645,14 @@ impl LlmClient {
     }
 }
 
+fn apply_prompt_vars(template: &str, vars: &[(&str, &str)]) -> String {
+    let mut filled = template.to_string();
+    for (k, v) in vars {
+        filled = filled.replace(&format!("{{{{{}}}}}", k), v);
+    }
+    filled
+}
+
 pub fn build_chat_messages(
     db: &DatabasePool,
     prompt_key: &str,
@@ -658,19 +666,16 @@ pub fn build_chat_messages(
         }
     };
 
-    let mut filled = usr;
-    for (k, v) in vars {
-        filled = filled.replace(&format!("{{{{{}}}}}", k), v);
-    }
-
+    // System prompts also use {{VARS}} (e.g. soulmate TARGET_LANG / NAME).
+    // Leaving them unsubstituted makes the model ignore language constraints.
     vec![
         ChatMessage {
             role: "system".to_string(),
-            content: sys,
+            content: apply_prompt_vars(&sys, vars),
         },
         ChatMessage {
             role: "user".to_string(),
-            content: filled,
+            content: apply_prompt_vars(&usr, vars),
         },
     ]
 }
@@ -1398,6 +1403,43 @@ mod tests {
         let mut nvidia = serde_json::json!({});
         apply_thinking_params(&mut nvidia, &config(LlmProvider::NvidiaNim, false));
         assert_eq!(nvidia["chat_template_kwargs"]["enable_thinking"], false);
+    }
+
+    #[test]
+    fn build_chat_messages_substitutes_vars_in_system_and_user() {
+        let db = empty_db();
+        crate::modules::prompts::ensure_default_prompts(&db);
+        let messages = build_chat_messages(
+            &db,
+            "soulmate-story",
+            &[
+                ("NAME", "小雨"),
+                ("TYPE", "soul"),
+                ("PERSONALITY", "warm"),
+                ("LOCATION", "上海"),
+                ("TARGET_LANG", "Chinese"),
+                ("CEFR", "A1"),
+                ("DAY", "1"),
+                ("INTENSITY", "2"),
+                ("ROMANCE", "1"),
+                ("SURPRISE", "2"),
+                ("KNOWLEDGE", "2"),
+                ("VARIETY_SEED", "seed-abc"),
+                ("STORY_SUMMARY", ""),
+                ("MEMORY_SUMMARY", ""),
+                ("CURRENT_HOOKS", "(none)"),
+            ],
+        );
+        assert_eq!(messages.len(), 2);
+        assert!(messages[0].content.contains("Chinese"));
+        assert!(!messages[0].content.contains("{{TARGET_LANG}}"));
+        assert!(messages[1].content.contains("小雨"));
+        assert!(messages[1].content.contains("Chinese"));
+        assert!(messages[1].content.contains("seed-abc"));
+        assert!(messages[1].content.contains("(none)"));
+        assert!(!messages[1].content.contains("{{NAME}}"));
+        assert!(!messages[1].content.contains("{{VARIETY_SEED}}"));
+        assert!(!messages[1].content.contains("{{CURRENT_HOOKS}}"));
     }
 
     #[test]

@@ -11,6 +11,7 @@ import {
   readingLevel,
   speakingLevel,
 } from "@/modules/achievements/achievementMatrix.js";
+import { achievementTracksForMode } from "@/shared/tvPolicy.js";
 
 describe("achievement matrix", () => {
   it("builds 12 Monday-to-Sunday columns ending with the current week", () => {
@@ -25,6 +26,11 @@ describe("achievement matrix", () => {
     expect([0, 1, 2].map(readingLevel)).toEqual(["empty", "active", "complete"]);
     expect([0, 1, 2, 3].map(newsLevel)).toEqual(["empty", "active", "active", "complete"]);
     expect([0, 1, 2].map(speakingLevel)).toEqual(["empty", "active", "complete"]);
+  });
+
+  it("hides speaking track on TV capability model", () => {
+    expect(achievementTracksForMode(true)).toEqual(["readingAm", "news", "readingPm"]);
+    expect(achievementTracksForMode(false)).toContain("speaking");
   });
 });
 

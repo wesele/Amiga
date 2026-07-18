@@ -105,3 +105,49 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
 }
+
+html[data-app-mode="tv"] {
+  font-size: 18px;
+  --bg: #edf5f0;
+  --surface: #ffffff;
+  --border: rgba(31, 61, 47, 0.14);
+  --text: #17241d;
+  --text-light: #53645b;
+  --text-lighter: #78887f;
+  --transition: 0.16s cubic-bezier(0.2, 0, 0, 1);
+}
+
+html[data-app-mode="tv"] #app {
+  padding: 0;
+}
+
+html[data-app-mode="tv"] :where(
+  button,
+  a[href],
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [tabindex]
+):focus-visible {
+  position: relative;
+  z-index: 5;
+  outline: 5px solid #1cb0f6 !important;
+  outline-offset: 4px;
+  box-shadow: 0 0 0 9px rgba(28, 176, 246, 0.18), var(--elevation-3) !important;
+}
+
+html[data-app-mode="tv"] :where(button, a[href], [role="button"]):focus-visible {
+  transform: scale(1.025);
+}
+
+html[data-app-mode="tv"] ::-webkit-scrollbar {
+  width: 12px;
+}
+
+html[data-app-mode="tv"] ::-webkit-scrollbar-thumb {
+  background: rgba(44, 80, 63, 0.28);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}

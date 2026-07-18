@@ -22,23 +22,45 @@
       </div>
     </header>
 
-    <!-- Loading / Rewrite prompt -->
+    <!-- Loading / Rewrite prompt (phone may block; TV shows original immediately) -->
     <div v-if="!article" class="loading-center">{{ t('news.loading') }}</div>
-    <div v-else-if="!article.rewritten_body && !rewriting && !rewriteError" class="rewrite-prompt">
+
+    <div
+      v-else-if="blocksOnRewrite && !article.rewritten_body && !rewriting && !rewriteError"
+      class="rewrite-prompt"
+    >
       <p>{{ t('news.rewritePrompt') }}</p>
       <button class="btn-rewrite" @click="doRewrite">{{ t('news.rewriteBtn') }}</button>
     </div>
-    <div v-else-if="rewriting" class="loading-center">
+    <div v-else-if="blocksOnRewrite && rewriting" class="loading-center">
       <div class="spinner" />
       <p>{{ t('news.rewriting') }}</p>
     </div>
-    <div v-else-if="rewriteError" class="rewrite-prompt">
+    <div v-else-if="blocksOnRewrite && rewriteError && !displayBody" class="rewrite-prompt">
       <p class="error-text">{{ rewriteError }}</p>
       <button class="btn-rewrite" @click="doRewrite">{{ t('common.retry') }}</button>
     </div>
 
-    <!-- Article body -->
-    <div v-else class="article-body">
+    <!-- Article body (TV: original-first while rewrite runs in background) -->
+    <div v-else-if="displayBody || !blocksOnRewrite" class="article-body">
+      <div v-if="rewriting && !blocksOnRewrite" class="rewrite-banner" role="status">
+        <div class="rewrite-banner-main">
+          <div class="mini-spinner" aria-hidden="true" />
+          <span>{{ t('news.rewritingBackground') }}</span>
+        </div>
+        <button type="button" class="btn-cancel-rewrite" @click="cancelRewrite">
+          {{ t('news.cancelRewrite') }}
+        </button>
+      </div>
+      <div v-else-if="rewriteError && !article.rewritten_body && !blocksOnRewrite" class="rewrite-banner rewrite-banner-error" role="alert">
+        <span>{{ rewriteError }}</span>
+        <button type="button" class="btn-cancel-rewrite" @click="doRewrite">{{ t('common.retry') }}</button>
+      </div>
+      <div v-else-if="showingOriginalFallback && !blocksOnRewrite" class="rewrite-banner rewrite-banner-info" role="status">
+        <span>{{ t('news.readingOriginal') }}</span>
+        <button type="button" class="btn-cancel-rewrite" @click="doRewrite">{{ t('news.rewriteBtn') }}</button>
+      </div>
+
       <!-- Original mode -->
       <div v-if="!bilingualMode" class="article-text">
         <template v-for="(token, idx) in tokens" :key="idx">
@@ -99,12 +121,13 @@
       </div>
     </Transition>
 
-    <!-- Fixed bottom bar -->
-    <div v-if="article?.rewritten_body" class="bottom-bar">
+    <!-- Fixed bottom bar: available once any body text is readable -->
+    <div v-if="displayBody" class="bottom-bar">
       <div class="mode-bar">
         <button
           class="mode-btn mode-toggle"
           :class="{ 'is-bilingual': bilingualMode }"
+          :disabled="!article?.rewritten_body && !article?.original_body"
           :title="bilingualMode ? t('news.original') : t('news.bilingual')"
           @click="toggleBilingual"
         >
@@ -130,6 +153,7 @@
           </svg>
         </button>
         <button
+          v-if="!isTvMode"
           class="mode-btn icon-btn share-btn"
           :disabled="sharing"
           :title="t('news.shareTitle')"
@@ -151,7 +175,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
 import { getArticle, saveReadingLog } from "@/shared/backend/news.js";
 import { getBilingual, rewriteArticle, translateText } from "@/shared/backend/llm.js";
@@ -168,6 +192,8 @@ import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
 import { useReadAloud } from "@/shared/readAloud.js";
 import { useNewsArticleWords } from "./useNewsArticleWords.js";
+import { isTvMode } from "@/shared/appMode.js";
+import { shouldBlockUiOnRewrite } from "@/shared/tvPolicy.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -177,11 +203,25 @@ const targetLangStore = useTargetLangStore();
 const article = ref(null);
 const rewriting = ref(false);
 const rewriteError = ref("");
+const rewriteCancelled = ref(false);
 const startTime = ref(Date.now());
 let targetLang = "es";
 let userId = "";
 let currentLevel = "A1";
 let unsubscribe = null;
+let rewriteGeneration = 0;
+
+const blocksOnRewrite = shouldBlockUiOnRewrite(isTvMode);
+const displayBody = computed(() => {
+  const art = article.value;
+  if (!art) return "";
+  return art.rewritten_body || art.original_body || "";
+});
+const showingOriginalFallback = computed(() => (
+  Boolean(article.value?.original_body)
+  && !article.value?.rewritten_body
+  && !rewriting.value
+));
 
 // Bilingual mode state
 const bilingualMode = ref(false);
@@ -267,10 +307,20 @@ onMounted(async () => {
     currentLevel = ctx.cefr;
     const art = await getArticle(Number(props.id));
     article.value = art;
-    if (!art.rewritten_body) {
+    if (art.rewritten_body) {
+      processArticleWords();
+    } else if (art.original_body) {
+      // TV: show original immediately; phone still may await rewrite.
+      parseText(art.original_body);
+      if (blocksOnRewrite) {
+        await doRewrite();
+      } else {
+        void doRewrite();
+      }
+    } else if (blocksOnRewrite) {
       await doRewrite();
     } else {
-      processArticleWords();
+      void doRewrite();
     }
   } catch (e) {
     console.error("Failed to load article:", e);
@@ -317,17 +367,33 @@ onBeforeUnmount(async () => {
 });
 
 async function doRewrite() {
+  const generation = ++rewriteGeneration;
+  rewriteCancelled.value = false;
   rewriting.value = true;
   rewriteError.value = "";
   try {
     const result = await rewriteArticle(Number(props.id), currentLevel, userId, targetLang);
+    if (generation !== rewriteGeneration || rewriteCancelled.value) return;
     article.value = result;
     processArticleWords();
   } catch (e) {
+    if (generation !== rewriteGeneration || rewriteCancelled.value) return;
     console.error("Failed to rewrite article:", e);
     rewriteError.value = typeof e === "string" ? e : (e?.message || t("news.rewriteFail"));
   } finally {
-    rewriting.value = false;
+    if (generation === rewriteGeneration) {
+      rewriting.value = false;
+    }
+  }
+}
+
+function cancelRewrite() {
+  rewriteCancelled.value = true;
+  rewriteGeneration += 1;
+  rewriting.value = false;
+  // Keep original text available; user can retry later.
+  if (article.value?.original_body && !article.value?.rewritten_body) {
+    parseText(article.value.original_body);
   }
 }
 
@@ -563,6 +629,65 @@ function formatSource(source) {
   background: var(--green-hover);
 }
 
+.rewrite-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(28, 176, 246, 0.1);
+  border: 1px solid rgba(28, 176, 246, 0.28);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rewrite-banner-error {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+.rewrite-banner-info {
+  background: rgba(88, 204, 2, 0.1);
+  border-color: rgba(88, 204, 2, 0.28);
+}
+
+.rewrite-banner-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mini-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.btn-cancel-rewrite {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btn-cancel-rewrite:hover {
+  background: var(--surface-variant, #f3f4f6);
+}
+
 /* Article text */
 .article-body {
   flex: 1;
@@ -571,6 +696,30 @@ function formatSource(source) {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding: 20px 20px 80px;
+}
+
+html[data-app-mode="tv"] .article-body {
+  padding: 20px 28px 40px;
+  max-width: 52rem;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Keep overflow-wrap here too so structural CSS tests (and TV layout)
+   still guarantee long headlines wrap instead of clipping. */
+html[data-app-mode="tv"] .article-text {
+  font-size: 20px;
+  line-height: 1.85;
+  max-width: 46ch;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+html[data-app-mode="tv"] .header-title {
+  font-size: 18px;
+  -webkit-line-clamp: 2;
+  overflow-wrap: break-word;
 }
 
 .article-text {

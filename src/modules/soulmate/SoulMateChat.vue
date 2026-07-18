@@ -110,10 +110,10 @@ onMounted(async () => {
   try {
     const context = await loadLearningContext({ fallbackToFirstGoal: true });
     userId.value = context.user?.id || "";
-    targetLang.value = context.targetLang;
-    const home = await getSoulMateHome(userId.value);
+    targetLang.value = context.targetLang || "es";
+    const home = await getSoulMateHome(userId.value, targetLang.value);
     companionName.value = home.world?.companion_name || "";
-    messages.value = await getSoulMateChat(userId.value, props.episodeId);
+    messages.value = await getSoulMateChat(userId.value, targetLang.value, props.episodeId);
   } catch (e) {
     loadError.value = e?.message || t("soulmate.chatLoadFail");
   } finally {
@@ -170,7 +170,7 @@ async function send() {
   sending.value = true;
   await scrollBottom();
   try {
-    const reply = await submitSoulMateTurn(userId.value, props.episodeId, text);
+    const reply = await submitSoulMateTurn(userId.value, targetLang.value, props.episodeId, text);
     messages.value.push(reply);
   } catch {
     messages.value.push({ id: `error-${Date.now()}`, role: "assistant", content: t("soulmate.replyFail") });

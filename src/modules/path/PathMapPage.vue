@@ -51,6 +51,8 @@
       </div>
     </Teleport>
 
+    <p v-if="nodeActionHint" class="node-action-hint" role="status">{{ nodeActionHint }}</p>
+
     <div v-if="loading" class="loading-state">{{ t("path.loading") }}</div>
 
     <div v-else-if="error" class="error-state">
@@ -98,7 +100,7 @@
                 type="button"
                 class="path-node"
                 :class="nodeClass(section)"
-                :disabled="isNodeDisabled(section)"
+                :aria-disabled="isNodeDisabled(section) ? 'true' : 'false'"
                 :aria-label="nodeLabel(section)"
                 @click="startNode(section)"
               >
@@ -160,6 +162,7 @@ const currentCefr = ref("A1");
 const levelSwitching = ref(false);
 const showLevelPicker = ref(false);
 const pathScroll = ref(null);
+const nodeActionHint = ref("");
 const learningLevels = computed(() => learningCefrLevels(targetLangStore.code));
 
 const completedLevelLabel = computed(() => {
@@ -233,7 +236,16 @@ function goBack() {
 }
 
 function startNode(section) {
-  if (isNodeDisabled(section)) return;
+  if (isNodeDisabled(section)) {
+    // Give remote users an explicit reason instead of a silent no-op.
+    if (section.locked) {
+      nodeActionHint.value = t("path.nodeLocked");
+    } else if (section.kind === "practice" && section.question_count === 0) {
+      nodeActionHint.value = t("path.nodeEmpty");
+    }
+    return;
+  }
+  nodeActionHint.value = "";
   if (section.kind === "grammar" || section.kind === "vocab") {
     router.push({ name: "path-teaching", params: { nodeId: section.id } });
     return;
@@ -320,6 +332,10 @@ onMounted(load);
   font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .page-sub {
@@ -370,6 +386,11 @@ onMounted(load);
   padding: 0 16px calc(16px + var(--safe-bottom));
 }
 
+html[data-app-mode="tv"] .level-overlay {
+  align-items: center;
+  padding: 24px;
+}
+
 .level-sheet {
   width: 100%;
   max-width: 400px;
@@ -377,6 +398,18 @@ onMounted(load);
   border-radius: 20px 20px 16px 16px;
   padding: 20px 16px 12px;
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+}
+
+html[data-app-mode="tv"] .level-sheet {
+  max-width: 520px;
+  border-radius: 20px;
+  padding: 28px 24px 20px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+html[data-app-mode="tv"] .level-sheet-option {
+  min-height: 64px;
+  font-size: 18px;
 }
 
 .level-sheet-title {
@@ -432,6 +465,17 @@ onMounted(load);
 .level-sheet-check {
   font-weight: 800;
   color: var(--green-hover);
+}
+
+.node-action-hint {
+  margin: 0;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--orange-hover, #c2410c);
+  background: var(--orange-bg, #fff7ed);
+  border-bottom: 1px solid var(--border);
 }
 
 .loading-state,
@@ -614,6 +658,22 @@ onMounted(load);
   background: transparent;
 }
 
+html[data-app-mode="tv"] .path-node {
+  width: 88px;
+  height: 88px;
+}
+
+html[data-app-mode="tv"] .step-body {
+  width: 140px;
+}
+
+html[data-app-mode="tv"] .node-inner {
+  font-size: 28px;
+  border-width: 5px;
+}
+
+
+
 .node-inner {
   display: flex;
   align-items: center;
@@ -677,21 +737,27 @@ onMounted(load);
   100% { transform: scale(1.15); opacity: 0; }
 }
 
-.path-node:not(:disabled):active .node-inner {
+.path-node:not([aria-disabled="true"]):active .node-inner {
   transform: translateY(4px);
   box-shadow: 0 2px 0 #46a302;
 }
 
-.path-node.grammar:not(:disabled):active .node-inner {
+.path-node.grammar:not([aria-disabled="true"]):active .node-inner {
   box-shadow: 0 2px 0 #a855f7;
 }
 
-.path-node.vocab:not(:disabled):active .node-inner {
+.path-node.vocab:not([aria-disabled="true"]):active .node-inner {
   box-shadow: 0 2px 0 #1899d6;
 }
 
-.path-node:disabled {
+/* Locked/empty nodes stay focusable + clickable so TV remotes can surface
+   nodeActionHint; navigation is still blocked inside startNode(). */
+.path-node[aria-disabled="true"] {
   cursor: not-allowed;
+}
+
+.path-node[aria-disabled="true"] .node-inner {
+  opacity: 0.85;
 }
 
 .node-caption {

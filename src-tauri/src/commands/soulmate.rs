@@ -18,8 +18,9 @@ pub async fn initialize_soulmate_cmd(
 pub async fn get_soulmate_world_cmd(
     db: State<'_, DatabasePool>,
     user_id: String,
+    target_lang: String,
 ) -> Result<Option<soulmate_mod::SoulMateWorld>, String> {
-    soulmate_mod::get_world(&db, &user_id)
+    soulmate_mod::get_world(&db, &user_id, &target_lang)
 }
 
 #[tauri::command]
@@ -37,8 +38,9 @@ pub async fn get_soulmate_home_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,
     user_id: String,
+    target_lang: String,
 ) -> Result<soulmate_mod::SoulMateHome, String> {
-    soulmate_mod::get_home(&llm.client, &db, &user_id).await
+    soulmate_mod::get_home(&llm.client, &db, &user_id, &target_lang).await
 }
 
 #[tauri::command]
@@ -46,8 +48,10 @@ pub async fn generate_soulmate_episode_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,
     user_id: String,
+    target_lang: String,
 ) -> Result<soulmate_mod::SoulMateEpisode, String> {
-    let episode = soulmate_mod::generate_today_episode(&llm.client, &db, &user_id).await?;
+    let episode =
+        soulmate_mod::generate_today_episode(&llm.client, &db, &user_id, &target_lang).await?;
     after_syncable_write(&db);
     Ok(episode)
 }
@@ -75,9 +79,10 @@ pub async fn get_soulmate_chat_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,
     user_id: String,
+    target_lang: String,
     episode_id: String,
 ) -> Result<Vec<soulmate_mod::SoulMateMessage>, String> {
-    soulmate_mod::get_chat(&llm.client, &db, &user_id, &episode_id).await
+    soulmate_mod::get_chat(&llm.client, &db, &user_id, &target_lang, &episode_id).await
 }
 
 #[tauri::command]
@@ -85,11 +90,19 @@ pub async fn submit_soulmate_turn_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,
     user_id: String,
+    target_lang: String,
     episode_id: String,
     message: String,
 ) -> Result<soulmate_mod::SoulMateMessage, String> {
-    let reply =
-        soulmate_mod::submit_turn(&llm.client, &db, &user_id, &episode_id, &message).await?;
+    let reply = soulmate_mod::submit_turn(
+        &llm.client,
+        &db,
+        &user_id,
+        &target_lang,
+        &episode_id,
+        &message,
+    )
+    .await?;
     after_syncable_write(&db);
     Ok(reply)
 }
@@ -98,8 +111,9 @@ pub async fn submit_soulmate_turn_cmd(
 pub async fn reset_soulmate_cmd(
     db: State<'_, DatabasePool>,
     user_id: String,
+    target_lang: String,
 ) -> Result<bool, String> {
-    let deleted = soulmate_mod::reset(&db, &user_id)?;
+    let deleted = soulmate_mod::reset(&db, &user_id, &target_lang)?;
     after_syncable_write(&db);
     Ok(deleted)
 }

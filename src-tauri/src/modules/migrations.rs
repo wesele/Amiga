@@ -81,6 +81,11 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add Soul Mate worlds, daily episodes, and chat messages",
             MIGRATION_V19,
         ),
+        (
+            20,
+            "Isolate Soul Mate worlds by target learning language",
+            MIGRATION_V20,
+        ),
     ]
 }
 
@@ -490,6 +495,97 @@ CREATE TABLE IF NOT EXISTS soulmate_messages (
     content TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE INDEX IF NOT EXISTS idx_soulmate_episodes_world_date
+ON soulmate_episodes(world_id, story_date DESC);
+
+CREATE INDEX IF NOT EXISTS idx_soulmate_messages_world_episode
+ON soulmate_messages(world_id, episode_id, id);
+"#;
+
+const MIGRATION_V20: &str = r#"
+-- Rebuild soulmate_worlds so each (user_id, target_lang) pair can own a
+-- separate companion. Drop children first so FK checks pass, then restore.
+CREATE TABLE soulmate_worlds_new (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    companion_type TEXT NOT NULL,
+    companion_name TEXT NOT NULL,
+    companion_gender TEXT NOT NULL DEFAULT 'female',
+    personality TEXT NOT NULL DEFAULT 'warm',
+    story_location TEXT NOT NULL DEFAULT 'Madrid',
+    intensity INTEGER NOT NULL DEFAULT 2,
+    romance_tension INTEGER NOT NULL DEFAULT 1,
+    surprise INTEGER NOT NULL DEFAULT 2,
+    knowledge INTEGER NOT NULL DEFAULT 2,
+    target_lang TEXT NOT NULL,
+    native_lang TEXT NOT NULL,
+    cefr_level TEXT NOT NULL DEFAULT 'A1',
+    relationship_stage TEXT NOT NULL DEFAULT 'new',
+    story_summary TEXT NOT NULL DEFAULT '',
+    memory_summary TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, target_lang)
+);
+
+CREATE TABLE soulmate_episodes_new (
+    id TEXT PRIMARY KEY,
+    world_id TEXT NOT NULL REFERENCES soulmate_worlds_new(id) ON DELETE CASCADE,
+    story_date TEXT NOT NULL,
+    day_number INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    teaser TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'reading',
+    read_position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    read_at TEXT,
+    UNIQUE(world_id, story_date)
+);
+
+CREATE TABLE soulmate_messages_new (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    world_id TEXT NOT NULL REFERENCES soulmate_worlds_new(id) ON DELETE CASCADE,
+    episode_id TEXT REFERENCES soulmate_episodes_new(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+INSERT INTO soulmate_worlds_new (
+    id, user_id, companion_type, companion_name, companion_gender, personality,
+    story_location, intensity, romance_tension, surprise, knowledge,
+    target_lang, native_lang, cefr_level, relationship_stage, story_summary,
+    memory_summary, created_at, updated_at
+)
+SELECT
+    id, user_id, companion_type, companion_name, companion_gender, personality,
+    story_location, intensity, romance_tension, surprise, knowledge,
+    target_lang, native_lang, cefr_level, relationship_stage, story_summary,
+    memory_summary, created_at, updated_at
+FROM soulmate_worlds;
+
+INSERT INTO soulmate_episodes_new (
+    id, world_id, story_date, day_number, title, teaser, body, status,
+    read_position, created_at, read_at
+)
+SELECT
+    id, world_id, story_date, day_number, title, teaser, body, status,
+    read_position, created_at, read_at
+FROM soulmate_episodes;
+
+INSERT INTO soulmate_messages_new (id, world_id, episode_id, role, content, created_at)
+SELECT id, world_id, episode_id, role, content, created_at
+FROM soulmate_messages;
+
+DROP TABLE soulmate_messages;
+DROP TABLE soulmate_episodes;
+DROP TABLE soulmate_worlds;
+
+ALTER TABLE soulmate_worlds_new RENAME TO soulmate_worlds;
+ALTER TABLE soulmate_episodes_new RENAME TO soulmate_episodes;
+ALTER TABLE soulmate_messages_new RENAME TO soulmate_messages;
 
 CREATE INDEX IF NOT EXISTS idx_soulmate_episodes_world_date
 ON soulmate_episodes(world_id, story_date DESC);

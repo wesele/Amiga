@@ -202,22 +202,25 @@ export function createApiClient(invoke) {
     testMultimodalConnection: (config) =>
       call("test_multimodal_connection_cmd", { config }),
 
-    // Soul Mate
+    // Soul Mate (worlds are isolated by target learning language)
     initializeSoulMate: (request) => call("initialize_soulmate_cmd", { request }),
-    getSoulMateWorld: (userId) => call("get_soulmate_world_cmd", { userId }),
+    getSoulMateWorld: (userId, targetLang) =>
+      call("get_soulmate_world_cmd", { userId, targetLang }),
     updateSoulMate: (request) => call("update_soulmate_cmd", { request }),
-    getSoulMateHome: (userId) => call("get_soulmate_home_cmd", { userId }),
-    generateSoulMateEpisode: (userId) =>
-      call("generate_soulmate_episode_cmd", { userId }),
+    getSoulMateHome: (userId, targetLang) =>
+      call("get_soulmate_home_cmd", { userId, targetLang }),
+    generateSoulMateEpisode: (userId, targetLang) =>
+      call("generate_soulmate_episode_cmd", { userId, targetLang }),
     getSoulMateEpisode: (episodeId) =>
       call("get_soulmate_episode_cmd", { episodeId }),
     markSoulMateStoryRead: (episodeId) =>
       call("mark_soulmate_story_read_cmd", { episodeId }),
-    getSoulMateChat: (userId, episodeId) =>
-      call("get_soulmate_chat_cmd", { userId, episodeId }),
-    submitSoulMateTurn: (userId, episodeId, message) =>
-      call("submit_soulmate_turn_cmd", { userId, episodeId, message }),
-    resetSoulMate: (userId) => call("reset_soulmate_cmd", { userId }),
+    getSoulMateChat: (userId, targetLang, episodeId) =>
+      call("get_soulmate_chat_cmd", { userId, targetLang, episodeId }),
+    submitSoulMateTurn: (userId, targetLang, episodeId, message) =>
+      call("submit_soulmate_turn_cmd", { userId, targetLang, episodeId, message }),
+    resetSoulMate: (userId, targetLang) =>
+      call("reset_soulmate_cmd", { userId, targetLang }),
 
     // Cloud sync
     testCloudSync: () => call("test_cloud_sync_cmd"),

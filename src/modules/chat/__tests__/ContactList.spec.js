@@ -81,7 +81,7 @@ describe("ContactList", () => {
     const names = wrapper.findAll(".contact-name").map((item) => item.text());
     expect(names[0]).toBe("公共群聊");
     expect(names).toContain("Amiga");
-    expect(names).toContain("AI 翻译");
+    expect(names).toContain("翻译");
   });
 
   it("clicking public group opens the social public chat", async () => {
@@ -119,7 +119,7 @@ describe("ContactList", () => {
     await flushPromises();
 
     const translatorItem = wrapper.findAll(".contact-item")
-      .find((item) => item.find(".contact-name").text() === "AI 翻译");
+      .find((item) => item.find(".contact-name").text() === "翻译");
     await translatorItem.trigger("click");
 
     expect(createdArgs).toMatchObject({ userId: "u1", contactType: "translator" });
@@ -296,6 +296,6 @@ describe("ContactList", () => {
 
     const names = wrapper.findAll(".contact-name").map((el) => el.text());
     expect(names).toContain("Amiga");
-    expect(names).toContain("AI 翻译");
+    expect(names).toContain("翻译");
   });
 });

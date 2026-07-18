@@ -30,6 +30,39 @@ mod tests {
     }
 
     #[test]
+    fn test_get_recent_hooks_skips_sensitive_and_respects_limit() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "INSERT INTO news_articles (original_title, original_body, region, hot_rank, is_current)
+             VALUES ('War breaks out overseas', 'Missile strike reported', 'world', 1, 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO news_articles (original_title, original_body, region, hot_rank, is_current)
+             VALUES ('City opens riverside park', 'Families picnic under new trees near the river.', 'world', 2, 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO news_articles (original_title, original_body, region, hot_rank, is_current)
+             VALUES ('Museum night with free entry', 'Local museum stays open late this weekend.', 'culture', 3, 1)",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let hooks = get_recent_hooks(&pool, 2).unwrap();
+        assert_eq!(hooks.len(), 2);
+        assert!(hooks
+            .iter()
+            .all(|h| !h.title.to_lowercase().contains("war")));
+        assert_eq!(hooks[0].title, "City opens riverside park");
+        assert!(!hooks[0].snippet.is_empty());
+    }
+
+    #[test]
     fn test_get_article_not_found() {
         let pool = test_pool();
         let result = get_article(&pool, 999);
@@ -1146,4 +1179,121 @@ pub fn get_learning_days(db: &DatabasePool, user_id: &str) -> Result<i32, String
         )
         .unwrap_or(0);
     Ok(count)
+}
+
+/// Lightweight headline + snippet for optional Soul Mate letter hooks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewsHook {
+    pub title: String,
+    pub snippet: String,
+    pub region: String,
+}
+
+fn collapse_whitespace(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn article_snippet(body: Option<&str>, max_chars: usize) -> String {
+    let raw = body.unwrap_or("").trim();
+    if raw.is_empty() {
+        return String::new();
+    }
+    let collapsed = collapse_whitespace(raw);
+    let mut out = String::new();
+    for (i, ch) in collapsed.chars().enumerate() {
+        if i >= max_chars {
+            out.push('…');
+            break;
+        }
+        out.push(ch);
+    }
+    out
+}
+
+/// Drop headlines that are a poor fit for a warm companion letter.
+fn is_sensitive_news_hook(title: &str, snippet: &str) -> bool {
+    let hay = format!("{title} {snippet}").to_lowercase();
+    const BLOCK: &[&str] = &[
+        "war",
+        "missile",
+        "bomb",
+        "terror",
+        "murder",
+        "killed",
+        "shooting",
+        "rape",
+        "election",
+        "president",
+        "parliament",
+        "guerra",
+        "bomba",
+        "asesin",
+        "terroris",
+        "eleccion",
+        "elección",
+        "战争",
+        "导弹",
+        "爆炸",
+        "恐怖",
+        "枪杀",
+        "谋杀",
+        "死亡",
+        "遇难",
+        "选举",
+        "总统",
+        "议会",
+    ];
+    BLOCK.iter().any(|w| hay.contains(w))
+}
+
+/// Current cached headlines suitable as optional real-world hooks for Soul Mate.
+/// Returns at most `limit` items ordered by hot_rank then freshness.
+pub fn get_recent_hooks(db: &DatabasePool, limit: usize) -> Result<Vec<NewsHook>, String> {
+    if limit == 0 {
+        return Ok(Vec::new());
+    }
+    let conn = db.conn()?;
+    let fetch_limit = (limit * 3).max(limit).min(30) as i64;
+    let mut stmt = conn
+        .prepare(
+            "SELECT original_title, original_body, region
+             FROM news_articles
+             WHERE COALESCE(is_current, 1) = 1
+               AND trim(original_title) <> ''
+             ORDER BY COALESCE(hot_rank, 9999) ASC, fetched_at DESC
+             LIMIT ?1",
+        )
+        .map_err(|e| format!("Query error for news hooks: {e}"))?;
+
+    let rows = stmt
+        .query_map(params![fetch_limit], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, Option<String>>(2)?,
+            ))
+        })
+        .map_err(|e| format!("Failed to query news hooks: {e}"))?;
+
+    let mut hooks = Vec::new();
+    for row in rows.flatten() {
+        let (title, body, region) = row;
+        let title = collapse_whitespace(&title);
+        if title.is_empty() {
+            continue;
+        }
+        let snippet = article_snippet(body.as_deref(), 140);
+        if is_sensitive_news_hook(&title, &snippet) {
+            continue;
+        }
+        hooks.push(NewsHook {
+            title,
+            snippet,
+            region: region.unwrap_or_else(|| "world".to_string()),
+        });
+        if hooks.len() >= limit {
+            break;
+        }
+    }
+    Ok(hooks)
 }

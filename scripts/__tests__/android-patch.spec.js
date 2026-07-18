@@ -11,6 +11,9 @@ import {
   mergeManifest,
   mergeBackupAttributes,
   mergeMainActivityAttributes,
+  mergeTvManifestAttributes,
+  mergeGradleApplicationId,
+  mergeAndroidAppName,
   mergeGradleDebugSigning,
   ensureGradleKeystore,
   shouldCopyFile,
@@ -256,6 +259,38 @@ describe("mergeMainActivityAttributes", () => {
   it("is idempotent", () => {
     const once = mergeMainActivityAttributes(GENERATED);
     expect(mergeMainActivityAttributes(once)).toBe(once);
+  });
+
+  it("switches between landscape TV and portrait phone builds", () => {
+    const tv = mergeMainActivityAttributes(GENERATED, true);
+    expect(tv).toContain('android:screenOrientation="landscape"');
+    expect(mergeMainActivityAttributes(tv, false)).toContain('android:screenOrientation="portrait"');
+  });
+});
+
+describe("Android TV build patches", () => {
+  it("requires Leanback, removes touchscreen requirements, and adds a banner", () => {
+    const tv = mergeTvManifestAttributes(GENERATED, true);
+    expect(tv).toContain('android.software.leanback" android:required="true"');
+    expect(tv).toContain('android.hardware.touchscreen" android:required="false"');
+    expect(tv).toContain('android:banner="@drawable/tv_banner"');
+
+    const phone = mergeTvManifestAttributes(tv, false);
+    expect(phone).toContain('android.software.leanback" android:required="false"');
+    expect(phone).not.toContain("android.hardware.touchscreen");
+    expect(phone).not.toContain("tv_banner");
+  });
+
+  it("uses a co-installable application id and TV launcher name", () => {
+    const gradle = 'defaultConfig {\n        applicationId = "com.idioma.app"\n    }';
+    const tvGradle = mergeGradleApplicationId(gradle, true);
+    expect(tvGradle).toContain('applicationId = "com.idioma.app.tv"');
+    expect(mergeGradleApplicationId(tvGradle, false)).toContain('applicationId = "com.idioma.app"');
+
+    const strings = '<resources><string name="app_name">Amiga</string><string name="main_activity_title">Amiga</string></resources>';
+    const tvStrings = mergeAndroidAppName(strings, true);
+    expect(tvStrings).toContain('<string name="app_name">Amiga TV</string>');
+    expect(tvStrings).toContain('<string name="main_activity_title">Amiga TV</string>');
   });
 });
 

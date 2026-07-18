@@ -1,16 +1,21 @@
 import LearnHubPage from "./LearnHubPage.vue";
-import ChatPage from "@/modules/ai-chat/ChatPage.vue";
+import { isTvMode } from "@/shared/appMode.js";
 
-export default [
+const routes = [
   {
     path: "/learn",
     name: "learn",
     component: LearnHubPage,
   },
-  {
+];
+
+if (!isTvMode) {
+  routes.push({
     path: "/learn/translator/:sessionId",
     name: "learn-translator",
-    component: ChatPage,
+    component: () => import("@/modules/ai-chat/ChatPage.vue"),
     meta: { parent: "learn" },
-  },
-];
+  });
+}
+
+export default routes;

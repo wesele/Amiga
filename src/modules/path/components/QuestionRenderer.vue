@@ -144,7 +144,8 @@ const isChoiceType = computed(() =>
 );
 
 const hasAudio = computed(() =>
-  ["T02", "T08", "T09", "T11"].includes(props.question.type) && props.question.audioText,
+  (["T02", "T08", "T09", "T11"].includes(props.question.type) || props.question.tvOriginalType === "T09")
+    && props.question.audioText,
 );
 
 const showMainImage = computed(() =>
@@ -154,6 +155,8 @@ const showMainImage = computed(() =>
 
 const promptText = computed(() => {
   const q = props.question;
+  if (q.tvOriginalType === "T09") return q.hint || t("path.listenChoose");
+  if (q.tvOriginalType === "T10") return q.sourceText;
   if (q.type === "T05") return q.sentence?.replace(/_{2,}/, "______") || q.sentence;
   if (q.type === "T07") return q.sourceText;
   if (q.type === "T08") return q.question || t("path.listenChoose");

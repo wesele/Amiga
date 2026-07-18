@@ -93,8 +93,8 @@ describe("LearnHubPage", () => {
     const labels = tiles.map((t) => t.find(".module-label").text());
     expect(labels).toContain("新闻");
     expect(labels).toContain("阅读");
-    expect(labels).toContain("AI 口语");
-    expect(labels).toContain("AI 翻译");
+    expect(labels).toContain("口语");
+    expect(labels).toContain("翻译");
     expect(labels).toContain("灵伴");
   });
 
@@ -167,7 +167,7 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     const translatorTile = wrapper.findAll(".module-tile")
-      .find((t) => t.find(".module-label").text() === "AI 翻译");
+      .find((t) => t.find(".module-label").text() === "翻译");
     await translatorTile.trigger("click");
     await flushPromises();
 

@@ -19,14 +19,16 @@
               v-for="day in week.days"
               :key="day.date"
               class="day-cell"
-              :class="{ future: day.isFuture }"
+              :class="{ future: day.isFuture, 'tv-day-cell': isTvMode }"
               :aria-label="dayAriaLabel(day)"
               :title="dayAriaLabel(day)"
             >
-              <span class="mini-cell" :class="`level-${readingLevel(day.readingAm)}`" />
-              <span class="mini-cell" :class="`level-${newsLevel(day.newsCount)}`" />
-              <span class="mini-cell" :class="`level-${readingLevel(day.readingPm)}`" />
-              <span class="mini-cell" :class="`level-${speakingLevel(day.speakingCount)}`" />
+              <span
+                v-for="track in visibleTracks"
+                :key="track"
+                class="mini-cell"
+                :class="`level-${trackLevel(track, day)}`"
+              />
             </div>
           </div>
         </div>
@@ -76,8 +78,19 @@ import {
   readingLevel,
   speakingLevel,
 } from "./achievementMatrix.js";
+import { isTvMode } from "@/shared/appMode.js";
+import { achievementTracksForMode } from "@/shared/tvPolicy.js";
 
 const { t, locale } = useI18n();
+const visibleTracks = achievementTracksForMode(isTvMode);
+
+function trackLevel(track, day) {
+  if (track === "readingAm") return readingLevel(day.readingAm);
+  if (track === "readingPm") return readingLevel(day.readingPm);
+  if (track === "news") return newsLevel(day.newsCount);
+  if (track === "speaking") return speakingLevel(day.speakingCount);
+  return "empty";
+}
 const records = ref([]);
 const progress = ref({
   check_in_current: 0,
@@ -131,6 +144,14 @@ function createGroup(key, icon, value, thresholds, progressText) {
 }
 
 function dayAriaLabel(day) {
+  if (isTvMode) {
+    return t("achievements.daySummaryTv", {
+      date: day.date,
+      am: day.readingAm,
+      pm: day.readingPm,
+      news: day.newsCount,
+    });
+  }
   return t("achievements.daySummary", {
     date: day.date,
     am: day.readingAm,

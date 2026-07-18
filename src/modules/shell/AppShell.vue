@@ -1,10 +1,10 @@
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'tv-shell': isTvMode }">
     <main class="app-content">
       <router-view />
     </main>
     <template v-if="showNav">
-      <nav class="bottom-nav">
+      <nav class="bottom-nav" :aria-label="isTvMode ? 'TV navigation' : undefined">
         <button v-for="tab in tabs" :key="tab.name" class="nav-item" :class="{ active: isTabActive(tab) }" @click="switchTab(tab)">
           <div class="nav-icon" v-html="tab.icon" />
           <span v-if="tab.name === 'chat' && totalUnread > 0" class="nav-dot" />
@@ -22,6 +22,8 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { eventBus } from "@/shared/eventBus.js";
 import { getTotalUnreadCount, SOCIAL_TOTAL_UNREAD_CHANGED } from "@/modules/chat/social/socialPreview.js";
+import { isTvMode } from "@/shared/appMode.js";
+import { shouldShowL1Nav } from "@/shared/tvPolicy.js";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -29,7 +31,7 @@ const router = useRouter();
 const totalUnread = ref(0);
 let unsubscribeTotalUnread = null;
 
-const tabs = [
+const allTabs = [
   {
     name: "learn",
     label: "nav.learn",
@@ -52,7 +54,9 @@ const tabs = [
   },
 ];
 
-const tabRootNames = new Set(tabs.map((t) => t.name));
+const tabs = computed(() => (
+  isTvMode ? allTabs.filter((tab) => tab.name !== "chat") : allTabs
+));
 
 function isTabActive(tab) {
   const name = route.name;
@@ -76,21 +80,10 @@ function switchTab(tab) {
   router.replace({ name: tab.name });
 }
 
-const showNav = computed(() => {
-  const noNavRoutes = [
-    "wizard",
-    "reader",
-    "chat-session",
-    "social-chat",
-    "learn-translator",
-    "soulmate-setup",
-    "soulmate-story",
-    "soulmate-chat",
-  ];
-  return !noNavRoutes.includes(route.name);
-});
+const showNav = computed(() => shouldShowL1Nav(route.name, isTvMode));
 
 onMounted(() => {
+  if (isTvMode) return;
   totalUnread.value = getTotalUnreadCount();
   unsubscribeTotalUnread = eventBus.on(SOCIAL_TOTAL_UNREAD_CHANGED, (count) => {
     totalUnread.value = count;
@@ -209,5 +202,69 @@ onUnmounted(() => {
 
 .nav-label {
   line-height: 1.2;
+}
+
+.tv-shell {
+  flex-direction: row;
+  background:
+    radial-gradient(circle at 82% 12%, rgba(88, 204, 2, 0.12), transparent 28%),
+    linear-gradient(145deg, #f9fff4 0%, #eef7f3 55%, #edf6ff 100%);
+}
+
+.tv-shell .app-content {
+  order: 2;
+  padding: 28px 40px 32px;
+  scroll-padding: 48px;
+}
+
+.tv-shell .bottom-nav {
+  order: 1;
+  width: 220px;
+  height: 100%;
+  flex-direction: column;
+  /* Top-align so Learn / Achievements / Profile stay fully visible
+   * without hunting a vertically-centered cluster near the bottom edge. */
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 12px;
+  padding: 28px 18px 24px;
+  border-top: 0;
+  border-right: 1px solid rgba(28, 27, 31, 0.1);
+  box-shadow: 12px 0 40px rgba(36, 74, 55, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(18px);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.tv-shell .nav-item {
+  min-width: 0;
+  min-height: 64px;
+  flex: 0 0 auto;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 18px;
+  text-align: left;
+}
+
+.tv-shell .nav-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.tv-shell .nav-icon :deep(svg) {
+  width: 32px;
+  height: 32px;
+}
+
+.tv-shell .nav-item.active .nav-icon {
+  transform: none;
+}
+
+.tv-shell .bottom-nav-safe {
+  display: none;
 }
 </style>

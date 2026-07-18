@@ -230,23 +230,46 @@ fn episode_from_row(row: &Row<'_>) -> rusqlite::Result<SoulMateEpisode> {
     })
 }
 
-fn get_world_optional(db: &DatabasePool, user_id: &str) -> Result<Option<SoulMateWorld>, String> {
+fn get_world_optional(
+    db: &DatabasePool,
+    user_id: &str,
+    target_lang: &str,
+) -> Result<Option<SoulMateWorld>, String> {
     let conn = db.conn()?;
     conn.query_row(
         "SELECT id, user_id, companion_type, companion_name, companion_gender,
                 personality, story_location, intensity, romance_tension, surprise,
                 knowledge, target_lang, native_lang, cefr_level, relationship_stage,
                 story_summary, memory_summary
-         FROM soulmate_worlds WHERE user_id = ?1",
-        params![user_id],
+         FROM soulmate_worlds WHERE user_id = ?1 AND target_lang = ?2",
+        params![user_id, target_lang],
         world_from_row,
     )
     .optional()
     .map_err(|e| format!("Failed to query Soul Mate: {e}"))
 }
 
-pub fn get_world(db: &DatabasePool, user_id: &str) -> Result<Option<SoulMateWorld>, String> {
-    get_world_optional(db, user_id)
+fn get_world_by_id(db: &DatabasePool, world_id: &str) -> Result<Option<SoulMateWorld>, String> {
+    let conn = db.conn()?;
+    conn.query_row(
+        "SELECT id, user_id, companion_type, companion_name, companion_gender,
+                personality, story_location, intensity, romance_tension, surprise,
+                knowledge, target_lang, native_lang, cefr_level, relationship_stage,
+                story_summary, memory_summary
+         FROM soulmate_worlds WHERE id = ?1",
+        params![world_id],
+        world_from_row,
+    )
+    .optional()
+    .map_err(|e| format!("Failed to query Soul Mate: {e}"))
+}
+
+pub fn get_world(
+    db: &DatabasePool,
+    user_id: &str,
+    target_lang: &str,
+) -> Result<Option<SoulMateWorld>, String> {
+    get_world_optional(db, user_id, target_lang)
 }
 
 fn get_episode_for_date(
@@ -318,7 +341,7 @@ pub fn initialize(
             story_location, intensity, romance_tension, surprise, knowledge,
             target_lang, native_lang, cefr_level
          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
-         ON CONFLICT(user_id) DO UPDATE SET
+         ON CONFLICT(user_id, target_lang) DO UPDATE SET
             companion_type = excluded.companion_type,
             companion_name = excluded.companion_name,
             companion_gender = excluded.companion_gender,
@@ -328,7 +351,6 @@ pub fn initialize(
             romance_tension = excluded.romance_tension,
             surprise = excluded.surprise,
             knowledge = excluded.knowledge,
-            target_lang = excluded.target_lang,
             native_lang = excluded.native_lang,
             cefr_level = excluded.cefr_level,
             updated_at = datetime('now')",
@@ -351,7 +373,8 @@ pub fn initialize(
     )
     .map_err(|e| format!("Failed to initialize Soul Mate: {e}"))?;
     drop(conn);
-    get_world_optional(db, &request.user_id)?.ok_or_else(|| "Soul Mate was not saved".to_string())
+    get_world_optional(db, &request.user_id, &request.target_lang)?
+        .ok_or_else(|| "Soul Mate was not saved".to_string())
 }
 
 pub fn update(
@@ -372,11 +395,10 @@ pub fn update(
                 romance_tension = ?7,
                 surprise = ?8,
                 knowledge = ?9,
-                target_lang = ?10,
-                native_lang = ?11,
-                cefr_level = ?12,
+                native_lang = ?10,
+                cefr_level = ?11,
                 updated_at = datetime('now')
-             WHERE user_id = ?13",
+             WHERE user_id = ?12 AND target_lang = ?13",
             params![
                 request.companion_type,
                 request.companion_name.trim(),
@@ -387,10 +409,10 @@ pub fn update(
                 request.romance_tension,
                 request.surprise,
                 request.knowledge,
-                request.target_lang,
                 request.native_lang,
                 request.cefr_level,
                 request.user_id,
+                request.target_lang,
             ],
         )
         .map_err(|e| format!("Failed to update Soul Mate: {e}"))?;
@@ -398,7 +420,7 @@ pub fn update(
     if changed == 0 {
         return Err("Soul Mate is not initialized".to_string());
     }
-    get_world_optional(db, &request.user_id)?
+    get_world_optional(db, &request.user_id, &request.target_lang)?
         .ok_or_else(|| "Soul Mate settings could not be reloaded".to_string())
 }
 
@@ -487,7 +509,14 @@ async fn generate_greeting(
         );
     }
     match llm.chat_with_limits(db, messages, 160, 30).await {
-        Ok(text) if !text.trim().is_empty() => clean_plain_text(&text),
+        Ok(text) if !text.trim().is_empty() => {
+            let cleaned = clean_plain_text(&text);
+            if text_matches_target_lang(&cleaned, &world.target_lang) {
+                cleaned
+            } else {
+                fallback_greeting(world, state)
+            }
+        }
         Ok(_) | Err(_) => fallback_greeting(world, state),
     }
 }
@@ -564,7 +593,7 @@ async fn compact_history_if_needed(
     }
     drop(conn);
 
-    match get_world_optional(db, &world.user_id) {
+    match get_world_by_id(db, &world.id) {
         Ok(Some(updated)) => updated,
         Ok(None) | Err(_) => world.clone(),
     }
@@ -574,8 +603,9 @@ pub async fn get_home(
     llm: &LlmClient,
     db: &DatabasePool,
     user_id: &str,
+    target_lang: &str,
 ) -> Result<SoulMateHome, String> {
-    let Some(world) = get_world_optional(db, user_id)? else {
+    let Some(world) = get_world_optional(db, user_id, target_lang)? else {
         return Ok(SoulMateHome {
             initialized: false,
             world: None,
@@ -596,6 +626,52 @@ pub async fn get_home(
         episode_id: episode.as_ref().map(|e| e.id.clone()),
         day_number: episode.as_ref().map(|e| e.day_number).unwrap_or(0),
     })
+}
+
+/// True when `text` is plausibly written in the learning target language.
+/// Used as a safety net when the model ignores language instructions.
+pub fn text_matches_target_lang(text: &str, target_lang: &str) -> bool {
+    let sample = text.trim();
+    if sample.chars().count() < 12 {
+        return false;
+    }
+    let cjk = sample
+        .chars()
+        .filter(|c| {
+            let u = *c as u32;
+            (0x4E00..=0x9FFF).contains(&u)
+                || (0x3400..=0x4DBF).contains(&u)
+                || (0xF900..=0xFAFF).contains(&u)
+        })
+        .count();
+    let latin = sample.chars().filter(|c| c.is_ascii_alphabetic()).count();
+    match target_lang {
+        "zh" => cjk >= 12 && cjk * 2 >= latin,
+        "en" | "es" => latin >= 24 && cjk < 8,
+        _ => true,
+    }
+}
+
+fn story_matches_target_lang(story: &GeneratedStory, target_lang: &str) -> bool {
+    text_matches_target_lang(&story.body, target_lang)
+        && (text_matches_target_lang(&story.title, target_lang)
+            || text_matches_target_lang(&story.teaser, target_lang)
+            || target_lang != "zh")
+}
+
+fn delete_episode(db: &DatabasePool, episode_id: &str) -> Result<(), String> {
+    let conn = db.conn()?;
+    conn.execute(
+        "DELETE FROM soulmate_messages WHERE episode_id = ?1",
+        params![episode_id],
+    )
+    .map_err(|e| format!("Failed to clear Soul Mate chat for bad episode: {e}"))?;
+    conn.execute(
+        "DELETE FROM soulmate_episodes WHERE id = ?1",
+        params![episode_id],
+    )
+    .map_err(|e| format!("Failed to remove mismatched Soul Mate story: {e}"))?;
+    Ok(())
 }
 
 fn parse_generated_story(raw: &str) -> Result<GeneratedStory, String> {
@@ -619,45 +695,179 @@ fn parse_generated_story(raw: &str) -> Result<GeneratedStory, String> {
     Ok(story)
 }
 
-fn fallback_story(world: &SoulMateWorld, day_number: i32) -> GeneratedStory {
-    match world.target_lang.as_str() {
-        "es" => GeneratedStory {
-            title: "La llave sin puerta".to_string(),
-            teaser: "Una llave antigua lleva tu nombre, pero no abre ninguna puerta conocida.".to_string(),
-            body: format!(
-                "Hola,\n\nHoy te escribo desde una cafetería pequeña de {}. Sobre mi mesa hay una llave antigua y una nota con tu nombre. Nadie sabe quién la dejó aquí. En algunas ciudades españolas, las llaves antiguas se regalaban como símbolo de confianza. De pronto, el camarero ha mirado la llave y ha dejado caer una taza. Dice que vio otra igual en una estación cerrada hace veinte años. ¿Buscarías la estación conmigo esta noche? La lluvia golpea las ventanas y, en el reverso de la nota, solo aparece una hora: 23:17. Es nuestra carta número {}, y por primera vez parece que alguien más conoce nuestro secreto. Quiero saber qué harías tú.\n\nCon cariño,\n{}",
-                world.story_location, day_number, world.companion_name
-            ),
-        },
-        "en" => GeneratedStory {
-            title: "The Key Without a Door".to_string(),
-            teaser: "An old key carries your name, but it opens no known door.".to_string(),
-            body: format!(
-                "Hello,\n\nI am writing from a small café in {}. An old key and a note with your name are lying on my table. Nobody knows who left them. Old keys were sometimes given as symbols of trust. Suddenly, the waiter saw the key and dropped a cup. He says he saw another one at a station that closed twenty years ago. Would you look for the station with me tonight? Rain is hitting the windows, and the back of the note shows only one time: 23:17. This is our letter number {}, and for the first time it seems that someone else knows our secret. Tell me what you would do.\n\nYours,\n{}",
-                world.story_location, day_number, world.companion_name
-            ),
-        },
-        _ => GeneratedStory {
-            title: "没有门的钥匙".to_string(),
-            teaser: "一把写着你名字的旧钥匙，却打不开任何已知的门。".to_string(),
-            body: format!(
-                "你好：\n\n我正在{}的一间小咖啡馆里给你写信。桌上放着一把旧钥匙，还有一张写着你名字的纸条，没有人知道是谁留下的。在一些古老城市里，钥匙曾经代表信任。服务员看到它时突然失手打碎了杯子，因为他曾在一座关闭二十年的车站见过同样的钥匙。今晚，你愿意和我一起寻找那座车站吗？窗外开始下雨，纸条背面只写着一个时间：23:17。这是我们的第{}封信，而现在似乎还有另一个人知道这个秘密。我很想知道你会怎么做。\n\n想念你的，\n{}",
-                world.story_location, day_number, world.companion_name
-            ),
-        },
+/// Format local news headlines as optional real-world hooks for today's letter.
+fn format_current_hooks(db: &DatabasePool, knowledge: i32) -> String {
+    // Higher knowledge dial → slightly more hooks available to pick from.
+    let limit = match knowledge {
+        0 => 2,
+        1 => 3,
+        2 => 4,
+        _ => 5,
+    };
+    let hooks = match crate::modules::news::get_recent_hooks(db, limit) {
+        Ok(items) => items,
+        Err(err) => {
+            log::warn!("Soul Mate could not load news hooks: {err}");
+            return "(none)".to_string();
+        }
+    };
+    if hooks.is_empty() {
+        return "(none)".to_string();
     }
+    hooks
+        .into_iter()
+        .enumerate()
+        .map(|(i, hook)| {
+            if hook.snippet.is_empty() {
+                format!("{}. [{}] {}", i + 1, hook.region, hook.title)
+            } else {
+                format!(
+                    "{}. [{}] {} — {}",
+                    i + 1,
+                    hook.region,
+                    hook.title,
+                    hook.snippet
+                )
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Ask the LLM for a fresh letter shaped by companion type/params.
+/// Retries with a new variety seed; never substitutes a hardcoded plot.
+async fn generate_story_with_llm(
+    llm: &LlmClient,
+    db: &DatabasePool,
+    world: &SoulMateWorld,
+    day_number: i32,
+    story_summary: &str,
+    memory_summary: &str,
+    current_hooks: &str,
+) -> Result<GeneratedStory, String> {
+    const MAX_ATTEMPTS: u8 = 3;
+    let target_lang_name = llm::lang_name(&world.target_lang);
+    let day = day_number.to_string();
+    let intensity = world.intensity.to_string();
+    let romance = world.romance_tension.to_string();
+    let surprise = world.surprise.to_string();
+    let knowledge = world.knowledge.to_string();
+    let mut last_error = String::from("unknown error");
+
+    for attempt in 1..=MAX_ATTEMPTS {
+        let variety_seed = Uuid::new_v4().to_string();
+        let vars = [
+            ("NAME", world.companion_name.as_str()),
+            ("TYPE", world.companion_type.as_str()),
+            ("PERSONALITY", world.personality.as_str()),
+            ("LOCATION", world.story_location.as_str()),
+            ("TARGET_LANG", target_lang_name),
+            ("CEFR", world.cefr_level.as_str()),
+            ("DAY", day.as_str()),
+            ("INTENSITY", intensity.as_str()),
+            ("ROMANCE", romance.as_str()),
+            ("SURPRISE", surprise.as_str()),
+            ("KNOWLEDGE", knowledge.as_str()),
+            ("VARIETY_SEED", variety_seed.as_str()),
+            ("STORY_SUMMARY", story_summary),
+            ("MEMORY_SUMMARY", memory_summary),
+            ("CURRENT_HOOKS", current_hooks),
+        ];
+        let mut messages = llm::build_chat_messages(db, "soulmate-story", &vars);
+        if messages.is_empty() {
+            messages = llm::build_chat_messages_fallback(
+                &format!(
+                    "You write serialized personal letters from a fictional companion to a language learner and output strict JSON only. Write entirely in {}. Invent a fresh topic from companion type {}, personality {}, location {}, and story dials — never a fixed template. Optional real-world hooks may be used lightly if they fit.",
+                    target_lang_name,
+                    world.companion_type,
+                    world.personality,
+                    world.story_location
+                ),
+                &format!(
+                    "Write letter {} in {} at CEFR {} from companion {} (type {}, personality {}) in {}. Intensity {}, romance {}, surprise {}, knowledge {}. Novelty seed: {}. Optional current hooks:\n{}\nShare a first-person experience that fits this profile, use a warm pen-pal voice, and ask one personal question. Include a salutation and sign-off. Return JSON with title, teaser, body. Every field must be in {}.",
+                    day_number,
+                    target_lang_name,
+                    world.cefr_level,
+                    world.companion_name,
+                    world.companion_type,
+                    world.personality,
+                    world.story_location,
+                    world.intensity,
+                    world.romance_tension,
+                    world.surprise,
+                    world.knowledge,
+                    variety_seed,
+                    current_hooks,
+                    target_lang_name
+                ),
+            );
+        }
+
+        match llm.chat_for_reading_content(db, messages).await {
+            Ok(raw) => match parse_generated_story(&raw) {
+                Ok(story) if story_matches_target_lang(&story, &world.target_lang) => {
+                    return Ok(story);
+                }
+                Ok(story) => {
+                    last_error = format!(
+                        "language mismatch for {} (title={})",
+                        world.target_lang, story.title
+                    );
+                    log::warn!(
+                        "Soul Mate story attempt {}/{}: {}",
+                        attempt,
+                        MAX_ATTEMPTS,
+                        last_error
+                    );
+                }
+                Err(err) => {
+                    last_error = err;
+                    log::warn!(
+                        "Soul Mate story attempt {}/{} parse failed: {}",
+                        attempt,
+                        MAX_ATTEMPTS,
+                        last_error
+                    );
+                }
+            },
+            Err(err) => {
+                last_error = err;
+                log::warn!(
+                    "Soul Mate story attempt {}/{} LLM failed: {}",
+                    attempt,
+                    MAX_ATTEMPTS,
+                    last_error
+                );
+            }
+        }
+    }
+
+    Err(format!(
+        "Failed to generate today's Soul Mate letter after {MAX_ATTEMPTS} attempts: {last_error}"
+    ))
 }
 
 pub async fn generate_today_episode(
     llm: &LlmClient,
     db: &DatabasePool,
     user_id: &str,
+    target_lang: &str,
 ) -> Result<SoulMateEpisode, String> {
-    let mut world = get_world_optional(db, user_id)?
+    let mut world = get_world_optional(db, user_id, target_lang)?
         .ok_or_else(|| "Soul Mate is not initialized".to_string())?;
     let story_date = today();
     if let Some(existing) = get_episode_for_date(db, &world.id, &story_date)? {
-        return Ok(existing);
+        // Drop previously saved stories that ignored the target language
+        // (e.g. English body while learning Chinese) so we can regenerate.
+        if text_matches_target_lang(&existing.body, &world.target_lang) {
+            return Ok(existing);
+        }
+        log::warn!(
+            "Discarding Soul Mate episode {} because body language does not match {}",
+            existing.id,
+            world.target_lang
+        );
+        delete_episode(db, &existing.id)?;
     }
     world = compact_history_if_needed(llm, db, &world).await;
     let conn = db.conn()?;
@@ -672,40 +882,17 @@ pub async fn generate_today_episode(
 
     let story_summary = truncate_history_for_prompt(&world.story_summary, HISTORY_PROMPT_CHARS);
     let memory_summary = truncate_history_for_prompt(&world.memory_summary, HISTORY_PROMPT_CHARS);
-    let vars = [
-        ("NAME", world.companion_name.as_str()),
-        ("TYPE", world.companion_type.as_str()),
-        ("PERSONALITY", world.personality.as_str()),
-        ("LOCATION", world.story_location.as_str()),
-        ("TARGET_LANG", llm::lang_name(&world.target_lang)),
-        ("CEFR", world.cefr_level.as_str()),
-        ("DAY", &day_number.to_string()),
-        ("INTENSITY", &world.intensity.to_string()),
-        ("ROMANCE", &world.romance_tension.to_string()),
-        ("SURPRISE", &world.surprise.to_string()),
-        ("KNOWLEDGE", &world.knowledge.to_string()),
-        ("STORY_SUMMARY", story_summary.as_str()),
-        ("MEMORY_SUMMARY", memory_summary.as_str()),
-    ];
-    let mut messages = llm::build_chat_messages(db, "soulmate-story", &vars);
-    if messages.is_empty() {
-        messages = llm::build_chat_messages_fallback(
-            "You write serialized personal letters from a fictional companion to a language learner and output strict JSON only.",
-            &format!(
-                "Write letter {} in {} at CEFR {} from companion {} directly to the learner. Share a first-person experience, use a warm pen-pal voice with a safe romantic spark, and ask one personal question. Include a salutation and sign-off. Return JSON with title, teaser, body.",
-                day_number,
-                llm::lang_name(&world.target_lang),
-                world.cefr_level,
-                world.companion_name
-            ),
-        );
-    }
-    let generated = match llm.chat_for_reading_content(db, messages).await {
-        Ok(raw) => {
-            parse_generated_story(&raw).unwrap_or_else(|_| fallback_story(&world, day_number))
-        }
-        Err(_) => fallback_story(&world, day_number),
-    };
+    let current_hooks = format_current_hooks(db, world.knowledge);
+    let generated = generate_story_with_llm(
+        llm,
+        db,
+        &world,
+        day_number,
+        story_summary.as_str(),
+        memory_summary.as_str(),
+        current_hooks.as_str(),
+    )
+    .await?;
 
     let episode_id = Uuid::new_v4().to_string();
     let conn = db.conn()?;
@@ -856,7 +1043,14 @@ async fn generate_chat_opening(
     ];
     let messages = llm::build_chat_messages(db, "soulmate-chat-opening", &vars);
     match llm.chat_with_limits(db, messages, 220, 45).await {
-        Ok(text) if !text.trim().is_empty() => clean_plain_text(&text),
+        Ok(text) if !text.trim().is_empty() => {
+            let cleaned = clean_plain_text(&text);
+            if text_matches_target_lang(&cleaned, &world.target_lang) {
+                cleaned
+            } else {
+                fallback_opening(world, episode)
+            }
+        }
         Ok(_) | Err(_) => fallback_opening(world, episode),
     }
 }
@@ -886,7 +1080,14 @@ async fn generate_chat_reentry(
     ];
     let messages = llm::build_chat_messages(db, "soulmate-chat-reentry", &vars);
     match llm.chat_with_limits(db, messages, 220, 45).await {
-        Ok(text) if !text.trim().is_empty() => clean_plain_text(&text),
+        Ok(text) if !text.trim().is_empty() => {
+            let cleaned = clean_plain_text(&text);
+            if text_matches_target_lang(&cleaned, &world.target_lang) {
+                cleaned
+            } else {
+                fallback_reentry(world)
+            }
+        }
         Ok(_) | Err(_) => fallback_reentry(world),
     }
 }
@@ -895,9 +1096,10 @@ pub async fn get_chat(
     llm: &LlmClient,
     db: &DatabasePool,
     user_id: &str,
+    target_lang: &str,
     episode_id: &str,
 ) -> Result<Vec<SoulMateMessage>, String> {
-    let world = get_world_optional(db, user_id)?
+    let world = get_world_optional(db, user_id, target_lang)?
         .ok_or_else(|| "Soul Mate is not initialized".to_string())?;
     let episode = get_episode(db, episode_id)?;
     if episode.world_id != world.id || episode.status != "read" {
@@ -938,6 +1140,7 @@ pub async fn submit_turn(
     llm: &LlmClient,
     db: &DatabasePool,
     user_id: &str,
+    target_lang: &str,
     episode_id: &str,
     user_message: &str,
 ) -> Result<SoulMateMessage, String> {
@@ -945,7 +1148,7 @@ pub async fn submit_turn(
     if text.is_empty() {
         return Err("Message cannot be empty".to_string());
     }
-    let world = get_world_optional(db, user_id)?
+    let world = get_world_optional(db, user_id, target_lang)?
         .ok_or_else(|| "Soul Mate is not initialized".to_string())?;
     let episode = get_episode(db, episode_id)?;
     if episode.world_id != world.id || episode.status != "read" {
@@ -1004,18 +1207,25 @@ pub async fn submit_turn(
         ];
     }
     let reply = match llm.chat_with_limits(db, messages, 500, 60).await {
-        Ok(value) if !value.trim().is_empty() => clean_plain_text(&value),
+        Ok(value) if !value.trim().is_empty() => {
+            let cleaned = clean_plain_text(&value);
+            if text_matches_target_lang(&cleaned, &world.target_lang) {
+                cleaned
+            } else {
+                fallback_reply(&world)
+            }
+        }
         Ok(_) | Err(_) => fallback_reply(&world),
     };
     save_message(db, &world.id, episode_id, "assistant", &reply)
 }
 
-pub fn reset(db: &DatabasePool, user_id: &str) -> Result<bool, String> {
+pub fn reset(db: &DatabasePool, user_id: &str, target_lang: &str) -> Result<bool, String> {
     let conn = db.conn()?;
     let deleted = conn
         .execute(
-            "DELETE FROM soulmate_worlds WHERE user_id = ?1",
-            params![user_id],
+            "DELETE FROM soulmate_worlds WHERE user_id = ?1 AND target_lang = ?2",
+            params![user_id, target_lang],
         )
         .map_err(|e| format!("Failed to reset Soul Mate: {e}"))?;
     Ok(deleted > 0)
@@ -1056,7 +1266,51 @@ mod tests {
     }
 
     #[test]
-    fn initializes_one_world_per_user() {
+    fn formats_current_hooks_as_none_when_news_empty() {
+        let db = setup();
+        assert_eq!(format_current_hooks(&db, 2), "(none)");
+    }
+
+    #[test]
+    fn formats_current_hooks_from_cached_news() {
+        let db = setup();
+        {
+            let conn = db.conn().unwrap();
+            conn.execute(
+                "INSERT INTO news_articles (original_title, original_body, region, hot_rank, is_current)
+                 VALUES ('Riverside park opens', 'A new park by the river welcomes evening walkers.', 'world', 1, 1)",
+                [],
+            )
+            .unwrap();
+        }
+        let hooks = format_current_hooks(&db, 1);
+        assert!(hooks.contains("Riverside park opens"));
+        assert!(hooks.contains("[world]"));
+        assert!(!hooks.contains("(none)"));
+    }
+
+    #[test]
+    fn detects_target_language_of_generated_text() {
+        assert!(text_matches_target_lang(
+            "你好，我今天在上海发现了一把旧钥匙，想和你一起去找那扇门。",
+            "zh"
+        ));
+        assert!(!text_matches_target_lang(
+            "Hello, today in Madrid I found an old key and I want to find the door with you.",
+            "zh"
+        ));
+        assert!(text_matches_target_lang(
+            "Hello, today in Madrid I found an old key and I want to find the door with you tonight.",
+            "en"
+        ));
+        assert!(text_matches_target_lang(
+            "Hola, hoy en Madrid encontré una llave antigua y quiero buscar la puerta contigo.",
+            "es"
+        ));
+    }
+
+    #[test]
+    fn upserts_one_world_per_user_and_target_lang() {
         let db = setup();
         let first = initialize(&db, &test_request()).unwrap();
         assert_eq!(first.companion_name, "Sofía");
@@ -1064,12 +1318,41 @@ mod tests {
         changed.companion_name = "Luna".to_string();
         let second = initialize(&db, &changed).unwrap();
         assert_eq!(second.companion_name, "Luna");
+        assert_eq!(second.id, first.id);
         let count: i32 = db
             .conn()
             .unwrap()
             .query_row("SELECT COUNT(*) FROM soulmate_worlds", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn isolates_worlds_by_target_language() {
+        let db = setup();
+        let es = initialize(&db, &test_request()).unwrap();
+        let mut en_req = test_request();
+        en_req.target_lang = "en".to_string();
+        en_req.companion_name = "Emma".to_string();
+        en_req.story_location = "London".to_string();
+        let en = initialize(&db, &en_req).unwrap();
+
+        assert_ne!(es.id, en.id);
+        assert_eq!(es.companion_name, "Sofía");
+        assert_eq!(en.companion_name, "Emma");
+
+        let loaded_es = get_world(&db, "u1", "es").unwrap().unwrap();
+        let loaded_en = get_world(&db, "u1", "en").unwrap().unwrap();
+        assert_eq!(loaded_es.id, es.id);
+        assert_eq!(loaded_en.id, en.id);
+        assert!(get_world(&db, "u1", "zh").unwrap().is_none());
+
+        assert!(reset(&db, "u1", "es").unwrap());
+        assert!(get_world(&db, "u1", "es").unwrap().is_none());
+        assert_eq!(
+            get_world(&db, "u1", "en").unwrap().unwrap().companion_name,
+            "Emma"
+        );
     }
 
     #[test]
@@ -1153,7 +1436,7 @@ mod tests {
         )
         .unwrap();
         drop(conn);
-        assert!(reset(&db, "u1").unwrap());
+        assert!(reset(&db, "u1", "es").unwrap());
         for table in ["soulmate_worlds", "soulmate_episodes", "soulmate_messages"] {
             let sql = format!("SELECT COUNT(*) FROM {table}");
             let count: i32 = db

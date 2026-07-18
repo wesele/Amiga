@@ -13,7 +13,7 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
-  cacheDir: "./node_modules/.vite-cache",
+  cacheDir: process.env.VITE_CACHE_DIR || "./node_modules/.vite-cache",
   clearScreen: false,
   server: {
     port,

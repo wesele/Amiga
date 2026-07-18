@@ -81,6 +81,8 @@ import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import { checkAnswer, checkAnswerAsync } from "./checkAnswer.js";
+import { isTvMode } from "@/shared/appMode.js";
+import { adaptQuestionsForTv } from "./tvQuestionAdapter.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -167,7 +169,8 @@ async function load() {
       route.params.sectionId,
     );
     lesson.value = data;
-    questions.value = data.questions || [];
+    const lessonQuestions = data.questions || [];
+    questions.value = isTvMode ? adaptQuestionsForTv(lessonQuestions) : lessonQuestions;
     resetSession();
   } catch (e) {
     error.value = e?.message || String(e);

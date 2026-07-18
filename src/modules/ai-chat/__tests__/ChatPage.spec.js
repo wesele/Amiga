@@ -75,7 +75,7 @@ describe("ChatPage", () => {
           {
             id: "translator-sess",
             user_id: "u1",
-            title: "AI 翻译",
+            title: "翻译",
             contact_type: "translator",
             target_language: "en",
             last_message: "",
@@ -103,11 +103,11 @@ describe("ChatPage", () => {
     // so this test doubles as the regression guard for the
     // "进去后是Amiga" bug.
     expect(sessionsArgs).toMatchObject({ targetLang: "en" });
-    expect(wrapper.find(".header-name").text()).toBe("AI 翻译");
+    expect(wrapper.find(".header-name").text()).toBe("翻译");
     const translatorAvatar = wrapper.find(".contact-avatar svg");
     expect(translatorAvatar.exists()).toBe(true);
     expect(translatorAvatar.attributes("viewBox")).toBe("0 0 24 24");
-    expect(wrapper.text()).toContain("你好！我是 AI 翻译");
+    expect(wrapper.text()).toContain("你好！我是翻译助手");
   });
 
   it("falls back to Amiga defaults when the session lookup returns nothing", async () => {

@@ -35,8 +35,13 @@ if ([string]::IsNullOrWhiteSpace($ExePath)) {
     }
 }
 
+foreach ($key in $ExtraEnv.Keys) {
+    Set-Item -Path "env:$key" -Value $ExtraEnv[$key]
+}
+
 $DevUrl = "http://localhost:$DevPort"
-$ViteCacheDir = Join-Path $WorkingDir "node_modules\.vite-cache"
+$ViteCacheRelative = if ($env:VITE_CACHE_DIR) { $env:VITE_CACHE_DIR } else { "node_modules\.vite-cache" }
+$ViteCacheDir = Join-Path $WorkingDir $ViteCacheRelative
 
 $RustWatchRoots = @(
     "src-tauri\Cargo.toml",
@@ -48,15 +53,15 @@ $RustWatchRoots = @(
     "src-tauri\src"
 )
 
+if (-not [string]::IsNullOrWhiteSpace($TauriConfig)) {
+    $RustWatchRoots += $TauriConfig
+}
+
 $FrontendConfigFiles = @(
     "vite.config.js",
     "package.json",
     "package-lock.json"
 )
-
-foreach ($key in $ExtraEnv.Keys) {
-    Set-Item -Path "env:$key" -Value $ExtraEnv[$key]
-}
 
 function Write-AmigaLine {
     param([string]$Message)
@@ -129,7 +134,11 @@ function Get-LatestWriteTimeUtc {
 
     $latest = [datetime]::MinValue
     foreach ($relativePath in $Paths) {
-        $fullPath = Join-Path $WorkingDir $relativePath
+        $fullPath = if ([System.IO.Path]::IsPathRooted($relativePath)) {
+            $relativePath
+        } else {
+            Join-Path $WorkingDir $relativePath
+        }
         if (-not (Test-Path $fullPath)) {
             continue
         }

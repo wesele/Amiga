@@ -89,6 +89,31 @@ describe("Soul Mate MVP", () => {
           knowledge: 2,
         });
       }
+      if (command === "get_all_prompts_cmd") {
+        return Promise.resolve([
+          {
+            key: "soulmate-story",
+            name: "灵伴每日来信",
+            category: "灵伴",
+            system_prompt: "Write letters.",
+            user_prompt_template: "Day {{DAY}}",
+          },
+          {
+            key: "rewrite-article",
+            name: "新闻文章改写",
+            category: "学习功能",
+            system_prompt: "Rewrite.",
+            user_prompt_template: "Text",
+          },
+          {
+            key: "soulmate-greeting",
+            name: "灵伴动态问候",
+            category: "灵伴",
+            system_prompt: "Greet warmly.",
+            user_prompt_template: "State {{STATE}}",
+          },
+        ]);
+      }
       if (command === "update_soulmate_cmd") return Promise.resolve(args.request);
       return baseInvoke(command);
     });
@@ -103,6 +128,10 @@ describe("Soul Mate MVP", () => {
     await flushPromises();
 
     expect(wrapper.find('.field-label input[maxlength="24"]').element.value).toBe("Sofía");
+    expect(wrapper.text()).toContain("大模型提示词");
+    expect(wrapper.text()).toContain("灵伴动态问候");
+    expect(wrapper.text()).toContain("灵伴每日来信");
+    expect(wrapper.text()).not.toContain("新闻文章改写");
     await wrapper.find('.field-label input[maxlength="24"]').setValue("Luna");
     await wrapper.findAll('.slider-row input[type="range"]')[0].setValue("3");
     await wrapper.find("form").trigger("submit");
@@ -126,6 +155,64 @@ describe("Soul Mate MVP", () => {
       },
     });
     expect(wrapper.text()).toContain("灵伴设置已保存");
+  });
+
+  it("edits and saves a Soul Mate LLM prompt from settings", async () => {
+    mockInvoke.mockImplementation((command, args) => {
+      if (command === "get_soulmate_world_cmd") {
+        return Promise.resolve({
+          companion_type: "soul",
+          companion_name: "Sofía",
+          companion_gender: "female",
+          personality: "warm",
+          story_location: "Madrid",
+          intensity: 2,
+          romance_tension: 1,
+          surprise: 2,
+          knowledge: 2,
+        });
+      }
+      if (command === "get_all_prompts_cmd") {
+        return Promise.resolve([
+          {
+            key: "soulmate-story",
+            name: "灵伴每日来信",
+            category: "灵伴",
+            system_prompt: "Write letters.",
+            user_prompt_template: "Day {{DAY}}",
+          },
+        ]);
+      }
+      if (command === "save_prompt_cmd") return Promise.resolve(undefined);
+      return baseInvoke(command);
+    });
+    const router = makeRouter();
+    await router.push({ name: "soulmate-settings" });
+    const wrapper = mount(SoulMateSettings, {
+      global: {
+        plugins: [router],
+        stubs: { PageHeader: { template: "<header />" }, Teleport: true },
+      },
+    });
+    await flushPromises();
+
+    await wrapper.find(".prompt-header").trigger("click");
+    await flushPromises();
+    const textareas = wrapper.findAll(".prompt-textarea");
+    expect(textareas.length).toBe(2);
+    await textareas[0].setValue("Write warmer letters.");
+    await wrapper.find(".prompt-save-btn").trigger("click");
+    await flushPromises();
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "save_prompt_cmd",
+      expect.objectContaining({
+        key: "soulmate-story",
+        systemPrompt: "Write warmer letters.",
+        userPromptTemplate: "Day {{DAY}}",
+      }),
+    );
+    expect(wrapper.text()).toContain("提示词已保存");
   });
 
   it("resets Soul Mate from the settings page", async () => {
@@ -160,7 +247,10 @@ describe("Soul Mate MVP", () => {
     await wrapper.find(".confirm-btn.confirm").trigger("click");
     await flushPromises();
 
-    expect(mockInvoke).toHaveBeenCalledWith("reset_soulmate_cmd", { userId: "u1" });
+    expect(mockInvoke).toHaveBeenCalledWith("reset_soulmate_cmd", {
+      userId: "u1",
+      targetLang: "es",
+    });
     expect(router.currentRoute.value.name).toBe("soulmate-setup");
   });
 
@@ -191,11 +281,125 @@ describe("Soul Mate MVP", () => {
     await flushPromises();
 
     expect(wrapper.find(".story-action").text()).toContain("今日来信");
+    expect(wrapper.find(".soulmate-home").classes()).toContain("gender-female");
+    expect(wrapper.find(".portrait-image").attributes("src")).toContain(
+      "companion-female.jpg",
+    );
+    // Cached images may fire load before the listener is attached; force ready.
+    await wrapper.find(".portrait-image").trigger("load");
+    expect(wrapper.find(".portrait-image").classes()).toContain("ready");
     await wrapper.find(".story-action").trigger("click");
     await flushPromises();
 
-    expect(mockInvoke).toHaveBeenCalledWith("generate_soulmate_episode_cmd", { userId: "u1" });
+    expect(mockInvoke).toHaveBeenCalledWith("generate_soulmate_episode_cmd", {
+      userId: "u1",
+      targetLang: "es",
+    });
     expect(router.currentRoute.value.name).toBe("soulmate-story");
+  });
+
+  it("uses a male companion background when gender is male", async () => {
+    mockInvoke.mockImplementation((command) => {
+      if (command === "get_soulmate_home_cmd") {
+        return Promise.resolve({
+          initialized: true,
+          greeting: "Te estaba esperando.",
+          state: "story_available",
+          episode_id: null,
+          day_number: 1,
+          world: {
+            companion_name: "Leo",
+            companion_gender: "male",
+            relationship_stage: "new",
+          },
+        });
+      }
+      return baseInvoke(command);
+    });
+    const router = makeRouter();
+    await router.push({ name: "soulmate" });
+    const wrapper = mount(SoulMateHome, {
+      global: { plugins: [router], stubs: { PageHeader: { template: "<header />" } } },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".soulmate-home").classes()).toContain("gender-male");
+    expect(wrapper.find(".portrait-image").attributes("src")).toContain(
+      "companion-male.jpg",
+    );
+  });
+
+  it("does not show a default companion portrait while home is loading", async () => {
+    let resolveHome;
+    mockInvoke.mockImplementation((command) => {
+      if (command === "get_soulmate_home_cmd") {
+        return new Promise((resolve) => {
+          resolveHome = resolve;
+        });
+      }
+      return baseInvoke(command);
+    });
+    const router = makeRouter();
+    await router.push({ name: "soulmate" });
+    const wrapper = mount(SoulMateHome, {
+      global: { plugins: [router], stubs: { PageHeader: { template: "<header />" } } },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".portrait-image").exists()).toBe(false);
+    expect(wrapper.find(".soulmate-home").classes()).toContain("gender-pending");
+
+    resolveHome({
+      initialized: true,
+      greeting: "Hola",
+      state: "story_available",
+      episode_id: null,
+      day_number: 1,
+      world: {
+        companion_name: "Sofía",
+        companion_gender: "female",
+        relationship_stage: "new",
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".portrait-image").attributes("src")).toContain(
+      "companion-female.jpg",
+    );
+    expect(wrapper.find(".soulmate-home").classes()).toContain("gender-female");
+  });
+
+  it("loads the home for the current target language and sends setup when missing", async () => {
+    mockInvoke.mockImplementation((command, args) => {
+      if (command === "get_target_language_cmd") return Promise.resolve("en");
+      if (command === "get_learning_goals_cmd") {
+        return Promise.resolve([{ target_language: "en", cefr_level: "A1" }]);
+      }
+      if (command === "get_soulmate_home_cmd") {
+        expect(args).toMatchObject({ userId: "u1", targetLang: "en" });
+        return Promise.resolve({
+          initialized: false,
+          world: null,
+          greeting: "",
+          state: "uninitialized",
+          episode_id: null,
+          day_number: 0,
+        });
+      }
+      return baseInvoke(command);
+    });
+    const router = makeRouter();
+    await router.push({ name: "soulmate" });
+    mount(SoulMateHome, {
+      global: { plugins: [router], stubs: { PageHeader: { template: "<header />" } } },
+    });
+    await flushPromises();
+
+    expect(mockInvoke).toHaveBeenCalledWith("get_soulmate_home_cmd", {
+      userId: "u1",
+      targetLang: "en",
+    });
+    expect(router.currentRoute.value.name).toBe("soulmate-setup");
   });
 
   it("marks a finished story and returns to the Soul Mate home", async () => {
@@ -321,6 +525,7 @@ describe("Soul Mate MVP", () => {
 
     expect(mockInvoke).toHaveBeenCalledWith("submit_soulmate_turn_cmd", {
       userId: "u1",
+      targetLang: "es",
       episodeId: "e1",
       message: "Yo buscaría la estación.",
     });

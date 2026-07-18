@@ -2,16 +2,44 @@
   <div class="settings-page">
     <PageHeader :title="t('settings.title')" />
 
-    <!-- Interface -->
+    <!-- Learning language (moved from Profile / Me page) -->
     <section class="settings-section">
-      <h3 class="section-header">{{ t('settings.interface') }}</h3>
-      <div class="settings-card">
-        <SettingsItem :title="t('settings.uiLang')" :trailingText="currentLangLabel" @click="showLangDialog = true" :showDivider="false" />
+      <h3 class="section-header">{{ t('learningLang.section') }}</h3>
+      <p class="section-desc">{{ t('learningLang.desc') }}</p>
+      <div class="lang-pills">
+        <button
+          v-for="lang in availableLanguages"
+          :key="lang.code"
+          class="lang-pill"
+          :class="{ active: currentTargetLang === lang.code }"
+          :disabled="switching"
+          @click="onSwitchLang(lang.code)"
+        >
+          <span class="lang-flag">{{ lang.flag }}</span>
+          <span class="lang-name">{{ t(lang.nameKey) }}</span>
+          <span v-if="currentTargetLang === lang.code" class="lang-check">✓</span>
+        </button>
+      </div>
+
+      <h3 class="section-header level-header">{{ t('learningLang.levelSection') }}</h3>
+      <p class="section-desc">{{ t('learningLang.levelDesc') }}</p>
+      <div class="lang-pills level-pills">
+        <button
+          v-for="lvl in learningLevels"
+          :key="lvl"
+          class="lang-pill level-pill"
+          :class="{ active: currentLevel === lvl }"
+          :disabled="levelSwitching"
+          @click="onSwitchLevel(lvl)"
+        >
+          <span class="lang-name">{{ t(`wizard.levels.${lvl}`) }}</span>
+          <span v-if="currentLevel === lvl" class="lang-check">✓</span>
+        </button>
       </div>
     </section>
 
     <!-- AI Configuration -->
-    <section class="settings-section">
+    <section v-if="!isTvMode" class="settings-section">
       <h3 class="section-header">{{ t('settings.ai') }}</h3>
       <div class="settings-card">
         <SettingsItem :title="t('settings.primaryModel')" :subtitle="t('settings.primaryModelSub')" to="/profile/llm-config" />
@@ -53,31 +81,6 @@
         <SettingsItem :title="t('settings.restart')" :subtitle="t('settings.restartSub')" danger @click="showResetDialog = true" :showDivider="false" />
       </div>
     </section>
-
-    <!-- Language Dialog -->
-    <ModalShell
-      :show="showLangDialog"
-      :title="t('settings.pick')"
-      :description="t('settings.pickDesc')"
-      @close="showLangDialog = false"
-    >
-      <div class="dialog-options">
-        <label
-          v-for="opt in langOptions"
-          :key="opt.code"
-          class="dialog-option"
-          :class="{ selected: uiLang === opt.code }"
-        >
-          <input type="radio" name="lang" :value="opt.code" v-model="uiLang" class="dialog-radio" />
-          <span class="dialog-option-text">{{ opt.flag }} {{ opt.label }}</span>
-          <span v-if="uiLang === opt.code" class="dialog-check">✓</span>
-        </label>
-      </div>
-      <template #actions>
-        <button class="dialog-btn" @click="showLangDialog = false">{{ t('common.cancel') }}</button>
-        <button class="dialog-btn primary" @click="saveLang(); showLangDialog = false">{{ t('common.ok') }}</button>
-      </template>
-    </ModalShell>
 
     <!-- News limit Dialog -->
     <ModalShell
@@ -129,18 +132,22 @@ import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { getSetting, saveSetting } from "@/shared/backend/settings.js";
 import { getCloudSyncStatus, setCloudSyncEnabled } from "@/shared/backend/sync.js";
-import { resetWizard as resetWizardApi } from "@/shared/backend/user.js";
+import { getLearningGoals, updateLearningGoalCefr, resetWizard as resetWizardApi } from "@/shared/backend/user.js";
 import SettingsItem from "./components/SettingsItem.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import ModalShell from "@/shared/components/ModalShell.vue";
 import { useI18n } from "@/shared/i18n";
+import { useTargetLangStore } from "@/stores/targetLang.js";
+import { AVAILABLE_LANGUAGES, learningCefrLevels } from "@/shared/constants.js";
+import { loadLearningContext } from "@/shared/learningContext.js";
+import { pickLearningGoal } from "@/shared/learningGoal.js";
+import { isTvMode } from "@/shared/appMode.js";
 
 const router = useRouter();
-const { t, locale, setLocale } = useI18n();
+const { t } = useI18n();
+const targetLangStore = useTargetLangStore();
 
-const uiLang = ref("zh");
 const newsLimit = ref(5);
-const showLangDialog = ref(false);
 const showNewsDialog = ref(false);
 const showResetDialog = ref(false);
 const showCloudSyncConflictDialog = ref(false);
@@ -150,16 +157,14 @@ const cloudSyncNickname = ref("");
 const cloudSyncLastSyncedAt = ref("");
 const cloudSyncLastError = ref("");
 
-const langOptions = computed(() => [
-  { code: "zh", flag: "🇨🇳", label: t("lang.zh") },
-  { code: "en", flag: "🇬🇧", label: t("lang.en") },
-  { code: "es", flag: "🇪🇸", label: t("lang.es") },
-]);
-
-const currentLangLabel = computed(() => {
-  const found = langOptions.value.find((o) => o.code === locale.value);
-  return found ? `${found.flag} ${found.label}` : locale.value;
-});
+const user = ref(null);
+const goals = ref([]);
+const currentTargetLang = computed(() => targetLangStore.code || "");
+const currentLevel = ref("A1");
+const levelSwitching = ref(false);
+const switching = computed(() => targetLangStore.updating);
+const availableLanguages = AVAILABLE_LANGUAGES;
+const learningLevels = computed(() => learningCefrLevels(currentTargetLang.value));
 
 const cloudSyncSubtitle = computed(() => {
   if (cloudSyncBusy.value) {
@@ -242,19 +247,54 @@ async function confirmCloudSyncConflict() {
   await applyCloudSyncEnabled(true, true);
 }
 
-onMounted(() => {
-  // Initialise the picker from the active i18n locale.
-  uiLang.value = locale.value || "zh";
+onMounted(async () => {
   getSetting("news_fetch_limit").then((val) => {
     if (val) newsLimit.value = parseInt(val, 10) || 5;
   }).catch((e) => console.error("Failed to load news fetch limit:", e));
   loadCloudSyncStatus();
+  try {
+    const ctx = await loadLearningContext({
+      targetLangStore,
+      fallbackToFirstGoal: true,
+    });
+    user.value = ctx.user;
+    goals.value = ctx.goals;
+    if (ctx.currentGoal) currentLevel.value = ctx.cefr;
+  } catch (e) {
+    console.error("Failed to load learning language settings:", e);
+  }
 });
 
-function saveLang() {
-  // setLocale handles persistence to app_settings under "ui_language" and
-  // broadcasts the change to every component that calls useI18n().
-  setLocale(uiLang.value);
+async function onSwitchLevel(level) {
+  if (levelSwitching.value || level === currentLevel.value) return;
+  const lang = currentTargetLang.value;
+  const u = user.value;
+  if (!lang || !u) return;
+  levelSwitching.value = true;
+  try {
+    await updateLearningGoalCefr(lang, level);
+    currentLevel.value = level;
+    goals.value = await getLearningGoals(u.id);
+  } catch (e) {
+    console.error("Failed to update learning level:", e);
+  } finally {
+    levelSwitching.value = false;
+  }
+}
+
+async function onSwitchLang(code) {
+  if (switching.value || code === currentTargetLang.value) return;
+  try {
+    await targetLangStore.set(code);
+    try {
+      const u = user.value;
+      if (u) goals.value = await getLearningGoals(u.id);
+      const g = pickLearningGoal(goals.value, code);
+      if (g) currentLevel.value = g.cefr_level;
+    } catch (_) { /* ignore */ }
+  } catch (e) {
+    console.error("Failed to switch target language:", e);
+  }
 }
 
 function saveNewsLimit() {
@@ -287,57 +327,67 @@ function confirmReset() {
   padding: 0 20px;
   margin-bottom: 4px;
 }
+.section-desc {
+  font-size: 12px;
+  color: var(--text-lighter);
+  padding: 0 20px 8px;
+  margin: 0;
+}
+.level-header {
+  margin-top: 16px;
+}
+.lang-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 8px;
+}
+.lang-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+.lang-pill:hover:not(:disabled) {
+  border-color: var(--green);
+  color: var(--green);
+}
+.lang-pill.active,
+.lang-pill.active:hover:not(:disabled) {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+.lang-pill.active:hover:not(:disabled) {
+  background: var(--green-hover);
+  border-color: var(--green-hover);
+}
+.lang-pill:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.lang-flag {
+  font-size: 18px;
+  line-height: 1;
+}
+.lang-check {
+  font-weight: 700;
+  margin-left: 2px;
+}
 .settings-card {
   margin: 0 16px;
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--surface);
-}
-
-/* Dialog form controls */
-.dialog-options {
-  margin: 12px 0 8px;
-}
-.dialog-option {
-  display: flex;
-  align-items: center;
-  padding: 14px 4px;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: background var(--transition);
-}
-.dialog-option:hover {
-  background: var(--surface-variant);
-}
-.dialog-radio {
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--outline-variant);
-  border-radius: 50%;
-  margin-right: 14px;
-  position: relative;
-  transition: border-color var(--transition);
-  flex-shrink: 0;
-}
-.dialog-radio:checked {
-  border-color: var(--blue);
-}
-.dialog-radio:checked::after {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  border-radius: 50%;
-  background: var(--blue);
-}
-.dialog-option-text {
-  flex: 1;
-  font-size: 16px;
-}
-.dialog-check {
-  color: var(--blue);
-  font-weight: 600;
-  font-size: 18px;
 }
 
 /* Stepper */

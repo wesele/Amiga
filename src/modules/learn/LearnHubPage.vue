@@ -1,5 +1,5 @@
 <template>
-  <div class="learn-hub">
+  <div class="learn-hub" :class="{ 'tv-learn-hub': isTvMode }">
     <header class="page-header">
       <h1 class="page-title">{{ t("learn.title") }}</h1>
       <div class="header-days">
@@ -23,8 +23,8 @@
           <div class="stat-value">{{ completedReadingCount }}</div>
           <div class="stat-label">{{ t("profile.reading") }}</div>
         </div>
-        <div class="stat-divider" />
-        <div class="stat-cell">
+        <div v-if="!isTvMode" class="stat-divider" />
+        <div v-if="!isTvMode" class="stat-cell">
           <div class="stat-value">{{ completedSpeakingCount }}</div>
           <div class="stat-label">{{ t("learn.speakingCount") }}</div>
         </div>
@@ -78,6 +78,7 @@ import { getCompletedReadingCount } from "@/shared/backend/reading.js";
 import { getCompletedSpeakingCount } from "@/shared/backend/speaking.js";
 import { getUserVocabStats } from "@/shared/backend/vocabulary.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
+import { isTvMode } from "@/shared/appMode.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -92,13 +93,19 @@ const pathCurriculum = ref(null);
 const pathCefr = ref("A1");
 
 const pathModule = { id: "path", labelKey: "learn.path", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M4 20l4-4" stroke="#58cc02"/><path d="M8 16l4-4" stroke="#1cb0f6"/><path d="M12 12l4-4" stroke="#58cc02"/><path d="M16 8l4-4" stroke="#1cb0f6"/></svg>', route: { name: "path" } };
-const modules = [
+const allModules = [
   { id: "news", labelKey: "learn.news", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><rect x="4" y="4" width="16" height="16" rx="2" stroke="#58cc02"/><path d="M4 12h16" stroke="#1cb0f6"/><path d="M12 4v16" stroke="#58cc02"/><path d="M8 8h8" stroke="#1cb0f6"/></svg>', route: { name: "news" } },
   { id: "reading", labelKey: "learn.reading", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="#58cc02"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="#1cb0f6"/></svg>', route: { name: "reading" } },
   { id: "speaking", labelKey: "learn.speaking", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M7 8a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" stroke="#58cc02"/><path d="M17 8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" stroke="#1cb0f6"/><path d="M6 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="#58cc02"/><path d="M14 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="#1cb0f6"/></svg>', route: { name: "speaking" } },
   { id: "translator", labelKey: "chat.translator", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><circle cx="12" cy="12" r="9" stroke="#58cc02"/><line x1="3" y1="12" x2="21" y2="12" stroke="#1cb0f6"/><path d="M12 3a9 9 0 0 1 3 9 9 9 0 0 1-3 9 9 9 0 0 1-3-9 9 9 0 0 1 3-9z" stroke="#58cc02"/></svg>', action: "translator" },
-  { id: "soulmate", labelKey: "learn.soulmate", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M12 20s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 10c0 5.65-7 10-7 10z" stroke="#ff5d8f"/><path d="M18.5 3.5v4M16.5 5.5h4" stroke="#1cb0f6"/></svg>', route: { name: "soulmate" } },
+  // Multisexual five-color ring: pink / yellow / green / blue / purple.
+  { id: "soulmate", labelKey: "learn.soulmate", icon: '<svg viewBox="0 0 24 24" fill="none" width="1em" height="1em"><path d="M12 4 A8 8 0 0 1 19.6 9.5" stroke="#FF4D9A" stroke-width="2.6" stroke-linecap="round"/><path d="M19.6 9.5 A8 8 0 0 1 16.5 18.3" stroke="#FFC94D" stroke-width="2.6" stroke-linecap="round"/><path d="M16.5 18.3 A8 8 0 0 1 7.5 18.3" stroke="#58cc02" stroke-width="2.6" stroke-linecap="round"/><path d="M7.5 18.3 A8 8 0 0 1 4.4 9.5" stroke="#1cb0f6" stroke-width="2.6" stroke-linecap="round"/><path d="M4.4 9.5 A8 8 0 0 1 12 4" stroke="#9B6DFF" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="12" r="2.9" fill="#FF4D9A"/><circle cx="12" cy="12" r="1.35" fill="#FFC94D"/></svg>', route: { name: "soulmate" } },
 ];
+
+const tvExcludedModules = new Set(["speaking", "translator", "soulmate"]);
+const modules = computed(() => (
+  isTvMode ? allModules.filter((mod) => !tvExcludedModules.has(mod.id)) : allModules
+));
 
 const pathProgressDone = computed(() => pathCurriculum.value?.completed_sections || 0);
 const pathProgressTotal = computed(() => pathCurriculum.value?.total_sections || 0);
@@ -134,7 +141,7 @@ onMounted(async () => {
       readArticleCount.value = await getReadArticleCount(user.id);
       learningDays.value = await getLearningDays(user.id);
       completedReadingCount.value = await getCompletedReadingCount(user.id);
-      completedSpeakingCount.value = await getCompletedSpeakingCount(user.id);
+      if (!isTvMode) completedSpeakingCount.value = await getCompletedSpeakingCount(user.id);
       pathCurriculum.value = await getPathCurriculum(
         ctx.nativeLang || user.native_language,
         lang,
@@ -408,5 +415,97 @@ function openVocab() {
   color: var(--text);
   text-align: center;
   line-height: 1.2;
+}
+
+.learn-hub.tv-learn-hub {
+  max-width: 1240px;
+  margin: 0 auto;
+  background: transparent;
+  /* Fit Path + News + Reading in a 720p-class first viewport. */
+  min-height: 0;
+}
+
+.tv-learn-hub .page-header {
+  padding: 12px 20px;
+  border-radius: 18px 18px 0 0;
+}
+
+.tv-learn-hub .page-title {
+  font-size: clamp(24px, 2.4vw, 32px);
+}
+
+.tv-learn-hub .header-days {
+  font-size: 14px;
+}
+
+.tv-learn-hub .days-num {
+  font-size: 20px;
+}
+
+.tv-learn-hub .status-card {
+  border: 0;
+  border-radius: 0 0 18px 18px;
+}
+
+.tv-learn-hub .stat-cell {
+  padding: 10px 6px;
+}
+
+.tv-learn-hub .stat-value {
+  font-size: 22px;
+}
+
+.tv-learn-hub .stat-label {
+  font-size: 12px;
+}
+
+.tv-learn-hub .module-grid {
+  --module-grid-x: 0px;
+  --module-grid-row-gap: 16px;
+  --module-grid-col-gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 16px 0 24px;
+}
+
+.tv-learn-hub .path-progress-card {
+  /* Compact so module tiles sit on the first screen at 1280×720. */
+  height: auto;
+  min-height: 112px;
+  max-height: 132px;
+  padding: 16px 20px;
+  gap: 6px;
+}
+
+.tv-learn-hub .path-progress-icon {
+  font-size: 28px;
+}
+
+.tv-learn-hub .path-progress-title {
+  font-size: 20px;
+}
+
+.tv-learn-hub .path-progress-sub {
+  font-size: 13px;
+}
+
+.tv-learn-hub .module-tile {
+  aspect-ratio: auto;
+  height: auto;
+  min-height: 100px;
+  max-height: 120px;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 16px;
+  padding: 16px 20px;
+}
+
+.tv-learn-hub .module-icon {
+  font-size: 36px;
+  flex-shrink: 0;
+}
+
+.tv-learn-hub .module-label {
+  font-size: 18px;
+  text-align: left;
 }
 </style>
