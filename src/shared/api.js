@@ -2,6 +2,84 @@ import { invoke as tauriInvoke, isTauri } from "@tauri-apps/api/core";
 
 let _invoke = tauriInvoke;
 
+if (typeof isTauri === "function" ? !isTauri() : !isTauri) {
+  _invoke = async (command, args) => {
+    console.log("Mocked Tauri IPC command:", command, args);
+    if (command === "get_llm_config_cmd") {
+      return {
+        mode: "custom",
+        builtin: {
+          base_url: "https://integrate.api.nvidia.com/v1",
+          api_key: "nvapi-secret-key-1234567890ABCDEF",
+          model: "google/diffusiongemma-26b-a4b-it",
+          provider: "nvidia_nim",
+          thinking_enabled: false
+        },
+        primary: {
+          base_url: "https://api.openai.com/v1",
+          api_key: "sk-mock-key-123456",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          thinking_enabled: false
+        }
+      };
+    }
+    if (command === "get_multimodal_config_cmd") {
+      return {
+        mode: "custom",
+        builtin: {
+          base_url: "https://integrate.api.nvidia.com/v1",
+          api_key: "nvapi-secret-key-1234567890ABCDEF",
+          model: "google/diffusiongemma-26b-a4b-it",
+        },
+        custom: {
+          base_url: "https://api.openai.com/v1",
+          api_key: "sk-mock-key-123456",
+          model: "gpt-4o-mini",
+        }
+      };
+    }
+    if (command === "fetch_models_cmd") {
+      await new Promise(r => setTimeout(r, 800));
+      const url = args.baseUrl || "";
+      if (url.includes("openai")) {
+        return ["gpt-4o-mini", "gpt-4o", "o1-mini", "o1-preview"];
+      } else if (url.includes("gemini")) {
+        return ["gemini-2.5-flash", "gemini-2.5-pro"];
+      } else if (url.includes("deepseek")) {
+        return ["deepseek-chat", "deepseek-coder"];
+      } else {
+        return ["nvidia/llama-3.1-nemotron-70b-instruct", "nvidia/diffusiongemma-26b-a4b-it"];
+      }
+    }
+    if (command === "test_llm_connection_cmd" || command === "test_multimodal_connection_cmd") {
+      await new Promise(r => setTimeout(r, 1200));
+      const config = args.config || {};
+      if (config.api_key === "invalid" || (config.api_key && config.api_key.includes("error"))) {
+        return { success: false };
+      }
+      return {
+        success: true,
+        time_to_first_token_ms: 120,
+        thinking_speed: 45.5,
+        decode_speed: 60.2,
+        thinking_tokens: 0,
+        completion_tokens: 150
+      };
+    }
+    if (command === "get_target_language_cmd") {
+      return "es";
+    }
+    if (command === "is_wizard_completed_cmd") {
+      return true;
+    }
+    if (command === "get_current_user") {
+      return { id: "user-123", native_language: "zh" };
+    }
+    return null;
+  };
+}
+
 function invokeWithOptionalArgs(invoke, command, args) {
   return args === undefined ? invoke(command) : invoke(command, args);
 }

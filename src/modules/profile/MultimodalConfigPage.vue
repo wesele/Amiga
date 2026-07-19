@@ -156,15 +156,21 @@ const modelList = ref([]);
 const fetchingModels = ref(false);
 
 async function loadModels() {
-  if (!apiKey.value || !baseUrl.value) {
+  const trimmedUrl = (baseUrl.value || "").trim();
+  const trimmedKey = (apiKey.value || "").trim();
+
+  if (!trimmedUrl || !trimmedKey) {
+    error.value = t("llm.fetchModelsEmpty");
     return;
   }
   fetchingModels.value = true;
+  error.value = "";
   try {
-    const list = await fetchModels(baseUrl.value, apiKey.value);
+    const list = await fetchModels(trimmedUrl, trimmedKey);
     modelList.value = list || [];
   } catch (e) {
     console.error("Failed to load multimodal models list:", e);
+    error.value = t("llm.fetchModelsFail") + ": " + (e.message || e);
   } finally {
     fetchingModels.value = false;
   }
@@ -194,6 +200,29 @@ onMounted(async () => {
     if (apiKey.value && baseUrl.value) {
       loadModels();
     }
+    
+    // UI Automated testing hook for screenshot generation
+    const urlParams = new URLSearchParams(window.location.search);
+    const testStep = urlParams.get("test_step");
+    if (testStep) {
+      setTimeout(async () => {
+        if (testStep === "custom") {
+          mode.value = "custom";
+        } else if (testStep === "complete") {
+          mode.value = "custom";
+          apiKey.value = "sk-mock-key-123456";
+          baseUrl.value = "https://api.openai.com/v1";
+          await loadModels();
+          modelName.value = "gpt-4o-mini";
+        } else if (testStep === "test_metrics") {
+          mode.value = "custom";
+          apiKey.value = "sk-mock-key-123456";
+          baseUrl.value = "https://api.openai.com/v1";
+          modelName.value = "gpt-4o-mini";
+          testConnection();
+        }
+      }, 500);
+    }
   } catch (e) {
     console.error("Failed to load multimodal config:", e);
   }
@@ -202,15 +231,15 @@ onMounted(async () => {
 function currentConfig() {
   if (mode.value === "builtin") {
     return {
-      api_key: builtin.value.apiKey,
-      base_url: builtin.value.baseUrl,
-      model: builtin.value.model,
+      api_key: (builtin.value.apiKey || "").trim(),
+      base_url: (builtin.value.baseUrl || "").trim(),
+      model: (builtin.value.model || "").trim(),
     };
   }
   return {
-    api_key: apiKey.value,
-    base_url: baseUrl.value,
-    model: modelName.value,
+    api_key: (apiKey.value || "").trim(),
+    base_url: (baseUrl.value || "").trim(),
+    model: (modelName.value || "").trim(),
   };
 }
 
@@ -221,17 +250,20 @@ async function saveConfig() {
     await saveSetting("multimodal_mode", mode.value);
     if (mode.value === "custom") {
       const cfg = currentConfig();
+      await saveMultimodalConfig(cfg);
       if (!cfg.api_key || !cfg.base_url || !cfg.model) {
         error.value = t("llm.configEmpty");
-        return;
+      } else {
+        error.value = "";
+        savedMessage.value = t("llm.saved");
+        saved.value = true;
+        setTimeout(() => { saved.value = false; }, 2500);
       }
-      await saveMultimodalConfig(cfg);
-      savedMessage.value = t("llm.saved");
     } else {
       savedMessage.value = t("llm.savedBuiltin");
+      saved.value = true;
+      setTimeout(() => { saved.value = false; }, 2500);
     }
-    saved.value = true;
-    setTimeout(() => { saved.value = false; }, 2500);
   } catch (e) {
     console.error("Failed to save multimodal config:", e);
     error.value = t("llm.saveFail");

@@ -592,6 +592,8 @@ export default {
     freeNotice: "Free built-in model is for testing. Switch to custom API if it fails.",
     savedBuiltin: "Switched to built-in model",
     configEmpty: "Please fill in API Key, Base URL and model name",
+    fetchModelsFail: "Failed to fetch models list, please check config or network",
+    fetchModelsEmpty: "Please fill in API Key and Base URL first",
     testMetrics: "Performance Metrics",
     ttft: "Time to First Token (TTFT)",
     thinkingSpeed: "Thinking speed",

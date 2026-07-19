@@ -595,6 +595,8 @@ export default {
     freeNotice: "内置免费模型仅供测试，失效时请切换为自定义 API。",
     savedBuiltin: "已切换到系统内置模型",
     configEmpty: "请填写完整的 API Key、Base URL 和模型名称",
+    fetchModelsFail: "获取模型列表失败，请检查配置或网络",
+    fetchModelsEmpty: "请先填写 API Key 和 Base URL",
     testMetrics: "连接测试指标",
     ttft: "首字延迟 (TTFT)",
     thinkingSpeed: "模型思考速度",

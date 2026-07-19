@@ -196,16 +196,37 @@ const metricsMessage = ref("");
 const modelList = ref([]);
 const fetchingModels = ref(false);
 
+const PROVIDER_DEFAULTS = {
+  openai: {
+    baseUrl: "https://api.openai.com/v1",
+  },
+  gemini: {
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/v1",
+  },
+  deepseek: {
+    baseUrl: "https://api.deepseek.com/v1",
+  },
+  nvidia_nim: {
+    baseUrl: "https://integrate.api.nvidia.com/v1",
+  },
+};
+
 async function loadModels() {
-  if (!apiKey.value || !baseUrl.value) {
+  const trimmedUrl = (baseUrl.value || "").trim();
+  const trimmedKey = (apiKey.value || "").trim();
+
+  if (!trimmedUrl || !trimmedKey) {
+    error.value = t("llm.fetchModelsEmpty");
     return;
   }
   fetchingModels.value = true;
+  error.value = "";
   try {
-    const list = await fetchModels(baseUrl.value, apiKey.value);
+    const list = await fetchModels(trimmedUrl, trimmedKey);
     modelList.value = list || [];
   } catch (e) {
     console.error("Failed to load models list:", e);
+    error.value = t("llm.fetchModelsFail") + ": " + (e.message || e);
   } finally {
     fetchingModels.value = false;
   }
@@ -217,6 +238,14 @@ async function onApiParamsChange() {
 }
 
 async function onProviderChange() {
+  const defaults = PROVIDER_DEFAULTS[provider.value];
+  if (defaults) {
+    const currentUrl = (baseUrl.value || "").trim();
+    const isDefaultUrl = Object.values(PROVIDER_DEFAULTS).some(d => d.baseUrl === currentUrl) || !currentUrl;
+    if (isDefaultUrl) {
+      baseUrl.value = defaults.baseUrl;
+    }
+  }
   await saveConfig();
   await loadModels();
 }
@@ -247,6 +276,41 @@ onMounted(async () => {
     if (apiKey.value && baseUrl.value) {
       loadModels();
     }
+    
+    // UI Automated testing hook for screenshot generation
+    const urlParams = new URLSearchParams(window.location.search);
+    const testStep = urlParams.get("test_step");
+    if (testStep) {
+      setTimeout(async () => {
+        if (testStep === "custom") {
+          mode.value = "custom";
+        } else if (testStep === "gemini") {
+          mode.value = "custom";
+          provider.value = "gemini";
+          await onProviderChange();
+        } else if (testStep === "deepseek") {
+          mode.value = "custom";
+          provider.value = "deepseek";
+          await onProviderChange();
+        } else if (testStep === "empty_error") {
+          mode.value = "custom";
+          apiKey.value = "";
+          await loadModels();
+        } else if (testStep === "complete") {
+          mode.value = "custom";
+          apiKey.value = "sk-mock-key-123456";
+          baseUrl.value = "https://api.openai.com/v1";
+          await loadModels();
+          modelName.value = "gpt-4o-mini";
+        } else if (testStep === "test_metrics") {
+          mode.value = "custom";
+          apiKey.value = "sk-mock-key-123456";
+          baseUrl.value = "https://api.openai.com/v1";
+          modelName.value = "gpt-4o-mini";
+          testConnection();
+        }
+      }, 500);
+    }
   } catch (e) {
     console.error("Failed to load LLM config:", e);
   }
@@ -255,17 +319,17 @@ onMounted(async () => {
 function currentConfig() {
   if (mode.value === "builtin") {
     return {
-      api_key: builtin.value.apiKey,
-      base_url: builtin.value.baseUrl,
-      model: builtin.value.model,
+      api_key: (builtin.value.apiKey || "").trim(),
+      base_url: (builtin.value.baseUrl || "").trim(),
+      model: (builtin.value.model || "").trim(),
       provider: builtin.value.provider,
       thinking_enabled: disableThinking.value,
     };
   }
   return {
-    api_key: apiKey.value,
-    base_url: baseUrl.value,
-    model: modelName.value,
+    api_key: (apiKey.value || "").trim(),
+    base_url: (baseUrl.value || "").trim(),
+    model: (modelName.value || "").trim(),
     provider: provider.value,
     thinking_enabled: disableThinking.value,
   };
@@ -278,18 +342,21 @@ async function saveConfig() {
     await saveSetting("llm_mode", mode.value);
     if (mode.value === "custom") {
       const cfg = currentConfig();
+      await saveLlmConfig("primary", cfg);
       if (!cfg.api_key || !cfg.base_url || !cfg.model) {
         error.value = t("llm.configEmpty");
-        return;
+      } else {
+        error.value = "";
+        savedMessage.value = t("llm.saved");
+        saved.value = true;
+        setTimeout(() => { saved.value = false; }, 2500);
       }
-      await saveLlmConfig("primary", cfg);
-      savedMessage.value = t("llm.saved");
     } else {
       await saveSetting("builtin_thinking_enabled", disableThinking.value ? "true" : "false");
       savedMessage.value = t("llm.savedBuiltin");
+      saved.value = true;
+      setTimeout(() => { saved.value = false; }, 2500);
     }
-    saved.value = true;
-    setTimeout(() => { saved.value = false; }, 2500);
   } catch (e) {
     console.error("Failed to save LLM config:", e);
     error.value = t("llm.saveFail");

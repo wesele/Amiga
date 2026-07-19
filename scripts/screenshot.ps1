@@ -163,6 +163,7 @@ function Capture-Headless {
         "--disable-features=Translate,BackForwardCache"
         "--virtual-time-budget=5000"
         "--window-size=$W,$H"
+        "--no-sandbox"
         "--screenshot=`"$absOut`""
         "`"$U`""
     )

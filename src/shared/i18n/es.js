@@ -589,6 +589,8 @@ export default {
     freeNotice: "Modelo integrado gratuito para pruebas. Cambia a API personalizada si falla.",
     savedBuiltin: "Cambiado al modelo integrado",
     configEmpty: "Completa API Key, Base URL y nombre del modelo",
+    fetchModelsFail: "Error al obtener la lista de modelos, verifique la configuración o red",
+    fetchModelsEmpty: "Complete la API Key y la Base URL primero",
     testMetrics: "Métricas de rendimiento",
     ttft: "Tiempo al primer token (TTFT)",
     thinkingSpeed: "Velocidad de pensamiento",

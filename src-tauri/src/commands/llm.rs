@@ -192,12 +192,20 @@ pub async fn grade_translation_cmd(
 
 #[tauri::command]
 pub async fn fetch_models_cmd(base_url: String, api_key: String) -> Result<Vec<String>, String> {
-    let client = reqwest::Client::new();
-    let url = format!("{}/models", base_url.trim_end_matches('/'));
+    let trimmed_url = base_url.trim();
+    let trimmed_key = api_key.trim();
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
+
+    let url = format!("{}/models", trimmed_url.trim_end_matches('/'));
 
     let resp = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Authorization", format!("Bearer {}", trimmed_key))
         .send()
         .await
         .map_err(|e| format!("获取可用模型失败: {}", e))?;

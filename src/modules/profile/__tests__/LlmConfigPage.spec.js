@@ -137,7 +137,7 @@ describe("LlmConfigPage", () => {
     expect(configSave).toBeTruthy();
     expect(configSave.key).toBe("primary");
     expect(configSave.config.api_key).toBe("sk-mykey");
-    expect(configSave.config.base_url).toBe("https://api.openai.com/v1");
+    expect(configSave.config.base_url).toBe("https://api.deepseek.com/v1");
     expect(configSave.config.model).toBe("gpt-4o-mini");
     expect(configSave.config.provider).toBe("deepseek");
     expect(configSave.config.thinking_enabled).toBe(true);
@@ -157,5 +157,62 @@ describe("LlmConfigPage", () => {
     expect(config?.base_url).toBe(BUILTIN.base_url);
     expect(config?.api_key).toBe(BUILTIN.api_key);
     expect(config?.model).toBe(BUILTIN.model);
+  });
+
+  it("saves custom config even if some fields are empty (no early return)", async () => {
+    mockInvoke.mockImplementationOnce((cmd) => {
+      if (cmd === "get_llm_config_cmd") {
+        return Promise.resolve({ mode: "custom", primary: null, builtin: BUILTIN });
+      }
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const customRadio = wrapper.find('input[type="radio"][value="custom"]');
+    await customRadio.setValue(true);
+    await flushPromises();
+
+    await wrapper.find('input[placeholder="sk-..."]').setValue("sk-partial");
+    await wrapper.find('input[placeholder="https://api.openai.com/v1"]').setValue("");
+    await wrapper.find('input[placeholder="gpt-4o-mini"]').setValue("");
+    
+    // Trigger saveConfig by changing model name or api key
+    const modelInput = wrapper.find('input[placeholder="gpt-4o-mini"]');
+    await modelInput.setValue("");
+    await modelInput.trigger("change");
+    await flushPromises();
+
+    const configSaves = savedCalls.filter((c) => c.cmd === "save_llm_config_cmd");
+    expect(configSaves.length).toBeGreaterThan(0);
+    const lastSave = configSaves[configSaves.length - 1];
+    expect(lastSave.config.api_key).toBe("sk-partial");
+    expect(lastSave.config.base_url).toBe("");
+    expect(lastSave.config.model).toBe("");
+  });
+
+  it("updates base URL automatically when provider changes", async () => {
+    mockInvoke.mockImplementationOnce((cmd) => {
+      if (cmd === "get_llm_config_cmd") {
+        return Promise.resolve({
+          mode: "custom",
+          primary: { api_key: "key", base_url: "https://api.openai.com/v1", model: "gpt-3.5", provider: "openai" },
+          builtin: BUILTIN
+        });
+      }
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const providerSelect = wrapper.find("select.provider-select");
+    await providerSelect.setValue("gemini");
+    await flushPromises();
+
+    const configSaves = savedCalls.filter((c) => c.cmd === "save_llm_config_cmd");
+    expect(configSaves.length).toBeGreaterThan(0);
+    const lastSave = configSaves[configSaves.length - 1];
+    expect(lastSave.config.provider).toBe("gemini");
+    expect(lastSave.config.base_url).toBe("https://generativelanguage.googleapis.com/v1beta/openai/v1");
   });
 });
