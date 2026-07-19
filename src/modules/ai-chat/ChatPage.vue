@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="chat-view" ref="chatView">
     <header class="chat-header">
       <button class="back-btn" @click="goBack">
@@ -13,7 +13,7 @@
       <div class="header-info">
         <div class="header-name">{{ contactName }}</div>
       </div>
-      <button class="menu-btn" @click="showMenu = !showMenu">⋯</button>
+      <button class="menu-btn" @click="showMenu = !showMenu">&#8943;</button>
     </header>
     <div v-if="showMenu" class="menu-overlay" @click="showMenu = false" />
     <transition name="fade">
@@ -80,10 +80,12 @@ import { ref, nextTick, onMounted, onUnmounted, computed, markRaw } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   chatCompletionWithSession,
+  chatStreamWithSession,
   deleteChatSession,
   getChatMessages,
   getChatSessions,
 } from "@/shared/backend/chat.js";
+import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentUser } from "@/shared/backend/user.js";
 import MarkdownText from "@/shared/components/MarkdownText.vue";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
@@ -216,20 +218,76 @@ async function sendMessage() {
   scrollToBottom();
 
   loading.value = true;
-  try {
-    const reply = await chatCompletionWithSession(
-      sessionId.value,
-      text,
-      nativeLang.value,
-      targetLang.value,
-    );
-    messages.value.push({ id: Date.now() + 1, role: "assistant", content: reply });
-  } catch {
-    messages.value.push({ id: Date.now() + 2, role: "assistant", content: t("chat.replyFail") });
+
+  // Try streaming first (requires Tauri environment)
+  if (isTauri()) {
+    const eventChannel = `llm-stream-${Date.now()}`;
+    // Push empty assistant message as placeholder — content will grow as tokens arrive
+    const assistantMsg = { id: Date.now() + 1, role: "assistant", content: "" };
+    messages.value.push(assistantMsg);
+    const msgIndex = messages.value.length - 1;
+
+    let unlisten = null;
+    let streamDone = false;
+
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      unlisten = await listen(eventChannel, (event) => {
+        const { delta, done } = event.payload;
+        if (delta) {
+          messages.value[msgIndex].content += delta;
+          scrollToBottom();
+        }
+        if (done) {
+          streamDone = true;
+          loading.value = false;
+          focusInput();
+          if (unlisten) unlisten();
+        }
+      });
+
+      await chatStreamWithSession(
+        eventChannel,
+        sessionId.value,
+        text,
+        nativeLang.value,
+        targetLang.value,
+      );
+
+      // Guard: if invoke returned but done event never fired (edge case)
+      if (!streamDone) {
+        loading.value = false;
+        focusInput();
+        if (unlisten) unlisten();
+        if (!messages.value[msgIndex].content) {
+          messages.value[msgIndex].content = t("chat.replyFail");
+        }
+      }
+    } catch {
+      if (unlisten) unlisten();
+      if (!messages.value[msgIndex]?.content) {
+        messages.value[msgIndex].content = t("chat.replyFail");
+      }
+      loading.value = false;
+      focusInput();
+    }
+  } else {
+    // Browser dev mode — fall back to non-streaming invoke
+    try {
+      const reply = await chatCompletionWithSession(
+        sessionId.value,
+        text,
+        nativeLang.value,
+        targetLang.value,
+      );
+      messages.value.push({ id: Date.now() + 1, role: "assistant", content: reply });
+    } catch {
+      messages.value.push({ id: Date.now() + 2, role: "assistant", content: t("chat.replyFail") });
+    }
+    loading.value = false;
+    scrollToBottom();
+    focusInput();
   }
-  loading.value = false;
-  scrollToBottom();
-  focusInput();
 }
 
 async function deleteCurrentSession() {
@@ -313,7 +371,7 @@ onMounted(async () => {
   overscroll-behavior: none;
 }
 
-/* ─── Header ─── */
+/* --- Header --- */
 .chat-header {
   flex-shrink: 0;
   display: flex;
@@ -392,7 +450,7 @@ onMounted(async () => {
   opacity: 0;
 }
 
-/* ─── Messages ─── */
+/* --- Messages --- */
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -484,7 +542,7 @@ onMounted(async () => {
   40% { transform: scale(1); }
 }
 
-/* ─── Input bar ─── */
+/* --- Input bar --- */
 .chat-input-bar {
   flex-shrink: 0;
   display: flex;
@@ -530,16 +588,12 @@ onMounted(async () => {
   background: var(--green-hover);
 }
 
-/* System nav bar / home indicator — chat hides the shell bottom-nav,
- * so this fixed full-screen view must reserve safe-bottom itself. */
+/* System nav bar / home indicator */
 .chat-safe-bottom {
   flex-shrink: 0;
   height: var(--safe-bottom, env(safe-area-inset-bottom, 0px));
   background: var(--white);
 }
-/* visualViewport sync already shrinks the chat view above the IME;
-   including --safe-bottom (which tracks IME height on Android) would
-   push the input bar up a second time. */
 .chat-safe-bottom.keyboard-open {
   height: 0;
 }

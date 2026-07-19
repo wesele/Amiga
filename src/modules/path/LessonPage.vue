@@ -1,7 +1,13 @@
 <template>
-  <div class="lesson-page">
+  <div class="lesson-page" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvMode }">
     <header class="lesson-header">
-      <button class="close-btn" :aria-label="t('common.back')" @click="exitLesson">
+      <button
+        class="close-btn"
+        type="button"
+        :tabindex="isTvMode ? -1 : undefined"
+        :aria-label="t('common.back')"
+        @click="exitLesson"
+      >
         ✕
       </button>
       <div class="progress-track">
@@ -439,5 +445,10 @@ onMounted(load);
   width: 100%;
   max-width: 320px;
   margin-top: 16px;
+}
+
+html[data-app-mode="tv"] .action-btn:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 2px;
 }
 </style>

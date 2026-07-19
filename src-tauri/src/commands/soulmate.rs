@@ -108,6 +108,17 @@ pub async fn submit_soulmate_turn_cmd(
 }
 
 #[tauri::command]
+pub async fn get_soulmate_reply_options_cmd(
+    db: State<'_, DatabasePool>,
+    llm: State<'_, LlmState>,
+    user_id: String,
+    target_lang: String,
+    episode_id: String,
+) -> Result<Vec<String>, String> {
+    soulmate_mod::get_reply_options(&llm.client, &db, &user_id, &target_lang, &episode_id).await
+}
+
+#[tauri::command]
 pub async fn reset_soulmate_cmd(
     db: State<'_, DatabasePool>,
     user_id: String,

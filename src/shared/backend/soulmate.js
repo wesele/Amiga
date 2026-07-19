@@ -3,6 +3,7 @@ export {
   getSoulMateChat,
   getSoulMateEpisode,
   getSoulMateHome,
+  getSoulMateReplyOptions,
   getSoulMateWorld,
   initializeSoulMate,
   markSoulMateStoryRead,

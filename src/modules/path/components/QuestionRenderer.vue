@@ -633,4 +633,33 @@ watch(
     font-size: 14px;
   }
 }
+
+/* TV focus-visible styles */
+html[data-app-mode="tv"] .audio-btn:focus-visible {
+  border-color: var(--green);
+  background: var(--green-bg);
+  box-shadow: 0 4px 0 #b7e89a;
+  outline: none;
+}
+
+html[data-app-mode="tv"] .option-btn:focus-visible {
+  border-color: var(--green);
+  background: var(--green-bg);
+  box-shadow: 0 4px 0 #b7e89a;
+  outline: none;
+}
+
+html[data-app-mode="tv"] .match-item:focus-visible,
+html[data-app-mode="tv"] .word-chip:focus-visible {
+  border-color: var(--green);
+  background: var(--green-bg);
+  box-shadow: 0 3px 0 #b7e89a;
+  outline: none;
+}
+
+html[data-app-mode="tv"] .text-input:focus-visible {
+  border-color: var(--green);
+  box-shadow: 0 4px 0 #b7e89a;
+  outline: none;
+}
 </style>

@@ -95,4 +95,10 @@ describe("PageHeader", () => {
     expect(source).toMatch(/\.variant-path \.path-title\s*\{[\s\S]*justify-self:\s*center/);
     expect(source).toMatch(/\.variant-path \.path-title\s*\{[\s\S]*text-align:\s*center/);
   });
+
+  it("makes header back non-focusable on TV (remote Back key only)", () => {
+    const source = readFileSync(resolve(ROOT, "src/shared/components/PageHeader.vue"), "utf8");
+    expect(source).toMatch(/backTabIndex\s*=\s*isTvMode\s*\?\s*-1/);
+    expect(source).toMatch(/:tabindex="backTabIndex"/);
+  });
 });

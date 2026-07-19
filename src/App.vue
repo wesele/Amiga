@@ -103,9 +103,12 @@ async function handleDeleteAndRestart() {
   deletingData.value = true;
   try {
     await deleteDatabaseAndRestart();
-    // app will restart; unreachable
-  } catch {
+    // Prefer process restart (Rust). If the host keeps the WebView alive
+    // (seen on some Android TV builds), fall back to a full page reload.
+    window.location.reload();
+  } catch (e) {
     deletingData.value = false;
+    dataLoadError.value = e?.message || String(e || "delete failed");
   }
 }
 

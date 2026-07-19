@@ -213,8 +213,24 @@ onUnmounted(() => {
 
 .tv-shell .app-content {
   order: 2;
-  padding: 28px 40px 32px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  /* Tight frame around full-pane pages (was 40px — left empty gutters on 16:9). */
+  padding: 16px 20px 20px;
   scroll-padding: 48px;
+  /* Keep vertical scroll for long pages (news/list); full-height pages
+   * (achievements/path) use min-height:0 + height:100% to fill one screen. */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.tv-shell .app-content > * {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
 }
 
 .tv-shell .bottom-nav {

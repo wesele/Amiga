@@ -100,18 +100,25 @@ describe("NewsList article-card / source-link structure", () => {
     expect(cardBlock[0]).toMatch(/tabindex="0"/);
   });
 
-  it("renders the source link as a real <a> tag with href, target=_blank, rel=noopener", () => {
+  it("renders the source link as a real <a> on phone and plain text on TV", () => {
     const vue = read("src/modules/news/NewsList.vue");
-    expect(vue).toMatch(/<a[\s\S]*?class="card-source clickable"[\s\S]*?>/);
+    // Phone: real external link.
+    expect(vue).toMatch(/v-else-if="article\.source"/);
+    expect(vue).toMatch(/class="card-source clickable"/);
     const linkBlock = vue.match(/<a[\s\S]*?class="card-source clickable"[\s\S]*?>/);
     expect(linkBlock[0]).toMatch(/:href="article\.source"/);
     expect(linkBlock[0]).toMatch(/target="_blank"/);
     expect(linkBlock[0]).toMatch(/rel="noopener noreferrer"/);
     expect(linkBlock[0]).toMatch(/@click\.stop\.prevent="openSourceUrl/);
+    // TV: non-interactive span so remote cannot select the original URL.
+    expect(vue).toMatch(/v-if="article\.source && isTvMode"/);
+    expect(vue).toMatch(/<span[\s\S]*?class="card-source"/);
   });
 
-  it("renders the reader header source as a real external link", () => {
+  it("renders the reader header source as external link on phone and plain text on TV", () => {
     const vue = read("src/modules/news/NewsReader.vue");
+    expect(vue).toMatch(/v-if="article\?\.source && isTvMode"/);
+    expect(vue).toMatch(/<span[\s\S]*?class="header-source"/);
     const linkBlock = vue.match(/<a[\s\S]*?class="header-source"[\s\S]*?>/);
     expect(linkBlock, "reader header source link not found").toBeTruthy();
     expect(linkBlock[0]).toMatch(/:href="article\.source"/);

@@ -47,11 +47,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { translateText, translateWord } from "@/shared/backend/llm.js";
 import { useI18n } from "@/shared/i18n";
 import { openAiContact } from "@/shared/aiContact.js";
+import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
 const props = defineProps({
   word: { type: String, required: true },
@@ -70,8 +71,14 @@ const translation = ref(null);
 const textTranslation = ref("");
 const loading = ref(true);
 const error = ref("");
+let releaseBackHandler = null;
 
 onMounted(async () => {
+  // Back / Escape closes the popup instead of leaving the reader page.
+  releaseBackHandler = pushInPageBackHandler(() => {
+    emit("close");
+    return "navigated";
+  });
   try {
     if (props.mode === "text") {
       textTranslation.value = await translateText(props.word, props.sourceLang, props.nativeLang);
@@ -84,6 +91,11 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+});
+
+onBeforeUnmount(() => {
+  releaseBackHandler?.();
+  releaseBackHandler = null;
 });
 
 function emitClose() {

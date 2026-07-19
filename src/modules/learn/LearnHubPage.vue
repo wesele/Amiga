@@ -1,5 +1,5 @@
 <template>
-  <div class="learn-hub" :class="{ 'tv-learn-hub': isTvMode }">
+  <div class="learn-hub" :class="{ 'tv-content-pane tv-learn-hub': isTvMode }">
     <header class="page-header">
       <h1 class="page-title">{{ t("learn.title") }}</h1>
       <div class="header-days">
@@ -102,7 +102,7 @@ const allModules = [
   { id: "soulmate", labelKey: "learn.soulmate", icon: '<svg viewBox="0 0 24 24" fill="none" width="1em" height="1em"><path d="M12 4 A8 8 0 0 1 19.6 9.5" stroke="#FF4D9A" stroke-width="2.6" stroke-linecap="round"/><path d="M19.6 9.5 A8 8 0 0 1 16.5 18.3" stroke="#FFC94D" stroke-width="2.6" stroke-linecap="round"/><path d="M16.5 18.3 A8 8 0 0 1 7.5 18.3" stroke="#58cc02" stroke-width="2.6" stroke-linecap="round"/><path d="M7.5 18.3 A8 8 0 0 1 4.4 9.5" stroke="#1cb0f6" stroke-width="2.6" stroke-linecap="round"/><path d="M4.4 9.5 A8 8 0 0 1 12 4" stroke="#9B6DFF" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="12" r="2.9" fill="#FF4D9A"/><circle cx="12" cy="12" r="1.35" fill="#FFC94D"/></svg>', route: { name: "soulmate" } },
 ];
 
-const tvExcludedModules = new Set(["speaking", "translator", "soulmate"]);
+const tvExcludedModules = new Set(["speaking", "translator"]);
 const modules = computed(() => (
   isTvMode ? allModules.filter((mod) => !tvExcludedModules.has(mod.id)) : allModules
 ));
@@ -417,95 +417,130 @@ function openVocab() {
   line-height: 1.2;
 }
 
-.learn-hub.tv-learn-hub {
-  max-width: 1240px;
-  margin: 0 auto;
-  background: transparent;
-  /* Fit Path + News + Reading in a 720p-class first viewport. */
-  min-height: 0;
-}
-
+/* TV shell chrome: global .tv-content-pane. No nested floating card shell. */
 .tv-learn-hub .page-header {
-  padding: 12px 20px;
-  border-radius: 18px 18px 0 0;
+  padding: 14px 18px 10px;
+  background: var(--white);
+  border-bottom: 0;
 }
 
 .tv-learn-hub .page-title {
-  font-size: clamp(24px, 2.4vw, 32px);
+  font-size: clamp(26px, 2.4vw, 34px);
 }
 
 .tv-learn-hub .header-days {
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .tv-learn-hub .days-num {
-  font-size: 20px;
+  font-size: 22px;
+}
+
+.tv-learn-hub .status-section {
+  padding: 0 18px;
+  box-sizing: border-box;
 }
 
 .tv-learn-hub .status-card {
   border: 0;
-  border-radius: 0 0 18px 18px;
+  border-bottom: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: none;
+  background: var(--surface-variant, #f3f3f3);
 }
 
 .tv-learn-hub .stat-cell {
-  padding: 10px 6px;
+  padding: 12px 8px;
 }
 
 .tv-learn-hub .stat-value {
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .tv-learn-hub .stat-label {
-  font-size: 12px;
+  font-size: 13px;
 }
 
+/* Path full-width + one row of three: 新闻 / 阅读 / 灵伴 */
 .tv-learn-hub .module-grid {
   --module-grid-x: 0px;
   --module-grid-row-gap: 16px;
   --module-grid-col-gap: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding: 16px 0 24px;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  width: 100%;
+  padding: 16px 18px 18px;
+  box-sizing: border-box;
 }
 
 .tv-learn-hub .path-progress-card {
-  /* Compact so module tiles sit on the first screen at 1280×720. */
+  width: 100%;
   height: auto;
   min-height: 112px;
-  max-height: 132px;
-  padding: 16px 20px;
-  gap: 6px;
+  max-height: 140px;
+  padding: 16px 18px;
+  gap: 8px;
 }
 
 .tv-learn-hub .path-progress-icon {
-  font-size: 28px;
+  font-size: 32px;
 }
 
 .tv-learn-hub .path-progress-title {
-  font-size: 20px;
+  font-size: 22px;
 }
 
 .tv-learn-hub .path-progress-sub {
+  font-size: 14px;
+}
+
+.tv-learn-hub .path-progress-level {
+  font-size: 13px;
+  padding: 6px 11px;
+}
+
+.tv-learn-hub .path-progress-track {
+  height: 10px;
+}
+
+.tv-learn-hub .path-progress-meta {
   font-size: 13px;
 }
 
 .tv-learn-hub .module-tile {
   aspect-ratio: auto;
+  width: 100%;
   height: auto;
-  min-height: 100px;
-  max-height: 120px;
-  flex-direction: row;
-  justify-content: flex-start;
-  gap: 16px;
-  padding: 16px 20px;
+  min-height: 140px;
+  max-height: 180px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  padding: 22px 16px;
 }
 
 .tv-learn-hub .module-icon {
-  font-size: 36px;
+  font-size: 44px;
   flex-shrink: 0;
 }
 
 .tv-learn-hub .module-label {
-  font-size: 18px;
-  text-align: left;
+  font-size: 20px;
+  text-align: center;
+}
+
+/* TV focus: inset ring (no scale) so tiles are not clipped / shove neighbors. */
+.tv-learn-hub .module-tile:focus-visible,
+.tv-learn-hub .path-progress-card:focus-visible,
+.tv-learn-hub .stat-cell-link:focus-visible {
+  transform: none;
+  outline: 4px solid #1cb0f6 !important;
+  outline-offset: -4px;
+  box-shadow:
+    inset 0 0 0 2px rgba(28, 176, 246, 0.2),
+    0 4px 16px rgba(28, 176, 246, 0.18) !important;
+  background: var(--green-bg);
+  z-index: 5;
 }
 </style>

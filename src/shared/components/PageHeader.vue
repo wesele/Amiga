@@ -6,6 +6,7 @@
           v-if="showBack"
           type="button"
           class="back-btn"
+          :tabindex="backTabIndex"
           :aria-label="backLabel"
           @click="handleBack"
         >
@@ -28,6 +29,7 @@
         v-if="showBack"
         type="button"
         class="back-btn"
+        :tabindex="backTabIndex"
         :aria-label="backLabel"
         @click="handleBack"
       >
@@ -50,6 +52,7 @@
         v-if="showBack"
         type="button"
         class="back-btn"
+        :tabindex="backTabIndex"
         :aria-label="backLabel"
         @click="handleBack"
       >
@@ -69,6 +72,7 @@
 
 <script setup>
 import { computed, getCurrentInstance } from "vue";
+import { isTvMode } from "@/shared/appMode.js";
 import { useParentBack } from "@/shared/useParentBack.js";
 
 const props = defineProps({
@@ -85,6 +89,9 @@ const props = defineProps({
 const emit = defineEmits(["back"]);
 const instance = getCurrentInstance();
 const { goBack } = useParentBack();
+
+/** TV: remote Back key navigates; header back is visual only (not in focus graph). */
+const backTabIndex = isTvMode ? -1 : undefined;
 
 const hasBackListener = computed(() => {
   const vnodeProps = instance?.vnode?.props;
@@ -279,5 +286,14 @@ function handleBack() {
 .variant-sticky .header-actions:empty,
 .variant-prompts .header-actions:empty {
   display: none;
+}
+
+/* Phone may still tab to back; TV uses tabindex=-1 (remote Back only). */
+.back-btn:focus-visible {
+  outline: 3px solid #1cb0f6 !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.2) !important;
+  transform: none !important;
+  background: var(--surface-variant);
 }
 </style>

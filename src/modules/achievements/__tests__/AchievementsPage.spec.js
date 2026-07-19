@@ -87,6 +87,42 @@ describe("AchievementsPage", () => {
     expect(source).toMatch(/\.achievement-groups\s*\{[^}]*grid-template-rows:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/s);
     expect(source).toMatch(/\.achievement-groups\s*\{[^}]*gap:\s*14px[^}]*padding:\s*14px\s+14px\s+20px/s);
     expect(source).toMatch(/\.day-cell\s*\{[^}]*width:\s*100%[^}]*aspect-ratio:\s*1\.12\s*\/\s*1/s);
+    expect(source).toMatch(/class="achievements-body"/);
     expect(source).not.toMatch(/\.matrix-scroll\s*\{/);
+  });
+
+  it("uses a 50/50 left-right TV layout with matrix and badges side by side", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../AchievementsPage.vue"),
+      "utf8",
+    );
+    const globalCss = readFileSync(
+      resolve(__dirname, "../../../style.css"),
+      "utf8",
+    );
+    expect(source).toMatch(/tv-content-pane/);
+    expect(source).toMatch(/tv-achievements/);
+    expect(source).toMatch(
+      /\.tv-achievements\s+\.achievements-body\s*\{[^}]*grid-template-columns:\s*1fr\s+1fr/s,
+    );
+    expect(globalCss).toMatch(/html\[data-app-mode="tv"\] \.tv-content-pane[\s\S]*?position:\s*absolute/);
+    expect(source).toMatch(/\.tv-achievements\s+\.day-cell[\s\S]*?aspect-ratio:\s*auto/);
+    expect(source).not.toMatch(/DEBUG/);
+  });
+
+  it("TV learning trajectory uses one week per row (7 days across)", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../AchievementsPage.vue"),
+      "utf8",
+    );
+    expect(source).toMatch(/tv-week-rows/);
+    expect(source).toMatch(/class="week-row"/);
+    expect(source).toMatch(/class="weekday-header-row"/);
+    expect(source).toMatch(
+      /\.tv-achievements \.weeks-rows\s*\{[^}]*grid-template-rows:\s*repeat\(12/s,
+    );
+    expect(source).toMatch(
+      /\.tv-achievements \.week-row\s*\{[^}]*grid-template-columns:\s*repeat\(7/s,
+    );
   });
 });

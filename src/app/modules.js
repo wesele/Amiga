@@ -25,6 +25,10 @@ const TV_MODULE_NAMES = new Set([
   "reading",
   "vocab",
   "profile",
+  // Living-room Soul Mate (chat uses remote-friendly reply options, no free typing).
+  "soulmate",
+  // Settings → AI config → Prompt manager/editor (TV needs full model setup).
+  "prompts",
 ]);
 
 export const TV_APP_MODULES = DEFAULT_APP_MODULES.filter((mod) => TV_MODULE_NAMES.has(mod.name));

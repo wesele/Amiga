@@ -117,4 +117,17 @@ function finishDefault() {
   font-family: inherit;
   width: 100%;
 }
+
+.avatar-circle:focus-visible {
+  border-color: var(--green);
+  transform: scale(1.05);
+  outline: none;
+  background: var(--green-bg);
+}
+
+.btn-link:focus-visible {
+  color: var(--green);
+  outline: none;
+  text-decoration: underline;
+}
 </style>

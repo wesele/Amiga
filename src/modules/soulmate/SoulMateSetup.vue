@@ -1,5 +1,5 @@
 <template>
-  <div class="setup-page">
+  <div class="setup-page" :class="{ 'tv-content-pane tv-setup': isTvMode }">
     <PageHeader :title="t('soulmate.setupTitle')" />
 
     <main class="setup-content">
@@ -40,10 +40,17 @@
           >{{ t(option.label) }}</button>
         </div>
 
-        <label class="field-label">
-          <span>{{ t("soulmate.name") }}</span>
-          <input v-model.trim="form.companion_name" maxlength="24" />
-        </label>
+        <!-- Phone: free text. TV: stock name/location from gender + language (no keyboard). -->
+        <template v-if="!isTvMode">
+          <label class="field-label">
+            <span>{{ t("soulmate.name") }}</span>
+            <input v-model.trim="form.companion_name" maxlength="24" />
+          </label>
+        </template>
+        <div v-else class="tv-identity-preview">
+          <span>{{ t("soulmate.name") }}: <strong>{{ form.companion_name }}</strong></span>
+          <span>{{ t("soulmate.location") }}: <strong>{{ form.story_location }}</strong></span>
+        </div>
 
         <span class="field-title">{{ t("soulmate.personality") }}</span>
         <div class="pill-row">
@@ -57,7 +64,7 @@
           >{{ t(option.label) }}</button>
         </div>
 
-        <label class="field-label">
+        <label v-if="!isTvMode" class="field-label">
           <span>{{ t("soulmate.location") }}</span>
           <input v-model.trim="form.story_location" maxlength="40" />
         </label>
@@ -65,11 +72,29 @@
 
       <section v-else class="setup-step flavor-step">
         <h2>{{ t("soulmate.tuneStory") }}</h2>
-        <label v-for="slider in sliders" :key="slider.key" class="slider-row">
-          <span>{{ t(slider.label) }}</span>
-          <input v-model.number="form[slider.key]" type="range" min="0" max="3" step="1" />
-          <strong>{{ form[slider.key] }}</strong>
-        </label>
+        <!-- Phone: range sliders. TV: discrete 0–3 buttons (remote-friendly). -->
+        <template v-if="!isTvMode">
+          <label v-for="slider in sliders" :key="slider.key" class="slider-row">
+            <span>{{ t(slider.label) }}</span>
+            <input v-model.number="form[slider.key]" type="range" min="0" max="3" step="1" />
+            <strong>{{ form[slider.key] }}</strong>
+          </label>
+        </template>
+        <div v-else class="tv-dial-list">
+          <div v-for="slider in sliders" :key="slider.key" class="tv-dial-row">
+            <span class="tv-dial-label">{{ t(slider.label) }}</span>
+            <div class="pill-row tv-dial-pills">
+              <button
+                v-for="level in dialLevels"
+                :key="level"
+                type="button"
+                class="pill"
+                :class="{ selected: form[slider.key] === level }"
+                @click="form[slider.key] = level"
+              >{{ level }}</button>
+            </div>
+          </div>
+        </div>
         <div class="preview-card">
           <span class="preview-avatar">{{ avatar }}</span>
           <div>
@@ -100,9 +125,12 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
+import { isTvMode } from "@/shared/appMode.js";
 import { useI18n } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { initializeSoulMate } from "@/shared/backend/soulmate.js";
+
+const dialLevels = [0, 1, 2, 3];
 
 const router = useRouter();
 const { t } = useI18n();
@@ -179,8 +207,13 @@ const canStart = computed(() => Boolean(context.user?.id && form.companion_name 
 
 function selectGender(gender) {
   form.companion_gender = gender;
-  if (stockNames.has(form.companion_name)) {
-    form.companion_name = defaultsForLang(context.targetLang, gender).name;
+  // Always sync stock identity on TV (no free typing); phone keeps custom names.
+  if (isTvMode || stockNames.has(form.companion_name)) {
+    const d = defaultsForLang(context.targetLang, gender);
+    form.companion_name = d.name;
+    if (isTvMode || stockLocations.has(form.story_location)) {
+      form.story_location = d.location;
+    }
   }
 }
 
@@ -262,4 +295,35 @@ async function submit() {
 .secondary-btn { background: var(--surface-variant); color: var(--text); }
 .primary-btn:disabled { opacity: .55; cursor: wait; }
 .error-text { margin: 12px 0 0; color: var(--red); font-size: 13px; }
+
+.tv-identity-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 8px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text-light);
+  font-size: 15px;
+}
+.tv-identity-preview strong { color: var(--text); }
+.tv-dial-list { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.tv-dial-row { display: flex; flex-direction: column; gap: 8px; }
+.tv-dial-label { font-size: 15px; font-weight: 700; color: var(--text); }
+.tv-dial-pills { margin-bottom: 0; }
+.tv-setup .choice-card,
+.tv-setup .pill,
+.tv-setup .primary-btn,
+.tv-setup .secondary-btn {
+  min-height: 48px;
+}
+.tv-setup .choice-card:focus-visible,
+.tv-setup .pill:focus-visible,
+.tv-setup .primary-btn:focus-visible,
+.tv-setup .secondary-btn:focus-visible {
+  outline: 3px solid #ff5d8f !important;
+  outline-offset: 2px;
+  transform: none !important;
+}
 </style>

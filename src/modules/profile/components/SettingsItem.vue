@@ -64,6 +64,9 @@ const componentType = computed(() => {
   border: 0;
   font: inherit;
   text-align: left;
+  /* Keep focus rings inside the card (parent often has overflow:hidden). */
+  border-radius: 0;
+  position: relative;
 }
 .settings-item:not(div) {
   cursor: pointer;
@@ -76,6 +79,21 @@ const componentType = computed(() => {
 }
 .settings-item.danger .si-title {
   color: var(--red);
+}
+
+/* TV: inset focus ring — global scale/outer outline is clipped by .settings-card
+ * overflow:hidden and looks messy on full-width list rows. */
+.settings-item:focus-visible {
+  z-index: 2;
+  outline: 3px solid #1cb0f6 !important;
+  outline-offset: -3px;
+  box-shadow: inset 0 0 0 1px rgba(28, 176, 246, 0.22) !important;
+  background: var(--green-bg);
+  transform: none !important;
+}
+.settings-item.danger:focus-visible {
+  background: var(--red-bg);
+  outline-color: var(--red) !important;
 }
 
 .si-icon {

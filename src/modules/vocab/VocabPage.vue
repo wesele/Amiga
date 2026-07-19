@@ -1,9 +1,15 @@
 <template>
-  <div class="vocab-page">
+  <div class="vocab-page" :class="{ 'tv-content-pane': isTvMode }">
     <!-- Stats overview -->
     <template v-if="!drilledLevel">
       <header class="page-header overview-header">
-        <button class="back-btn" type="button" :aria-label="t('common.back')" @click="backToLearn">
+        <button
+          class="back-btn"
+          type="button"
+          :tabindex="isTvMode ? -1 : undefined"
+          :aria-label="t('common.back')"
+          @click="backToLearn"
+        >
           <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
             <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
           </svg>
@@ -23,6 +29,7 @@
             v-for="s in stats"
             :key="s.level"
             class="level-card"
+            :data-level="s.level"
             @click="enterLevel(s.level)"
           >
             <div class="card-top">
@@ -49,7 +56,7 @@
     <!-- Word list per level -->
     <template v-else>
       <header class="page-header detail-header">
-        <button class="back-btn" @click="exitLevel">
+        <button class="back-btn" type="button" :tabindex="isTvMode ? -1 : undefined" @click="exitLevel">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
             <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
           </svg>
@@ -75,9 +82,12 @@
         <div class="word-paragraph" v-if="filteredWords.length > 0">
           <template v-for="(w, idx) in filteredWords" :key="w.id">
             <span
-              class="word-chip"
+              class="word-chip word"
               :class="chipClass(w.mastery)"
+              :tabindex="isTvMode ? 0 : undefined"
               @click="onWordTap(w)"
+              @keydown.enter.prevent="onWordTap(w)"
+              @keydown.space.prevent="onWordTap(w)"
             >{{ w.word }}</span><template v-if="idx < filteredWords.length - 1">, </template>
           </template>
         </div>
@@ -113,8 +123,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
+import { isTvMode } from "@/shared/appMode.js";
 import { getCurrentUser } from "@/shared/backend/user.js";
 import {
   getUserVocabByLevel,
@@ -128,6 +139,7 @@ import { eventBus } from "@/shared/eventBus.js";
 import { displayLang } from "@/shared/constants.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
+import { focusElement, focusableElements, pickPreferredContentFocus } from "@/app/tvRemoteNavigation.js";
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -194,9 +206,25 @@ function enterLevel(level) {
 }
 
 function exitLevel() {
+  const exitedLevel = drilledLevel.value;
   drilledLevel.value = "";
   words.value = [];
   selectedWord.value = null;
+
+  if (isTvMode && exitedLevel) {
+    nextTick(() => {
+      const cards = document.querySelectorAll(".level-card");
+      const targetCard = Array.from(cards).find(
+        (c) => c.getAttribute("data-level") === exitedLevel,
+      );
+      if (targetCard) {
+        focusElement(targetCard);
+      } else {
+        const preferred = pickPreferredContentFocus(focusableElements());
+        if (preferred) focusElement(preferred);
+      }
+    });
+  }
 }
 
 function backToLearn() {
@@ -218,6 +246,14 @@ async function loadWords(level) {
   if (!level) return;
   try {
     words.value = await getUserVocabByLevel(userId.value, userLang.value, level);
+    if (isTvMode) {
+      nextTick(() => {
+        const preferred = pickPreferredContentFocus(focusableElements());
+        if (preferred) {
+          focusElement(preferred);
+        }
+      });
+    }
   } catch (e) {
     words.value = [];
   }
@@ -572,5 +608,13 @@ watch(drilledLevel, () => {
 .popup-leave-to {
   opacity: 0;
   transform: translateY(8px);
+}
+
+/* TV: tight inline focus — never scale or use the global 5px outer ring. */
+html[data-app-mode="tv"] .word:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+  background: var(--green-bg);
+  border-radius: 4px;
 }
 </style>

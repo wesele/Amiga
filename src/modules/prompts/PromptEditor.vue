@@ -332,4 +332,15 @@ onMounted(async () => {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.input:focus-visible,
+.textarea:focus-visible,
+.btn-save:focus-visible,
+.reset-one-btn:focus-visible {
+  z-index: 2;
+  outline: 3px solid #1cb0f6 !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.2) !important;
+  transform: none !important;
+}
 </style>

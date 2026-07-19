@@ -388,7 +388,6 @@ export class ChatRelay {
   constructor(state, env) {
     this.state = state;
     this.env = env;
-    this.sessions = new Map();
   }
 
   async fetch(request) {
@@ -440,30 +439,46 @@ export class ChatRelay {
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
-    server.accept();
+    
+    this.state.acceptWebSocket(server);
 
     const entry = { userId, mode, peerId };
-    this.sessions.set(server, entry);
-    server.addEventListener("close", () => {
-      this.sessions.delete(server);
-    });
-    server.addEventListener("message", (event) => {
-      this.onSocketMessage(entry, event.data, server).catch((error) => {
-        server.send(JSON.stringify({ type: "error", error: String(error?.message || error) }));
-      });
-    });
+    server.serializeAttachment(entry);
 
     return new Response(null, { status: 101, webSocket: client });
   }
 
   broadcast(payload, predicate = null) {
     let delivered = 0;
-    for (const [socket, meta] of this.sessions.entries()) {
+    const sockets = this.state.getWebSockets();
+    for (const socket of sockets) {
+      const meta = socket.deserializeAttachment();
       if (predicate && !predicate(meta)) continue;
-      socket.send(JSON.stringify(payload));
-      delivered += 1;
+      try {
+        socket.send(JSON.stringify(payload));
+        delivered += 1;
+      } catch {
+        // Ignore sockets in a bad/closed state.
+      }
     }
     return delivered;
+  }
+
+  async webSocketMessage(ws, message) {
+    const entry = ws.deserializeAttachment();
+    try {
+      await this.onSocketMessage(entry, message, ws);
+    } catch (error) {
+      ws.send(JSON.stringify({ type: "error", error: String(error?.message || error) }));
+    }
+  }
+
+  async webSocketClose(ws, code, reason, wasClean) {
+    // Cloudflare DO automatically cleans up closed websockets from getWebSockets()
+  }
+
+  async webSocketError(ws, error) {
+    // DO handles errors internally
   }
 
   async onSocketMessage(entry, rawData, server) {

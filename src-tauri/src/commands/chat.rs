@@ -1,4 +1,4 @@
-use crate::commands::llm::LlmState;
+﻿use crate::commands::llm::LlmState;
 use crate::commands::syncable::after_syncable_write;
 use crate::modules::chat as chat_mod;
 use crate::modules::database::DatabasePool;
@@ -36,6 +36,34 @@ pub async fn chat_completion_with_session_cmd(
     .await?;
     after_syncable_write(&db);
     Ok(reply)
+}
+
+/// Streaming version: invokes SSE chat and emits tokens via Tauri events.
+/// The frontend should listen on `event_channel` for `{ delta, done }` payloads.
+#[tauri::command]
+pub async fn chat_stream_with_session_cmd(
+    app: tauri::AppHandle,
+    db: State<'_, DatabasePool>,
+    llm: State<'_, LlmState>,
+    event_channel: String,
+    session_id: String,
+    message: String,
+    native_lang: String,
+    target_lang: String,
+) -> Result<(), String> {
+    chat_mod::chat_completion_stream_with_session(
+        &llm.client,
+        &db,
+        &session_id,
+        &message,
+        &native_lang,
+        &target_lang,
+        &event_channel,
+        &app,
+    )
+    .await?;
+    after_syncable_write(&db);
+    Ok(())
 }
 
 #[tauri::command]
@@ -100,7 +128,7 @@ pub async fn get_amiga_profile_cmd(target_lang: String) -> Result<serde_json::Va
     Ok(serde_json::json!({
         "id": "amiga",
         "nickname": "Amiga",
-        "avatar": "🤖",
+        "avatar": "\u{1F916}",
         "bio": format!("Your AI language buddy for {}", lang_label)
     }))
 }

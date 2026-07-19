@@ -188,4 +188,17 @@ function emitNext() {
   color: var(--text-light);
   cursor: not-allowed;
 }
+
+.pill:focus-visible {
+  border-color: var(--green);
+  color: var(--green);
+  outline: none;
+  background: var(--green-bg);
+}
+
+.btn-primary:focus-visible {
+  background: var(--green-hover);
+  box-shadow: 0 0 0 3px rgba(88, 204, 2, 0.4);
+  outline: none;
+}
 </style>

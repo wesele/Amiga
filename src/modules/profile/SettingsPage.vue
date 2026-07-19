@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-page">
+  <div class="settings-page" :class="{ 'tv-content-pane': isTvMode }">
     <PageHeader :title="t('settings.title')" />
 
     <!-- Learning language (moved from Profile / Me page) -->
@@ -38,8 +38,8 @@
       </div>
     </section>
 
-    <!-- AI Configuration -->
-    <section v-if="!isTvMode" class="settings-section">
+    <!-- AI Configuration (phone + TV) -->
+    <section class="settings-section">
       <h3 class="section-header">{{ t('settings.ai') }}</h3>
       <div class="settings-card">
         <SettingsItem :title="t('settings.primaryModel')" :subtitle="t('settings.primaryModelSub')" to="/profile/llm-config" />
@@ -64,18 +64,18 @@
           :title="t('settings.cloudSync')"
           :subtitle="cloudSyncSubtitle"
           :showDivider="true"
+          :aria-pressed="cloudSyncEnabled"
+          @click="onCloudSyncRowActivate"
         >
           <template #trailing>
-            <label class="sync-switch" :class="{ disabled: cloudSyncBusy }">
-              <input
-                type="checkbox"
-                class="sync-switch-input"
-                :checked="cloudSyncEnabled"
-                :disabled="cloudSyncBusy"
-                @change="onCloudSyncToggle"
-              />
+            <!-- Decorative switch: whole row is the focusable control for TV remotes. -->
+            <span
+              class="sync-switch"
+              :class="{ disabled: cloudSyncBusy, on: cloudSyncEnabled }"
+              aria-hidden="true"
+            >
               <span class="sync-switch-track" />
-            </label>
+            </span>
           </template>
         </SettingsItem>
         <SettingsItem :title="t('settings.restart')" :subtitle="t('settings.restartSub')" danger @click="showResetDialog = true" :showDivider="false" />
@@ -233,8 +233,14 @@ async function onCloudSyncToggle(event) {
     await applyCloudSyncEnabled(false);
     return;
   }
-  event.target.checked = false;
+  if (event?.target) event.target.checked = false;
   await applyCloudSyncEnabled(true);
+}
+
+/** Whole-row activate (TV remote Enter / click) toggles cloud sync. */
+async function onCloudSyncRowActivate() {
+  if (cloudSyncBusy.value) return;
+  await onCloudSyncToggle({ target: { checked: !cloudSyncEnabled.value } });
 }
 
 function cancelCloudSyncConflict() {
@@ -457,22 +463,15 @@ function confirmReset() {
   background: var(--red-bg);
 }
 
-/* Cloud sync switch */
+/* Cloud sync switch (visual only; row button owns focus/activation) */
 .sync-switch {
   position: relative;
   display: inline-flex;
   align-items: center;
-  cursor: pointer;
+  pointer-events: none;
 }
 .sync-switch.disabled {
   opacity: 0.5;
-  cursor: not-allowed;
-}
-.sync-switch-input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
 }
 .sync-switch-track {
   width: 44px;
@@ -494,10 +493,42 @@ function confirmReset() {
   transition: transform var(--transition);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
-.sync-switch-input:checked + .sync-switch-track {
+.sync-switch.on .sync-switch-track {
   background: var(--blue);
 }
-.sync-switch-input:checked + .sync-switch-track::after {
+.sync-switch.on .sync-switch-track::after {
   transform: translateX(20px);
+}
+
+/* TV: inset focus for pills / steppers; avoid global scale+outer ring chaos. */
+.lang-pill:focus-visible,
+.stepper-btn:focus-visible,
+.dialog-btn:focus-visible {
+  z-index: 2;
+  outline: 3px solid #1cb0f6 !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.2) !important;
+  transform: none !important;
+}
+.lang-pill.active:focus-visible {
+  outline-color: #fff !important;
+  box-shadow: 0 0 0 3px #1cb0f6, 0 0 0 6px rgba(28, 176, 246, 0.25) !important;
+}
+.stepper-btn:focus-visible {
+  outline-offset: 3px;
+}
+
+/* List rows: allow inset focus rings to paint fully. */
+.settings-card {
+  overflow: visible;
+}
+.settings-card :deep(.settings-item:first-child) {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.settings-card :deep(.settings-item:last-child) {
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+.settings-card :deep(.settings-item:only-child) {
+  border-radius: var(--radius-md);
 }
 </style>

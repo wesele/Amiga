@@ -3,14 +3,17 @@ setlocal
 cd /d "%~dp0"
 
 echo ============================================
-echo  Amiga TV - Android TV ARM64 Build
+echo  Amiga TV - Android TV release APK
 echo ============================================
-echo.
+setlocal EnableDelayedExpansion
 
+:: --- FORCE TV MODE ENVIRONMENT ---
 set "VITE_AMIGA_TV=1"
 set "AMIGA_TV=1"
 
 echo [1/4] Building TV frontend...
+:: Clean dist to ensure no caching
+if exist "dist" rmdir /s /q "dist"
 call npm.cmd run build
 if %errorlevel% neq 0 goto error
 echo.
@@ -22,24 +25,29 @@ if not exist "src-tauri\gen\android" (
 )
 echo.
 
-echo [3/4] Applying Android TV manifest and package settings...
+echo [3/4] Patching Android project for TV...
 node scripts\android-patch.cjs --force
 if %errorlevel% neq 0 goto error
 echo.
 
-echo [4/4] Building Android TV APK (arm64-v8a)...
-call npm.cmd run tauri android build -- --target aarch64 --apk
+echo [4/4] Building Android TV APK (armeabi-v7a)...
+:: Clean Android build folder to ensure assets are repackaged!
+if exist "src-tauri\gen\android\app\build" rmdir /s /q "src-tauri\gen\android\app\build"
+
+call npm.cmd run tauri android build -- --target armv7 --apk
 if %errorlevel% neq 0 goto error
 
-:: Leave the generated Android project in normal phone mode. The APK above
-:: is already finalized and keeps its TV manifest and application id.
+:: Restore phone mode for future phone builds
 set "AMIGA_TV="
 node scripts\android-patch.cjs >nul
 
 echo.
+echo ========================================================
 echo Android TV APK built successfully.
-echo Output: src-tauri\gen\android\app\build\outputs\apk
-exit /b 0
+echo Please install using:
+echo adb install -r -g src-tauri\gen\android\app\build\outputs\apk\armv7\release\app-armv7-release.apk
+echo ========================================================
+goto end
 
 :error
 echo.

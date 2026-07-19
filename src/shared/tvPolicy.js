@@ -79,8 +79,8 @@ export function scrollDeltaForArrowKey(key, step = 120) {
 }
 
 /**
- * Profile settings subtitle that matches TV-shipped capabilities
- * (no AI config section on TV).
+ * Profile settings subtitle. TV copy still mentions AI config (primary /
+ * multimodal / prompts are available on living-room builds).
  */
 export function learnSettingsSubtitleKey(tvMode = false) {
   return tvMode ? "profile.learnSettingsSubTv" : "profile.learnSettingsSub";

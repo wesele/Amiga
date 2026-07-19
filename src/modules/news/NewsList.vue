@@ -1,6 +1,7 @@
 <template>
   <div
     class="news-list"
+    :class="{ 'tv-content-pane': isTvMode }"
     @touchstart="onPullStart"
     @touchmove="onPullMove"
     @touchend="onPullEnd"
@@ -60,8 +61,13 @@
           <div class="card-meta">
             <span v-if="article.rewritten_body" class="badge-rewritten">{{ t('news.aiRewritten') }}</span>
             <span v-else class="badge-raw">{{ t('news.raw') }}</span>
+            <!-- TV: plain text only — never a focusable/openable source link for remote. -->
+            <span
+              v-if="article.source && isTvMode"
+              class="card-source"
+            >{{ formatSource(article.source) }}</span>
             <a
-              v-if="article.source"
+              v-else-if="article.source"
               class="card-source clickable"
               :href="article.source"
               target="_blank"
@@ -102,6 +108,7 @@ import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
 import { usePullToRefresh } from "./usePullToRefresh.js";
+import { isTvMode } from "@/shared/appMode.js";
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -330,7 +337,12 @@ const {
 }
 
 .article-card:focus-visible {
-  box-shadow: var(--shadow-lg), 0 0 0 2px var(--green);
+  z-index: 2;
+  outline: 3px solid #1cb0f6 !important;
+  outline-offset: -3px;
+  box-shadow: var(--shadow-lg), inset 0 0 0 1px rgba(28, 176, 246, 0.22) !important;
+  transform: none !important;
+  background: var(--green-bg);
 }
 
 .article-card:hover {
@@ -528,5 +540,15 @@ const {
   z-index: 300;
   white-space: nowrap;
   box-shadow: var(--shadow-lg);
+}
+
+.refresh-btn:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 1px;
+}
+
+.btn-secondary:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 1px;
 }
 </style>

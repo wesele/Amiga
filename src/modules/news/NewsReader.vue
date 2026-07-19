@@ -1,8 +1,8 @@
 <template>
-  <div class="news-reader">
+  <div class="news-reader" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvMode }">
     <!-- Header -->
     <header class="reader-header">
-      <button class="back-btn" @click="goBack">
+      <button class="back-btn" type="button" :tabindex="isTvMode ? -1 : undefined" @click="goBack">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
@@ -10,8 +10,13 @@
       <div class="header-info">
         <div class="header-title">{{ article?.original_title }}</div>
         <div class="header-title-translation" v-if="bilingualMode && titleTranslation">{{ titleTranslation }}</div>
+        <!-- TV: source is display-only (remote must not focus or open the original URL). -->
+        <span
+          v-if="article?.source && isTvMode"
+          class="header-source"
+        >{{ formatSource(article.source) }}</span>
         <a
-          v-if="article?.source"
+          v-else-if="article?.source"
           class="header-source"
           :href="article.source"
           target="_blank"
@@ -61,14 +66,21 @@
         <button type="button" class="btn-cancel-rewrite" @click="doRewrite">{{ t('news.rewriteBtn') }}</button>
       </div>
 
-      <!-- Original mode -->
+      <!-- Original mode: paragraph-aware like daily reading -->
       <div v-if="!bilingualMode" class="article-text">
-        <template v-for="(token, idx) in tokens" :key="idx">
-          <span v-if="token.isWord" class="word" @click.stop="onWordTap(token)">
-            {{ token.text }}
-          </span>
-          <span v-else>{{ token.text }}</span>
-        </template>
+        <p v-for="(para, pidx) in bodyParagraphs" :key="pidx" class="para">
+          <template v-for="(token, idx) in para" :key="idx">
+            <span
+              v-if="token.isWord"
+              class="word"
+              :tabindex="isTvMode ? 0 : undefined"
+              @click.stop="onWordTap(token)"
+              @keydown.enter.prevent="onWordTap(token)"
+              @keydown.space.prevent="onWordTap(token)"
+            >{{ token.text }}</span>
+            <span v-else>{{ token.text }}</span>
+          </template>
+        </p>
       </div>
 
       <!-- Bilingual mode -->
@@ -76,11 +88,21 @@
         <template v-for="(tokens, pidx) in paraTokens" :key="pidx">
           <p class="para-original">
             <template v-for="(token, idx) in tokens" :key="idx">
-              <span v-if="token.isWord" class="word" @click.stop="onWordTap(token)">{{ token.text }}</span>
+              <span
+                v-if="token.isWord"
+                class="word"
+                :tabindex="isTvMode ? 0 : undefined"
+                @click.stop="onWordTap(token)"
+                @keydown.enter.prevent="onWordTap(token)"
+                @keydown.space.prevent="onWordTap(token)"
+              >{{ token.text }}</span>
               <span v-else>{{ token.text }}</span>
             </template>
           </p>
-          <p class="para-translation">{{ translations[pidx] || "..." }}</p>
+          <p
+            class="para-translation"
+            :tabindex="isTvMode ? 0 : undefined"
+          >{{ translations[pidx] || "..." }}</p>
         </template>
       </div>
       <div v-else-if="loadingTranslation" class="loading-center">
@@ -175,7 +197,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { getArticle, saveReadingLog } from "@/shared/backend/news.js";
 import { getBilingual, rewriteArticle, translateText } from "@/shared/backend/llm.js";
@@ -194,6 +216,7 @@ import { useReadAloud } from "@/shared/readAloud.js";
 import { useNewsArticleWords } from "./useNewsArticleWords.js";
 import { isTvMode } from "@/shared/appMode.js";
 import { shouldBlockUiOnRewrite } from "@/shared/tvPolicy.js";
+import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
 const { t } = useI18n();
 const props = defineProps({ id: [String, Number] });
@@ -293,6 +316,8 @@ const {
   t,
 });
 
+let releaseSelectionBack = null;
+
 onMounted(async () => {
   startTime.value = Date.now();
   document.addEventListener("selectionchange", onSelectionChange);
@@ -300,6 +325,14 @@ onMounted(async () => {
   // Android: the system text-selection toolbar calls this global function
   // when the user taps the "缈昏瘧" menu item (see MainActivity.kt).
   window.__amigaTranslateSelection = handleNativeTranslate;
+  // Selection-translate sheet: back closes it (WordPopup stacks its own handler).
+  releaseSelectionBack = pushInPageBackHandler(() => {
+    if (selectionText.value) {
+      clearSelection();
+      return "navigated";
+    }
+    return null;
+  });
   try {
     const ctx = await loadLearningContext({ targetLangStore });
     userId = ctx.user.id;
@@ -311,7 +344,6 @@ onMounted(async () => {
       processArticleWords();
     } else if (art.original_body) {
       // TV: show original immediately; phone still may await rewrite.
-      parseText(art.original_body);
       if (blocksOnRewrite) {
         await doRewrite();
       } else {
@@ -340,6 +372,8 @@ onBeforeUnmount(async () => {
   document.removeEventListener("selectionchange", onSelectionChange);
   document.removeEventListener("pointerup", onPointerUp);
   delete window.__amigaTranslateSelection;
+  releaseSelectionBack?.();
+  releaseSelectionBack = null;
   cleanupSelectionTranslation();
   if (shareStatusTimer) {
     clearTimeout(shareStatusTimer);
@@ -391,10 +425,7 @@ function cancelRewrite() {
   rewriteCancelled.value = true;
   rewriteGeneration += 1;
   rewriting.value = false;
-  // Keep original text available; user can retry later.
-  if (article.value?.original_body && !article.value?.rewritten_body) {
-    parseText(article.value.original_body);
-  }
+  // Keep original text available via displayBody/bodyParagraphs; user can retry later.
 }
 
 async function toggleBilingual() {
@@ -431,18 +462,14 @@ async function loadBilingual() {
   }
 }
 
-// Tokenize article body
-const tokens = ref([]);
-function parseText(text) {
-  tokens.value = tokenizeArticleText(text);
-}
-
-watch(() => article.value?.rewritten_body, (val) => {
-  if (val) parseText(val);
-});
-
-watch(() => article.value?.original_body, (val) => {
-  if (val && !article.value?.rewritten_body) parseText(val);
+/** Split body into paragraphs (same structure as daily reading). */
+const bodyParagraphs = computed(() => {
+  const body = displayBody.value || "";
+  return body
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => tokenizeArticleText(p));
 });
 
 function showShareStatus(msg) {
@@ -469,6 +496,19 @@ async function onShare() {
 }
 
 function goBack() {
+  // Prefer in-page dismiss (word popup / selection sheet) over leaving reader.
+  if (typeof window !== "undefined" && typeof window.__amigaGoBack === "function") {
+    const result = window.__amigaGoBack();
+    if (result === "navigated" || result === "at-root") return;
+  }
+  if (selectedWord.value) {
+    selectedWord.value = null;
+    return;
+  }
+  if (selectionText.value) {
+    clearSelection();
+    return;
+  }
   const parent = router.currentRoute.value?.meta?.parent;
   if (parent) {
     router.replace({ name: parent });
@@ -501,7 +541,7 @@ function formatSource(source) {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 8px 12px 4px;
+  padding: 8px 12px 12px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -696,22 +736,28 @@ function formatSource(source) {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding: 20px 20px 80px;
+  box-sizing: border-box;
+}
+
+/* TV: full-pane reading — modest gutters, no narrow centered column. */
+html[data-app-mode="tv"] .reader-header {
+  padding: 10px 16px 12px;
 }
 
 html[data-app-mode="tv"] .article-body {
-  padding: 20px 28px 40px;
-  max-width: 52rem;
-  margin: 0 auto;
+  padding: 14px 16px 28px;
+  max-width: none;
+  margin: 0;
   width: 100%;
   box-sizing: border-box;
 }
 
-/* Keep overflow-wrap here too so structural CSS tests (and TV layout)
-   still guarantee long headlines wrap instead of clipping. */
 html[data-app-mode="tv"] .article-text {
-  font-size: 20px;
-  line-height: 1.85;
-  max-width: 46ch;
+  font-size: 22px;
+  line-height: 1.75;
+  max-width: none;
+  margin-inline: 0;
+  width: 100%;
   overflow-wrap: break-word;
   word-wrap: break-word;
 }
@@ -724,7 +770,7 @@ html[data-app-mode="tv"] .header-title {
 
 .article-text {
   font-size: 17px;
-  line-height: 2.0;
+  line-height: 1.7;
   color: var(--text);
   overflow-wrap: break-word;
   word-wrap: break-word;
@@ -735,18 +781,47 @@ html[data-app-mode="tv"] .header-title {
   touch-action: auto;
 }
 
+.article-text .para {
+  margin: 0 0 1.15em;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.article-text .para:last-child {
+  margin-bottom: 0;
+}
+
+.article-text.bilingual {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .word {
   cursor: pointer;
   padding: 0 1px;
   border-radius: 3px;
   transition: background 0.1s;
   white-space: normal;
+  display: inline;
   -webkit-user-select: text;
   user-select: text;
 }
 
 .word:hover {
   background: var(--blue-bg);
+}
+
+/* TV: tight inline focus — never scale or use the global 5px outer ring. */
+.word:focus-visible {
+  outline: 2px solid #1cb0f6 !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  background: var(--blue-bg) !important;
+  transform: none !important;
+  z-index: 2;
+  position: relative;
+  border-radius: 3px;
 }
 
 /* Fixed bottom bar */
@@ -860,18 +935,35 @@ html[data-app-mode="tv"] .header-title {
 
 /* Bilingual paragraphs */
 .bilingual .para-original {
-  margin-bottom: 4px;
+  margin: 0;
+  white-space: pre-wrap;
   overflow-wrap: break-word;
 }
 
 .bilingual .para-translation {
   color: var(--text-lighter);
   font-size: 14px;
-  line-height: 1.7;
-  margin-bottom: 20px;
+  line-height: 1.55;
+  margin: 0 0 16px;
   padding-left: 12px;
   border-left: 2px solid var(--border);
+  white-space: pre-wrap;
   overflow-wrap: break-word;
+}
+
+html[data-app-mode="tv"] .bilingual .para-translation {
+  font-size: 16px;
+  line-height: 1.55;
+  border-radius: 6px;
+  outline: none;
+}
+/* TV: translation blocks must be focusable targets for remote Up/Down. */
+html[data-app-mode="tv"] .bilingual .para-translation:focus-visible {
+  outline: 2px solid #1cb0f6 !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+  transform: none !important;
+  background: rgba(28, 176, 246, 0.08);
 }
 
 /* Selection translate popup */

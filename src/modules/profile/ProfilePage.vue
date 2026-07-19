@@ -1,5 +1,5 @@
 <template>
-  <div class="profile-page">
+  <div class="profile-page" :class="{ 'tv-content-pane': isTvMode }">
     <header class="page-header">
       <h1 class="page-title">{{ t('profile.title') }}</h1>
     </header>
@@ -45,11 +45,15 @@
     <section class="settings-section">
       <h3 class="section-header">{{ t('profile.general') }}</h3>
       <div class="settings-card">
-        <SettingsItem :subtitle="t(learnSettingsSubKey)" to="/profile/settings">
+        <SettingsItem
+          :title="t('settings.title')"
+          :subtitle="t(learnSettingsSubKey)"
+          to="/profile/settings"
+          :showDivider="false"
+        >
           <template #icon><SettingsIcon /></template>
         </SettingsItem>
         <SettingsItem
-          v-if="!isTvMode"
           :title="t('soulmate.settingsTitle')"
           :subtitle="t('soulmate.settingsSub')"
           to="/profile/soulmate"
@@ -548,5 +552,32 @@ async function handleInstallUpdate() {
   font-size: 15px;
   color: var(--text-light);
   margin: 0;
+}
+
+/* TV: clean inset focus on language pills (global scale/outer ring is messy). */
+.lang-pill:focus-visible {
+  z-index: 2;
+  outline: 3px solid #1cb0f6 !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.2) !important;
+  transform: none !important;
+}
+.lang-pill.active:focus-visible {
+  outline-color: #fff !important;
+  box-shadow: 0 0 0 3px #1cb0f6, 0 0 0 6px rgba(28, 176, 246, 0.25) !important;
+}
+
+/* Let list-row focus rings paint fully inside the card. */
+.settings-card {
+  overflow: visible;
+}
+.settings-card :deep(.settings-item:first-child) {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.settings-card :deep(.settings-item:last-child) {
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+.settings-card :deep(.settings-item:only-child) {
+  border-radius: var(--radius-md);
 }
 </style>

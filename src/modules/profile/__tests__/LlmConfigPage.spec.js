@@ -66,7 +66,7 @@ describe("LlmConfigPage", () => {
     expect(notice.exists()).toBe(true);
     const text = wrapper.text();
     expect(text).toContain("免费模型");
-    expect(text).toContain("请更新到新版本");
+    expect(text).toContain("请切换为自定义 API");
 
     // Connection parameters are NOT shown in built-in mode.
     expect(text).not.toContain(BUILTIN.base_url);
@@ -96,9 +96,8 @@ describe("LlmConfigPage", () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    const saveBtn = wrapper.findAll("button").find((b) => b.text().includes("保存配置"));
-    expect(saveBtn).toBeTruthy();
-    await saveBtn.trigger("click");
+    const builtinRadio = wrapper.find('input[type="radio"][value="builtin"]');
+    await builtinRadio.trigger("change");
     await flushPromises();
 
     const modeSave = savedCalls.find((c) => c.key === "llm_mode");
@@ -122,21 +121,19 @@ describe("LlmConfigPage", () => {
     await customRadio.setValue(true);
     await flushPromises();
 
-    const inputs = wrapper.findAll("input.field-input");
-    await inputs[0].setValue("sk-mykey");
-    await inputs[1].setValue("https://api.openai.com/v1");
-    await inputs[2].setValue("gpt-4o-mini");
+    await wrapper.find('input[placeholder="sk-..."]').setValue("sk-mykey");
+    await wrapper.find('input[placeholder="https://api.openai.com/v1"]').setValue("https://api.openai.com/v1");
+    await wrapper.find('input[placeholder="gpt-4o-mini"]').setValue("gpt-4o-mini");
     await wrapper.find("select.provider-select").setValue("deepseek");
-    await wrapper.find('.switch-control input[type="checkbox"]').setValue(true);
-    await flushPromises();
-
-    const saveBtn = wrapper.findAll("button").find((b) => b.text().includes("保存配置"));
-    await saveBtn.trigger("click");
+    // Whole-row thinking toggle (TV remote friendly).
+    await wrapper.find("button.thinking-card").trigger("click");
     await flushPromises();
 
     const modeSave = savedCalls.find((c) => c.key === "llm_mode");
     expect(modeSave?.value).toBe("custom");
-    const configSave = savedCalls.find((c) => c.cmd === "save_llm_config_cmd");
+    const configSaves = savedCalls.filter((c) => c.cmd === "save_llm_config_cmd");
+    expect(configSaves.length).toBeGreaterThan(0);
+    const configSave = configSaves[configSaves.length - 1];
     expect(configSave).toBeTruthy();
     expect(configSave.key).toBe("primary");
     expect(configSave.config.api_key).toBe("sk-mykey");

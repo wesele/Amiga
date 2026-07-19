@@ -1,5 +1,5 @@
 <template>
-  <div class="story-page">
+  <div class="story-page" :class="{ 'tv-content-pane tv-story': isTvMode }">
     <PageHeader :title="t('soulmate.storyTitle')" />
     <div v-if="loading" class="state-block">{{ t("app.loading") }}</div>
     <div v-else-if="error" class="state-block error">{{ error }}</div>
@@ -10,10 +10,18 @@
       <h1>{{ episode.title }}</h1>
       <p class="teaser">{{ episode.teaser }}</p>
       <div class="ornament">✦</div>
-      <article>
-        <p v-for="(tokens, paragraphIndex) in paragraphTokens" :key="paragraphIndex">
+      <!-- Same word-focus reading model as news/daily reading (TV arrows + Enter = translate). -->
+      <article class="article-text">
+        <p v-for="(tokens, paragraphIndex) in bodyParagraphs" :key="paragraphIndex" class="para">
           <template v-for="(token, tokenIndex) in tokens" :key="tokenIndex">
-            <span v-if="token.isWord" class="word" @click.stop="onWordTap(token)">{{ token.text }}</span>
+            <span
+              v-if="token.isWord"
+              class="word"
+              :tabindex="isTvMode ? 0 : undefined"
+              @click.stop="onWordTap(token)"
+              @keydown.enter.prevent="onWordTap(token)"
+              @keydown.space.prevent="onWordTap(token)"
+            >{{ token.text }}</span>
             <span v-else>{{ token.text }}</span>
           </template>
         </p>
@@ -57,6 +65,8 @@ import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { tokenizeArticleText } from "@/shared/articleText.js";
+import { isTvMode } from "@/shared/appMode.js";
+import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { translateText } from "@/shared/backend/llm.js";
@@ -78,12 +88,15 @@ const error = ref("");
 const selectedWord = ref(null);
 const userId = ref("");
 const targetLang = ref("es");
-const paragraphTokens = computed(() => (
-  episode.value?.body
-    ?.split(/\n+/)
-    .filter(Boolean)
-    .map((paragraph) => tokenizeArticleText(paragraph)) || []
-));
+
+/** Paragraph-aware body tokens — same shape as NewsReader / ReadingReader. */
+const bodyParagraphs = computed(() => {
+  const body = episode.value?.body || "";
+  if (!body.trim()) return [];
+  const blocks = body.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const paragraphs = blocks.length > 0 ? blocks : body.split(/\n+/).map((p) => p.trim()).filter(Boolean);
+  return paragraphs.map((paragraph) => tokenizeArticleText(paragraph));
+});
 
 const {
   selectionText,
@@ -102,10 +115,20 @@ const {
   t,
 });
 
+let releaseSelectionBack = null;
+
 onMounted(async () => {
   document.addEventListener("selectionchange", onSelectionChange);
   document.addEventListener("pointerup", onPointerUp);
   window.__amigaTranslateSelection = handleNativeTranslate;
+  // Back closes selection sheet before leaving the letter (matches news/reading).
+  releaseSelectionBack = pushInPageBackHandler(() => {
+    if (selectionText.value) {
+      clearSelection();
+      return "navigated";
+    }
+    return null;
+  });
   try {
     const [story, context] = await Promise.all([
       getSoulMateEpisode(props.episodeId),
@@ -127,6 +150,8 @@ onBeforeUnmount(() => {
   if (window.__amigaTranslateSelection === handleNativeTranslate) {
     delete window.__amigaTranslateSelection;
   }
+  releaseSelectionBack?.();
+  releaseSelectionBack = null;
   cleanupSelectionTranslation();
 });
 
@@ -179,10 +204,38 @@ async function finish() {
 .story-content h1 { margin: 8px 0 9px; color: var(--text); font-family: Georgia, serif; font-size: 30px; line-height: 1.18; }
 .teaser { margin: 0; color: var(--text-light); font-size: 15px; font-style: italic; line-height: 1.55; }
 .ornament { margin: 22px 0; color: #ff5d8f; text-align: center; }
-article { color: var(--text); font-family: Georgia, serif; font-size: 17px; line-height: 1.85; }
-article p { margin: 0 0 18px; }
-.word { cursor: pointer; border-radius: 3px; user-select: text; -webkit-user-select: text; -webkit-tap-highlight-color: transparent; }
+.article-text {
+  color: var(--text);
+  font-family: Georgia, serif;
+  font-size: 17px;
+  line-height: 1.85;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+.article-text .para { margin: 0 0 18px; }
+.word {
+  cursor: pointer;
+  padding: 0 1px;
+  border-radius: 3px;
+  transition: background 0.1s;
+  white-space: normal;
+  display: inline;
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-tap-highlight-color: transparent;
+}
 .word:hover { background: var(--blue-bg); }
+/* TV: tight inline focus — never scale or use the global 5px outer ring. */
+.word:focus-visible {
+  outline: 2px solid #1cb0f6 !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  background: var(--blue-bg) !important;
+  transform: none !important;
+  z-index: 2;
+  position: relative;
+  border-radius: 3px;
+}
 .finish-btn { width: 100%; min-height: 52px; margin-top: 20px; border: none; border-radius: 16px; background: #ff5d8f; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
 .finish-btn:disabled { opacity: .65; }
 .state-block { min-height: 60vh; display: grid; place-content: center; padding: 24px; color: var(--text-lighter); text-align: center; }
@@ -194,4 +247,27 @@ article p { margin: 0 0 18px; }
 .sel-loading { margin-top: 14px; color: var(--text-lighter); }
 .sel-error { margin-top: 14px; color: var(--red); }
 .sel-close { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--bg); color: var(--text-light); font-size: 20px; cursor: pointer; }
+
+/* TV: balanced gutters + centered measure (same as news/reading). */
+html[data-app-mode="tv"] .story-content.article-body {
+  max-width: none;
+  margin: 0;
+  width: 100%;
+  padding: 16px 24px calc(32px + var(--safe-bottom));
+  box-sizing: border-box;
+}
+html[data-app-mode="tv"] .article-text {
+  font-size: 22px;
+  line-height: 1.75;
+  max-width: none;
+  margin-inline: 0;
+  width: 100%;
+}
+html[data-app-mode="tv"] .story-content h1 {
+  font-size: 28px;
+  overflow-wrap: break-word;
+  max-width: none;
+  margin-inline: 0;
+}
+.tv-story .finish-btn { min-height: 56px; font-size: 18px; }
 </style>

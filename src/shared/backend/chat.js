@@ -1,6 +1,7 @@
 export {
   chatCompletion,
   chatCompletionWithSession,
+  chatStreamWithSession,
   createChatSession,
   deleteChatSession,
   getAmigaProfile,

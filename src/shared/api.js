@@ -114,6 +114,7 @@ export function createApiClient(invoke) {
     testLlmConnection: (config) => call("test_llm_connection_cmd", { config }),
     saveLlmConfig: (key, config) => call("save_llm_config_cmd", { key, config }),
     getLlmConfig: () => call("get_llm_config_cmd"),
+    fetchModels: (baseUrl, apiKey) => call("fetch_models_cmd", { baseUrl, apiKey }),
     getBilingual: (articleId, sourceLang, nativeLang) =>
       call("get_bilingual_cmd", { articleId, sourceLang, nativeLang }),
     translateText: (text, sourceLang, nativeLang) =>
@@ -141,6 +142,8 @@ export function createApiClient(invoke) {
       call("chat_completion_cmd", { messages, nativeLang, targetLang }),
     chatCompletionWithSession: (sessionId, message, nativeLang, targetLang) =>
       call("chat_completion_with_session_cmd", { sessionId, message, nativeLang, targetLang }),
+    chatStreamWithSession: (eventChannel, sessionId, message, nativeLang, targetLang) =>
+      call("chat_stream_with_session_cmd", { eventChannel, sessionId, message, nativeLang, targetLang }),
     createChatSession: (userId, title, contactType, targetLang) =>
       call("create_chat_session_cmd", { userId, title, contactType, targetLang }),
     getChatSessions: (targetLang) => call("get_chat_sessions_cmd", { targetLang }),
@@ -219,6 +222,8 @@ export function createApiClient(invoke) {
       call("get_soulmate_chat_cmd", { userId, targetLang, episodeId }),
     submitSoulMateTurn: (userId, targetLang, episodeId, message) =>
       call("submit_soulmate_turn_cmd", { userId, targetLang, episodeId, message }),
+    getSoulMateReplyOptions: (userId, targetLang, episodeId) =>
+      call("get_soulmate_reply_options_cmd", { userId, targetLang, episodeId }),
     resetSoulMate: (userId, targetLang) =>
       call("reset_soulmate_cmd", { userId, targetLang }),
 
@@ -322,6 +327,7 @@ export const translateWord = (...args) => defaultApiClient.translateWord(...args
 export const testLlmConnection = (...args) => defaultApiClient.testLlmConnection(...args);
 export const saveLlmConfig = (...args) => defaultApiClient.saveLlmConfig(...args);
 export const getLlmConfig = (...args) => defaultApiClient.getLlmConfig(...args);
+export const fetchModels = (...args) => defaultApiClient.fetchModels(...args);
 export const getBilingual = (...args) => defaultApiClient.getBilingual(...args);
 export const translateText = (...args) => defaultApiClient.translateText(...args);
 export const gradeTranslation = (...args) => defaultApiClient.gradeTranslation(...args);
@@ -344,6 +350,8 @@ export const checkUpdate = (...args) => defaultApiClient.checkUpdate(...args);
 export const chatCompletion = (...args) => defaultApiClient.chatCompletion(...args);
 export const chatCompletionWithSession = (...args) =>
   defaultApiClient.chatCompletionWithSession(...args);
+export const chatStreamWithSession = (...args) =>
+  defaultApiClient.chatStreamWithSession(...args);
 export const createChatSession = (...args) => defaultApiClient.createChatSession(...args);
 export const getChatSessions = (...args) => defaultApiClient.getChatSessions(...args);
 export const deleteChatSession = (...args) => defaultApiClient.deleteChatSession(...args);
@@ -405,4 +413,6 @@ export const markSoulMateStoryRead = (...args) =>
   defaultApiClient.markSoulMateStoryRead(...args);
 export const getSoulMateChat = (...args) => defaultApiClient.getSoulMateChat(...args);
 export const submitSoulMateTurn = (...args) => defaultApiClient.submitSoulMateTurn(...args);
+export const getSoulMateReplyOptions = (...args) =>
+  defaultApiClient.getSoulMateReplyOptions(...args);
 export const resetSoulMate = (...args) => defaultApiClient.resetSoulMate(...args);

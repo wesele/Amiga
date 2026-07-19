@@ -1,34 +1,38 @@
 <template>
-  <div class="llm-config-page">
+  <div class="llm-config-page" :class="{ 'tv-content-pane': isTvMode }">
     <PageHeader :title="t('llm.primaryTitle')" />
 
     <div class="config-body">
-      <!-- Source toggle -->
-      <div class="settings-card">
+      <!-- Source toggle (Segmented Control) -->
+      <div class="settings-card source-selector-card">
         <div class="field-group">
           <label class="field-label">{{ t('llm.source') }}</label>
-          <div class="source-options">
+          <div class="segmented-control" role="radiogroup" :aria-label="t('llm.source')">
             <label
               class="source-option"
               :class="{ selected: mode === 'builtin' }"
+              tabindex="0"
+              role="radio"
+              :aria-checked="mode === 'builtin'"
+              @keydown.enter.prevent="mode = 'builtin'; saveConfig()"
+              @keydown.space.prevent="mode = 'builtin'; saveConfig()"
+              @click="mode = 'builtin'; saveConfig()"
             >
-              <input type="radio" name="llm-source" value="builtin" v-model="mode" class="source-radio" />
-              <div class="source-text">
-                <span class="source-title">{{ t('llm.builtin') }}</span>
-                <span class="source-sub">{{ t('llm.builtinDesc') }}</span>
-              </div>
-              <span v-if="mode === 'builtin'" class="source-check">✓</span>
+              <input type="radio" name="llm-source" value="builtin" v-model="mode" @change="saveConfig" class="source-radio" tabindex="-1" />
+              <span class="source-title">{{ t('llm.builtin') }}</span>
             </label>
             <label
               class="source-option"
               :class="{ selected: mode === 'custom' }"
+              tabindex="0"
+              role="radio"
+              :aria-checked="mode === 'custom'"
+              @keydown.enter.prevent="mode = 'custom'; saveConfig()"
+              @keydown.space.prevent="mode = 'custom'; saveConfig()"
+              @click="mode = 'custom'; saveConfig()"
             >
-              <input type="radio" name="llm-source" value="custom" v-model="mode" class="source-radio" />
-              <div class="source-text">
-                <span class="source-title">{{ t('llm.custom') }}</span>
-                <span class="source-sub">{{ t('llm.customDesc') }}</span>
-              </div>
-              <span v-if="mode === 'custom'" class="source-check">✓</span>
+              <input type="radio" name="llm-source" value="custom" v-model="mode" @change="saveConfig" class="source-radio" tabindex="-1" />
+              <span class="source-title">{{ t('llm.custom') }}</span>
             </label>
           </div>
         </div>
@@ -44,23 +48,23 @@
 
       <!-- Custom: editable form -->
       <template v-else>
-        <div class="settings-card">
+        <div class="settings-card custom-fields-card">
           <div class="field-group">
             <label class="field-label">{{ t('llm.provider') }}</label>
-            <select v-model="provider" class="field-input provider-select">
+            <select v-model="provider" @change="onProviderChange" class="field-input provider-select">
               <option value="openai">OpenAI</option>
               <option value="gemini">Gemini</option>
               <option value="deepseek">DeepSeek</option>
               <option value="nvidia_nim">NVIDIA NIM</option>
             </select>
           </div>
-          <div class="field-divider" />
           <div class="field-group">
             <label class="field-label">{{ t('llm.apiKey') }}</label>
             <div class="api-key-wrapper">
               <input
                 :type="showKey ? 'text' : 'password'"
                 v-model="apiKey"
+                @change="onApiParamsChange"
                 class="field-input"
                 placeholder="sk-..."
               />
@@ -74,56 +78,76 @@
               </button>
             </div>
           </div>
-          <div class="field-divider" />
           <div class="field-group">
             <label class="field-label">{{ t('llm.baseUrl') }}</label>
-            <input v-model="baseUrl" type="text" class="field-input" placeholder="https://api.openai.com/v1" />
+            <input v-model="baseUrl" @change="onApiParamsChange" type="text" class="field-input" placeholder="https://api.openai.com/v1" />
           </div>
-          <div class="field-divider" />
           <div class="field-group">
             <label class="field-label">{{ t('llm.model') }}</label>
-            <input v-model="modelName" type="text" class="field-input" placeholder="gpt-4o-mini" />
+            <div class="model-input-wrapper">
+              <input v-model="modelName" @change="saveConfig" list="model-options" type="text" class="field-input" placeholder="gpt-4o-mini" />
+              <button class="fetch-models-btn" @click="loadModels" type="button" :disabled="fetchingModels">
+                <span v-if="fetchingModels" class="btn-spinner" />
+                <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                  <path d="M19 8l-4 4h3c0 3.31-2.69 6-6 6-1.01 0-1.97-.25-2.8-.7l-1.46 1.46C8.97 19.54 10.43 20 12 20c4.42 0 8-3.58 8-8h3l-4-4zM6 12c0-3.31 2.69-6 6-6 1.01 0 1.97.25 2.8.7l1.46-1.46C15.03 4.46 13.57 4 12 4c-4.42 0-8 3.58-8 8H1l4 4 4-4H6z"/>
+                </svg>
+              </button>
+            </div>
+            <datalist id="model-options">
+              <option v-for="m in modelList" :key="m" :value="m" />
+            </datalist>
           </div>
         </div>
       </template>
 
-      <div class="settings-card thinking-card">
+      <button
+        type="button"
+        class="settings-card thinking-card"
+        :aria-pressed="disableThinking"
+        @click="disableThinking = !disableThinking; saveConfig()"
+      >
         <div class="thinking-copy">
           <span class="thinking-title">{{ t('llm.thinking') }}</span>
           <span class="thinking-desc">{{ t('llm.thinkingDesc') }}</span>
         </div>
-        <label class="switch-control">
-          <input v-model="thinkingEnabled" type="checkbox" />
-          <span class="switch-track" />
-        </label>
+        <span class="switch-control" aria-hidden="true">
+          <span class="switch-track" :class="{ on: disableThinking }" />
+        </span>
+      </button>
+
+      <!-- Action buttons -->
+      <div class="action-buttons">
+        <button class="btn-test" :disabled="testing" @click="testConnection">
+          <span v-if="testing" class="test-spinner" />
+          <span>{{ testing ? t('llm.testing') : t('llm.test') }}</span>
+        </button>
       </div>
 
-      <!-- Test connection -->
-      <button class="btn-test" :disabled="testing" @click="testConnection">
-        <span v-if="testing" class="test-spinner" />
-        <span>{{ testing ? t('llm.testing') : t('llm.test') }}</span>
-      </button>
       <div v-if="testResult" class="test-result" :class="testResult">
         {{ testResult === 'ok' ? t('llm.testOk') : t('llm.testFail') }}
       </div>
-
-      <!-- Save -->
       <div v-if="error" class="error-banner">{{ error }}</div>
-      <button class="btn-save" @click="saveConfig">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
-        {{ t('llm.save') }}
-      </button>
 
       <transition name="fade">
         <div v-if="saved" class="save-toast">{{ savedMessage }}</div>
       </transition>
     </div>
+
+    <!-- Metrics Alert Modal -->
+    <ConfirmDialog
+      :show="showMetricsModal"
+      :title="t('llm.testMetrics')"
+      :message="metricsMessage"
+      alert-only
+      @confirm="showMetricsModal = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { computed, ref, onMounted } from "vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
+import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import {
   getLlmConfig,
   saveLlmConfig,
@@ -132,7 +156,9 @@ import {
 import {
   saveSetting,
 } from "@/shared/backend/settings.js";
+import { fetchModels } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
+import { isTvMode } from "@/shared/appMode.js";
 
 const { t } = useI18n();
 
@@ -143,7 +169,7 @@ const modelName = ref("");
 const provider = ref("openai");
 const builtinThinkingEnabled = ref(false);
 const customThinkingEnabled = ref(false);
-const thinkingEnabled = computed({
+const disableThinking = computed({
   get: () => mode.value === "builtin" ? builtinThinkingEnabled.value : customThinkingEnabled.value,
   set: (value) => {
     if (mode.value === "builtin") builtinThinkingEnabled.value = value;
@@ -163,6 +189,37 @@ const testResult = ref(null);
 const saved = ref(false);
 const savedMessage = ref("");
 const error = ref("");
+
+const showMetricsModal = ref(false);
+const metricsMessage = ref("");
+
+const modelList = ref([]);
+const fetchingModels = ref(false);
+
+async function loadModels() {
+  if (!apiKey.value || !baseUrl.value) {
+    return;
+  }
+  fetchingModels.value = true;
+  try {
+    const list = await fetchModels(baseUrl.value, apiKey.value);
+    modelList.value = list || [];
+  } catch (e) {
+    console.error("Failed to load models list:", e);
+  } finally {
+    fetchingModels.value = false;
+  }
+}
+
+async function onApiParamsChange() {
+  await saveConfig();
+  await loadModels();
+}
+
+async function onProviderChange() {
+  await saveConfig();
+  await loadModels();
+}
 
 onMounted(async () => {
   try {
@@ -187,6 +244,9 @@ onMounted(async () => {
       builtinThinkingEnabled.value = builtin.value.thinkingEnabled;
       customThinkingEnabled.value = !!config.primary?.thinking_enabled;
     }
+    if (apiKey.value && baseUrl.value) {
+      loadModels();
+    }
   } catch (e) {
     console.error("Failed to load LLM config:", e);
   }
@@ -199,7 +259,7 @@ function currentConfig() {
       base_url: builtin.value.baseUrl,
       model: builtin.value.model,
       provider: builtin.value.provider,
-      thinking_enabled: thinkingEnabled.value,
+      thinking_enabled: disableThinking.value,
     };
   }
   return {
@@ -207,7 +267,7 @@ function currentConfig() {
     base_url: baseUrl.value,
     model: modelName.value,
     provider: provider.value,
-    thinking_enabled: thinkingEnabled.value,
+    thinking_enabled: disableThinking.value,
   };
 }
 
@@ -225,7 +285,7 @@ async function saveConfig() {
       await saveLlmConfig("primary", cfg);
       savedMessage.value = t("llm.saved");
     } else {
-      await saveSetting("builtin_thinking_enabled", thinkingEnabled.value ? "true" : "false");
+      await saveSetting("builtin_thinking_enabled", disableThinking.value ? "true" : "false");
       savedMessage.value = t("llm.savedBuiltin");
     }
     saved.value = true;
@@ -246,8 +306,23 @@ async function testConnection() {
   testing.value = true;
   testResult.value = null;
   try {
-    await testLlmConnection(currentConfig());
-    testResult.value = "ok";
+    const res = await testLlmConnection(currentConfig());
+    if (res.success) {
+      testResult.value = "ok";
+      const ttftVal = res.time_to_first_token_ms ?? 0;
+      const thinkSpeedVal = res.thinking_speed ?? 0;
+      const decodeSpeedVal = res.decode_speed ?? 0;
+      const thinkTokensVal = res.thinking_tokens ?? 0;
+      const completionTokensVal = res.completion_tokens ?? 0;
+      metricsMessage.value = `${t('llm.ttft')}: ${ttftVal} ms\n` +
+                             `${t('llm.thinkingSpeed')}: ${thinkSpeedVal.toFixed(1)} tokens/s\n` +
+                             `${t('llm.decodeSpeed')}: ${decodeSpeedVal.toFixed(1)} tokens/s\n` +
+                             `${t('llm.thinkingTokens')}: ${thinkTokensVal} tokens\n` +
+                             `${t('llm.completionTokens')}: ${completionTokensVal} tokens`;
+      showMetricsModal.value = true;
+    } else {
+      testResult.value = "fail";
+    }
   } catch (e) {
     testResult.value = "fail";
   } finally {
@@ -260,36 +335,76 @@ async function testConnection() {
 .llm-config-page {
   min-height: 100%;
   background: var(--bg);
-  padding-bottom: 32px;
+  padding-bottom: 24px;
 }
 
 .config-body {
-  padding: 16px;
+  padding: 12px;
 }
 
 /* Settings card */
 .settings-card {
   background: var(--surface);
   border-radius: var(--radius-md);
-  overflow: hidden;
-  margin-bottom: 16px;
+  overflow: visible;
+  margin-bottom: 12px;
 }
 .field-group {
-  padding: 16px;
+  padding: 10px 14px;
+}
+/* Model input + fetch button */
+.model-input-wrapper {
+  display: flex;
+  gap: 0;
+}
+.model-input-wrapper .field-input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+}
+.fetch-models-btn {
+  width: 40px;
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--bg);
+  color: var(--text-lighter);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition), color var(--transition);
+  flex-shrink: 0;
+}
+.fetch-models-btn:hover {
+  background: var(--border);
+  color: var(--blue);
+}
+.fetch-models-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: test-spin 0.8s linear infinite;
 }
 .field-label {
   display: block;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-lighter);
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 .field-input {
   width: 100%;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text);
   background: var(--bg);
   outline: none;
@@ -301,96 +416,110 @@ async function testConnection() {
   border-color: var(--blue);
 }
 .provider-select { appearance: auto; }
-.thinking-card { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px; box-sizing: border-box; }
-.thinking-copy { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-.thinking-title { color: var(--text); font-size: 15px; font-weight: 700; }
-.thinking-desc { color: var(--text-lighter); font-size: 12px; line-height: 1.45; }
-.switch-control { position: relative; width: 48px; height: 28px; flex: 0 0 auto; cursor: pointer; }
-.switch-control input { position: absolute; opacity: 0; pointer-events: none; }
-.switch-track { display: block; width: 100%; height: 100%; border-radius: 999px; background: var(--border); transition: background var(--transition); }
-.switch-track::after { content: ""; position: absolute; width: 22px; height: 22px; top: 3px; left: 3px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.2); transition: transform var(--transition); }
-.switch-control input:checked + .switch-track { background: var(--blue); }
-.switch-control input:checked + .switch-track::after { transform: translateX(20px); }
-.field-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 0 16px;
-}
-
-/* Source radio */
-.source-options {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.source-option {
+.thinking-card {
   display: flex;
   align-items: center;
-  padding: 12px 8px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  width: 100%;
+  border: 0;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
+  color: inherit;
+}
+.thinking-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.thinking-title { color: var(--text); font-size: 14px; font-weight: 700; }
+.thinking-desc { color: var(--text-lighter); font-size: 11px; line-height: 1.4; }
+.switch-control { position: relative; width: 44px; height: 24px; flex: 0 0 auto; pointer-events: none; }
+.switch-track { display: block; width: 100%; height: 100%; border-radius: 999px; background: var(--border); transition: background var(--transition); position: relative; }
+.switch-track::after { content: ""; position: absolute; width: 18px; height: 18px; top: 3px; left: 3px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.2); transition: transform var(--transition); }
+.switch-track.on { background: var(--blue); }
+.switch-track.on::after { transform: translateX(20px); }
+
+/* Segmented Control */
+.segmented-control {
+  display: flex;
+  background: var(--bg);
   border-radius: var(--radius-sm);
-  transition: background var(--transition);
+  padding: 3px;
+  border: 1px solid var(--border);
+  gap: 2px;
+}
+.source-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: calc(var(--radius-sm) - 2px);
+  transition: all var(--transition);
+  outline: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-lighter);
+  position: relative;
+  user-select: none;
 }
 .source-option:hover {
   background: var(--surface-variant);
 }
+.source-option.selected {
+  background: var(--surface);
+  color: var(--blue);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.source-option:focus-visible,
+.thinking-card:focus-visible,
+.btn-test:focus-visible,
+.btn-save:focus-visible,
+.toggle-key-btn:focus-visible,
+.field-input:focus-visible,
+.provider-select:focus-visible {
+  z-index: 2;
+  outline: 3px solid #1cb0f6 !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.2) !important;
+  transform: none !important;
+}
+.source-option:focus-visible,
+.thinking-card:focus-visible {
+  background: var(--green-bg);
+  outline-offset: -3px;
+  box-shadow: inset 0 0 0 1px rgba(28, 176, 246, 0.22) !important;
+}
 .source-radio {
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--outline-variant);
-  border-radius: 50%;
-  margin-right: 14px;
-  position: relative;
-  transition: border-color var(--transition);
-  flex-shrink: 0;
-}
-.source-radio:checked {
-  border-color: var(--blue);
-}
-.source-radio:checked::after {
-  content: "";
   position: absolute;
-  inset: 3px;
-  border-radius: 50%;
-  background: var(--blue);
-}
-.source-text {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
 }
 .source-title {
-  font-size: 15px;
-  color: var(--text);
+  font-size: 14px;
   font-weight: 500;
-}
-.source-sub {
-  font-size: 12px;
-  color: var(--text-lighter);
-}
-.source-check {
-  color: var(--blue);
-  font-weight: 600;
-  font-size: 18px;
 }
 
 /* Notice card */
 .notice-card {
   display: flex;
-  gap: 12px;
-  padding: 14px 16px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
   background: #fff7e6;
   color: #8a5a00;
-  border-radius: var(--radius-md);
-  margin-bottom: 16px;
-  font-size: 13px;
-  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid #ffe58f;
 }
 .notice-icon {
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
   border-radius: 50%;
   background: #ffa940;
@@ -399,7 +528,7 @@ async function testConnection() {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 11px;
 }
 .notice-text {
   flex: 1;
@@ -416,7 +545,7 @@ async function testConnection() {
   border-right: none;
 }
 .toggle-key-btn {
-  width: 46px;
+  width: 40px;
   border: 1px solid var(--border);
   border-left: none;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
@@ -434,12 +563,20 @@ async function testConnection() {
   color: var(--text);
 }
 
+/* Action buttons */
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+  margin-bottom: 10px;
+}
+
 /* Test button */
 .btn-test {
-  width: 100%;
-  padding: 12px;
+  flex: 1;
+  height: 42px;
   border: 1px solid var(--blue);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--blue);
   font-size: 14px;
@@ -450,8 +587,8 @@ async function testConnection() {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 6px;
+  box-sizing: border-box;
 }
 .btn-test:hover:not(:disabled) {
   background: #e8f0fe;
@@ -461,8 +598,8 @@ async function testConnection() {
   cursor: not-allowed;
 }
 .test-spinner {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border: 2px solid var(--blue);
   border-top-color: transparent;
   border-radius: 50%;
@@ -473,11 +610,11 @@ async function testConnection() {
 }
 .test-result {
   text-align: center;
-  padding: 10px;
+  padding: 8px;
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 500;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 .test-result.ok {
   background: #e6ffed;
@@ -490,13 +627,13 @@ async function testConnection() {
 
 /* Save button */
 .btn-save {
-  width: 100%;
-  padding: 14px;
+  flex: 1;
+  height: 42px;
   border: none;
   border-radius: var(--radius-md);
   background: var(--green);
   color: #fff;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   transition: background var(--transition);
@@ -504,30 +641,31 @@ async function testConnection() {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
+  box-sizing: border-box;
 }
 .btn-save:hover {
   background: var(--green-hover);
 }
 
 .error-banner {
-  margin-bottom: 12px;
-  padding: 10px 16px;
+  margin-bottom: 10px;
+  padding: 8px 12px;
   background: var(--red-bg);
   color: var(--red);
   border-radius: var(--radius-sm);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 /* Toast */
 .save-toast {
   text-align: center;
-  padding: 12px;
-  margin-top: 14px;
+  padding: 10px;
+  margin-top: 10px;
   background: #e6ffed;
   color: #1a7f37;
   border-radius: var(--radius-sm);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
 }
 .fade-enter-active,

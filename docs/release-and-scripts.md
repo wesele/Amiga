@@ -13,7 +13,8 @@ CI/CD 与 Cloudflare Pages 详见 [github-actions-cloudflare-pages.md](./github-
 ## 构建
 
 - Windows: MSI + NSIS + EXE（`npx tauri build`）
-- Android: `build-android.bat` → `tauri android build --target aarch64 --apk`
+- Android 手机: `build-android.bat` → `tauri android build --target aarch64 --apk`
+- Android TV: `build-android-tv.bat` → TV 前端 + 仅 `armv7` → `app-universal-release.apk`（包名 `com.idioma.app.tv`）
 - Android release 运行：模拟器用 `run-android-x86.bat`，ARM64 真机用 `run-android-arm.bat`（见 [android-native.md](./android-native.md)）
 
 ## 脚本

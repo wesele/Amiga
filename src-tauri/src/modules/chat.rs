@@ -3,6 +3,7 @@ use crate::modules::llm::{ChatMessage, LlmClient};
 use crate::modules::prompts;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
+use tauri::Emitter;
 use uuid::Uuid;
 
 pub const MAX_CONTEXT_MESSAGES: usize = 20;
@@ -278,6 +279,77 @@ pub async fn chat_completion_with_session(
     }
 
     let reply = client.chat(db, full_messages).await?;
+
+    save_message(db, session_id, "assistant", &reply)?;
+
+    if contact_type == "amiga" {
+        let new_count = msg_count + 1;
+        if new_count % PROFILE_UPDATE_INTERVAL == 0 {
+            let _ =
+                update_profile_from_conversation(client, db, session_id, native_lang, target_lang)
+                    .await;
+        }
+    }
+
+    Ok(reply)
+}
+
+/// Streaming version: emits tokens via Tauri events as they arrive,
+/// saves the complete reply to the DB when the stream finishes.
+pub async fn chat_completion_stream_with_session(
+    client: &LlmClient,
+    db: &DatabasePool,
+    session_id: &str,
+    message: &str,
+    native_lang: &str,
+    target_lang: &str,
+    event_channel: &str,
+    app: &tauri::AppHandle,
+) -> Result<String, String> {
+    save_message(db, session_id, "user", message)?;
+
+    let (profile_json, summary, msg_count, contact_type) = get_session_profile(db, session_id)?;
+
+    let system = match contact_type.as_str() {
+        "translator" => build_translator_system_prompt(db, target_lang, native_lang),
+        _ => build_amiga_system_prompt(db, native_lang, target_lang, &profile_json, &summary),
+    };
+
+    let recent = get_messages(db, session_id, MAX_CONTEXT_MESSAGES)?;
+    let mut full_messages = vec![ChatMessage {
+        role: "system".to_string(),
+        content: system.clone(),
+    }];
+    for msg in &recent {
+        full_messages.push(ChatMessage {
+            role: msg.role.clone(),
+            content: msg.content.clone(),
+        });
+    }
+
+    let config = crate::modules::llm::get_llm_config(db)?;
+    let active = config.active()?.clone();
+
+    let reply = match client
+        .call_stream(&active, full_messages.clone(), event_channel, app)
+        .await
+    {
+        Ok(text) if !text.is_empty() => text,
+        // Fallback to non-streaming if provider doesn't support SSE
+        _ => {
+            log::warn!("Streaming failed or returned empty, falling back to non-streaming");
+            // Emit done to unblock frontend
+            let _ = app.emit(event_channel, serde_json::json!({"delta": "", "done": true, "fallback": true}));
+            let fallback_messages = {
+                let mut msgs = vec![ChatMessage { role: "system".to_string(), content: system }];
+                for msg in &recent {
+                    msgs.push(ChatMessage { role: msg.role.clone(), content: msg.content.clone() });
+                }
+                msgs
+            };
+            client.chat(db, fallback_messages).await?
+        }
+    };
 
     save_message(db, session_id, "assistant", &reply)?;
 

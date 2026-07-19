@@ -15,6 +15,8 @@ function makeRoutes() {
   return [
     { path: "/profile/settings", name: "settings", component: { template: "<div/>" } },
     { path: "/profile/llm-config", name: "llm-config", component: { template: "<div/>" } },
+    { path: "/profile/multimodal-config", name: "multimodal-config", component: { template: "<div/>" } },
+    { path: "/prompts", name: "prompts", component: { template: "<div/>" } },
   ];
 }
 
@@ -37,6 +39,22 @@ describe("SettingsPage", () => {
       },
     });
   }
+
+  it("renders the full AI configuration section (primary, multimodal, prompts)", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+    expect(wrapper.text()).toContain("AI 配置");
+    expect(wrapper.html()).toContain("/profile/llm-config");
+    expect(wrapper.html()).toContain("/profile/multimodal-config");
+    expect(wrapper.html()).toContain("/prompts");
+  });
 
   it("does not render the old UI language settings row (moved to Profile)", async () => {
     mockInvoke.mockImplementation((cmd) => {
@@ -200,11 +218,14 @@ describe("SettingsPage", () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    const toggle = wrapper.find(".sync-switch-input");
-    expect(toggle.exists()).toBe(true);
-    expect(toggle.element.checked).toBe(false);
+    const syncRow = wrapper
+      .findAll(".settings-item")
+      .find((el) => el.text().includes("云同步") || el.text().includes("Cloud"));
+    expect(syncRow).toBeTruthy();
+    expect(syncRow.find(".sync-switch").classes()).not.toContain("on");
 
-    await toggle.setValue(true);
+    // Whole row is the focusable control (TV remote); decorative switch has no input.
+    await syncRow.trigger("click");
     await flushPromises();
 
     expect(setEnabledArgs).toMatchObject({ enabled: true, forceEnable: false });
@@ -240,8 +261,10 @@ describe("SettingsPage", () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    const toggle = wrapper.find(".sync-switch-input");
-    await toggle.setValue(true);
+    const syncRow = wrapper
+      .findAll(".settings-item")
+      .find((el) => el.text().includes("云同步") || el.text().includes("Cloud"));
+    await syncRow.trigger("click");
     await flushPromises();
 
     const conflictDlg = wrapper.findAllComponents(ConfirmDialog).find((d) => d.props("show") === true);
@@ -280,11 +303,30 @@ describe("SettingsPage", () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    const toggle = wrapper.find(".sync-switch-input");
-    await toggle.setValue(true);
+    const syncRow = wrapper
+      .findAll(".settings-item")
+      .find((el) => el.text().includes("云同步") || el.text().includes("Cloud"));
+    await syncRow.trigger("click");
     await flushPromises();
 
-    expect(wrapper.find(".sync-switch-input").element.checked).toBe(false);
+    expect(syncRow.find(".sync-switch").classes()).not.toContain("on");
     expect(wrapper.text()).toContain("同步失败");
+  });
+
+  it("uses inset focus styles for settings rows and language pills", () => {
+    const settingsItem = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "..", "components", "SettingsItem.vue"),
+      "utf8",
+    );
+    expect(settingsItem).toMatch(/\.settings-item:focus-visible/);
+    expect(settingsItem).toMatch(/outline-offset:\s*-3px/);
+    expect(settingsItem).toMatch(/transform:\s*none\s*!important/);
+
+    const settingsPage = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "..", "SettingsPage.vue"),
+      "utf8",
+    );
+    expect(settingsPage).toMatch(/\.lang-pill:focus-visible/);
+    expect(settingsPage).toMatch(/onCloudSyncRowActivate/);
   });
 });

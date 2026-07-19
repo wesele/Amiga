@@ -1,6 +1,7 @@
 import { mount, flushPromises } from "@vue/test-utils";
 import WordPopup from "../WordPopup.vue";
 import * as api from "../../api.js";
+import { installAndroidBridge } from "@/app/androidBridge.js";
 
 describe("WordPopup", () => {
   let mockInvoke;
@@ -12,10 +13,14 @@ describe("WordPopup", () => {
       return Promise.reject(new Error(`unexpected invoke: ${cmd}`));
     });
     api.__setInvoke(mockInvoke);
+    delete window.__amigaGoBackInPage;
+    delete window.__amigaGoBack;
   });
 
   afterEach(() => {
     api.__resetInvoke();
+    delete window.__amigaGoBackInPage;
+    delete window.__amigaGoBack;
   });
 
   it("uses AI text translation in text mode", async () => {
@@ -82,5 +87,31 @@ describe("WordPopup", () => {
     expect(wrapper.find(".popup-loading").exists()).toBe(false);
     expect(wrapper.findAll(".act-known")).toHaveLength(1);
     expect(wrapper.findAll(".act-unknown")).toHaveLength(1);
+  });
+
+  it("consumes Android/TV back to emit close without route navigation", async () => {
+    const router = {
+      currentRoute: { value: { meta: { parent: "news" } } },
+      replace: vi.fn(),
+    };
+    installAndroidBridge({ router, targetWindow: window, documentRef: document });
+
+    const wrapper = mount(WordPopup, {
+      props: {
+        word: "hola",
+        context: "hola amigo",
+        sourceLang: "es",
+        nativeLang: "zh",
+      },
+    });
+    await flushPromises();
+
+    expect(window.__amigaGoBack()).toBe("navigated");
+    expect(wrapper.emitted("close")).toBeTruthy();
+    expect(router.replace).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+    expect(window.__amigaGoBack()).toBe("navigated");
+    expect(router.replace).toHaveBeenCalledWith({ name: "news" });
   });
 });

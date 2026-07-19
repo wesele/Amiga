@@ -1,7 +1,7 @@
 <template>
-  <div class="reading-test">
+  <div class="reading-test" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvMode }">
     <header class="test-header">
-      <button class="back-btn" @click="goBack">
+      <button class="back-btn" type="button" :tabindex="isTvMode ? -1 : undefined" @click="goBack">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
@@ -21,8 +21,8 @@
       <button class="btn-secondary" @click="loadTest">{{ t('reading.retry') }}</button>
     </div>
 
-    <div v-else class="question-stage">
-      <div v-if="currentQuestion" class="question-card" :class="{ answered: answers[currentQuestionIndex] !== undefined }">
+    <div v-else-if="!submitted" class="question-stage">
+      <div v-if="currentQuestion" class="question-card" :class="{ answered: isCurrentAnswered }">
         <div class="question-toolbar">
           <div class="question-number">{{ currentQuestionIndex + 1 }}</div>
           <div class="question-progress">{{ currentQuestionIndex + 1 }}/{{ questions.length }}</div>
@@ -32,6 +32,7 @@
           <button
             type="button"
             class="audio-btn"
+            data-tv-preferred-focus
             :disabled="audioBusy"
             @click="playAudio"
           >
@@ -43,18 +44,21 @@
         <p v-if="!isListeningQuestion" class="question-text">{{ questionPrompt }}</p>
         <p v-else class="question-text listening-hint">{{ questionPrompt }}</p>
 
-        <div class="options">
+        <div class="options" role="listbox" :aria-label="t('reading.test')">
           <button
             v-for="(opt, oi) in currentQuestion.options"
-            :key="oi"
+            :key="`${currentQuestionIndex}-${oi}`"
+            type="button"
             class="option-btn"
             :class="optionClass(currentQuestionIndex, oi)"
-            :disabled="answers[currentQuestionIndex] !== undefined"
+            :data-tv-preferred-focus="!isListeningQuestion && oi === 0 ? true : undefined"
+            :aria-disabled="isCurrentAnswered ? 'true' : undefined"
+            :disabled="optionsHardDisabled"
             @click="selectAnswer(currentQuestionIndex, oi)"
           >
             <span class="option-key">{{ optionLabels[oi] }}</span>
             <span class="option-text">{{ opt }}</span>
-            <span v-if="answers[currentQuestionIndex] !== undefined && oi === currentQuestion.correct_index" class="option-mark correct-mark">✓</span>
+            <span v-if="isCurrentAnswered && oi === currentQuestion.correct_index" class="option-mark correct-mark">✓</span>
             <span v-else-if="answers[currentQuestionIndex] === oi && oi !== currentQuestion.correct_index" class="option-mark wrong-mark">×</span>
           </button>
         </div>
@@ -71,7 +75,7 @@
         <div v-else-if="isCurrentAnswerWrong && explanationErrors[currentQuestionIndex]" class="explanation-box explanation-error-box">
           <div class="explanation-header">{{ t('reading.explanation') }}</div>
           <p class="explanation-text">{{ explanations[currentQuestionIndex] || t('reading.generateFail') }}</p>
-          <button class="retry-link" @click="retryExplanation(currentQuestionIndex)">{{ t('reading.retry') }}</button>
+          <button type="button" class="retry-link" @click="retryExplanation(currentQuestionIndex)">{{ t('reading.retry') }}</button>
         </div>
 
         <div v-else-if="isCurrentAnswerWrong && explanations[currentQuestionIndex]" class="explanation-box">
@@ -81,29 +85,56 @@
       </div>
 
       <div v-if="currentQuestion" class="bottom-bar">
-        <button class="btn-secondary nav-btn" :disabled="currentQuestionIndex === 0" @click="goPrev">
+        <button
+          type="button"
+          class="btn-secondary test-nav-btn"
+          :disabled="currentQuestionIndex === 0"
+          @click="goPrev"
+        >
           {{ t('common.previous') }}
         </button>
-        <button v-if="!isLastQuestion" class="btn-submit nav-btn" @click="goNext">
+        <button
+          v-if="!isLastQuestion"
+          ref="primaryNavBtn"
+          type="button"
+          class="btn-submit test-nav-btn"
+          @click="goNext"
+        >
           {{ t('reading.next') }}
         </button>
-        <button v-else class="btn-submit nav-btn" :disabled="submitting || !allAnswered" @click="submitTest">
+        <button
+          v-else
+          ref="primaryNavBtn"
+          type="button"
+          class="btn-submit test-nav-btn"
+          :disabled="submitting || !allAnswered"
+          @click="submitTest"
+        >
           {{ t('reading.submitTest') }}
         </button>
       </div>
 
       <div v-else class="error-container">
         <p class="error-text">{{ t('reading.generatingFail') }}</p>
-        <button class="btn-secondary" @click="loadTest">{{ t('reading.retry') }}</button>
+        <button type="button" class="btn-secondary" @click="loadTest">{{ t('reading.retry') }}</button>
       </div>
     </div>
 
+    <!-- popup-overlay: TV remote scopes focus to this layer (see tvRemoteNavigation). -->
     <Transition name="popup">
-      <div v-if="submitted" class="result-panel">
-        <div class="result-title">{{ t('reading.testScore') }}</div>
-        <div class="result-score">{{ correctCount }}<span class="result-total">/{{ questions.length }}</span></div>
-        <div class="result-actions">
-          <button class="btn-secondary result-btn" @click="goBack">{{ t('reading.backToList') }}</button>
+      <div v-if="submitted" class="popup-overlay result-overlay" role="dialog" aria-modal="true">
+        <div class="result-panel">
+          <div class="result-title">{{ t('reading.testScore') }}</div>
+          <div class="result-score">{{ correctCount }}<span class="result-total">/{{ questions.length }}</span></div>
+          <div class="result-actions">
+            <button
+              ref="resultBtn"
+              type="button"
+              class="btn-secondary result-btn"
+              data-tv-preferred-focus
+              @click="goBack"
+            >{{ t('reading.backToList') }}</button>
+          </div>
         </div>
       </div>
     </Transition>
@@ -111,8 +142,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, nextTick, watch } from "vue";
 import { useRouter } from "vue-router";
+import { isTvMode } from "@/shared/appMode.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import {
@@ -141,16 +173,22 @@ const submitting = ref(false);
 const submitted = ref(false);
 const correctCount = ref(0);
 const currentQuestionIndex = ref(0);
+const primaryNavBtn = ref(null);
+const resultBtn = ref(null);
 
 let userId = "";
 let targetLang = "";
 let cefrLevel = "";
 let nativeLang = "";
+let autoAdvanceTimer = null;
 
 const answeredCount = computed(() => Object.keys(answers.value).length);
 const allAnswered = computed(() => questions.value.length > 0 && answeredCount.value === questions.value.length);
 const currentQuestion = computed(() => questions.value[currentQuestionIndex.value] || null);
 const isListeningQuestion = computed(() => currentQuestion.value?.question_type === "listening");
+const isCurrentAnswered = computed(() => answers.value[currentQuestionIndex.value] !== undefined);
+/** Phone: disable options after answer. TV: keep focusable (aria-disabled only). */
+const optionsHardDisabled = computed(() => !isTvMode && isCurrentAnswered.value);
 const questionPrompt = computed(() => {
   const question = currentQuestion.value;
   if (!question) return "";
@@ -174,7 +212,66 @@ const { audioBusy, playAudio, stopAudio } = useListeningQuestionAudio({
 
 onMounted(async () => {
   await loadTest();
+  focusQuestionPrimary();
 });
+
+watch(currentQuestionIndex, () => {
+  if (submitted.value) return;
+  focusQuestionPrimary();
+});
+
+watch(submitted, (value) => {
+  if (value) focusResultPrimary();
+});
+
+function clearAutoAdvance() {
+  if (autoAdvanceTimer != null) {
+    clearTimeout(autoAdvanceTimer);
+    autoAdvanceTimer = null;
+  }
+}
+
+/**
+ * Land remote focus on the interactive control for the current step.
+ * Listening → play audio; otherwise first option (still focusable after answer on TV).
+ */
+function focusQuestionPrimary() {
+  if (!isTvMode || submitted.value || loading.value) return;
+  nextTick(() => {
+    const root = document.querySelector(".reading-test");
+    if (!root) return;
+    const preferred =
+      root.querySelector("[data-tv-preferred-focus]")
+      || root.querySelector(".option-btn")
+      || root.querySelector(".audio-btn")
+      || root.querySelector(".test-nav-btn:not(:disabled)")
+      || root.querySelector(".btn-secondary");
+    preferred?.focus?.({ preventScroll: true });
+    preferred?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  });
+}
+
+function focusPrimaryNav() {
+  if (!isTvMode) return;
+  nextTick(() => {
+    const btn = primaryNavBtn.value;
+    if (btn && !btn.disabled) {
+      btn.focus({ preventScroll: true });
+      return;
+    }
+    const root = document.querySelector(".reading-test");
+    const fallback = root?.querySelector(".test-nav-btn:not(:disabled), .btn-submit:not(:disabled)");
+    fallback?.focus?.({ preventScroll: true });
+  });
+}
+
+function focusResultPrimary() {
+  if (!isTvMode) return;
+  nextTick(() => {
+    const btn = resultBtn.value || document.querySelector(".reading-test .result-btn");
+    btn?.focus?.({ preventScroll: true });
+  });
+}
 
 function optionClass(qi, oi) {
   return readingOptionClass(questions.value[qi], answers.value[qi], oi);
@@ -190,6 +287,7 @@ async function loadTest() {
   loadingExplanation.value = {};
   explanationErrors.value = {};
   currentQuestionIndex.value = 0;
+  clearAutoAdvance();
   try {
     const ctx = await loadLearningContext({ targetLangStore, fallbackToFirstGoal: true });
     targetLang = ctx.targetLang;
@@ -220,10 +318,12 @@ async function loadTest() {
 }
 
 function goPrev() {
+  clearAutoAdvance();
   if (currentQuestionIndex.value > 0) currentQuestionIndex.value -= 1;
 }
 
 function goNext() {
+  clearAutoAdvance();
   if (currentQuestionIndex.value < questions.value.length - 1) currentQuestionIndex.value += 1;
 }
 
@@ -234,6 +334,8 @@ async function selectAnswer(qi, oi) {
 
   const q = questions.value[qi];
   if (oi !== q.correct_index) {
+    // Wrong: keep remote on Next/Submit so user can continue after reading feedback.
+    focusPrimaryNav();
     loadingExplanation.value = { ...loadingExplanation.value, [qi]: true };
     explanationErrors.value = { ...explanationErrors.value, [qi]: false };
     try {
@@ -244,6 +346,8 @@ async function selectAnswer(qi, oi) {
       explanationErrors.value = { ...explanationErrors.value, [qi]: true };
     } finally {
       loadingExplanation.value = { ...loadingExplanation.value, [qi]: false };
+      // Re-assert focus after async DOM (explanation / retry) updates.
+      if (qi === currentQuestionIndex.value) focusPrimaryNav();
     }
   } else {
     scheduleAutoAdvance(qi);
@@ -252,8 +356,10 @@ async function selectAnswer(qi, oi) {
 
 function scheduleAutoAdvance(qi) {
   if (qi !== currentQuestionIndex.value) return;
+  clearAutoAdvance();
   const isLast = currentQuestionIndex.value === questions.value.length - 1;
-  setTimeout(() => {
+  autoAdvanceTimer = setTimeout(() => {
+    autoAdvanceTimer = null;
     if (currentQuestionIndex.value !== qi) return;
     if (isLast) {
       submitTest();
@@ -275,6 +381,7 @@ async function retryExplanation(qi) {
     explanationErrors.value = { ...explanationErrors.value, [qi]: true };
   } finally {
     loadingExplanation.value = { ...loadingExplanation.value, [qi]: false };
+    if (isTvMode && qi === currentQuestionIndex.value) focusPrimaryNav();
   }
 }
 
@@ -295,6 +402,7 @@ async function generateExplanation(qi) {
 
 async function submitTest() {
   if (submitting.value) return;
+  clearAutoAdvance();
   submitting.value = true;
 
   let correct = 0;
@@ -319,6 +427,7 @@ async function submitTest() {
 }
 
 function goBack() {
+  clearAutoAdvance();
   stopAudio();
   router.push(`/learn/reading/${props.id}`);
 }
@@ -439,7 +548,9 @@ function goBack() {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 18px 16px 104px;
+  min-height: 0;
+  padding: 18px 16px 16px;
+  overflow-y: auto;
 }
 
 .question-card {
@@ -513,11 +624,12 @@ function goBack() {
   transition: background var(--transition), border-color var(--transition);
 }
 
-.option-btn:hover:not(:disabled) {
+.option-btn:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--surface-variant);
 }
 
-.option-btn:disabled {
+.option-btn:disabled,
+.option-btn[aria-disabled="true"] {
   cursor: default;
 }
 
@@ -588,32 +700,36 @@ function goBack() {
   border-radius: var(--radius-sm);
 }
 
-.explanation-error-box {
-  border-color: #ffd49d;
-}
-
 .explanation-header {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  color: #856404;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  color: var(--text);
 }
 
 .explanation-text {
   margin: 0;
   font-size: 13px;
-  line-height: 1.6;
-  color: #5a4a00;
+  line-height: 1.5;
+  color: var(--text-light);
+  white-space: pre-wrap;
+}
+
+.explanation-error-box {
+  background: #fff5f5;
+  border-color: #ffc9c9;
 }
 
 .retry-link {
   margin-top: 8px;
-  padding: 0;
   border: none;
-  background: transparent;
-  color: var(--green);
+  background: none;
+  color: var(--blue);
   font-weight: 700;
+  font-size: 13px;
   cursor: pointer;
+  font-family: inherit;
+  padding: 0;
 }
 
 .explanation-loading {
@@ -641,10 +757,12 @@ function goBack() {
   gap: 12px;
   width: 100%;
   box-sizing: border-box;
-  padding: 14px 16px 16px;
+  margin-top: auto;
+  padding: 14px 0 4px;
+  background: linear-gradient(180deg, transparent 0%, var(--bg) 28%);
 }
 
-.nav-btn {
+.test-nav-btn {
   flex: 1 1 0;
   min-width: 0;
   min-height: 48px;
@@ -660,6 +778,7 @@ function goBack() {
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .btn-submit:disabled {
@@ -667,11 +786,20 @@ function goBack() {
   cursor: wait;
 }
 
-.result-panel {
+/* Full-screen result layer so TV focus is scoped (popup-overlay). */
+.result-overlay {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.45);
+  box-sizing: border-box;
+}
+
+.result-panel {
   background: var(--white);
   color: var(--text);
   padding: 28px 24px;
@@ -679,9 +807,7 @@ function goBack() {
   font-weight: 700;
   font-size: 16px;
   box-shadow: var(--shadow-lg);
-  z-index: 100;
-  width: calc(100% - 48px);
-  max-width: 320px;
+  width: min(100%, 360px);
   text-align: center;
 }
 
@@ -717,13 +843,23 @@ function goBack() {
 
 .popup-enter-active,
 .popup-leave-active {
-  transition: opacity 0.3s, transform 0.3s;
+  transition: opacity 0.3s;
+}
+
+.popup-enter-active .result-panel,
+.popup-leave-active .result-panel {
+  transition: transform 0.3s, opacity 0.3s;
 }
 
 .popup-enter-from,
 .popup-leave-to {
   opacity: 0;
-  transform: translateX(-50%) translateY(10px);
+}
+
+.popup-enter-from .result-panel,
+.popup-leave-to .result-panel {
+  transform: translateY(10px);
+  opacity: 0;
 }
 
 .btn-secondary {
@@ -734,5 +870,47 @@ function goBack() {
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
+  font-family: inherit;
+}
+
+/* TV: larger targets + inset focus for stacked options */
+html[data-app-mode="tv"] .option-btn {
+  min-height: 56px;
+  font-size: 17px;
+  padding: 14px 16px;
+}
+
+html[data-app-mode="tv"] .option-btn:focus-visible,
+html[data-app-mode="tv"] .audio-btn:focus-visible,
+html[data-app-mode="tv"] .test-nav-btn:focus-visible,
+html[data-app-mode="tv"] .result-btn:focus-visible,
+html[data-app-mode="tv"] .retry-link:focus-visible {
+  transform: none;
+  outline: 4px solid #1cb0f6 !important;
+  outline-offset: -4px;
+  z-index: 5;
+}
+
+html[data-app-mode="tv"] .question-stage {
+  padding: 16px 16px 12px;
+}
+
+html[data-app-mode="tv"] .question-text {
+  font-size: 18px;
+}
+
+html[data-app-mode="tv"] .test-nav-btn {
+  min-height: 56px;
+  font-size: 17px;
+}
+
+html[data-app-mode="tv"] .result-panel {
+  max-width: 420px;
+  padding: 32px 28px;
+}
+
+html[data-app-mode="tv"] .result-btn {
+  min-height: 56px;
+  font-size: 17px;
 }
 </style>

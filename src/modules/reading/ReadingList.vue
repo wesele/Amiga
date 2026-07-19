@@ -1,5 +1,5 @@
 <template>
-  <div class="reading-list">
+  <div class="reading-list" :class="{ 'tv-content-pane': isTvMode }">
     <PageHeader :title="t('reading.title')" variant="news" :back-label="t('common.back')" />
 
     <div v-if="error" class="error-container">
@@ -102,6 +102,7 @@ import {
 import { loadLearningContext } from "@/shared/learningContext.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
+import { isTvMode } from "@/shared/appMode.js";
 
 const LONG_PRESS_MS = 500;
 
@@ -404,6 +405,15 @@ async function confirmRegenerate() {
 .article-card:hover {
   background: var(--green-bg);
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.article-card:focus-visible {
+  z-index: 2;
+  outline: 3px solid #1cb0f6 !important;
+  outline-offset: -3px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(28, 176, 246, 0.22) !important;
+  transform: none !important;
+  background: var(--green-bg);
 }
 
 .article-card.is-long-pressing {

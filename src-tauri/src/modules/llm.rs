@@ -3,6 +3,7 @@ use log;
 use reqwest;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
+use tauri::Emitter;
 
 /// Built-in (system-provided) model configuration. Free tier hosted by
 /// NVIDIA; offered out of the box so new users have a working AI without
@@ -249,6 +250,11 @@ pub fn lang_name_zh(code: &str) -> &'static str {
 pub struct TestResult {
     pub success: bool,
     pub message: String,
+    pub time_to_first_token_ms: u32,
+    pub thinking_speed: f32, // tokens/sec
+    pub decode_speed: f32,   // tokens/sec
+    pub thinking_tokens: u32,
+    pub completion_tokens: u32,
 }
 
 pub struct LlmClient {
@@ -256,35 +262,27 @@ pub struct LlmClient {
 }
 
 fn apply_thinking_params(body: &mut serde_json::Value, config: &ModelConfig) {
-    match config.provider {
-        LlmProvider::Openai => {
-            if config.thinking_enabled {
-                body["reasoning_effort"] = serde_json::json!("high");
+    // 逻辑更改：config.thinking_enabled 现在代表“关闭思考”开关是否被启用。
+    // 如果启用 (true)，则发送明确关闭思考的参数；
+    // 如果未启用 (false，默认状态)，则不发送任何相关参数（保留大模型服务商的默认行为）。
+    if config.thinking_enabled {
+        match config.provider {
+            LlmProvider::Openai => {
+                body["reasoning_effort"] = serde_json::json!("low");
             }
-        }
-        LlmProvider::Gemini => {
-            if config.thinking_enabled {
-                body["reasoning_effort"] = serde_json::json!("high");
-            } else if config.model.to_ascii_lowercase().contains("2.5")
-                && !config.model.to_ascii_lowercase().contains("pro")
-            {
+            LlmProvider::Gemini => {
                 body["reasoning_effort"] = serde_json::json!("none");
             }
-        }
-        LlmProvider::Deepseek => {
-            body["thinking"] = serde_json::json!({
-                "type": if config.thinking_enabled { "enabled" } else { "disabled" }
-            });
-            if config.thinking_enabled {
-                body["reasoning_effort"] = serde_json::json!("high");
-                body.as_object_mut()
-                    .map(|object| object.remove("temperature"));
+            LlmProvider::Deepseek => {
+                body["thinking"] = serde_json::json!({
+                    "type": "disabled"
+                });
             }
-        }
-        LlmProvider::NvidiaNim => {
-            body["chat_template_kwargs"] = serde_json::json!({
-                "enable_thinking": config.thinking_enabled
-            });
+            LlmProvider::NvidiaNim => {
+                body["chat_template_kwargs"] = serde_json::json!({
+                    "enable_thinking": false
+                });
+            }
         }
     }
 }
@@ -297,6 +295,98 @@ impl LlmClient {
             .build()
             .expect("Failed to create HTTP client");
         Self { http }
+    }
+
+    /// Stream a chat completion via SSE and emit Tauri events for each delta.
+    /// Emits `{ delta: "...", done: false }` for each token chunk,
+    /// and `{ delta: "", done: true }` when the stream ends.
+    /// Returns the full accumulated response text.
+    pub async fn call_stream(
+        &self,
+        config: &ModelConfig,
+        messages: Vec<ChatMessage>,
+        event_channel: &str,
+        app: &tauri::AppHandle,
+    ) -> Result<String, String> {
+        use futures_util::StreamExt;
+
+        let url = format!("{}/chat/completions", config.base_url.trim_end_matches('/'));
+
+        let mut body = serde_json::json!({
+            "model": config.model,
+            "messages": messages,
+            "temperature": 0.3,
+            "max_tokens": 4096,
+            "stream": true,
+        });
+        apply_thinking_params(&mut body, config);
+
+        let response = self
+            .http
+            .post(&url)
+            .timeout(std::time::Duration::from_secs(90))
+            .header("Authorization", format!("Bearer {}", config.api_key))
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| format!("Streaming request failed: {e}"))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            return Err(format!(
+                "API error {}: {}",
+                status,
+                &text[..text.len().min(300)]
+            ));
+        }
+
+        let mut stream = response.bytes_stream();
+        let mut full_text = String::new();
+        let mut buffer = String::new();
+
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|e| format!("Stream read error: {e}"))?;
+            buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+            // Process complete SSE lines from the buffer
+            loop {
+                if let Some(newline_pos) = buffer.find('\n') {
+                    let line = buffer[..newline_pos].trim().to_string();
+                    buffer.drain(..=newline_pos);
+
+                    if line.starts_with("data: ") {
+                        let data = &line["data: ".len()..];
+                        if data == "[DONE]" {
+                            break;
+                        }
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                            if let Some(delta) = json
+                                .pointer("/choices/0/delta/content")
+                                .and_then(|v| v.as_str())
+                            {
+                                full_text.push_str(delta);
+                                let _ = app.emit(event_channel, serde_json::json!({
+                                    "delta": delta,
+                                    "done": false,
+                                }));
+                            }
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // Signal stream end
+        let _ = app.emit(event_channel, serde_json::json!({
+            "delta": "",
+            "done": true,
+        }));
+
+        Ok(full_text)
     }
 
     /// Low-level: send the messages to a specific config. No fallback chain.
@@ -506,16 +596,21 @@ impl LlmClient {
     }
 
     pub async fn test_connection(&self, config: &ModelConfig) -> TestResult {
+        use futures_util::StreamExt;
+
         let url = format!("{}/chat/completions", config.base_url.trim_end_matches('/'));
 
         let body = serde_json::json!({
             "model": config.model,
-            "messages": [{"role": "user", "content": "Hi"}],
-            "max_tokens": 5
+            "messages": [{"role": "user", "content": "输出20个常用英语单词"}],
+            "max_tokens": 500,
+            "stream": true
         });
 
         let mut body = body;
         apply_thinking_params(&mut body, config);
+
+        let start_time = std::time::Instant::now();
 
         match self
             .http
@@ -526,10 +621,123 @@ impl LlmClient {
             .send()
             .await
         {
-            Ok(resp) if resp.status().is_success() => TestResult {
-                success: true,
-                message: "连接成功，模型可用".to_string(),
-            },
+            Ok(resp) if resp.status().is_success() => {
+                let mut stream = resp.bytes_stream();
+                let mut ttft: Option<u32> = None;
+                let mut thinking_end_time: Option<u32> = None;
+                let mut reasoning_len = 0;
+                let mut content_len = 0;
+                let mut usage_completion_tokens: Option<u32> = None;
+                let mut reasoning_tokens: Option<u32> = None;
+                let mut buffer = String::new();
+
+                while let Some(chunk_res) = stream.next().await {
+                    let chunk = match chunk_res {
+                        Ok(c) => c,
+                        Err(_) => continue,
+                    };
+                    buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+                    loop {
+                        if let Some(newline_pos) = buffer.find('\n') {
+                            let line = buffer[..newline_pos].trim().to_string();
+                            buffer.drain(..=newline_pos);
+
+                            if line.starts_with("data: ") {
+                                let data = &line["data: ".len()..];
+                                if data == "[DONE]" {
+                                    break;
+                                }
+                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                                    let mut has_content = false;
+                                    let mut chunk_has_reasoning = false;
+                                    let mut chunk_has_content = false;
+                                    
+                                    if let Some(delta) = json.pointer("/choices/0/delta/content").and_then(|v| v.as_str()) {
+                                        content_len += delta.len();
+                                        if !delta.is_empty() { 
+                                            has_content = true; 
+                                            chunk_has_content = true;
+                                        }
+                                    }
+                                    if let Some(reason) = json.pointer("/choices/0/delta/reasoning_content")
+                                        .or_else(|| json.pointer("/choices/0/delta/reasoning"))
+                                        .and_then(|v| v.as_str()) {
+                                        reasoning_len += reason.len();
+                                        if !reason.is_empty() { 
+                                            has_content = true; 
+                                            chunk_has_reasoning = true;
+                                        }
+                                    }
+                                    
+                                    let current_elapsed = start_time.elapsed().as_millis() as u32;
+
+                                    if has_content && ttft.is_none() {
+                                        ttft = Some(current_elapsed);
+                                    }
+
+                                    if chunk_has_content && thinking_end_time.is_none() {
+                                        thinking_end_time = Some(current_elapsed);
+                                    }
+
+                                    if let Some(usage) = json.get("usage") {
+                                        if !usage.is_null() {
+                                            if let Some(ct) = usage.get("completion_tokens").and_then(|v| v.as_u64()) {
+                                                usage_completion_tokens = Some(ct as u32);
+                                            }
+                                            if let Some(rt) = usage.pointer("/completion_tokens_details/reasoning_tokens")
+                                                .or_else(|| usage.get("reasoning_tokens"))
+                                                .and_then(|v| v.as_u64()) {
+                                                reasoning_tokens = Some(rt as u32);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                }
+
+                let elapsed_ms = start_time.elapsed().as_millis() as u32;
+                let final_ttft = ttft.unwrap_or(elapsed_ms);
+
+                let reas_tokens = reasoning_tokens.unwrap_or_else(|| if reasoning_len > 0 { (reasoning_len as u32 / 3).max(1) } else { 0 });
+                let content_tokens = if let Some(total_ct) = usage_completion_tokens {
+                    total_ct.saturating_sub(reas_tokens)
+                } else {
+                    (content_len as u32 / 3).max(5)
+                };
+
+                let mut thinking_speed = 0.0;
+                let mut decode_speed = 0.0;
+                
+                let think_end = thinking_end_time.unwrap_or(elapsed_ms);
+                
+                let thinking_duration_ms = think_end.saturating_sub(final_ttft);
+                let decode_duration_ms = elapsed_ms.saturating_sub(think_end);
+
+                let total_thinking_secs = if thinking_duration_ms > 0 { thinking_duration_ms as f32 / 1000.0 } else { 0.001 };
+                let total_decode_secs = if decode_duration_ms > 0 { decode_duration_ms as f32 / 1000.0 } else { 0.001 };
+
+                if reas_tokens > 0 {
+                    thinking_speed = (reas_tokens as f32) / total_thinking_secs;
+                }
+                if content_tokens > 0 {
+                    decode_speed = (content_tokens as f32) / total_decode_secs;
+                }
+
+                TestResult {
+                    success: true,
+                    message: "连接成功，模型可用".to_string(),
+                    time_to_first_token_ms: final_ttft,
+                    thinking_speed,
+                    decode_speed,
+                    thinking_tokens: reas_tokens,
+                    completion_tokens: content_tokens,
+                }
+            }
             Ok(resp) => {
                 let status = resp.status();
                 let text = resp.text().await.unwrap_or_default();
@@ -541,11 +749,21 @@ impl LlmClient {
                 TestResult {
                     success: false,
                     message: format!("连接失败: HTTP {} - {}", status, short_msg),
+                    time_to_first_token_ms: 0,
+                    thinking_speed: 0.0,
+                    decode_speed: 0.0,
+                    thinking_tokens: 0,
+                    completion_tokens: 0,
                 }
             }
             Err(e) => TestResult {
                 success: false,
                 message: format!("连接失败: {}", e),
+                time_to_first_token_ms: 0,
+                thinking_speed: 0.0,
+                decode_speed: 0.0,
+                thinking_tokens: 0,
+                completion_tokens: 0,
             },
         }
     }

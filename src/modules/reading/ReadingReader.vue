@@ -1,7 +1,7 @@
 <template>
-  <div class="reading-reader">
+  <div class="reading-reader" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvMode }">
     <header class="reader-header">
-      <button class="back-btn" @click="goBack">
+      <button class="back-btn" type="button" :tabindex="isTvMode ? -1 : undefined" @click="goBack">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
@@ -41,7 +41,14 @@
       <div v-if="!bilingualMode" class="article-text">
         <p v-for="(para, pidx) in bodyParagraphs" :key="pidx" class="para">
           <template v-for="(token, idx) in para" :key="idx">
-            <span v-if="token.isWord" class="word" @click.stop="onWordTap(token)">{{ token.text }}</span>
+            <span
+              v-if="token.isWord"
+              class="word"
+              :tabindex="isTvMode ? 0 : undefined"
+              @click.stop="onWordTap(token)"
+              @keydown.enter.prevent="onWordTap(token)"
+              @keydown.space.prevent="onWordTap(token)"
+            >{{ token.text }}</span>
             <span v-else>{{ token.text }}</span>
           </template>
         </p>
@@ -51,11 +58,21 @@
         <template v-for="(tokens, pidx) in paraTokens" :key="pidx">
           <p class="para-original">
             <template v-for="(token, idx) in tokens" :key="idx">
-              <span v-if="token.isWord" class="word" @click.stop="onWordTap(token)">{{ token.text }}</span>
+              <span
+                v-if="token.isWord"
+                class="word"
+                :tabindex="isTvMode ? 0 : undefined"
+                @click.stop="onWordTap(token)"
+                @keydown.enter.prevent="onWordTap(token)"
+                @keydown.space.prevent="onWordTap(token)"
+              >{{ token.text }}</span>
               <span v-else>{{ token.text }}</span>
             </template>
           </p>
-          <p class="para-translation">{{ translations[pidx] || '...' }}</p>
+          <p
+            class="para-translation"
+            :tabindex="isTvMode ? 0 : undefined"
+          >{{ translations[pidx] || '...' }}</p>
         </template>
       </div>
 
@@ -151,6 +168,8 @@ import { loadLearningContext } from "@/shared/learningContext.js";
 import { tokenizeArticleText, extractWordTexts } from "@/shared/articleText.js";
 import { useSelectionTranslation } from "@/shared/selectionTranslation.js";
 import { useReadAloud } from "@/shared/readAloud.js";
+import { isTvMode } from "@/shared/appMode.js";
+import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -254,10 +273,19 @@ const {
   t,
 });
 
+let releaseSelectionBack = null;
+
 onMounted(async () => {
   document.addEventListener("selectionchange", onSelectionChange);
   document.addEventListener("pointerup", onPointerUp);
   window.__amigaTranslateSelection = handleNativeTranslate;
+  releaseSelectionBack = pushInPageBackHandler(() => {
+    if (selectionText.value) {
+      clearSelection();
+      return "navigated";
+    }
+    return null;
+  });
   await loadArticle();
 });
 
@@ -265,6 +293,8 @@ onBeforeUnmount(() => {
   document.removeEventListener("selectionchange", onSelectionChange);
   document.removeEventListener("pointerup", onPointerUp);
   delete window.__amigaTranslateSelection;
+  releaseSelectionBack?.();
+  releaseSelectionBack = null;
   cleanupSelectionTranslation();
   ensureArticleWordsSeenIfNeeded();
 });
@@ -394,6 +424,18 @@ async function onWordUnknown() {
 }
 
 function goBack() {
+  if (typeof window !== "undefined" && typeof window.__amigaGoBack === "function") {
+    const result = window.__amigaGoBack();
+    if (result === "navigated" || result === "at-root") return;
+  }
+  if (selectedWord.value) {
+    selectedWord.value = null;
+    return;
+  }
+  if (selectionText.value) {
+    clearSelection();
+    return;
+  }
   router.push("/learn/reading");
 }
 
@@ -420,7 +462,7 @@ function goTest() {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 8px 12px 4px;
+  padding: 8px 12px 12px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -543,11 +585,41 @@ function goTest() {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding: 20px 20px 80px;
+  box-sizing: border-box;
+}
+
+/* Match news reader: full-pane reading, modest gutters (no narrow column). */
+html[data-app-mode="tv"] .reader-header {
+  padding: 10px 16px 12px;
+}
+
+html[data-app-mode="tv"] .article-body {
+  padding: 14px 16px 28px;
+  max-width: none;
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+html[data-app-mode="tv"] .article-text {
+  font-size: 22px;
+  line-height: 1.75;
+  max-width: none;
+  margin-inline: 0;
+  width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+html[data-app-mode="tv"] .header-title {
+  font-size: 18px;
+  -webkit-line-clamp: 2;
+  overflow-wrap: break-word;
 }
 
 .article-text {
   font-size: 17px;
-  line-height: 1.4;
+  line-height: 1.7;
   color: var(--text);
   overflow-wrap: break-word;
   word-wrap: break-word;
@@ -559,7 +631,7 @@ function goTest() {
 }
 
 .article-text .para {
-  margin: 0 0 1.2em;
+  margin: 0 0 1.15em;
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
@@ -571,7 +643,7 @@ function goTest() {
 .article-text.bilingual {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 4px;
 }
 
 .para-original {
@@ -583,12 +655,26 @@ function goTest() {
 .para-translation {
   color: var(--text-lighter);
   font-size: 14px;
-  line-height: 1.19;
-  margin: 0 0 12px;
+  line-height: 1.55;
+  margin: 0 0 16px;
   padding-left: 12px;
   border-left: 2px solid var(--border);
   white-space: pre-wrap;
   overflow-wrap: break-word;
+}
+
+html[data-app-mode="tv"] .para-translation {
+  font-size: 16px;
+  line-height: 1.55;
+  border-radius: 6px;
+  outline: none;
+}
+html[data-app-mode="tv"] .para-translation:focus-visible {
+  outline: 2px solid #1cb0f6 !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+  transform: none !important;
+  background: rgba(28, 176, 246, 0.08);
 }
 
 .word {
@@ -597,12 +683,25 @@ function goTest() {
   border-radius: 3px;
   transition: background 0.1s;
   white-space: normal;
+  display: inline;
   -webkit-user-select: text;
   user-select: text;
 }
 
 .word:hover {
   background: var(--blue-bg);
+}
+
+/* TV: tight inline focus — never scale or use the global 5px outer ring. */
+.word:focus-visible {
+  outline: 2px solid #1cb0f6 !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  background: var(--blue-bg) !important;
+  transform: none !important;
+  z-index: 2;
+  position: relative;
+  border-radius: 3px;
 }
 
 .bottom-bar {

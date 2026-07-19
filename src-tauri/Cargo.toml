@@ -22,9 +22,10 @@ r2d2_sqlite = "0.24"
 log = { version = "0.4", features = ["std"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
 feed-rs = "2"
 tokio = { version = "1", features = ["rt", "macros"] }
+futures-util = "0.3"
 dirs = "5"
 
 [target.'cfg(target_os = "android")'.dependencies]

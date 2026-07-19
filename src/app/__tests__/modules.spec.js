@@ -19,9 +19,23 @@ describe("app module loading", () => {
     expect(shellChildren.every((mod) => mod.parent === "shell")).toBe(true);
   });
 
-  it("keeps chat, speaking, soulmate, and editors out of the TV module set", () => {
+  it("keeps chat, speaking, and AI-chat out of the TV module set (soulmate + prompts stay)", () => {
     const names = TV_APP_MODULES.map((mod) => mod.name);
 
-    expect(names).toEqual(["wizard", "learn", "achievements", "path", "news", "reading", "vocab", "profile"]);
+    expect(names).toEqual([
+      "wizard",
+      "learn",
+      "achievements",
+      "path",
+      "news",
+      "reading",
+      "soulmate",
+      "vocab",
+      "profile",
+      "prompts",
+    ]);
+    expect(names).not.toContain("chat");
+    expect(names).not.toContain("speaking");
+    expect(names).not.toContain("ai-chat");
   });
 });

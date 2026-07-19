@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-page">
+  <div class="settings-page" :class="{ 'tv-content-pane': isTvMode }">
     <PageHeader :title="t('soulmate.settingsTitle')" />
 
     <div v-if="loading" class="state-block">{{ t("app.loading") }}</div>
@@ -174,6 +174,7 @@ import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
+import { isTvMode } from "@/shared/appMode.js";
 import {
   getAllPrompts,
   resetPrompt as apiResetPrompt,

@@ -19,7 +19,11 @@
           v-for="p in group"
           :key="p.key"
           class="prompt-card"
+          role="button"
+          tabindex="0"
           @click="openEditor(p.key)"
+          @keydown.enter.prevent="openEditor(p.key)"
+          @keydown.space.prevent="openEditor(p.key)"
         >
           <div class="prompt-summary">
             <div class="prompt-name">{{ p.name }}</div>
@@ -182,11 +186,27 @@ onMounted(async () => {
   overflow: hidden;
   cursor: pointer;
   transition: border-color var(--transition), background var(--transition);
+  outline: none;
 }
 
 .prompt-card:hover {
   border-color: var(--green);
   background: var(--surface-variant);
+}
+
+.prompt-card:focus-visible,
+.reset-all-btn:focus-visible {
+  z-index: 2;
+  outline: 3px solid #1cb0f6 !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.2) !important;
+  transform: none !important;
+}
+.prompt-card:focus-visible {
+  border-color: var(--green);
+  background: var(--green-bg);
+  outline-offset: -3px;
+  box-shadow: inset 0 0 0 1px rgba(28, 176, 246, 0.22) !important;
 }
 
 .prompt-summary {

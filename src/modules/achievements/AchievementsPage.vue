@@ -1,5 +1,8 @@
 <template>
-  <div class="achievements-page">
+  <div
+    class="achievements-page"
+    :class="{ 'tv-content-pane tv-content-pane--fixed tv-achievements': isTvMode }"
+  >
     <header class="page-header">
       <div>
         <h1 class="page-title">{{ t("achievements.title") }}</h1>
@@ -8,58 +11,87 @@
       <div class="range-label">{{ rangeLabel }}</div>
     </header>
 
-    <section class="matrix-section" :aria-label="t('achievements.matrixLabel')">
-      <div class="matrix-layout">
-        <div class="weekday-labels" aria-hidden="true">
-          <span v-for="label in weekdayLabels" :key="label">{{ label }}</span>
+    <div class="achievements-body">
+      <section class="matrix-section" :aria-label="t('achievements.matrixLabel')">
+        <!-- Phone: columns = weeks (GitHub-style). TV: each row = one week. -->
+        <div class="matrix-layout" :class="{ 'tv-week-rows': isTvMode }">
+          <template v-if="!isTvMode">
+            <div class="weekday-labels" aria-hidden="true">
+              <span v-for="label in weekdayLabels" :key="label">{{ label }}</span>
+            </div>
+            <div class="weeks-grid">
+              <div v-for="week in matrix.weeks" :key="week.start" class="week-column">
+                <div
+                  v-for="day in week.days"
+                  :key="day.date"
+                  class="day-cell"
+                  :class="{ future: day.isFuture }"
+                  :aria-label="dayAriaLabel(day)"
+                  :title="dayAriaLabel(day)"
+                >
+                  <span
+                    v-for="track in visibleTracks"
+                    :key="track"
+                    class="mini-cell"
+                    :class="`level-${trackLevel(track, day)}`"
+                  />
+                </div>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="weekday-header-row" aria-hidden="true">
+              <span v-for="label in weekdayLabels" :key="label">{{ label }}</span>
+            </div>
+            <div class="weeks-rows">
+              <div v-for="week in matrix.weeks" :key="week.start" class="week-row">
+                <div
+                  v-for="day in week.days"
+                  :key="day.date"
+                  class="day-cell tv-day-cell"
+                  :class="{ future: day.isFuture }"
+                  :aria-label="dayAriaLabel(day)"
+                  :title="dayAriaLabel(day)"
+                >
+                  <span
+                    v-for="track in visibleTracks"
+                    :key="track"
+                    class="mini-cell"
+                    :class="`level-${trackLevel(track, day)}`"
+                  />
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
-        <div class="weeks-grid">
-          <div v-for="week in matrix.weeks" :key="week.start" class="week-column">
+      </section>
+
+      <section class="achievement-groups" :aria-label="t('achievements.badgesLabel')">
+        <article v-for="group in achievementGroups" :key="group.key" class="achievement-group">
+          <div class="group-heading">
+            <div>
+              <h2>{{ group.title }}</h2>
+              <p>{{ group.description }}</p>
+            </div>
+            <span class="group-progress">{{ group.progress }}</span>
+          </div>
+          <div class="badge-grid">
             <div
-              v-for="day in week.days"
-              :key="day.date"
-              class="day-cell"
-              :class="{ future: day.isFuture, 'tv-day-cell': isTvMode }"
-              :aria-label="dayAriaLabel(day)"
-              :title="dayAriaLabel(day)"
+              v-for="badge in group.badges"
+              :key="badge.days"
+              class="achievement-badge"
+              :class="{ unlocked: badge.unlocked }"
             >
-              <span
-                v-for="track in visibleTracks"
-                :key="track"
-                class="mini-cell"
-                :class="`level-${trackLevel(track, day)}`"
-              />
+              <span class="badge-icon" aria-hidden="true">{{ badge.unlocked ? "✓" : group.icon }}</span>
+              <span class="badge-name">{{ badge.label }}</span>
+              <span class="badge-state">
+                {{ badge.unlocked ? t("achievements.unlocked") : `${Math.min(group.value, badge.days)}/${badge.days}` }}
+              </span>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="achievement-groups" :aria-label="t('achievements.badgesLabel')">
-      <article v-for="group in achievementGroups" :key="group.key" class="achievement-group">
-        <div class="group-heading">
-          <div>
-            <h2>{{ group.title }}</h2>
-            <p>{{ group.description }}</p>
-          </div>
-          <span class="group-progress">{{ group.progress }}</span>
-        </div>
-        <div class="badge-grid">
-          <div
-            v-for="badge in group.badges"
-            :key="badge.days"
-            class="achievement-badge"
-            :class="{ unlocked: badge.unlocked }"
-          >
-            <span class="badge-icon" aria-hidden="true">{{ badge.unlocked ? "✓" : group.icon }}</span>
-            <span class="badge-name">{{ badge.label }}</span>
-            <span class="badge-state">
-              {{ badge.unlocked ? t("achievements.unlocked") : `${Math.min(group.value, badge.days)}/${badge.days}` }}
-            </span>
-          </div>
-        </div>
-      </article>
-    </section>
+        </article>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -181,12 +213,20 @@ onMounted(async () => {
 
 <style scoped>
 .achievements-page {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
   overflow: hidden;
   background: var(--bg);
+}
+
+.achievements-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .page-header {
@@ -220,6 +260,7 @@ onMounted(async () => {
 }
 
 .matrix-section {
+  flex-shrink: 0;
   margin-top: 6px;
   padding: 10px 14px;
   background: var(--white);
@@ -229,6 +270,7 @@ onMounted(async () => {
 
 .achievement-groups {
   display: grid;
+  flex: 1 1 auto;
   grid-template-rows: repeat(3, minmax(0, 1fr));
   min-height: 0;
   gap: 14px;
@@ -417,5 +459,187 @@ onMounted(async () => {
     height: 18px;
     margin-bottom: 2px;
   }
+}
+
+/* TV shell chrome comes from global .tv-content-pane; keep split layout here. */
+.tv-achievements .page-header {
+  flex: 0 0 auto;
+  padding: 10px 18px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--white);
+}
+
+.tv-achievements .page-title {
+  font-size: 24px;
+}
+
+.tv-achievements .page-subtitle {
+  font-size: 13px;
+}
+
+.tv-achievements .range-label {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.tv-achievements .achievements-body {
+  /* height:0 + flex:1 forces body into remaining viewport under the header */
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1 1 0;
+  height: 0;
+  min-height: 0;
+  align-items: stretch;
+  overflow: hidden;
+  background: var(--white);
+}
+
+.tv-achievements .matrix-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin-top: 0;
+  padding: 14px 12px 14px 16px;
+  border-top: none;
+  border-bottom: none;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  background: var(--white);
+}
+
+/* TV matrix: each horizontal row = one week (Mon→Sun), 12 rows total. */
+.tv-achievements .matrix-layout.tv-week-rows {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: 6px;
+}
+
+.tv-achievements .weekday-header-row {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  min-width: 0;
+}
+
+.tv-achievements .weekday-header-row span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  color: var(--text-lighter);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.tv-achievements .weeks-rows {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: repeat(12, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.tv-achievements .week-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.tv-achievements .day-cell,
+.tv-achievements .day-cell.tv-day-cell {
+  /* No aspect-ratio: 12 week-rows must fit the left pane height. */
+  aspect-ratio: auto;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px;
+  border-radius: 4px;
+  gap: 1px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.tv-achievements .mini-cell {
+  border-radius: 2px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.tv-achievements .achievement-groups {
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: 8px;
+  padding: 12px 14px 12px 10px;
+  overflow: hidden;
+  background: var(--white);
+}
+
+.tv-achievements .achievement-group {
+  min-height: 0;
+  padding: 8px 10px;
+  border-radius: 14px;
+}
+
+.tv-achievements .group-heading {
+  margin-bottom: 6px;
+}
+
+.tv-achievements .group-heading h2 {
+  font-size: 14px;
+}
+
+.tv-achievements .group-heading p {
+  display: block;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.tv-achievements .group-progress {
+  font-size: 11px;
+}
+
+.tv-achievements .badge-grid {
+  gap: 6px;
+}
+
+.tv-achievements .achievement-badge {
+  padding: 6px 4px 5px;
+  border-radius: 10px;
+}
+
+.tv-achievements .badge-icon {
+  width: 22px;
+  height: 22px;
+  margin-bottom: 3px;
+  font-size: 12px;
+}
+
+.tv-achievements .badge-name {
+  min-height: 20px;
+  font-size: 11px;
+}
+
+.tv-achievements .badge-state {
+  font-size: 10px;
 }
 </style>

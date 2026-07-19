@@ -1,5 +1,5 @@
 <template>
-  <div class="soulmate-home" :class="genderClass">
+  <div class="soulmate-home" :class="[genderClass, { 'tv-content-pane tv-content-pane--fixed tv-home': isTvMode }]">
     <div v-if="portraitSrc" class="portrait-stage" aria-hidden="true">
       <img
         ref="portraitEl"
@@ -30,7 +30,13 @@
         <p class="greeting">{{ home.greeting }}</p>
       </section>
 
-      <button class="story-action" type="button" :disabled="busy" @click="handleAction">
+      <button
+        ref="actionBtn"
+        class="story-action"
+        type="button"
+        :disabled="busy"
+        @click="handleAction"
+      >
         <span class="action-icon" v-html="actionIcon" />
         <span>{{ busy ? t("soulmate.preparing") : actionLabel }}</span>
       </button>
@@ -48,6 +54,7 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
+import { isTvMode } from "@/shared/appMode.js";
 import { useI18n } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { generateSoulMateEpisode, getSoulMateHome } from "@/shared/backend/soulmate.js";
@@ -70,6 +77,7 @@ const targetLang = ref("es");
 const portraitSrc = ref("");
 const portraitReady = ref(false);
 const portraitEl = ref(null);
+const actionBtn = ref(null);
 
 const companionGender = computed(() => {
   const gender = home.value?.world?.companion_gender;
@@ -132,6 +140,11 @@ async function loadHome() {
     error.value = e?.message || String(e);
   } finally {
     loading.value = false;
+    // TV: land remote focus on the only primary action (letter / chat).
+    if (isTvMode && home.value?.world) {
+      await nextTick();
+      actionBtn.value?.focus?.();
+    }
   }
 }
 
@@ -322,6 +335,12 @@ async function handleAction() {
   cursor: pointer;
 }
 .story-action:disabled { opacity: .68; cursor: wait; }
+.story-action:focus-visible {
+  outline: 3px solid #fff !important;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(255, 93, 143, 0.45), 0 9px 22px rgba(244, 63, 120, 0.24) !important;
+  transform: none !important;
+}
 .action-icon { width: 26px; height: 26px; display: flex; }
 .action-icon :deep(svg) {
   width: 26px;
@@ -353,5 +372,80 @@ async function handleAction() {
   text-align: center;
   color: var(--red);
   font-size: 13px;
+}
+
+/*
+ * TV 16:9: full-bleed mobile portrait buries the CTA below the fold.
+ * Split: portrait left, solid control panel right (always shows 聊一聊/来信).
+ */
+.soulmate-home.tv-home {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  grid-template-rows: auto 1fr;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.tv-home .home-header {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+.tv-home .portrait-stage {
+  position: relative;
+  grid-column: 1;
+  grid-row: 2;
+  inset: auto;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 0 0 0 12px;
+}
+.tv-home .portrait-image {
+  object-position: center 18%;
+}
+.tv-home .portrait-fade {
+  background:
+    linear-gradient(90deg, transparent 55%, rgba(255, 248, 251, 0.35) 100%),
+    linear-gradient(180deg, transparent 60%, rgba(20, 12, 24, 0.25) 100%);
+}
+.tv-home .home-content {
+  grid-column: 2;
+  grid-row: 2;
+  margin-top: 0;
+  min-height: 0;
+  height: 100%;
+  justify-content: center;
+  padding: 28px 32px 32px;
+  gap: 18px;
+  background: rgba(255, 252, 253, 0.96);
+  box-shadow: -12px 0 28px rgba(40, 20, 30, 0.08);
+  overflow-y: auto;
+}
+.tv-home .companion-meta {
+  text-align: left;
+}
+.tv-home .relationship-line {
+  justify-content: flex-start;
+  font-size: 14px;
+}
+.tv-home .companion-meta h2 {
+  font-size: 32px;
+}
+.tv-home .greeting {
+  margin: 12px 0 0;
+  max-width: none;
+  font-size: 18px;
+  line-height: 1.55;
+}
+.tv-home .story-action {
+  min-height: 60px;
+  font-size: 19px;
+}
+.tv-home .story-promise {
+  font-size: 14px;
+}
+.tv-home .center-state {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-height: 0;
 }
 </style>

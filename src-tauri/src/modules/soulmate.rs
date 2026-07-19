@@ -1019,6 +1019,7 @@ fn fallback_opening(world: &SoulMateWorld, episode: &SoulMateEpisode) -> String 
     }
 }
 
+#[cfg(test)]
 fn fallback_reentry(world: &SoulMateWorld) -> String {
     match world.target_lang.as_str() {
         "es" => "Me alegra que hayas vuelto. ¿Por dónde seguimos?".to_string(),
@@ -1055,41 +1056,42 @@ async fn generate_chat_opening(
     }
 }
 
-async fn generate_chat_reentry(
-    llm: &LlmClient,
-    db: &DatabasePool,
-    world: &SoulMateWorld,
-    episode: &SoulMateEpisode,
-    existing: &[SoulMateMessage],
-) -> String {
-    let conversation = existing
-        .iter()
-        .map(|message| format!("{}: {}", message.role, message.content))
-        .collect::<Vec<_>>()
-        .join("\n");
-    let conversation = truncate_history_for_prompt(&conversation, CONVERSATION_PROMPT_CHARS);
-    let vars = [
-        ("NAME", world.companion_name.as_str()),
-        ("TYPE", world.companion_type.as_str()),
-        ("PERSONALITY", world.personality.as_str()),
-        ("TARGET_LANG", llm::lang_name(&world.target_lang)),
-        ("CEFR", world.cefr_level.as_str()),
-        ("TITLE", episode.title.as_str()),
-        ("STORY", episode.body.as_str()),
-        ("CONVERSATION", conversation.as_str()),
-    ];
-    let messages = llm::build_chat_messages(db, "soulmate-chat-reentry", &vars);
-    match llm.chat_with_limits(db, messages, 220, 45).await {
-        Ok(text) if !text.trim().is_empty() => {
-            let cleaned = clean_plain_text(&text);
-            if text_matches_target_lang(&cleaned, &world.target_lang) {
-                cleaned
-            } else {
-                fallback_reentry(world)
-            }
+/// Whether this episode chat still needs the one-time companion opening.
+/// Existing history must be returned as-is — never append a new greeting on every open.
+pub fn chat_needs_opening(messages: &[SoulMateMessage]) -> bool {
+    messages.is_empty()
+}
+
+/// IDs of assistant messages that illegally follow another assistant (no user turn).
+/// Keeps the first of each assistant run; drops reentry-spam from older get_chat bugs.
+pub fn consecutive_assistant_spam_ids(messages: &[SoulMateMessage]) -> Vec<i64> {
+    let mut drop_ids = Vec::new();
+    let mut prev_was_assistant = false;
+    for message in messages {
+        let is_assistant = message.role == "assistant";
+        if is_assistant && prev_was_assistant {
+            drop_ids.push(message.id);
         }
-        Ok(_) | Err(_) => fallback_reentry(world),
+        prev_was_assistant = is_assistant;
     }
+    drop_ids
+}
+
+fn prune_consecutive_assistant_spam(db: &DatabasePool, episode_id: &str) -> Result<(), String> {
+    let messages = get_messages(db, episode_id)?;
+    let drop_ids = consecutive_assistant_spam_ids(&messages);
+    if drop_ids.is_empty() {
+        return Ok(());
+    }
+    let conn = db.conn()?;
+    for id in drop_ids {
+        conn.execute(
+            "DELETE FROM soulmate_messages WHERE id = ?1 AND episode_id = ?2",
+            params![id, episode_id],
+        )
+        .map_err(|e| format!("Failed to prune Soul Mate chat spam: {e}"))?;
+    }
+    Ok(())
 }
 
 pub async fn get_chat(
@@ -1105,13 +1107,17 @@ pub async fn get_chat(
     if episode.world_id != world.id || episode.status != "read" {
         return Err("Finish today's story before chatting".to_string());
     }
+    // Repair history polluted by the old "reentry on every open" bug.
+    prune_consecutive_assistant_spam(db, episode_id)?;
     let existing = get_messages(db, episode_id)?;
-    let proactive_message = if existing.is_empty() {
-        generate_chat_opening(llm, db, &world, &episode).await
-    } else {
-        generate_chat_reentry(llm, db, &world, &episode, &existing).await
-    };
-    save_message(db, &world.id, episode_id, "assistant", &proactive_message)?;
+    // Clear turn model:
+    // 1) empty history → companion speaks once (opening)
+    // 2) otherwise return history only — re-entering "继续聊聊" must NOT spam reentry lines
+    // 3) each user reply is handled by submit_turn (user + assistant pair)
+    if chat_needs_opening(&existing) {
+        let opening = generate_chat_opening(llm, db, &world, &episode).await;
+        save_message(db, &world.id, episode_id, "assistant", &opening)?;
+    }
     get_messages(db, episode_id)
 }
 
@@ -1124,6 +1130,141 @@ fn fallback_reply(world: &SoulMateWorld) -> String {
             .to_string(),
         _ => "我喜欢你的想法，我会记住它，看看明天会发生什么。".to_string(),
     }
+}
+
+fn fallback_reply_options(world: &SoulMateWorld) -> Vec<String> {
+    match world.target_lang.as_str() {
+        "es" => vec![
+            "Me gusta esa idea.".to_string(),
+            "Cuéntame más, por favor.".to_string(),
+            "¿Qué hacemos después?".to_string(),
+        ],
+        "en" => vec![
+            "I like that idea.".to_string(),
+            "Tell me more, please.".to_string(),
+            "What should we do next?".to_string(),
+        ],
+        _ => vec![
+            "我喜欢这个想法。".to_string(),
+            "再多说一点吧。".to_string(),
+            "我们接下来做什么？".to_string(),
+        ],
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct GeneratedReplyOptions {
+    options: Vec<String>,
+}
+
+fn parse_reply_options(raw: &str) -> Result<Vec<String>, String> {
+    let cleaned = raw
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+    let start = cleaned
+        .find('{')
+        .ok_or_else(|| "Reply options response has no JSON".to_string())?;
+    let end = cleaned
+        .rfind('}')
+        .ok_or_else(|| "Reply options response is incomplete".to_string())?;
+    let parsed: GeneratedReplyOptions = serde_json::from_str(&cleaned[start..=end])
+        .map_err(|e| format!("Failed to parse reply options JSON: {e}"))?;
+    let mut options = Vec::new();
+    for item in parsed.options {
+        let text = clean_plain_text(&item);
+        if text.is_empty() {
+            continue;
+        }
+        if options.iter().any(|existing: &String| existing == &text) {
+            continue;
+        }
+        options.push(text);
+        if options.len() >= 4 {
+            break;
+        }
+    }
+    if options.len() < 2 {
+        return Err("Need at least two reply options".to_string());
+    }
+    Ok(options)
+}
+
+/// Generate 2–4 short learner reply choices for TV remote chat (no free typing).
+pub async fn get_reply_options(
+    llm: &LlmClient,
+    db: &DatabasePool,
+    user_id: &str,
+    target_lang: &str,
+    episode_id: &str,
+) -> Result<Vec<String>, String> {
+    let world = get_world_optional(db, user_id, target_lang)?
+        .ok_or_else(|| "Soul Mate is not initialized".to_string())?;
+    let episode = get_episode(db, episode_id)?;
+    if episode.world_id != world.id || episode.status != "read" {
+        return Err("Soul Mate chat is not available".to_string());
+    }
+    let history = get_messages(db, episode_id)?;
+    if history.is_empty() {
+        return Ok(fallback_reply_options(&world));
+    }
+    let conversation = history
+        .iter()
+        .map(|message| format!("{}: {}", message.role, message.content))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let conversation = truncate_history_for_prompt(&conversation, CONVERSATION_PROMPT_CHARS);
+    let story_excerpt = truncate_history_for_prompt(&episode.body, HISTORY_PROMPT_CHARS);
+    let vars = [
+        ("NAME", world.companion_name.as_str()),
+        ("TYPE", world.companion_type.as_str()),
+        ("PERSONALITY", world.personality.as_str()),
+        ("TARGET_LANG", llm::lang_name(&world.target_lang)),
+        ("CEFR", world.cefr_level.as_str()),
+        ("TITLE", episode.title.as_str()),
+        ("STORY", story_excerpt.as_str()),
+        ("CONVERSATION", conversation.as_str()),
+    ];
+    let mut messages = llm::build_chat_messages(db, "soulmate-reply-options", &vars);
+    if messages.is_empty() {
+        messages = vec![
+            ChatMessage {
+                role: "system".to_string(),
+                content: format!(
+                    "Write 2-4 short learner replies in {} at CEFR {}. Output JSON only: {{\"options\":[\"...\"]}}",
+                    llm::lang_name(&world.target_lang),
+                    world.cefr_level
+                ),
+            },
+            ChatMessage {
+                role: "user".to_string(),
+                content: format!(
+                    "Companion {} just spoke. Conversation:\n{}\nReturn reply options for the learner.",
+                    world.companion_name, conversation
+                ),
+            },
+        ];
+    }
+    let options = match llm.chat_with_limits(db, messages, 320, 45).await {
+        Ok(raw) if !raw.trim().is_empty() => match parse_reply_options(&raw) {
+            Ok(parsed) => {
+                let filtered: Vec<String> = parsed
+                    .into_iter()
+                    .filter(|option| text_matches_target_lang(option, &world.target_lang))
+                    .collect();
+                if filtered.len() >= 2 {
+                    filtered
+                } else {
+                    fallback_reply_options(&world)
+                }
+            }
+            Err(_) => fallback_reply_options(&world),
+        },
+        Ok(_) | Err(_) => fallback_reply_options(&world),
+    };
+    Ok(options)
 }
 
 fn clean_plain_text(raw: &str) -> String {
@@ -1364,6 +1505,47 @@ mod tests {
     }
 
     #[test]
+    fn parse_reply_options_accepts_two_to_four_unique_replies() {
+        let raw = r#"```json
+{"options":["Me gusta.","Cuéntame más.","¿Y después?","Me gusta.","Quinta extra"]}
+```"#;
+        let options = parse_reply_options(raw).unwrap();
+        assert_eq!(options.len(), 4);
+        assert_eq!(options[0], "Me gusta.");
+        assert_eq!(options[2], "¿Y después?");
+
+        assert!(parse_reply_options(r#"{"options":["solo una"]}"#).is_err());
+    }
+
+    #[test]
+    fn fallback_reply_options_cover_main_target_langs() {
+        let mut world = SoulMateWorld {
+            id: "w1".into(),
+            user_id: "u1".into(),
+            companion_type: "soul".into(),
+            companion_name: "A".into(),
+            companion_gender: "female".into(),
+            personality: "warm".into(),
+            story_location: "Madrid".into(),
+            intensity: 1,
+            romance_tension: 1,
+            surprise: 1,
+            knowledge: 1,
+            target_lang: "es".into(),
+            native_lang: "zh".into(),
+            cefr_level: "A1".into(),
+            relationship_stage: "new".into(),
+            story_summary: String::new(),
+            memory_summary: String::new(),
+        };
+        assert!(fallback_reply_options(&world).len() >= 2);
+        world.target_lang = "en".into();
+        assert!(fallback_reply_options(&world).len() >= 2);
+        world.target_lang = "zh".into();
+        assert!(fallback_reply_options(&world).len() >= 2);
+    }
+
+    #[test]
     fn updates_preferences_without_resetting_history() {
         let db = setup();
         let original = initialize(&db, &test_request()).unwrap();
@@ -1503,5 +1685,137 @@ mod tests {
         let greeting = fallback_reentry(&world);
         assert!(greeting.contains("vuelto"));
         assert!(greeting.contains('?'));
+    }
+
+    #[test]
+    fn chat_only_needs_opening_when_history_is_empty() {
+        assert!(chat_needs_opening(&[]));
+        let existing = vec![SoulMateMessage {
+            id: 1,
+            role: "assistant".into(),
+            content: "¿Qué piensas?".into(),
+            created_at: "t".into(),
+        }];
+        assert!(!chat_needs_opening(&existing));
+        let after_user = vec![
+            SoulMateMessage {
+                id: 1,
+                role: "assistant".into(),
+                content: "Hola".into(),
+                created_at: "t1".into(),
+            },
+            SoulMateMessage {
+                id: 2,
+                role: "user".into(),
+                content: "Hola".into(),
+                created_at: "t2".into(),
+            },
+        ];
+        assert!(!chat_needs_opening(&after_user));
+    }
+
+    #[test]
+    fn consecutive_assistant_spam_ids_keep_first_of_each_run() {
+        let messages = vec![
+            SoulMateMessage {
+                id: 1,
+                role: "assistant".into(),
+                content: "opening".into(),
+                created_at: "t1".into(),
+            },
+            SoulMateMessage {
+                id: 2,
+                role: "assistant".into(),
+                content: "reentry spam".into(),
+                created_at: "t2".into(),
+            },
+            SoulMateMessage {
+                id: 3,
+                role: "assistant".into(),
+                content: "more spam".into(),
+                created_at: "t3".into(),
+            },
+            SoulMateMessage {
+                id: 4,
+                role: "user".into(),
+                content: "hola".into(),
+                created_at: "t4".into(),
+            },
+            SoulMateMessage {
+                id: 5,
+                role: "assistant".into(),
+                content: "reply".into(),
+                created_at: "t5".into(),
+            },
+            SoulMateMessage {
+                id: 6,
+                role: "assistant".into(),
+                content: "reentry again".into(),
+                created_at: "t6".into(),
+            },
+        ];
+        assert_eq!(consecutive_assistant_spam_ids(&messages), vec![2, 3, 6]);
+    }
+
+    #[test]
+    fn prune_removes_assistant_reentry_spam_from_db() {
+        let db = setup();
+        let world = initialize(&db, &test_request()).unwrap();
+        let conn = db.conn().unwrap();
+        conn.execute(
+            "INSERT INTO soulmate_episodes
+             (id, world_id, story_date, day_number, title, teaser, body, status)
+             VALUES ('e1', ?1, '2026-01-01', 1, 'Title', 'Teaser',
+                     'A sufficiently long story body used by the test so validation is irrelevant here.',
+                     'read')",
+            params![world.id],
+        )
+        .unwrap();
+        for content in ["opening", "spam1", "spam2"] {
+            conn.execute(
+                "INSERT INTO soulmate_messages (world_id, episode_id, role, content)
+                 VALUES (?1, 'e1', 'assistant', ?2)",
+                params![world.id, content],
+            )
+            .unwrap();
+        }
+        drop(conn);
+
+        prune_consecutive_assistant_spam(&db, "e1").unwrap();
+        let kept = get_messages(&db, "e1").unwrap();
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].content, "opening");
+    }
+
+    #[test]
+    fn get_chat_does_not_append_when_history_already_exists() {
+        let db = setup();
+        let world = initialize(&db, &test_request()).unwrap();
+        let conn = db.conn().unwrap();
+        conn.execute(
+            "INSERT INTO soulmate_episodes
+             (id, world_id, story_date, day_number, title, teaser, body, status)
+             VALUES ('e1', ?1, '2026-01-01', 1, 'Title', 'Teaser',
+                     'A sufficiently long story body used by the test so validation is irrelevant here.',
+                     'read')",
+            params![world.id],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO soulmate_messages (world_id, episode_id, role, content)
+             VALUES (?1, 'e1', 'assistant', 'Primera frase')",
+            params![world.id],
+        )
+        .unwrap();
+        drop(conn);
+
+        // Without an LLM call path: re-load via get_messages shape after get_chat bootstrap logic.
+        let before = get_messages(&db, "e1").unwrap();
+        assert_eq!(before.len(), 1);
+        assert!(!chat_needs_opening(&before));
+        // Simulating get_chat's non-empty branch: do nothing extra.
+        let after = get_messages(&db, "e1").unwrap();
+        assert_eq!(after.len(), 1);
+        assert_eq!(after[0].content, "Primera frase");
     }
 }

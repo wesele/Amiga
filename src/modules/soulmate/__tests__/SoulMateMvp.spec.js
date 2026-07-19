@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { flushPromises, mount } from "@vue/test-utils";
+import { nextTick } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { createPinia, setActivePinia } from "pinia";
 import * as api from "@/shared/api.js";
@@ -369,6 +370,37 @@ describe("Soul Mate MVP", () => {
     expect(wrapper.find(".soulmate-home").classes()).toContain("gender-female");
   });
 
+  it("keeps free-text chat input when not in TV mode", async () => {
+    mockInvoke.mockImplementation((command) => {
+      if (command === "get_soulmate_world_cmd") {
+        return Promise.resolve({ companion_name: "Sofía" });
+      }
+      if (command === "get_soulmate_chat_cmd") {
+        return Promise.resolve([
+          { id: 1, role: "assistant", content: "¿Qué te pareció?", created_at: "t1" },
+        ]);
+      }
+      return baseInvoke(command);
+    });
+    const router = makeRouter();
+    await router.push({ name: "soulmate-chat", params: { episodeId: "e1" } });
+    const wrapper = mount(SoulMateChat, {
+      props: { episodeId: "e1" },
+      global: {
+        plugins: [router],
+        stubs: { PageHeader: { template: "<header />" }, WordPopup: true, Transition: false },
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".input-bar").exists()).toBe(true);
+    expect(wrapper.find(".reply-options").exists()).toBe(false);
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      "get_soulmate_reply_options_cmd",
+      expect.anything(),
+    );
+  });
+
   it("loads the home for the current target language and sends setup when missing", async () => {
     mockInvoke.mockImplementation((command, args) => {
       if (command === "get_target_language_cmd") return Promise.resolve("en");
@@ -497,8 +529,8 @@ describe("Soul Mate MVP", () => {
 
   it("lets the companion speak first on chat entry, then sends a learner reply", async () => {
     mockInvoke.mockImplementation((command) => {
-      if (command === "get_soulmate_home_cmd") {
-        return Promise.resolve({ world: { companion_name: "Sofía" } });
+      if (command === "get_soulmate_world_cmd") {
+        return Promise.resolve({ companion_name: "Sofía" });
       }
       if (command === "get_soulmate_chat_cmd") {
         return Promise.resolve([{ id: 1, role: "assistant", content: "¿Qué harías tú?" }]);
@@ -547,8 +579,8 @@ describe("Soul Mate MVP", () => {
     });
     try {
       mockInvoke.mockImplementation((command) => {
-        if (command === "get_soulmate_home_cmd") {
-          return Promise.resolve({ world: { companion_name: "Sofía" } });
+        if (command === "get_soulmate_world_cmd") {
+          return Promise.resolve({ companion_name: "Sofía" });
         }
         if (command === "get_soulmate_chat_cmd") {
           return Promise.resolve([
@@ -565,6 +597,7 @@ describe("Soul Mate MVP", () => {
         global: { plugins: [router], stubs: { PageHeader: { template: "<header />" } } },
       });
       await flushPromises();
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       const list = wrapper.find(".message-list").element;
       expect(list.querySelectorAll(".message-row")).toHaveLength(2);

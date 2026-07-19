@@ -1,7 +1,13 @@
 <template>
-  <div class="teaching-page" :class="content?.kind">
+  <div class="teaching-page" :class="[content?.kind, { 'tv-content-pane tv-content-pane--fixed': isTvMode }]">
     <header class="teach-header">
-      <button class="close-btn" :aria-label="t('common.back')" @click="exitTeaching">✕</button>
+      <button
+        class="close-btn"
+        type="button"
+        :tabindex="isTvMode ? -1 : undefined"
+        :aria-label="t('common.back')"
+        @click="exitTeaching"
+      >✕</button>
       <div class="header-center">
         <span class="kind-badge">{{ kindLabel }}</span>
         <p class="unit-label">{{ content?.unit_title_native }}</p>
@@ -103,6 +109,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { isTvMode } from "@/shared/appMode.js";
 import { useI18n } from "@/shared/i18n";
 import {
   completeTeachingNode,
@@ -633,5 +640,10 @@ onMounted(load);
   background: var(--white);
   color: var(--text);
   border: 2px solid var(--border);
+}
+
+html[data-app-mode="tv"] .action-btn:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 2px;
 }
 </style>

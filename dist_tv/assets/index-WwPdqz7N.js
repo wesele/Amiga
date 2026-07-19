@@ -1,0 +1,1 @@
+import{o as r}from"./aiContact-VsRgvMBJ.js";import"./index-CBUkEaQr.js";import"./vendor-BLp_ul7U.js";import"./tauri-DTpP6LnE.js";const i={name:"ai-chat",displayName:"AI 聊天",routes:[],init(){}};export{i as default,r as openAiContact};

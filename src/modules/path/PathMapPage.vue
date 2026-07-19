@@ -1,5 +1,5 @@
 <template>
-  <div class="path-map">
+  <div class="path-map" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvMode }">
     <PageHeader
       variant="path"
       :back-label="t('common.back')"
@@ -146,6 +146,7 @@ import { getPathCurriculum } from "@/shared/backend/path.js";
 import { getCurrentUser, updateLearningGoalCefr } from "@/shared/backend/user.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
+import { isTvMode } from "@/shared/appMode.js";
 
 const UNIT_HUES = [145, 198, 262, 32, 12, 210];
 const LANE_X = { left: 22, center: 50, right: 78 };
@@ -796,5 +797,22 @@ html[data-app-mode="tv"] .node-inner {
 
 .path-step.is-current .caption-title {
   color: var(--green-hover);
+}
+
+.path-node:focus-visible .node-inner {
+  outline: 3px solid var(--green);
+  outline-offset: 3px;
+  transform: translateY(-2px);
+}
+
+.level-btn:focus-visible,
+.level-sheet-option:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 1px;
+}
+
+.retry-btn:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 1px;
 }
 </style>

@@ -3,7 +3,6 @@ mod modules;
 
 use commands::llm::LlmState;
 use modules::database::DatabasePool;
-use modules::llm::LlmClient;
 use modules::logging;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -30,9 +29,7 @@ pub fn run() {
     modules::reading::ensure_default_topics(&db_pool);
 
     // Create LLM client
-    let llm_state = LlmState {
-        client: LlmClient::new(),
-    };
+    let llm_state = LlmState::new();
 
     let db_for_startup_sync = db_pool.clone();
     tauri::async_runtime::spawn(async move {
@@ -101,6 +98,7 @@ pub fn run() {
             commands::llm::get_bilingual_cmd,
             commands::llm::translate_text_cmd,
             commands::llm::grade_translation_cmd,
+            commands::llm::fetch_models_cmd,
             // News commands
             commands::news::fetch_news_cmd,
             commands::news::get_articles_cmd,
@@ -140,6 +138,7 @@ pub fn run() {
             commands::soulmate::mark_soulmate_story_read_cmd,
             commands::soulmate::get_soulmate_chat_cmd,
             commands::soulmate::submit_soulmate_turn_cmd,
+            commands::soulmate::get_soulmate_reply_options_cmd,
             commands::soulmate::reset_soulmate_cmd,
             // Prompt commands
             commands::prompts::get_all_prompts_cmd,
@@ -152,6 +151,7 @@ pub fn run() {
             // Chat commands
             commands::chat::chat_completion_cmd,
             commands::chat::chat_completion_with_session_cmd,
+            commands::chat::chat_stream_with_session_cmd,
             commands::chat::create_chat_session_cmd,
             commands::chat::get_chat_sessions_cmd,
             commands::chat::delete_chat_session_cmd,

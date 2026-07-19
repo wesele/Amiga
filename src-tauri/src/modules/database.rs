@@ -481,35 +481,49 @@ impl DatabasePool {
     /// Delete the on-disk DB file + WAL/SHM sidecars at the recorded path.
     /// No-op for :memory:. Safe even from broken state. Used by recovery flow.
     pub fn delete_database_file(&self) -> Result<(), String> {
-        let p = &self.file_path;
-        if p.to_string_lossy() == ":memory:" {
-            return Ok(());
-        }
-        // Best effort remove; absence is not an error for recovery.
-        if let Err(e) = std::fs::remove_file(p) {
-            if e.kind() != std::io::ErrorKind::NotFound {
-                log::warn!("Could not remove main db file {:?}: {}", p, e);
+        Self::remove_sqlite_bundle(&self.file_path);
+
+        // Also try the *correct* live path for this process. A previous bug
+        // hard-coded the phone package id, so TV builds recorded a foreign
+        // path they cannot write (and may not be able to delete either).
+        // Cleaning the real internal path ensures the next open starts fresh.
+        #[cfg(target_os = "android")]
+        {
+            let live = android_internal_db_path();
+            if live != self.file_path {
+                Self::remove_sqlite_bundle(&live);
             }
         }
-        let base = p.to_string_lossy().to_string();
-        for suf in ["-wal", "-shm"] {
-            let _ = std::fs::remove_file(format!("{}{}", base, suf));
-        }
+
         // Also nuke any retained external copy so user gets truly clean start
         #[cfg(target_os = "android")]
         {
             let ext = PathBuf::from(ANDROID_EXTERNAL_DB);
             if ext.exists() {
-                let _ = std::fs::remove_file(&ext);
-                let ext_base = ext.to_string_lossy().to_string();
-                for suf in ["-wal", "-shm"] {
-                    let _ = std::fs::remove_file(format!("{}{}", ext_base, suf));
-                }
+                Self::remove_sqlite_bundle(&ext);
                 log::info!("Also removed external retained copy during recovery delete");
             }
         }
-        log::info!("Deleted bad database file bundle for recovery at {:?}", p);
+        log::info!(
+            "Deleted bad database file bundle for recovery at {:?}",
+            self.file_path
+        );
         Ok(())
+    }
+
+    fn remove_sqlite_bundle(path: &Path) {
+        if path.to_string_lossy() == ":memory:" {
+            return;
+        }
+        if let Err(e) = std::fs::remove_file(path) {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                log::warn!("Could not remove main db file {:?}: {}", path, e);
+            }
+        }
+        let base = path.to_string_lossy().to_string();
+        for suf in ["-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{base}{suf}"));
+        }
     }
 
     /// If we are using internal but external parent is writable, publish a

@@ -1,11 +1,30 @@
 use crate::modules::database::DatabasePool;
 use crate::modules::llm as llm_mod;
 use crate::modules::sync;
+use std::sync::RwLock;
 use tauri::State;
 
 // We need to store the LlmClient as Tauri state too
 pub struct LlmState {
     pub client: llm_mod::LlmClient,
+    /// In-memory cache of the last-loaded LlmConfig. Invalidated on every save.
+    pub config_cache: RwLock<Option<llm_mod::LlmConfig>>,
+}
+
+impl LlmState {
+    pub fn new() -> Self {
+        Self {
+            client: llm_mod::LlmClient::new(),
+            config_cache: RwLock::new(None),
+        }
+    }
+
+    /// Invalidate the cached config so the next call re-reads from the DB.
+    pub fn invalidate_config_cache(&self) {
+        if let Ok(mut cache) = self.config_cache.write() {
+            *cache = None;
+        }
+    }
 }
 
 #[tauri::command]
@@ -61,6 +80,7 @@ pub async fn test_llm_connection_cmd(
 #[tauri::command]
 pub async fn save_llm_config_cmd(
     db: State<'_, DatabasePool>,
+    llm: State<'_, LlmState>,
     key: String,
     config: llm_mod::ModelConfig,
 ) -> Result<(), String> {
@@ -86,6 +106,8 @@ pub async fn save_llm_config_cmd(
             "false"
         },
     )?;
+    // Invalidate config cache so the next LLM call re-reads from the DB.
+    llm.invalidate_config_cache();
     Ok(())
 }
 
@@ -166,4 +188,51 @@ pub async fn grade_translation_cmd(
         &target_lang,
     )
     .await
+}
+
+#[tauri::command]
+pub async fn fetch_models_cmd(
+    base_url: String,
+    api_key: String,
+) -> Result<Vec<String>, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/models", base_url.trim_end_matches('/'));
+    
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .send()
+        .await
+        .map_err(|e| format!("获取可用模型失败: {}", e))?;
+
+    if !resp.status().is_success() {
+        return Err(format!("服务商接口返回错误: HTTP {}", resp.status()));
+    }
+
+    let json: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("解析模型列表 JSON 失败: {}", e))?;
+
+    let mut models = Vec::new();
+    if let Some(data) = json.get("data").and_then(|d| d.as_array()) {
+        for item in data {
+            if let Some(id) = item.get("id").and_then(|id| id.as_str()) {
+                models.push(id.to_string());
+            }
+        }
+    }
+
+    if models.is_empty() {
+        if let Some(model_list) = json.as_array() {
+            for item in model_list {
+                if let Some(name) = item.get("name").and_then(|n| n.as_str()) {
+                    models.push(name.to_string());
+                }
+            }
+        }
+    }
+
+    models.sort();
+    Ok(models)
 }
