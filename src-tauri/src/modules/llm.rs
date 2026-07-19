@@ -367,10 +367,13 @@ impl LlmClient {
                                 .and_then(|v| v.as_str())
                             {
                                 full_text.push_str(delta);
-                                let _ = app.emit(event_channel, serde_json::json!({
-                                    "delta": delta,
-                                    "done": false,
-                                }));
+                                let _ = app.emit(
+                                    event_channel,
+                                    serde_json::json!({
+                                        "delta": delta,
+                                        "done": false,
+                                    }),
+                                );
                             }
                         }
                     }
@@ -381,10 +384,13 @@ impl LlmClient {
         }
 
         // Signal stream end
-        let _ = app.emit(event_channel, serde_json::json!({
-            "delta": "",
-            "done": true,
-        }));
+        let _ = app.emit(
+            event_channel,
+            serde_json::json!({
+                "delta": "",
+                "done": true,
+            }),
+        );
 
         Ok(full_text)
     }
@@ -652,24 +658,29 @@ impl LlmClient {
                                     let mut has_content = false;
                                     let mut chunk_has_reasoning = false;
                                     let mut chunk_has_content = false;
-                                    
-                                    if let Some(delta) = json.pointer("/choices/0/delta/content").and_then(|v| v.as_str()) {
+
+                                    if let Some(delta) = json
+                                        .pointer("/choices/0/delta/content")
+                                        .and_then(|v| v.as_str())
+                                    {
                                         content_len += delta.len();
-                                        if !delta.is_empty() { 
-                                            has_content = true; 
+                                        if !delta.is_empty() {
+                                            has_content = true;
                                             chunk_has_content = true;
                                         }
                                     }
-                                    if let Some(reason) = json.pointer("/choices/0/delta/reasoning_content")
+                                    if let Some(reason) = json
+                                        .pointer("/choices/0/delta/reasoning_content")
                                         .or_else(|| json.pointer("/choices/0/delta/reasoning"))
-                                        .and_then(|v| v.as_str()) {
+                                        .and_then(|v| v.as_str())
+                                    {
                                         reasoning_len += reason.len();
-                                        if !reason.is_empty() { 
-                                            has_content = true; 
+                                        if !reason.is_empty() {
+                                            has_content = true;
                                             chunk_has_reasoning = true;
                                         }
                                     }
-                                    
+
                                     let current_elapsed = start_time.elapsed().as_millis() as u32;
 
                                     if has_content && ttft.is_none() {
@@ -682,12 +693,19 @@ impl LlmClient {
 
                                     if let Some(usage) = json.get("usage") {
                                         if !usage.is_null() {
-                                            if let Some(ct) = usage.get("completion_tokens").and_then(|v| v.as_u64()) {
+                                            if let Some(ct) = usage
+                                                .get("completion_tokens")
+                                                .and_then(|v| v.as_u64())
+                                            {
                                                 usage_completion_tokens = Some(ct as u32);
                                             }
-                                            if let Some(rt) = usage.pointer("/completion_tokens_details/reasoning_tokens")
+                                            if let Some(rt) = usage
+                                                .pointer(
+                                                    "/completion_tokens_details/reasoning_tokens",
+                                                )
                                                 .or_else(|| usage.get("reasoning_tokens"))
-                                                .and_then(|v| v.as_u64()) {
+                                                .and_then(|v| v.as_u64())
+                                            {
                                                 reasoning_tokens = Some(rt as u32);
                                             }
                                         }
@@ -703,7 +721,13 @@ impl LlmClient {
                 let elapsed_ms = start_time.elapsed().as_millis() as u32;
                 let final_ttft = ttft.unwrap_or(elapsed_ms);
 
-                let reas_tokens = reasoning_tokens.unwrap_or_else(|| if reasoning_len > 0 { (reasoning_len as u32 / 3).max(1) } else { 0 });
+                let reas_tokens = reasoning_tokens.unwrap_or_else(|| {
+                    if reasoning_len > 0 {
+                        (reasoning_len as u32 / 3).max(1)
+                    } else {
+                        0
+                    }
+                });
                 let content_tokens = if let Some(total_ct) = usage_completion_tokens {
                     total_ct.saturating_sub(reas_tokens)
                 } else {
@@ -712,14 +736,22 @@ impl LlmClient {
 
                 let mut thinking_speed = 0.0;
                 let mut decode_speed = 0.0;
-                
+
                 let think_end = thinking_end_time.unwrap_or(elapsed_ms);
-                
+
                 let thinking_duration_ms = think_end.saturating_sub(final_ttft);
                 let decode_duration_ms = elapsed_ms.saturating_sub(think_end);
 
-                let total_thinking_secs = if thinking_duration_ms > 0 { thinking_duration_ms as f32 / 1000.0 } else { 0.001 };
-                let total_decode_secs = if decode_duration_ms > 0 { decode_duration_ms as f32 / 1000.0 } else { 0.001 };
+                let total_thinking_secs = if thinking_duration_ms > 0 {
+                    thinking_duration_ms as f32 / 1000.0
+                } else {
+                    0.001
+                };
+                let total_decode_secs = if decode_duration_ms > 0 {
+                    decode_duration_ms as f32 / 1000.0
+                } else {
+                    0.001
+                };
 
                 if reas_tokens > 0 {
                     thinking_speed = (reas_tokens as f32) / total_thinking_secs;

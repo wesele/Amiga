@@ -191,13 +191,10 @@ pub async fn grade_translation_cmd(
 }
 
 #[tauri::command]
-pub async fn fetch_models_cmd(
-    base_url: String,
-    api_key: String,
-) -> Result<Vec<String>, String> {
+pub async fn fetch_models_cmd(base_url: String, api_key: String) -> Result<Vec<String>, String> {
     let client = reqwest::Client::new();
     let url = format!("{}/models", base_url.trim_end_matches('/'));
-    
+
     let resp = client
         .get(&url)
         .header("Authorization", format!("Bearer {}", api_key))

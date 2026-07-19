@@ -339,11 +339,20 @@ pub async fn chat_completion_stream_with_session(
         _ => {
             log::warn!("Streaming failed or returned empty, falling back to non-streaming");
             // Emit done to unblock frontend
-            let _ = app.emit(event_channel, serde_json::json!({"delta": "", "done": true, "fallback": true}));
+            let _ = app.emit(
+                event_channel,
+                serde_json::json!({"delta": "", "done": true, "fallback": true}),
+            );
             let fallback_messages = {
-                let mut msgs = vec![ChatMessage { role: "system".to_string(), content: system }];
+                let mut msgs = vec![ChatMessage {
+                    role: "system".to_string(),
+                    content: system,
+                }];
                 for msg in &recent {
-                    msgs.push(ChatMessage { role: msg.role.clone(), content: msg.content.clone() });
+                    msgs.push(ChatMessage {
+                        role: msg.role.clone(),
+                        content: msg.content.clone(),
+                    });
                 }
                 msgs
             };

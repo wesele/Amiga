@@ -702,7 +702,10 @@ mod tests {
         ensure_default_prompts(&pool);
         let prompt = get_prompt(&pool, "soulmate-reply-options").unwrap();
         assert_eq!(prompt.category, "灵伴");
-        assert!(prompt.system_prompt.contains("TV remote") || prompt.system_prompt.contains("no typing"));
+        assert!(
+            prompt.system_prompt.contains("TV remote")
+                || prompt.system_prompt.contains("no typing")
+        );
         assert!(prompt.user_prompt_template.contains(r#"{"options""#));
         assert!(prompt.user_prompt_template.contains("{{CONVERSATION}}"));
         assert!(prompt.user_prompt_template.contains("{{TARGET_LANG}}"));
