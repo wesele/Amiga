@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/wesele/Amiga/master/public/amiga-icon.png" alt="Amiga Logo" width="120" height="120" style="border-radius: 24px;" />
+<img src="public/amiga-icon.png" alt="Amiga Logo" width="120" height="120" />
 
 # Amiga — 跨平台 AI 外语学习应用
 ### Cross-Platform AI Foreign Language Learning App
@@ -44,22 +44,17 @@
 
 ### 📱 真实应用界面精修图赏
 
-#### 1. 🎓 学习中心 (主界面) & 💬 SoulMate 灵伴情景伴读
-<p align="center">
-  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/cool-app-learn-hub.png" alt="Amiga 学习中心实际界面" width="45%" />
-  &nbsp;&nbsp;
-  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/cool-app-soulmate.png" alt="SoulMate 灵伴实际界面" width="45%" />
-</p>
+#### 🎓 学习中心 (主界面)
+![Amiga 学习中心实际界面](docs/images/cool-app-learn-hub.png)
 
-#### 2. 📺 Android TV 10-foot 遥控大屏模式
-<p align="center">
-  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/cool-app-tv-mode.png" alt="Amiga Android TV 大屏实际界面" width="92%" />
-</p>
+#### 💬 SoulMate 灵伴情景伴读
+![SoulMate 灵伴实际界面](docs/images/cool-app-soulmate.png)
 
-#### 3. 🏆 学习打卡与成就矩阵
-<p align="center">
-  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/cool-app-achievements.png" alt="Amiga 成就与打卡实际界面" width="45%" />
-</p>
+#### 📺 Android TV 10-foot 遥控大屏模式
+![Amiga Android TV 大屏实际界面](docs/images/cool-app-tv-mode.png)
+
+#### 🏆 学习打卡与成就矩阵
+![Amiga 成就与打卡实际界面](docs/images/cool-app-achievements.png)
 
 ---
 
@@ -118,15 +113,17 @@ Download pre-compiled binaries for your devices—**completely free, zero ads, u
 
 ### 📸 Real Application Showcase
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/cool-app-learn-hub.png" alt="Learn Hub" width="45%" />
-  &nbsp;&nbsp;
-  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/cool-app-soulmate.png" alt="SoulMate Companion" width="45%" />
-</p>
+#### 🎓 Learn Hub & Path
+![Learn Hub](docs/images/cool-app-learn-hub.png)
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/cool-app-tv-mode.png" alt="Android TV 10-foot UI" width="92%" />
-</p>
+#### 💬 SoulMate Companion
+![SoulMate Companion](docs/images/cool-app-soulmate.png)
+
+#### 📺 Android TV Widescreen Mode
+![Android TV 10-foot UI](docs/images/cool-app-tv-mode.png)
+
+#### 🏆 Achievements & Streaks
+![Achievements](docs/images/cool-app-achievements.png)
 
 ---
 
