@@ -1,5 +1,5 @@
 <template>
-  <div class="prompt-page">
+  <div class="prompt-page" :class="{ 'tv-content-pane': isTvMode }">
     <PageHeader :title="t('prompts.title')" variant="prompts">
       <template #actions>
         <button class="reset-all-btn" @click="showResetDialog = true">{{ t('prompts.resetAll') }}</button>
@@ -55,6 +55,7 @@ import { getAllPrompts, resetAllPrompts as apiResetAll } from "@/shared/backend/
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";
+import { isTvMode } from "@/shared/appMode.js";
 
 const router = useRouter();
 const { t } = useI18n();

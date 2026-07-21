@@ -19,7 +19,10 @@
                 <span
                   v-if="token.isWord"
                   class="message-word"
+                  :tabindex="isTvMode ? 0 : undefined"
                   @click.stop="onWordTap(token)"
+                  @keydown.enter.prevent="onWordTap(token)"
+                  @keydown.space.prevent="onWordTap(token)"
                 >{{ token.text }}</span>
                 <span v-else>{{ token.text }}</span>
               </template>
@@ -398,6 +401,10 @@ async function sendOption(option) {
   -webkit-user-select: text;
 }
 .message-word:hover { background: var(--blue-bg); }
+.message-word:focus-visible {
+  outline: 2px solid var(--primary, #1cb0f6);
+  background: var(--blue-bg, rgba(28, 176, 246, 0.15));
+}
 .role-user .bubble {
   border-radius: 18px 18px 5px 18px;
   background: #ff5d8f;

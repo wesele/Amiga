@@ -656,7 +656,7 @@ impl LlmClient {
                                 }
                                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
                                     let mut has_content = false;
-                                    let mut chunk_has_reasoning = false;
+                                    let mut _chunk_has_reasoning = false;
                                     let mut chunk_has_content = false;
 
                                     if let Some(delta) = json
@@ -677,7 +677,7 @@ impl LlmClient {
                                         reasoning_len += reason.len();
                                         if !reason.is_empty() {
                                             has_content = true;
-                                            chunk_has_reasoning = true;
+                                            _chunk_has_reasoning = true;
                                         }
                                     }
 

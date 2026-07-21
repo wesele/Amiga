@@ -20,7 +20,7 @@
         </div>
         <div v-if="translation.example" class="popup-example">{{ translation.example }}</div>
         <div class="popup-actions-row">
-          <button class="act-ai-translate" @click="openAiTranslate" :title="t('popup.aiTranslate')">
+          <button v-if="!isTvMode" class="act-ai-translate" @click="openAiTranslate" :title="t('popup.aiTranslate')">
             🤖
           </button>
           <div class="popup-actions-main">
@@ -53,6 +53,7 @@ import { translateText, translateWord } from "@/shared/backend/llm.js";
 import { useI18n } from "@/shared/i18n";
 import { openAiContact } from "@/shared/aiContact.js";
 import { pushInPageBackHandler } from "@/shared/inPageBack.js";
+import { isTvMode } from "@/shared/appMode.js";
 
 const props = defineProps({
   word: { type: String, required: true },

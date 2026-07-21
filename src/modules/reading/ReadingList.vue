@@ -26,6 +26,7 @@
           'is-regenerating': regeneratingId === article.id,
           'is-long-pressing': longPressArticleId === article.id,
         }"
+        :data-tv-preferred-focus="isTvMode && article.id === lastOpenedArticleId ? true : undefined"
         :role="article.isGenerating ? undefined : 'button'"
         :tabindex="article.isGenerating ? undefined : 0"
         @click="!article.isGenerating && onCardClick(article)"
@@ -255,7 +256,10 @@ async function ensureCurrentSlotArticle() {
   }
 }
 
+const lastOpenedArticleId = ref(null);
+
 function openArticle(id) {
+  lastOpenedArticleId.value = id;
   router.push(`/learn/reading/${id}`);
 }
 

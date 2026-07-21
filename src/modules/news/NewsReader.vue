@@ -8,7 +8,7 @@
         </svg>
       </button>
       <div class="header-info">
-        <div class="header-title">{{ article?.original_title }}</div>
+        <div class="header-title">{{ articleTitle }}</div>
         <div class="header-title-translation" v-if="bilingualMode && titleTranslation">{{ titleTranslation }}</div>
         <!-- TV: source is display-only (remote must not focus or open the original URL). -->
         <span
@@ -209,7 +209,7 @@ import { eventBus } from "@/shared/eventBus.js";
 import { openSourceUrl } from "./utils.js";
 import { displayLang } from "@/shared/constants.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { tokenizeArticleText } from "./articleText.js";
+import { cleanHtmlText, tokenizeArticleText } from "./articleText.js";
 import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
 import { useReadAloud } from "@/shared/readAloud.js";
@@ -235,6 +235,7 @@ let unsubscribe = null;
 let rewriteGeneration = 0;
 
 const blocksOnRewrite = shouldBlockUiOnRewrite(isTvMode);
+const articleTitle = computed(() => cleanHtmlText(article.value?.original_title || ""));
 const displayBody = computed(() => {
   const art = article.value;
   if (!art) return "";

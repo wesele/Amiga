@@ -13,9 +13,25 @@ export function getContext(fullText, word) {
   return fullText.slice(start, end).trim();
 }
 
+export function cleanHtmlText(text) {
+  if (!text) return "";
+  return text
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&quot;/gi, '"')
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'");
+}
+
 export function tokenizeArticleText(text) {
   if (!text) return [];
-  const parts = text.split(/(\s+)/);
+  const cleanText = cleanHtmlText(text);
+  const parts = cleanText.split(/(\s+)/);
   const result = [];
 
   for (const part of parts) {

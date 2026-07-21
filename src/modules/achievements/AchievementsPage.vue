@@ -81,6 +81,7 @@
               :key="badge.days"
               class="achievement-badge"
               :class="{ unlocked: badge.unlocked }"
+              :tabindex="isTvMode ? 0 : undefined"
             >
               <span class="badge-icon" aria-hidden="true">{{ badge.unlocked ? "✓" : group.icon }}</span>
               <span class="badge-name">{{ badge.label }}</span>
@@ -625,6 +626,13 @@ onMounted(async () => {
 .tv-achievements .achievement-badge {
   padding: 6px 4px 5px;
   border-radius: 10px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.achievement-badge:focus-visible {
+  outline: 3px solid #1cb0f6;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.25);
 }
 
 .tv-achievements .badge-icon {

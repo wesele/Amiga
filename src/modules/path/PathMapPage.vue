@@ -100,6 +100,7 @@
                 type="button"
                 class="path-node"
                 :class="nodeClass(section)"
+                :data-tv-preferred-focus="isTvMode && (lastNodeId === section.id || (lastNodeId == null && section.current)) ? true : undefined"
                 :aria-disabled="isNodeDisabled(section) ? 'true' : 'false'"
                 :aria-label="nodeLabel(section)"
                 @click="startNode(section)"
@@ -236,7 +237,10 @@ function goBack() {
   router.replace({ name: "learn" });
 }
 
+const lastNodeId = ref(null);
+
 function startNode(section) {
+  lastNodeId.value = section.id;
   if (isNodeDisabled(section)) {
     // Give remote users an explicit reason instead of a silent no-op.
     if (section.locked) {

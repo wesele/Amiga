@@ -36,8 +36,8 @@
         </p>
         <p v-if="!result?.passed" class="retry-hint">{{ t("path.unlimitedRetry") }}</p>
         <div class="summary-actions">
-          <button class="action-btn secondary" @click="retryLesson">{{ t("path.retry") }}</button>
-          <button class="action-btn primary" @click="finishLesson">
+          <button class="action-btn secondary" :data-tv-preferred-focus="!result?.passed ? true : undefined" @click="retryLesson">{{ t("path.retry") }}</button>
+          <button class="action-btn primary" :data-tv-preferred-focus="result?.passed ? true : undefined" @click="finishLesson">
             {{ result?.passed ? t("path.continuePath") : t("path.backToPath") }}
           </button>
         </div>

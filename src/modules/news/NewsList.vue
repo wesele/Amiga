@@ -49,6 +49,7 @@
         class="article-card"
         role="button"
         tabindex="0"
+        :data-tv-preferred-focus="isTvMode && article.id === lastOpenedArticleId ? true : undefined"
         @click="openArticle(article.id)"
         @keydown.enter="openArticle(article.id)"
         @keydown.space.prevent="openArticle(article.id)"
@@ -205,7 +206,10 @@ async function onRefresh() {
   }
 }
 
+const lastOpenedArticleId = ref(null);
+
 function openArticle(id) {
+  lastOpenedArticleId.value = id;
   router.push(`/news/${id}`);
 }
 
