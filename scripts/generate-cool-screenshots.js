@@ -13,9 +13,9 @@ function fileToBase64(filePath) {
 }
 
 const learnHubB64 = fileToBase64(path.join(rootDir, 'docs/images/real-app-learn-hub.png'));
-const soulMateB64 = fileToBase64(path.join(rootDir, 'docs/images/real-app-soulmate-setup.png'));
+const soulMateB64 = fileToBase64(path.join(rootDir, 'docs/images/real-app-soulmate-male.png'));
 const achievementsB64 = fileToBase64(path.join(rootDir, 'docs/images/real-app-achievements.png'));
-const tvModeB64 = fileToBase64(path.join(rootDir, 'docs/images/real-app-tv-mode.png'));
+const tvModeB64 = fileToBase64(path.join(rootDir, 'docs/images/real-app-soulmate-female-tv.png'));
 
 // HTML template for Mobile Mockup
 function generateMobileMockupHtml(imgB64, title, subtitle) {
@@ -210,7 +210,7 @@ const targets = [
     name: 'cool-app-soulmate.png',
     width: 800,
     height: 1000,
-    html: generateMobileMockupHtml(soulMateB64, 'AI COMPANION', 'SoulMate 灵伴情景伴读')
+    html: generateMobileMockupHtml(soulMateB64, 'AI COMPANION', '每天，都有一封为你而来的信')
   },
   {
     name: 'cool-app-achievements.png',
@@ -222,7 +222,7 @@ const targets = [
     name: 'cool-app-tv-mode.png',
     width: 1280,
     height: 800,
-    html: generateTvMockupHtml(tvModeB64, 'ANDROID TV 10-FOOT UI', '客厅大屏 D-Pad 遥控器沉浸体验')
+    html: generateTvMockupHtml(tvModeB64, 'ANDROID TV 10-FOOT UI', '把故事与陪伴带到客厅大屏')
   }
 ];
 

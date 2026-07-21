@@ -56,21 +56,21 @@
       <sub>课程、新闻、阅读、口语、翻译与灵伴，从一个清爽入口开始。</sub>
     </td>
     <td width="50%" align="center" valign="top">
-      <img src="docs/images/cool-app-soulmate.png" alt="Amiga SoulMate 灵伴初始化" width="100%" />
+      <img src="docs/images/cool-app-soulmate.png" alt="Amiga 手机端男灵伴 Mateo" width="100%" />
       <br />
-      <strong>SoulMate 灵伴</strong>
+      <strong>Mateo · 手机端灵伴</strong>
       <br />
-      <sub>选择陪伴方式，让连续故事、共同记忆与语言练习自然发生。</sub>
+      <sub>每天一封为你而来的信，让连续故事、共同记忆与语言练习自然发生。</sub>
     </td>
   </tr>
 </table>
 
 <p align="center">
-  <img src="docs/images/cool-app-tv-mode.png" alt="Amiga Android TV 大屏界面" width="100%" />
+  <img src="docs/images/cool-app-tv-mode.png" alt="Amiga Android TV 女灵伴 Sofía 大屏界面" width="100%" />
   <br />
-  <strong>专为客厅打造的 Android TV 10-foot UI</strong>
+  <strong>Sofía · 客厅大屏灵伴</strong>
   <br />
-  <sub>大字号、清晰焦点与完整 D-Pad 遥控导航，让电视也成为沉浸式学习空间。</sub>
+  <sub>人物、故事与操作区为 16:9 电视重新编排，配合清晰焦点和 D-Pad 遥控导航。</sub>
 </p>
 
 <details>
