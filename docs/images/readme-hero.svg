@@ -1,0 +1,99 @@
+<svg width="1440" height="560" viewBox="0 0 1440 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1440" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#081129"/>
+      <stop offset="0.48" stop-color="#11183A"/>
+      <stop offset="1" stop-color="#071D28"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="310" y1="112" x2="1080" y2="465" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7CFF4F"/>
+      <stop offset="0.48" stop-color="#21C7F5"/>
+      <stop offset="1" stop-color="#A96BFF"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="white" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="white" stop-opacity="0.03"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="0" cy="0" r="1" gradientTransform="translate(1180 80) rotate(133) scale(520 430)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7B4DFF" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#7B4DFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="0" cy="0" r="1" gradientTransform="translate(170 520) rotate(-37) scale(520 350)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00D9B5" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#00D9B5" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+    <clipPath id="frame">
+      <rect width="1440" height="560" rx="30"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="1440" height="560" fill="url(#bg)"/>
+    <rect width="1440" height="560" fill="url(#glowA)"/>
+    <rect width="1440" height="560" fill="url(#glowB)"/>
+
+    <g opacity="0.18">
+      <path d="M-24 104H390L463 31H715" stroke="#70E7FF"/>
+      <path d="M1002 534L1111 425H1465" stroke="#A881FF"/>
+      <path d="M1188 -24V58L1278 148H1462" stroke="#75FF74"/>
+      <circle cx="462" cy="31" r="4" fill="#70E7FF"/>
+      <circle cx="1111" cy="425" r="4" fill="#A881FF"/>
+      <circle cx="1278" cy="148" r="4" fill="#75FF74"/>
+    </g>
+
+    <g opacity="0.12">
+      <circle cx="1178" cy="282" r="196" stroke="white"/>
+      <circle cx="1178" cy="282" r="154" stroke="white"/>
+      <circle cx="1178" cy="282" r="112" stroke="white"/>
+      <path d="M982 282H1374M1178 86V478" stroke="white"/>
+      <path d="M1038 145L1318 419M1318 145L1038 419" stroke="white"/>
+    </g>
+
+    <rect x="78" y="63" width="170" height="36" rx="18" fill="url(#glass)" stroke="white" stroke-opacity="0.15"/>
+    <circle cx="99" cy="81" r="5" fill="#7CFF4F"/>
+    <text x="115" y="87" fill="#D8E3FF" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="2">OPEN SOURCE</text>
+
+    <text x="76" y="224" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="108" font-weight="800" letter-spacing="-5">AMIGA</text>
+    <rect x="79" y="246" width="588" height="6" rx="3" fill="url(#accent)"/>
+    <text x="78" y="310" fill="#E6EBFF" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="600">AI language learning, made personal.</text>
+    <text x="79" y="351" fill="#9EA9C9" font-family="Arial, Helvetica, sans-serif" font-size="21">Learn · Read · Speak · Remember</text>
+
+    <g font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">
+      <rect x="78" y="403" width="132" height="44" rx="22" fill="url(#glass)" stroke="white" stroke-opacity="0.15"/>
+      <text x="103" y="431" fill="#DDE6FF">WINDOWS</text>
+      <rect x="222" y="403" width="132" height="44" rx="22" fill="url(#glass)" stroke="white" stroke-opacity="0.15"/>
+      <text x="245" y="431" fill="#DDE6FF">ANDROID</text>
+      <rect x="366" y="403" width="166" height="44" rx="22" fill="url(#glass)" stroke="white" stroke-opacity="0.15"/>
+      <text x="391" y="431" fill="#DDE6FF">ANDROID TV</text>
+    </g>
+
+    <g transform="translate(922 103)">
+      <circle cx="212" cy="178" r="146" fill="#38D8F2" fill-opacity="0.09" filter="url(#soft)"/>
+      <circle cx="212" cy="178" r="140" stroke="url(#accent)" stroke-width="2" stroke-dasharray="8 12" opacity="0.72"/>
+      <circle cx="212" cy="178" r="105" fill="#0C1730" stroke="white" stroke-opacity="0.12" stroke-width="2"/>
+      <path d="M211 96L284 258H248L231 217H165L148 258H112L184 96H211ZM198 138L177 187H219L198 138Z" fill="url(#accent)"/>
+      <circle cx="211" cy="177" r="125" stroke="white" stroke-opacity="0.06" stroke-width="18"/>
+      <circle cx="351" cy="177" r="8" fill="#7CFF4F"/>
+      <circle cx="72" cy="177" r="8" fill="#A96BFF"/>
+    </g>
+
+    <g font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">
+      <rect x="875" y="83" width="94" height="36" rx="18" fill="#172443" stroke="#48DBFF" stroke-opacity="0.55"/>
+      <text x="897" y="107" fill="#BDEFFF">HELLO</text>
+      <rect x="1231" y="119" width="91" height="36" rx="18" fill="#172443" stroke="#AD7BFF" stroke-opacity="0.55"/>
+      <text x="1254" y="143" fill="#E1CFFF">HOLA</text>
+      <rect x="1216" y="401" width="110" height="36" rx="18" fill="#172443" stroke="#7CFF4F" stroke-opacity="0.55"/>
+      <text x="1237" y="425" fill="#D9FFC9">SALUT</text>
+      <rect x="877" y="428" width="112" height="36" rx="18" fill="#172443" stroke="#F0B4FF" stroke-opacity="0.55"/>
+      <text x="902" y="452" fill="#F7D6FF">你好</text>
+    </g>
+
+    <rect x="1" y="1" width="1438" height="558" rx="29" stroke="white" stroke-opacity="0.12" stroke-width="2"/>
+  </g>
+</svg>
