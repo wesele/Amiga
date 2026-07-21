@@ -33,7 +33,7 @@ export async function loadLearningContext(options = {}) {
   let currentGoal = null;
 
   if (loadGoals && user?.id) {
-    goals = await getLearningGoals(user.id);
+    goals = (await getLearningGoals(user.id)) || [];
     currentGoal = pickLearningGoal(goals, targetLang);
     if (!currentGoal && fallbackToFirstGoal && goals.length) {
       currentGoal = goals[0];

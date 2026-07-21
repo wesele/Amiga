@@ -76,6 +76,18 @@ if (typeof isTauri === "function" ? !isTauri() : !isTauri) {
     if (command === "get_current_user") {
       return { id: "user-123", native_language: "zh" };
     }
+    if (command === "get_learning_goals_cmd") {
+      return [{ id: 1, user_id: "user-123", target_language: "es", current_cefr: "A1", target_cefr: "B2", daily_vocab_goal: 15 }];
+    }
+    if (command === "get_user_vocab_stats_cmd") {
+      return { total_count: 380, mastered_count: 210, reviewing_count: 120, unmastered_count: 50, d_level_count: 0 };
+    }
+    if (command === "get_user_streak_cmd") {
+      return { current_streak: 14, best_streak: 30, total_days: 28 };
+    }
+    if (command === "get_section_progress_cmd") {
+      return { completed_count: 8, total_count: 12, stars: 24, is_unlocked: true };
+    }
     return null;
   };
 }
