@@ -18,10 +18,6 @@
 
 <br />
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/amiga-banner.jpg" alt="Amiga Banner" width="100%" />
-</p>
-
 ---
 
 ## 🇨🇳 Amiga - 跨平台 AI 外语学习应用 (中文)
@@ -46,38 +42,31 @@
 
 ---
 
+### 📱 真实应用界面截图
+
+#### 1. 🎓 学习中心 & 晋级之路 (主界面)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/real-app-learn-hub.png" alt="Amiga 学习中心实际界面" width="380" />
+</p>
+
+#### 2. 📺 Android TV 10-foot 遥控大屏模式
+<p align="center">
+  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/real-app-tv-mode.png" alt="Amiga Android TV 大屏实际界面" width="70% " />
+</p>
+
+#### 3. 🏆 学习打卡与成就轨迹
+<p align="center">
+  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/real-app-achievements.png" alt="Amiga 成就与打卡实际界面" width="380" />
+</p>
+
+---
+
 ### ✨ 核心功能亮点
 
-#### 1. 📰 AI 沉浸式双语新闻阅读
-- **每日智能推送**：实时生成并翻译中英/中西/多语种平行新闻资讯。
-- **CEFR 难度分级**：自动标注 A1 - C2 词汇难度，点击即查即译。
-- **AI 句法语法剖析**：不懂长难句？AI 一键拆解句子成分与语法结构。
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/feature-ai-news.jpg" alt="AI News Feature" width="100%" />
-</p>
-
-#### 2. 💬 SoulMate 灵伴故事与情景口语
-- **多角色 AI 伴读**：自定义 AI 伙伴性格与剧情场景（职场面试、旅行穿梭、日常唠嗑）。
-- **实时语音与发音比对**：支持实时语音对话、TTS 播报与精准发音指导。
-- **智能推荐回复**：卡壳时 AI 提供表达灵感，告别哑巴外语。
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/feature-soulmate.jpg" alt="SoulMate Feature" width="100%" />
-</p>
-
-#### 3. 📺 Android TV 10-foot 遥控大屏体验
-- **客厅学习新范式**：专为电视客厅大屏重构的视觉与交互。
-- **全遥控器按键适配**：支持上下左右 D-Pad 方向键无缝焦距切换，摆脱鼠标依赖。
-- **超大字号与远视距清晰度**：沉浸大屏视听，打造家庭外语学习角。
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/feature-tv-mode.jpg" alt="Android TV Feature" width="100%" />
-</p>
-
-#### 4. 🧠 智能词库与 SuperMemo SRS 记忆算法
-- **科学间隔复习**：根据遗忘曲线自动调度复习节奏，拒绝盲目背词。
-- **多模式互动练习**：拼写、单选、听音选词、例句填空全覆盖。
+- **📰 AI 沉浸式双语新闻阅读**：实时生成并翻译中英/中西/多语种平行新闻资讯，CEFR 难度自动分级，支持长难句 AI 句法剖析。
+- **💬 SoulMate 灵伴故事与情景口语**：自定义 AI 伙伴性格与剧情场景（职场面试、旅行穿梭、日常唠嗑），支持语音对话与精准发音指导。
+- **📺 Android TV 10-foot 遥控大屏体验**：专为电视客厅大屏重构的视觉与交互，全遥控器按键适配，支持上下左右 D-Pad 方向键无缝切焦。
+- **🧠 智能词库与 SuperMemo SRS 记忆算法**：根据遗忘曲线自动调度复习节奏，涵盖拼写、单选、听音选词等多种练习。
 
 ---
 
@@ -122,6 +111,20 @@ Download pre-compiled binaries for your devices—**completely free, zero ads, u
 | **💻 Windows Desktop** | Windows 10 / 11 | [📥 Visit Latest GitHub Release](https://github.com/wesele/Amiga/releases/latest) | MSI & NSIS Installers |
 
 > 🔗 For older versions and release assets, visit [GitHub Releases](https://github.com/wesele/Amiga/releases).
+
+---
+
+### 📸 Real Application Screenshots
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/real-app-learn-hub.png" alt="Learn Hub" width="300" />
+  &nbsp;&nbsp;
+  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/real-app-achievements.png" alt="Achievements" width="300" />
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/real-app-tv-mode.png" alt="Android TV 10-foot UI" width="70%" />
+</p>
 
 ---
 
