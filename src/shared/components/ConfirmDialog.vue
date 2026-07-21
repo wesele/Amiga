@@ -19,8 +19,9 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onBeforeUnmount, watch } from "vue";
 import { useI18n } from "@/shared/i18n";
+import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
 const props = defineProps({
   show: Boolean,
@@ -32,12 +33,29 @@ const props = defineProps({
   alertOnly: Boolean,
   confirmDisabled: Boolean,
 });
-defineEmits(["confirm", "cancel"]);
+const emit = defineEmits(["confirm", "cancel"]);
+let releaseBackHandler = null;
 
 const { t } = useI18n();
 const titleText = computed(() => props.title || t("confirm.defaultTitle"));
 const confirmBtn = computed(() => props.confirmText || t("confirm.defaultConfirm"));
 const cancelBtn = computed(() => props.cancelText || t("confirm.defaultCancel"));
+
+watch(
+  () => props.show,
+  (show) => {
+    releaseBackHandler?.();
+    releaseBackHandler = null;
+    if (!show) return;
+    releaseBackHandler = pushInPageBackHandler(() => {
+      emit("cancel");
+      return "navigated";
+    });
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => releaseBackHandler?.());
 </script>
 
 <style scoped>

@@ -28,9 +28,9 @@ describe("achievement matrix", () => {
     expect([0, 1, 2].map(speakingLevel)).toEqual(["empty", "active", "complete"]);
   });
 
-  it("hides speaking track on TV capability model", () => {
-    expect(achievementTracksForMode(true)).toEqual(["readingAm", "news", "readingPm"]);
-    expect(achievementTracksForMode(false)).toContain("speaking");
+  it("includes appOpen track in achievement heat maps", () => {
+    expect(achievementTracksForMode(true)).toEqual(["readingAm", "news", "readingPm", "appOpen"]);
+    expect(achievementTracksForMode(false)).toContain("appOpen");
   });
 });
 
@@ -73,7 +73,7 @@ describe("AchievementsPage", () => {
     expect(wrapper.find(".color-legend").exists()).toBe(false);
     expect(wrapper.findAll(".achievement-group")).toHaveLength(3);
     expect(wrapper.findAll(".achievement-badge")).toHaveLength(12);
-    expect(wrapper.findAll(".achievement-badge.unlocked")).toHaveLength(3);
+    expect(wrapper.findAll(".achievement-badge.unlocked")).toHaveLength(4);
   });
 
   it("uses a fixed-height single-screen layout with 12 compact columns", () => {
@@ -124,5 +124,59 @@ describe("AchievementsPage", () => {
     expect(source).toMatch(
       /\.tv-achievements \.week-row\s*\{[^}]*grid-template-columns:\s*repeat\(7/s,
     );
+  });
+
+  it("opens day detail modal when clicking a day cell", async () => {
+    api.__setInvoke(vi.fn((command) => {
+      if (command === "get_current_user") return Promise.resolve({ id: "u1" });
+      if (command === "record_app_open_cmd") return Promise.resolve(true);
+      if (command === "get_achievement_days_cmd") {
+        return Promise.resolve([{
+          date: "2026-07-21",
+          reading_am: 2,
+          reading_pm: 1,
+          news_count: 3,
+          speaking_count: 1,
+        }]);
+      }
+      if (command === "get_achievement_progress_cmd") {
+        return Promise.resolve({
+          check_in_current: 7,
+          check_in_best: 7,
+          full_learning_current: 7,
+          full_learning_best: 7,
+          learning_total: 7,
+        });
+      }
+      return Promise.resolve(null);
+    }));
+
+    const wrapper = mount(AchievementsPage, { attachTo: document.body });
+    await flushPromises();
+
+    // Verify 7 total learning days unlocks the 7-day milestone badge (1 week)
+    const groups = wrapper.findAll(".achievement-group");
+    const totalLearningGroup = groups[2];
+    expect(totalLearningGroup.text()).toContain("累计一周");
+    expect(totalLearningGroup.findAll(".achievement-badge.unlocked")).toHaveLength(1);
+
+    // Click the first day cell
+    const dayCell = wrapper.find(".day-cell");
+    await dayCell.trigger("click");
+    await flushPromises();
+
+    const modal = document.querySelector(".day-detail-modal");
+    expect(modal).not.toBeNull();
+    expect(modal.textContent).toContain("学习内容");
+    expect(modal.textContent).toContain("上午阅读");
+    expect(modal.textContent).toContain("下午阅读");
+    expect(modal.textContent).toContain("新闻阅读");
+
+    // Click close button
+    const closeBtn = modal.querySelector(".btn-dialog-close");
+    closeBtn.click();
+    await flushPromises();
+    expect(document.querySelector(".day-detail-modal")).toBeNull();
+    wrapper.unmount();
   });
 });

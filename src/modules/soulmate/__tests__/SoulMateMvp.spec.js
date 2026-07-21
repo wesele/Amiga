@@ -38,6 +38,7 @@ describe("Soul Mate MVP", () => {
   let mockInvoke;
 
   beforeEach(() => {
+    delete window.__amigaGoBackInPage;
     setActivePinia(createPinia());
     setLocale("zh", { persist: false });
     mockInvoke = vi.fn(baseInvoke);
@@ -73,6 +74,25 @@ describe("Soul Mate MVP", () => {
       }),
     );
     expect(router.currentRoute.value.name).toBe("soulmate");
+  });
+
+  it("uses remote Back to move to the previous Soul Mate setup step", async () => {
+    const router = makeRouter();
+    await router.push({ name: "soulmate-setup" });
+    const wrapper = mount(SoulMateSetup, {
+      global: { plugins: [router], stubs: { PageHeader: { template: "<header />" } } },
+    });
+    await flushPromises();
+
+    await wrapper.find(".primary-btn").trigger("click");
+    await wrapper.find(".primary-btn").trigger("click");
+    expect(wrapper.find(".flavor-step").exists()).toBe(true);
+
+    expect(window.__amigaGoBackInPage()).toBe("navigated");
+    await flushPromises();
+    expect(wrapper.find(".flavor-step").exists()).toBe(false);
+    expect(wrapper.find(".step-meta").text()).toContain("2");
+    wrapper.unmount();
   });
 
   it("loads and updates existing Soul Mate settings", async () => {

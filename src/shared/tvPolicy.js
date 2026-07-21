@@ -46,8 +46,8 @@ export function shouldShowOriginalWhileRewriting(tvMode = false) {
 }
 
 /** Achievement heat-map tracks exposed in the UI. */
-export const ACHIEVEMENT_TRACKS_DEFAULT = ["readingAm", "news", "readingPm", "speaking"];
-export const ACHIEVEMENT_TRACKS_TV = ["readingAm", "news", "readingPm"];
+export const ACHIEVEMENT_TRACKS_DEFAULT = ["readingAm", "news", "readingPm", "appOpen"];
+export const ACHIEVEMENT_TRACKS_TV = ["readingAm", "news", "readingPm", "appOpen"];
 
 export function achievementTracksForMode(tvMode = false) {
   return tvMode ? [...ACHIEVEMENT_TRACKS_TV] : [...ACHIEVEMENT_TRACKS_DEFAULT];

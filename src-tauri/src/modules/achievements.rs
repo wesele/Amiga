@@ -11,6 +11,7 @@ pub struct AchievementDay {
     pub reading_pm: i32,
     pub news_count: i32,
     pub speaking_count: i32,
+    pub app_open: i32,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -68,17 +69,18 @@ fn calculate_progress(
     let full_learning_dates = days
         .iter()
         .filter(|day| {
-            day.reading_am >= 2
-                && day.reading_pm >= 2
-                && day.news_count >= 3
-                && day.speaking_count >= 2
+            let active_count = (day.reading_am >= 1) as i32
+                + (day.reading_pm >= 1) as i32
+                + (day.news_count >= 1) as i32
+                + (day.app_open >= 1) as i32;
+            active_count >= 2
         })
         .filter_map(|day| NaiveDate::parse_from_str(&day.date, "%Y-%m-%d").ok())
         .collect::<BTreeSet<_>>();
     let learning_total = days
         .iter()
         .filter(|day| {
-            day.reading_am > 0 || day.reading_pm > 0 || day.news_count > 0 || day.speaking_count > 0
+            day.reading_am > 0 || day.reading_pm > 0 || day.news_count > 0 || day.app_open > 0
         })
         .count() as i32;
     let (check_in_current, check_in_best) = streak_metrics(check_in_dates, today);
@@ -211,6 +213,30 @@ pub fn get_achievement_days(
         }
     }
 
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT date FROM streak_records
+                 WHERE user_id = ?1 AND date BETWEEN ?2 AND ?3",
+            )
+            .map_err(|e| format!("Failed to prepare app open achievements query: {e}"))?;
+        let rows = stmt
+            .query_map(params![user_id, start_date, end_date], |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(|e| format!("Failed to query app open achievements: {e}"))?;
+
+        for date_res in rows {
+            let date =
+                date_res.map_err(|e| format!("Failed to read app open achievement row: {e}"))?;
+            let day = days.entry(date.clone()).or_insert_with(|| AchievementDay {
+                date,
+                ..Default::default()
+            });
+            day.app_open = 1;
+        }
+    }
+
     Ok(days.into_values().collect())
 }
 
@@ -265,6 +291,7 @@ mod tests {
                 reading_pm: 2,
                 news_count: 2,
                 speaking_count: 1,
+                app_open: 0,
             }
         );
     }
@@ -295,6 +322,7 @@ mod tests {
                 reading_pm: 2,
                 news_count: 3,
                 speaking_count: 2,
+                app_open: 1,
             },
             AchievementDay {
                 date: "2026-07-09".into(),
@@ -302,10 +330,12 @@ mod tests {
                 reading_pm: 2,
                 news_count: 3,
                 speaking_count: 2,
+                app_open: 1,
             },
             AchievementDay {
                 date: "2026-07-10".into(),
                 reading_am: 1,
+                news_count: 1,
                 ..Default::default()
             },
         ];
@@ -313,8 +343,8 @@ mod tests {
         let progress = calculate_progress(&check_ins, &days, today);
         assert_eq!(progress.check_in_current, 3);
         assert_eq!(progress.check_in_best, 3);
-        assert_eq!(progress.full_learning_current, 2);
-        assert_eq!(progress.full_learning_best, 2);
+        assert_eq!(progress.full_learning_current, 3);
+        assert_eq!(progress.full_learning_best, 3);
         assert_eq!(progress.learning_total, 3);
     }
 }

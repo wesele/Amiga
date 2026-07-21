@@ -1,8 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
 import ModalShell from "@/shared/components/ModalShell.vue";
 
 describe("ModalShell", () => {
+  afterEach(() => {
+    delete window.__amigaGoBackInPage;
+  });
   function mountShell(props = {}, slots = {}) {
     return mount(ModalShell, {
       props: { show: true, title: "Title", description: "Description", ...props },
@@ -42,5 +45,12 @@ describe("ModalShell", () => {
   it("hides content when show is false", () => {
     const wrapper = mountShell({ show: false });
     expect(wrapper.find(".modal-overlay").exists()).toBe(false);
+  });
+
+  it("consumes remote Back and emits close", () => {
+    const wrapper = mountShell();
+    expect(window.__amigaGoBackInPage()).toBe("navigated");
+    expect(wrapper.emitted("close")).toHaveLength(1);
+    wrapper.unmount();
   });
 });

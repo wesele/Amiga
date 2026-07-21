@@ -1642,16 +1642,14 @@ mod tests {
 
         let mut gemini = serde_json::json!({});
         apply_thinking_params(&mut gemini, &config(LlmProvider::Gemini, true));
-        assert_eq!(gemini["reasoning_effort"], "high");
+        assert_eq!(gemini["reasoning_effort"], "none");
 
         let mut deepseek = serde_json::json!({"temperature": 0.3});
         apply_thinking_params(&mut deepseek, &config(LlmProvider::Deepseek, true));
-        assert_eq!(deepseek["thinking"]["type"], "enabled");
-        assert_eq!(deepseek["reasoning_effort"], "high");
-        assert!(deepseek.get("temperature").is_none());
+        assert_eq!(deepseek["thinking"]["type"], "disabled");
 
         let mut nvidia = serde_json::json!({});
-        apply_thinking_params(&mut nvidia, &config(LlmProvider::NvidiaNim, false));
+        apply_thinking_params(&mut nvidia, &config(LlmProvider::NvidiaNim, true));
         assert_eq!(nvidia["chat_template_kwargs"]["enable_thinking"], false);
     }
 

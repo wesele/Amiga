@@ -1,1 +1,1 @@
-export { extractWordTexts, getContext, tokenizeArticleText } from "@/shared/articleText.js";
+export { cleanHtmlText, extractWordTexts, getContext, tokenizeArticleText } from "@/shared/articleText.js";

@@ -4,16 +4,24 @@ import { isTvScrollKey, scrollDeltaForArrowKey, scrollDeltaForKey } from "@/shar
 // Header/page back controls are remote-Back only — never enter the D-pad focus graph.
 // Links with tabindex=-1 (e.g. news source URLs on TV) must stay out of D-pad focus.
 const FOCUSABLE_SELECTOR = [
-  "button:not(:disabled):not(.back-btn):not(.close-btn)",
+  "button:not(:disabled):not([tabindex='-1']):not(.back-btn):not(.close-btn)",
   "a[href]:not([tabindex='-1']):not(.back-btn):not(.card-source):not(.header-source)",
-  "input:not(:disabled):not([type='hidden'])",
-  "select:not(:disabled)",
-  "textarea:not(:disabled)",
-  "[role='button']:not([aria-disabled='true']):not(.back-btn):not(.close-btn)",
+  "input:not(:disabled):not([type='hidden']):not([tabindex='-1'])",
+  "select:not(:disabled):not([tabindex='-1'])",
+  "textarea:not(:disabled):not([tabindex='-1'])",
+  "[role='button']:not([aria-disabled='true']):not([tabindex='-1']):not(.back-btn):not(.close-btn)",
   "[tabindex]:not([tabindex='-1']):not(.back-btn):not(.close-btn)",
 ].join(",");
 
 const DIRECTION_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
+const TV_OVERLAY_SELECTOR = [
+  ".modal-overlay",
+  ".confirm-overlay",
+  ".popup-overlay",
+  ".sel-overlay",
+  ".level-overlay",
+  ".restore-overlay",
+].join(", ");
 
 /** True for UI back/close chrome that must never take D-pad focus on TV. */
 export function isTvRemoteBackControl(element) {
@@ -45,14 +53,28 @@ export function isTvNavItem(element) {
 }
 
 export function focusableElements(root = document) {
-  // Word popup / selection overlays use .popup-overlay / .sel-overlay (not only .modal-overlay).
-  const overlays = Array.from(
-    root.querySelectorAll?.(".modal-overlay, .popup-overlay, .sel-overlay, .level-overlay") || [],
-  ).filter(isVisible);
+  // Only the top visible layer participates in the focus graph. This includes
+  // shared confirm dialogs and the first-launch restore layer, not only modals.
+  const overlays = visibleTvOverlays(root);
   const scope = overlays.at(-1) || root;
   return Array.from(scope.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
     (el) => isVisible(el) && !isTvRemoteBackControl(el),
   );
+}
+
+export function visibleTvOverlays(root = document) {
+  return Array.from(root.querySelectorAll?.(TV_OVERLAY_SELECTOR) || []).filter(isVisible);
+}
+
+/** Text/range controls own horizontal arrows while the user edits a value. */
+export function shouldYieldTvDirectionToControl(element, key) {
+  if (!element || (key !== "ArrowLeft" && key !== "ArrowRight")) return false;
+  if (element.matches?.("textarea, select")) return true;
+  if (!element.matches?.("input")) return false;
+  const type = String(element.getAttribute?.("type") || "text").toLowerCase();
+  return !new Set([
+    "button", "checkbox", "color", "file", "hidden", "image", "radio", "reset", "submit",
+  ]).has(type);
 }
 
 function center(rect) {
@@ -417,6 +439,7 @@ export function focusElement(element, { activateNav = false } = {}) {
 export function pickPreferredContentFocus(candidates = []) {
   const content = candidates.filter((c) => getTvFocusRegion(c) === "content");
   if (!content.length) return null;
+  const nonDeferred = content.filter((c) => !c.hasAttribute?.("data-tv-defer-focus"));
   return (
     content.find((c) => c.hasAttribute?.("data-tv-preferred-focus"))
     || content.find((c) => c.classList?.contains("reply-option"))
@@ -424,9 +447,52 @@ export function pickPreferredContentFocus(candidates = []) {
     || content.find((c) => c.classList?.contains("audio-btn"))
     || content.find((c) => c.classList?.contains("story-action"))
     || content.find((c) => c.classList?.contains("result-btn"))
+    || content.find((c) => c.classList?.contains("article-card"))
+    || content.find((c) => c.classList?.contains("path-node"))
+    || content.find((c) => c.classList?.contains("level-card"))
+    || content.find((c) => c.classList?.contains("prompt-card"))
     || content.find((c) => isArticleWord(c))
-    || content[0]
+    || nonDeferred[0]
+    || null
   );
+}
+
+/** Build a stable-enough bookmark for restoring focus after route round-trips. */
+export function createTvFocusBookmark(element, candidates = []) {
+  if (!element || getTvFocusRegion(element) !== "content") return null;
+  const content = candidates.filter((candidate) => getTvFocusRegion(candidate) === "content");
+  const index = content.indexOf(element);
+  if (index < 0) return null;
+  const key =
+    element.getAttribute?.("data-tv-focus-key")
+    || element.id
+    || element.getAttribute?.("data-level")
+    || element.getAttribute?.("data-article-id")
+    || element.getAttribute?.("data-node-id")
+    || element.getAttribute?.("name")
+    || "";
+  return { key, index };
+}
+
+/** Resolve a route bookmark against the newly-mounted page DOM. */
+export function resolveTvFocusBookmark(bookmark, candidates = []) {
+  if (!bookmark) return null;
+  const content = candidates.filter((candidate) => getTvFocusRegion(candidate) === "content");
+  if (bookmark.key) {
+    const keyed = content.find((candidate) => {
+      const keys = [
+        candidate.getAttribute?.("data-tv-focus-key"),
+        candidate.id,
+        candidate.getAttribute?.("data-level"),
+        candidate.getAttribute?.("data-article-id"),
+        candidate.getAttribute?.("data-node-id"),
+        candidate.getAttribute?.("name"),
+      ];
+      return keys.includes(bookmark.key);
+    });
+    if (keyed) return keyed;
+  }
+  return content[bookmark.index] || null;
 }
 
 /**
@@ -443,6 +509,7 @@ export function resolveInitialTvFocus({
   force = false,
   keepNavFocus = false,
   body = null,
+  restored = null,
 } = {}) {
   if (force && keepNavFocus) {
     const activeNav = candidates.find(
@@ -451,13 +518,15 @@ export function resolveInitialTvFocus({
     if (activeNav) return { kind: "nav", element: activeNav };
   }
 
-  const contentFirst = pickPreferredContentFocus(candidates);
+  const contentFirst = restored || pickPreferredContentFocus(candidates);
   const stuckOnNav = Boolean(active && getTvFocusRegion(active) === "nav");
+  const activeIsUsable = Boolean(active && candidates.includes(active));
   const needsContentFocus =
     force
     || !active
     || (body && active === body)
-    || stuckOnNav;
+    || stuckOnNav
+    || !activeIsUsable;
 
   if (needsContentFocus && contentFirst) {
     return { kind: "content", element: contentFirst };
@@ -477,6 +546,23 @@ export function installTvRemoteNavigation({ router, targetWindow = window } = {}
   let contentFocusRetryTimer = null;
   let contentFocusRetryAttempts = 0;
   let lastContentFocusX = null;
+  const routeFocusMemory = new Map();
+  let lastOverlay = null;
+  let focusBeforeOverlay = null;
+  let routeTransitionBookmark = null;
+  let routeTransitionFocusPending = false;
+
+  const routeKey = (route) => {
+    if (!route?.name) return route?.fullPath || "";
+    return `${String(route.name)}:${JSON.stringify(route.params || {})}`;
+  };
+
+  function rememberRouteFocus(route) {
+    if (!route || visibleTvOverlays(documentRef).length) return;
+    const candidates = focusableElements(documentRef);
+    const bookmark = createTvFocusBookmark(documentRef.activeElement, candidates);
+    if (bookmark) routeFocusMemory.set(routeKey(route), bookmark);
+  }
 
   function clearContentFocusRetry() {
     if (contentFocusRetryTimer != null) {
@@ -487,7 +573,7 @@ export function installTvRemoteNavigation({ router, targetWindow = window } = {}
   }
 
   /** Retry until content focusables appear (readers, slow LLM option lists). */
-  function scheduleContentFocusRetry() {
+  function scheduleContentFocusRetry(bookmark = null) {
     clearContentFocusRetry();
     const tick = () => {
       contentFocusRetryAttempts += 1;
@@ -499,13 +585,23 @@ export function installTvRemoteNavigation({ router, targetWindow = window } = {}
       const stuck =
         !active
         || active === documentRef.body
-        || getTvFocusRegion(active) === "nav";
-      const preferred = pickPreferredContentFocus(focusableElements(documentRef));
+        || getTvFocusRegion(active) === "nav"
+        || !active.isConnected;
+      const candidates = focusableElements(documentRef);
+      const restored = resolveTvFocusBookmark(bookmark, candidates);
+      const preferred = restored || pickPreferredContentFocus(candidates);
+      // Returning lists may mount their controls after an async fetch. Wait for
+      // the remembered item instead of briefly focusing an unrelated header action.
+      if (bookmark && !restored && contentFocusRetryAttempts < 120) {
+        contentFocusRetryTimer = targetWindow.setTimeout?.(tick, 50) ?? null;
+        return;
+      }
       // Prefer reply options / marked targets even if focus already sat on something weak.
       if (preferred?.classList?.contains("reply-option") || preferred?.hasAttribute?.("data-tv-preferred-focus")) {
         if (stuck || active !== preferred) {
           focusElement(preferred, { activateNav: false });
         }
+        routeTransitionFocusPending = false;
         clearContentFocusRetry();
         return;
       }
@@ -515,6 +611,7 @@ export function installTvRemoteNavigation({ router, targetWindow = window } = {}
       }
       if (preferred) {
         focusElement(preferred, { activateNav: false });
+        routeTransitionFocusPending = false;
         clearContentFocusRetry();
         return;
       }
@@ -528,20 +625,27 @@ export function installTvRemoteNavigation({ router, targetWindow = window } = {}
     contentFocusRetryTimer = targetWindow.setTimeout?.(tick, 50) ?? null;
   }
 
-  const focusFirst = (force = false) => nextTick(() => {
+  const focusFirst = (force = false, bookmark = null) => nextTick(() => {
     const candidates = focusableElements(documentRef);
     const active = documentRef.activeElement;
+    const restored = resolveTvFocusBookmark(bookmark, candidates);
+    if (force && bookmark && !restored) {
+      scheduleContentFocusRetry(bookmark);
+      return;
+    }
     const decision = resolveInitialTvFocus({
       candidates,
       active,
       force,
       keepNavFocus,
       body: documentRef.body,
+      restored,
     });
 
     if (decision.kind === "nav") {
       keepNavFocus = false;
       decision.element?.focus?.({ preventScroll: true });
+      routeTransitionFocusPending = false;
       return;
     }
 
@@ -549,12 +653,13 @@ export function installTvRemoteNavigation({ router, targetWindow = window } = {}
       keepNavFocus = false;
       focusElement(decision.element, { activateNav: false });
       lastContentFocusX = center(decision.element.getBoundingClientRect()).x;
+      routeTransitionFocusPending = false;
       return;
     }
 
     if (decision.kind === "retry") {
       keepNavFocus = false;
-      scheduleContentFocusRetry();
+      scheduleContentFocusRetry(bookmark);
     }
   });
 
@@ -569,7 +674,16 @@ export function installTvRemoteNavigation({ router, targetWindow = window } = {}
     }
 
     if (DIRECTION_KEYS.has(event.key)) {
+      if (event.isComposing || shouldYieldTvDirectionToControl(documentRef.activeElement, event.key)) {
+        return;
+      }
       const candidates = focusableElements(documentRef);
+      // A blocking/loading overlay with no actions must not leak navigation or
+      // scrolling into the obscured page underneath it.
+      if (!candidates.length && visibleTvOverlays(documentRef).length) {
+        event.preventDefault();
+        return;
+      }
       if (lastContentFocusX === null && documentRef.activeElement) {
         lastContentFocusX = center(documentRef.activeElement.getBoundingClientRect()).x;
       }
@@ -605,13 +719,55 @@ export function installTvRemoteNavigation({ router, targetWindow = window } = {}
   };
 
   documentRef.addEventListener("keydown", onKeyDown, true);
-  const removeAfterEach = router?.afterEach?.(() => focusFirst(true));
+  const removeBeforeEach = router?.beforeEach?.((to, from) => {
+    if (routeKey(to) !== routeKey(from)) rememberRouteFocus(from);
+    return true;
+  });
+  const removeAfterEach = router?.afterEach?.((to) => {
+    routeTransitionBookmark = routeFocusMemory.get(routeKey(to)) || null;
+    routeTransitionFocusPending = true;
+    focusFirst(true, routeTransitionBookmark);
+  });
   const observer = new MutationObserver(() => {
     const active = documentRef.activeElement;
-    const modal = Array.from(documentRef.querySelectorAll(".modal-overlay, .popup-overlay, .sel-overlay, .level-overlay")).filter(isVisible).at(-1);
-    if (modal && !modal.contains(active)) focusFirst(true);
-    // Do NOT yank focus off the L1 rail on arbitrary DOM mutations — the user may
-    // have moved there with Left. Loading content is handled by scheduleContentFocusRetry.
+    const modal = visibleTvOverlays(documentRef).at(-1) || null;
+
+    if (modal && !lastOverlay) {
+      focusBeforeOverlay = active && active !== documentRef.body ? active : null;
+      lastOverlay = modal;
+      focusFirst(true);
+      return;
+    }
+    if (!modal && lastOverlay) {
+      lastOverlay = null;
+      const returnTarget = focusBeforeOverlay;
+      focusBeforeOverlay = null;
+      const candidates = focusableElements(documentRef);
+      if (returnTarget?.isConnected && candidates.includes(returnTarget)) {
+        focusElement(returnTarget);
+      } else {
+        focusFirst(true, routeFocusMemory.get(routeKey(router?.currentRoute?.value)) || null);
+      }
+      return;
+    }
+    if (modal && modal !== lastOverlay) {
+      lastOverlay = modal;
+      focusFirst(true);
+      return;
+    }
+    if (modal) {
+      const modalCandidates = focusableElements(documentRef);
+      if (!modal.contains(active) || !modalCandidates.includes(active)) focusFirst(true);
+      return;
+    }
+
+    // Page-local state changes replace controls without changing routes (wizard
+    // steps, quiz questions, vocab drill-down). Reclaim focus only when the old
+    // target actually disappeared/disabled; never yank a valid rail selection.
+    const candidates = focusableElements(documentRef);
+    if (!active || active === documentRef.body || !active.isConnected || !candidates.includes(active)) {
+      focusFirst(true, routeTransitionFocusPending ? routeTransitionBookmark : null);
+    }
   });
   observer.observe(documentRef.body, { childList: true, subtree: true });
   focusFirst();
@@ -619,6 +775,7 @@ export function installTvRemoteNavigation({ router, targetWindow = window } = {}
   return () => {
     documentRef.removeEventListener("keydown", onKeyDown, true);
     observer.disconnect();
+    removeBeforeEach?.();
     removeAfterEach?.();
     clearContentFocusRetry();
   };

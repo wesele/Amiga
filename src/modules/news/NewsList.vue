@@ -49,6 +49,7 @@
         class="article-card"
         role="button"
         tabindex="0"
+        :data-article-id="article.id"
         :data-tv-preferred-focus="isTvMode && article.id === lastOpenedArticleId ? true : undefined"
         @click="openArticle(article.id)"
         @keydown.enter="openArticle(article.id)"

@@ -30,6 +30,7 @@
             :key="s.level"
             class="level-card"
             :data-level="s.level"
+            :data-tv-focus-key="`vocab-level-${s.level}`"
             @click="enterLevel(s.level)"
           >
             <div class="card-top">
@@ -72,6 +73,7 @@
           :key="tab.value"
           class="status-tab"
           :class="{ active: activeStatus === tab.value }"
+          :data-tv-focus-key="`vocab-status-${tab.value}`"
           @click="activeStatus = tab.value"
         >
           {{ tab.label }}

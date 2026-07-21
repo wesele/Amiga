@@ -31,8 +31,9 @@ if %errorlevel% neq 0 goto error
 echo.
 
 echo [4/4] Building Android TV APK (armeabi-v7a)...
-:: Clean Android build folder to ensure assets are repackaged!
-if exist "src-tauri\gen\android\app\build" rmdir /s /q "src-tauri\gen\android\app\build"
+:: Let Gradle clean its own outputs so its incremental task state stays consistent.
+call "src-tauri\gen\android\gradlew.bat" -p "src-tauri\gen\android" :app:clean
+if %errorlevel% neq 0 goto error
 
 call npm.cmd run tauri android build -- --target armv7 --apk
 if %errorlevel% neq 0 goto error
@@ -45,9 +46,9 @@ echo.
 echo ========================================================
 echo Android TV APK built successfully.
 echo Please install using:
-echo adb install -r -g src-tauri\gen\android\app\build\outputs\apk\armv7\release\app-armv7-release.apk
+echo adb install -r -g src-tauri\gen\android\app\build\outputs\apk\universal\release\app-universal-release.apk
 echo ========================================================
-goto end
+exit /b 0
 
 :error
 echo.

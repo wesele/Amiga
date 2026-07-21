@@ -122,19 +122,21 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { isTvMode } from "@/shared/appMode.js";
 import { useI18n } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { initializeSoulMate } from "@/shared/backend/soulmate.js";
+import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
 const dialLevels = [0, 1, 2, 3];
 
 const router = useRouter();
 const { t } = useI18n();
 const step = ref(1);
+let releaseStepBack = null;
 const saving = ref(false);
 const error = ref("");
 const context = reactive({ user: null, targetLang: "es", nativeLang: "zh", cefr: "A1" });
@@ -149,6 +151,18 @@ const form = reactive({
   surprise: 2,
   knowledge: 2,
 });
+
+watch(step, (value) => {
+  releaseStepBack?.();
+  releaseStepBack = null;
+  if (value <= 1) return;
+  releaseStepBack = pushInPageBackHandler(() => {
+    step.value = Math.max(1, step.value - 1);
+    return "navigated";
+  });
+});
+
+onBeforeUnmount(() => releaseStepBack?.());
 
 /** Defaults that match the learning target language so LLM output is less biased. */
 function defaultsForLang(lang, gender = "female") {

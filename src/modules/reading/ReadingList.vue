@@ -26,6 +26,7 @@
           'is-regenerating': regeneratingId === article.id,
           'is-long-pressing': longPressArticleId === article.id,
         }"
+        :data-article-id="article.id"
         :data-tv-preferred-focus="isTvMode && article.id === lastOpenedArticleId ? true : undefined"
         :role="article.isGenerating ? undefined : 'button'"
         :tabindex="article.isGenerating ? undefined : 0"

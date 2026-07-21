@@ -50,7 +50,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onBeforeUnmount, watch } from "vue";
 import { useRouter } from "vue-router";
 import StepProfile from "./steps/StepProfile.vue";
 import StepLearning from "./steps/StepLearning.vue";
@@ -61,6 +61,7 @@ import { initUserVocab } from "@/shared/backend/vocabulary.js";
 import { useI18n, setLocale } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { checkCloudRestore, restoreFromCloudWizard } from "@/shared/api.js";
+import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -103,6 +104,37 @@ const saveError = ref(false);
 // Cloud-restore overlay state: null | "checking" | "restoring" | "failed".
 const restoreState = ref(null);
 const restoreText = ref("");
+let releaseRestoreBack = null;
+let releaseStepBack = null;
+
+watch(restoreState, (state) => {
+  releaseRestoreBack?.();
+  releaseRestoreBack = null;
+  if (!state) return;
+  releaseRestoreBack = pushInPageBackHandler(() => {
+    // Do not leave onboarding while a restore request is in flight. If it
+    // failed, Back means the same as the visible Continue action.
+    if (restoreState.value === "failed") continueAfterRestoreFailure();
+    return "navigated";
+  });
+});
+
+watch(current, (step) => {
+  releaseStepBack?.();
+  releaseStepBack = null;
+  if (step <= 0) return;
+  releaseStepBack = pushInPageBackHandler(() => {
+    prevStep.value = current.value;
+    current.value = Math.max(0, current.value - 1);
+    return "navigated";
+  });
+}, { immediate: true });
+
+onBeforeUnmount(() => {
+  // Release the top-most layer first so the in-page handler stack unwinds.
+  releaseRestoreBack?.();
+  releaseStepBack?.();
+});
 
 async function onNext(data) {
   if (emitted.value) return;

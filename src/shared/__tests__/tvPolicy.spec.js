@@ -29,11 +29,11 @@ describe("tvPolicy", () => {
     expect(shouldShowOriginalWhileRewriting(false)).toBe(false);
   });
 
-  it("drops the speaking track from TV achievement heat maps", () => {
+  it("includes appOpen in achievement heat maps", () => {
     expect(achievementTracksForMode(false)).toEqual(ACHIEVEMENT_TRACKS_DEFAULT);
     expect(achievementTracksForMode(true)).toEqual(ACHIEVEMENT_TRACKS_TV);
-    expect(achievementTracksForMode(true)).not.toContain("speaking");
-    expect(achievementTracksForMode(true)).toHaveLength(3);
+    expect(achievementTracksForMode(true)).toContain("appOpen");
+    expect(achievementTracksForMode(true)).toHaveLength(4);
   });
 
   it("maps PageUp/PageDown and edge arrows to scroll deltas", () => {

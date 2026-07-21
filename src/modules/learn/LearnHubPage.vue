@@ -9,7 +9,7 @@
 
     <section class="status-section">
       <div class="status-card">
-        <button class="stat-cell stat-cell-link" type="button" @click="openVocab">
+        <button class="stat-cell stat-cell-link" type="button" data-tv-focus-key="learn-vocab" @click="openVocab">
           <div class="stat-value">{{ vocabStats?.total_known || 0 }}</div>
           <div class="stat-label">{{ t("profile.words") }}</div>
         </button>
@@ -34,6 +34,7 @@
     <div class="module-grid">
       <button
         class="path-progress-card"
+        data-tv-focus-key="learn-path"
         :disabled="opening === pathModule.id"
         @click="openModule(pathModule)"
       >
@@ -56,6 +57,7 @@
         v-for="mod in modules"
         :key="mod.id"
         class="module-tile"
+        :data-tv-focus-key="`learn-${mod.id}`"
         :disabled="opening === mod.id"
         @click="openModule(mod)"
       >

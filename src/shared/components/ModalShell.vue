@@ -14,7 +14,8 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onBeforeUnmount, watch } from "vue";
+import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
 const props = defineProps({
   show: Boolean,
@@ -25,6 +26,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["close"]);
+let releaseBackHandler = null;
 
 const sizeClass = computed(() => (props.size === "sm" ? "modal-sm" : `modal-${props.size}`));
 
@@ -33,6 +35,23 @@ function onOverlayClick() {
     emit("close");
   }
 }
+
+watch(
+  () => props.show,
+  (show) => {
+    releaseBackHandler?.();
+    releaseBackHandler = null;
+    if (!show) return;
+    releaseBackHandler = pushInPageBackHandler(() => {
+      // Even a non-click-dismissable modal treats remote Back as cancel.
+      emit("close");
+      return "navigated";
+    });
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => releaseBackHandler?.());
 </script>
 
 <style scoped>

@@ -18,6 +18,8 @@
         <button
           type="button"
           class="level-btn"
+          data-tv-focus-key="path-level-picker"
+          :data-tv-defer-focus="isTvMode && loading ? true : undefined"
           :disabled="levelSwitching"
           :aria-label="t('path.selectLevel')"
           @click="showLevelPicker = true"
@@ -100,6 +102,7 @@
                 type="button"
                 class="path-node"
                 :class="nodeClass(section)"
+                :data-node-id="section.id"
                 :data-tv-preferred-focus="isTvMode && (lastNodeId === section.id || (lastNodeId == null && section.current)) ? true : undefined"
                 :aria-disabled="isNodeDisabled(section) ? 'true' : 'false'"
                 :aria-label="nodeLabel(section)"
@@ -138,7 +141,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { CEFR_LEVELS, learningCefrLevels } from "@/shared/constants.js";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
@@ -148,6 +151,7 @@ import { getCurrentUser, updateLearningGoalCefr } from "@/shared/backend/user.js
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { isTvMode } from "@/shared/appMode.js";
+import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
 const UNIT_HUES = [145, 198, 262, 32, 12, 210];
 const LANE_X = { left: 22, center: 50, right: 78 };
@@ -166,6 +170,17 @@ const showLevelPicker = ref(false);
 const pathScroll = ref(null);
 const nodeActionHint = ref("");
 const learningLevels = computed(() => learningCefrLevels(targetLangStore.code));
+let releaseLevelPickerBack = null;
+
+watch(showLevelPicker, (show) => {
+  releaseLevelPickerBack?.();
+  releaseLevelPickerBack = null;
+  if (!show) return;
+  releaseLevelPickerBack = pushInPageBackHandler(() => {
+    showLevelPicker.value = false;
+    return "navigated";
+  });
+});
 
 const completedLevelLabel = computed(() => {
   const current = curriculum.value?.cefr;
@@ -316,6 +331,7 @@ async function pickLevel(level) {
 }
 
 onMounted(load);
+onBeforeUnmount(() => releaseLevelPickerBack?.());
 </script>
 
 <style scoped>

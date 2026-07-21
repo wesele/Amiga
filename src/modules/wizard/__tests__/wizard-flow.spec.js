@@ -37,6 +37,7 @@ describe("WizardFlow", () => {
   let mockInvoke;
 
   beforeEach(() => {
+    delete window.__amigaGoBackInPage;
     setActivePinia(createPinia());
     mockInvoke = vi.fn().mockResolvedValue(undefined);
     api.__setInvoke(mockInvoke);
@@ -328,6 +329,19 @@ describe("StepLearning", () => {
     expect(chineseLevels[0].text()).toContain("A1");
     expect(chineseLevels[1].text()).toContain("A2");
     expect(wrapper.vm.form.cefrLevel).toBe("A1");
+  });
+
+  it("uses remote Back to return to the previous wizard step", async () => {
+    const wrapper = mountWizard();
+    await wrapper.find("input#nickname").setValue("TestUser");
+    await wrapper.findAll("button.btn-primary")[0].trigger("click");
+    await flushPromises();
+    expect(wrapper.findComponent(StepLearning).exists()).toBe(true);
+
+    expect(window.__amigaGoBackInPage()).toBe("navigated");
+    await flushPromises();
+    expect(wrapper.findComponent(StepProfile).exists()).toBe(true);
+    wrapper.unmount();
   });
 
   it("shows all available target languages", () => {

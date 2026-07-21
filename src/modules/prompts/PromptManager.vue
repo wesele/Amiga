@@ -2,7 +2,7 @@
   <div class="prompt-page" :class="{ 'tv-content-pane': isTvMode }">
     <PageHeader :title="t('prompts.title')" variant="prompts">
       <template #actions>
-        <button class="reset-all-btn" @click="showResetDialog = true">{{ t('prompts.resetAll') }}</button>
+        <button class="reset-all-btn" :data-tv-defer-focus="isTvMode && loading ? true : undefined" @click="showResetDialog = true">{{ t('prompts.resetAll') }}</button>
       </template>
     </PageHeader>
 
@@ -21,6 +21,7 @@
           class="prompt-card"
           role="button"
           tabindex="0"
+          :data-tv-focus-key="`prompt-${p.key}`"
           @click="openEditor(p.key)"
           @keydown.enter.prevent="openEditor(p.key)"
           @keydown.space.prevent="openEditor(p.key)"

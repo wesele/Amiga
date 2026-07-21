@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import {
   findNextTvFocus,
   findScrollableAncestor,
+  focusableElements,
   focusElement,
   getTvFocusRegion,
   isArticleWord,
@@ -12,11 +13,15 @@ import {
   isTvNavItem,
   isTvQuizChoice,
   isTvRemoteBackControl,
+  installTvRemoteNavigation,
   pickArticleTargetByLine,
   pickPreferredContentFocus,
   pickWordByReadingOrder,
+  createTvFocusBookmark,
   resolveInitialTvFocus,
+  resolveTvFocusBookmark,
   scrollTvContent,
+  shouldYieldTvDirectionToControl,
 } from "../tvRemoteNavigation.js";
 import { isTvScrollKey, scrollDeltaForKey } from "@/shared/tvPolicy.js";
 
@@ -322,6 +327,27 @@ describe("TV remote navigation", () => {
     expect(pickPreferredContentFocus([learn, nextBtn, opt])).toBe(opt);
   });
 
+  it("prefers primary list cards over header utility actions", () => {
+    const refresh = elementAt(280, 40, 50, 40, { className: "refresh-btn" });
+    const article = elementAt(280, 120, 600, 90, { className: "article-card", tag: "div" });
+    article.tabIndex = 0;
+    const reset = elementAt(280, 40, 100, 40, { className: "reset-all-btn" });
+    const prompt = elementAt(280, 120, 600, 90, { className: "prompt-card", tag: "div" });
+    prompt.tabIndex = 0;
+
+    expect(pickPreferredContentFocus([refresh, article])).toBe(article);
+    expect(pickPreferredContentFocus([reset, prompt])).toBe(prompt);
+  });
+
+  it("waits instead of focusing a utility action marked as deferred", () => {
+    const levelPicker = elementAt(280, 40, 100, 40, { className: "level-btn" });
+    levelPicker.setAttribute("data-tv-defer-focus", "true");
+    expect(pickPreferredContentFocus([levelPicker])).toBeNull();
+
+    levelPicker.removeAttribute("data-tv-defer-focus");
+    expect(pickPreferredContentFocus([levelPicker])).toBe(levelPicker);
+  });
+
   it("prefers article words / content over the L1 rail after content navigations", () => {
     const learn = elementAt(20, 40, 180, 56, { className: "nav-item active", parentClass: "bottom-nav" });
     const word = elementAt(300, 120, 40, 24, { className: "word", tag: "span" });
@@ -363,5 +389,93 @@ describe("TV remote navigation", () => {
     });
     expect(loading.kind).toBe("retry");
     expect(pickPreferredContentFocus([learn])).toBeNull();
+  });
+
+  it("scopes focus to the top confirm layer and excludes tabindex=-1 form controls", () => {
+    const underlying = elementAt(250, 100);
+    const hiddenRadio = elementAt(250, 160, 20, 20, { tag: "input" });
+    hiddenRadio.type = "radio";
+    hiddenRadio.tabIndex = -1;
+
+    const overlay = document.createElement("div");
+    overlay.className = "confirm-overlay";
+    overlay.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 });
+    const cancel = elementAt(300, 300);
+    cancel.className = "confirm-btn cancel";
+    overlay.appendChild(cancel);
+    document.body.appendChild(overlay);
+
+    expect(focusableElements(document)).toEqual([cancel]);
+    expect(focusableElements(document)).not.toContain(underlying);
+    expect(focusableElements(document)).not.toContain(hiddenRadio);
+  });
+
+  it("lets editable controls own horizontal arrows", () => {
+    const text = document.createElement("input");
+    const range = document.createElement("input");
+    range.type = "range";
+    const button = document.createElement("button");
+
+    expect(shouldYieldTvDirectionToControl(text, "ArrowLeft")).toBe(true);
+    expect(shouldYieldTvDirectionToControl(range, "ArrowRight")).toBe(true);
+    expect(shouldYieldTvDirectionToControl(text, "ArrowDown")).toBe(false);
+    expect(shouldYieldTvDirectionToControl(button, "ArrowLeft")).toBe(false);
+  });
+
+  it("restores a route focus bookmark by stable key before positional fallback", () => {
+    const first = elementAt(250, 100);
+    const remembered = elementAt(250, 180);
+    remembered.setAttribute("data-tv-focus-key", "article-42");
+    const bookmark = createTvFocusBookmark(remembered, [first, remembered]);
+
+    const replacementFirst = elementAt(250, 100);
+    const replacementRemembered = elementAt(250, 180);
+    replacementRemembered.setAttribute("data-tv-focus-key", "article-42");
+
+    expect(bookmark).toEqual({ key: "article-42", index: 1 });
+    expect(resolveTvFocusBookmark(bookmark, [replacementFirst, replacementRemembered]))
+      .toBe(replacementRemembered);
+  });
+
+  it("keeps the route bookmark through DOM replacement races", async () => {
+    let beforeHook;
+    let afterHook;
+    const settingsRoute = { name: "settings", params: {}, fullPath: "/profile/settings" };
+    const llmRoute = { name: "llm-config", params: {}, fullPath: "/profile/llm-config" };
+    const router = {
+      currentRoute: { value: settingsRoute },
+      beforeEach: vi.fn((hook) => { beforeHook = hook; return vi.fn(); }),
+      afterEach: vi.fn((hook) => { afterHook = hook; return vi.fn(); }),
+    };
+
+    const first = elementAt(280, 80);
+    first.setAttribute("data-tv-focus-key", "settings-first");
+    const remembered = elementAt(280, 160);
+    remembered.setAttribute("data-tv-focus-key", "settings-llm");
+    const cleanup = installTvRemoteNavigation({ router, targetWindow: window });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    remembered.focus();
+
+    beforeHook(llmRoute, settingsRoute);
+    document.body.innerHTML = "";
+    const llmChoice = elementAt(280, 100);
+    llmChoice.setAttribute("data-tv-focus-key", "llm-choice");
+    router.currentRoute.value = llmRoute;
+    afterHook(llmRoute, settingsRoute);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.activeElement).toBe(llmChoice);
+
+    beforeHook(settingsRoute, llmRoute);
+    document.body.innerHTML = "";
+    const replacementFirst = elementAt(280, 80);
+    replacementFirst.setAttribute("data-tv-focus-key", "settings-first");
+    const replacementRemembered = elementAt(280, 160);
+    replacementRemembered.setAttribute("data-tv-focus-key", "settings-llm");
+    router.currentRoute.value = settingsRoute;
+    afterHook(settingsRoute, llmRoute);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(document.activeElement).toBe(replacementRemembered);
+    cleanup();
   });
 });

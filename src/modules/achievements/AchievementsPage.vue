@@ -28,6 +28,11 @@
                   :class="{ future: day.isFuture }"
                   :aria-label="dayAriaLabel(day)"
                   :title="dayAriaLabel(day)"
+                  role="button"
+                  tabindex="0"
+                  @click="selectDay(day)"
+                  @keydown.enter.prevent="selectDay(day)"
+                  @keydown.space.prevent="selectDay(day)"
                 >
                   <span
                     v-for="track in visibleTracks"
@@ -52,6 +57,11 @@
                   :class="{ future: day.isFuture }"
                   :aria-label="dayAriaLabel(day)"
                   :title="dayAriaLabel(day)"
+                  role="button"
+                  tabindex="0"
+                  @click="selectDay(day)"
+                  @keydown.enter.prevent="selectDay(day)"
+                  @keydown.space.prevent="selectDay(day)"
                 >
                   <span
                     v-for="track in visibleTracks"
@@ -93,6 +103,50 @@
         </article>
       </section>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="selectedDay"
+        class="modal-overlay day-detail-overlay"
+        @click.self="closeDayModal"
+        @keydown.esc="closeDayModal"
+      >
+        <div class="modal-content day-detail-modal" role="dialog" aria-modal="true">
+          <header class="modal-header">
+            <h3>{{ t("achievements.dayDetailTitle", { date: selectedDay.date }) }}</h3>
+          </header>
+          <div class="modal-body">
+            <ul class="day-detail-list">
+              <li class="day-detail-item">
+                <span class="track-dot" :class="`level-${trackLevel('readingAm', selectedDay)}`" />
+                <span class="track-name">{{ t("achievements.readingAm") }}</span>
+                <span class="track-status">{{ readingStatusLabel(selectedDay.readingAm) }}</span>
+              </li>
+              <li class="day-detail-item">
+                <span class="track-dot" :class="`level-${trackLevel('readingPm', selectedDay)}`" />
+                <span class="track-name">{{ t("achievements.readingPm") }}</span>
+                <span class="track-status">{{ readingStatusLabel(selectedDay.readingPm) }}</span>
+              </li>
+              <li class="day-detail-item">
+                <span class="track-dot" :class="`level-${trackLevel('news', selectedDay)}`" />
+                <span class="track-name">{{ t("achievements.news") }}</span>
+                <span class="track-status">{{ newsStatusLabel(selectedDay.newsCount) }}</span>
+              </li>
+              <li class="day-detail-item">
+                <span class="track-dot" :class="`level-${trackLevel('appOpen', selectedDay)}`" />
+                <span class="track-name">{{ t("achievements.appOpen") }}</span>
+                <span class="track-status">{{ appOpenStatusLabel(selectedDay.appOpen) }}</span>
+              </li>
+            </ul>
+          </div>
+          <footer class="modal-footer">
+            <button type="button" class="btn-dialog-close" @click="closeDayModal">
+              {{ t("achievements.close") }}
+            </button>
+          </footer>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -106,6 +160,7 @@ import {
   recordAppOpen,
 } from "@/shared/backend/achievements.js";
 import {
+  appOpenLevel,
   createAchievementMatrix,
   newsLevel,
   readingLevel,
@@ -121,6 +176,7 @@ function trackLevel(track, day) {
   if (track === "readingAm") return readingLevel(day.readingAm);
   if (track === "readingPm") return readingLevel(day.readingPm);
   if (track === "news") return newsLevel(day.newsCount);
+  if (track === "appOpen") return appOpenLevel(day.appOpen);
   if (track === "speaking") return speakingLevel(day.speakingCount);
   return "empty";
 }
@@ -145,6 +201,37 @@ const rangeLabel = computed(() => {
   const options = { month: "short", day: "numeric" };
   return `${start.toLocaleDateString(locale.value, options)} – ${end.toLocaleDateString(locale.value, options)}`;
 });
+const selectedDay = ref(null);
+
+function selectDay(day) {
+  selectedDay.value = day;
+}
+
+function closeDayModal() {
+  selectedDay.value = null;
+}
+
+function readingStatusLabel(value) {
+  if (value >= 2) return t("achievements.statusCompleted");
+  if (value >= 1) return t("achievements.statusRead");
+  return t("achievements.statusNone");
+}
+
+function newsStatusLabel(count) {
+  if (count > 0) return t("achievements.newsCountDetail", { count });
+  return t("achievements.statusNone");
+}
+
+function appOpenStatusLabel(value) {
+  if (value >= 1) return t("achievements.statusOpened");
+  return t("achievements.statusNone");
+}
+
+function speakingStatusLabel(count) {
+  if (count > 0) return t("achievements.speakingCountDetail", { count });
+  return t("achievements.statusNone");
+}
+
 const achievementGroups = computed(() => [
   createGroup("checkIn", "◆", progress.value.check_in_best, [7, 30, 90, 365],
     t("achievements.streakProgress", {
@@ -156,7 +243,7 @@ const achievementGroups = computed(() => [
       current: progress.value.full_learning_current,
       best: progress.value.full_learning_best,
     })),
-  createGroup("totalLearning", "●", progress.value.learning_total, [30, 90, 365, 1095],
+  createGroup("totalLearning", "●", progress.value.learning_total, [7, 30, 90, 365],
     t("achievements.totalProgress", { total: progress.value.learning_total })),
 ]);
 
@@ -177,20 +264,12 @@ function createGroup(key, icon, value, thresholds, progressText) {
 }
 
 function dayAriaLabel(day) {
-  if (isTvMode) {
-    return t("achievements.daySummaryTv", {
-      date: day.date,
-      am: day.readingAm,
-      pm: day.readingPm,
-      news: day.newsCount,
-    });
-  }
   return t("achievements.daySummary", {
     date: day.date,
     am: day.readingAm,
     pm: day.readingPm,
     news: day.newsCount,
-    speaking: day.speakingCount,
+    appOpen: day.appOpen,
   });
 }
 
@@ -417,6 +496,17 @@ onMounted(async () => {
   box-sizing: border-box;
   border-radius: 4px;
   background: var(--surface-variant);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.day-cell:hover {
+  transform: scale(1.06);
+}
+
+.day-cell:focus-visible {
+  outline: 2px solid #1cb0f6;
+  outline-offset: 1px;
 }
 
 .day-cell.future {
@@ -649,5 +739,102 @@ onMounted(async () => {
 
 .tv-achievements .badge-state {
   font-size: 10px;
+}
+
+.day-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.day-detail-modal {
+  background: var(--white);
+  border-radius: 18px;
+  width: 100%;
+  max-width: 320px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.day-detail-modal .modal-header {
+  padding: 16px 20px 10px;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+}
+
+.day-detail-modal .modal-header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.day-detail-modal .modal-body {
+  padding: 16px 20px;
+}
+
+.day-detail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.day-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.track-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.track-name {
+  flex: 1;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.track-status {
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.day-detail-modal .modal-footer {
+  padding: 10px 20px 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-dialog-close {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 20px;
+  background: var(--surface-variant);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-dialog-close:hover {
+  background: var(--border);
 }
 </style>

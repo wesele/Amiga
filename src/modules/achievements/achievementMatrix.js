@@ -38,6 +38,7 @@ export function createAchievementMatrix(records = [], today = new Date()) {
         readingPm: record.reading_pm || 0,
         newsCount: record.news_count || 0,
         speakingCount: record.speaking_count || 0,
+        appOpen: record.app_open || 0,
       });
     }
     weeks.push({ start: formatLocalDate(weekStart), days });
@@ -65,5 +66,10 @@ export function newsLevel(value) {
 export function speakingLevel(value) {
   if (value >= 2) return "complete";
   if (value >= 1) return "active";
+  return "empty";
+}
+
+export function appOpenLevel(value) {
+  if (value >= 1) return "complete";
   return "empty";
 }

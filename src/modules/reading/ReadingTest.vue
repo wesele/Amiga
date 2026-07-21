@@ -142,7 +142,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch } from "vue";
+import { ref, computed, onBeforeUnmount, onMounted, nextTick, watch } from "vue";
 import { useRouter } from "vue-router";
 import { isTvMode } from "@/shared/appMode.js";
 import { useI18n } from "@/shared/i18n";
@@ -156,6 +156,7 @@ import {
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { normalizeQuestions, optionLabels, readingOptionClass } from "./readingTestQuestions.js";
 import { useListeningQuestionAudio } from "./useListeningQuestionAudio.js";
+import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -171,6 +172,7 @@ const loading = ref(true);
 const error = ref("");
 const submitting = ref(false);
 const submitted = ref(false);
+let releaseResultBack = null;
 const correctCount = ref(0);
 const currentQuestionIndex = ref(0);
 const primaryNavBtn = ref(null);
@@ -221,8 +223,18 @@ watch(currentQuestionIndex, () => {
 });
 
 watch(submitted, (value) => {
-  if (value) focusResultPrimary();
+  releaseResultBack?.();
+  releaseResultBack = null;
+  if (value) {
+    focusResultPrimary();
+    releaseResultBack = pushInPageBackHandler(() => {
+      goBack();
+      return "navigated";
+    });
+  }
 });
+
+onBeforeUnmount(() => releaseResultBack?.());
 
 function clearAutoAdvance() {
   if (autoAdvanceTimer != null) {
@@ -429,7 +441,7 @@ async function submitTest() {
 function goBack() {
   clearAutoAdvance();
   stopAudio();
-  router.push(`/learn/reading/${props.id}`);
+  router.replace(`/learn/reading/${props.id}`);
 }
 </script>
 
