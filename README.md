@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/amiga-icon.png" alt="Amiga Logo" width="120" height="120" style="border-radius: 24px;" />
+<img src="https://raw.githubusercontent.com/wesele/Amiga/master/public/amiga-icon.png" alt="Amiga Logo" width="120" height="120" style="border-radius: 24px;" />
 
 # Amiga — 跨平台 AI 外语学习应用
 ### Cross-Platform AI Foreign Language Learning App
@@ -14,13 +14,13 @@
 
 [**中文文档**](#-amiga---跨平台-ai-外语学习应用-中文) | [**English Documentation**](#-amiga---cross-platform-ai-language-learning-app-english)
 
----
-
-![Amiga Banner](docs/images/amiga-banner.jpg)
-
 </div>
 
 <br />
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/amiga-banner.jpg" alt="Amiga Banner" width="100%" />
+</p>
 
 ---
 
@@ -32,14 +32,14 @@
 
 ---
 
-### 🚀 最新版本下载 (v0.4.31)
+### 🚀 最新版本下载 (v0.4.35)
 
 我们为所有主流平台提供一键安装包，所有版本均**完全免费、无广告、无限次使用**！
 
 | 平台 | 适用设备 | 下载链接 | 说明 |
 | :--- | :--- | :--- | :--- |
-| **📱 Android 手机 / 平板** | Android 7.0+ | [📥 下载 Android APK (v0.4.31)](https://github.com/wesele/Amiga/releases/download/v0.4.31/amiga-v0.4.31.apk) | ARM64 原生架构，顺滑流畅 |
-| **📺 Android TV 电视 / 机顶盒** | 智能电视、电视盒 | [📥 下载 Android TV APK (v0.4.31)](https://github.com/wesele/Amiga/releases/download/v0.4.31/amiga-tv-armv7-v0.4.31.apk) | 10-foot 大屏 UI + 遥控器 D-Pad 全按键支持 |
+| **📱 Android 手机 / 平板** | Android 7.0+ | [📥 下载 Android APK (v0.4.35)](https://github.com/wesele/Amiga/releases/download/v0.4.35/amiga-v0.4.35.apk) | ARM64 原生架构，顺滑流畅 |
+| **📺 Android TV 电视 / 机顶盒** | 智能电视、电视盒 | [📥 下载 Android TV APK (v0.4.35)](https://github.com/wesele/Amiga/releases/download/v0.4.35/amiga-tv-armv7-v0.4.35.apk) | 10-foot 大屏 UI + 遥控器 D-Pad 全按键支持 |
 | **💻 Windows 桌面端** | Windows 10 / 11 | [📥 访问 GitHub Releases 最新下载](https://github.com/wesele/Amiga/releases/latest) | 包含 MSI 安装包与免安装可执行程序 |
 
 > 🔗 **历史版本与全套 Build 产物**：请直接前往 [GitHub Releases 页面](https://github.com/wesele/Amiga/releases) 获取。
@@ -53,21 +53,27 @@
 - **CEFR 难度分级**：自动标注 A1 - C2 词汇难度，点击即查即译。
 - **AI 句法语法剖析**：不懂长难句？AI 一键拆解句子成分与语法结构。
 
-![AI News Feature](docs/images/feature-ai-news.jpg)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/feature-ai-news.jpg" alt="AI News Feature" width="100%" />
+</p>
 
 #### 2. 💬 SoulMate 灵伴故事与情景口语
 - **多角色 AI 伴读**：自定义 AI 伙伴性格与剧情场景（职场面试、旅行穿梭、日常唠嗑）。
 - **实时语音与发音比对**：支持实时语音对话、TTS 播报与精准发音指导。
 - **智能推荐回复**：卡壳时 AI 提供表达灵感，告别哑巴外语。
 
-![SoulMate Feature](docs/images/feature-soulmate.jpg)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/feature-soulmate.jpg" alt="SoulMate Feature" width="100%" />
+</p>
 
 #### 3. 📺 Android TV 10-foot 遥控大屏体验
 - **客厅学习新范式**：专为电视客厅大屏重构的视觉与交互。
 - **全遥控器按键适配**：支持上下左右 D-Pad 方向键无缝焦距切换，摆脱鼠标依赖。
 - **超大字号与远视距清晰度**：沉浸大屏视听，打造家庭外语学习角。
 
-![Android TV Feature](docs/images/feature-tv-mode.jpg)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/wesele/Amiga/master/docs/images/feature-tv-mode.jpg" alt="Android TV Feature" width="100%" />
+</p>
 
 #### 4. 🧠 智能词库与 SuperMemo SRS 记忆算法
 - **科学间隔复习**：根据遗忘曲线自动调度复习节奏，拒绝盲目背词。
@@ -105,14 +111,14 @@ Combining LLM intelligence with immersive language techniques, Amiga offers para
 
 ---
 
-### 🚀 Download Latest Version (v0.4.31)
+### 🚀 Download Latest Version (v0.4.35)
 
 Download pre-compiled binaries for your devices—**completely free, zero ads, unlimited usage**.
 
 | Platform | Target Devices | Download Link | Notes |
 | :--- | :--- | :--- | :--- |
-| **📱 Android Mobile / Tablet** | Android 7.0+ | [📥 Download Android APK (v0.4.31)](https://github.com/wesele/Amiga/releases/download/v0.4.31/amiga-v0.4.31.apk) | Native ARM64 build, fast and responsive |
-| **📺 Android TV / Box** | Smart TVs, TV Boxes | [📥 Download Android TV APK (v0.4.31)](https://github.com/wesele/Amiga/releases/download/v0.4.31/amiga-tv-armv7-v0.4.31.apk) | Dedicated 10-foot UI with full D-Pad Remote support |
+| **📱 Android Mobile / Tablet** | Android 7.0+ | [📥 Download Android APK (v0.4.35)](https://github.com/wesele/Amiga/releases/download/v0.4.35/amiga-v0.4.35.apk) | Native ARM64 build, fast and responsive |
+| **📺 Android TV / Box** | Smart TVs, TV Boxes | [📥 Download Android TV APK (v0.4.35)](https://github.com/wesele/Amiga/releases/download/v0.4.35/amiga-tv-armv7-v0.4.35.apk) | Dedicated 10-foot UI with full D-Pad Remote support |
 | **💻 Windows Desktop** | Windows 10 / 11 | [📥 Visit Latest GitHub Release](https://github.com/wesele/Amiga/releases/latest) | MSI & NSIS Installers |
 
 > 🔗 For older versions and release assets, visit [GitHub Releases](https://github.com/wesele/Amiga/releases).
