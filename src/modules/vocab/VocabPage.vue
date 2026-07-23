@@ -1,12 +1,12 @@
 <template>
-  <div class="vocab-page" :class="{ 'tv-content-pane': isTvMode }">
+  <div class="vocab-page" :class="{ 'tv-content-pane': isTvLayoutMode }">
     <!-- Stats overview -->
     <template v-if="!drilledLevel">
       <header class="page-header overview-header">
         <button
           class="back-btn"
           type="button"
-          :tabindex="isTvMode ? -1 : undefined"
+          :tabindex="isTvLayoutMode ? -1 : undefined"
           :aria-label="t('common.back')"
           @click="backToLearn"
         >
@@ -57,7 +57,7 @@
     <!-- Word list per level -->
     <template v-else>
       <header class="page-header detail-header">
-        <button class="back-btn" type="button" :tabindex="isTvMode ? -1 : undefined" @click="exitLevel">
+        <button class="back-btn" type="button" :tabindex="isTvLayoutMode ? -1 : undefined" @click="exitLevel">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
             <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
           </svg>
@@ -86,7 +86,7 @@
             <span
               class="word-chip word"
               :class="chipClass(w.mastery)"
-              :tabindex="isTvMode ? 0 : undefined"
+              :tabindex="isTvLayoutMode ? 0 : undefined"
               @click="onWordTap(w)"
               @keydown.enter.prevent="onWordTap(w)"
               @keydown.space.prevent="onWordTap(w)"
@@ -127,7 +127,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 import { getCurrentUser } from "@/shared/backend/user.js";
 import {
   getUserVocabByLevel,
@@ -213,7 +213,7 @@ function exitLevel() {
   words.value = [];
   selectedWord.value = null;
 
-  if (isTvMode && exitedLevel) {
+  if (isTvLayoutMode && exitedLevel) {
     nextTick(() => {
       const cards = document.querySelectorAll(".level-card");
       const targetCard = Array.from(cards).find(
@@ -248,7 +248,7 @@ async function loadWords(level) {
   if (!level) return;
   try {
     words.value = await getUserVocabByLevel(userId.value, userLang.value, level);
-    if (isTvMode) {
+    if (isTvLayoutMode) {
       nextTick(() => {
         const preferred = pickPreferredContentFocus(focusableElements());
         if (preferred) {

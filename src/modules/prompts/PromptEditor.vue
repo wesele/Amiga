@@ -1,5 +1,5 @@
 <template>
-  <div class="editor-page" :class="{ 'tv-content-pane': isTvMode }">
+  <div class="editor-page" :class="{ 'tv-content-pane': isTvLayoutMode }">
     <PageHeader :title="isNew ? t('prompts.new') : t('prompts.edit')" variant="prompts">
       <template v-if="!isNew" #actions>
         <button class="reset-one-btn" @click="showResetDialog = true">{{ t('prompts.reset') }}</button>
@@ -72,7 +72,7 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 import {
   getPrompt,
   resetPrompt as apiResetPrompt,

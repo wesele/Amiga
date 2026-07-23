@@ -1,10 +1,10 @@
 <template>
-  <div class="teaching-page" :class="[content?.kind, { 'tv-content-pane tv-content-pane--fixed': isTvMode }]">
+  <div class="teaching-page" :class="[content?.kind, { 'tv-content-pane tv-content-pane--fixed': isTvLayoutMode }]">
     <header class="teach-header">
       <button
         class="close-btn"
         type="button"
-        :tabindex="isTvMode ? -1 : undefined"
+        :tabindex="isTvLayoutMode ? -1 : undefined"
         :aria-label="t('common.back')"
         @click="exitTeaching"
       >✕</button>
@@ -109,7 +109,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 import { useI18n } from "@/shared/i18n";
 import {
   completeTeachingNode,

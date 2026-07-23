@@ -6,9 +6,11 @@ import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
 import AchievementsPage from "@/modules/achievements/AchievementsPage.vue";
 import {
+  appOpenLevel,
   createAchievementMatrix,
   newsLevel,
   readingLevel,
+  soulmateLevel,
   speakingLevel,
 } from "@/modules/achievements/achievementMatrix.js";
 import { achievementTracksForMode } from "@/shared/tvPolicy.js";
@@ -23,14 +25,17 @@ describe("achievement matrix", () => {
   });
 
   it("uses the requested thresholds for each activity", () => {
+    expect([0, 1, 2].map(appOpenLevel)).toEqual(["empty", "active", "complete"]);
     expect([0, 1, 2].map(readingLevel)).toEqual(["empty", "active", "complete"]);
-    expect([0, 1, 2, 3].map(newsLevel)).toEqual(["empty", "active", "active", "complete"]);
+    expect([0, 1, 2].map(newsLevel)).toEqual(["empty", "active", "complete"]);
+    expect([0, 1, 2].map(soulmateLevel)).toEqual(["empty", "active", "complete"]);
     expect([0, 1, 2].map(speakingLevel)).toEqual(["empty", "active", "complete"]);
   });
 
-  it("includes appOpen track in achievement heat maps", () => {
-    expect(achievementTracksForMode(true)).toEqual(["readingAm", "news", "readingPm", "appOpen"]);
+  it("includes appOpen, reading, news, soulmate tracks in achievement heat maps", () => {
+    expect(achievementTracksForMode(true)).toEqual(["appOpen", "reading", "news", "soulmate"]);
     expect(achievementTracksForMode(false)).toContain("appOpen");
+    expect(achievementTracksForMode(false)).toContain("soulmate");
   });
 });
 
@@ -46,10 +51,10 @@ describe("AchievementsPage", () => {
       if (command === "get_achievement_days_cmd") {
         return Promise.resolve([{
           date: new Date().toLocaleDateString("en-CA"),
-          reading_am: 1,
-          reading_pm: 2,
-          news_count: 3,
-          speaking_count: 1,
+          app_open: 2,
+          reading_count: 2,
+          news_count: 2,
+          soulmate_status: 1,
         }]);
       }
       if (command === "get_achievement_progress_cmd") {
@@ -133,10 +138,10 @@ describe("AchievementsPage", () => {
       if (command === "get_achievement_days_cmd") {
         return Promise.resolve([{
           date: "2026-07-21",
-          reading_am: 2,
-          reading_pm: 1,
+          app_open: 2,
+          reading_count: 2,
           news_count: 3,
-          speaking_count: 1,
+          soulmate_status: 1,
         }]);
       }
       if (command === "get_achievement_progress_cmd") {
@@ -168,9 +173,10 @@ describe("AchievementsPage", () => {
     const modal = document.querySelector(".day-detail-modal");
     expect(modal).not.toBeNull();
     expect(modal.textContent).toContain("学习内容");
-    expect(modal.textContent).toContain("上午阅读");
-    expect(modal.textContent).toContain("下午阅读");
+    expect(modal.textContent).toContain("应用打开");
+    expect(modal.textContent).toContain("文章阅读");
     expect(modal.textContent).toContain("新闻阅读");
+    expect(modal.textContent).toContain("灵伴互动");
 
     // Click close button
     const closeBtn = modal.querySelector(".btn-dialog-close");

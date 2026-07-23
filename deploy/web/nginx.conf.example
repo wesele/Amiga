@@ -1,0 +1,307 @@
+# Amiga Web: static SPA + fixed, stateless upstream relays.
+# Replace demo.example.com and /srv/amiga-web/dist before enabling this file.
+
+limit_conn_zone $binary_remote_addr zone=amiga_per_ip:1m;
+limit_conn_zone $server_name zone=amiga_llm_global:1m;
+limit_conn_zone $server_name zone=amiga_news_global:1m;
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name demo.example.com;
+
+    root /srv/amiga-web/dist;
+    index index.html;
+
+    client_max_body_size 1m;
+    limit_conn_status 429;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # LLM streams: no request/response buffering and no cache.
+    # A full connection slot is rejected immediately with 429.
+
+    location /llm/openai/ {
+        limit_conn amiga_llm_global 24;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://api.openai.com/;
+        proxy_set_header Host api.openai.com;
+        proxy_ssl_server_name on;
+        proxy_ssl_name api.openai.com;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 60s;
+    }
+
+    location /llm/nvidia/ {
+        limit_conn amiga_llm_global 24;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://integrate.api.nvidia.com/;
+        proxy_set_header Host integrate.api.nvidia.com;
+        proxy_ssl_server_name on;
+        proxy_ssl_name integrate.api.nvidia.com;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 60s;
+    }
+
+    location /llm/deepseek/ {
+        limit_conn amiga_llm_global 24;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://api.deepseek.com/;
+        proxy_set_header Host api.deepseek.com;
+        proxy_ssl_server_name on;
+        proxy_ssl_name api.deepseek.com;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+    }
+
+    location /llm/groq/ {
+        limit_conn amiga_llm_global 24;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://api.groq.com/;
+        proxy_set_header Host api.groq.com;
+        proxy_ssl_server_name on;
+        proxy_ssl_name api.groq.com;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+    }
+
+    location /llm/openrouter/ {
+        limit_conn amiga_llm_global 24;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://openrouter.ai/;
+        proxy_set_header Host openrouter.ai;
+        proxy_ssl_server_name on;
+        proxy_ssl_name openrouter.ai;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+    }
+
+    location /llm/mistral/ {
+        limit_conn amiga_llm_global 24;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://api.mistral.ai/;
+        proxy_set_header Host api.mistral.ai;
+        proxy_ssl_server_name on;
+        proxy_ssl_name api.mistral.ai;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+    }
+
+    location /llm/xai/ {
+        limit_conn amiga_llm_global 24;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://api.x.ai/;
+        proxy_set_header Host api.x.ai;
+        proxy_ssl_server_name on;
+        proxy_ssl_name api.x.ai;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+    }
+
+    location /llm/together/ {
+        limit_conn amiga_llm_global 24;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://api.together.xyz/;
+        proxy_set_header Host api.together.xyz;
+        proxy_ssl_server_name on;
+        proxy_ssl_name api.together.xyz;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+    }
+
+    location /llm/fireworks/ {
+        limit_conn amiga_llm_global 24;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://api.fireworks.ai/;
+        proxy_set_header Host api.fireworks.ai;
+        proxy_ssl_server_name on;
+        proxy_ssl_name api.fireworks.ai;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+    }
+
+    location /llm/perplexity/ {
+        limit_conn amiga_llm_global 24;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://api.perplexity.ai/;
+        proxy_set_header Host api.perplexity.ai;
+        proxy_ssl_server_name on;
+        proxy_ssl_name api.perplexity.ai;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+    }
+
+    location /llm/siliconflow/ {
+        limit_conn amiga_llm_global 24;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://api.siliconflow.cn/;
+        proxy_set_header Host api.siliconflow.cn;
+        proxy_ssl_server_name on;
+        proxy_ssl_name api.siliconflow.cn;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+    }
+
+    location /llm/dashscope/ {
+        limit_conn amiga_llm_global 24;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://dashscope.aliyuncs.com/;
+        proxy_set_header Host dashscope.aliyuncs.com;
+        proxy_ssl_server_name on;
+        proxy_ssl_name dashscope.aliyuncs.com;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+    }
+
+    location /llm/gemini/ {
+        limit_conn amiga_llm_global 24;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://generativelanguage.googleapis.com/;
+        proxy_set_header Host generativelanguage.googleapis.com;
+        proxy_ssl_server_name on;
+        proxy_ssl_name generativelanguage.googleapis.com;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+    }
+
+    # Fixed news aliases. The browser never supplies an upstream URL.
+    location = /news/rtve/rss.xml {
+        limit_conn amiga_news_global 10;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://www.rtve.es/rss/tag_noticias.xml;
+        proxy_set_header Host www.rtve.es;
+        proxy_ssl_server_name on;
+        proxy_ssl_name www.rtve.es;
+        proxy_buffering off;
+        proxy_connect_timeout 8s;
+        proxy_read_timeout 20s;
+    }
+
+    location = /news/elmundo/rss.xml {
+        limit_conn amiga_news_global 10;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml;
+        proxy_set_header Host e00-elmundo.uecdn.es;
+        proxy_ssl_server_name on;
+        proxy_ssl_name e00-elmundo.uecdn.es;
+        proxy_buffering off;
+        proxy_connect_timeout 8s;
+        proxy_read_timeout 20s;
+    }
+
+    location = /news/abc/rss.xml {
+        limit_conn amiga_news_global 10;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://www.abc.es/rss/2.xml;
+        proxy_set_header Host www.abc.es;
+        proxy_ssl_server_name on;
+        proxy_ssl_name www.abc.es;
+        proxy_buffering off;
+        proxy_connect_timeout 8s;
+        proxy_read_timeout 20s;
+    }
+
+    location = /news/npr/rss.xml {
+        limit_conn amiga_news_global 10;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://feeds.npr.org/1001/rss.xml;
+        proxy_set_header Host feeds.npr.org;
+        proxy_ssl_server_name on;
+        proxy_ssl_name feeds.npr.org;
+        proxy_buffering off;
+        proxy_connect_timeout 8s;
+        proxy_read_timeout 20s;
+    }
+
+    location = /news/nyt/rss.xml {
+        limit_conn amiga_news_global 10;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://rss.nytimes.com/services/xml/rss/nyt/World.xml;
+        proxy_set_header Host rss.nytimes.com;
+        proxy_ssl_server_name on;
+        proxy_ssl_name rss.nytimes.com;
+        proxy_buffering off;
+        proxy_connect_timeout 8s;
+        proxy_read_timeout 20s;
+    }
+
+    location = /news/chinadaily/rss.xml {
+        limit_conn amiga_news_global 10;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://www.chinadaily.com.cn/rss/world_rss.xml;
+        proxy_set_header Host www.chinadaily.com.cn;
+        proxy_ssl_server_name on;
+        proxy_ssl_name www.chinadaily.com.cn;
+        proxy_buffering off;
+        proxy_connect_timeout 8s;
+        proxy_read_timeout 20s;
+    }
+
+    location = /news/cgtn/rss.xml {
+        limit_conn amiga_news_global 10;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://www.cgtn.com/subscribe.rss;
+        proxy_set_header Host www.cgtn.com;
+        proxy_ssl_server_name on;
+        proxy_ssl_name www.cgtn.com;
+        proxy_buffering off;
+        proxy_connect_timeout 8s;
+        proxy_read_timeout 20s;
+    }
+}

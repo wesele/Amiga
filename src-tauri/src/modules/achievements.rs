@@ -9,9 +9,11 @@ pub struct AchievementDay {
     pub date: String,
     pub reading_am: i32,
     pub reading_pm: i32,
+    pub reading_count: i32,
     pub news_count: i32,
     pub speaking_count: i32,
     pub app_open: i32,
+    pub soulmate_status: i32,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -32,13 +34,14 @@ pub fn record_app_open(db: &DatabasePool) -> Result<bool, String> {
         return Ok(false);
     };
     let today = Local::now().format("%Y-%m-%d").to_string();
-    let inserted = conn
+    let updated = conn
         .execute(
-            "INSERT OR IGNORE INTO streak_records (user_id, date) VALUES (?1, ?2)",
+            "INSERT INTO streak_records (user_id, date, open_count) VALUES (?1, ?2, 1)
+             ON CONFLICT(user_id, date) DO UPDATE SET open_count = open_count + 1",
             params![user_id, today],
         )
         .map_err(|e| format!("Failed to record app open: {e}"))?;
-    Ok(inserted > 0)
+    Ok(updated > 0)
 }
 
 pub fn get_achievement_progress(
@@ -69,10 +72,10 @@ fn calculate_progress(
     let full_learning_dates = days
         .iter()
         .filter(|day| {
-            let active_count = (day.reading_am >= 1) as i32
-                + (day.reading_pm >= 1) as i32
+            let active_count = (day.app_open >= 1) as i32
+                + (day.reading_count >= 1 || day.reading_am >= 1 || day.reading_pm >= 1) as i32
                 + (day.news_count >= 1) as i32
-                + (day.app_open >= 1) as i32;
+                + (day.soulmate_status >= 1) as i32;
             active_count >= 2
         })
         .filter_map(|day| NaiveDate::parse_from_str(&day.date, "%Y-%m-%d").ok())
@@ -80,7 +83,12 @@ fn calculate_progress(
     let learning_total = days
         .iter()
         .filter(|day| {
-            day.reading_am > 0 || day.reading_pm > 0 || day.news_count > 0 || day.app_open > 0
+            day.app_open > 0
+                || day.reading_count > 0
+                || day.reading_am > 0
+                || day.reading_pm > 0
+                || day.news_count > 0
+                || day.soulmate_status > 0
         })
         .count() as i32;
     let (check_in_current, check_in_best) = streak_metrics(check_in_dates, today);
@@ -162,6 +170,32 @@ pub fn get_achievement_days(
     {
         let mut stmt = conn
             .prepare(
+                "SELECT local_date, COUNT(DISTINCT id)
+                 FROM reading_articles
+                 WHERE user_id = ?1 AND status IN ('read', 'completed') AND local_date BETWEEN ?2 AND ?3
+                 GROUP BY local_date",
+            )
+            .map_err(|e| format!("Failed to prepare reading count achievements query: {e}"))?;
+        let rows = stmt
+            .query_map(params![user_id, start_date, end_date], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)?))
+            })
+            .map_err(|e| format!("Failed to query reading count achievements: {e}"))?;
+
+        for row in rows {
+            let (date, count) =
+                row.map_err(|e| format!("Failed to read reading count achievement row: {e}"))?;
+            let day = days.entry(date.clone()).or_insert_with(|| AchievementDay {
+                date,
+                ..Default::default()
+            });
+            day.reading_count = count;
+        }
+    }
+
+    {
+        let mut stmt = conn
+            .prepare(
                 "SELECT date(read_at, 'localtime') AS local_date, COUNT(DISTINCT article_id)
                  FROM news_reading_log
                  WHERE user_id = ?1
@@ -216,24 +250,83 @@ pub fn get_achievement_days(
     {
         let mut stmt = conn
             .prepare(
-                "SELECT date FROM streak_records
+                "SELECT date, open_count FROM streak_records
                  WHERE user_id = ?1 AND date BETWEEN ?2 AND ?3",
             )
             .map_err(|e| format!("Failed to prepare app open achievements query: {e}"))?;
         let rows = stmt
             .query_map(params![user_id, start_date, end_date], |row| {
-                row.get::<_, String>(0)
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<i32>>(1)?.unwrap_or(1),
+                ))
             })
             .map_err(|e| format!("Failed to query app open achievements: {e}"))?;
 
-        for date_res in rows {
-            let date =
-                date_res.map_err(|e| format!("Failed to read app open achievement row: {e}"))?;
+        for row in rows {
+            let (date, count) =
+                row.map_err(|e| format!("Failed to read app open achievement row: {e}"))?;
             let day = days.entry(date.clone()).or_insert_with(|| AchievementDay {
                 date,
                 ..Default::default()
             });
-            day.app_open = 1;
+            day.app_open = count;
+        }
+    }
+
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT date(e.read_at, 'localtime') AS local_date
+                 FROM soulmate_episodes e
+                 JOIN soulmate_worlds w ON e.world_id = w.id
+                 WHERE w.user_id = ?1 AND e.read_at IS NOT NULL
+                   AND date(e.read_at, 'localtime') BETWEEN ?2 AND ?3
+                 GROUP BY local_date",
+            )
+            .map_err(|e| {
+                format!("Failed to prepare soulmate read letter achievements query: {e}")
+            })?;
+        let rows = stmt
+            .query_map(params![user_id, start_date, end_date], |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(|e| format!("Failed to query soulmate read letter achievements: {e}"))?;
+
+        for row in rows {
+            let date = row.map_err(|e| format!("Failed to read soulmate episode row: {e}"))?;
+            let day = days.entry(date.clone()).or_insert_with(|| AchievementDay {
+                date,
+                ..Default::default()
+            });
+            if day.soulmate_status < 1 {
+                day.soulmate_status = 1;
+            }
+        }
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT date(m.created_at, 'localtime') AS local_date
+                 FROM soulmate_messages m
+                 JOIN soulmate_worlds w ON m.world_id = w.id
+                 WHERE w.user_id = ?1 AND m.role = 'user'
+                   AND date(m.created_at, 'localtime') BETWEEN ?2 AND ?3
+                 GROUP BY local_date",
+            )
+            .map_err(|e| format!("Failed to prepare soulmate chat achievements query: {e}"))?;
+        let rows = stmt
+            .query_map(params![user_id, start_date, end_date], |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(|e| format!("Failed to query soulmate chat achievements: {e}"))?;
+
+        for row in rows {
+            let date = row.map_err(|e| format!("Failed to read soulmate message row: {e}"))?;
+            let day = days.entry(date.clone()).or_insert_with(|| AchievementDay {
+                date,
+                ..Default::default()
+            });
+            day.soulmate_status = 2;
         }
     }
 
@@ -289,15 +382,17 @@ mod tests {
                 date: "2026-07-01".into(),
                 reading_am: 1,
                 reading_pm: 2,
+                reading_count: 2,
                 news_count: 2,
                 speaking_count: 1,
                 app_open: 0,
+                soulmate_status: 0,
             }
         );
     }
 
     #[test]
-    fn records_only_one_app_open_per_day() {
+    fn records_app_open_and_increments_count() {
         let db = DatabasePool::new_in_memory();
         let conn = db.conn().unwrap();
         conn.execute("INSERT INTO users (id, nickname) VALUES ('u1', 'Test')", [])
@@ -305,7 +400,11 @@ mod tests {
         drop(conn);
 
         assert!(record_app_open(&db).unwrap());
-        assert!(!record_app_open(&db).unwrap());
+        assert!(record_app_open(&db).unwrap());
+
+        let days = get_achievement_days(&db, "u1", "2026-01-01", "2099-12-31").unwrap();
+        assert_eq!(days.len(), 1);
+        assert_eq!(days[0].app_open, 2);
     }
 
     #[test]
@@ -320,17 +419,21 @@ mod tests {
                 date: "2026-07-08".into(),
                 reading_am: 2,
                 reading_pm: 2,
+                reading_count: 2,
                 news_count: 3,
                 speaking_count: 2,
                 app_open: 1,
+                soulmate_status: 2,
             },
             AchievementDay {
                 date: "2026-07-09".into(),
                 reading_am: 2,
                 reading_pm: 2,
+                reading_count: 2,
                 news_count: 3,
                 speaking_count: 2,
                 app_open: 1,
+                soulmate_status: 1,
             },
             AchievementDay {
                 date: "2026-07-10".into(),
@@ -346,5 +449,47 @@ mod tests {
         assert_eq!(progress.full_learning_current, 3);
         assert_eq!(progress.full_learning_best, 3);
         assert_eq!(progress.learning_total, 3);
+    }
+
+    #[test]
+    fn tracks_soulmate_read_letter_and_chat_status() {
+        let db = DatabasePool::new_in_memory();
+        let conn = db.conn().unwrap();
+        conn.execute("INSERT INTO users (id, nickname) VALUES ('u1', 'Test')", [])
+            .unwrap();
+        conn.execute(
+            "INSERT INTO soulmate_worlds (id, user_id, companion_type, companion_name, companion_gender, personality, story_location, intensity, romance_tension, surprise, knowledge, target_lang, native_lang)
+             VALUES ('w1', 'u1', 'penpal', 'Maria', 'female', 'warm', 'Madrid', 3, 2, 2, 2, 'es', 'zh')",
+            [],
+        )
+        .unwrap();
+        // Day 1: Read letter only -> status 1
+        conn.execute(
+            "INSERT INTO soulmate_episodes (id, world_id, story_date, day_number, title, body, status, read_at)
+             VALUES ('e1', 'w1', '2026-07-01', 1, 'Hello', 'Body', 'completed', '2026-07-01 09:00:00')",
+            [],
+        )
+        .unwrap();
+        // Day 2: Read letter AND chat -> status 2
+        conn.execute(
+            "INSERT INTO soulmate_episodes (id, world_id, story_date, day_number, title, body, status, read_at)
+             VALUES ('e2', 'w1', '2026-07-02', 2, 'Hello 2', 'Body 2', 'completed', '2026-07-02 09:00:00')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO soulmate_messages (world_id, episode_id, role, content, created_at)
+             VALUES ('w1', 'e2', 'user', 'Hola!', '2026-07-02 10:00:00')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let days = get_achievement_days(&db, "u1", "2026-07-01", "2026-07-02").unwrap();
+        assert_eq!(days.len(), 2);
+        assert_eq!(days[0].date, "2026-07-01");
+        assert_eq!(days[0].soulmate_status, 1);
+        assert_eq!(days[1].date, "2026-07-02");
+        assert_eq!(days[1].soulmate_status, 2);
     }
 }

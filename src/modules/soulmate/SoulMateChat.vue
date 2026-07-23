@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-page" :class="{ 'tv-content-pane tv-content-pane--fixed tv-chat': isTvMode }">
+  <div class="chat-page" :class="{ 'tv-content-pane tv-content-pane--fixed tv-chat': isTvLayoutMode }">
     <PageHeader :title="chatTitle" />
 
     <!-- Phone: stacked messages + input. TV: left transcript (2/3) | right options (1/3). -->
@@ -19,7 +19,7 @@
                 <span
                   v-if="token.isWord"
                   class="message-word"
-                  :tabindex="isTvMode ? 0 : undefined"
+                  :tabindex="isTvLayoutMode ? 0 : undefined"
                   @click.stop="onWordTap(token)"
                   @keydown.enter.prevent="onWordTap(token)"
                   @keydown.space.prevent="onWordTap(token)"
@@ -35,7 +35,7 @@
       </main>
 
       <!-- Phone: free-text -->
-      <form v-if="!isTvMode" class="input-bar" @submit.prevent="send">
+      <form v-if="!isTvLayoutMode" class="input-bar" @submit.prevent="send">
         <input
           v-model="input"
           :placeholder="t('soulmate.chatPlaceholder')"
@@ -95,7 +95,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { tokenizeArticleText } from "@/shared/articleText.js";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import {
@@ -214,7 +214,7 @@ onMounted(async () => {
   } finally {
     loading.value = false;
     await scrollBottom();
-    if (isTvMode && !loadError.value) await refreshReplyOptions();
+    if (isTvLayoutMode && !loadError.value) await refreshReplyOptions();
   }
 });
 
@@ -263,7 +263,7 @@ function fallbackOptions() {
 
 /** Put remote focus on the first reply option after buttons are mounted & enabled. */
 async function focusFirstReplyOption() {
-  if (!isTvMode) return;
+  if (!isTvLayoutMode) return;
   for (let attempt = 0; attempt < 12; attempt += 1) {
     await nextTick();
     const list = Array.isArray(optionButtons.value)
@@ -282,7 +282,7 @@ async function focusFirstReplyOption() {
 }
 
 async function refreshReplyOptions() {
-  if (!isTvMode || !userId.value || !canReply.value) {
+  if (!isTvLayoutMode || !userId.value || !canReply.value) {
     replyOptions.value = [];
     optionsLoading.value = false;
     return;
@@ -339,7 +339,7 @@ async function submitMessage(text) {
   } finally {
     sending.value = false;
     await scrollBottom();
-    if (isTvMode) await refreshReplyOptions();
+    if (isTvLayoutMode) await refreshReplyOptions();
   }
 }
 

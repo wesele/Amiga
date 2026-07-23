@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-page" :class="{ 'tv-content-pane': isTvMode }">
+  <div class="settings-page" :class="{ 'tv-content-pane': isTvLayoutMode }">
     <PageHeader :title="t('settings.title')" />
 
     <!-- Learning language (moved from Profile / Me page) -->
@@ -61,6 +61,7 @@
       <h3 class="section-header">{{ t('settings.data') }}</h3>
       <div class="settings-card">
         <SettingsItem
+          v-if="!isWebMode"
           :title="t('settings.cloudSync')"
           :subtitle="cloudSyncSubtitle"
           :showDivider="true"
@@ -102,6 +103,7 @@
 
     <!-- Cloud sync conflict dialog -->
     <ConfirmDialog
+      v-if="!isWebMode"
       :show="showCloudSyncConflictDialog"
       :title="t('settings.cloudSyncConflictTitle')"
       :message="t('settings.cloudSyncConflictDesc', { nickname: cloudSyncNickname })"
@@ -141,7 +143,7 @@ import { useTargetLangStore } from "@/stores/targetLang.js";
 import { AVAILABLE_LANGUAGES, learningCefrLevels } from "@/shared/constants.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode, isWebMode } from "@/shared/appMode.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -257,7 +259,7 @@ onMounted(async () => {
   getSetting("news_fetch_limit").then((val) => {
     if (val) newsLimit.value = parseInt(val, 10) || 5;
   }).catch((e) => console.error("Failed to load news fetch limit:", e));
-  loadCloudSyncStatus();
+  if (!isWebMode) loadCloudSyncStatus();
   try {
     const ctx = await loadLearningContext({
       targetLangStore,

@@ -1,7 +1,7 @@
 <template>
   <div
     class="achievements-page"
-    :class="{ 'tv-content-pane tv-content-pane--fixed tv-achievements': isTvMode }"
+    :class="{ 'tv-content-pane tv-content-pane--fixed tv-achievements': isTvLayoutMode }"
   >
     <header class="page-header">
       <div>
@@ -14,8 +14,8 @@
     <div class="achievements-body">
       <section class="matrix-section" :aria-label="t('achievements.matrixLabel')">
         <!-- Phone: columns = weeks (GitHub-style). TV: each row = one week. -->
-        <div class="matrix-layout" :class="{ 'tv-week-rows': isTvMode }">
-          <template v-if="!isTvMode">
+        <div class="matrix-layout" :class="{ 'tv-week-rows': isTvLayoutMode }">
+          <template v-if="!isTvLayoutMode">
             <div class="weekday-labels" aria-hidden="true">
               <span v-for="label in weekdayLabels" :key="label">{{ label }}</span>
             </div>
@@ -91,7 +91,7 @@
               :key="badge.days"
               class="achievement-badge"
               :class="{ unlocked: badge.unlocked }"
-              :tabindex="isTvMode ? 0 : undefined"
+              :tabindex="isTvLayoutMode ? 0 : undefined"
             >
               <span class="badge-icon" aria-hidden="true">{{ badge.unlocked ? "✓" : group.icon }}</span>
               <span class="badge-name">{{ badge.label }}</span>
@@ -118,14 +118,14 @@
           <div class="modal-body">
             <ul class="day-detail-list">
               <li class="day-detail-item">
-                <span class="track-dot" :class="`level-${trackLevel('readingAm', selectedDay)}`" />
-                <span class="track-name">{{ t("achievements.readingAm") }}</span>
-                <span class="track-status">{{ readingStatusLabel(selectedDay.readingAm) }}</span>
+                <span class="track-dot" :class="`level-${trackLevel('appOpen', selectedDay)}`" />
+                <span class="track-name">{{ t("achievements.appOpen") }}</span>
+                <span class="track-status">{{ appOpenStatusLabel(selectedDay.appOpen) }}</span>
               </li>
               <li class="day-detail-item">
-                <span class="track-dot" :class="`level-${trackLevel('readingPm', selectedDay)}`" />
-                <span class="track-name">{{ t("achievements.readingPm") }}</span>
-                <span class="track-status">{{ readingStatusLabel(selectedDay.readingPm) }}</span>
+                <span class="track-dot" :class="`level-${trackLevel('reading', selectedDay)}`" />
+                <span class="track-name">{{ t("achievements.reading") }}</span>
+                <span class="track-status">{{ readingStatusLabel(selectedDay.reading) }}</span>
               </li>
               <li class="day-detail-item">
                 <span class="track-dot" :class="`level-${trackLevel('news', selectedDay)}`" />
@@ -133,9 +133,9 @@
                 <span class="track-status">{{ newsStatusLabel(selectedDay.newsCount) }}</span>
               </li>
               <li class="day-detail-item">
-                <span class="track-dot" :class="`level-${trackLevel('appOpen', selectedDay)}`" />
-                <span class="track-name">{{ t("achievements.appOpen") }}</span>
-                <span class="track-status">{{ appOpenStatusLabel(selectedDay.appOpen) }}</span>
+                <span class="track-dot" :class="`level-${trackLevel('soulmate', selectedDay)}`" />
+                <span class="track-name">{{ t("achievements.soulmate") }}</span>
+                <span class="track-status">{{ soulmateStatusLabel(selectedDay.soulmateStatus) }}</span>
               </li>
             </ul>
           </div>
@@ -164,19 +164,20 @@ import {
   createAchievementMatrix,
   newsLevel,
   readingLevel,
+  soulmateLevel,
   speakingLevel,
 } from "./achievementMatrix.js";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode, isTvMode } from "@/shared/appMode.js";
 import { achievementTracksForMode } from "@/shared/tvPolicy.js";
 
 const { t, locale } = useI18n();
 const visibleTracks = achievementTracksForMode(isTvMode);
 
 function trackLevel(track, day) {
-  if (track === "readingAm") return readingLevel(day.readingAm);
-  if (track === "readingPm") return readingLevel(day.readingPm);
-  if (track === "news") return newsLevel(day.newsCount);
   if (track === "appOpen") return appOpenLevel(day.appOpen);
+  if (track === "reading") return readingLevel(day.reading);
+  if (track === "news") return newsLevel(day.newsCount);
+  if (track === "soulmate") return soulmateLevel(day.soulmateStatus);
   if (track === "speaking") return speakingLevel(day.speakingCount);
   return "empty";
 }
@@ -211,19 +212,26 @@ function closeDayModal() {
   selectedDay.value = null;
 }
 
-function readingStatusLabel(value) {
-  if (value >= 2) return t("achievements.statusCompleted");
-  if (value >= 1) return t("achievements.statusRead");
+function appOpenStatusLabel(count) {
+  if (count >= 2) return t("achievements.statusAppOpenMultiple", { count });
+  if (count >= 1) return t("achievements.statusOpened");
+  return t("achievements.statusNone");
+}
+
+function readingStatusLabel(count) {
+  if (count >= 2) return t("achievements.readingCountDetail", { count });
+  if (count >= 1) return t("achievements.statusReadOne");
   return t("achievements.statusNone");
 }
 
 function newsStatusLabel(count) {
-  if (count > 0) return t("achievements.newsCountDetail", { count });
+  if (count >= 1) return t("achievements.newsCountDetail", { count });
   return t("achievements.statusNone");
 }
 
-function appOpenStatusLabel(value) {
-  if (value >= 1) return t("achievements.statusOpened");
+function soulmateStatusLabel(status) {
+  if (status >= 2) return t("achievements.statusSoulmateChat");
+  if (status >= 1) return t("achievements.statusSoulmateLetter");
   return t("achievements.statusNone");
 }
 
@@ -266,10 +274,10 @@ function createGroup(key, icon, value, thresholds, progressText) {
 function dayAriaLabel(day) {
   return t("achievements.daySummary", {
     date: day.date,
-    am: day.readingAm,
-    pm: day.readingPm,
-    news: day.newsCount,
-    appOpen: day.appOpen,
+    appOpen: appOpenStatusLabel(day.appOpen),
+    reading: readingStatusLabel(day.reading),
+    news: newsStatusLabel(day.newsCount),
+    soulmate: soulmateStatusLabel(day.soulmateStatus),
   });
 }
 

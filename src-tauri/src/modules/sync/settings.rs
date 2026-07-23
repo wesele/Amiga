@@ -21,6 +21,7 @@ const SENSITIVE_SETTING_KEYS: &[&str] = &[
     "primary_provider",
     "primary_thinking_enabled",
     "builtin_thinking_enabled",
+    "builtin_thinking_model",
     "backup_base_url",
     "backup_api_key",
     "backup_model",

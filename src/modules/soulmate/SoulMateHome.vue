@@ -1,5 +1,5 @@
 <template>
-  <div class="soulmate-home" :class="[genderClass, { 'tv-content-pane tv-content-pane--fixed tv-home': isTvMode }]">
+  <div class="soulmate-home" :class="[genderClass, { 'tv-content-pane tv-content-pane--fixed tv-home': isTvLayoutMode }]">
     <div v-if="portraitSrc" class="portrait-stage" aria-hidden="true">
       <img
         ref="portraitEl"
@@ -54,7 +54,7 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 import { useI18n } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { generateSoulMateEpisode, getSoulMateHome } from "@/shared/backend/soulmate.js";
@@ -141,7 +141,7 @@ async function loadHome() {
   } finally {
     loading.value = false;
     // TV: land remote focus on the only primary action (letter / chat).
-    if (isTvMode && home.value?.world) {
+    if (isTvLayoutMode && home.value?.world) {
       await nextTick();
       actionBtn.value?.focus?.();
     }

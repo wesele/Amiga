@@ -11,13 +11,14 @@ use tauri::Emitter;
 pub const BUILTIN_BASE_URL: &str = "https://integrate.api.nvidia.com/v1";
 pub const BUILTIN_API_KEY: &str =
     "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";
-pub const BUILTIN_MODEL: &str = "google/diffusiongemma-26b-a4b-it";
+pub const BUILTIN_MODEL: &str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning";
 /// Default multimodal model for speaking scoring (transcribe + rubric).
 pub const MULTIMODAL_BUILTIN_MODEL: &str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning";
 const ENV_BUILTIN_BASE_URL: &str = "IDIOMA_BUILTIN_LLM_BASE_URL";
 const ENV_BUILTIN_API_KEY: &str = "IDIOMA_BUILTIN_LLM_API_KEY";
 const ENV_BUILTIN_MODEL: &str = "IDIOMA_BUILTIN_LLM_MODEL";
 const ENV_MULTIMODAL_BUILTIN_MODEL: &str = "IDIOMA_BUILTIN_MULTIMODAL_MODEL";
+const BUILTIN_THINKING_MODEL_SETTING: &str = "builtin_thinking_model";
 
 fn setting_or_default(value: Option<&str>, default: &str) -> String {
     value
@@ -39,7 +40,8 @@ fn builtin_config_from_values(
         api_key: setting_or_default(api_key, BUILTIN_API_KEY),
         model: setting_or_default(model, BUILTIN_MODEL),
         provider: LlmProvider::NvidiaNim,
-        thinking_enabled: false,
+        // In this project the flag means "explicitly disable reasoning".
+        thinking_enabled: true,
     }
 }
 
@@ -217,9 +219,13 @@ pub struct RewriteResult {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TranslationResult {
     /// Translation of the word in the user's native language.
+    #[serde(default)]
     pub translation: String,
+    #[serde(default)]
     pub ipa: Option<String>,
+    #[serde(default)]
     pub pos: Option<String>,
+    #[serde(default)]
     pub example: Option<String>,
 }
 
@@ -967,6 +973,37 @@ fn sanitize_llm_plaintext(raw: &str) -> String {
     text.trim().to_string()
 }
 
+/// Extract the first top-level JSON object (`{…}`) from a string that may
+/// contain surrounding prose, markdown fences, or other noise.  Returns the
+/// substring from the first `{` to its matching `}` (brace-depth tracking),
+/// or `None` if no valid object is found.
+fn extract_json_object(raw: &str) -> Option<&str> {
+    let bytes = raw.as_bytes();
+    let start = bytes.iter().position(|&b| b == b'{')?;
+    let mut depth: i32 = 0;
+    let mut in_string = false;
+    let mut escape_next = false;
+    for (i, &b) in bytes[start..].iter().enumerate() {
+        if escape_next {
+            escape_next = false;
+            continue;
+        }
+        match b {
+            b'\\' if in_string => escape_next = true,
+            b'"' => in_string = !in_string,
+            b'{' if !in_string => depth += 1,
+            b'}' if !in_string => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&raw[start..start + i + 1]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 pub fn build_chat_messages_fallback(system: &str, user: &str) -> Vec<ChatMessage> {
     vec![
         ChatMessage {
@@ -1116,48 +1153,48 @@ pub async fn translate_word(
     let native_label = lang_name(native_lang);
     let source_label = lang_name(source_lang);
 
-    let messages = match crate::modules::prompts::get_prompt(db, "translator-chat") {
-        Ok(p) => build_chat_messages_fallback(
-            &p.system_prompt,
-            &format!(
-                "Translate the following {source_label} word using the same rules as the AI translation assistant.\n\
-                 Word: {word}\n\
-                 Context: {context}\n\
-                 Target output language: {native_label}\n\n\
-                 Return a strict JSON object only:\n\
-                 {{\"translation\": \"<translation in {native_label}>\", \
-                 \"ipa\": \"IPA pronunciation\", \
-                 \"pos\": \"part of speech (noun/verb/adjective/etc.)\", \
-                 \"example\": \"one simple example sentence in {source_label}\"}}"
-            ),
-        ),
-        Err(_) => {
-            let prompt = format!(
-                "Translate the following {source_label} word, given its context. \
-                 Output a translation in {native_label}.\n\
-                 Word: {word}\n\
-                 Context: {context}\n\
-                 Return a strict JSON object: \
-                 {{\"translation\": \"<translation in {native_label}>\", \
-                 \"ipa\": \"IPA pronunciation\", \
-                 \"pos\": \"part of speech (noun/verb/adjective/etc.)\", \
-                 \"example\": \"one simple example sentence in {source_label}\"}}"
-            );
-            build_chat_messages_fallback(
-                "You are a precise dictionary assistant. Output only the requested JSON, no extra prose.",
-                &prompt,
-            )
-        }
+    let vars: Vec<(&str, &str)> = vec![
+        ("WORD", word),
+        ("CONTEXT", context),
+        ("SOURCE_LANG", source_label),
+        ("TARGET_LANG", native_label),
+    ];
+
+    let messages = build_chat_messages(db, "translate-word", &vars);
+
+    // Fallback when the prompt key is missing or returns empty
+    let messages = if messages.is_empty() {
+        let prompt = format!(
+            "Translate the following {source_label} word, given its context. \
+             Output a translation in {native_label}.\n\
+             Word: {word}\n\
+             Context: {context}\n\
+             Return a strict JSON object: \
+             {{\"translation\": \"<translation in {native_label}>\", \
+             \"ipa\": \"IPA pronunciation\", \
+             \"pos\": \"part of speech (noun/verb/adjective/etc.)\", \
+             \"example\": \"one simple example sentence in {source_label}\"}}"
+        );
+        build_chat_messages_fallback(
+            "You are a precise dictionary assistant. Output only the requested JSON, no extra prose.",
+            &prompt,
+        )
+    } else {
+        messages
     };
 
     let response = client.chat(db, messages).await?;
 
-    let cleaned = response
-        .trim()
-        .trim_start_matches("```json")
-        .trim_start_matches("```")
-        .trim_end_matches("```")
-        .trim();
+    // Try extract_json_object first (handles prose around JSON, markdown
+    // fences, etc.), then fall back to the simpler trim approach.
+    let cleaned = extract_json_object(&response).unwrap_or_else(|| {
+        response
+            .trim()
+            .trim_start_matches("```json")
+            .trim_start_matches("```")
+            .trim_end_matches("```")
+            .trim()
+    });
 
     let result: TranslationResult = serde_json::from_str(cleaned).map_err(|e| {
         log::error!(
@@ -1167,6 +1204,12 @@ pub async fn translate_word(
         );
         format!("Translation response format error: {}", e)
     })?;
+
+    // Guard against empty translation (model returned {} or similar)
+    if result.translation.is_empty() {
+        log::warn!("translate_word: empty translation for '{}'", word);
+        return Err("Translation returned empty result".to_string());
+    }
 
     log::debug!("Word translated: {} -> {}", word, result.translation);
     Ok(result)
@@ -1403,10 +1446,31 @@ pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
     };
 
     let mut builtin = builtin_config();
-    builtin.thinking_enabled = matches!(
-        get_setting("builtin_thinking_enabled").as_deref(),
-        Some("true")
-    );
+    let saved_thinking_model = get_setting(BUILTIN_THINKING_MODEL_SETTING);
+    if saved_thinking_model.as_deref() == Some(builtin.model.as_str()) {
+        builtin.thinking_enabled = match get_setting("builtin_thinking_enabled").as_deref() {
+            Some("false") => false,
+            Some("true") => true,
+            _ => builtin.thinking_enabled,
+        };
+    } else {
+        // A reasoning preference saved for an older built-in model must not
+        // silently enable reasoning on a newly shipped model. Reset it once,
+        // then preserve any choice the user makes for this exact model.
+        conn.execute(
+            "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = ?2",
+            params!["builtin_thinking_enabled", "true"],
+        )
+        .map_err(|e| format!("Failed to migrate built-in thinking setting: {e}"))?;
+        conn.execute(
+            "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = ?2",
+            params![BUILTIN_THINKING_MODEL_SETTING, builtin.model],
+        )
+        .map_err(|e| format!("Failed to migrate built-in model setting: {e}"))?;
+        builtin.thinking_enabled = true;
+    }
 
     Ok(LlmConfig {
         mode,
@@ -1485,7 +1549,11 @@ pub fn get_setting(db: &DatabasePool, key: &str) -> Result<Option<String>, Strin
 }
 
 pub fn save_setting(db: &DatabasePool, key: &str, value: &str) -> Result<(), String> {
-    save_llm_setting(db, key, value)
+    save_llm_setting(db, key, value)?;
+    if key == "builtin_thinking_enabled" {
+        save_llm_setting(db, BUILTIN_THINKING_MODEL_SETTING, &builtin_config().model)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1523,6 +1591,8 @@ mod tests {
         assert_eq!(c.base_url, BUILTIN_BASE_URL);
         assert_eq!(c.api_key, BUILTIN_API_KEY);
         assert_eq!(c.model, BUILTIN_MODEL);
+        assert_eq!(c.provider, LlmProvider::NvidiaNim);
+        assert!(c.thinking_enabled);
     }
 
     #[test]
@@ -1551,6 +1621,37 @@ mod tests {
         assert!(cfg.primary.is_none());
         assert_eq!(cfg.builtin.base_url, BUILTIN_BASE_URL);
         assert_eq!(cfg.builtin.model, BUILTIN_MODEL);
+        assert_eq!(cfg.builtin.provider, LlmProvider::NvidiaNim);
+        assert!(cfg.builtin.thinking_enabled);
+    }
+
+    #[test]
+    fn config_migrates_thinking_choice_when_builtin_model_changes() {
+        let db = empty_db();
+        save_llm_setting(&db, "builtin_thinking_enabled", "false").unwrap();
+        assert!(get_llm_config(&db).unwrap().builtin.thinking_enabled);
+        assert_eq!(
+            get_setting(&db, "builtin_thinking_enabled")
+                .unwrap()
+                .as_deref(),
+            Some("true")
+        );
+        assert_eq!(
+            get_setting(&db, BUILTIN_THINKING_MODEL_SETTING)
+                .unwrap()
+                .as_deref(),
+            Some(BUILTIN_MODEL)
+        );
+    }
+
+    #[test]
+    fn config_preserves_choice_saved_for_current_builtin_model() {
+        let db = empty_db();
+        save_setting(&db, "builtin_thinking_enabled", "false").unwrap();
+        assert!(!get_llm_config(&db).unwrap().builtin.thinking_enabled);
+
+        save_setting(&db, "builtin_thinking_enabled", "true").unwrap();
+        assert!(get_llm_config(&db).unwrap().builtin.thinking_enabled);
     }
 
     #[test]

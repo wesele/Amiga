@@ -72,7 +72,7 @@
 
 <script setup>
 import { computed, getCurrentInstance } from "vue";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 import { useParentBack } from "@/shared/useParentBack.js";
 
 const props = defineProps({
@@ -91,7 +91,7 @@ const instance = getCurrentInstance();
 const { goBack } = useParentBack();
 
 /** TV: remote Back key navigates; header back is visual only (not in focus graph). */
-const backTabIndex = isTvMode ? -1 : undefined;
+const backTabIndex = isTvLayoutMode ? -1 : undefined;
 
 const hasBackListener = computed(() => {
   const vnodeProps = instance?.vnode?.props;

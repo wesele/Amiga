@@ -10,7 +10,9 @@ const LlmConfigPage = (await import("@/modules/profile/LlmConfigPage.vue")).defa
 const BUILTIN = {
   base_url: "https://integrate.api.nvidia.com/v1",
   api_key: "nvapi-secret-key-1234567890ABCDEF",
-  model: "google/diffusiongemma-26b-a4b-it",
+  model: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+  provider: "nvidia_nim",
+  thinking_enabled: true,
 };
 
 function makeRoutes() {
@@ -157,6 +159,8 @@ describe("LlmConfigPage", () => {
     expect(config?.base_url).toBe(BUILTIN.base_url);
     expect(config?.api_key).toBe(BUILTIN.api_key);
     expect(config?.model).toBe(BUILTIN.model);
+    expect(config?.provider).toBe("nvidia_nim");
+    expect(config?.thinking_enabled).toBe(true);
   });
 
   it("saves custom config even if some fields are empty (no early return)", async () => {

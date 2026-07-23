@@ -6,13 +6,15 @@ import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
 import VocabPage from "@/modules/vocab/VocabPage.vue";
 
-// Mock isTvMode to be true for this test suite
+// Mock TV layout mode to be true for this test suite.
 vi.mock("@/shared/appMode.js", () => ({
   isTvMode: true,
+  isTvLayoutMode: true,
   APP_MODE_TV: "tv",
   APP_MODE_DEFAULT: "default",
   resolveAppMode: () => "tv",
   appMode: "tv",
+  layoutMode: "tv",
   applyAppMode: vi.fn(),
 }));
 

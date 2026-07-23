@@ -1,7 +1,7 @@
 <template>
-  <div class="reading-reader" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvMode }">
+  <div class="reading-reader" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvLayoutMode }">
     <header class="reader-header">
-      <button class="back-btn" type="button" :tabindex="isTvMode ? -1 : undefined" @click="goBack">
+      <button class="back-btn" type="button" :tabindex="isTvLayoutMode ? -1 : undefined" @click="goBack">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
@@ -44,7 +44,7 @@
             <span
               v-if="token.isWord"
               class="word"
-              :tabindex="isTvMode ? 0 : undefined"
+              :tabindex="isTvLayoutMode ? 0 : undefined"
               @click.stop="onWordTap(token)"
               @keydown.enter.prevent="onWordTap(token)"
               @keydown.space.prevent="onWordTap(token)"
@@ -61,7 +61,7 @@
               <span
                 v-if="token.isWord"
                 class="word"
-                :tabindex="isTvMode ? 0 : undefined"
+                :tabindex="isTvLayoutMode ? 0 : undefined"
                 @click.stop="onWordTap(token)"
                 @keydown.enter.prevent="onWordTap(token)"
                 @keydown.space.prevent="onWordTap(token)"
@@ -71,7 +71,7 @@
           </p>
           <p
             class="para-translation"
-            :tabindex="isTvMode ? 0 : undefined"
+            :tabindex="isTvLayoutMode ? 0 : undefined"
           >{{ translations[pidx] || '...' }}</p>
         </template>
       </div>
@@ -168,7 +168,7 @@ import { loadLearningContext } from "@/shared/learningContext.js";
 import { tokenizeArticleText, extractWordTexts } from "@/shared/articleText.js";
 import { useSelectionTranslation } from "@/shared/selectionTranslation.js";
 import { useReadAloud } from "@/shared/readAloud.js";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
 const { t } = useI18n();

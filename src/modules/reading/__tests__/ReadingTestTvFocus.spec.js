@@ -7,7 +7,7 @@ const source = readFileSync(resolve(__dirname, "../ReadingTest.vue"), "utf8");
 describe("ReadingTest TV remote focus policy", () => {
   it("keeps options focusable on TV after answering (aria-disabled, not hard-disabled)", () => {
     expect(source).toMatch(/optionsHardDisabled/);
-    expect(source).toMatch(/!isTvMode && isCurrentAnswered/);
+    expect(source).toMatch(/!isTvLayoutMode && isCurrentAnswered/);
     expect(source).toMatch(/:aria-disabled="isCurrentAnswered \? 'true' : undefined"/);
     // Phone still hard-disables options after answer.
     expect(source).toMatch(/:disabled="optionsHardDisabled"/);

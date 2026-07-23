@@ -33,7 +33,7 @@ describe("TV news reader policy (shipped)", () => {
 
   it("NewsReader words are TV-focusable and Enter triggers onWordTap (translate)", () => {
     const source = readFileSync(resolve(ROOT, "modules/news/NewsReader.vue"), "utf8");
-    expect(source).toMatch(/:tabindex="isTvMode \? 0 : undefined"/);
+    expect(source).toMatch(/:tabindex="isTvLayoutMode \? 0 : undefined"/);
     expect(source).toMatch(/@keydown\.enter\.prevent="onWordTap\(token\)"/);
     expect(source).toMatch(/\.word:focus-visible/);
     // Paragraph-aware body (not a flat token stream).
@@ -44,19 +44,19 @@ describe("TV news reader policy (shipped)", () => {
   it("NewsReader bilingual translation paragraphs are TV-focusable", () => {
     const source = readFileSync(resolve(ROOT, "modules/news/NewsReader.vue"), "utf8");
     expect(source).toMatch(/class="para-translation"/);
-    expect(source).toMatch(/para-translation[\s\S]*:tabindex="isTvMode \? 0 : undefined"/);
+    expect(source).toMatch(/para-translation[\s\S]*:tabindex="isTvLayoutMode \? 0 : undefined"/);
     expect(source).toMatch(/\.para-translation:focus-visible/);
   });
 
   it("ReadingReader matches news paragraph + word focus wiring", () => {
     const source = readFileSync(resolve(ROOT, "modules/reading/ReadingReader.vue"), "utf8");
-    expect(source).toMatch(/:tabindex="isTvMode \? 0 : undefined"/);
+    expect(source).toMatch(/:tabindex="isTvLayoutMode \? 0 : undefined"/);
     expect(source).toMatch(/@keydown\.enter\.prevent="onWordTap\(token\)"/);
     expect(source).toMatch(/bodyParagraphs/);
     expect(source).toMatch(/class="para"/);
     expect(source).toMatch(/\.word:focus-visible/);
     expect(source).toMatch(/html\[data-app-mode="tv"\] \.article-text/);
-    expect(source).toMatch(/para-translation[\s\S]*:tabindex="isTvMode \? 0 : undefined"/);
+    expect(source).toMatch(/para-translation[\s\S]*:tabindex="isTvLayoutMode \? 0 : undefined"/);
   });
 
   it("News and Reading TV body uses modest gutters and full-pane text width", () => {
@@ -73,7 +73,7 @@ describe("TV news reader policy (shipped)", () => {
 
   it("SoulMateStory letter body matches news word-focus wiring", () => {
     const source = readFileSync(resolve(ROOT, "modules/soulmate/SoulMateStory.vue"), "utf8");
-    expect(source).toMatch(/:tabindex="isTvMode \? 0 : undefined"/);
+    expect(source).toMatch(/:tabindex="isTvLayoutMode \? 0 : undefined"/);
     expect(source).toMatch(/@keydown\.enter\.prevent="onWordTap\(token\)"/);
     expect(source).toMatch(/@keydown\.space\.prevent="onWordTap\(token\)"/);
     expect(source).toMatch(/bodyParagraphs/);
@@ -84,7 +84,7 @@ describe("TV news reader policy (shipped)", () => {
 
   it("AppShell uses shouldShowL1Nav so TV reader keeps the rail", () => {
     const source = readFileSync(resolve(ROOT, "modules/shell/AppShell.vue"), "utf8");
-    expect(source).toMatch(/shouldShowL1Nav\(route\.name,\s*isTvMode\)/);
+    expect(source).toMatch(/shouldShowL1Nav\(route\.name,\s*isTvLayoutMode\)/);
     expect(source).toMatch(/justify-content:\s*flex-start/);
   });
 
@@ -95,7 +95,7 @@ describe("TV news reader policy (shipped)", () => {
       "modules/reading/ReadingTest.vue",
     ]) {
       const source = readFileSync(resolve(ROOT, rel), "utf8");
-      expect(source).toMatch(/class="back-btn"[^>]*:tabindex="isTvMode \? -1 : undefined"/);
+      expect(source).toMatch(/class="back-btn"[^>]*:tabindex="isTvLayoutMode \? -1 : undefined"/);
     }
   });
 });

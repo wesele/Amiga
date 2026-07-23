@@ -2,7 +2,17 @@ import { invoke as tauriInvoke, isTauri } from "@tauri-apps/api/core";
 
 let _invoke = tauriInvoke;
 
-if (typeof isTauri === "function" ? !isTauri() : !isTauri) {
+const _isTauriRuntime = typeof isTauri === "function" ? isTauri() : isTauri;
+const _isWebRuntime = !_isTauriRuntime && import.meta.env.VITE_AMIGA_WEB === "1";
+
+async function webInvoke(command, args) {
+  const { invokeWebCommand } = await import("./web/webBackend.js");
+  return invokeWebCommand(command, args);
+}
+
+if (_isWebRuntime) {
+  _invoke = webInvoke;
+} else if (!_isTauriRuntime) {
   _invoke = async (command, args) => {
     console.log("Mocked Tauri IPC command:", command, args);
     if (command === "get_llm_config_cmd") {
@@ -11,9 +21,9 @@ if (typeof isTauri === "function" ? !isTauri() : !isTauri) {
         builtin: {
           base_url: "https://integrate.api.nvidia.com/v1",
           api_key: "nvapi-secret-key-1234567890ABCDEF",
-          model: "google/diffusiongemma-26b-a4b-it",
+          model: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
           provider: "nvidia_nim",
-          thinking_enabled: false
+          thinking_enabled: true
         },
         primary: {
           base_url: "https://api.openai.com/v1",
@@ -30,7 +40,7 @@ if (typeof isTauri === "function" ? !isTauri() : !isTauri) {
         builtin: {
           base_url: "https://integrate.api.nvidia.com/v1",
           api_key: "nvapi-secret-key-1234567890ABCDEF",
-          model: "google/diffusiongemma-26b-a4b-it",
+          model: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
         },
         custom: {
           base_url: "https://api.openai.com/v1",
@@ -49,7 +59,7 @@ if (typeof isTauri === "function" ? !isTauri() : !isTauri) {
       } else if (url.includes("deepseek")) {
         return ["deepseek-chat", "deepseek-coder"];
       } else {
-        return ["nvidia/llama-3.1-nemotron-70b-instruct", "nvidia/diffusiongemma-26b-a4b-it"];
+        return ["nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "nvidia/llama-3.1-nemotron-70b-instruct"];
       }
     }
     if (command === "test_llm_connection_cmd" || command === "test_multimodal_connection_cmd") {

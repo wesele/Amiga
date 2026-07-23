@@ -1,8 +1,8 @@
 <template>
-  <div class="prompt-page" :class="{ 'tv-content-pane': isTvMode }">
+  <div class="prompt-page" :class="{ 'tv-content-pane': isTvLayoutMode }">
     <PageHeader :title="t('prompts.title')" variant="prompts">
       <template #actions>
-        <button class="reset-all-btn" :data-tv-defer-focus="isTvMode && loading ? true : undefined" @click="showResetDialog = true">{{ t('prompts.resetAll') }}</button>
+        <button class="reset-all-btn" :data-tv-defer-focus="isTvLayoutMode && loading ? true : undefined" @click="showResetDialog = true">{{ t('prompts.resetAll') }}</button>
       </template>
     </PageHeader>
 
@@ -56,7 +56,7 @@ import { getAllPrompts, resetAllPrompts as apiResetAll } from "@/shared/backend/
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 
 const router = useRouter();
 const { t } = useI18n();

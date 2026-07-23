@@ -1,8 +1,8 @@
 <template>
-  <div class="news-reader" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvMode }">
+  <div class="news-reader" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvLayoutMode }">
     <!-- Header -->
     <header class="reader-header">
-      <button class="back-btn" type="button" :tabindex="isTvMode ? -1 : undefined" @click="goBack">
+      <button class="back-btn" type="button" :tabindex="isTvLayoutMode ? -1 : undefined" @click="goBack">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
@@ -12,7 +12,7 @@
         <div class="header-title-translation" v-if="bilingualMode && titleTranslation">{{ titleTranslation }}</div>
         <!-- TV: source is display-only (remote must not focus or open the original URL). -->
         <span
-          v-if="article?.source && isTvMode"
+          v-if="article?.source && isTvLayoutMode"
           class="header-source"
         >{{ formatSource(article.source) }}</span>
         <a
@@ -73,7 +73,7 @@
             <span
               v-if="token.isWord"
               class="word"
-              :tabindex="isTvMode ? 0 : undefined"
+              :tabindex="isTvLayoutMode ? 0 : undefined"
               @click.stop="onWordTap(token)"
               @keydown.enter.prevent="onWordTap(token)"
               @keydown.space.prevent="onWordTap(token)"
@@ -91,7 +91,7 @@
               <span
                 v-if="token.isWord"
                 class="word"
-                :tabindex="isTvMode ? 0 : undefined"
+                :tabindex="isTvLayoutMode ? 0 : undefined"
                 @click.stop="onWordTap(token)"
                 @keydown.enter.prevent="onWordTap(token)"
                 @keydown.space.prevent="onWordTap(token)"
@@ -101,7 +101,7 @@
           </p>
           <p
             class="para-translation"
-            :tabindex="isTvMode ? 0 : undefined"
+            :tabindex="isTvLayoutMode ? 0 : undefined"
           >{{ translations[pidx] || "..." }}</p>
         </template>
       </div>
@@ -175,7 +175,7 @@
           </svg>
         </button>
         <button
-          v-if="!isTvMode"
+          v-if="!isTvLayoutMode"
           class="mode-btn icon-btn share-btn"
           :disabled="sharing"
           :title="t('news.shareTitle')"
@@ -214,7 +214,7 @@ import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
 import { useReadAloud } from "@/shared/readAloud.js";
 import { useNewsArticleWords } from "./useNewsArticleWords.js";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 import { shouldBlockUiOnRewrite } from "@/shared/tvPolicy.js";
 import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
@@ -234,7 +234,7 @@ let currentLevel = "A1";
 let unsubscribe = null;
 let rewriteGeneration = 0;
 
-const blocksOnRewrite = shouldBlockUiOnRewrite(isTvMode);
+const blocksOnRewrite = shouldBlockUiOnRewrite(isTvLayoutMode);
 const articleTitle = computed(() => cleanHtmlText(article.value?.original_title || ""));
 const displayBody = computed(() => {
   const art = article.value;

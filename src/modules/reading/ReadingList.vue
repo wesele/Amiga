@@ -1,5 +1,5 @@
 <template>
-  <div class="reading-list" :class="{ 'tv-content-pane': isTvMode }">
+  <div class="reading-list" :class="{ 'tv-content-pane': isTvLayoutMode }">
     <PageHeader :title="t('reading.title')" variant="news" :back-label="t('common.back')" />
 
     <div v-if="error" class="error-container">
@@ -27,7 +27,7 @@
           'is-long-pressing': longPressArticleId === article.id,
         }"
         :data-article-id="article.id"
-        :data-tv-preferred-focus="isTvMode && article.id === lastOpenedArticleId ? true : undefined"
+        :data-tv-preferred-focus="isTvLayoutMode && article.id === lastOpenedArticleId ? true : undefined"
         :role="article.isGenerating ? undefined : 'button'"
         :tabindex="article.isGenerating ? undefined : 0"
         @click="!article.isGenerating && onCardClick(article)"
@@ -104,7 +104,7 @@ import {
 import { loadLearningContext } from "@/shared/learningContext.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 
 const LONG_PRESS_MS = 500;
 

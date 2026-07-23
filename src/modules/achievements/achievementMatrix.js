@@ -34,11 +34,13 @@ export function createAchievementMatrix(records = [], today = new Date()) {
       days.push({
         date: dateKey,
         isFuture: date > today,
+        appOpen: record.app_open || 0,
+        reading: record.reading_count || (record.reading_am > 0 || record.reading_pm > 0 ? (record.reading_am > 0 && record.reading_pm > 0 ? 2 : 1) : 0),
+        newsCount: record.news_count || 0,
+        soulmateStatus: record.soulmate_status || 0,
         readingAm: record.reading_am || 0,
         readingPm: record.reading_pm || 0,
-        newsCount: record.news_count || 0,
         speakingCount: record.speaking_count || 0,
-        appOpen: record.app_open || 0,
       });
     }
     weeks.push({ start: formatLocalDate(weekStart), days });
@@ -58,7 +60,7 @@ export function readingLevel(value) {
 }
 
 export function newsLevel(value) {
-  if (value >= 3) return "complete";
+  if (value >= 2) return "complete";
   if (value >= 1) return "active";
   return "empty";
 }
@@ -70,6 +72,13 @@ export function speakingLevel(value) {
 }
 
 export function appOpenLevel(value) {
-  if (value >= 1) return "complete";
+  if (value >= 2) return "complete";
+  if (value >= 1) return "active";
+  return "empty";
+}
+
+export function soulmateLevel(value) {
+  if (value >= 2) return "complete";
+  if (value >= 1) return "active";
   return "empty";
 }

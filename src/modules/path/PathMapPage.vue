@@ -1,5 +1,5 @@
 <template>
-  <div class="path-map" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvMode }">
+  <div class="path-map" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvLayoutMode }">
     <PageHeader
       variant="path"
       :back-label="t('common.back')"
@@ -19,7 +19,7 @@
           type="button"
           class="level-btn"
           data-tv-focus-key="path-level-picker"
-          :data-tv-defer-focus="isTvMode && loading ? true : undefined"
+          :data-tv-defer-focus="isTvLayoutMode && loading ? true : undefined"
           :disabled="levelSwitching"
           :aria-label="t('path.selectLevel')"
           @click="showLevelPicker = true"
@@ -103,7 +103,7 @@
                 class="path-node"
                 :class="nodeClass(section)"
                 :data-node-id="section.id"
-                :data-tv-preferred-focus="isTvMode && (lastNodeId === section.id || (lastNodeId == null && section.current)) ? true : undefined"
+                :data-tv-preferred-focus="isTvLayoutMode && (lastNodeId === section.id || (lastNodeId == null && section.current)) ? true : undefined"
                 :aria-disabled="isNodeDisabled(section) ? 'true' : 'false'"
                 :aria-label="nodeLabel(section)"
                 @click="startNode(section)"
@@ -150,7 +150,7 @@ import { getPathCurriculum } from "@/shared/backend/path.js";
 import { getCurrentUser, updateLearningGoalCefr } from "@/shared/backend/user.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
 const UNIT_HUES = [145, 198, 262, 32, 12, 210];

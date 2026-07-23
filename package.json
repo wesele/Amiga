@@ -1,12 +1,15 @@
 {
   "name": "idioma",
   "private": true,
-  "version": "0.4.35",
+  "version": "0.4.36",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:web": "vite --mode web",
     "build": "vite build",
+    "build:web": "vite build --mode web",
     "preview": "vite preview",
+    "preview:web": "vite preview --mode web",
     "tauri": "tauri",
     "test": "vitest run",
     "test:watch": "vitest",

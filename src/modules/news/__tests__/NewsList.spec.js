@@ -111,13 +111,13 @@ describe("NewsList article-card / source-link structure", () => {
     expect(linkBlock[0]).toMatch(/rel="noopener noreferrer"/);
     expect(linkBlock[0]).toMatch(/@click\.stop\.prevent="openSourceUrl/);
     // TV: non-interactive span so remote cannot select the original URL.
-    expect(vue).toMatch(/v-if="article\.source && isTvMode"/);
+    expect(vue).toMatch(/v-if="article\.source && isTvLayoutMode"/);
     expect(vue).toMatch(/<span[\s\S]*?class="card-source"/);
   });
 
   it("renders the reader header source as external link on phone and plain text on TV", () => {
     const vue = read("src/modules/news/NewsReader.vue");
-    expect(vue).toMatch(/v-if="article\?\.source && isTvMode"/);
+    expect(vue).toMatch(/v-if="article\?\.source && isTvLayoutMode"/);
     expect(vue).toMatch(/<span[\s\S]*?class="header-source"/);
     const linkBlock = vue.match(/<a[\s\S]*?class="header-source"[\s\S]*?>/);
     expect(linkBlock, "reader header source link not found").toBeTruthy();

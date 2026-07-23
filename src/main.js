@@ -13,7 +13,7 @@ import { applyQueryLocale } from "./app/queryLocale.js";
 import { installWizardGuard } from "./app/routeGuards.js";
 import { installSocialInboxService } from "./app/socialInbox.js";
 import { installAppOpenTracker } from "./shared/appOpenTracker.js";
-import { applyAppMode, isTvMode } from "./shared/appMode.js";
+import { applyAppMode, isTvLayoutMode, isTvMode } from "./shared/appMode.js";
 import { installTvRemoteNavigation } from "./app/tvRemoteNavigation.js";
 
 async function bootstrap() {
@@ -62,7 +62,7 @@ async function bootstrap() {
 
   app.mount("#app");
 
-  if (isTvMode) installTvRemoteNavigation({ router });
+  if (isTvLayoutMode) installTvRemoteNavigation({ router });
 
   // Fix: force re-resolve after mount to handle race condition
   // between async beforeEach guard and dynamic route registration

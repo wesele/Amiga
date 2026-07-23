@@ -1,5 +1,5 @@
 <template>
-  <div class="learn-hub" :class="{ 'tv-content-pane tv-learn-hub': isTvMode }">
+  <div class="learn-hub" :class="{ 'tv-content-pane tv-learn-hub': isTvLayoutMode }">
     <header class="page-header">
       <h1 class="page-title">{{ t("learn.title") }}</h1>
       <div class="header-days">
@@ -80,7 +80,7 @@ import { getCompletedReadingCount } from "@/shared/backend/reading.js";
 import { getCompletedSpeakingCount } from "@/shared/backend/speaking.js";
 import { getUserVocabStats } from "@/shared/backend/vocabulary.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode, isTvMode } from "@/shared/appMode.js";
 
 const router = useRouter();
 const { t } = useI18n();

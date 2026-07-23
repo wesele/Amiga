@@ -1,10 +1,10 @@
 <template>
-  <div class="lesson-page" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvMode }">
+  <div class="lesson-page" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvLayoutMode }">
     <header class="lesson-header">
       <button
         class="close-btn"
         type="button"
-        :tabindex="isTvMode ? -1 : undefined"
+        :tabindex="isTvLayoutMode ? -1 : undefined"
         :aria-label="t('common.back')"
         @click="exitLesson"
       >
@@ -87,7 +87,7 @@ import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";
 import { checkAnswer, checkAnswerAsync } from "./checkAnswer.js";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 import { adaptQuestionsForTv } from "./tvQuestionAdapter.js";
 
 const route = useRoute();
@@ -176,7 +176,7 @@ async function load() {
     );
     lesson.value = data;
     const lessonQuestions = data.questions || [];
-    questions.value = isTvMode ? adaptQuestionsForTv(lessonQuestions) : lessonQuestions;
+    questions.value = isTvLayoutMode ? adaptQuestionsForTv(lessonQuestions) : lessonQuestions;
     resetSession();
   } catch (e) {
     error.value = e?.message || String(e);

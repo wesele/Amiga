@@ -1,5 +1,5 @@
 <template>
-  <div class="setup-page" :class="{ 'tv-content-pane tv-setup': isTvMode }">
+  <div class="setup-page" :class="{ 'tv-content-pane tv-setup': isTvLayoutMode }">
     <PageHeader :title="t('soulmate.setupTitle')" />
 
     <main class="setup-content">
@@ -41,7 +41,7 @@
         </div>
 
         <!-- Phone: free text. TV: stock name/location from gender + language (no keyboard). -->
-        <template v-if="!isTvMode">
+        <template v-if="!isTvLayoutMode">
           <label class="field-label">
             <span>{{ t("soulmate.name") }}</span>
             <input v-model.trim="form.companion_name" maxlength="24" />
@@ -64,7 +64,7 @@
           >{{ t(option.label) }}</button>
         </div>
 
-        <label v-if="!isTvMode" class="field-label">
+        <label v-if="!isTvLayoutMode" class="field-label">
           <span>{{ t("soulmate.location") }}</span>
           <input v-model.trim="form.story_location" maxlength="40" />
         </label>
@@ -73,7 +73,7 @@
       <section v-else class="setup-step flavor-step">
         <h2>{{ t("soulmate.tuneStory") }}</h2>
         <!-- Phone: range sliders. TV: discrete 0–3 buttons (remote-friendly). -->
-        <template v-if="!isTvMode">
+        <template v-if="!isTvLayoutMode">
           <label v-for="slider in sliders" :key="slider.key" class="slider-row">
             <span>{{ t(slider.label) }}</span>
             <input v-model.number="form[slider.key]" type="range" min="0" max="3" step="1" />
@@ -125,7 +125,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 import { useI18n } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { initializeSoulMate } from "@/shared/backend/soulmate.js";
@@ -222,10 +222,10 @@ const canStart = computed(() => Boolean(context.user?.id && form.companion_name 
 function selectGender(gender) {
   form.companion_gender = gender;
   // Always sync stock identity on TV (no free typing); phone keeps custom names.
-  if (isTvMode || stockNames.has(form.companion_name)) {
+  if (isTvLayoutMode || stockNames.has(form.companion_name)) {
     const d = defaultsForLang(context.targetLang, gender);
     form.companion_name = d.name;
-    if (isTvMode || stockLocations.has(form.story_location)) {
+    if (isTvLayoutMode || stockLocations.has(form.story_location)) {
       form.story_location = d.location;
     }
   }

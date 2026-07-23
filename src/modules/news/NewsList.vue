@@ -1,7 +1,7 @@
 <template>
   <div
     class="news-list"
-    :class="{ 'tv-content-pane': isTvMode }"
+    :class="{ 'tv-content-pane': isTvLayoutMode }"
     @touchstart="onPullStart"
     @touchmove="onPullMove"
     @touchend="onPullEnd"
@@ -50,7 +50,7 @@
         role="button"
         tabindex="0"
         :data-article-id="article.id"
-        :data-tv-preferred-focus="isTvMode && article.id === lastOpenedArticleId ? true : undefined"
+        :data-tv-preferred-focus="isTvLayoutMode && article.id === lastOpenedArticleId ? true : undefined"
         @click="openArticle(article.id)"
         @keydown.enter="openArticle(article.id)"
         @keydown.space.prevent="openArticle(article.id)"
@@ -65,7 +65,7 @@
             <span v-else class="badge-raw">{{ t('news.raw') }}</span>
             <!-- TV: plain text only — never a focusable/openable source link for remote. -->
             <span
-              v-if="article.source && isTvMode"
+              v-if="article.source && isTvLayoutMode"
               class="card-source"
             >{{ formatSource(article.source) }}</span>
             <a
@@ -110,7 +110,7 @@ import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
 import { usePullToRefresh } from "./usePullToRefresh.js";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 
 const { t, locale } = useI18n();
 const router = useRouter();

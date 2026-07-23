@@ -1,10 +1,10 @@
 <template>
-  <div class="app-shell" :class="{ 'tv-shell': isTvMode }">
+  <div class="app-shell" :class="{ 'tv-shell': isTvLayoutMode }">
     <main class="app-content">
       <router-view />
     </main>
     <template v-if="showNav">
-      <nav class="bottom-nav" :aria-label="isTvMode ? 'TV navigation' : undefined">
+      <nav class="bottom-nav" :aria-label="isTvLayoutMode ? 'TV navigation' : undefined">
         <button v-for="tab in tabs" :key="tab.name" class="nav-item" :class="{ active: isTabActive(tab) }" @click="switchTab(tab)">
           <div class="nav-icon" v-html="tab.icon" />
           <span v-if="tab.name === 'chat' && totalUnread > 0" class="nav-dot" />
@@ -22,7 +22,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { eventBus } from "@/shared/eventBus.js";
 import { getTotalUnreadCount, SOCIAL_TOTAL_UNREAD_CHANGED } from "@/modules/chat/social/socialPreview.js";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode, isTvMode } from "@/shared/appMode.js";
 import { shouldShowL1Nav } from "@/shared/tvPolicy.js";
 
 const { t } = useI18n();
@@ -80,7 +80,7 @@ function switchTab(tab) {
   router.replace({ name: tab.name });
 }
 
-const showNav = computed(() => shouldShowL1Nav(route.name, isTvMode));
+const showNav = computed(() => shouldShowL1Nav(route.name, isTvLayoutMode));
 
 onMounted(() => {
   if (isTvMode) return;

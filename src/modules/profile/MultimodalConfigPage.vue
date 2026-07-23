@@ -1,5 +1,5 @@
 <template>
-  <div class="llm-config-page" :class="{ 'tv-content-pane': isTvMode }">
+  <div class="llm-config-page" :class="{ 'tv-content-pane': isTvLayoutMode }">
     <PageHeader :title="t('llm.multimodalTitle')" />
 
     <div class="config-body">
@@ -134,7 +134,7 @@ import {
 } from "@/shared/backend/settings.js";
 import { fetchModels } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 
 const { t } = useI18n();
 const mode = ref("builtin");

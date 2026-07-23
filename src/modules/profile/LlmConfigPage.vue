@@ -1,5 +1,5 @@
 <template>
-  <div class="llm-config-page" :class="{ 'tv-content-pane': isTvMode }">
+  <div class="llm-config-page" :class="{ 'tv-content-pane': isTvLayoutMode }">
     <PageHeader :title="t('llm.primaryTitle')" />
 
     <div class="config-body">
@@ -158,7 +158,7 @@ import {
 } from "@/shared/backend/settings.js";
 import { fetchModels } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 
 const { t } = useI18n();
 
@@ -167,7 +167,7 @@ const apiKey = ref("");
 const baseUrl = ref("https://api.openai.com/v1");
 const modelName = ref("");
 const provider = ref("openai");
-const builtinThinkingEnabled = ref(false);
+const builtinThinkingEnabled = ref(true);
 const customThinkingEnabled = ref(false);
 const disableThinking = computed({
   get: () => mode.value === "builtin" ? builtinThinkingEnabled.value : customThinkingEnabled.value,
@@ -181,7 +181,7 @@ const builtin = ref({
   apiKey: "",
   model: "",
   provider: "nvidia_nim",
-  thinkingEnabled: false,
+  thinkingEnabled: true,
 });
 const showKey = ref(false);
 const testing = ref(false);

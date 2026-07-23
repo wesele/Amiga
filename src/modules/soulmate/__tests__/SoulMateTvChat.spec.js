@@ -12,6 +12,8 @@ vi.mock("@/shared/appMode.js", () => ({
   APP_MODE_DEFAULT: "default",
   appMode: "tv",
   isTvMode: true,
+  layoutMode: "tv",
+  isTvLayoutMode: true,
   resolveAppMode: () => "tv",
   applyAppMode: () => {},
 }));
@@ -134,11 +136,11 @@ describe("Soul Mate TV chat (option replies)", () => {
 });
 
 describe("Soul Mate chat TV wiring (source)", () => {
-  it("wires TV option replies and keeps free-text for non-TV", () => {
+  it("wires TV-layout option replies and keeps free-text for phone layout", () => {
     const source = readFileSync(resolve(__dirname, "../SoulMateChat.vue"), "utf8");
-    expect(source).toMatch(/isTvMode/);
+    expect(source).toMatch(/isTvLayoutMode/);
     expect(source).toMatch(/getSoulMateReplyOptions/);
-    expect(source).toMatch(/v-if="!isTvMode"/);
+    expect(source).toMatch(/v-if="!isTvLayoutMode"/);
     expect(source).toMatch(/class="reply-option"/);
     expect(source).toMatch(/sendOption/);
     expect(source).toMatch(/reply-panel/);

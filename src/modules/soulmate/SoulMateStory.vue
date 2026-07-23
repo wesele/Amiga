@@ -1,5 +1,5 @@
 <template>
-  <div class="story-page" :class="{ 'tv-content-pane tv-story': isTvMode }">
+  <div class="story-page" :class="{ 'tv-content-pane tv-story': isTvLayoutMode }">
     <PageHeader :title="t('soulmate.storyTitle')" />
     <div v-if="loading" class="state-block">{{ t("app.loading") }}</div>
     <div v-else-if="error" class="state-block error">{{ error }}</div>
@@ -17,7 +17,7 @@
             <span
               v-if="token.isWord"
               class="word"
-              :tabindex="isTvMode ? 0 : undefined"
+              :tabindex="isTvLayoutMode ? 0 : undefined"
               @click.stop="onWordTap(token)"
               @keydown.enter.prevent="onWordTap(token)"
               @keydown.space.prevent="onWordTap(token)"
@@ -65,7 +65,7 @@ import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { tokenizeArticleText } from "@/shared/articleText.js";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";

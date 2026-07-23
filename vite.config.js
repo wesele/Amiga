@@ -6,7 +6,35 @@ const host = process.env.TAURI_DEV_HOST;
 const port = parseInt(process.env.VITE_PORT || "1420", 10);
 const hmrPort = parseInt(process.env.VITE_HMR_PORT || "1421", 10);
 
-export default defineConfig({
+const webProxyTargets = {
+  openai: "https://api.openai.com",
+  nvidia: "https://integrate.api.nvidia.com",
+  deepseek: "https://api.deepseek.com",
+  groq: "https://api.groq.com",
+  openrouter: "https://openrouter.ai",
+  mistral: "https://api.mistral.ai",
+  xai: "https://api.x.ai",
+  together: "https://api.together.xyz",
+  fireworks: "https://api.fireworks.ai",
+  perplexity: "https://api.perplexity.ai",
+  siliconflow: "https://api.siliconflow.cn",
+  dashscope: "https://dashscope.aliyuncs.com",
+  gemini: "https://generativelanguage.googleapis.com",
+};
+
+function createWebDevProxy() {
+  return Object.fromEntries(Object.entries(webProxyTargets).map(([alias, target]) => {
+    const prefix = `/llm/${alias}`;
+    return [prefix, {
+      target,
+      changeOrigin: true,
+      secure: true,
+      rewrite: (path) => path.slice(prefix.length) || "/",
+    }];
+  }));
+}
+
+export default defineConfig(({ mode }) => ({
   plugins: [vue()],
   resolve: {
     alias: {
@@ -29,6 +57,7 @@ export default defineConfig({
     watch: {
       ignored: ["**/src-tauri/**"],
     },
+    proxy: mode === "web" ? createWebDevProxy() : undefined,
   },
   build: {
     target: "es2020",
@@ -44,4 +73,4 @@ export default defineConfig({
   optimizeDeps: {
     include: ["vue", "pinia", "vue-router", "marked", "@tauri-apps/api"],
   },
-});
+}));

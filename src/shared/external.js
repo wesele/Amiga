@@ -1,6 +1,7 @@
 import { open } from "@tauri-apps/plugin-shell";
 import { showAlert } from "@/shared/alert.js";
 import { t } from "@/shared/i18n/index.js";
+import { isWebMode } from "@/shared/appMode.js";
 
 const EXTERNAL_URL_RE = /^https?:\/\//i;
 const ANDROID_RE = /Android/i;
@@ -103,6 +104,18 @@ export async function openExternalUrl(url) {
   }
   const target = normalizeExternalUrl(raw);
   if (!target) return;
+
+  // Browser builds must not enter the Android WebView bridge path merely
+  // because their user agent says Android. Open directly in a new tab.
+  if (isWebMode) {
+    try {
+      const win = window.open(target, "_blank", "noopener,noreferrer");
+      if (!win) showExternalOpenError(target, t("external.windowOpenBlocked"));
+    } catch (e) {
+      showExternalOpenError(target, e);
+    }
+    return;
+  }
 
   if (isAndroidPlatform()) {
     if (!hasAndroidExternalBridge()) {

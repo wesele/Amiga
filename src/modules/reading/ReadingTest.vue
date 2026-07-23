@@ -1,7 +1,7 @@
 <template>
-  <div class="reading-test" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvMode }">
+  <div class="reading-test" :class="{ 'tv-content-pane tv-content-pane--fixed': isTvLayoutMode }">
     <header class="test-header">
-      <button class="back-btn" type="button" :tabindex="isTvMode ? -1 : undefined" @click="goBack">
+      <button class="back-btn" type="button" :tabindex="isTvLayoutMode ? -1 : undefined" @click="goBack">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
@@ -144,7 +144,7 @@
 <script setup>
 import { ref, computed, onBeforeUnmount, onMounted, nextTick, watch } from "vue";
 import { useRouter } from "vue-router";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode } from "@/shared/appMode.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import {
@@ -190,7 +190,7 @@ const currentQuestion = computed(() => questions.value[currentQuestionIndex.valu
 const isListeningQuestion = computed(() => currentQuestion.value?.question_type === "listening");
 const isCurrentAnswered = computed(() => answers.value[currentQuestionIndex.value] !== undefined);
 /** Phone: disable options after answer. TV: keep focusable (aria-disabled only). */
-const optionsHardDisabled = computed(() => !isTvMode && isCurrentAnswered.value);
+const optionsHardDisabled = computed(() => !isTvLayoutMode && isCurrentAnswered.value);
 const questionPrompt = computed(() => {
   const question = currentQuestion.value;
   if (!question) return "";
@@ -248,7 +248,7 @@ function clearAutoAdvance() {
  * Listening → play audio; otherwise first option (still focusable after answer on TV).
  */
 function focusQuestionPrimary() {
-  if (!isTvMode || submitted.value || loading.value) return;
+  if (!isTvLayoutMode || submitted.value || loading.value) return;
   nextTick(() => {
     const root = document.querySelector(".reading-test");
     if (!root) return;
@@ -264,7 +264,7 @@ function focusQuestionPrimary() {
 }
 
 function focusPrimaryNav() {
-  if (!isTvMode) return;
+  if (!isTvLayoutMode) return;
   nextTick(() => {
     const btn = primaryNavBtn.value;
     if (btn && !btn.disabled) {
@@ -278,7 +278,7 @@ function focusPrimaryNav() {
 }
 
 function focusResultPrimary() {
-  if (!isTvMode) return;
+  if (!isTvLayoutMode) return;
   nextTick(() => {
     const btn = resultBtn.value || document.querySelector(".reading-test .result-btn");
     btn?.focus?.({ preventScroll: true });
@@ -393,7 +393,7 @@ async function retryExplanation(qi) {
     explanationErrors.value = { ...explanationErrors.value, [qi]: true };
   } finally {
     loadingExplanation.value = { ...loadingExplanation.value, [qi]: false };
-    if (isTvMode && qi === currentQuestionIndex.value) focusPrimaryNav();
+    if (isTvLayoutMode && qi === currentQuestionIndex.value) focusPrimaryNav();
   }
 }
 

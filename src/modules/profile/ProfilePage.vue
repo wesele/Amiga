@@ -1,5 +1,5 @@
 <template>
-  <div class="profile-page" :class="{ 'tv-content-pane': isTvMode }">
+  <div class="profile-page" :class="{ 'tv-content-pane': isTvLayoutMode }">
     <header class="page-header">
       <h1 class="page-title">{{ t('profile.title') }}</h1>
     </header>
@@ -151,7 +151,7 @@ import StylizedAvatar from "@/shared/components/StylizedAvatar.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode, isTvMode } from "@/shared/appMode.js";
 import { learnSettingsSubtitleKey } from "@/shared/tvPolicy.js";
 
 const { t, locale, setLocale } = useI18n();

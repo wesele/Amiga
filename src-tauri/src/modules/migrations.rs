@@ -86,8 +86,17 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Isolate Soul Mate worlds by target learning language",
             MIGRATION_V20,
         ),
+        (
+            21,
+            "Add open_count column to streak_records for tracking daily app open count",
+            MIGRATION_V21,
+        ),
     ]
 }
+
+const MIGRATION_V21: &str = r#"
+ALTER TABLE streak_records ADD COLUMN open_count INTEGER NOT NULL DEFAULT 1;
+"#;
 
 const MIGRATION_V1: &str = r#"
 -- Users table (single-user local mode)

@@ -15,6 +15,10 @@ vi.mock("@/shared/alert.js", () => ({
   showAlert: vi.fn(),
 }));
 
+vi.mock("@/shared/appMode.js", () => ({
+  isWebMode: false,
+}));
+
 describe("normalizeExternalUrl", () => {
   it("returns null for null / undefined / empty / whitespace", () => {
     expect(normalizeExternalUrl(null)).toBeNull();
