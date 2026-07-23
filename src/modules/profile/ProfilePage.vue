@@ -77,10 +77,10 @@
     </section>
 
     <!-- About -->
-    <section v-if="!isTvMode" class="settings-section">
+    <section v-if="!isTvMode || isWebMode" class="settings-section">
       <h3 class="section-header">{{ t('profile.about') }}</h3>
       <div class="settings-card">
-        <SettingsItem :subtitle="t('profile.checkUpdateSub')" :showArrow="true" @click="handleCheckUpdate" :showDivider="false">
+        <SettingsItem :title="t('profile.checkUpdate')" :subtitle="t('profile.checkUpdateSub')" :showArrow="true" @click="handleCheckUpdate" :showDivider="false">
           <template #icon><UpdateIcon /></template>
         </SettingsItem>
       </div>
@@ -151,8 +151,9 @@ import StylizedAvatar from "@/shared/components/StylizedAvatar.vue";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { isTvLayoutMode, isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode, isTvMode, isWebMode } from "@/shared/appMode.js";
 import { learnSettingsSubtitleKey } from "@/shared/tvPolicy.js";
+import { requestInstallAppPrompt } from "@/shared/installAppPrompt.js";
 
 const { t, locale, setLocale } = useI18n();
 const learnSettingsSubKey = learnSettingsSubtitleKey(isTvMode);
@@ -202,6 +203,10 @@ const canAutoInstall = computed(() => canAutoInstallUpdate(updateInfo.value));
 
 let checking = false;
 async function handleCheckUpdate() {
+  if (isWebMode) {
+    requestInstallAppPrompt("check-update");
+    return;
+  }
   if (checking) return;
   checking = true;
   try {

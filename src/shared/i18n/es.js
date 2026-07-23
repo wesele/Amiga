@@ -20,6 +20,13 @@ export default {
     unknown: "Desconocido",
   },
 
+  installAppPrompt: {
+    title: "Instala la aplicación móvil",
+    description: "Esta demo web solo muestra el acceso a esta función. Instala la aplicación móvil para disfrutar de la experiencia completa.",
+    github: "Ver el proyecto en GitHub",
+    close: "Entendido",
+  },
+
   nav: {
     learn: "Aprender",
     vocab: "Palabras",

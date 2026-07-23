@@ -20,6 +20,13 @@ export default {
     unknown: "Unknown",
   },
 
+  installAppPrompt: {
+    title: "Install the mobile app",
+    description: "This Web Demo only shows an entry to this feature. Install the mobile app for the full experience.",
+    github: "Get the project on GitHub",
+    close: "Got it",
+  },
+
   nav: {
     learn: "Learn",
     vocab: "Words",

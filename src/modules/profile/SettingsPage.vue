@@ -61,7 +61,6 @@
       <h3 class="section-header">{{ t('settings.data') }}</h3>
       <div class="settings-card">
         <SettingsItem
-          v-if="!isWebMode"
           :title="t('settings.cloudSync')"
           :subtitle="cloudSyncSubtitle"
           :showDivider="true"
@@ -144,6 +143,7 @@ import { AVAILABLE_LANGUAGES, learningCefrLevels } from "@/shared/constants.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
 import { isTvLayoutMode, isWebMode } from "@/shared/appMode.js";
+import { requestInstallAppPrompt } from "@/shared/installAppPrompt.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -241,6 +241,10 @@ async function onCloudSyncToggle(event) {
 
 /** Whole-row activate (TV remote Enter / click) toggles cloud sync. */
 async function onCloudSyncRowActivate() {
+  if (isWebMode) {
+    requestInstallAppPrompt("cloud-sync");
+    return;
+  }
   if (cloudSyncBusy.value) return;
   await onCloudSyncToggle({ target: { checked: !cloudSyncEnabled.value } });
 }

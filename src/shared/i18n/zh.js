@@ -23,6 +23,13 @@ export default {
     unknown: "未知",
   },
 
+  installAppPrompt: {
+    title: "请安装手机版体验",
+    description: "此功能在 Web Demo 中仅展示入口，请安装手机版体验完整功能。",
+    github: "前往 GitHub 获取项目",
+    close: "知道了",
+  },
+
   nav: {
     learn: "学习",
     vocab: "单词",

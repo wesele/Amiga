@@ -22,7 +22,8 @@ describe("phone Web Demo mode wiring", () => {
     const shell = read("modules/shell/AppShell.vue");
 
     expect(modules).toMatch(/APP_MODULES = isTvMode \? TV_APP_MODULES/);
-    expect(shell).toMatch(/isTvMode \? allTabs\.filter/);
+    expect(shell).toMatch(/isTvMode\s*&&\s*!isWebMode\s*\?\s*allTabs\.filter/);
+    expect(shell).toMatch(/isWebMode\s*&&\s*tab\.clientOnly/);
     expect(shell).toMatch(/shouldShowL1Nav\(route\.name, isTvLayoutMode\)/);
   });
 });

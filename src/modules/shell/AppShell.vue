@@ -13,6 +13,7 @@
       </nav>
     </template>
     <div class="bottom-nav-safe" aria-hidden="true" />
+    <InstallAppPrompt />
   </div>
 </template>
 
@@ -22,8 +23,10 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { eventBus } from "@/shared/eventBus.js";
 import { getTotalUnreadCount, SOCIAL_TOTAL_UNREAD_CHANGED } from "@/modules/chat/social/socialPreview.js";
-import { isTvLayoutMode, isTvMode } from "@/shared/appMode.js";
+import { isTvLayoutMode, isTvMode, isWebMode } from "@/shared/appMode.js";
 import { shouldShowL1Nav } from "@/shared/tvPolicy.js";
+import InstallAppPrompt from "@/shared/components/InstallAppPrompt.vue";
+import { requestInstallAppPrompt } from "@/shared/installAppPrompt.js";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -45,6 +48,7 @@ const allTabs = [
   {
     name: "chat",
     label: "nav.chat",
+    clientOnly: true,
     icon: '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/><path d="M7 9h2v2H7V9zm4 0h2v2h-2V9zm4 0h2v2h-2V9z"/></svg>',
   },
   {
@@ -55,7 +59,7 @@ const allTabs = [
 ];
 
 const tabs = computed(() => (
-  isTvMode ? allTabs.filter((tab) => tab.name !== "chat") : allTabs
+  isTvMode && !isWebMode ? allTabs.filter((tab) => tab.name !== "chat") : allTabs
 ));
 
 function isTabActive(tab) {
@@ -70,6 +74,10 @@ function isTabActive(tab) {
 }
 
 function switchTab(tab) {
+  if (isWebMode && tab.clientOnly) {
+    requestInstallAppPrompt(tab.name);
+    return;
+  }
   if (route.name === tab.name) return;
   // All L1 tab switches replace the current entry — they do NOT
   // push. Per the navigation rules in issue #2, the four bottom
