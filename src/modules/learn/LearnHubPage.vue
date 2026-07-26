@@ -101,6 +101,7 @@ const allModules = [
   { id: "reading", labelKey: "learn.reading", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="#58cc02"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="#1cb0f6"/></svg>', route: { name: "reading" } },
   { id: "speaking", labelKey: "learn.speaking", clientOnly: true, icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M7 8a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" stroke="#58cc02"/><path d="M17 8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" stroke="#1cb0f6"/><path d="M6 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="#58cc02"/><path d="M14 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="#1cb0f6"/></svg>', route: { name: "speaking" } },
   { id: "translator", labelKey: "chat.translator", clientOnly: true, icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><circle cx="12" cy="12" r="9" stroke="#58cc02"/><line x1="3" y1="12" x2="21" y2="12" stroke="#1cb0f6"/><path d="M12 3a9 9 0 0 1 3 9 9 9 0 0 1-3 9 9 9 0 0 1-3-9 9 9 0 0 1 3-9z" stroke="#58cc02"/></svg>', action: "translator" },
+  { id: "vocab", labelKey: "learn.vocab", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M4 5h7a3 3 0 0 1 3 3v11a2.5 2.5 0 0 0-2.5-2.5H4z" stroke="#58cc02"/><path d="M20 5h-7a3 3 0 0 0-3 3v11a2.5 2.5 0 0 1 2.5-2.5H20z" stroke="#1cb0f6"/><path d="M9 9h2" stroke="#58cc02"/><path d="M13 9h2" stroke="#1cb0f6"/></svg>', route: { name: "vocab" } },
   // Multisexual five-color ring: pink / yellow / green / blue / purple.
   { id: "soulmate", labelKey: "learn.soulmate", icon: '<svg viewBox="0 0 24 24" fill="none" width="1em" height="1em"><path d="M12 4 A8 8 0 0 1 19.6 9.5" stroke="#FF4D9A" stroke-width="2.6" stroke-linecap="round"/><path d="M19.6 9.5 A8 8 0 0 1 16.5 18.3" stroke="#FFC94D" stroke-width="2.6" stroke-linecap="round"/><path d="M16.5 18.3 A8 8 0 0 1 7.5 18.3" stroke="#58cc02" stroke-width="2.6" stroke-linecap="round"/><path d="M7.5 18.3 A8 8 0 0 1 4.4 9.5" stroke="#1cb0f6" stroke-width="2.6" stroke-linecap="round"/><path d="M4.4 9.5 A8 8 0 0 1 12 4" stroke="#9B6DFF" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="12" r="2.9" fill="#FF4D9A"/><circle cx="12" cy="12" r="1.35" fill="#FFC94D"/></svg>', route: { name: "soulmate" } },
 ];
@@ -468,13 +469,13 @@ function openVocab() {
   font-size: 13px;
 }
 
-/* Path full-width + one row of three: 新闻 / 阅读 / 灵伴 */
+/* Path full-width + 4-col tiles (TV: 新闻 / 阅读 / 单词 / 灵伴) */
 .tv-learn-hub .module-grid {
   --module-grid-x: 0px;
   --module-grid-row-gap: 16px;
   --module-grid-col-gap: 16px;
   flex: 1 1 auto;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-content: start;
   width: 100%;
   padding: 16px 18px 18px;

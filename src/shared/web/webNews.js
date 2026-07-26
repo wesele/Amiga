@@ -1,8 +1,13 @@
+import { filterSimilarNewsTopics } from "@/shared/newsTopicFilter.js";
+
 const FEEDS = {
   es: ["/news/rtve/rss.xml", "/news/elmundo/rss.xml", "/news/abc/rss.xml"],
   en: ["/news/npr/rss.xml", "/news/nyt/rss.xml"],
   zh: ["/news/chinadaily/rss.xml", "/news/cgtn/rss.xml"],
 };
+
+/** Max raw items kept before topic diversity filter (then typically sliced by caller limit). */
+const CANDIDATE_LIMIT = 30;
 
 function plainText(value) {
   const text = String(value || "");
@@ -53,8 +58,10 @@ export async function fetchNewsThroughProxy(targetLang, { fetchImpl = globalThis
     if (!response.ok) throw new Error(`News proxy returned HTTP ${response.status}`);
     return parseFeed(await response.text(), url);
   }));
-  return settled
-    .flatMap((result) => result.status === "fulfilled" ? result.value : [])
-    .slice(0, 30)
+  const candidates = settled
+    .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
+    .slice(0, CANDIDATE_LIMIT);
+
+  return filterSimilarNewsTopics(candidates)
     .map((article, index) => ({ ...article, hot_rank: index + 1 }));
 }

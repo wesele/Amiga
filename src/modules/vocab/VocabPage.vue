@@ -1,7 +1,51 @@
 <template>
-  <div class="vocab-page" :class="{ 'tv-content-pane': isTvLayoutMode }">
+  <div
+    class="vocab-page"
+    :class="{
+      'tv-content-pane': isTvLayoutMode,
+      'vocab-page--study': Boolean(studyWord),
+    }"
+  >
+    <!-- Single-word study -->
+    <template v-if="studyWord">
+      <header class="page-header study-header">
+        <button
+          class="back-btn"
+          type="button"
+          :tabindex="isTvLayoutMode ? -1 : undefined"
+          :aria-label="t('common.back')"
+          @click="exitStudy"
+        >
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+          </svg>
+        </button>
+        <h1 class="page-title study-heading">{{ t('vocab.study') }}</h1>
+        <div class="study-progress">
+          {{ t('vocab.progress', { current: studyIndex + 1, total: studyList.length }) }}
+        </div>
+      </header>
+
+      <WordPopup
+        layout="page"
+        :word="studyWord.word"
+        :context="studyWord.word"
+        :source-lang="userLang"
+        :native-lang="locale"
+        :show-nav="true"
+        :can-prev="studyIndex > 0"
+        :can-next="studyIndex < studyList.length - 1"
+        :close-on-action="false"
+        @close="exitStudy"
+        @known="onKnown"
+        @unknown="onUnknown"
+        @prev="goPrev"
+        @next="goNext"
+      />
+    </template>
+
     <!-- Stats overview -->
-    <template v-if="!drilledLevel">
+    <template v-else-if="!drilledLevel">
       <header class="page-header overview-header">
         <button
           class="back-btn"
@@ -97,20 +141,6 @@
           {{ noWordsInStatus }}
         </div>
       </div>
-
-      <!-- Word popup -->
-      <Transition name="popup">
-        <WordPopup
-          v-if="selectedWord"
-          :word="selectedWord.word"
-          :context="selectedWord.word"
-          :source-lang="userLang"
-          :native-lang="locale"
-          @close="selectedWord = null"
-          @known="onKnown"
-          @unknown="onUnknown"
-        />
-      </Transition>
     </template>
 
     <ConfirmDialog
@@ -154,10 +184,21 @@ const drilledLevel = ref("");
 const activeStatus = ref("all");
 const userLang = computed(() => targetLangStore.code || "es");
 const userId = ref("");
-const selectedWord = ref(null);
+const studyList = ref([]);
+const studyIndex = ref(-1);
 const showResetDialog = ref(false);
 let unsubscribe = null;
+
+const studyWord = computed(() => {
+  if (studyIndex.value < 0 || studyIndex.value >= studyList.value.length) return null;
+  return studyList.value[studyIndex.value] || null;
+});
+
 const handleAndroidBackInPage = () => {
+  if (studyWord.value) {
+    exitStudy();
+    return "navigated";
+  }
   if (!drilledLevel.value) return null;
   exitLevel();
   return "navigated";
@@ -211,7 +252,7 @@ function exitLevel() {
   const exitedLevel = drilledLevel.value;
   drilledLevel.value = "";
   words.value = [];
-  selectedWord.value = null;
+  exitStudy({ restoreListFocus: false });
 
   if (isTvLayoutMode && exitedLevel) {
     nextTick(() => {
@@ -235,7 +276,7 @@ function backToLearn() {
 
 function syncAndroidBackHook() {
   if (typeof window === "undefined") return;
-  if (drilledLevel.value) {
+  if (studyWord.value || drilledLevel.value) {
     window.__amigaGoBackInPage = handleAndroidBackInPage;
     return;
   }
@@ -270,28 +311,71 @@ async function loadStats() {
 }
 
 function onWordTap(w) {
-  selectedWord.value = w;
+  studyList.value = filteredWords.value.slice();
+  const idx = studyList.value.findIndex((item) => item.id === w.id);
+  studyIndex.value = idx >= 0 ? idx : 0;
+}
+
+function exitStudy({ restoreListFocus = true } = {}) {
+  const wasStudying = studyIndex.value >= 0;
+  studyList.value = [];
+  studyIndex.value = -1;
+  // After finishing the last word on TV, return focus to the word list.
+  if (isTvLayoutMode && wasStudying && restoreListFocus && drilledLevel.value) {
+    nextTick(() => {
+      const preferred = pickPreferredContentFocus(focusableElements());
+      if (preferred) focusElement(preferred);
+    });
+  }
+}
+
+function goPrev() {
+  if (studyIndex.value > 0) {
+    studyIndex.value -= 1;
+  }
+}
+
+function goNext() {
+  if (studyIndex.value < studyList.value.length - 1) {
+    studyIndex.value += 1;
+    return;
+  }
+  exitStudy();
+}
+
+function advanceAfterMark() {
+  if (studyIndex.value < studyList.value.length - 1) {
+    studyIndex.value += 1;
+    return;
+  }
+  exitStudy();
+}
+
+function syncMasteryInLists(wordId, mastery) {
+  const inStudy = studyList.value.find((item) => item.id === wordId);
+  if (inStudy) inStudy.mastery = mastery;
+  const inWords = words.value.find((item) => item.id === wordId);
+  if (inWords) inWords.mastery = mastery;
 }
 
 async function onKnown() {
-  if (!selectedWord.value) return;
-  const w = selectedWord.value;
-  const mastery = w.mastery === undefined || w.mastery === null ? 1 : w.mastery;
+  if (!studyWord.value) return;
+  const w = studyWord.value;
   try {
     await updateWordMastery(userId.value, w.id, 2, "vocab_review");
-    w.mastery = 2;
+    syncMasteryInLists(w.id, 2);
   } catch (_) {}
-  selectedWord.value = null;
+  advanceAfterMark();
 }
 
 async function onUnknown() {
-  if (!selectedWord.value) return;
-  const w = selectedWord.value;
+  if (!studyWord.value) return;
+  const w = studyWord.value;
   try {
     await updateWordMastery(userId.value, w.id, 1, "vocab_review");
-    w.mastery = 1;
+    syncMasteryInLists(w.id, 1);
   } catch (_) {}
-  selectedWord.value = null;
+  advanceAfterMark();
 }
 
 function resetLevel() {
@@ -345,6 +429,10 @@ watch(userLang, async () => {
 watch(drilledLevel, () => {
   syncAndroidBackHook();
 });
+
+watch(studyIndex, () => {
+  syncAndroidBackHook();
+});
 </script>
 
 <style scoped>
@@ -370,6 +458,58 @@ watch(drilledLevel, () => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.study-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.study-heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+.study-progress {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-lighter);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Study stage: full remaining height so the card can center */
+.vocab-page--study {
+  background: var(--bg, #f5f7f6);
+}
+
+.vocab-page--study .study-header {
+  background: transparent;
+  padding-bottom: 8px;
+}
+
+.vocab-page--study .study-progress {
+  font-size: 14px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--surface-variant, rgba(0, 0, 0, 0.05));
+  color: var(--text-light);
+}
+
+/* TV: roomier header + progress chip */
+html[data-app-mode="tv"] .vocab-page--study .study-header {
+  padding: 16px 28px 8px;
+}
+
+html[data-app-mode="tv"] .vocab-page--study .study-heading {
+  font-size: 22px;
+}
+
+html[data-app-mode="tv"] .vocab-page--study .study-progress {
+  font-size: 16px;
+  padding: 6px 16px;
 }
 
 .detail-total {
@@ -601,22 +741,33 @@ watch(drilledLevel, () => {
 .chip-seen { color: var(--blue); font-weight: 600; }
 .chip-mastered { color: var(--green); font-weight: 700; }
 
-/* Popup transition */
-.popup-enter-active,
-.popup-leave-active {
-  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
-}
-.popup-enter-from,
-.popup-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
 /* TV: tight inline focus — never scale or use the global 5px outer ring. */
 html[data-app-mode="tv"] .word:focus-visible {
   outline: 2px solid var(--green);
   outline-offset: 1px;
   background: var(--green-bg);
   border-radius: 4px;
+}
+
+/*
+ * Level list scrolls (overflow-y: auto). Global TV outline-offset:4px would clip
+ * the top of the first focused card — use inset rings like Learn hub tiles.
+ */
+html[data-app-mode="tv"] .level-cards {
+  padding-top: 6px;
+}
+
+html[data-app-mode="tv"] .level-card:focus-visible,
+html[data-app-mode="tv"] .status-tab:focus-visible,
+html[data-app-mode="tv"] .reset-btn:focus-visible {
+  transform: none;
+  outline: 4px solid #1cb0f6 !important;
+  outline-offset: -4px !important;
+  box-shadow:
+    inset 0 0 0 2px rgba(28, 176, 246, 0.2),
+    0 4px 16px rgba(28, 176, 246, 0.18) !important;
+  background: var(--green-bg);
+  z-index: 5;
+  position: relative;
 }
 </style>

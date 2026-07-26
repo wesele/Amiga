@@ -42,6 +42,7 @@ export default {
     news: "News",
     reading: "Reading",
     speaking: "Speaking",
+    vocab: "Words",
     soulmate: "Soul Mate",
     days: "Days Learned",
     learnedPrefix: "Studied ",
@@ -438,6 +439,7 @@ export default {
 
   vocab: {
     title: "My words",
+    study: "Word study",
     noData: "No vocabulary data for “{lang}”",
     words: "{n} words",
     reset: "Reset",
@@ -453,6 +455,9 @@ export default {
     seen: "Seen",
     unseen: "Unseen",
     wordMastery: "Mastery",
+    prev: "Previous",
+    next: "Next",
+    progress: "{current}/{total}",
   },
 
   chat: {
@@ -687,11 +692,14 @@ export default {
   },
 
   popup: {
+    clickToReveal: "Tap to reveal translation",
     translating: "Translating…",
     known: "Known",
     unknown: "Unknown",
     fail: "Translation unavailable",
     aiTranslate: "Translate",
+    refresh: "Re-translate",
+    speak: "Speak word",
   },
 
   external: {

@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { createMemoryHistory, createRouter } from "vue-router";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n";
+import { clearTranslationCache } from "@/shared/translationCache.js";
 import VocabPage from "@/modules/vocab/VocabPage.vue";
 
 // Mock TV layout mode to be true for this test suite.
@@ -23,6 +24,7 @@ describe("VocabPage TV mode details", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     setLocale("zh", { persist: false });
+    clearTranslationCache();
     api.__setInvoke(vi.fn((command) => {
       if (command === "get_current_user") return Promise.resolve({ id: "u1" });
       if (command === "get_target_language_cmd") return Promise.resolve("es");
@@ -37,6 +39,10 @@ describe("VocabPage TV mode details", () => {
           { id: "w2", word: "mundo", mastery: 1 },
         ]);
       }
+      if (command === "translate_word_cmd") {
+        return Promise.resolve({ translation: "译", pos: "n" });
+      }
+      if (command === "update_word_mastery_cmd") return Promise.resolve(null);
       return Promise.resolve(null);
     }));
     rectSpy = vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
@@ -49,7 +55,7 @@ describe("VocabPage TV mode details", () => {
     });
   });
 
-  it("renders words with tabindex and word class, and opens WordPopup on Enter/Space keydown in TV mode", async () => {
+  it("renders words with tabindex and word class, and opens page study WordPopup on Enter/Space keydown in TV mode", async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
@@ -92,18 +98,20 @@ describe("VocabPage TV mode details", () => {
     await firstWord.trigger("keydown", { key: "Enter" });
     await flushPromises();
 
-    // WordPopup should be rendered now
+    // WordPopup page study should be rendered now
     const popup = wrapper.findComponent({ name: "WordPopup" });
     expect(popup.exists()).toBe(true);
     expect(popup.props("word")).toBe("hola");
+    expect(popup.props("layout")).toBe("page");
 
-    // Close the popup
+    // Close the study view
     await popup.vm.$emit("close");
     await flushPromises();
     expect(wrapper.findComponent({ name: "WordPopup" }).exists()).toBe(false);
 
-    // Press Space to open the popup again
-    await firstWord.trigger("keydown", { key: "Space" });
+    // Press Space to open the study view again
+    const chipsAfterClose = wrapper.findAll(".word-chip");
+    await chipsAfterClose[0].trigger("keydown", { key: "Space" });
     await flushPromises();
     expect(wrapper.findComponent({ name: "WordPopup" }).exists()).toBe(true);
 
@@ -122,6 +130,54 @@ describe("VocabPage TV mode details", () => {
     // Verify focus returned to the original A1 level card (re-fetched from fresh DOM)
     const activeLevelCard = wrapper.find(".level-card");
     expect(document.activeElement).toBe(activeLevelCard.element);
+
+    wrapper.unmount();
+    rectSpy.mockRestore();
+  });
+
+  it("keeps focus on the known button after marking a word and advancing on TV", async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn/vocab", name: "vocab", component: VocabPage },
+      ],
+    });
+    await router.push("/learn/vocab");
+    await router.isReady();
+
+    const wrapper = mount(VocabPage, {
+      global: { plugins: [router] },
+      attachTo: document.body,
+    });
+    await flushPromises();
+
+    await wrapper.find(".level-card").trigger("click");
+    await flushPromises();
+    await new Promise((r) => setTimeout(r, 50));
+
+    await wrapper.findAll(".word-chip")[0].trigger("click");
+    await flushPromises();
+    // Wait for WordPopup translation + TV focus restore.
+    await new Promise((r) => setTimeout(r, 50));
+    await flushPromises();
+
+    const popup = wrapper.findComponent({ name: "WordPopup" });
+    expect(popup.exists()).toBe(true);
+    expect(popup.props("word")).toBe("hola");
+
+    const knownBtn = wrapper.find(".act-known");
+    expect(knownBtn.exists()).toBe(true);
+    expect(document.activeElement).toBe(knownBtn.element);
+
+    await knownBtn.trigger("click");
+    await flushPromises();
+    await new Promise((r) => setTimeout(r, 550));
+    await flushPromises();
+
+    expect(wrapper.findComponent({ name: "WordPopup" }).props("word")).toBe("mundo");
+    const knownAfter = wrapper.find(".act-known");
+    expect(knownAfter.exists()).toBe(true);
+    expect(document.activeElement).toBe(knownAfter.element);
 
     wrapper.unmount();
     rectSpy.mockRestore();

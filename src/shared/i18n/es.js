@@ -42,6 +42,7 @@ export default {
     news: "Noticias",
     reading: "Lectura",
     speaking: "Práctica oral",
+    vocab: "Palabras",
     soulmate: "Alma gemela",
     days: "Días de Estudio",
     learnedPrefix: "Estudiado ",
@@ -436,6 +437,7 @@ export default {
 
   vocab: {
     title: "Mis palabras",
+    study: "Estudio de palabras",
     noData: "No hay vocabulario para «{lang}»",
     words: "{n} palabras",
     reset: "Restablecer",
@@ -451,6 +453,9 @@ export default {
     seen: "Vistas",
     unseen: "Sin ver",
     wordMastery: "Dominio",
+    prev: "Anterior",
+    next: "Siguiente",
+    progress: "{current}/{total}",
   },
 
   chat: {
@@ -684,11 +689,14 @@ export default {
   },
 
   popup: {
+    clickToReveal: "Toca para ver la traducción",
     translating: "Traduciendo…",
     known: "Conozco",
     unknown: "No conozco",
     fail: "Traducción no disponible",
     aiTranslate: "Traducción IA",
+    refresh: "Volver a traducir",
+    speak: "Pronunciar palabra",
   },
 
   external: {

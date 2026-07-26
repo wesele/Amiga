@@ -20,14 +20,15 @@ describe("TV Learn hub first viewport", () => {
     expect(globalCss).toMatch(/inset:\s*0/);
   });
 
-  it("keeps a full-width path card and one row of three modules on first screen", () => {
+  it("keeps a full-width path card and a 4-column module grid including vocab", () => {
     expect(source).toMatch(/\.tv-learn-hub \.path-progress-card[\s\S]*?max-height:\s*140px/);
     expect(source).toMatch(/\.tv-learn-hub \.module-tile[\s\S]*?min-height:\s*140px/);
-    expect(source).toMatch(/\.tv-learn-hub \.module-grid[\s\S]*?grid-template-columns:\s*repeat\(3/);
+    expect(source).toMatch(/\.tv-learn-hub \.module-grid[\s\S]*?grid-template-columns:\s*repeat\(4/);
     expect(source).toMatch(/tvExcludedModules/);
-    // News, reading, and soulmate remain available on TV (speaking/translator excluded).
+    // News, reading, vocab, and soulmate remain available on TV (speaking/translator excluded).
     expect(source).toMatch(/id:\s*"news"/);
     expect(source).toMatch(/id:\s*"reading"/);
+    expect(source).toMatch(/id:\s*"vocab"/);
     expect(source).toMatch(/id:\s*"soulmate"/);
     expect(source).toMatch(/tvExcludedModules = new Set\(\["speaking", "translator"\]\)/);
   });

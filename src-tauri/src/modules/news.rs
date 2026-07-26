@@ -637,6 +637,70 @@ mod tests {
         drop(conn);
         assert_eq!(get_learning_days(&pool, "user-1").unwrap(), 0);
     }
+
+    #[test]
+    fn test_titles_are_similar_topic_for_shared_entity() {
+        let a = "Anticorrupción pide ampliar el análisis de las joyas de Zapatero";
+        let b = "Los cinco indicios sin respuesta tras las declaraciones de Zapatero";
+        let c = "La inocencia del inocente Zapatero";
+        let other = "Real Madrid gana la final de la Champions en Londres";
+        assert!(titles_are_similar_topic(a, b));
+        assert!(titles_are_similar_topic(a, c));
+        assert!(!titles_are_similar_topic(a, other));
+    }
+
+    #[test]
+    fn test_filter_similar_news_topics_keeps_one_per_cluster() {
+        let entries = vec![
+            (
+                "Anticorrupción pide ampliar el análisis de las joyas de Zapatero".into(),
+                "body1".into(),
+                None,
+                "https://example.com/1".into(),
+                1,
+            ),
+            (
+                "Los cinco indicios sin respuesta tras las declaraciones de Zapatero".into(),
+                "body2".into(),
+                None,
+                "https://example.com/2".into(),
+                2,
+            ),
+            (
+                "La filtración a Plus Ultra del 26-F: tres protagonistas la confirman".into(),
+                "body3".into(),
+                None,
+                "https://example.com/3".into(),
+                3,
+            ),
+            (
+                "La inocencia del inocente Zapatero".into(),
+                "body4".into(),
+                None,
+                "https://example.com/4".into(),
+                4,
+            ),
+            (
+                "Real Madrid gana la final de la Champions en Londres".into(),
+                "body5".into(),
+                None,
+                "https://example.com/5".into(),
+                5,
+            ),
+        ];
+        let filtered = filter_similar_news_topics(entries);
+        assert_eq!(filtered.len(), 3);
+        assert!(filtered[0].0.contains("Anticorrupción"));
+        assert!(filtered.iter().any(|e| e.0.contains("Plus Ultra")));
+        assert!(filtered.iter().any(|e| e.0.contains("Real Madrid")));
+        assert_eq!(
+            filtered
+                .iter()
+                .filter(|e| e.0.to_lowercase().contains("zapatero"))
+                .count(),
+            1
+        );
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -689,6 +753,156 @@ fn get_rss_feeds(region: &str, target_lang: &str) -> Vec<&'static str> {
             "https://feeds.npr.org/1001/rss.xml",
         ],
     }
+}
+
+const JACCARD_THRESHOLD: f64 = 0.45;
+const DISTINCTIVE_TOKEN_MIN_LEN: usize = 6;
+
+fn is_stopword(token: &str) -> bool {
+    matches!(
+        token,
+        // English
+        "a" | "an" | "the" | "and" | "or" | "but" | "in" | "on" | "at" | "to" | "for" | "of"
+            | "from" | "by" | "with" | "as" | "is" | "are" | "was" | "were" | "be" | "been"
+            | "being" | "it" | "its" | "this" | "that" | "these" | "those" | "after" | "before"
+            | "over" | "under" | "into" | "about" | "says" | "said" | "new" | "news" | "report"
+            | "reports" | "how" | "why" | "what" | "when" | "who"
+            // Spanish
+            | "el" | "la" | "los" | "las" | "un" | "una" | "unos" | "unas" | "y" | "o" | "de"
+            | "del" | "al" | "en" | "con" | "por" | "para" | "que" | "se" | "su" | "sus" | "es"
+            | "son" | "fue" | "ser" | "tras" | "entre" | "sobre" | "sin" | "más" | "mas" | "como"
+            | "cuando" | "donde" | "este" | "esta" | "estos" | "estas" | "hay" | "han" | "ha"
+            // Chinese function words
+            | "的" | "了" | "在" | "是" | "和" | "与" | "及" | "或" | "被" | "对" | "将" | "就"
+            | "也" | "都" | "而" | "并" | "等" | "中" | "为"
+    )
+}
+
+fn has_cjk(text: &str) -> bool {
+    text.chars().any(|c| {
+        matches!(
+            c,
+            '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{9fff}' | '\u{f900}'..='\u{faff}'
+        )
+    })
+}
+
+fn is_cjk_char(c: char) -> bool {
+    matches!(
+        c,
+        '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{9fff}' | '\u{f900}'..='\u{faff}'
+    )
+}
+
+/// Content tokens used for topic similarity (mirrors `src/shared/newsTopicFilter.js`).
+fn title_content_tokens(title: &str) -> std::collections::HashSet<String> {
+    let lower = title.to_lowercase();
+    let mut tokens = std::collections::HashSet::new();
+
+    if has_cjk(&lower) {
+        let cjk: String = lower.chars().filter(|c| is_cjk_char(*c)).collect();
+        let chars: Vec<char> = cjk.chars().collect();
+        for window in chars.windows(2) {
+            let bigram: String = window.iter().collect();
+            if !window.iter().all(|ch| is_stopword(&ch.to_string())) {
+                tokens.insert(bigram);
+            }
+        }
+    }
+
+    let mut word = String::new();
+    let flush_word = |word: &mut String, tokens: &mut std::collections::HashSet<String>| {
+        if word.is_empty() {
+            return;
+        }
+        let w = word.to_lowercase();
+        word.clear();
+        if w.chars().count() < 4 {
+            return;
+        }
+        if is_stopword(&w) {
+            return;
+        }
+        if w.chars().all(|c| c.is_ascii_digit()) {
+            return;
+        }
+        tokens.insert(w);
+    };
+
+    for ch in lower.chars() {
+        if ch.is_alphanumeric() || is_cjk_char(ch) {
+            // Latin/digit words only for the word tokenizer; CJK handled via bigrams.
+            if is_cjk_char(ch) {
+                flush_word(&mut word, &mut tokens);
+            } else {
+                word.push(ch);
+            }
+        } else {
+            flush_word(&mut word, &mut tokens);
+        }
+    }
+    flush_word(&mut word, &mut tokens);
+
+    tokens
+}
+
+fn token_sets_similar(
+    a: &std::collections::HashSet<String>,
+    b: &std::collections::HashSet<String>,
+) -> bool {
+    if a.is_empty() || b.is_empty() {
+        return false;
+    }
+    let mut inter = 0usize;
+    let mut distinctive_shared = false;
+    for t in a {
+        if b.contains(t) {
+            inter += 1;
+            if t.chars().count() >= DISTINCTIVE_TOKEN_MIN_LEN {
+                distinctive_shared = true;
+            }
+        }
+    }
+    if inter == 0 {
+        return false;
+    }
+    let union = a.len() + b.len() - inter;
+    let jaccard = inter as f64 / union as f64;
+    jaccard >= JACCARD_THRESHOLD || distinctive_shared
+}
+
+#[cfg(test)]
+fn titles_are_similar_topic(title_a: &str, title_b: &str) -> bool {
+    token_sets_similar(
+        &title_content_tokens(title_a),
+        &title_content_tokens(title_b),
+    )
+}
+
+/// Keep the first article of each topic cluster; preserve input order.
+fn filter_similar_news_topics(
+    entries: Vec<(String, String, Option<String>, String, i32)>,
+) -> Vec<(String, String, Option<String>, String, i32)> {
+    let mut kept: Vec<(String, String, Option<String>, String, i32)> = Vec::new();
+    let mut kept_tokens: Vec<std::collections::HashSet<String>> = Vec::new();
+
+    for entry in entries {
+        let tokens = title_content_tokens(&entry.0);
+        let similar = kept_tokens
+            .iter()
+            .any(|prev| token_sets_similar(prev, &tokens));
+        if similar {
+            continue;
+        }
+        kept.push(entry);
+        kept_tokens.push(tokens);
+    }
+
+    // Re-rank after filtering so hot_rank is dense 1..n
+    for (i, entry) in kept.iter_mut().enumerate() {
+        entry.4 = (i + 1) as i32;
+    }
+    kept
 }
 
 fn sync_articles(
@@ -869,12 +1083,14 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
         }
     };
 
-    // Collect raw article data from RSS (no DB lock needed yet)
+    // Collect more candidates than the final limit so topic diversity filtering
+    // can drop near-duplicates and still fill the list from other items/feeds.
+    let candidate_limit = (limit.saturating_mul(6)).clamp(limit, 30);
     let mut raw_entries: Vec<(String, String, Option<String>, String, i32)> = Vec::new();
     let mut rank = 1i32;
 
     for feed_url in &feeds {
-        if raw_entries.len() >= limit {
+        if raw_entries.len() >= candidate_limit {
             break;
         }
 
@@ -884,7 +1100,8 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
             if response.status().is_success() {
                 let body = response.text().await.unwrap_or_default();
                 if let Ok(feed) = feed_rs::parser::parse(body.as_bytes()) {
-                    for entry in feed.entries.iter().take(limit - raw_entries.len()) {
+                    let remaining = candidate_limit - raw_entries.len();
+                    for entry in feed.entries.iter().take(remaining) {
                         let title = entry
                             .title
                             .as_ref()
@@ -920,6 +1137,18 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
             log::warn!("Failed to fetch RSS from {}", feed_url);
         }
     }
+
+    let diversified = filter_similar_news_topics(raw_entries);
+    let raw_entries: Vec<_> = diversified.into_iter().take(limit).collect();
+    // Ensure ranks are 1..n after take()
+    let raw_entries: Vec<_> = raw_entries
+        .into_iter()
+        .enumerate()
+        .map(|(i, mut e)| {
+            e.4 = (i + 1) as i32;
+            e
+        })
+        .collect();
 
     match sync_articles(db, region, raw_entries) {
         Ok(articles) => {

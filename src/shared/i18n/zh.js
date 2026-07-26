@@ -45,6 +45,7 @@ export default {
     news: "新闻",
     reading: "阅读",
     speaking: "口语",
+    vocab: "单词",
     soulmate: "灵伴",
     days: "学习天数",
     learnedPrefix: "已学 ",
@@ -441,6 +442,7 @@ export default {
 
   vocab: {
     title: "我的单词本",
+    study: "单词学习",
     noData: "「{lang}」暂无词汇数据",
     words: "{n} 词",
     reset: "重置",
@@ -456,6 +458,9 @@ export default {
     seen: "已展示",
     unseen: "未展示",
     wordMastery: "掌握度",
+    prev: "上一个",
+    next: "下一个",
+    progress: "{current}/{total}",
   },
 
   chat: {
@@ -690,11 +695,14 @@ export default {
   },
 
   popup: {
+    clickToReveal: "点击查看翻译",
     translating: "翻译中…",
     known: "认识",
     unknown: "不认识",
     fail: "翻译暂不可用",
     aiTranslate: "翻译",
+    refresh: "重新翻译",
+    speak: "朗读单词",
   },
 
   external: {

@@ -74,7 +74,7 @@ describe("LearnHubPage", () => {
     expect(source).toMatch(/font-size:\s*clamp\(12px,\s*3\.6vw,\s*16px\)/);
   });
 
-  it("renders the unchanged path card above five module tiles", async () => {
+  it("renders the unchanged path card above six module tiles", async () => {
     const router = makeRouter();
     const wrapper = mount(LearnHubPage, {
       global: { plugins: [router] },
@@ -89,13 +89,15 @@ describe("LearnHubPage", () => {
     expect(pathCard.text()).toContain("★ 7");
     expect(pathCard.find(".path-progress-fill").attributes("style")).toContain("width: 30%");
     const tiles = wrapper.findAll(".module-tile");
-    expect(tiles.length).toBe(5);
+    expect(tiles.length).toBe(6);
     const labels = tiles.map((t) => t.find(".module-label").text());
     expect(labels).toContain("新闻");
     expect(labels).toContain("阅读");
     expect(labels).toContain("口语");
     expect(labels).toContain("翻译");
+    expect(labels).toContain("单词");
     expect(labels).toContain("灵伴");
+    expect(labels.indexOf("单词")).toBe(labels.indexOf("翻译") + 1);
   });
 
   it("navigates to path when the path progress bar is clicked", async () => {
@@ -154,6 +156,22 @@ describe("LearnHubPage", () => {
     await flushPromises();
 
     await wrapper.find(".stat-cell-link").trigger("click");
+
+    expect(pushSpy).toHaveBeenCalledWith({ name: "vocab" });
+  });
+
+  it("opens vocab from the words module tile after translator", async () => {
+    const router = makeRouter();
+    const pushSpy = vi.spyOn(router, "push");
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    const vocabTile = wrapper.findAll(".module-tile")
+      .find((t) => t.find(".module-label").text() === "单词");
+    expect(vocabTile).toBeTruthy();
+    await vocabTile.trigger("click");
 
     expect(pushSpy).toHaveBeenCalledWith({ name: "vocab" });
   });
