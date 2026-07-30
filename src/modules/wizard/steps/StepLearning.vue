@@ -16,7 +16,8 @@
           :class="{ selected: form.targetLanguage === lang.value }"
           @click="form.targetLanguage = lang.value"
         >
-          {{ lang.flag }} {{ lang.label }}
+          <span class="pill-flag">{{ lang.flag }}</span>
+          <span class="pill-label">{{ lang.label }}</span>
         </button>
       </div>
     </div>
@@ -133,10 +134,11 @@ function emitNext() {
 
 .pill {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 10px 18px;
-  border-radius: 24px;
+  gap: 3px;
+  padding: 10px 16px;
+  border-radius: 16px;
   border: 1.5px solid var(--border);
   background: var(--surface);
   color: var(--text);
@@ -145,6 +147,18 @@ function emitNext() {
   cursor: pointer;
   transition: all var(--transition);
   font-family: inherit;
+  min-width: 64px;
+}
+
+.pill-flag {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.pill-label {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .pill:hover {

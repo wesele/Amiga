@@ -1,3 +1,6 @@
+# Deepwork session files
+.slim/deepwork/
+
 # Dependencies
 node_modules/
 

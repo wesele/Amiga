@@ -38,21 +38,21 @@
         :class="msg.role === 'user' ? 'msg-user' : 'msg-other'"
       >
          <div v-if="msg.role !== 'user'" class="msg-avatar">
-           <component v-if="isAmiga" :is="amigaIcon" :size="28" />
-           <component v-else :is="translatorIcon" :size="28" />
+           <component v-if="isAmiga" :is="amigaIcon" :size="24" />
+           <component v-else :is="translatorIcon" :size="24" />
          </div>
         <div class="msg-bubble">
           <MarkdownText v-if="msg.role !== 'user'" class="msg-text" :content="msg.content" />
           <div v-else class="msg-text msg-text-plain">{{ msg.content }}</div>
         </div>
          <div v-if="msg.role === 'user'" class="msg-avatar user-avatar">
-           <StylizedAvatar :id="getAvatarId(userAvatar)" :size="28" />
+           <StylizedAvatar :id="getAvatarId(userAvatar)" :size="24" />
          </div>
       </div>
          <div v-if="loading" class="msg-row msg-other">
            <div class="msg-avatar">
-             <component v-if="isAmiga" :is="amigaIcon" :size="28" />
-             <component v-else :is="translatorIcon" :size="28" />
+             <component v-if="isAmiga" :is="amigaIcon" :size="24" />
+             <component v-else :is="translatorIcon" :size="24" />
            </div>
         <div class="msg-bubble typing">
           <span class="dot" /><span class="dot" /><span class="dot" />
@@ -454,7 +454,7 @@ onMounted(async () => {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 16px;
+  padding: 12px 8px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -477,7 +477,7 @@ onMounted(async () => {
 .msg-row {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: 4px;
   max-width: 85%;
 }
 .msg-user {
@@ -496,7 +496,7 @@ onMounted(async () => {
   justify-content: center;
 }
 .user-avatar {
-  font-size: 28px;
+  font-size: 24px;
 }
 
 .msg-bubble {

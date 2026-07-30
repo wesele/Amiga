@@ -286,11 +286,12 @@ async function handleInstallUpdate() {
 
 .lang-pill {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 10px 14px;
+  gap: 3px;
+  padding: 10px 16px;
   border: 1.5px solid var(--border);
-  border-radius: 24px;
+  border-radius: 16px;
   background: var(--surface);
   color: var(--text);
   font-size: 14px;
@@ -298,6 +299,7 @@ async function handleInstallUpdate() {
   cursor: pointer;
   transition: all var(--transition);
   font-family: inherit;
+  min-width: 64px;
 }
 
 .lang-pill:hover:not(:disabled) {
@@ -323,13 +325,20 @@ async function handleInstallUpdate() {
 }
 
 .lang-flag {
-  font-size: 18px;
+  font-size: 24px;
   line-height: 1;
 }
 
+.lang-name {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
 .lang-check {
+  font-size: 10px;
   font-weight: 700;
-  margin-left: 2px;
+  opacity: 0.8;
 }
 .settings-card {
   margin: 0 16px;

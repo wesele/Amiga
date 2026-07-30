@@ -33,7 +33,7 @@
         :class="message.senderId === userId ? 'msg-user' : 'msg-other'"
       >
          <div v-if="message.senderId !== userId" class="msg-avatar">
-           <StylizedAvatar :id="getAvatarId(avatarForSender(message.senderId, message.senderAvatar))" :size="28" />
+           <StylizedAvatar :id="getAvatarId(avatarForSender(message.senderId, message.senderAvatar))" :size="24" />
          </div>
         <div class="msg-bubble">
           <div v-if="mode === 'public' && message.senderId !== userId" class="msg-sender">
@@ -42,7 +42,7 @@
           <div class="msg-text msg-text-plain">{{ message.text }}</div>
         </div>
          <div v-if="message.senderId === userId" class="msg-avatar user-avatar">
-           <StylizedAvatar :id="getAvatarId(selfAvatar)" :size="28" />
+           <StylizedAvatar :id="getAvatarId(selfAvatar)" :size="24" />
          </div>
       </div>
     </div>
@@ -539,7 +539,7 @@ onUnmounted(() => {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 16px;
+  padding: 12px 8px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -559,7 +559,7 @@ onUnmounted(() => {
 .msg-row {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: 4px;
   max-width: 85%;
 }
 
