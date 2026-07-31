@@ -165,7 +165,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 6px 16px 4px;
+  padding: 6px 16px;
   color: var(--text-lighter);
   font-size: 11px;
   font-weight: 600;
@@ -182,10 +182,6 @@ onUnmounted(() => {
 .nav-item.active {
   color: var(--green);
   background: var(--green-bg);
-}
-
-.nav-item.active .nav-icon {
-  transform: translateY(-2px);
 }
 
 .nav-icon {
