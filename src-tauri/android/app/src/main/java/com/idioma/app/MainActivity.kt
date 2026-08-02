@@ -694,6 +694,21 @@ class MainActivity : TauriActivity() {
             .filter { it != packageName }
             .distinct()
 
+        // Prefer Chrome when installed. On ColorOS/Oppo the system's
+        // default-browser resolution often lands on the built-in browser even
+        // when the user explicitly set Chrome as default, so resolve Chrome
+        // first and only fall back to the system resolution below.
+        val chromePkg = handlers.firstOrNull { it == CHROME_PACKAGE }
+        if (chromePkg != null) {
+            try {
+                startActivity(Intent(baseIntent).apply { `package` = chromePkg })
+                Log.d(TAG, "external open launched via preferred Chrome package=$chromePkg url=$url")
+                return OpenResult(true)
+            } catch (e: ActivityNotFoundException) {
+                Log.w(TAG, "external open preferred Chrome failed package=$chromePkg url=$url", e)
+            }
+        }
+
         try {
             val resolved = pm.resolveActivity(baseIntent, PackageManager.MATCH_DEFAULT_ONLY)
             val defaultPkg = resolved?.activityInfo?.packageName
@@ -1008,6 +1023,7 @@ class MainActivity : TauriActivity() {
         private const val BACKUP_DISPLAY_NAME = "amiga_backup.db"
         private const val BACKUP_PREFERENCES = "amiga_media_store_backup"
         private const val BACKUP_URI_KEY = "media_store_uri"
+        private const val CHROME_PACKAGE = "com.android.chrome"
         private val SQLITE_HEADER = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
     }
 }
