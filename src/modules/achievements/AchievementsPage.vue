@@ -77,6 +77,40 @@
       </section>
 
       <section class="achievement-groups" :aria-label="t('achievements.badgesLabel')">
+        <!-- Makeup check-in card (above badge groups) -->
+        <article class="achievement-group makeup-card">
+          <div class="group-heading">
+            <div>
+              <h2>{{ t("achievements.makeup.title") }}</h2>
+              <p>{{ t("achievements.makeup.weekReward") }}</p>
+            </div>
+            <span class="group-progress makeup-token-count" :class="{ 'no-tokens': makeupTokens <= 0 }">
+              {{ t("achievements.makeup.tokens", { count: makeupTokens }) }}
+            </span>
+          </div>
+          <div class="makeup-date-row">
+            <button
+              v-for="d in makeupEligibleDates"
+              :key="d.date"
+              type="button"
+              class="makeup-date-btn"
+              :class="{ used: d.alreadyCheckedIn, selected: makeupSelectedDate === d.date }"
+              :disabled="d.alreadyCheckedIn || makeupTokens <= 0"
+              @click="makeupSelectedDate = makeupSelectedDate === d.date ? null : d.date"
+            >
+              {{ d.label }}
+            </button>
+          </div>
+          <button
+            v-if="makeupSelectedDate"
+            type="button"
+            class="makeup-confirm-btn"
+            :disabled="makeupLoading"
+            @click="confirmMakeup"
+          >
+            {{ makeupLoading ? "…" : t("achievements.makeup.confirm") }}
+          </button>
+        </article>
         <article v-for="group in achievementGroups" :key="group.key" class="achievement-group">
           <div class="group-heading">
             <div>
@@ -157,7 +191,9 @@ import { getCurrentUser } from "@/shared/backend/user.js";
 import {
   getAchievementDays,
   getAchievementProgress,
+  getMakeupCheckinStatus,
   recordAppOpen,
+  useMakeupCheckin,
 } from "@/shared/backend/achievements.js";
 import {
   appOpenLevel,
@@ -281,17 +317,60 @@ function dayAriaLabel(day) {
   });
 }
 
+// --- Makeup check-in ---
+const makeupTokens = ref(0);
+const makeupCheckedInDates = ref(new Set());
+const makeupSelectedDate = ref(null);
+const makeupLoading = ref(false);
+
+const makeupEligibleDates = computed(() => {
+  const result = [];
+  const now = new Date();
+  for (let i = 1; i <= 3; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const label = d.toLocaleDateString(locale.value, { month: "short", day: "numeric" });
+    result.push({ date: dateStr, label, alreadyCheckedIn: makeupCheckedInDates.value.has(dateStr) });
+  }
+  return result;
+});
+
+async function confirmMakeup() {
+  if (!makeupSelectedDate.value || makeupLoading.value) return;
+  makeupLoading.value = true;
+  try {
+    const result = await useMakeupCheckin(makeupSelectedDate.value);
+    makeupTokens.value = result.tokens;
+    makeupCheckedInDates.value = new Set([...makeupCheckedInDates.value, makeupSelectedDate.value]);
+    makeupSelectedDate.value = null;
+    // Refresh matrix
+    const user = await getCurrentUser();
+    if (user?.id) {
+      const days = await getAchievementDays(user.id, emptyMatrix.startDate, emptyMatrix.endDate);
+      records.value = days;
+    }
+  } catch (err) {
+    console.error("Makeup check-in failed:", err);
+  } finally {
+    makeupLoading.value = false;
+  }
+}
+
 onMounted(async () => {
   try {
     await recordAppOpen();
     const user = await getCurrentUser();
     if (user?.id) {
-      const [days, achievementProgress] = await Promise.all([
+      const [days, achievementProgress, makeupStatus] = await Promise.all([
         getAchievementDays(user.id, emptyMatrix.startDate, emptyMatrix.endDate),
         getAchievementProgress(user.id),
+        getMakeupCheckinStatus(),
       ]);
       records.value = days;
       progress.value = achievementProgress;
+      makeupTokens.value = makeupStatus?.tokens ?? 0;
+      makeupCheckedInDates.value = new Set(days.filter((d) => d.app_open > 0).map((d) => d.date));
     }
   } catch (error) {
     console.error("Failed to load achievement activity:", error);
@@ -359,10 +438,11 @@ onMounted(async () => {
 .achievement-groups {
   display: grid;
   flex: 1 1 auto;
-  grid-template-rows: repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto repeat(3, minmax(0, 1fr));
   min-height: 0;
   gap: 14px;
   padding: 14px 14px 20px;
+  overflow-y: auto;
 }
 
 .achievement-group {
@@ -373,6 +453,76 @@ onMounted(async () => {
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--white);
+}
+
+.makeup-card {
+  flex-shrink: 0;
+}
+
+.makeup-token-count {
+  color: var(--primary, #1cb0f6);
+}
+
+.makeup-token-count.no-tokens {
+  color: var(--text-lighter);
+}
+
+.makeup-date-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.makeup-date-btn {
+  flex: 1;
+  padding: 6px 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-variant);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.makeup-date-btn:hover:not(:disabled) {
+  background: #e8f7ff;
+  border-color: #1cb0f6;
+}
+
+.makeup-date-btn.selected {
+  background: #1cb0f6;
+  border-color: #1cb0f6;
+  color: #fff;
+}
+
+.makeup-date-btn.used,
+.makeup-date-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.makeup-confirm-btn {
+  width: 100%;
+  padding: 7px 0;
+  border: none;
+  border-radius: 20px;
+  background: #58cc02;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.makeup-confirm-btn:hover:not(:disabled) {
+  background: #49a600;
+}
+
+.makeup-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .group-heading {

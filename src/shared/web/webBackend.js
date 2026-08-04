@@ -334,6 +334,10 @@ async function invokeRead(command, args, state) {
     case "get_cloud_sync_status_cmd": return { enabled: false, last_synced_at: null, last_error: null, device_id: "web-demo", nickname: state.user.nickname, restore_available: false };
     case "check_cloud_restore_cmd": return false;
     case "check_update": return { available: false, version: import.meta.env.VITE_APP_VERSION || "web-demo", body: "", download_url: "" };
+    case "get_makeup_checkin_status_cmd": {
+      const mt = state.makeup_tokens ||= { tokens: 3, total_earned: 3 };
+      return { tokens: mt.tokens, total_earned: mt.total_earned };
+    }
     case "share_text_cmd": {
       if (globalThis.navigator?.share) await globalThis.navigator.share({ text: args.text });
       else if (globalThis.navigator?.clipboard?.writeText) await globalThis.navigator.clipboard.writeText(args.text);
@@ -406,7 +410,45 @@ async function invokeWrite(command, args) {
       case "record_app_open_cmd": {
         const day = state.achievement_days[localDate()] ||= { date: localDate(), reading_am: 0, reading_pm: 0, reading_count: 0, news_count: 0, speaking_count: 0, app_open: 0, soulmate_status: 0 };
         day.app_open += 1;
+        // Check if streak crossed a 7-day multiple and award a makeup token
+        const activeDays = Object.values(state.achievement_days)
+          .filter((d) => d.app_open > 0)
+          .map((d) => d.date)
+          .sort();
+        let run = 0;
+        for (let i = 0; i < activeDays.length; i++) {
+          if (i > 0 && new Date(activeDays[i]) - new Date(activeDays[i - 1]) === 86400000) {
+            run++;
+          } else {
+            run = 1;
+          }
+        }
+        const today2 = new Date(`${localDate()}T00:00:00`);
+        const lastActive = activeDays.length > 0 ? new Date(`${activeDays[activeDays.length - 1]}T00:00:00`) : null;
+        const currentStreak = lastActive && today2 - lastActive <= 86400000 ? run : 0;
+        if (currentStreak > 0 && currentStreak % 7 === 0) {
+          const mt = state.makeup_tokens ||= { tokens: 3, total_earned: 3 };
+          if (currentStreak > (mt.last_week_rewarded || 0)) {
+            mt.tokens += 1;
+            mt.total_earned += 1;
+            mt.last_week_rewarded = currentStreak;
+          }
+        }
         return true;
+      }
+      case "use_makeup_checkin_cmd": {
+        const { date } = args;
+        const today = localDate();
+        const diffMs = new Date(`${today}T00:00:00`) - new Date(`${date}T00:00:00`);
+        const diffDays = Math.round(diffMs / 86400000);
+        if (diffDays < 1 || diffDays > 3) throw new Error(`Can only makeup check-in for 1–3 days ago; requested ${diffDays} days ago`);
+        if (state.achievement_days[date]?.app_open > 0) throw new Error(`Already checked in on ${date}`);
+        const mt = state.makeup_tokens ||= { tokens: 3, total_earned: 3 };
+        if (mt.tokens <= 0) throw new Error("No makeup check-in tokens remaining");
+        mt.tokens -= 1;
+        state.achievement_days[date] ||= { date, reading_am: 0, reading_pm: 0, reading_count: 0, news_count: 0, speaking_count: 0, app_open: 0, soulmate_status: 0 };
+        state.achievement_days[date].app_open = 1;
+        return { tokens: mt.tokens, total_earned: mt.total_earned };
       }
       case "save_llm_config_cmd": state.llm_config.primary = clone(args.config); state.llm_config.mode = args.key === "builtin" ? "builtin" : "custom"; return null;
       case "save_multimodal_config_cmd": state.settings.multimodal_custom = clone(args.config); state.settings.multimodal_mode = "custom"; return null;

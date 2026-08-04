@@ -205,6 +205,8 @@ export function createApiClient(invoke) {
     recordAppOpen: () => call("record_app_open_cmd"),
     getAchievementProgress: (userId) =>
       call("get_achievement_progress_cmd", { userId }),
+    getMakeupCheckinStatus: () => call("get_makeup_checkin_status_cmd"),
+    useMakeupCheckin: (date) => call("use_makeup_checkin_cmd", { date }),
 
     // LLM
     rewriteArticle: (articleId, cefrLevel, userId, targetLang) =>

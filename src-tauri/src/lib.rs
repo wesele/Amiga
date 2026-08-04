@@ -53,6 +53,8 @@ pub fn run() {
             commands::achievements::get_achievement_days_cmd,
             commands::achievements::record_app_open_cmd,
             commands::achievements::get_achievement_progress_cmd,
+            commands::achievements::get_makeup_checkin_status_cmd,
+            commands::achievements::use_makeup_checkin_cmd,
             // Greeting (legacy)
             commands::greeting::greet,
             // Database commands

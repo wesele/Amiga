@@ -4,6 +4,156 @@ use rusqlite::params;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Makeup check-in token info returned to the frontend
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct MakeupCheckinStatus {
+    /// Remaining tokens the user can spend
+    pub tokens: i32,
+    /// Total tokens ever earned
+    pub total_earned: i32,
+}
+
+/// Ensure the makeup_checkin_tokens row exists for the user (initial grant of 3).
+fn ensure_makeup_tokens(conn: &rusqlite::Connection, user_id: &str) -> Result<(), String> {
+    conn.execute(
+        "INSERT OR IGNORE INTO makeup_checkin_tokens (user_id, tokens, total_earned, last_week_rewarded)
+         VALUES (?1, 3, 3, 0)",
+        params![user_id],
+    )
+    .map_err(|e| format!("Failed to init makeup checkin tokens: {e}"))?;
+    Ok(())
+}
+
+/// Get makeup check-in status for the current user.
+pub fn get_makeup_checkin_status(db: &DatabasePool) -> Result<MakeupCheckinStatus, String> {
+    let conn = db.conn()?;
+    let user_id: Option<String> = conn
+        .query_row("SELECT id FROM users LIMIT 1", [], |row| row.get(0))
+        .ok();
+    let Some(user_id) = user_id else {
+        return Ok(MakeupCheckinStatus::default());
+    };
+    ensure_makeup_tokens(&conn, &user_id)?;
+    let (tokens, total_earned) = conn
+        .query_row(
+            "SELECT tokens, total_earned FROM makeup_checkin_tokens WHERE user_id = ?1",
+            params![user_id],
+            |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)),
+        )
+        .map_err(|e| format!("Failed to query makeup checkin tokens: {e}"))?;
+    Ok(MakeupCheckinStatus { tokens, total_earned })
+}
+
+/// Use one makeup token to back-fill a past date (1–3 days ago).
+/// Returns the updated token count, or an error if not eligible.
+pub fn use_makeup_checkin(db: &DatabasePool, date: &str) -> Result<MakeupCheckinStatus, String> {
+    let conn = db.conn()?;
+    let user_id: Option<String> = conn
+        .query_row("SELECT id FROM users LIMIT 1", [], |row| row.get(0))
+        .ok();
+    let Some(user_id) = user_id else {
+        return Err("No user found".to_string());
+    };
+    ensure_makeup_tokens(&conn, &user_id)?;
+
+    let today = Local::now().date_naive();
+    let target = NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .map_err(|_| format!("Invalid date: {date}"))?;
+    let diff = (today - target).num_days();
+    if diff < 1 || diff > 3 {
+        return Err(format!(
+            "Can only makeup check-in for 1–3 days ago; requested {diff} days ago"
+        ));
+    }
+
+    // Check if already checked in on that date
+    let already: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM streak_records WHERE user_id = ?1 AND date = ?2",
+            params![user_id, date],
+            |row| row.get::<_, i32>(0),
+        )
+        .unwrap_or(0)
+        > 0;
+    if already {
+        return Err(format!("Already checked in on {date}"));
+    }
+
+    // Deduct token
+    let updated = conn
+        .execute(
+            "UPDATE makeup_checkin_tokens SET tokens = tokens - 1
+             WHERE user_id = ?1 AND tokens > 0",
+            params![user_id],
+        )
+        .map_err(|e| format!("Failed to deduct makeup token: {e}"))?;
+    if updated == 0 {
+        return Err("No makeup check-in tokens remaining".to_string());
+    }
+
+    // Insert the makeup streak record
+    conn.execute(
+        "INSERT OR IGNORE INTO streak_records (user_id, date, open_count) VALUES (?1, ?2, 1)",
+        params![user_id, date],
+    )
+    .map_err(|e| format!("Failed to insert makeup streak record: {e}"))?;
+
+    let (tokens, total_earned) = conn
+        .query_row(
+            "SELECT tokens, total_earned FROM makeup_checkin_tokens WHERE user_id = ?1",
+            params![user_id],
+            |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)),
+        )
+        .map_err(|e| format!("Failed to query makeup checkin tokens after use: {e}"))?;
+    Ok(MakeupCheckinStatus { tokens, total_earned })
+}
+
+/// Check if the current streak just crossed a 7-day multiple; if so, award a token.
+/// Called internally after recording a real app open.
+fn maybe_award_weekly_token(conn: &rusqlite::Connection, user_id: &str) -> Result<(), String> {
+    ensure_makeup_tokens(conn, user_id)?;
+
+    // Compute current consecutive streak from streak_records
+    let dates: BTreeSet<NaiveDate> = {
+        let mut stmt = conn
+            .prepare("SELECT date FROM streak_records WHERE user_id = ?1 ORDER BY date")
+            .map_err(|e| format!("Failed to prepare streak dates: {e}"))?;
+        let collected: BTreeSet<NaiveDate> = stmt
+            .query_map(params![user_id], |row| row.get::<_, String>(0))
+            .map_err(|e| format!("Failed to query streak dates: {e}"))?
+            .filter_map(Result::ok)
+            .filter_map(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d").ok())
+            .collect();
+        collected
+    };
+
+    let today = Local::now().date_naive();
+    let (current_streak, _best) = streak_metrics(&dates, today);
+
+    // Award a token every time the streak hits a multiple of 7
+    if current_streak > 0 && current_streak % 7 == 0 {
+        // Only award once per week-boundary (last_week_rewarded tracks the highest multiple rewarded)
+        let last_rewarded: i32 = conn
+            .query_row(
+                "SELECT last_week_rewarded FROM makeup_checkin_tokens WHERE user_id = ?1",
+                params![user_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        if current_streak > last_rewarded {
+            conn.execute(
+                "UPDATE makeup_checkin_tokens
+                 SET tokens = tokens + 1, total_earned = total_earned + 1,
+                     last_week_rewarded = ?2
+                 WHERE user_id = ?1",
+                params![user_id, current_streak],
+            )
+            .map_err(|e| format!("Failed to award weekly token: {e}"))?;
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct AchievementDay {
     pub date: String,
@@ -41,6 +191,8 @@ pub fn record_app_open(db: &DatabasePool) -> Result<bool, String> {
             params![user_id, today],
         )
         .map_err(|e| format!("Failed to record app open: {e}"))?;
+    // Award a makeup token when streak crosses a 7-day multiple
+    let _ = maybe_award_weekly_token(&conn, &user_id);
     Ok(updated > 0)
 }
 

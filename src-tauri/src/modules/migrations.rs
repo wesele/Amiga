@@ -91,8 +91,23 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add open_count column to streak_records for tracking daily app open count",
             MIGRATION_V21,
         ),
+        (
+            22,
+            "Add makeup_checkin_tokens table for makeup check-in feature",
+            MIGRATION_V22,
+        ),
     ]
 }
+
+const MIGRATION_V22: &str = r#"
+CREATE TABLE IF NOT EXISTS makeup_checkin_tokens (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tokens INTEGER NOT NULL DEFAULT 0,
+    total_earned INTEGER NOT NULL DEFAULT 0,
+    last_week_rewarded INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id)
+);
+"#;
 
 const MIGRATION_V21: &str = r#"
 ALTER TABLE streak_records ADD COLUMN open_count INTEGER NOT NULL DEFAULT 1;

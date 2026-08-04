@@ -186,6 +186,20 @@ export default {
         milestones: ["Una semana", "Un mes", "Tres meses", "Un año"],
       },
     },
+    makeup: {
+      title: "Recuperar acceso",
+      tokens: "Restantes: {count}",
+      noTokens: "Sin recuperaciones disponibles",
+      weekReward: "Gana 1 recuperación por cada 7 días seguidos",
+      initialGrant: "3 recuperaciones para nuevos usuarios",
+      selectDate: "Selecciona un día para recuperar (últimos 3 días)",
+      confirm: "Confirmar",
+      cancel: "Cancelar",
+      success: "¡Acceso recuperado! Quedan {count}",
+      alreadyCheckedIn: "Ya registraste ese día",
+      outOfRange: "Solo puedes recuperar los últimos 3 días",
+      noTokensError: "Sin recuperaciones disponibles",
+    },
   },
 
   speaking: {

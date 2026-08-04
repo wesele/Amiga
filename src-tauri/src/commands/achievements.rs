@@ -29,3 +29,20 @@ pub async fn get_achievement_progress_cmd(
 ) -> Result<achievements_mod::AchievementProgress, String> {
     achievements_mod::get_achievement_progress(&db, &user_id)
 }
+
+#[tauri::command]
+pub async fn get_makeup_checkin_status_cmd(
+    db: State<'_, DatabasePool>,
+) -> Result<achievements_mod::MakeupCheckinStatus, String> {
+    achievements_mod::get_makeup_checkin_status(&db)
+}
+
+#[tauri::command]
+pub async fn use_makeup_checkin_cmd(
+    db: State<'_, DatabasePool>,
+    date: String,
+) -> Result<achievements_mod::MakeupCheckinStatus, String> {
+    let result = achievements_mod::use_makeup_checkin(&db, &date)?;
+    after_syncable_write(&db);
+    Ok(result)
+}

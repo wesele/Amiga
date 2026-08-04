@@ -188,6 +188,20 @@ export default {
         milestones: ["One week", "One month", "Three months", "One year"],
       },
     },
+    makeup: {
+      title: "Makeup check-in",
+      tokens: "Remaining: {count}",
+      noTokens: "No makeup tokens available",
+      weekReward: "Earn 1 token for every 7-day streak",
+      initialGrant: "3 tokens granted to new users",
+      selectDate: "Select a date to make up (within 3 days)",
+      confirm: "Confirm",
+      cancel: "Cancel",
+      success: "Check-in backdated! {count} token(s) remaining",
+      alreadyCheckedIn: "Already checked in on that day",
+      outOfRange: "Can only make up within the last 3 days",
+      noTokensError: "No makeup tokens remaining",
+    },
   },
 
   speaking: {

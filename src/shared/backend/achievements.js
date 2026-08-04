@@ -1,1 +1,1 @@
-export { getAchievementDays, getAchievementProgress, recordAppOpen } from "@/shared/api.js";
+export { getAchievementDays, getAchievementProgress, getMakeupCheckinStatus, recordAppOpen, useMakeupCheckin } from "@/shared/api.js";

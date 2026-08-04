@@ -191,9 +191,21 @@ export default {
         milestones: ["累计一周", "累计一个月", "累计三个月", "累计一年"],
       },
     },
+    makeup: {
+      title: "补打卡",
+      tokens: "剩余次数：{count} 次",
+      noTokens: "暂无补打卡次数",
+      weekReward: "每连续打卡满一周额外获得 1 次",
+      initialGrant: "新用户初始赠送 3 次",
+      selectDate: "选择要补打卡的日期（3 天内）",
+      confirm: "确认补打卡",
+      cancel: "取消",
+      success: "补打卡成功！剩余 {count} 次",
+      alreadyCheckedIn: "该日期已打过卡",
+      outOfRange: "仅可补打 3 天内的卡",
+      noTokensError: "补打卡次数不足",
+    },
   },
-
-  speaking: {
     title: "口语对话",
     loading: "加载话题…",
     preparing: "准备对话…",
