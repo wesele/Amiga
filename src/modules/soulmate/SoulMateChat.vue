@@ -87,6 +87,18 @@
         @unknown="setWordMastery(1)"
       />
     </Transition>
+
+    <Transition name="popup">
+      <div v-if="selectionText" class="sel-overlay" @click.self="clearSelection">
+        <div class="sel-popup">
+          <div class="sel-source">{{ selectionText }}</div>
+          <div v-if="selectionLoadingFlag" class="sel-loading">{{ t("news.translating") }}</div>
+          <div v-else-if="selectionResult" class="sel-result">{{ selectionResult }}</div>
+          <div v-else-if="selectionError" class="sel-error">{{ selectionError }}</div>
+          <button class="sel-close" type="button" @click="clearSelection">×</button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -98,6 +110,8 @@ import { tokenizeArticleText } from "@/shared/articleText.js";
 import { isTvLayoutMode } from "@/shared/appMode.js";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
+import { translateText } from "@/shared/backend/llm.js";
+import { useSelectionTranslation } from "@/shared/selectionTranslation.js";
 import {
   getSoulMateChat,
   getSoulMateReplyOptions,
@@ -129,6 +143,23 @@ const optionButtons = ref([]);
 const chatTitle = computed(() =>
   t("soulmate.chatTitle", { name: companionName.value || t("soulmate.title") }),
 );
+
+const {
+  selectionText,
+  selectionResult,
+  selectionLoading: selectionLoadingFlag,
+  selectionError,
+  onSelectionChange,
+  onPointerUp,
+  handleNativeTranslate,
+  clearSelection,
+  cleanup: cleanupSelectionTranslation,
+} = useSelectionTranslation({
+  translateText,
+  getTargetLang: () => targetLang.value,
+  getNativeLang: () => getLocale(),
+  t,
+});
 
 /** Full history on TV (left pane scrolls); phone keeps a short window if ever needed. */
 const displayMessages = computed(() => messages.value || []);
@@ -196,6 +227,9 @@ watch(
 );
 
 onMounted(async () => {
+  document.addEventListener("selectionchange", onSelectionChange);
+  document.addEventListener("pointerup", onPointerUp);
+  window.__amigaTranslateSelection = handleNativeTranslate;
   const viewport = getVisualViewport();
   if (viewport) {
     fullViewportHeight = viewport.height;
@@ -219,6 +253,12 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  document.removeEventListener("selectionchange", onSelectionChange);
+  document.removeEventListener("pointerup", onPointerUp);
+  if (window.__amigaTranslateSelection === handleNativeTranslate) {
+    delete window.__amigaTranslateSelection;
+  }
+  cleanupSelectionTranslation();
   getVisualViewport()?.removeEventListener("resize", onViewportResize);
   optionsRequestId += 1;
 });
@@ -574,4 +614,12 @@ async function sendOption(option) {
   width: 100%;
   box-sizing: border-box;
 }
+
+.sel-overlay { position: fixed; inset: 0; z-index: 220; display: flex; align-items: flex-end; justify-content: center; padding: 16px 16px calc(16px + var(--safe-bottom)); background: rgba(0,0,0,.2); }
+.sel-popup { position: relative; width: min(100%, 560px); max-height: 65vh; overflow-y: auto; padding: 20px; box-sizing: border-box; border-radius: 18px; background: var(--surface); box-shadow: 0 18px 50px rgba(0,0,0,.2); }
+.sel-source { padding-right: 28px; color: var(--text-light); font-size: 15px; line-height: 1.6; }
+.sel-result { margin-top: 14px; color: var(--text); font-size: 16px; line-height: 1.65; }
+.sel-loading { margin-top: 14px; color: var(--text-lighter); }
+.sel-error { margin-top: 14px; color: var(--red); }
+.sel-close { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--bg); color: var(--text-light); font-size: 20px; cursor: pointer; }
 </style>

@@ -422,6 +422,8 @@ export const getLearningDays = (...args) => defaultApiClient.getLearningDays(...
 export const getAchievementDays = (...args) => defaultApiClient.getAchievementDays(...args);
 export const recordAppOpen = (...args) => defaultApiClient.recordAppOpen(...args);
 export const getAchievementProgress = (...args) => defaultApiClient.getAchievementProgress(...args);
+export const getMakeupCheckinStatus = (...args) => defaultApiClient.getMakeupCheckinStatus(...args);
+export const useMakeupCheckin = (...args) => defaultApiClient.useMakeupCheckin(...args);
 
 // --- LLM ---
 export const rewriteArticle = (...args) => defaultApiClient.rewriteArticle(...args);

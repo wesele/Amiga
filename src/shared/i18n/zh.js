@@ -206,6 +206,8 @@ export default {
       noTokensError: "补打卡次数不足",
     },
   },
+
+  speaking: {
     title: "口语对话",
     loading: "加载话题…",
     preparing: "准备对话…",

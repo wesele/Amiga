@@ -66,6 +66,9 @@ describe("AchievementsPage", () => {
           learning_total: 31,
         });
       }
+      if (command === "get_makeup_checkin_status_cmd") {
+        return Promise.resolve({ tokens: 3, total_earned: 3 });
+      }
       return Promise.resolve(null);
     }));
 
@@ -76,7 +79,8 @@ describe("AchievementsPage", () => {
     expect(wrapper.findAll(".mini-cell")).toHaveLength(336);
     expect(wrapper.find(".position-legend").exists()).toBe(false);
     expect(wrapper.find(".color-legend").exists()).toBe(false);
-    expect(wrapper.findAll(".achievement-group")).toHaveLength(3);
+    // 3 badge groups + 1 makeup-card
+    expect(wrapper.findAll(".achievement-group")).toHaveLength(4);
     expect(wrapper.findAll(".achievement-badge")).toHaveLength(12);
     expect(wrapper.findAll(".achievement-badge.unlocked")).toHaveLength(4);
   });
@@ -89,7 +93,7 @@ describe("AchievementsPage", () => {
     expect(source).toMatch(/grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/);
     expect(source).toMatch(/\.matrix-layout\s*\{[^}]*width:\s*100%/s);
     expect(source).toMatch(/\.achievements-page\s*\{[^}]*height:\s*100%[^}]*overflow:\s*hidden/s);
-    expect(source).toMatch(/\.achievement-groups\s*\{[^}]*grid-template-rows:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/s);
+    expect(source).toMatch(/\.achievement-groups\s*\{[^}]*grid-template-rows:\s*auto\s+repeat\(3,\s*minmax\(0,\s*1fr\)\)/s);
     expect(source).toMatch(/\.achievement-groups\s*\{[^}]*gap:\s*14px[^}]*padding:\s*14px\s+14px\s+20px/s);
     expect(source).toMatch(/\.day-cell\s*\{[^}]*width:\s*100%[^}]*aspect-ratio:\s*1\.12\s*\/\s*1/s);
     expect(source).toMatch(/class="achievements-body"/);
@@ -153,6 +157,9 @@ describe("AchievementsPage", () => {
           learning_total: 7,
         });
       }
+      if (command === "get_makeup_checkin_status_cmd") {
+        return Promise.resolve({ tokens: 2, total_earned: 3 });
+      }
       return Promise.resolve(null);
     }));
 
@@ -161,7 +168,8 @@ describe("AchievementsPage", () => {
 
     // Verify 7 total learning days unlocks the 7-day milestone badge (1 week)
     const groups = wrapper.findAll(".achievement-group");
-    const totalLearningGroup = groups[2];
+    // groups[0] = makeup-card, groups[1] = checkIn, groups[2] = fullLearning, groups[3] = totalLearning
+    const totalLearningGroup = groups[3];
     expect(totalLearningGroup.text()).toContain("累计一周");
     expect(totalLearningGroup.findAll(".achievement-badge.unlocked")).toHaveLength(1);
 
