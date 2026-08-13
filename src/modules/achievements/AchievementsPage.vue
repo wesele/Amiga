@@ -428,26 +428,30 @@ onMounted(async () => {
 
 .matrix-section {
   flex-shrink: 0;
+  /* Cap at 40% viewport height so achievement cards get adequate space. */
+  max-height: 40vh;
   margin-top: 6px;
   padding: 10px 14px;
   background: var(--white);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .achievement-groups {
-  display: grid;
+  display: flex;
   flex: 1 1 auto;
-  grid-template-rows: auto repeat(3, minmax(0, 1fr));
+  flex-direction: column;
   min-height: 0;
-  gap: 14px;
-  padding: 14px 14px 20px;
+  gap: 10px;
+  padding: 12px 14px 20px;
   overflow-y: auto;
+  /* Let cards breathe naturally; no fixed row heights squashing content. */
 }
 
 .achievement-group {
   display: flex;
-  min-height: 0;
+  flex-shrink: 0;
   flex-direction: column;
   padding: 9px 10px;
   border: 1px solid var(--border);
@@ -555,8 +559,6 @@ onMounted(async () => {
 
 .badge-grid {
   display: grid;
-  flex: 1;
-  min-height: 0;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
@@ -833,6 +835,9 @@ onMounted(async () => {
 }
 
 .tv-achievements .achievement-groups {
+  /* Override phone flex-scroll: TV right pane is fixed height, split evenly. */
+  display: grid;
+  grid-template-rows: auto repeat(3, minmax(0, 1fr));
   width: auto;
   max-width: 100%;
   min-width: 0;
@@ -845,6 +850,7 @@ onMounted(async () => {
 
 .tv-achievements .achievement-group {
   min-height: 0;
+  flex-shrink: unset;
   padding: 8px 10px;
   border-radius: 14px;
 }
@@ -868,6 +874,8 @@ onMounted(async () => {
 }
 
 .tv-achievements .badge-grid {
+  flex: 1;
+  min-height: 0;
   gap: 6px;
 }
 

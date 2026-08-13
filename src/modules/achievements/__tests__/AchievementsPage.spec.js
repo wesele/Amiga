@@ -93,8 +93,9 @@ describe("AchievementsPage", () => {
     expect(source).toMatch(/grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/);
     expect(source).toMatch(/\.matrix-layout\s*\{[^}]*width:\s*100%/s);
     expect(source).toMatch(/\.achievements-page\s*\{[^}]*height:\s*100%[^}]*overflow:\s*hidden/s);
-    expect(source).toMatch(/\.achievement-groups\s*\{[^}]*grid-template-rows:\s*auto\s+repeat\(3,\s*minmax\(0,\s*1fr\)\)/s);
-    expect(source).toMatch(/\.achievement-groups\s*\{[^}]*gap:\s*14px[^}]*padding:\s*14px\s+14px\s+20px/s);
+    // achievement-groups uses scrollable flex column; cards are natural height.
+    expect(source).toMatch(/\.achievement-groups\s*\{[^}]*flex-direction:\s*column/s);
+    expect(source).toMatch(/\.achievement-groups\s*\{[^}]*overflow-y:\s*auto/s);
     expect(source).toMatch(/\.day-cell\s*\{[^}]*width:\s*100%[^}]*aspect-ratio:\s*1\.12\s*\/\s*1/s);
     expect(source).toMatch(/class="achievements-body"/);
     expect(source).not.toMatch(/\.matrix-scroll\s*\{/);
