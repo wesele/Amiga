@@ -440,7 +440,20 @@ html[data-app-mode="tv"] .para-translation:focus-visible {
   position: relative;
   border-radius: 3px;
 }
-.finish-btn { width: 100%; min-height: 52px; margin-top: 20px; border: none; border-radius: 16px; background: #ff5d8f; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.finish-btn {
+  flex: 1;
+  min-height: 52px;
+  margin: 0;
+  border: none;
+  border-radius: 16px;
+  background: #ff5d8f;
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
 .finish-btn:disabled { opacity: .65; }
 .state-block { min-height: 60vh; display: grid; place-content: center; padding: 24px; color: var(--text-lighter); text-align: center; }
 .state-block.error { color: var(--red); }
@@ -473,5 +486,15 @@ html[data-app-mode="tv"] .story-content h1 {
   max-width: none;
   margin-inline: 0;
 }
-.tv-story .finish-btn { min-height: 56px; font-size: 18px; }
+.tv-story .mode-toggle-btn,
+.tv-story .finish-btn {
+  min-height: 56px;
+  font-size: 18px;
+}
+.tv-story .mode-toggle-btn:focus-visible,
+.tv-story .finish-btn:focus-visible {
+  outline: 3px solid #ff5d8f !important;
+  outline-offset: 2px;
+  transform: none !important;
+}
 </style>

@@ -610,6 +610,9 @@ describe("Soul Mate MVP", () => {
     expect(translations[0].text()).toBe("你好朋友。");
     expect(translations[1].text()).toBe("希望你今天一切都好。");
 
+    expect(wrapper.find(".bottom-actions .mode-toggle-btn").exists()).toBe(true);
+    expect(wrapper.find(".bottom-actions .finish-btn").exists()).toBe(true);
+
     // Toggle back to original
     await wrapper.find(".mode-toggle-btn").trigger("click");
     await flushPromises();
