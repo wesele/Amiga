@@ -1,6 +1,19 @@
 <template>
   <div class="story-page" :class="{ 'tv-content-pane tv-story': isTvLayoutMode }">
-    <PageHeader :title="t('soulmate.storyTitle')" />
+    <PageHeader :title="t('soulmate.storyTitle')">
+      <template #actions>
+        <button
+          v-if="episode"
+          type="button"
+          class="btn-bilingual-header"
+          :class="{ active: bilingualMode }"
+          :title="bilingualMode ? t('news.original') : t('news.bilingual')"
+          @click="toggleBilingual"
+        >
+          {{ bilingualMode ? t("news.bilingual") : t("news.original") }}
+        </button>
+      </template>
+    </PageHeader>
     <div v-if="loading" class="state-block">{{ t("app.loading") }}</div>
     <div v-else-if="error" class="state-block error">{{ error }}</div>
     <main v-else-if="episode" class="story-content article-body">
@@ -8,10 +21,13 @@
       <div class="story-meta">{{ t("soulmate.letterFrom") }} · {{ t("soulmate.day", { day: episode.day_number }) }}</div>
       <div class="subject-label">{{ t("soulmate.letterSubject") }}</div>
       <h1>{{ episode.title }}</h1>
+      <p v-if="bilingualMode && titleTranslation" class="title-translation">{{ titleTranslation }}</p>
       <p class="teaser">{{ episode.teaser }}</p>
+      <p v-if="bilingualMode && teaserTranslation" class="teaser-translation">{{ teaserTranslation }}</p>
       <div class="ornament">✦</div>
-      <!-- Same word-focus reading model as news/daily reading (TV arrows + Enter = translate). -->
-      <article class="article-text">
+
+      <!-- Original reading mode -->
+      <article v-if="!bilingualMode" class="article-text">
         <p v-for="(tokens, paragraphIndex) in bodyParagraphs" :key="paragraphIndex" class="para">
           <template v-for="(token, tokenIndex) in tokens" :key="tokenIndex">
             <span
@@ -26,9 +42,52 @@
           </template>
         </p>
       </article>
-      <button class="finish-btn" type="button" :disabled="finishing" @click="finish">
-        {{ finishing ? t("soulmate.finishing") : t("soulmate.finishStory") }}
-      </button>
+
+      <!-- Bilingual reading mode -->
+      <article v-else-if="translations.length > 0" class="article-text bilingual">
+        <template v-for="(tokens, paragraphIndex) in paraTokens" :key="paragraphIndex">
+          <p class="para-original">
+            <template v-for="(token, tokenIndex) in tokens" :key="tokenIndex">
+              <span
+                v-if="token.isWord"
+                class="word"
+                :tabindex="isTvLayoutMode ? 0 : undefined"
+                @click.stop="onWordTap(token)"
+                @keydown.enter.prevent="onWordTap(token)"
+                @keydown.space.prevent="onWordTap(token)"
+              >{{ token.text }}</span>
+              <span v-else>{{ token.text }}</span>
+            </template>
+          </p>
+          <p
+            class="para-translation"
+            :tabindex="isTvLayoutMode ? 0 : undefined"
+          >{{ translations[paragraphIndex] || "..." }}</p>
+        </template>
+      </article>
+
+      <div v-else-if="loadingTranslation" class="bilingual-status">
+        <p class="translating-text">{{ t("news.translating") }}</p>
+      </div>
+
+      <div v-else class="bilingual-status error">
+        <p class="error-text">{{ translationError || t("news.bilingualLoadFail") }}</p>
+        <button class="retry-btn" type="button" @click="loadBilingual">{{ t("common.retry") }}</button>
+      </div>
+
+      <div class="bottom-actions">
+        <button
+          type="button"
+          class="mode-toggle-btn"
+          :class="{ active: bilingualMode }"
+          @click="toggleBilingual"
+        >
+          {{ bilingualMode ? t("news.bilingual") : t("news.original") }}
+        </button>
+        <button class="finish-btn" type="button" :disabled="finishing" @click="finish">
+          {{ finishing ? t("soulmate.finishing") : t("soulmate.finishStory") }}
+        </button>
+      </div>
     </main>
 
     <Transition name="popup">
@@ -89,6 +148,14 @@ const selectedWord = ref(null);
 const userId = ref("");
 const targetLang = ref("es");
 
+const bilingualMode = ref(false);
+const translations = ref([]);
+const paraTokens = ref([]);
+const titleTranslation = ref("");
+const teaserTranslation = ref("");
+const loadingTranslation = ref(false);
+const translationError = ref("");
+
 /** Paragraph-aware body tokens — same shape as NewsReader / ReadingReader. */
 const bodyParagraphs = computed(() => {
   const body = episode.value?.body || "";
@@ -97,6 +164,51 @@ const bodyParagraphs = computed(() => {
   const paragraphs = blocks.length > 0 ? blocks : body.split(/\n+/).map((p) => p.trim()).filter(Boolean);
   return paragraphs.map((paragraph) => tokenizeArticleText(paragraph));
 });
+
+async function toggleBilingual() {
+  bilingualMode.value = !bilingualMode.value;
+  if (bilingualMode.value && translations.value.length === 0) {
+    await loadBilingual();
+  }
+}
+
+async function loadBilingual() {
+  if (!episode.value) return;
+  loadingTranslation.value = true;
+  translationError.value = "";
+  try {
+    const body = episode.value?.body || "";
+    const blocks = body.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+    const paragraphs = blocks.length > 0 ? blocks : body.split(/\n+/).map((p) => p.trim()).filter(Boolean);
+    paraTokens.value = paragraphs.map((p) => tokenizeArticleText(p));
+    translations.value = await Promise.all(
+      paragraphs.map((paragraph) => translateText(paragraph, targetLang.value, getLocale())),
+    );
+
+    const title = episode.value?.title || "";
+    if (title) {
+      try {
+        titleTranslation.value = await translateText(title, targetLang.value, getLocale());
+      } catch (_) {
+        titleTranslation.value = "";
+      }
+    }
+
+    const teaser = episode.value?.teaser || "";
+    if (teaser) {
+      try {
+        teaserTranslation.value = await translateText(teaser, targetLang.value, getLocale());
+      } catch (_) {
+        teaserTranslation.value = "";
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load bilingual translation in SoulMateStory:", e);
+    translationError.value = typeof e === "string" ? e : (e?.message || t("news.bilingualLoadFail"));
+  } finally {
+    loadingTranslation.value = false;
+  }
+}
 
 const {
   selectionText,
@@ -202,7 +314,9 @@ async function finish() {
 .story-meta { color: #d9366e; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .subject-label { margin-top: 17px; color: var(--text-lighter); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
 .story-content h1 { margin: 8px 0 9px; color: var(--text); font-family: Georgia, serif; font-size: 30px; line-height: 1.18; }
+.title-translation { margin: -4px 0 12px; color: var(--text-lighter); font-size: 15px; line-height: 1.45; }
 .teaser { margin: 0; color: var(--text-light); font-size: 15px; font-style: italic; line-height: 1.55; }
+.teaser-translation { margin: 4px 0 0; color: var(--text-lighter); font-size: 14px; font-style: italic; line-height: 1.45; }
 .ornament { margin: 22px 0; color: #ff5d8f; text-align: center; }
 .article-text {
   color: var(--text);
@@ -213,6 +327,96 @@ async function finish() {
   word-wrap: break-word;
 }
 .article-text .para { margin: 0 0 18px; }
+.article-text.bilingual {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.para-original {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.para-translation {
+  color: var(--text-lighter);
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 0 0 16px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border, #eddcd2);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+html[data-app-mode="tv"] .para-translation {
+  font-size: 16px;
+  line-height: 1.55;
+  border-radius: 6px;
+  outline: none;
+}
+html[data-app-mode="tv"] .para-translation:focus-visible {
+  outline: 2px solid #1cb0f6 !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+  transform: none !important;
+  background: rgba(28, 176, 246, 0.08);
+}
+.bilingual-status {
+  padding: 24px 0;
+  text-align: center;
+}
+.translating-text {
+  color: var(--text-lighter);
+  font-size: 14px;
+}
+.bilingual-status.error {
+  color: var(--red);
+}
+.retry-btn {
+  margin-top: 10px;
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.bottom-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+.mode-toggle-btn {
+  flex: 1;
+  min-height: 52px;
+  border: 1.5px solid #f3b5c8;
+  border-radius: 16px;
+  background: #fff;
+  color: #d9366e;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.mode-toggle-btn.active {
+  background: #fff0f5;
+  border-color: #d9366e;
+}
+.btn-bilingual-header {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-bilingual-header.active {
+  border-color: #d9366e;
+  color: #d9366e;
+  background: #fff0f5;
+}
 .word {
   cursor: pointer;
   padding: 0 1px;

@@ -547,6 +547,76 @@ describe("Soul Mate MVP", () => {
     expect(window.__amigaTranslateSelection).toBeUndefined();
   });
 
+  it("toggles bilingual mode and displays paragraph translations in a story letter", async () => {
+    mockInvoke.mockImplementation((command, args) => {
+      if (command === "get_soulmate_episode_cmd") {
+        return Promise.resolve({
+          id: "e1",
+          day_number: 1,
+          title: "Una carta especial",
+          teaser: "Tengo novedades para ti.",
+          body: "Hola amigo.\n\nEspero que estés bien hoy.",
+        });
+      }
+      if (command === "translate_text_cmd") {
+        if (args.text === "Una carta especial") return Promise.resolve("一封特别的信");
+        if (args.text === "Tengo novedades para ti.") return Promise.resolve("我有新消息要告诉你。");
+        if (args.text === "Hola amigo.") return Promise.resolve("你好朋友。");
+        if (args.text === "Espero que estés bien hoy.") return Promise.resolve("希望你今天一切都好。");
+        return Promise.resolve("翻译文本");
+      }
+      return baseInvoke(command);
+    });
+    const router = makeRouter();
+    await router.push({ name: "soulmate-story", params: { episodeId: "e1" } });
+    const wrapper = mount(SoulMateStory, {
+      props: { episodeId: "e1" },
+      global: { plugins: [router], stubs: { PageHeader: false } },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".mode-toggle-btn").text()).toBe("原文");
+    expect(wrapper.find(".article-text.bilingual").exists()).toBe(false);
+
+    await wrapper.find(".mode-toggle-btn").trigger("click");
+    await flushPromises();
+
+    expect(mockInvoke).toHaveBeenCalledWith("translate_text_cmd", {
+      text: "Una carta especial",
+      sourceLang: "es",
+      nativeLang: "zh",
+    });
+    expect(mockInvoke).toHaveBeenCalledWith("translate_text_cmd", {
+      text: "Tengo novedades para ti.",
+      sourceLang: "es",
+      nativeLang: "zh",
+    });
+    expect(mockInvoke).toHaveBeenCalledWith("translate_text_cmd", {
+      text: "Hola amigo.",
+      sourceLang: "es",
+      nativeLang: "zh",
+    });
+    expect(mockInvoke).toHaveBeenCalledWith("translate_text_cmd", {
+      text: "Espero que estés bien hoy.",
+      sourceLang: "es",
+      nativeLang: "zh",
+    });
+
+    expect(wrapper.find(".mode-toggle-btn").text()).toBe("双语");
+    expect(wrapper.find(".title-translation").text()).toBe("一封特别的信");
+    expect(wrapper.find(".teaser-translation").text()).toBe("我有新消息要告诉你。");
+    const translations = wrapper.findAll(".para-translation");
+    expect(translations.length).toBe(2);
+    expect(translations[0].text()).toBe("你好朋友。");
+    expect(translations[1].text()).toBe("希望你今天一切都好。");
+
+    // Toggle back to original
+    await wrapper.find(".mode-toggle-btn").trigger("click");
+    await flushPromises();
+    expect(wrapper.find(".mode-toggle-btn").text()).toBe("原文");
+    expect(wrapper.find(".article-text.bilingual").exists()).toBe(false);
+  });
+
   it("lets the companion speak first on chat entry, then sends a learner reply", async () => {
     mockInvoke.mockImplementation((command) => {
       if (command === "get_soulmate_world_cmd") {
