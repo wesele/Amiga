@@ -344,10 +344,18 @@ onMounted(load);
 }
 
 .lesson-footer {
-  padding: 14px 20px calc(16px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 20px calc(16px + var(--safe-bottom));
   background: var(--white);
   border-top: 1px solid var(--border);
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.04);
+}
+
+.lesson-footer .action-btn {
+  min-height: 50px;
+  border-radius: 14px;
 }
 
 .feedback {
@@ -441,10 +449,24 @@ onMounted(load);
 .summary-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  max-width: 320px;
-  margin-top: 16px;
+  max-width: 340px;
+  margin-top: 18px;
+}
+
+.summary-actions .action-btn {
+  min-height: 48px;
+  border-radius: 14px;
+}
+
+@media (min-width: 480px) {
+  .summary-actions {
+    flex-direction: row;
+  }
+  .summary-actions .action-btn {
+    flex: 1 1 0;
+  }
 }
 
 html[data-app-mode="tv"] .action-btn:focus-visible {

@@ -770,14 +770,17 @@ function goBack() {
   width: 100%;
   box-sizing: border-box;
   margin-top: auto;
-  padding: 14px 0 4px;
-  background: linear-gradient(180deg, transparent 0%, var(--bg) 28%);
+  padding: 16px 0 calc(8px + var(--safe-bottom, 0px));
+  background: linear-gradient(180deg, transparent 0%, var(--bg) 32%);
 }
 
 .test-nav-btn {
   flex: 1 1 0;
   min-width: 0;
   min-height: 48px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .btn-submit {
@@ -786,16 +789,29 @@ function goBack() {
   border: none;
   background: var(--green);
   color: var(--white);
-  border-radius: var(--radius-md);
+  border-radius: 14px;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
+  box-shadow: 0 3px 0 var(--green-hover);
+  transition: transform 0.12s ease, opacity 0.15s ease;
+}
+
+.btn-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn-submit:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: none;
 }
 
 .btn-submit:disabled {
   opacity: 0.5;
   cursor: wait;
+  box-shadow: none;
+  transform: none;
 }
 
 /* Full-screen result layer so TV focus is scoped (popup-overlay). */
@@ -875,14 +891,27 @@ function goBack() {
 }
 
 .btn-secondary {
-  padding: 10px 20px;
-  border: 1px solid var(--border);
+  padding: 12px 20px;
+  border: 1.5px solid var(--border);
   background: var(--white);
-  border-radius: var(--radius-md);
-  font-weight: 600;
+  border-radius: 14px;
+  font-weight: 700;
   color: var(--text);
   cursor: pointer;
   font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--text-lighter);
+  background: var(--surface-variant);
+  transform: translateY(-1px);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* TV: larger targets + inset focus for stacked options */

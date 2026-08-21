@@ -814,16 +814,16 @@ html[data-app-mode="tv"] .word-popup-page .tag-ipa {
 
 .popup-actions-row {
   display: flex;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 12px;
+  margin-top: 14px;
   align-items: center;
 }
 
 .act-ai-translate {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: none;
+  border: 1.5px solid transparent;
   background: var(--purple);
   color: #fff;
   font-size: 18px;
@@ -831,18 +831,19 @@ html[data-app-mode="tv"] .word-popup-page .tag-ipa {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background var(--transition);
+  transition: background var(--transition), transform var(--transition);
   flex-shrink: 0;
 }
 
 .act-ai-translate:hover {
   background: var(--purple-hover);
+  transform: translateY(-1px);
 }
 
 .popup-actions-main {
   flex: 1;
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 
 .tag-pos {
@@ -943,45 +944,47 @@ html[data-app-mode="tv"] .popup-body--page .act-speak svg {
 
 .popup-actions {
   display: flex;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 12px;
+  margin-top: 14px;
 }
 
-.act-known {
-  flex: 1;
-  padding: 10px;
-  border-radius: var(--radius-sm);
-  border: none;
-  background: var(--green);
-  color: #fff;
+.act-known,
+.act-unknown {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  transition: background var(--transition);
+  transition: background var(--transition), border-color var(--transition), transform var(--transition);
+}
+
+.act-known {
+  background: var(--green);
+  color: #fff;
+  box-shadow: 0 2px 0 var(--green-hover);
 }
 
 .act-known:hover {
   background: var(--green-hover);
+  transform: translateY(-1px);
 }
 
 .act-unknown {
-  flex: 1;
-  padding: 10px;
-  border-radius: var(--radius-sm);
-  border: none;
-  background: var(--red-bg);
+  background: var(--surface);
   color: var(--red);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background var(--transition);
+  border-color: #ffc9c9;
 }
 
 .act-unknown:hover {
   background: var(--red);
+  border-color: var(--red);
   color: #fff;
+  transform: translateY(-1px);
 }
 
 .popup-error {
