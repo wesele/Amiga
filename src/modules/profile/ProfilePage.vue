@@ -285,6 +285,7 @@ async function handleInstallUpdate() {
 }
 
 .lang-pill {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -336,9 +337,20 @@ async function handleInstallUpdate() {
 }
 
 .lang-check {
-  font-size: 10px;
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  font-size: 11px;
   font-weight: 700;
-  opacity: 0.8;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--bg);
 }
 .settings-card {
   margin: 0 16px;
