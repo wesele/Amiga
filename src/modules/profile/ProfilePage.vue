@@ -352,6 +352,12 @@ async function handleInstallUpdate() {
   line-height: 1;
   box-shadow: 0 0 0 2px var(--bg);
 }
+
+.lang-pill.active .lang-check {
+  background: var(--surface);
+  color: var(--green);
+  box-shadow: 0 0 0 2px var(--green);
+}
 .settings-card {
   margin: 0 16px;
   border-radius: var(--radius-md);

@@ -355,6 +355,7 @@ function confirmReset() {
   padding: 0 16px 8px;
 }
 .lang-pill {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -399,10 +400,33 @@ function confirmReset() {
   line-height: 1.2;
 }
 .lang-check {
-  font-size: 10px;
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  font-size: 11px;
   font-weight: 700;
-  opacity: 0.8;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--bg);
 }
+.level-pill {
+  min-height: 52px;
+  justify-content: center;
+}
+
+/* Corner badge sits on green active pill — use inverted colors for contrast */
+.lang-pill.active .lang-check {
+  background: var(--surface);
+  color: var(--green);
+  box-shadow: 0 0 0 2px var(--green);
+}
+
 .settings-card {
   margin: 0 16px;
   border-radius: var(--radius-md);
