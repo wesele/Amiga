@@ -187,8 +187,8 @@ import { focusElement } from "@/app/tvRemoteNavigation.js";
 import { speakText, stopSpeech } from "@/shared/speechTts.js";
 import {
   buildTranslationCacheKey,
+  fetchWithCache,
   getCachedTranslation,
-  setCachedTranslation,
   invalidateTranslationCache,
 } from "@/shared/translationCache.js";
 
@@ -308,15 +308,19 @@ async function loadTranslation({ force = false } = {}) {
 
   try {
     if (props.mode === "text") {
-      const result = await translateText(props.word, props.sourceLang, props.nativeLang);
+      const wrapped = await fetchWithCache(key, async () => {
+        const result = await translateText(props.word, props.sourceLang, props.nativeLang);
+        return { mode: "text", value: result };
+      });
       if (seq !== loadSeq) return;
-      textTranslation.value = result;
-      setCachedTranslation(key, { mode: "text", value: result });
+      textTranslation.value = wrapped?.value || "";
     } else {
-      const result = await translateWord(props.word, props.context, props.sourceLang, props.nativeLang);
+      const wrapped = await fetchWithCache(key, async () => {
+        const result = await translateWord(props.word, props.context, props.sourceLang, props.nativeLang);
+        return { mode: "word", value: result };
+      });
       if (seq !== loadSeq) return;
-      translation.value = result;
-      setCachedTranslation(key, { mode: "word", value: result });
+      translation.value = wrapped?.value || null;
     }
   } catch (e) {
     if (seq !== loadSeq) return;

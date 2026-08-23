@@ -1,4 +1,9 @@
 import { ref } from "vue";
+import {
+  buildTranslationCacheKey,
+  getCachedTranslation,
+  setCachedTranslation,
+} from "@/shared/translationCache.js";
 
 export function isTranslatableSelectionText(text) {
   return !!text && text.length > 0 && text.split(/\s+/).length > 1;
@@ -63,13 +68,27 @@ export function useSelectionTranslation({
   function translateSelection(text) {
     if (!isTranslatableSelectionText(text)) return false;
 
+    const sourceLang = getTargetLang();
+    const nativeLang = getNativeLang();
+    const cacheKey = buildTranslationCacheKey("text", text, sourceLang, nativeLang);
+    const cached = getCachedTranslation(cacheKey);
+    if (cached !== undefined) {
+      const val = cached?.mode === "text" ? cached.value : cached;
+      selectionText.value = text;
+      selectionResult.value = val || "";
+      selectionLoading.value = false;
+      selectionError.value = "";
+      return true;
+    }
+
     selectionText.value = text;
     selectionLoading.value = true;
     selectionResult.value = "";
     selectionError.value = "";
 
-    translateText(text, getTargetLang(), getNativeLang())
+    translateText(text, sourceLang, nativeLang)
       .then((result) => {
+        setCachedTranslation(cacheKey, { mode: "text", value: result });
         selectionResult.value = result;
         selectionLoading.value = false;
       })

@@ -4,9 +4,11 @@ import {
   isTranslatableSelectionText,
   useSelectionTranslation,
 } from "../selectionTranslation.js";
+import { clearTranslationCache } from "@/shared/translationCache.js";
 
 describe("selectionTranslation module", () => {
   beforeEach(() => {
+    clearTranslationCache();
     vi.useFakeTimers();
   });
 
