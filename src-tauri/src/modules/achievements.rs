@@ -41,7 +41,10 @@ pub fn get_makeup_checkin_status(db: &DatabasePool) -> Result<MakeupCheckinStatu
             |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)),
         )
         .map_err(|e| format!("Failed to query makeup checkin tokens: {e}"))?;
-    Ok(MakeupCheckinStatus { tokens, total_earned })
+    Ok(MakeupCheckinStatus {
+        tokens,
+        total_earned,
+    })
 }
 
 /// Use one makeup token to back-fill a past date (1–3 days ago).
@@ -57,8 +60,8 @@ pub fn use_makeup_checkin(db: &DatabasePool, date: &str) -> Result<MakeupCheckin
     ensure_makeup_tokens(&conn, &user_id)?;
 
     let today = Local::now().date_naive();
-    let target = NaiveDate::parse_from_str(date, "%Y-%m-%d")
-        .map_err(|_| format!("Invalid date: {date}"))?;
+    let target =
+        NaiveDate::parse_from_str(date, "%Y-%m-%d").map_err(|_| format!("Invalid date: {date}"))?;
     let diff = (today - target).num_days();
     if diff < 1 || diff > 3 {
         return Err(format!(
@@ -105,7 +108,10 @@ pub fn use_makeup_checkin(db: &DatabasePool, date: &str) -> Result<MakeupCheckin
             |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)),
         )
         .map_err(|e| format!("Failed to query makeup checkin tokens after use: {e}"))?;
-    Ok(MakeupCheckinStatus { tokens, total_earned })
+    Ok(MakeupCheckinStatus {
+        tokens,
+        total_earned,
+    })
 }
 
 /// Check if the current streak just crossed a 7-day multiple; if so, award a token.
