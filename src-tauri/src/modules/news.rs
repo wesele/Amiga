@@ -639,6 +639,51 @@ mod tests {
     }
 
     #[test]
+    fn test_google_news_search_url_empty_keyword_returns_none() {
+        assert!(google_news_search_url("es", "").is_none());
+        assert!(google_news_search_url("es", "   ").is_none());
+    }
+
+    #[test]
+    fn test_google_news_search_url_uses_target_lang_locale() {
+        let es = google_news_search_url("es", "fútbol").unwrap();
+        assert!(es.starts_with("https://news.google.com/rss/search?q="));
+        assert!(es.contains("hl=es-419"));
+        assert!(es.contains("gl=ES"));
+        assert!(es.contains("ceid=ES:es"));
+        // Non-ASCII keyword must be percent-encoded, never raw UTF-8.
+        assert!(!es.contains("ú"));
+
+        let en = google_news_search_url("en", "climate").unwrap();
+        assert!(en.contains("q=climate"));
+        assert!(en.contains("hl=en-US"));
+        assert!(en.contains("ceid=US:en"));
+
+        let zh = google_news_search_url("zh", "人工智能").unwrap();
+        assert!(zh.contains("hl=zh-CN"));
+        assert!(zh.contains("gl=CN"));
+        assert!(zh.contains("ceid=CN:zh"));
+    }
+
+    #[test]
+    fn test_google_news_search_url_trims_and_caps_keyword() {
+        let url = google_news_search_url("es", "  Messi  ").unwrap();
+        assert!(url.contains("q=Messi&"));
+        let long = "a".repeat(200);
+        let capped = google_news_search_url("es", &long).unwrap();
+        let q = capped
+            .split('?')
+            .nth(1)
+            .unwrap()
+            .split('&')
+            .next()
+            .unwrap()
+            .strip_prefix("q=")
+            .unwrap();
+        assert_eq!(q.len(), 100);
+    }
+
+    #[test]
     fn test_titles_are_similar_topic_for_shared_entity() {
         let a = "Anticorrupción pide ampliar el análisis de las joyas de Zapatero";
         let b = "Los cinco indicios sin respuesta tras las declaraciones de Zapatero";
@@ -727,6 +772,50 @@ pub struct ReadingLog {
     pub words_unknown: Option<String>,
     pub reading_time_sec: i32,
     pub completed: bool,
+}
+
+/// Google News RSS search locale for keyword mode (global search in the
+/// target language). Keeps the fixed-host allowlist: only `news.google.com`
+/// over HTTPS, query params are built from this table plus the user keyword.
+fn google_news_search_locale(target_lang: &str) -> (&'static str, &'static str, &'static str) {
+    match target_lang {
+        "en" => ("en-US", "US", "US:en"),
+        "zh" => ("zh-CN", "CN", "CN:zh"),
+        _ => ("es-419", "ES", "ES:es"),
+    }
+}
+
+/// Minimal percent-encoding for a single query value (UTF-8 bytes, RFC 3986
+/// unreserved set kept as-is). Avoids a new dependency for one parameter.
+fn percent_encode_query(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for b in value.bytes() {
+        if matches!(b, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
+/// Google News RSS search URL for a keyword (global, in the target language).
+/// Returns `None` when the keyword is empty after trimming.
+pub fn google_news_search_url(target_lang: &str, keyword: &str) -> Option<String> {
+    let trimmed = keyword.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    // Cap length so a pasted paragraph cannot blow up the request line.
+    let capped: String = trimmed.chars().take(100).collect();
+    let (hl, gl, ceid) = google_news_search_locale(target_lang);
+    Some(format!(
+        "https://news.google.com/rss/search?q={}&hl={}&gl={}&ceid={}",
+        percent_encode_query(&capped),
+        hl,
+        gl,
+        ceid
+    ))
 }
 
 /// RSS feed sources by region (target language → news language)
@@ -1047,9 +1136,34 @@ fn clear_current_article_ai_caches(tx: &Transaction<'_>, region: &str) -> Result
     Ok(())
 }
 
-/// Fetch news from RSS feeds
-pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> Vec<Article> {
-    let feeds = get_rss_feeds(region, target_lang);
+/// Fetch news from RSS feeds.
+///
+/// When `keyword` is non-empty, the fixed local feeds are replaced by a
+/// Google News RSS keyword search (global, in the target language);
+/// otherwise the previous per-language local feeds are used.
+pub async fn fetch_news(
+    db: &DatabasePool,
+    region: &str,
+    target_lang: &str,
+    keyword: Option<&str>,
+) -> Vec<Article> {
+    let keyword = keyword.map(str::trim).filter(|k| !k.is_empty());
+    let feeds: Vec<String> = match keyword {
+        Some(k) => match google_news_search_url(target_lang, k) {
+            Some(url) => {
+                log::info!("News keyword search for '{}' ({})", k, target_lang);
+                vec![url]
+            }
+            None => get_rss_feeds(region, target_lang)
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+        },
+        None => get_rss_feeds(region, target_lang)
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
+    };
 
     // Read configured article limit (default 5)
     let limit: usize = match db.conn() {
@@ -1096,7 +1210,7 @@ pub async fn fetch_news(db: &DatabasePool, region: &str, target_lang: &str) -> V
 
         log::info!("Fetching RSS: {}", feed_url);
 
-        if let Ok(response) = client.get(*feed_url).send().await {
+        if let Ok(response) = client.get(feed_url.as_str()).send().await {
             if response.status().is_success() {
                 let body = response.text().await.unwrap_or_default();
                 if let Ok(feed) = feed_rs::parser::parse(body.as_bytes()) {

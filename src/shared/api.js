@@ -192,7 +192,8 @@ export function createApiClient(invoke) {
       }),
 
     // News
-    fetchNews: (region, targetLang) => call("fetch_news_cmd", { region, targetLang }),
+    fetchNews: (region, targetLang, keyword) =>
+      call("fetch_news_cmd", { region, targetLang, keyword }),
     getArticles: (region) => call("get_articles_cmd", { region }),
     getArticle: (articleId) => call("get_article_cmd", { articleId }),
     saveReadingLog: (logEntry) => call("save_reading_log_cmd", { logEntry }),

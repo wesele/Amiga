@@ -34,6 +34,21 @@ function createWebDevProxy() {
   }));
 }
 
+// Fixed news search alias for local `dev:web` (mirrors deploy/web/server.js).
+// Only the Google News search path is proxied; the query passes through to
+// the fixed HTTPS host, never to a browser-supplied upstream.
+function createWebNewsDevProxy() {
+  const prefix = "/news/google-search";
+  return {
+    [prefix]: {
+      target: "https://news.google.com",
+      changeOrigin: true,
+      secure: true,
+      rewrite: (path) => path.slice(prefix.length) || "/",
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
   plugins: [vue()],
   resolve: {
@@ -57,7 +72,7 @@ export default defineConfig(({ mode }) => ({
     watch: {
       ignored: ["**/src-tauri/**"],
     },
-    proxy: mode === "web" ? createWebDevProxy() : undefined,
+    proxy: mode === "web" ? { ...createWebDevProxy(), ...createWebNewsDevProxy() } : undefined,
   },
   build: {
     target: "es2020",

@@ -304,4 +304,18 @@ server {
         proxy_connect_timeout 8s;
         proxy_read_timeout 20s;
     }
+
+    # Fixed Google News keyword search. Host and path are fixed; only the
+    # q/hl/gl/ceid query values come from the browser (validated in server.js).
+    location = /news/google-search/rss {
+        limit_conn amiga_news_global 10;
+        limit_conn amiga_per_ip 4;
+        proxy_pass https://news.google.com/rss/search$is_args$args;
+        proxy_set_header Host news.google.com;
+        proxy_ssl_server_name on;
+        proxy_ssl_name news.google.com;
+        proxy_buffering off;
+        proxy_connect_timeout 8s;
+        proxy_read_timeout 20s;
+    }
 }

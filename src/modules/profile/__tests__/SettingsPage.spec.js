@@ -191,6 +191,47 @@ describe("SettingsPage", () => {
     expect(persistedVal).toBe("6");
   });
 
+  it("saves the news keyword from its dialog via the news_keyword setting", async () => {
+    const persisted = {};
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "save_setting_cmd") {
+        persisted[args?.key] = args?.value;
+        return Promise.resolve(null);
+      }
+      if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      return Promise.resolve(null);
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const keywordItem = wrapper
+      .findAll(".settings-item")
+      .find((el) => el.text().includes("新闻关键词"));
+    expect(keywordItem).toBeTruthy();
+    expect(keywordItem.text()).toContain("未设置");
+    await keywordItem.trigger("click");
+    await flushPromises();
+
+    const input = wrapper.find(".keyword-input");
+    expect(input.exists()).toBe(true);
+    await input.setValue("人工智能");
+    await flushPromises();
+
+    const okBtn = wrapper
+      .findAll(".dialog-btn.primary")
+      .find((b) => b.text() === "确定");
+    expect(okBtn).toBeTruthy();
+    await okBtn.trigger("click");
+    await flushPromises();
+
+    expect(persisted["news_keyword"]).toBe("人工智能");
+    expect(wrapper.text()).toContain("人工智能");
+  });
+
   it("cloud sync defaults to off and enabling calls setCloudSyncEnabled", async () => {
     let setEnabledArgs = null;
     mockInvoke.mockImplementation((cmd, args) => {

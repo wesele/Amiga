@@ -56,6 +56,40 @@ for (const [path, targetUrl] of Object.entries(NEWS_FEEDS)) {
   }));
 }
 
+// Fixed Google News keyword search (global news in the learning language).
+// The browser only supplies query VALUES (q/hl/gl/ceid); host and path are
+// fixed to news.google.com/rss/search, so this can never become an open proxy.
+const GOOGLE_NEWS_SEARCH_PATH = "/news/google-search/rss";
+
+function sanitizeNewsSearchQuery(query) {
+  const q = String(query?.q || "").trim().slice(0, 100);
+  const hl = String(query?.hl || "");
+  const gl = String(query?.gl || "");
+  const ceid = String(query?.ceid || "");
+  if (!q) return { error: "Missing q" };
+  if (!/^[A-Za-z]{2}(-[A-Za-z0-9]{2,4})?$/.test(hl)) return { error: "Invalid hl" };
+  if (!/^[A-Z]{2}$/.test(gl)) return { error: "Invalid gl" };
+  if (!/^[A-Z]{2}:[A-Za-z]{2}(-[A-Za-z0-9]{2,4})?$/.test(ceid)) return { error: "Invalid ceid" };
+  return { search: new URLSearchParams({ q, hl, gl, ceid }).toString() };
+}
+
+app.use(
+  GOOGLE_NEWS_SEARCH_PATH,
+  (req, res, next) => {
+    const { error, search } = sanitizeNewsSearchQuery(req.query);
+    if (error) return res.status(400).json({ error });
+    req.amigaNewsSearch = search;
+    next();
+  },
+  createProxyMiddleware({
+    target: "https://news.google.com",
+    changeOrigin: true,
+    pathRewrite: (_path, req) => `/rss/search?${req.amigaNewsSearch}`,
+    proxyTimeout: 20000,
+    timeout: 20000,
+  }),
+);
+
 app.use(express.static(DIST_DIR));
 
 app.use((req, res) => {

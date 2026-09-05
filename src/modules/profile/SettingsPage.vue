@@ -52,7 +52,8 @@
     <section class="settings-section">
       <h3 class="section-header">{{ t('settings.content') }}</h3>
       <div class="settings-card">
-        <SettingsItem :title="t('settings.newsCount')" :trailingText="String(newsLimit)" @click="showNewsDialog = true" :showDivider="false" />
+        <SettingsItem :title="t('settings.newsCount')" :trailingText="String(newsLimit)" @click="showNewsDialog = true" />
+        <SettingsItem :title="t('settings.newsKeyword')" :subtitle="newsKeyword || t('settings.newsKeywordEmpty')" @click="openNewsKeywordDialog" :showDivider="false" />
       </div>
     </section>
 
@@ -97,6 +98,28 @@
       <template #actions>
         <button class="dialog-btn" @click="showNewsDialog = false">{{ t('common.cancel') }}</button>
         <button class="dialog-btn primary" @click="saveNewsLimit(); showNewsDialog = false">{{ t('common.ok') }}</button>
+      </template>
+    </ModalShell>
+
+    <!-- News keyword Dialog (empty = local news for the learning language) -->
+    <ModalShell
+      :show="showNewsKeywordDialog"
+      :title="t('settings.newsKeyword')"
+      :description="t('settings.newsKeywordDesc')"
+      @close="showNewsKeywordDialog = false"
+    >
+      <div class="dialog-input-row">
+        <input
+          v-model="newsKeywordInput"
+          class="keyword-input"
+          type="text"
+          maxlength="30"
+          :placeholder="t('settings.newsKeywordPlaceholder')"
+        />
+      </div>
+      <template #actions>
+        <button class="dialog-btn" @click="showNewsKeywordDialog = false">{{ t('common.cancel') }}</button>
+        <button class="dialog-btn primary" @click="saveNewsKeyword(); showNewsKeywordDialog = false">{{ t('common.ok') }}</button>
       </template>
     </ModalShell>
 
@@ -151,6 +174,9 @@ const targetLangStore = useTargetLangStore();
 
 const newsLimit = ref(5);
 const showNewsDialog = ref(false);
+const newsKeyword = ref("");
+const newsKeywordInput = ref("");
+const showNewsKeywordDialog = ref(false);
 const showResetDialog = ref(false);
 const showCloudSyncConflictDialog = ref(false);
 const cloudSyncEnabled = ref(false);
@@ -263,6 +289,9 @@ onMounted(async () => {
   getSetting("news_fetch_limit").then((val) => {
     if (val) newsLimit.value = parseInt(val, 10) || 5;
   }).catch((e) => console.error("Failed to load news fetch limit:", e));
+  getSetting("news_keyword").then((val) => {
+    if (val) newsKeyword.value = String(val).trim().slice(0, 30);
+  }).catch((e) => console.error("Failed to load news keyword:", e));
   if (!isWebMode) loadCloudSyncStatus();
   try {
     const ctx = await loadLearningContext({
@@ -311,6 +340,16 @@ async function onSwitchLang(code) {
 
 function saveNewsLimit() {
   saveSetting("news_fetch_limit", String(newsLimit.value)).catch(console.error);
+}
+
+function openNewsKeywordDialog() {
+  newsKeywordInput.value = newsKeyword.value;
+  showNewsKeywordDialog.value = true;
+}
+
+function saveNewsKeyword() {
+  newsKeyword.value = newsKeywordInput.value.trim().slice(0, 30);
+  saveSetting("news_keyword", newsKeyword.value).catch(console.error);
 }
 
 function confirmReset() {
@@ -472,6 +511,23 @@ function confirmReset() {
   text-align: center;
 }
 
+/* Keyword text input */
+.keyword-input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+}
+.keyword-input:focus {
+  border-color: var(--green);
+}
+
 /* Dialog action buttons (slotted into ModalShell) */
 .dialog-btn {
   padding: 8px 20px;
@@ -541,6 +597,7 @@ function confirmReset() {
 /* TV: inset focus for pills / steppers; avoid global scale+outer ring chaos. */
 .lang-pill:focus-visible,
 .stepper-btn:focus-visible,
+.keyword-input:focus-visible,
 .dialog-btn:focus-visible {
   z-index: 2;
   outline: 3px solid #1cb0f6 !important;

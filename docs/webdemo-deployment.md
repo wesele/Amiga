@@ -113,6 +113,7 @@ ssh -i c:\wh\ssh.pem ubuntu@49.235.121.91 "pm2 restart amiga-web"
 | `/news/nyt/rss.xml` | `https://rss.nytimes.com/services/xml/rss/nyt/World.xml` |
 | `/news/chinadaily/rss.xml` | `https://www.chinadaily.com.cn/rss/world_rss.xml` |
 | `/news/cgtn/rss.xml` | `https://www.cgtn.com/subscribe.rss` |
+| `/news/google-search/rss?q=&hl=&gl=&ceid=` | `https://news.google.com/rss/search`（关键词全球搜索，仅转发 q/hl/gl/ceid 四个查询值，host 与 path 写死，不做开放代理） |
 
 ## 数据存储
 

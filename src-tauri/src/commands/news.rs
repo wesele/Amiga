@@ -8,8 +8,9 @@ pub async fn fetch_news_cmd(
     db: State<'_, DatabasePool>,
     region: String,
     target_lang: String,
+    keyword: Option<String>,
 ) -> Result<Vec<news_mod::Article>, String> {
-    Ok(news_mod::fetch_news(&db, &region, &target_lang).await)
+    Ok(news_mod::fetch_news(&db, &region, &target_lang, keyword.as_deref()).await)
 }
 
 #[tauri::command]

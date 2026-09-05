@@ -21,6 +21,7 @@
       </template>
       <template #below>
         <span class="today-label">{{ formattedDate }}</span>
+        <span v-if="activeKeyword" class="keyword-badge">🔍 {{ activeKeyword }}</span>
       </template>
     </PageHeader>
 
@@ -104,6 +105,7 @@ import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { useRouter } from "vue-router";
 import { fetchNews, getArticles } from "@/shared/backend/news.js";
 import { getCurrentUser } from "@/shared/backend/user.js";
+import { getSetting } from "@/shared/backend/settings.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { openSourceUrl } from "./utils.js";
 import { useI18n } from "@/shared/i18n";
@@ -118,6 +120,7 @@ const targetLangStore = useTargetLangStore();
 const articles = ref([]);
 const loading = ref(false);
 const statusText = ref("");
+const activeKeyword = ref("");
 let statusTimer = null;
 let userId = "";
 
@@ -141,6 +144,7 @@ onMounted(async () => {
     userId = u?.id || "";
   } catch (e) { /* dev mode without tauri */ }
   await targetLangStore.load();
+  activeKeyword.value = await loadNewsKeyword();
   await loadArticles();
   // Auto-fetch if no articles
   if (articles.value.length === 0) {
@@ -149,6 +153,7 @@ onMounted(async () => {
   // React to language switches from any other page (Profile).
   unsubscribe = eventBus.on(TARGET_LANG_CHANGED, async () => {
     articles.value = [];
+    activeKeyword.value = await loadNewsKeyword();
     await loadArticles();
     if (articles.value.length === 0) {
       await onRefresh();
@@ -181,6 +186,16 @@ function regionForLang(lang) {
   }
 }
 
+/** Keyword from Settings ("news_keyword"); empty = local news for the learning language. */
+async function loadNewsKeyword() {
+  try {
+    const val = await getSetting("news_keyword");
+    return String(val || "").trim().slice(0, 30);
+  } catch {
+    return "";
+  }
+}
+
 function showStatus(msg) {
   statusText.value = msg;
   clearTimeout(statusTimer);
@@ -191,10 +206,14 @@ async function onRefresh() {
   articles.value = [];
   loading.value = true;
   try {
-    const result = await fetchNews(regionForLang(targetLang.value), targetLang.value);
+    const keyword = await loadNewsKeyword();
+    activeKeyword.value = keyword;
+    const result = await fetchNews(regionForLang(targetLang.value), targetLang.value, keyword || undefined);
     articles.value = result;
     if (result.length > 0) {
-      showStatus(t("news.refreshed", { n: result.length }));
+      showStatus(keyword
+        ? t("news.refreshedKeyword", { n: result.length, k: keyword })
+        : t("news.refreshed", { n: result.length }));
     } else {
       showStatus(t("news.noNew"));
     }
@@ -251,6 +270,22 @@ const {
   font-size: 12px;
   color: var(--text-lighter);
   font-weight: 500;
+}
+
+.keyword-badge {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
+  background: var(--green-bg);
+  border-radius: 10px;
+  padding: 2px 10px;
+  max-width: 60vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .refresh-btn {

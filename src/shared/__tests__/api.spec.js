@@ -165,9 +165,14 @@ describe("API module", () => {
   });
 
   describe("News API", () => {
-    it("fetchNews calls invoke with region and targetLang", () => {
-      api.fetchNews("world", "es");
-      expect(mockInvoke).toHaveBeenCalledWith("fetch_news_cmd", { region: "world", targetLang: "es" });
+    it("fetchNews calls invoke with region, targetLang and keyword", () => {
+      api.fetchNews("world", "es", "fútbol");
+      expect(mockInvoke).toHaveBeenCalledWith("fetch_news_cmd", { region: "world", targetLang: "es", keyword: "fútbol" });
+    });
+
+    it("fetchNews works without a keyword (local news)", () => {
+      api.fetchNews("ES", "es");
+      expect(mockInvoke).toHaveBeenCalledWith("fetch_news_cmd", { region: "ES", targetLang: "es", keyword: undefined });
     });
 
     it("getArticles calls invoke with region", () => {

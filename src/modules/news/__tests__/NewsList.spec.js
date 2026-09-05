@@ -11,6 +11,8 @@ vi.mock("@/shared/api.js", () => ({
   getArticles: vi.fn().mockResolvedValue([]),
   getCurrentUser: vi.fn().mockResolvedValue({ id: "u1", native_language: "zh" }),
   fetchNews: vi.fn().mockResolvedValue([]),
+  getSetting: vi.fn().mockResolvedValue(""),
+  saveSetting: vi.fn().mockResolvedValue(undefined),
 }));
 
 const ROOT = resolve(__dirname, "../../../..");
@@ -241,6 +243,18 @@ describe("NewsList click handling", () => {
     const cards = wrapper.findAll(".article-card");
     expect(cards).toHaveLength(1);
     expect(cards[0].text()).toContain("Fresh headline");
+  });
+
+  it("passes the saved news keyword to fetchNews and shows it as a badge", async () => {
+    setLocale("zh", { persist: false });
+    const api = await import("@/shared/api.js");
+    api.getSetting.mockResolvedValue("人工智能");
+    const { wrapper } = await mountList([]);
+    expect(api.fetchNews).toHaveBeenCalledWith("ES", "es", "人工智能");
+    const badge = wrapper.find(".keyword-badge");
+    expect(badge.exists()).toBe(true);
+    expect(badge.text()).toContain("人工智能");
+    api.getSetting.mockResolvedValue("");
   });
 
 });

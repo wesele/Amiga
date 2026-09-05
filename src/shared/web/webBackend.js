@@ -565,11 +565,13 @@ async function invokeWrite(command, args) {
 async function invokeRemote(command, args, state) {
   switch (command) {
     case "fetch_news_cmd": {
-      const fetched = await fetchNewsThroughProxy(args.targetLang).catch(() => []);
+      const keyword = String(args.keyword || "").trim().slice(0, 100);
+      const fetched = await fetchNewsThroughProxy(args.targetLang, { keyword }).catch(() => []);
       if (!fetched.length) return clone(state.news_articles);
       return store.update((next) => {
         const start = Math.max(0, ...next.news_articles.map((item) => Number(item.id) || 0)) + 1;
-        next.news_articles = fetched.map((article, index) => ({ ...article, id: start + index }));
+        const region = args.region || "world";
+        next.news_articles = fetched.map((article, index) => ({ ...article, id: start + index, region }));
         return next.news_articles;
       });
     }
