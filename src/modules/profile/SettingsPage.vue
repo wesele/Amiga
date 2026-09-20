@@ -38,6 +38,34 @@
       </div>
     </section>
 
+    <!-- Read-aloud engine (Android native TTS only) -->
+    <section v-if="showTtsEnginePicker" class="settings-section">
+      <h3 class="section-header">{{ t('settings.ttsEngine') }}</h3>
+      <p class="section-desc">{{ t('settings.ttsEngineDesc') }}</p>
+      <div class="lang-pills tts-engine-pills">
+        <button
+          class="lang-pill tts-engine-pill"
+          :class="{ active: ttsEngine === TTS_ENGINE_SYSTEM }"
+          :disabled="ttsEngineSwitching"
+          @click="onSelectTtsEngine(TTS_ENGINE_SYSTEM)"
+        >
+          <span class="lang-name">{{ t('settings.ttsEngineSystem') }}</span>
+          <span class="tts-engine-sub">{{ t('settings.ttsEngineSystemSub') }}</span>
+          <span v-if="ttsEngine === TTS_ENGINE_SYSTEM" class="lang-check">✓</span>
+        </button>
+        <button
+          class="lang-pill tts-engine-pill"
+          :class="{ active: ttsEngine === TTS_ENGINE_KOKORO }"
+          :disabled="ttsEngineSwitching || kokoroUnsupported"
+          @click="onSelectTtsEngine(TTS_ENGINE_KOKORO)"
+        >
+          <span class="lang-name">{{ t('settings.ttsEngineKokoro') }}</span>
+          <span class="tts-engine-sub">{{ kokoroStatusText }}</span>
+          <span v-if="ttsEngine === TTS_ENGINE_KOKORO" class="lang-check">✓</span>
+        </button>
+      </div>
+    </section>
+
     <!-- AI Configuration (phone + TV) -->
     <section class="settings-section">
       <h3 class="section-header">{{ t('settings.ai') }}</h3>
@@ -151,7 +179,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { getSetting, saveSetting } from "@/shared/backend/settings.js";
@@ -167,6 +195,15 @@ import { loadLearningContext } from "@/shared/learningContext.js";
 import { pickLearningGoal } from "@/shared/learningGoal.js";
 import { isTvLayoutMode, isWebMode } from "@/shared/appMode.js";
 import { requestInstallAppPrompt } from "@/shared/installAppPrompt.js";
+import { getNativeTtsStatus, onNativeTtsProgress } from "@/shared/ttsBridge.js";
+import {
+  TTS_ENGINE_KOKORO,
+  TTS_ENGINE_SYSTEM,
+  canChooseAndroidTtsEngine,
+  chooseTtsEngine,
+  loadTtsEngineSetting,
+  ttsDownloadPercent,
+} from "@/shared/ttsEngine.js";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -193,6 +230,84 @@ const levelSwitching = ref(false);
 const switching = computed(() => targetLangStore.updating);
 const availableLanguages = AVAILABLE_LANGUAGES;
 const learningLevels = computed(() => learningCefrLevels(currentTargetLang.value));
+
+const showTtsEnginePicker = computed(() => canChooseAndroidTtsEngine());
+const ttsEngine = ref(TTS_ENGINE_SYSTEM);
+const ttsEngineSwitching = ref(false);
+const kokoroReady = ref(false);
+const kokoroDownloading = ref(false);
+const kokoroUnsupported = ref(false);
+const kokoroError = ref(false);
+const kokoroBytes = ref(0);
+const kokoroTotalBytes = ref(0);
+let unsubscribeTtsProgress = null;
+
+const kokoroStatusText = computed(() => {
+  if (kokoroUnsupported.value) return t("settings.ttsEngineUnsupported");
+  if (kokoroError.value) return t("settings.ttsEngineDownloadFail");
+  if (kokoroDownloading.value) {
+    return t("settings.ttsEngineDownloading", {
+      percent: ttsDownloadPercent({ bytes: kokoroBytes.value, totalBytes: kokoroTotalBytes.value }),
+    });
+  }
+  if (kokoroReady.value) return t("settings.ttsEngineReady");
+  return t("settings.ttsEngineKokoroNeedDownload");
+});
+
+function applyNativeTtsStatus(payload) {
+  if (!payload || typeof payload !== "object") return;
+  if (payload.supported === false) {
+    kokoroUnsupported.value = true;
+    kokoroDownloading.value = false;
+    if (ttsEngine.value === TTS_ENGINE_KOKORO) ttsEngine.value = TTS_ENGINE_SYSTEM;
+  } else if (payload.supported === true) {
+    kokoroUnsupported.value = false;
+  }
+  const isKokoro =
+    payload.engine === TTS_ENGINE_KOKORO ||
+    payload.reverted === true ||
+    payload.state === "downloading" ||
+    payload.state === "downloaded" ||
+    payload.state === "ready" ||
+    payload.state === "error";
+  if (!isKokoro) return;
+  if (typeof payload.bytes === "number") kokoroBytes.value = payload.bytes;
+  if (typeof payload.totalBytes === "number") kokoroTotalBytes.value = payload.totalBytes;
+  if (payload.state === "error") {
+    kokoroDownloading.value = false;
+    kokoroError.value = true;
+    return;
+  }
+  if (payload.state === "downloading" || payload.downloading === true) {
+    kokoroDownloading.value = true;
+    kokoroReady.value = false;
+    kokoroError.value = false;
+    return;
+  }
+  if (payload.state === "ready" || payload.state === "downloaded" || payload.ready === true) {
+    kokoroReady.value = true;
+    kokoroDownloading.value = false;
+    kokoroError.value = false;
+  }
+}
+
+async function onSelectTtsEngine(engine) {
+  if (ttsEngineSwitching.value) return;
+  if (engine === TTS_ENGINE_KOKORO && kokoroUnsupported.value) return;
+  if (engine === ttsEngine.value && !kokoroError.value) return;
+  ttsEngineSwitching.value = true;
+  kokoroError.value = false;
+  try {
+    const status = await chooseTtsEngine(engine);
+    ttsEngine.value = status?.reverted ? TTS_ENGINE_SYSTEM : engine;
+    applyNativeTtsStatus(status);
+  } catch (e) {
+    console.error("Failed to switch TTS engine:", e);
+    kokoroError.value = engine === TTS_ENGINE_KOKORO;
+  } finally {
+    ttsEngineSwitching.value = false;
+  }
+}
 
 const cloudSyncSubtitle = computed(() => {
   if (cloudSyncBusy.value) {
@@ -293,6 +408,15 @@ onMounted(async () => {
     if (val) newsKeyword.value = String(val).trim().slice(0, 30);
   }).catch((e) => console.error("Failed to load news keyword:", e));
   if (!isWebMode) loadCloudSyncStatus();
+  if (canChooseAndroidTtsEngine()) {
+    try {
+      ttsEngine.value = await loadTtsEngineSetting();
+      applyNativeTtsStatus(getNativeTtsStatus());
+    } catch (e) {
+      console.error("Failed to load TTS engine setting:", e);
+    }
+    unsubscribeTtsProgress = onNativeTtsProgress(applyNativeTtsStatus);
+  }
   try {
     const ctx = await loadLearningContext({
       targetLangStore,
@@ -304,6 +428,11 @@ onMounted(async () => {
   } catch (e) {
     console.error("Failed to load learning language settings:", e);
   }
+});
+
+onUnmounted(() => {
+  unsubscribeTtsProgress?.();
+  unsubscribeTtsProgress = null;
 });
 
 async function onSwitchLevel(level) {
@@ -457,6 +586,21 @@ function confirmReset() {
 .level-pill {
   min-height: 52px;
   justify-content: center;
+}
+.tts-engine-pill {
+  min-width: 148px;
+  max-width: 220px;
+  align-items: flex-start;
+  text-align: left;
+}
+.tts-engine-sub {
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.25;
+  opacity: 0.8;
+}
+.lang-pill.active .tts-engine-sub {
+  opacity: 0.92;
 }
 
 /* Corner badge sits on green active pill — use inverted colors for contrast */

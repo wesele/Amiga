@@ -77,6 +77,11 @@ describe("AppShell bottom-nav safe-area", () => {
     expect(vue).toMatch(/<\/template>\s*<div class="bottom-nav-safe"/);
   });
 
+  it("restores the saved Android TTS engine on mount", () => {
+    const vue = read("src/modules/shell/AppShell.vue");
+    expect(vue).toContain("syncNativeTtsEngineFromSettings");
+  });
+
   it("style.css #app keeps padding-top for the global safe area; padding-bottom is handled by .bottom-nav-safe", () => {
     const css = read("src/style.css");
     const block = css.match(/#app\s*\{[^}]+\}/);

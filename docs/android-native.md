@@ -55,6 +55,29 @@ getByName("debug") {
 - `setOnApplyWindowInsetsListener` 把 `systemBars()` + `ime()` inset 通过 `window.__amigaSetInsets(top, bottom, left, right)` 传给 JS 层，JS 更新 `--safe-*` CSS 自定义属性。CSS 变量方案与桌面 WebView 共用样式（**本项目无 iOS 构建**；若将来有 iOS 可复用 `--safe-*` 或 `env(safe-area-inset-*)`）。
 - `OnBackPressedCallback` 拦截系统返回键，调用 `window.__amigaGoBack()`：JS 端读当前路由的 `meta.parent`，有父级就 `router.replace({ name: parent })`、无父级返回 `"at-root"`，Kotlin 收到 `"at-root"` 就 `finish()` Activity。这避开了 `history.back()` 走"上一个 URL"的死循环问题。
 
+### `MainActivity.kt` TTS 桥 `__amigaTts`
+
+Android WebView 的 `speechSynthesis` 经常忽略请求的语言。原生桥走系统 `TextToSpeech`，并可选 Kokoro 端侧引擎：
+
+| 方法 | 返回 | 说明 |
+|------|------|------|
+| `speak(text, langTag)` | `started` / `queued` / `ok` / `initializing` / `downloading` / 错误码 | 用当前引擎朗读 |
+| `speakWith(text, langTag, engine)` | 同上 | 一次性指定引擎 |
+| `setEngine(engine)` | JSON 状态 | `system`（默认）或 `kokoro`；选 Kokoro 时开始下载模型 |
+| `getStatus()` | JSON 状态 | `{engine, ready, downloading, supported, bytes, totalBytes}` |
+| `prepare()` | JSON 状态 | 预热当前引擎（Kokoro 会下载） |
+| `stop()` | — | 停系统 TTS 与 Kokoro |
+
+Kotlin 完成后调 `window.__amigaTtsDone()` / `__amigaTtsError(reason)`；Kokoro 下载进度走 `window.__amigaTtsProgress(json)`。前端封装在 `src/shared/ttsBridge.js`，设置项 `tts_engine` 由 `src/shared/ttsEngine.js` 读写。设置页仅在 `setEngine` 存在时显示引擎选择。
+
+### Kokoro 端侧引擎
+
+- 源：`src-tauri/android/app/src/main/java/com/idioma/app/KokoroTtsEngine.kt`，由 `android-patch.cjs` 拷到 `gen/`
+- 依赖：上游 `0.1.0` 尚未发布到 Maven Central；暂固定 JitPack 上已验证的提交 `com.github.ffmpegkit-maintained:kokoro-android:593e2353954498b667e3bf3489a61723e6ba6b59`；**不把 ~310 MB ONNX 打进 APK**
+- 模型：首次选择该引擎后从 Hugging Face `onnx-community/Kokoro-82M-v1.0-ONNX` 的 `onnx/model.onnx` 下载到 `getExternalFilesDir()/kokoro.onnx`
+- ABI：仅 `arm64-v8a`。x86 模拟器返回 `unsupported-abi`，设置页回退到系统引擎
+- 捆绑音色：`af_heart`（en-US）；西语/中文走 espeak 音素，质量有限
+
 ### `TranslateWindowCallback.kt`
 - 在 `MainActivity.onWindowStartingActionMode` 创建阶段包装 WebView/OEM 原始回调，注入长按文本选区菜单的「Amiga」项；完整转发原生菜单生命周期与定位回调
 - `MainActivity.onStop` 会结束仍存活的浮动选区菜单，避免 OEM 在应用回到前台时恢复失效的窗口状态
@@ -69,6 +92,9 @@ getByName("debug") {
 | `window.__amigaGoBack()` | `OnBackPressedCallback` | 返回键导航 | `AmigaGoBack.spec.js` |
 | `window.__amigaSetInsets(top, bottom, left, right)` | `setOnApplyWindowInsetsListener` | 传入真实系统栏 inset 值（px），JS 更新 `--safe-*` CSS 变量 | `AppShell.spec.js` |
 | `window.__amigaTranslateSelection(text)` | `TranslateWindowCallback` | 长按选区翻译 | `selection.spec.js` |
+| `window.__amigaTtsDone()` | `MainActivity` / `KokoroTtsEngine` | 原生朗读完成 | `speechTts.spec.js` |
+| `window.__amigaTtsError(reason)` | `MainActivity` / `KokoroTtsEngine` | 原生朗读失败 | `speechTts.spec.js` |
+| `window.__amigaTtsProgress(json)` | `KokoroTtsEngine` | Kokoro 下载/合成进度 | `speechTts.spec.js` / `SettingsPage.spec.js` |
 
 ### `__amigaGoBack` 协议
 
