@@ -388,7 +388,11 @@ class MainActivity : TauriActivity() {
                 clearTtsSession()
                 textToSpeech?.stop()
             }
-            return kokoroEngine().speak(webView, text, langTag)
+            return kokoroEngine().speak(webView, text, langTag) { fallbackText, fallbackLang ->
+                this@MainActivity.runOnUiThread {
+                    speakNativeText(webView, fallbackText, fallbackLang)
+                }
+            }
         }
         kokoroTts?.stop()
         return runOnUiThreadAndWait(8) {

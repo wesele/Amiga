@@ -67,11 +67,26 @@ class KokoroTtsEngine(private val context: Context) {
         )
     }
 
-    fun speak(webView: WebView, text: String, langTag: String): String {
+    fun speak(
+        webView: WebView,
+        text: String,
+        langTag: String,
+        fallback: ((String, String) -> Unit)? = null,
+    ): String {
         if (text.isBlank()) return "empty"
         cancelled.set(false)
         val gen = generation.incrementAndGet()
-        if (!supportedAbi()) return "unsupported-abi"
+        if (!supportedAbi()) {
+            fallback?.invoke(text, langTag)
+            return "unsupported-abi"
+        }
+        if (!modelReady() || !initialized) {
+            // Model not downloaded or engine not initialized: trigger background preparation
+            // and immediately fall back to system TTS so speech plays without delay.
+            ensureReady(webView)
+            fallback?.invoke(text, langTag)
+            return "fallback-system"
+        }
         worker.execute {
             try {
                 if (cancelled.get() || gen != generation.get()) return@execute
@@ -99,8 +114,19 @@ class KokoroTtsEngine(private val context: Context) {
                 }
             } catch (t: Throwable) {
                 if (t is InterruptedException || cancelled.get() || gen != generation.get()) return@execute
-                Log.w(TAG, "Kokoro speak failed", t)
-                notifyError(webView, t.message ?: "kokoro-failed")
+                Log.w(TAG, "Kokoro speak failed; falling back to system TTS", t)
+                notifyProgress(webView, jsonObject(
+                    "state" to "error",
+                    "engine" to "kokoro",
+                    "message" to (t.message ?: "kokoro-failed"),
+                ))
+                if (fallback != null) {
+                    mainHandler.post {
+                        fallback.invoke(text, langTag)
+                    }
+                } else {
+                    notifyError(webView, t.message ?: "kokoro-failed")
+                }
             }
         }
         return "ok"
@@ -225,20 +251,8 @@ class KokoroTtsEngine(private val context: Context) {
         var lastNotifyAt = 0L
         var downloaded = 0L
         downloadedBytes = 0L
-        var total = EXPECTED_MODEL_BYTES
-        val conn = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
-            instanceFollowRedirects = true
-            connectTimeout = 30_000
-            readTimeout = 60_000
-            setRequestProperty("User-Agent", "Amiga-Kokoro/1.0")
-            connect()
-        }
+        val (conn, total) = openConnectionWithRedirects(MODEL_URLS)
         try {
-            val code = conn.responseCode
-            if (code !in 200..299) {
-                throw IllegalStateException("download-failed:$code")
-            }
-            total = conn.contentLengthLong.takeIf { it > 0 } ?: EXPECTED_MODEL_BYTES
             conn.inputStream.use { input ->
                 FileOutputStream(tmp).use { output ->
                     val buf = ByteArray(64 * 1024)
@@ -287,6 +301,45 @@ class KokoroTtsEngine(private val context: Context) {
             "bytes" to dest.length(),
             "totalBytes" to total,
         ))
+    }
+
+    private fun openConnectionWithRedirects(urls: List<String>): Pair<HttpURLConnection, Long> {
+        var lastException: Exception? = null
+        for (candidate in urls) {
+            var currentUrl = candidate
+            for (redirect in 0 until 5) {
+                var conn: HttpURLConnection? = null
+                try {
+                    conn = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
+                        instanceFollowRedirects = false
+                        connectTimeout = 25_000
+                        readTimeout = 60_000
+                        setRequestProperty("User-Agent", "Amiga-Kokoro/1.0")
+                    }
+                    val code = conn.responseCode
+                    if (code in 300..399) {
+                        val location = conn.getHeaderField("Location")
+                        conn.disconnect()
+                        if (!location.isNullOrBlank()) {
+                            currentUrl = URL(URL(currentUrl), location).toExternalForm()
+                            continue
+                        }
+                    }
+                    if (code in 200..299) {
+                        val length = conn.contentLengthLong.takeIf { it > 0 } ?: EXPECTED_MODEL_BYTES
+                        return Pair(conn, length)
+                    }
+                    conn.disconnect()
+                    lastException = IllegalStateException("HTTP $code from $currentUrl")
+                    break
+                } catch (e: Exception) {
+                    conn?.disconnect()
+                    lastException = e
+                    break
+                }
+            }
+        }
+        throw (lastException ?: IllegalStateException("All model download mirrors failed"))
     }
 
     private fun playWav(
@@ -406,9 +459,11 @@ class KokoroTtsEngine(private val context: Context) {
         private const val TAG = "Amiga/Kokoro"
         const val ENGINE_ID = "kokoro"
         const val MODEL_FILE_NAME = "kokoro.onnx"
-        // Official Kokoro-82M ONNX export used by kokoro-android (~310 MB).
-        const val MODEL_URL =
-            "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/onnx/model.onnx"
+        val MODEL_URLS = listOf(
+            "https://hf-mirror.com/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/onnx/model.onnx",
+            "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/onnx/model.onnx",
+        )
+        const val MODEL_URL = "https://hf-mirror.com/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/onnx/model.onnx"
         const val EXPECTED_MODEL_BYTES = 325_532_232L
         const val MIN_MODEL_BYTES = 50_000_000L
         private const val WAV_HEADER_BYTES = 44

@@ -1,6 +1,6 @@
 [package]
 name = "idioma"
-version = "0.5.13"
+version = "0.5.15"
 edition = "2021"
 
 [lib]

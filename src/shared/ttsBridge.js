@@ -1,4 +1,4 @@
-const NATIVE_TTS_OK = new Set(["started", "queued", "ok", "initializing", "downloading"]);
+const NATIVE_TTS_OK = new Set(["started", "queued", "ok", "initializing", "downloading", "fallback-system"]);
 
 export const TTS_ENGINE_SYSTEM = "system";
 export const TTS_ENGINE_KOKORO = "kokoro";
