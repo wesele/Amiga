@@ -481,16 +481,15 @@ pub fn ensure_default_prompts(db: &DatabasePool) {
         }
     };
 
-    // Upsert each default so code changes take effect even if DB already has data
+    // Insert defaults only if key does not exist, preserving user customizations across restarts
     for (key, name, category, system_prompt, user_prompt_template) in DEFAULTS {
         if let Err(e) = conn.execute(
             "INSERT INTO prompts (key, name, category, system_prompt, user_prompt_template, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'))
-             ON CONFLICT(key) DO UPDATE SET
-             name = ?2, category = ?3, system_prompt = ?4, user_prompt_template = ?5, updated_at = datetime('now')",
+             ON CONFLICT(key) DO NOTHING",
             params![key, name, category, system_prompt, user_prompt_template],
         ) {
-            log::error!("Failed to upsert default prompt '{}': {}", key, e);
+            log::error!("Failed to insert default prompt '{}': {}", key, e);
         }
     }
 
@@ -624,19 +623,30 @@ mod tests {
     }
 
     #[test]
-    fn test_ensure_default_prompts_overwrites_on_restart() {
+    fn test_ensure_default_prompts_preserves_custom_on_restart() {
         let pool = test_pool();
         ensure_default_prompts(&pool);
         // Simulate user editing the prompt
-        save_prompt(&pool, "rewrite-article", "旧的", "x", "旧内容", "旧模板").unwrap();
-        // Restart: ensure_default_prompts should restore defaults
+        save_prompt(
+            &pool,
+            "rewrite-article",
+            "我的自定义改写",
+            "custom",
+            "自定义系统提示",
+            "自定义用户模板",
+        )
+        .unwrap();
+        // Restart: ensure_default_prompts should preserve custom prompt
         ensure_default_prompts(&pool);
         let p = get_prompt(&pool, "rewrite-article").unwrap();
-        assert_eq!(p.name, "新闻文章改写", "Should revert to default name");
+        assert_eq!(p.name, "我的自定义改写", "Should preserve custom name");
         assert_eq!(
-            p.system_prompt,
-            "You are a language-learning rewrite assistant. Output only JSON, no extra prose.",
-            "Should revert to default system prompt"
+            p.system_prompt, "自定义系统提示",
+            "Should preserve custom system prompt"
+        );
+        assert_eq!(
+            p.user_prompt_template, "自定义用户模板",
+            "Should preserve custom user prompt template"
         );
     }
 
