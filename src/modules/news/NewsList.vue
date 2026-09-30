@@ -106,6 +106,7 @@ import { useRouter } from "vue-router";
 import { fetchNews, getArticles } from "@/shared/backend/news.js";
 import { getCurrentUser } from "@/shared/backend/user.js";
 import { getSetting } from "@/shared/backend/settings.js";
+import { translateText } from "@/shared/backend/llm.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { openSourceUrl } from "./utils.js";
 import { useI18n } from "@/shared/i18n";
@@ -202,13 +203,39 @@ function showStatus(msg) {
   statusTimer = setTimeout(() => { statusText.value = ""; }, 3000);
 }
 
+/**
+ * Prepare keyword for RSS search: if the keyword contains Chinese/CJK characters
+ * and the learning language is non-Chinese (e.g. Spanish/English), translate it
+ * into the target language first so Google News returns relevant foreign-language articles.
+ */
+async function resolveSearchKeyword(rawKeyword, targetLanguage) {
+  if (!rawKeyword) return "";
+  const trimmed = rawKeyword.trim();
+  const hasCjk = /[\u3400-\u9fff\uf900-\ufaff]/.test(trimmed);
+  if (hasCjk && targetLanguage && targetLanguage !== "zh") {
+    try {
+      const translated = await translateText(trimmed, "zh", targetLanguage);
+      const cleaned = (translated || "")
+        .replace(/^["'“”‘’\s]+|["'“”‘’\s.]+$/g, "")
+        .trim();
+      if (cleaned) {
+        return cleaned;
+      }
+    } catch (e) {
+      console.warn("Failed to auto-translate news keyword to target language:", e);
+    }
+  }
+  return trimmed;
+}
+
 async function onRefresh() {
   articles.value = [];
   loading.value = true;
   try {
     const keyword = await loadNewsKeyword();
     activeKeyword.value = keyword;
-    const result = await fetchNews(regionForLang(targetLang.value), targetLang.value, keyword || undefined);
+    const queryKeyword = await resolveSearchKeyword(keyword, targetLang.value);
+    const result = await fetchNews(regionForLang(targetLang.value), targetLang.value, queryKeyword || undefined);
     articles.value = result;
     if (result.length > 0) {
       showStatus(keyword

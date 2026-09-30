@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { createRouter, createMemoryHistory } from "vue-router";
@@ -8,6 +8,7 @@ import { dirname, resolve } from "node:path";
 import * as api from "@/shared/api.js";
 import { setLocale } from "@/shared/i18n/index.js";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
+import { __resetTtsBridgeForTests } from "@/shared/ttsBridge.js";
 
 const SettingsPage = (await import("@/modules/profile/SettingsPage.vue")).default;
 
@@ -28,6 +29,19 @@ describe("SettingsPage", () => {
     mockInvoke = vi.fn();
     api.__setInvoke(mockInvoke);
     setLocale("zh", { persist: false });
+    delete window.__amigaTts;
+    delete window.__amigaTtsDone;
+    delete window.__amigaTtsError;
+    delete window.__amigaTtsProgress;
+    __resetTtsBridgeForTests();
+  });
+
+  afterEach(() => {
+    delete window.__amigaTts;
+    delete window.__amigaTtsDone;
+    delete window.__amigaTtsError;
+    delete window.__amigaTtsProgress;
+    __resetTtsBridgeForTests();
   });
 
   function mountPage() {
@@ -352,6 +366,110 @@ describe("SettingsPage", () => {
 
     expect(syncRow.find(".sync-switch").classes()).not.toContain("on");
     expect(wrapper.text()).toContain("同步失败");
+  });
+
+  it("hides the TTS engine picker when the native Android bridge is absent", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      return Promise.resolve(null);
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("朗读引擎");
+    expect(wrapper.find(".tts-engine-pills").exists()).toBe(false);
+  });
+
+  it("shows the TTS engine picker on Android and persists Kokoro as tts_engine", async () => {
+    const persisted = {};
+    window.__amigaTts = {
+      speak: vi.fn(() => "ok"),
+      setEngine: vi.fn((engine) =>
+        JSON.stringify({
+          engine,
+          ready: engine === "system",
+          downloading: engine === "kokoro",
+          supported: true,
+          bytes: engine === "kokoro" ? 10_000_000 : 0,
+          totalBytes: 325_532_232,
+        }),
+      ),
+      getStatus: vi.fn(() =>
+        JSON.stringify({ engine: "system", ready: true, downloading: false, supported: true }),
+      ),
+      stop: vi.fn(),
+    };
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "save_setting_cmd") {
+        persisted[args?.key] = args?.value;
+        return Promise.resolve(null);
+      }
+      if (cmd === "get_setting_cmd") {
+        if (args?.key === "tts_engine") return Promise.resolve(persisted.tts_engine || null);
+        return Promise.resolve(null);
+      }
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      return Promise.resolve(null);
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+    expect(wrapper.text()).toContain("朗读引擎");
+    const pills = wrapper.findAll(".tts-engine-pill");
+    expect(pills.length).toBe(2);
+    expect(pills[0].classes()).toContain("active");
+
+    await pills[1].trigger("click");
+    await flushPromises();
+
+    expect(persisted.tts_engine).toBe("kokoro");
+    expect(window.__amigaTts.setEngine).toHaveBeenCalledWith("kokoro");
+    expect(pills[1].classes()).toContain("active");
+    expect(wrapper.text()).toContain("正在下载模型");
+  });
+
+  it("reverts to the system engine when Kokoro is unsupported", async () => {
+    const persisted = {};
+    window.__amigaTts = {
+      speak: vi.fn(() => "ok"),
+      setEngine: vi.fn((engine) =>
+        JSON.stringify({
+          engine: "kokoro",
+          ready: false,
+          downloading: false,
+          supported: engine !== "kokoro",
+        }),
+      ),
+      getStatus: vi.fn(() =>
+        JSON.stringify({ engine: "system", ready: true, downloading: false, supported: true }),
+      ),
+      stop: vi.fn(),
+    };
+    mockInvoke.mockImplementation((cmd, args) => {
+      if (cmd === "save_setting_cmd") {
+        persisted[args?.key] = args?.value;
+        return Promise.resolve(null);
+      }
+      if (cmd === "get_setting_cmd") return Promise.resolve(null);
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      return Promise.resolve(null);
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+    const pills = wrapper.findAll(".tts-engine-pill");
+    await pills[1].trigger("click");
+    await flushPromises();
+
+    expect(persisted.tts_engine).toBe("system");
+    expect(pills[0].classes()).toContain("active");
+    expect(wrapper.text()).toContain("当前设备架构不支持 Kokoro");
   });
 
   it("uses inset focus styles for settings rows and language pills", () => {

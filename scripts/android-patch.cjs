@@ -47,6 +47,7 @@ const DST_RES = path.join(ROOT, "src-tauri", "gen", "android", "app", "src", "ma
 const SRC_MANIFEST = path.join(ROOT, "src-tauri", "android", "app", "src", "main", "AndroidManifest.xml");
 const DST_MANIFEST = path.join(ROOT, "src-tauri", "gen", "android", "app", "src", "main", "AndroidManifest.xml");
 const DST_GRADLE = path.join(ROOT, "src-tauri", "gen", "android", "app", "build.gradle.kts");
+const DST_ROOT_GRADLE = path.join(ROOT, "src-tauri", "gen", "android", "build.gradle.kts");
 const DST_STRINGS = path.join(ROOT, "src-tauri", "gen", "android", "app", "src", "main", "res", "values", "strings.xml");
 const SRC_PROGUARD = path.join(ROOT, "src-tauri", "android", "app", "proguard-rules.pro");
 const DST_PROGUARD = path.join(ROOT, "src-tauri", "gen", "android", "app", "proguard-rules.pro");
@@ -62,6 +63,12 @@ const PATCH_END = "<!-- AMIGA-PATCH-END: amiga-manifest-fragment -->";
 // the manifest fragment. See [mergeGradleDebugSigning] below.
 const PATCH_GRADLE_BEGIN = "// AMIGA-PATCH-BEGIN: debug-signing";
 const PATCH_GRADLE_END = "// AMIGA-PATCH-END: debug-signing";
+
+const PATCH_KOKORO_BEGIN = "// AMIGA-PATCH-BEGIN: kokoro-tts";
+const PATCH_KOKORO_END = "// AMIGA-PATCH-END: kokoro-tts";
+
+const PATCH_JITPACK_BEGIN = "// AMIGA-PATCH-BEGIN: jitpack";
+const PATCH_JITPACK_END = "// AMIGA-PATCH-END: jitpack";
 
 const FORCE = process.argv.includes("--force");
 const TV_MODE = process.env.AMIGA_TV === "1";
@@ -443,11 +450,93 @@ function mergeGradleDebugSigning(generated) {
   return next === generated ? generated : next;
 }
 
+/**
+ * Kokoro TTS (ffmpegkit-maintained) needs JVM 11. Tauri's generated app
+ * module still targets 1.8, which fails when compiling against the AAR.
+ *
+ * Idempotent: always pins `jvmTarget` to 11 and inserts a matching
+ * `compileOptions` block when Java 11 is not already configured.
+ */
+function mergeGradleJvm11(generated) {
+  let result = generated.replace(/jvmTarget\s*=\s*"[^"]+"/, 'jvmTarget = "11"');
+  if (result.includes("JavaVersion.VERSION_11")) return result;
+  const eol = result.includes("\r\n") ? "\r\n" : "\n";
+  if (!/\n    kotlinOptions\s*\{/.test(result)) return result;
+  return result.replace(
+    /(\n    kotlinOptions\s*\{)/,
+    `${eol}    compileOptions {${eol}        sourceCompatibility = JavaVersion.VERSION_11${eol}        targetCompatibility = JavaVersion.VERSION_11${eol}    }$1`,
+  );
+}
+
+/**
+ * Add the Kokoro on-device TTS AAR. The ~300 MB ONNX model is *not*
+ * bundled; the app downloads it after the user selects this engine.
+ *
+ * Upstream's documented Maven Central artifact has not been published yet.
+ * Pin the verified JitPack build to a source commit so Android builds stay
+ * reproducible until a released coordinate is available.
+ */
+function mergeGradleKokoroDependency(generated) {
+  const eol = generated.includes("\r\n") ? "\r\n" : "\n";
+  const bodyLines = [
+    'implementation("com.github.ffmpegkit-maintained:kokoro-android:593e2353954498b667e3bf3489a61723e6ba6b59")',
+  ];
+  const indentedBody = bodyLines.map((l) => "    " + l).join(eol);
+  const block = `    ${PATCH_KOKORO_BEGIN}${eol}${indentedBody}${eol}    ${PATCH_KOKORO_END}${eol}`;
+
+  const re = new RegExp(
+    `[ ]*${escapeRegExp(PATCH_KOKORO_BEGIN)}[\\s\\S]*?${escapeRegExp(PATCH_KOKORO_END)}\\r?\\n?`,
+    "g",
+  );
+  const stripped = generated.replace(re, "");
+  const depsRe = /(\ndependencies\s*\{\r?\n)/;
+  const m = stripped.match(depsRe);
+  if (!m) {
+    throw new Error(
+      "generated build.gradle.kts has no `dependencies {` block — " +
+        "Tauri template likely changed; update mergeGradleKokoroDependency",
+    );
+  }
+  const insertAt = m.index + m[1].length;
+  const next = stripped.slice(0, insertAt) + block + stripped.slice(insertAt);
+  return next === generated ? generated : next;
+}
+
+/**
+ * Add JitPack next to google()/mavenCentral() so the Kokoro AAR can
+ * resolve from either Maven Central or JitPack.
+ */
+function mergeGradleJitpack(generated) {
+  if (!generated) return generated;
+  const eol = generated.includes("\r\n") ? "\r\n" : "\n";
+  const block = `        ${PATCH_JITPACK_BEGIN}${eol}        maven { url = uri("https://jitpack.io") }${eol}        ${PATCH_JITPACK_END}${eol}`;
+  const re = new RegExp(
+    `[ ]*${escapeRegExp(PATCH_JITPACK_BEGIN)}[\\s\\S]*?${escapeRegExp(PATCH_JITPACK_END)}\\r?\\n?`,
+    "g",
+  );
+  const stripped = generated.replace(re, "");
+  if (stripped.includes("https://jitpack.io") && !stripped.includes(PATCH_JITPACK_BEGIN)) {
+    return stripped;
+  }
+  // Prefer `allprojects { repositories }` so app dependencies can resolve;
+  // fall back to the first mavenCentral() if the template has no allprojects.
+  const allProjectsRe = /(allprojects\s*\{[\s\S]*?mavenCentral\(\)\s*\r?\n)/;
+  const m = stripped.match(allProjectsRe) || stripped.match(/(mavenCentral\(\)\s*\r?\n)/);
+  if (!m) return generated;
+  const insertAt = m.index + m[0].length;
+  const next = stripped.slice(0, insertAt) + block + stripped.slice(insertAt);
+  return next === generated ? generated : next;
+}
+
 module.exports = {
   PATCH_BEGIN,
   PATCH_END,
   PATCH_GRADLE_BEGIN,
   PATCH_GRADLE_END,
+  PATCH_KOKORO_BEGIN,
+  PATCH_KOKORO_END,
+  PATCH_JITPACK_BEGIN,
+  PATCH_JITPACK_END,
   extractFragmentBody,
   mergeManifest,
   mergeBackupAttributes,
@@ -456,6 +545,9 @@ module.exports = {
   mergeGradleApplicationId,
   mergeAndroidAppName,
   mergeGradleDebugSigning,
+  mergeGradleJvm11,
+  mergeGradleKokoroDependency,
+  mergeGradleJitpack,
   ensureGradleKeystore,
   dedent,
   trimBlankLines,
@@ -598,10 +690,16 @@ if (require.main === module) {
   // build.gradle.kts: inject the debug-signingConfig snippet so dev
   // APKs reuse the release keystore (avoids signature mismatches when
   // switching between dev and release builds on the same device).
+  // Also pin JVM 11 and add the Kokoro TTS AAR (model is downloaded at
+  // runtime, not packaged).
   let gradlePatched = false;
   if (fs.existsSync(DST_GRADLE)) {
     const genGradle = fs.readFileSync(DST_GRADLE, "utf8");
-    const nextGradle = mergeGradleApplicationId(mergeGradleDebugSigning(genGradle), TV_MODE);
+    const nextGradle = mergeGradleKokoroDependency(
+      mergeGradleJvm11(
+        mergeGradleApplicationId(mergeGradleDebugSigning(genGradle), TV_MODE),
+      ),
+    );
     if (nextGradle !== genGradle) {
       fs.writeFileSync(DST_GRADLE, nextGradle);
       gradlePatched = true;
@@ -610,6 +708,15 @@ if (require.main === module) {
     console.error(`[android-patch] Generated gradle file not found: ${DST_GRADLE}`);
     console.error("[android-patch] Run `npm run tauri android init` first to generate the Android project, then re-run this script.");
     process.exit(1);
+  }
+
+  if (fs.existsSync(DST_ROOT_GRADLE)) {
+    const rootGradle = fs.readFileSync(DST_ROOT_GRADLE, "utf8");
+    const nextRoot = mergeGradleJitpack(rootGradle);
+    if (nextRoot !== rootGradle) {
+      fs.writeFileSync(DST_ROOT_GRADLE, nextRoot);
+      gradlePatched = true;
+    }
   }
 
   if (fs.existsSync(DST_STRINGS)) {

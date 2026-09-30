@@ -91,6 +91,8 @@ class MainActivity : TauriActivity() {
     private var ttsWatchdog: Runnable? = null
     private var ttsInitPending: Triple<WebView, String, String>? = null
     private var ttsInitGeneration = 0
+    private var ttsEngineId: String = TTS_ENGINE_SYSTEM
+    private var kokoroTts: KokoroTtsEngine? = null
 
     // Disable the WryActivity's stock back navigation (which calls
     // mWebView.goBack()). We install our own hierarchical back handler
@@ -182,6 +184,8 @@ class MainActivity : TauriActivity() {
         ttsSessionWebView = null
         ttsInitPending = null
         shutdownTtsEngine()
+        kokoroTts?.release()
+        kokoroTts = null
         super.onDestroy()
     }
 
@@ -337,20 +341,101 @@ class MainActivity : TauriActivity() {
         webView.addJavascriptInterface(object {
             @JavascriptInterface
             fun speak(text: String, langTag: String): String {
-                if (text.isBlank()) return "empty"
-                return runOnUiThreadAndWait(8) {
-                    speakNativeText(webView, text, langTag)
-                }
+                return speakWithEngine(webView, text, langTag, ttsEngineId)
+            }
+
+            @JavascriptInterface
+            fun speakWith(text: String, langTag: String, engine: String): String {
+                return speakWithEngine(webView, text, langTag, engine)
+            }
+
+            @JavascriptInterface
+            fun setEngine(engine: String): String {
+                return applyTtsEngine(webView, engine, prepare = true)
+            }
+
+            @JavascriptInterface
+            fun getStatus(): String {
+                return ttsStatusJson()
+            }
+
+            @JavascriptInterface
+            fun prepare(): String {
+                return applyTtsEngine(webView, ttsEngineId, prepare = true)
             }
 
             @JavascriptInterface
             fun stop() {
+                kokoroTts?.stop()
                 this@MainActivity.runOnUiThread {
                     clearTtsSession()
                     textToSpeech?.stop()
                 }
             }
         }, "__amigaTts")
+    }
+
+    private fun speakWithEngine(
+        webView: WebView,
+        text: String,
+        langTag: String,
+        engine: String,
+    ): String {
+        if (text.isBlank()) return "empty"
+        applyTtsEngine(webView, engine, prepare = false)
+        if (ttsEngineId == TTS_ENGINE_KOKORO) {
+            this@MainActivity.runOnUiThread {
+                clearTtsSession()
+                textToSpeech?.stop()
+            }
+            return kokoroEngine().speak(webView, text, langTag) { fallbackText, fallbackLang ->
+                this@MainActivity.runOnUiThread {
+                    speakNativeText(webView, fallbackText, fallbackLang)
+                }
+            }
+        }
+        kokoroTts?.stop()
+        return runOnUiThreadAndWait(8) {
+            speakNativeText(webView, text, langTag)
+        }
+    }
+
+    private fun applyTtsEngine(webView: WebView, engine: String, prepare: Boolean): String {
+        val next = if (engine.equals(TTS_ENGINE_KOKORO, ignoreCase = true)) {
+            TTS_ENGINE_KOKORO
+        } else {
+            TTS_ENGINE_SYSTEM
+        }
+        if (next == TTS_ENGINE_KOKORO && !kokoroEngine().supportedAbi()) {
+            ttsEngineId = TTS_ENGINE_SYSTEM
+            kokoroTts?.stop()
+            return kokoroEngine().statusJson()
+        }
+        ttsEngineId = next
+        if (next != TTS_ENGINE_KOKORO) {
+            kokoroTts?.stop()
+            return ttsStatusJson()
+        }
+        if (prepare) {
+            kokoroEngine().ensureReady(webView)
+        }
+        return ttsStatusJson()
+    }
+
+    private fun kokoroEngine(): KokoroTtsEngine {
+        val existing = kokoroTts
+        if (existing != null) return existing
+        val created = KokoroTtsEngine(applicationContext)
+        kokoroTts = created
+        return created
+    }
+
+    private fun ttsStatusJson(): String {
+        return if (ttsEngineId == TTS_ENGINE_KOKORO) {
+            kokoroEngine().statusJson()
+        } else {
+            """{"engine":"$TTS_ENGINE_SYSTEM","ready":true,"downloading":false,"supported":true}"""
+        }
     }
 
     private fun runOnUiThreadAndWait(timeoutSeconds: Long, block: () -> String): String {
@@ -1024,6 +1109,8 @@ class MainActivity : TauriActivity() {
         private const val BACKUP_PREFERENCES = "amiga_media_store_backup"
         private const val BACKUP_URI_KEY = "media_store_uri"
         private const val CHROME_PACKAGE = "com.android.chrome"
+        private const val TTS_ENGINE_SYSTEM = "system"
+        private const val TTS_ENGINE_KOKORO = "kokoro"
         private val SQLITE_HEADER = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
     }
 }
