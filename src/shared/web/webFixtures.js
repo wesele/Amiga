@@ -245,6 +245,8 @@ export function createSeedState() {
     news_articles: DEMO_NEWS,
     news_logs: [],
     reading_articles: DEMO_READING,
+    reading_history: [],
+    imported_articles: [],
     reading_tests: {},
     reading_explanations: {},
     achievement_days: {

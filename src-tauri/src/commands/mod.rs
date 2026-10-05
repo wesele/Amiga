@@ -15,3 +15,4 @@ pub mod syncable;
 pub mod update;
 pub mod user;
 pub mod vocabulary;
+pub mod youtube;

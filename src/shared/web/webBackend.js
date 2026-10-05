@@ -320,7 +320,64 @@ async function invokeRead(command, args, state) {
     }
     case "get_or_generate_reading_test_cmd": return clone(state.reading_tests[args.articleId] || demoReadingQuestions());
     case "get_reading_test_explanations_cmd": return clone(state.reading_explanations[args.articleId] || []);
-    case "get_completed_reading_count_cmd": return state.reading_articles.filter((article) => article.user_id === args.userId && article.status === "completed").length;
+    case "get_completed_reading_count_cmd": {
+      const completedHistory = (state.reading_history || []).filter((item) => item.user_id === args.userId && item.status === "completed").length;
+      const completedCurrent = state.reading_articles.filter((article) => article.user_id === args.userId && article.status === "completed").length;
+      return completedHistory + completedCurrent;
+    }
+    case "get_imported_articles_cmd": return clone((state.imported_articles || []).filter((item) => item.user_id === args.userId && item.target_language === args.targetLanguage).sort((a, b) => b.id - a.id));
+    case "get_imported_article_cmd": {
+      const item = (state.imported_articles || []).find((art) => Number(art.id) === Number(args.id));
+      if (!item) throw new Error("Imported article not found");
+      return clone(item);
+    }
+    case "fetch_youtube_metadata_cmd": {
+      return {
+        url: args.url,
+        video_id: "demo_video",
+        title: "Demo YouTube Video",
+        channel: "Amiga Channel",
+        duration_sec: 180,
+        filesize_approx_mb: 2.5,
+        has_manual_subtitles: true,
+        has_auto_captions: false,
+        subtitle_lang: args.targetLang || "es",
+      };
+    }
+    case "start_youtube_import_cmd": {
+      state.imported_articles ||= [];
+      const newId = Math.max(0, ...state.imported_articles.map((item) => Number(item.id))) + 1;
+      state.imported_articles.push({
+        id: newId,
+        user_id: args.userId,
+        target_language: args.targetLang,
+        source_type: "youtube",
+        source_url: args.url,
+        source_id: "demo_video",
+        title: "Demo YouTube Video",
+        channel: "Amiga Channel",
+        duration_sec: 180,
+        audio_path: null,
+        subtitles_json: JSON.stringify([
+          { start: 0, end: 5, text: "Hola a todos y bienvenidos a este video." },
+          { start: 5, end: 12, text: "Hoy vamos a practicar español con una conversación natural." },
+        ]),
+        cefr_level: args.cefrLevel || "A2",
+        created_at: nowIso(),
+      });
+      return null;
+    }
+    case "get_youtube_import_progress_cmd": {
+      return {
+        task_id: args.taskId,
+        phase: "completed",
+        percent: 100,
+        speed_mb_s: null,
+        message: "导入完成！",
+      };
+    }
+    case "cancel_youtube_import_cmd": return null;
+    case "update_ytdlp_cmd": return "yt-dlp is up to date";
     case "get_completed_speaking_count_cmd": return 0;
     case "get_soulmate_world_cmd": return clone(state.soulmate.worlds[args.targetLang] || null);
     case "get_soulmate_home_cmd": return soulmateHome(state, args.targetLang);
@@ -483,6 +540,66 @@ async function invokeWrite(command, args) {
           state.reading_articles.push(article);
         }
         return clone(article);
+      }
+      case "generate_initial_reading_article_cmd": {
+        const slot = new Date().getHours() < 12 ? "AM" : "PM";
+        const newId = Math.max(0, ...(state.reading_articles || []).map((item) => Number(item.id)), ...((state.reading_history || []).map((item) => Number(item.id)))) + 1;
+        const article = {
+          id: newId,
+          user_id: args.userId,
+          target_language: args.targetLanguage,
+          cefr_level: args.cefrLevel,
+          local_date: localDate(),
+          slot,
+          topic: "A new beginning",
+          title: "Un nuevo comienzo",
+          body: "Cada día es una nueva oportunidad para aprender. Caminamos por calles desconocidas, escuchamos nuevos sonidos y practicamos con paciencia.",
+          status: "unread",
+          test_correct_count: null,
+          test_total_count: null,
+          generated_at: nowIso(),
+        };
+        state.reading_articles = [article];
+        return clone(article);
+      }
+      case "finish_and_generate_next_reading_article_cmd": {
+        const current = state.reading_articles.find((item) => Number(item.id) === Number(args.currentArticleId));
+        if (current) {
+          state.reading_history ||= [];
+          state.reading_history.push({
+            ...current,
+            status: current.status === "unread" ? "read" : current.status,
+            completed_at: nowIso(),
+          });
+        }
+        const slot = new Date().getHours() < 12 ? "AM" : "PM";
+        const newId = Math.max(0, ...(state.reading_articles || []).map((item) => Number(item.id)), ...((state.reading_history || []).map((item) => Number(item.id)))) + 1;
+        const newArticle = {
+          id: newId,
+          user_id: current?.user_id || "demo-user",
+          target_language: current?.target_language || "es",
+          cefr_level: args.cefrLevel || current?.cefr_level || "A2",
+          local_date: localDate(),
+          slot,
+          topic: "Exploring further",
+          title: "Explorando más allá",
+          body: "El viaje continúa con entusiasmo. Encontramos nuevas palabras y nuevos amigos a lo largo del camino.",
+          status: "unread",
+          test_correct_count: null,
+          test_total_count: null,
+          generated_at: nowIso(),
+        };
+        state.reading_articles = [newArticle];
+        return clone(newArticle);
+      }
+      case "delete_imported_article_cmd": {
+        state.imported_articles ||= [];
+        const idx = state.imported_articles.findIndex((item) => Number(item.id) === Number(args.id));
+        if (idx >= 0) {
+          const removed = state.imported_articles.splice(idx, 1)[0];
+          return removed?.audio_path || null;
+        }
+        return null;
       }
       case "regenerate_reading_article_cmd": {
         const article = state.reading_articles.find((item) => Number(item.id) === Number(args.articleId));

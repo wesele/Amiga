@@ -96,8 +96,69 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add makeup_checkin_tokens table for makeup check-in feature",
             MIGRATION_V22,
         ),
+        (
+            23,
+            "Add reading_history and imported_articles; backfill reading history and retain only latest AI article",
+            MIGRATION_V23,
+        ),
     ]
 }
+
+const MIGRATION_V23: &str = r#"
+CREATE TABLE IF NOT EXISTS reading_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    target_language TEXT NOT NULL,
+    cefr_level TEXT NOT NULL,
+    local_date TEXT NOT NULL,
+    slot TEXT NOT NULL,
+    topic TEXT NOT NULL,
+    title TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'read',
+    test_correct_count INTEGER,
+    test_total_count INTEGER,
+    completed_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS imported_articles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    target_language TEXT NOT NULL,
+    source_type TEXT NOT NULL DEFAULT 'youtube',
+    source_url TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    channel TEXT,
+    duration_sec INTEGER,
+    audio_path TEXT,
+    subtitles_json TEXT NOT NULL,
+    cefr_level TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Backfill existing reading_articles into reading_history
+INSERT INTO reading_history (
+    user_id, target_language, cefr_level, local_date, slot, topic, title,
+    status, test_correct_count, test_total_count, completed_at
+)
+SELECT
+    user_id, target_language, cefr_level, local_date, slot, topic, title,
+    status, test_correct_count, test_total_count, generated_at
+FROM reading_articles;
+
+-- Delete all old reading_articles, keeping only the latest one per (user_id, target_language)
+DELETE FROM reading_articles
+WHERE id NOT IN (
+    SELECT id FROM (
+        SELECT id, ROW_NUMBER() OVER (
+            PARTITION BY user_id, target_language
+            ORDER BY local_date DESC, slot DESC, id DESC
+        ) as rn
+        FROM reading_articles
+    )
+    WHERE rn = 1
+);
+"#;
 
 const MIGRATION_V22: &str = r#"
 CREATE TABLE IF NOT EXISTS makeup_checkin_tokens (

@@ -280,6 +280,28 @@ export function createApiClient(invoke) {
       call("get_reading_test_explanations_cmd", { articleId }),
     getCompletedReadingCount: (userId) =>
       call("get_completed_reading_count_cmd", { userId }),
+    generateInitialReadingArticle: (userId, targetLanguage, cefrLevel, nativeLang) =>
+      call("generate_initial_reading_article_cmd", { userId, targetLanguage, cefrLevel, nativeLang }),
+    finishAndGenerateNextReadingArticle: (currentArticleId, cefrLevel, nativeLang) =>
+      call("finish_and_generate_next_reading_article_cmd", { currentArticleId, cefrLevel, nativeLang }),
+    getImportedArticles: (userId, targetLanguage) =>
+      call("get_imported_articles_cmd", { userId, targetLanguage }),
+    getImportedArticle: (id) =>
+      call("get_imported_article_cmd", { id }),
+    deleteImportedArticle: (id) =>
+      call("delete_imported_article_cmd", { id }),
+
+    // YouTube
+    fetchYoutubeMetadata: (url, targetLang) =>
+      call("fetch_youtube_metadata_cmd", { url, targetLang }),
+    startYoutubeImport: (taskId, url, targetLang, userId, cefrLevel, meta) =>
+      call("start_youtube_import_cmd", { taskId, url, targetLang, userId, cefrLevel, meta }),
+    getYoutubeImportProgress: (taskId) =>
+      call("get_youtube_import_progress_cmd", { taskId }),
+    cancelYoutubeImport: (taskId) =>
+      call("cancel_youtube_import_cmd", { taskId }),
+    updateYtdlp: () =>
+      call("update_ytdlp_cmd"),
 
     // Speaking
     speakingListTopics: () => call("speaking_list_topics_cmd"),
@@ -491,6 +513,26 @@ export const getReadingTestExplanations = (...args) =>
   defaultApiClient.getReadingTestExplanations(...args);
 export const getCompletedReadingCount = (...args) =>
   defaultApiClient.getCompletedReadingCount(...args);
+export const generateInitialReadingArticle = (...args) =>
+  defaultApiClient.generateInitialReadingArticle(...args);
+export const finishAndGenerateNextReadingArticle = (...args) =>
+  defaultApiClient.finishAndGenerateNextReadingArticle(...args);
+export const getImportedArticles = (...args) =>
+  defaultApiClient.getImportedArticles(...args);
+export const getImportedArticle = (...args) =>
+  defaultApiClient.getImportedArticle(...args);
+export const deleteImportedArticle = (...args) =>
+  defaultApiClient.deleteImportedArticle(...args);
+export const fetchYoutubeMetadata = (...args) =>
+  defaultApiClient.fetchYoutubeMetadata(...args);
+export const startYoutubeImport = (...args) =>
+  defaultApiClient.startYoutubeImport(...args);
+export const getYoutubeImportProgress = (...args) =>
+  defaultApiClient.getYoutubeImportProgress(...args);
+export const cancelYoutubeImport = (...args) =>
+  defaultApiClient.cancelYoutubeImport(...args);
+export const updateYtdlp = (...args) =>
+  defaultApiClient.updateYtdlp(...args);
 
 // --- Speaking ---
 export const speakingListTopics = (...args) => defaultApiClient.speakingListTopics(...args);

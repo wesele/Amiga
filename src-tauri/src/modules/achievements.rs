@@ -295,8 +295,11 @@ pub fn get_achievement_days(
             .prepare(
                 "SELECT local_date, slot,
                         MAX(CASE status WHEN 'completed' THEN 2 WHEN 'read' THEN 1 ELSE 0 END)
-                 FROM reading_articles
-                 WHERE user_id = ?1 AND local_date BETWEEN ?2 AND ?3
+                 FROM (
+                     SELECT local_date, slot, status FROM reading_history WHERE user_id = ?1 AND local_date BETWEEN ?2 AND ?3
+                     UNION ALL
+                     SELECT local_date, slot, status FROM reading_articles WHERE user_id = ?1 AND local_date BETWEEN ?2 AND ?3
+                 )
                  GROUP BY local_date, slot",
             )
             .map_err(|e| format!("Failed to prepare reading achievements query: {e}"))?;
@@ -328,9 +331,12 @@ pub fn get_achievement_days(
     {
         let mut stmt = conn
             .prepare(
-                "SELECT local_date, COUNT(DISTINCT id)
-                 FROM reading_articles
-                 WHERE user_id = ?1 AND status IN ('read', 'completed') AND local_date BETWEEN ?2 AND ?3
+                "SELECT local_date, COUNT(*)
+                 FROM (
+                     SELECT id, local_date FROM reading_history WHERE user_id = ?1 AND status IN ('read', 'completed') AND local_date BETWEEN ?2 AND ?3
+                     UNION ALL
+                     SELECT id, local_date FROM reading_articles WHERE user_id = ?1 AND status IN ('read', 'completed') AND local_date BETWEEN ?2 AND ?3
+                 )
                  GROUP BY local_date",
             )
             .map_err(|e| format!("Failed to prepare reading count achievements query: {e}"))?;

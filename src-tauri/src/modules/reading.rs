@@ -378,6 +378,23 @@ struct GeneratedArticle {
     body: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ImportedArticle {
+    pub id: i64,
+    pub user_id: String,
+    pub target_language: String,
+    pub source_type: String,
+    pub source_url: String,
+    pub source_id: String,
+    pub title: String,
+    pub channel: Option<String>,
+    pub duration_sec: Option<i64>,
+    pub audio_path: Option<String>,
+    pub subtitles_json: String,
+    pub cefr_level: Option<String>,
+    pub created_at: String,
+}
+
 // ── 100 default topics ─────────────────────────────────────────────
 
 const DEFAULT_TOPICS: &[(&str, &str)] = &[
@@ -1255,17 +1272,247 @@ pub fn get_reading_test_explanations(
     serde_json::from_str(&json).map_err(|e| format!("Failed to parse explanations: {}", e))
 }
 
-/// Count distinct articles a user has completed reading tests for.
-/// Returns the number of articles where the user has submitted at least one test attempt.
 pub fn get_completed_reading_count(db: &DatabasePool, user_id: &str) -> Result<i32, String> {
     let conn = db.conn()?;
     let count: i32 = conn
         .query_row(
-            "SELECT COUNT(DISTINCT article_id) FROM reading_test_attempts
-             WHERE user_id = ?1",
+            "SELECT COUNT(*) FROM (
+                 SELECT id FROM reading_history WHERE user_id = ?1 AND status = 'completed'
+                 UNION ALL
+                 SELECT id FROM reading_articles WHERE user_id = ?1 AND status = 'completed'
+             )",
             params![user_id],
             |row| row.get(0),
         )
         .unwrap_or(0);
     Ok(count)
+}
+
+pub fn get_imported_articles(
+    db: &DatabasePool,
+    user_id: &str,
+    target_language: &str,
+) -> Result<Vec<ImportedArticle>, String> {
+    let conn = db.conn()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, user_id, target_language, source_type, source_url, source_id,
+                    title, channel, duration_sec, audio_path, subtitles_json, cefr_level, created_at
+             FROM imported_articles
+             WHERE user_id = ?1 AND target_language = ?2
+             ORDER BY id DESC",
+        )
+        .map_err(|e| format!("Query error: {}", e))?;
+
+    let articles = stmt
+        .query_map(params![user_id, target_language], |row| {
+            Ok(ImportedArticle {
+                id: row.get(0)?,
+                user_id: row.get(1)?,
+                target_language: row.get(2)?,
+                source_type: row.get(3)?,
+                source_url: row.get(4)?,
+                source_id: row.get(5)?,
+                title: row.get(6)?,
+                channel: row.get(7)?,
+                duration_sec: row.get(8)?,
+                audio_path: row.get(9)?,
+                subtitles_json: row.get(10)?,
+                cefr_level: row.get(11)?,
+                created_at: row.get(12)?,
+            })
+        })
+        .map_err(|e| format!("Query map error: {}", e))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(articles)
+}
+
+pub fn get_imported_article(db: &DatabasePool, id: i64) -> Result<ImportedArticle, String> {
+    let conn = db.conn()?;
+    conn.query_row(
+        "SELECT id, user_id, target_language, source_type, source_url, source_id,
+                title, channel, duration_sec, audio_path, subtitles_json, cefr_level, created_at
+         FROM imported_articles WHERE id = ?1",
+        params![id],
+        |row| {
+            Ok(ImportedArticle {
+                id: row.get(0)?,
+                user_id: row.get(1)?,
+                target_language: row.get(2)?,
+                source_type: row.get(3)?,
+                source_url: row.get(4)?,
+                source_id: row.get(5)?,
+                title: row.get(6)?,
+                channel: row.get(7)?,
+                duration_sec: row.get(8)?,
+                audio_path: row.get(9)?,
+                subtitles_json: row.get(10)?,
+                cefr_level: row.get(11)?,
+                created_at: row.get(12)?,
+            })
+        },
+    )
+    .map_err(|e| format!("Imported article not found: {}", e))
+}
+
+pub fn delete_imported_article(db: &DatabasePool, id: i64) -> Result<Option<String>, String> {
+    let conn = db.conn()?;
+    let audio_path: Option<String> = conn
+        .query_row(
+            "SELECT audio_path FROM imported_articles WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Article not found: {}", e))?;
+
+    conn.execute("DELETE FROM imported_articles WHERE id = ?1", params![id])
+        .map_err(|e| format!("Failed to delete imported article: {}", e))?;
+
+    Ok(audio_path)
+}
+
+pub fn save_imported_article(
+    db: &DatabasePool,
+    user_id: &str,
+    target_language: &str,
+    source_type: &str,
+    source_url: &str,
+    source_id: &str,
+    title: &str,
+    channel: Option<&str>,
+    duration_sec: Option<i64>,
+    audio_path: Option<&str>,
+    subtitles_json: &str,
+    cefr_level: Option<&str>,
+) -> Result<i64, String> {
+    let conn = db.conn()?;
+    conn.execute(
+        "INSERT INTO imported_articles (
+            user_id, target_language, source_type, source_url, source_id,
+            title, channel, duration_sec, audio_path, subtitles_json, cefr_level
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+        params![
+            user_id,
+            target_language,
+            source_type,
+            source_url,
+            source_id,
+            title,
+            channel,
+            duration_sec,
+            audio_path,
+            subtitles_json,
+            cefr_level
+        ],
+    )
+    .map_err(|e| format!("Failed to save imported article: {}", e))?;
+
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn archive_reading_article_to_history(
+    db: &DatabasePool,
+    article_id: i64,
+) -> Result<(), String> {
+    let conn = db.conn()?;
+    conn.execute(
+        "INSERT INTO reading_history (
+            user_id, target_language, cefr_level, local_date, slot, topic, title,
+            status, test_correct_count, test_total_count, completed_at
+         )
+         SELECT user_id, target_language, cefr_level, local_date, slot, topic, title,
+                CASE WHEN status = 'unread' THEN 'read' ELSE status END,
+                test_correct_count, test_total_count, datetime('now')
+         FROM reading_articles
+         WHERE id = ?1",
+        params![article_id],
+    )
+    .map_err(|e| format!("Failed to archive reading article: {}", e))?;
+    Ok(())
+}
+
+pub async fn generate_initial_reading_article(
+    llm: &llm_mod::LlmClient,
+    db: &DatabasePool,
+    user_id: &str,
+    target_lang: &str,
+    cefr_level: &str,
+    native_lang: &str,
+) -> Result<ReadingArticle, String> {
+    let now = chrono::Local::now();
+    let local_date = now.format("%Y-%m-%d").to_string();
+    let hour: i32 = now.format("%H").to_string().parse().unwrap_or(0);
+    let slot = determine_slot(hour);
+
+    let topic = pick_unused_topic(db, user_id)?;
+    let (title, body) =
+        generate_article_via_llm(llm, db, &topic, target_lang, cefr_level, native_lang).await?;
+
+    let new_id = save_reading_article(
+        db,
+        user_id,
+        target_lang,
+        cefr_level,
+        &local_date,
+        slot,
+        &topic,
+        &title,
+        &body,
+    )?;
+
+    get_reading_article(db, new_id)
+}
+
+pub async fn finish_and_generate_next_reading_article(
+    llm: &llm_mod::LlmClient,
+    db: &DatabasePool,
+    current_article_id: i64,
+    cefr_level: &str,
+    native_lang: &str,
+) -> Result<ReadingArticle, String> {
+    let current = get_reading_article(db, current_article_id)?;
+    // 1. Archive current article to history
+    archive_reading_article_to_history(db, current_article_id)?;
+
+    // 2. Generate new article via LLM
+    let now = chrono::Local::now();
+    let local_date = now.format("%Y-%m-%d").to_string();
+    let hour: i32 = now.format("%H").to_string().parse().unwrap_or(0);
+    let slot = determine_slot(hour);
+
+    let topic = pick_unused_topic(db, &current.user_id)?;
+    let (title, body) = generate_article_via_llm(
+        llm,
+        db,
+        &topic,
+        &current.target_language,
+        cefr_level,
+        native_lang,
+    )
+    .await?;
+
+    // 3. Save new article
+    let new_id = save_reading_article(
+        db,
+        &current.user_id,
+        &current.target_language,
+        cefr_level,
+        &local_date,
+        slot,
+        &topic,
+        &title,
+        &body,
+    )?;
+
+    // 4. Delete old article only after new one is successfully created and saved
+    let conn = db.conn()?;
+    conn.execute(
+        "DELETE FROM reading_articles WHERE id = ?1",
+        params![current_article_id],
+    )
+    .ok();
+
+    get_reading_article(db, new_id)
 }

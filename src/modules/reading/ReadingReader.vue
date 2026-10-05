@@ -16,6 +16,7 @@
         </div>
       </div>
       <button
+        v-if="!isImported"
         class="regen-btn"
         :disabled="regenerating"
         :title="t('reading.regenerate')"
@@ -37,26 +38,32 @@
       <button class="btn-rewrite" @click="loadArticle">{{ t('common.retry') }}</button>
     </div>
 
-    <div v-else-if="article" class="article-body">
-      <div v-if="!bilingualMode" class="article-text">
-        <p v-for="(para, pidx) in bodyParagraphs" :key="pidx" class="para">
-          <template v-for="(token, idx) in para" :key="idx">
-            <span
-              v-if="token.isWord"
-              class="word"
-              :tabindex="isTvLayoutMode ? 0 : undefined"
-              @click.stop="onWordTap(token)"
-              @keydown.enter.prevent="onWordTap(token)"
-              @keydown.space.prevent="onWordTap(token)"
-            >{{ token.text }}</span>
-            <span v-else>{{ token.text }}</span>
-          </template>
-        </p>
-      </div>
+    <div v-else-if="article" class="article-layout-wrapper">
+      <div class="article-body">
+        <div v-if="!bilingualMode" class="article-text">
+          <p
+            v-for="(para, pidx) in bodyParagraphs"
+            :key="pidx"
+            class="para"
+            :class="{ 'is-playing': isParagraphActive(pidx) }"
+          >
+            <template v-for="(token, idx) in para" :key="idx">
+              <span
+                v-if="token.isWord"
+                class="word"
+                :tabindex="isTvLayoutMode ? 0 : undefined"
+                @click.stop="onWordTap(token)"
+                @keydown.enter.prevent="onWordTap(token)"
+                @keydown.space.prevent="onWordTap(token)"
+              >{{ token.text }}</span>
+              <span v-else>{{ token.text }}</span>
+            </template>
+          </p>
+        </div>
 
-      <div v-else-if="translations.length > 0" class="article-text bilingual">
-        <template v-for="(tokens, pidx) in paraTokens" :key="pidx">
-          <p class="para-original">
+        <div v-else-if="translations.length > 0" class="article-text bilingual">
+          <template v-for="(tokens, pidx) in paraTokens" :key="pidx">
+            <p class="para-original" :class="{ 'is-playing': isParagraphActive(pidx) }">
             <template v-for="(token, idx) in tokens" :key="idx">
               <span
                 v-if="token.isWord"
@@ -86,6 +93,13 @@
         <button class="btn-rewrite" @click="loadBilingual">{{ t('common.retry') }}</button>
       </div>
     </div>
+
+    <!-- Right-side fine timeline rail for imported audio -->
+    <div v-if="isImported && audioDuration > 0" class="audio-timeline-rail" aria-hidden="true">
+      <div class="audio-timeline-fill" :style="{ height: `${timelinePercent}%` }" />
+      <div class="audio-timeline-thumb" :style="{ top: `${timelinePercent}%` }" />
+    </div>
+  </div>
 
     <Transition name="popup">
       <WordPopup
@@ -120,13 +134,13 @@
         </button>
         <button
           class="btn-read"
-          :class="{ 'is-reading': reading }"
-          :disabled="!canRead"
-          :title="reading ? t('news.stopReading') : t('news.readAloud')"
-          :aria-label="reading ? t('news.stopReading') : t('news.readAloud')"
-          @click="toggleReading"
+          :class="{ 'is-reading': isImported ? isAudioPlaying : reading }"
+          :disabled="isImported ? !audioAvailable : !canRead"
+          :title="(isImported ? isAudioPlaying : reading) ? t('news.stopReading') : t('news.readAloud')"
+          :aria-label="(isImported ? isAudioPlaying : reading) ? t('news.stopReading') : t('news.readAloud')"
+          @click="isImported ? togglePlayAudio() : toggleReading()"
         >
-          <svg v-if="!reading" class="read-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+          <svg v-if="!(isImported ? isAudioPlaying : reading)" class="read-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
             <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1-3.29-2.5-4.03v8.05c1.5-.73 2.5-2.25 2.5-4.02z"/>
             <path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
           </svg>
@@ -134,7 +148,7 @@
             <path d="M6 6h4v12H6V6zm8 0h4v12h-4V6z"/>
           </svg>
         </button>
-        <button class="btn-test" :disabled="testLoading" @click="goTest">
+        <button v-if="!isImported" class="btn-test" :disabled="testLoading" @click="goTest">
           {{ t('reading.test') }}
         </button>
       </div>
@@ -148,11 +162,12 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import {
   getReadingArticle,
+  getImportedArticle,
   markReadingArticleRead,
   regenerateReadingArticle,
 } from "@/shared/backend/reading.js";
@@ -173,8 +188,82 @@ import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
 const { t } = useI18n();
 const router = useRouter();
+const route = useRoute();
 const targetLangStore = useTargetLangStore();
-const props = defineProps({ id: [String, Number] });
+const props = defineProps({
+  id: [String, Number],
+  isImported: Boolean,
+});
+
+const isImported = ref(false);
+const importedParagraphs = ref([]);
+const audioDuration = ref(0);
+const currentTime = ref(0);
+const isAudioPlaying = ref(false);
+const audioAvailable = ref(false);
+let audioEl = null;
+
+const timelinePercent = computed(() => {
+  if (audioDuration.value <= 0) return 0;
+  return Math.min(100, Math.max(0, (currentTime.value / audioDuration.value) * 100));
+});
+
+function isParagraphActive(pidx) {
+  if (!isImported.value) return false;
+  const p = importedParagraphs.value[pidx];
+  if (!p) return false;
+  return currentTime.value >= p.start && currentTime.value <= p.end;
+}
+
+function initAudio(audioPath, durationSec) {
+  if (audioEl) {
+    audioEl.pause();
+    audioEl = null;
+  }
+  audioDuration.value = durationSec || 0;
+  currentTime.value = 0;
+  isAudioPlaying.value = false;
+  audioAvailable.value = false;
+
+  if (!audioPath) return;
+
+  let src = audioPath;
+  if (typeof window !== "undefined" && window.__TAURI__?.core?.convertFileSrc) {
+    src = window.__TAURI__.core.convertFileSrc(audioPath);
+  }
+  audioEl = new Audio(src);
+  audioAvailable.value = true;
+
+  audioEl.addEventListener("loadedmetadata", () => {
+    if (audioEl.duration && !isNaN(audioEl.duration)) {
+      audioDuration.value = audioEl.duration;
+    }
+  });
+  audioEl.addEventListener("timeupdate", () => {
+    currentTime.value = audioEl.currentTime || 0;
+  });
+  audioEl.addEventListener("ended", () => {
+    isAudioPlaying.value = false;
+    currentTime.value = 0;
+  });
+  audioEl.addEventListener("pause", () => {
+    isAudioPlaying.value = false;
+  });
+  audioEl.addEventListener("play", () => {
+    isAudioPlaying.value = true;
+  });
+}
+
+function togglePlayAudio() {
+  if (!audioEl) return;
+  if (isAudioPlaying.value) {
+    audioEl.pause();
+  } else {
+    audioEl.play().catch((err) => {
+      console.warn("Audio play failed:", err);
+    });
+  }
+}
 
 const article = ref(null);
 const loadError = ref("");
@@ -290,6 +379,10 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  if (audioEl) {
+    audioEl.pause();
+    audioEl = null;
+  }
   document.removeEventListener("selectionchange", onSelectionChange);
   document.removeEventListener("pointerup", onPointerUp);
   delete window.__amigaTranslateSelection;
@@ -308,9 +401,33 @@ async function loadArticle() {
     targetLang = ctx.targetLang;
     cefrLevel = ctx.cefr || "";
     nativeLang = ctx.nativeLang || "";
-    const art = await getReadingArticle(Number(props.id));
-    article.value = art;
-    await markReadingArticleRead(Number(props.id));
+
+    if (route.query.type === "imported" || props.isImported) {
+      isImported.value = true;
+      const imp = await getImportedArticle(Number(props.id));
+      let paras = [];
+      try {
+        paras = JSON.parse(imp.subtitles_json || "[]");
+      } catch {
+        paras = [];
+      }
+      importedParagraphs.value = paras;
+      article.value = {
+        id: imp.id,
+        title: imp.title,
+        body: paras.map((p) => p.text).join("\n\n"),
+        cefr_level: imp.cefr_level || "A2",
+        local_date: imp.created_at ? imp.created_at.split("T")[0] : "",
+        status: "read",
+      };
+      initAudio(imp.audio_path, imp.duration_sec);
+    } else {
+      isImported.value = false;
+      const art = await getReadingArticle(Number(props.id));
+      article.value = art;
+      await markReadingArticleRead(Number(props.id));
+    }
+
     await processArticleWords();
   } catch (e) {
     console.error("Failed to load article:", e);
@@ -578,6 +695,14 @@ function goTest() {
   to { transform: rotate(360deg); }
 }
 
+.article-layout-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
 .article-body {
   flex: 1;
   min-height: 0;
@@ -586,6 +711,38 @@ function goTest() {
   overscroll-behavior: contain;
   padding: 20px 20px 80px;
   box-sizing: border-box;
+}
+
+.audio-timeline-rail {
+  width: 4px;
+  margin: 20px 8px 80px 0;
+  background: var(--border, #e5e7eb);
+  border-radius: 999px;
+  position: relative;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.audio-timeline-fill {
+  width: 100%;
+  background: var(--green, #2ecc71);
+  border-radius: 999px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: height 0.15s linear;
+}
+
+.audio-timeline-thumb {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green, #2ecc71);
+  box-shadow: 0 0 4px rgba(46, 204, 113, 0.6);
+  transition: top 0.15s linear;
 }
 
 /* Match news reader: full-pane reading, modest gutters (no narrow column). */
@@ -634,6 +791,16 @@ html[data-app-mode="tv"] .header-title {
   margin: 0 0 1.15em;
   white-space: pre-wrap;
   overflow-wrap: break-word;
+  padding: 4px 6px;
+  border-left: 3px solid transparent;
+  border-radius: 4px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.article-text .para.is-playing,
+.para-original.is-playing {
+  background: rgba(46, 204, 113, 0.14);
+  border-left-color: var(--green, #2ecc71);
 }
 
 .article-text .para:last-child {

@@ -19,3 +19,4 @@ pub mod sync_config;
 pub mod translation;
 pub mod user;
 pub mod vocabulary;
+pub mod youtube;

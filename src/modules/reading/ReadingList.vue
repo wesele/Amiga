@@ -8,81 +8,157 @@
     </div>
 
     <div v-else-if="loading" class="skeleton-list">
-      <div v-for="i in 3" :key="i" class="skeleton-card" />
+      <div class="skeleton-card" />
+      <div class="skeleton-card small" />
     </div>
 
-    <div v-else-if="articles.length === 0" class="empty-state">
-      <p>{{ t('reading.emptyList') }}</p>
-      <button class="btn-secondary" @click="init">{{ t('common.retry') }}</button>
-    </div>
-
-    <div v-else class="article-list">
-      <div
-        v-for="article in displayedArticles"
-        :key="article.id"
-        class="article-card"
-        :class="{
-          'is-generating': article.isGenerating,
-          'is-regenerating': regeneratingId === article.id,
-          'is-long-pressing': longPressArticleId === article.id,
-        }"
-        :data-article-id="article.id"
-        :data-tv-preferred-focus="isTvLayoutMode && article.id === lastOpenedArticleId ? true : undefined"
-        :role="article.isGenerating ? undefined : 'button'"
-        :tabindex="article.isGenerating ? undefined : 0"
-        @click="!article.isGenerating && onCardClick(article)"
-        @keydown.enter="!article.isGenerating && openArticle(article.id)"
-        @pointerdown="!article.isGenerating && onCardPointerDown(article, $event)"
-        @pointerup="onCardPointerUp"
-        @pointerleave="onCardPointerUp"
-        @pointercancel="onCardPointerUp"
-        @contextmenu.prevent="!article.isGenerating && onCardContextMenu(article)"
-      >
-        <div class="card-header">
-          <h3 class="card-title">{{ article.title }}</h3>
-          <span class="card-date">
-            <span class="date-weekday" :class="weekdayClass(article)">{{ formatWeekday(article) }}</span>
-            <span class="date-day">{{ formatDate(article) }}</span>
-          </span>
+    <div v-else class="content-container">
+      <!-- AI Daily Article Section -->
+      <section class="section-block">
+        <div class="section-header">
+          <h2 class="section-title">{{ t('reading.currentAiArticle') }}</h2>
         </div>
-        <div class="card-meta">
-          <span class="badge-level">{{ article.cefr_level }}</span>
-          <span class="badge-slot" :class="article.slot.toLowerCase()">
-            {{ article.slot === 'AM' ? t('reading.slotAm') : t('reading.slotPm') }}
-          </span>
-          <span class="badge-status" :class="article.status">
-            {{ statusLabel(article.status) }}
-          </span>
-          <span
-            v-if="article.test_total_count != null"
-            class="badge-score score-stars"
-            :title="t('reading.testScore') + ': ' + article.test_correct_count + '/' + article.test_total_count"
+
+        <div v-if="currentArticle" class="ai-card-wrapper">
+          <div
+            class="article-card ai-card"
+            :class="{ 'is-generating': isFinishing }"
+            :role="isFinishing ? undefined : 'button'"
+            :tabindex="isFinishing ? undefined : 0"
+            @click="!isFinishing && openArticle(currentArticle.id)"
+            @keydown.enter="!isFinishing && openArticle(currentArticle.id)"
           >
-            <span
-              v-for="(s, i) in scoreStars(article)"
-              :key="i"
-              class="star"
-              :class="'star-' + s"
+            <div class="card-header">
+              <h3 class="card-title">{{ currentArticle.title }}</h3>
+              <span class="card-date">
+                <span class="date-weekday" :class="weekdayClass(currentArticle)">{{ formatWeekday(currentArticle) }}</span>
+                <span class="date-day">{{ formatDate(currentArticle) }}</span>
+              </span>
+            </div>
+            <div class="card-meta">
+              <span class="badge-level">{{ currentArticle.cefr_level }}</span>
+              <span class="badge-slot" :class="currentArticle.slot?.toLowerCase()">
+                {{ currentArticle.slot === 'AM' ? t('reading.slotAm') : t('reading.slotPm') }}
+              </span>
+              <span class="badge-status" :class="currentArticle.status">
+                {{ statusLabel(currentArticle.status) }}
+              </span>
+              <span
+                v-if="currentArticle.test_total_count != null"
+                class="badge-score score-stars"
+                :title="t('reading.testScore') + ': ' + currentArticle.test_correct_count + '/' + currentArticle.test_total_count"
+              >
+                <span
+                  v-for="(s, i) in scoreStars(currentArticle)"
+                  :key="i"
+                  class="star"
+                  :class="'star-' + s"
+                >
+                  <span class="star-base">★</span><span class="star-fill">★</span>
+                </span>
+              </span>
+            </div>
+
+            <div v-if="isFinishing" class="card-overlay">
+              <span class="generation-spinner" aria-hidden="true" />
+              <span>{{ t('reading.generatingArticle') }}</span>
+            </div>
+          </div>
+
+          <div class="action-aside">
+            <button
+              class="btn-finish"
+              :disabled="isFinishing"
+              :title="t('reading.finishReading')"
+              @click.stop="handleFinishReading"
             >
-              <span class="star-base">★</span><span class="star-fill">★</span>
-            </span>
-          </span>
+              <span v-if="!isFinishing">{{ t('reading.finishReading') }}</span>
+              <span v-else class="btn-spinner" />
+            </button>
+          </div>
         </div>
-        <div v-if="article.isGenerating || regeneratingId === article.id" class="card-overlay">
-          <span class="generation-spinner" aria-hidden="true" />
-          <span>{{ article.isGenerating ? t('reading.generatingArticle') : t('reading.regenerating') }}</span>
+
+        <div v-else class="empty-ai-card">
+          <p class="empty-hint">{{ t('reading.emptyList') }}</p>
+          <button class="btn-primary" :disabled="isGeneratingInitial" @click="handleGenerateInitial">
+            <span v-if="!isGeneratingInitial">{{ t('reading.generateInitial') }}</span>
+            <span v-else>{{ t('reading.generatingArticle') }}</span>
+          </button>
         </div>
-      </div>
+      </section>
+
+      <!-- Imported YouTube Articles Section -->
+      <section class="section-block">
+        <div class="section-header">
+          <h2 class="section-title">{{ t('reading.importedSectionTitle') }}</h2>
+          <button
+            v-if="!isTvLayoutMode"
+            class="btn-import-header"
+            @click="showImportModal = true"
+          >
+            + {{ t('reading.importYoutubeBtn') }}
+          </button>
+        </div>
+
+        <div v-if="(importedArticles?.length || 0) === 0" class="empty-imported">
+          <p>{{ t('reading.emptyImported') }}</p>
+        </div>
+
+        <div v-else class="imported-list">
+          <div
+            v-for="item in importedArticles"
+            :key="item.id"
+            class="imported-card"
+            role="button"
+            tabindex="0"
+            @click="openImportedArticle(item.id)"
+            @keydown.enter="openImportedArticle(item.id)"
+          >
+            <div class="imported-icon">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="#ff0000">
+                <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+              </svg>
+            </div>
+            <div class="imported-info">
+              <h4 class="imported-title">{{ item.title }}</h4>
+              <div class="imported-meta">
+                <span v-if="item.channel" class="meta-channel">{{ item.channel }}</span>
+                <span v-if="item.duration_sec" class="meta-duration">⏱ {{ formatDuration(item.duration_sec) }}</span>
+                <span v-if="item.created_at" class="meta-time">{{ formatTime(item.created_at) }}</span>
+              </div>
+            </div>
+            <button
+              class="btn-delete"
+              :title="t('reading.deleteBtn')"
+              @click.stop="promptDeleteImported(item)"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
 
+    <!-- Confirm Delete Imported Dialog -->
     <ConfirmDialog
-      :show="!!confirmArticle"
-      :title="t('reading.regenerateTitle')"
-      :message="t('reading.regenerateMessage')"
-      :confirm-text="t('reading.regenerateBtn')"
-      :confirm-disabled="!!regeneratingId"
-      @confirm="confirmRegenerate"
-      @cancel="confirmArticle = null"
+      :show="!!deleteTarget"
+      :title="t('reading.deleteImportedTitle')"
+      :message="t('reading.deleteImportedMessage')"
+      :confirm-text="t('reading.deleteBtn')"
+      @confirm="confirmDeleteImported"
+      @cancel="deleteTarget = null"
+    />
+
+    <!-- YouTube Import Modal -->
+    <YoutubeImportModal
+      :show="showImportModal"
+      :user-id="learningContext?.user?.id"
+      :target-lang="learningContext?.targetLang"
+      :cefr-level="learningContext?.cefr"
+      @close="showImportModal = false"
+      @imported="onImportedSuccess"
     />
 
     <Transition name="popup">
@@ -97,48 +173,38 @@ import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import {
-  ensureReadingArticle,
   getReadingArticles,
-  regenerateReadingArticle,
+  finishAndGenerateNextReadingArticle,
+  generateInitialReadingArticle,
+  getImportedArticles,
+  deleteImportedArticle,
 } from "@/shared/backend/reading.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
+import YoutubeImportModal from "./YoutubeImportModal.vue";
 import { isTvLayoutMode } from "@/shared/appMode.js";
-
-const LONG_PRESS_MS = 500;
 
 const { t } = useI18n();
 const router = useRouter();
 const targetLangStore = useTargetLangStore();
 
 const articles = ref([]);
+const importedArticles = ref([]);
 const loading = ref(true);
 const error = ref("");
-const generatingSlot = ref(null);
-const confirmArticle = ref(null);
-const regeneratingId = ref(null);
-const longPressArticleId = ref(null);
+
+const isFinishing = ref(false);
+const isGeneratingInitial = ref(false);
+const showImportModal = ref(false);
+const deleteTarget = ref(null);
 const statusText = ref("");
-const longPressTriggered = ref(false);
 
-let pressTimer = null;
 let statusTimer = null;
-let learningContext = null;
+const learningContext = ref(null);
 
-const displayedArticles = computed(() => {
-  if (!generatingSlot.value) return articles.value;
-
-  return [
-    {
-      id: `generating-${generatingSlot.value}`,
-      title: t("reading.generatingArticle"),
-      local_date: localDate(),
-      slot: generatingSlot.value,
-      isGenerating: true,
-    },
-    ...articles.value,
-  ];
+const currentArticle = computed(() => {
+  return articles.value.length > 0 ? articles.value[0] : null;
 });
 
 onMounted(async () => {
@@ -155,7 +221,7 @@ function statusLabel(status) {
 }
 
 function scoreStars(article) {
-  const correct = Number(article.test_correct_count) || 0;
+  const correct = Number(article?.test_correct_count) || 0;
   const fullStars = Math.floor(correct / 2);
   const hasHalf = correct % 2 === 1;
   const stars = [];
@@ -174,14 +240,14 @@ function parseLocalDate(localDate) {
 }
 
 function formatWeekday(article) {
-  const date = parseLocalDate(article.local_date);
+  const date = parseLocalDate(article?.local_date);
   if (!date) return "";
   const weekdayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
   return t(`weekday.${weekdayKeys[date.getDay()]}`);
 }
 
 function weekdayClass(article) {
-  const date = parseLocalDate(article.local_date);
+  const date = parseLocalDate(article?.local_date);
   if (!date) return "";
   const day = date.getDay();
   const classMap = ["weekday-sun", "weekday-mon", "weekday-tue", "weekday-wed", "weekday-thu", "weekday-fri", "weekday-sat"];
@@ -189,7 +255,23 @@ function weekdayClass(article) {
 }
 
 function formatDate(article) {
-  return article.local_date || "";
+  return article?.local_date || "";
+}
+
+function formatDuration(sec) {
+  if (!sec) return "0:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+function formatTime(iso) {
+  if (!iso) return "";
+  try {
+    return iso.split("T")[0] || iso.split(" ")[0];
+  } catch {
+    return iso;
+  }
 }
 
 function showStatus(text) {
@@ -203,12 +285,16 @@ function showStatus(text) {
 async function init() {
   loading.value = true;
   error.value = "";
-  generatingSlot.value = null;
   try {
-    learningContext = await loadLearningContext({ targetLangStore, fallbackToFirstGoal: true, loadGoals: true });
-    if (learningContext.user?.id && learningContext.targetLang) {
-      articles.value = await getReadingArticles(learningContext.user.id, learningContext.targetLang);
-      ensureCurrentSlotArticle();
+    learningContext.value = await loadLearningContext({ targetLangStore, fallbackToFirstGoal: true, loadGoals: true });
+    if (learningContext.value?.user?.id && learningContext.value?.targetLang) {
+      const [aiArts, impArts] = await Promise.all([
+        getReadingArticles(learningContext.value.user.id, learningContext.value.targetLang),
+        getImportedArticles(learningContext.value.user.id, learningContext.value.targetLang),
+      ]);
+      // Retain only the latest one
+      articles.value = (aiArts || []).slice(0, 1);
+      importedArticles.value = impArts || [];
     }
   } catch (e) {
     console.error("Failed to load reading list:", e);
@@ -218,113 +304,84 @@ async function init() {
   }
 }
 
-function localDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function currentSlot() {
-  return new Date().getHours() < 12 ? "AM" : "PM";
-}
-
-async function ensureCurrentSlotArticle() {
-  if (!learningContext?.user?.id) return;
-
-  const date = localDate();
-  const slot = currentSlot();
-  const hasCurrentArticle = articles.value.some(
-    (article) => article.local_date === date && article.slot === slot,
-  );
-  if (hasCurrentArticle) return;
-
-  generatingSlot.value = slot;
+async function handleGenerateInitial() {
+  if (!learningContext.value?.user?.id || isGeneratingInitial.value) return;
+  isGeneratingInitial.value = true;
   try {
-    await ensureReadingArticle(
-      learningContext.user.id,
-      learningContext.targetLang,
-      learningContext.cefr,
-      learningContext.nativeLang,
+    const art = await generateInitialReadingArticle(
+      learningContext.value.user.id,
+      learningContext.value.targetLang,
+      learningContext.value.cefr || "A2",
+      learningContext.value.nativeLang || "zh",
     );
-    articles.value = await getReadingArticles(learningContext.user.id, learningContext.targetLang);
+    articles.value = [art];
+    showStatus(t("reading.articleGenerated"));
   } catch (e) {
-    console.error("Failed to ensure reading article:", e);
-    showStatus(invokeErrorMessage(e) || t("reading.generatingFail"));
+    console.error("Failed to generate initial reading article:", e);
+    showStatus(e?.message || t("reading.generatingFail"));
   } finally {
-    generatingSlot.value = null;
+    isGeneratingInitial.value = false;
   }
 }
 
-const lastOpenedArticleId = ref(null);
+async function handleFinishReading() {
+  if (!currentArticle.value || isFinishing.value) return;
+  isFinishing.value = true;
+  try {
+    const nextArt = await finishAndGenerateNextReadingArticle(
+      currentArticle.value.id,
+      learningContext.value?.cefr || "A2",
+      learningContext.value?.nativeLang || "zh",
+    );
+    articles.value = [nextArt];
+    showStatus(t("reading.articleGenerated"));
+  } catch (e) {
+    console.error("Failed to finish and generate next article:", e);
+    showStatus(e?.message || t("reading.generatingFail"));
+  } finally {
+    isFinishing.value = false;
+  }
+}
 
 function openArticle(id) {
-  lastOpenedArticleId.value = id;
   router.push(`/learn/reading/${id}`);
 }
 
-function onCardPointerDown(article, event) {
-  if (regeneratingId.value) return;
-  if (event.pointerType === "mouse" && event.button !== 0) return;
-
-  longPressTriggered.value = false;
-  longPressArticleId.value = article.id;
-  clearTimeout(pressTimer);
-  pressTimer = setTimeout(() => {
-    longPressTriggered.value = true;
-    longPressArticleId.value = null;
-    confirmArticle.value = article;
-  }, LONG_PRESS_MS);
+function openImportedArticle(id) {
+  router.push({
+    path: `/learn/reading/${id}`,
+    query: { type: "imported" },
+  });
 }
 
-function onCardPointerUp() {
-  clearTimeout(pressTimer);
-  longPressArticleId.value = null;
+function promptDeleteImported(item) {
+  deleteTarget.value = item;
 }
 
-function onCardContextMenu(article) {
-  if (regeneratingId.value) return;
-  longPressTriggered.value = true;
-  confirmArticle.value = article;
-}
-
-function onCardClick(article) {
-  if (longPressTriggered.value) {
-    longPressTriggered.value = false;
-    return;
-  }
-  openArticle(article.id);
-}
-
-function invokeErrorMessage(e) {
-  if (typeof e === "string") return e;
-  return e?.message || String(e);
-}
-
-async function confirmRegenerate() {
-  const article = confirmArticle.value;
-  if (!article || !learningContext?.user?.id) return;
-
-  confirmArticle.value = null;
-  regeneratingId.value = article.id;
+async function confirmDeleteImported() {
+  const item = deleteTarget.value;
+  if (!item) return;
+  deleteTarget.value = null;
   try {
-    const updated = await regenerateReadingArticle(
-      article.id,
-      learningContext.cefr,
-      learningContext.nativeLang,
-    );
-    const index = articles.value.findIndex((item) => item.id === article.id);
-    if (index >= 0) {
-      articles.value[index] = updated;
-    }
-    showStatus(t("reading.regenerateSuccess"));
+    await deleteImportedArticle(item.id);
+    importedArticles.value = importedArticles.value.filter((a) => a.id !== item.id);
+    showStatus(t("reading.deleteSuccess"));
   } catch (e) {
-    console.error("Failed to regenerate reading article:", e);
-    showStatus(invokeErrorMessage(e) || t("reading.regenerateFail"));
-  } finally {
-    regeneratingId.value = null;
-    longPressTriggered.value = false;
+    console.error("Failed to delete imported article:", e);
+    showStatus(e?.message || String(e));
+  }
+}
+
+async function onImportedSuccess() {
+  if (learningContext.value?.user?.id && learningContext.value?.targetLang) {
+    try {
+      importedArticles.value = await getImportedArticles(
+        learningContext.value.user.id,
+        learningContext.value.targetLang,
+      );
+    } catch (e) {
+      console.warn("Could not refresh imported list:", e);
+    }
   }
 }
 </script>
@@ -355,15 +412,19 @@ async function confirmRegenerate() {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .skeleton-card {
-  height: 90px;
+  height: 96px;
   border-radius: var(--radius-md);
   background: linear-gradient(90deg, var(--surface) 25%, var(--surface-variant) 50%, var(--surface) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+.skeleton-card.small {
+  height: 72px;
 }
 
 @keyframes shimmer {
@@ -371,20 +432,57 @@ async function confirmRegenerate() {
   100% { background-position: -200% 0; }
 }
 
-.empty-state {
-  padding: 48px 16px;
+.content-container {
+  padding: 12px 16px 32px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  color: var(--text-lighter);
+  gap: 24px;
 }
 
-.article-list {
-  padding: 12px 16px;
+.section-block {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-light);
+  letter-spacing: 0.5px;
+}
+
+.btn-import-header {
+  padding: 4px 10px;
+  background: #ff0000;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-import-header:hover {
+  opacity: 0.9;
+}
+
+.ai-card-wrapper {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.ai-card {
+  flex: 1;
 }
 
 .article-card {
@@ -403,7 +501,6 @@ async function confirmRegenerate() {
   cursor: pointer;
   transition: background var(--transition), box-shadow var(--transition), border-color var(--transition);
   touch-action: manipulation;
-  -webkit-touch-callout: none;
   user-select: none;
 }
 
@@ -412,27 +509,60 @@ async function confirmRegenerate() {
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
 
-.article-card:focus-visible {
-  z-index: 2;
-  outline: 3px solid #1cb0f6 !important;
-  outline-offset: -3px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(28, 176, 246, 0.22) !important;
-  transform: none !important;
-  background: var(--green-bg);
+.action-aside {
+  display: flex;
+  align-items: stretch;
 }
 
-.article-card.is-long-pressing {
-  border-color: var(--green);
-  background: var(--green-bg);
+.btn-finish {
+  padding: 0 16px;
+  background: var(--green, #2ecc71);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  transition: background 0.2s, opacity 0.2s;
 }
 
-.article-card.is-regenerating {
-  pointer-events: none;
-  opacity: 0.85;
+.btn-finish:hover:not(:disabled) {
+  opacity: 0.9;
 }
 
-.article-card.is-generating {
-  cursor: default;
+.btn-finish:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.empty-ai-card {
+  padding: 24px 16px;
+  background: var(--white);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-lighter);
 }
 
 .card-overlay {
@@ -442,10 +572,11 @@ async function confirmRegenerate() {
   align-items: center;
   justify-content: center;
   border-radius: inherit;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.88);
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
+  z-index: 2;
 }
 
 .generation-spinner {
@@ -494,33 +625,13 @@ async function confirmRegenerate() {
   color: var(--text);
 }
 
-.date-weekday.weekday-sun {
-  color: #e74c3c;
-}
-
-.date-weekday.weekday-mon {
-  color: #e67e22;
-}
-
-.date-weekday.weekday-tue {
-  color: #f1c40f;
-}
-
-.date-weekday.weekday-wed {
-  color: #2ecc71;
-}
-
-.date-weekday.weekday-thu {
-  color: #3498db;
-}
-
-.date-weekday.weekday-fri {
-  color: #9b59b6;
-}
-
-.date-weekday.weekday-sat {
-  color: #1abc9c;
-}
+.date-weekday.weekday-sun { color: #e74c3c; }
+.date-weekday.weekday-mon { color: #e67e22; }
+.date-weekday.weekday-tue { color: #f1c40f; }
+.date-weekday.weekday-wed { color: #2ecc71; }
+.date-weekday.weekday-thu { color: #3498db; }
+.date-weekday.weekday-fri { color: #9b59b6; }
+.date-weekday.weekday-sat { color: #1abc9c; }
 
 .date-day {
   font-size: 11px;
@@ -593,10 +704,7 @@ async function confirmRegenerate() {
   line-height: 1;
 }
 
-.star-base {
-  color: #e6e0c8;
-}
-
+.star-base { color: #e6e0c8; }
 .star-fill {
   position: absolute;
   left: 0;
@@ -605,27 +713,113 @@ async function confirmRegenerate() {
   overflow: hidden;
   white-space: nowrap;
 }
+.star-full .star-fill { width: 100%; }
+.star-half .star-fill { width: 50%; }
+.star-empty .star-fill { width: 0; }
 
-.star-full .star-fill {
-  width: 100%;
+/* Imported List */
+.empty-imported {
+  padding: 20px 16px;
+  text-align: center;
+  color: var(--text-lighter);
+  font-size: 13px;
+  background: var(--white);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
 }
 
-.star-half .star-fill {
-  width: 50%;
+.imported-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.star-empty .star-fill {
-  width: 0;
+.imported-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+
+.imported-card:hover {
+  background: var(--surface, #f9f9f9);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.imported-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.imported-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.imported-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.imported-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-lighter);
+}
+
+.btn-delete {
+  background: none;
+  border: none;
+  color: var(--text-lighter);
+  padding: 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, background 0.2s;
+}
+
+.btn-delete:hover {
+  color: #e74c3c;
+  background: #fde8e8;
+}
+
+.btn-primary, .btn-secondary {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.btn-primary {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
 }
 
 .btn-secondary {
-  padding: 10px 20px;
-  border: 1px solid var(--border);
   background: var(--white);
-  border-radius: var(--radius-md);
-  font-weight: 600;
   color: var(--text);
-  cursor: pointer;
 }
 
 .status-toast {

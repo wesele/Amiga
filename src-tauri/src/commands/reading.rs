@@ -157,3 +157,79 @@ pub async fn get_completed_reading_count_cmd(
 ) -> Result<i32, String> {
     reading_mod::get_completed_reading_count(&db, &user_id)
 }
+
+#[tauri::command]
+pub async fn generate_initial_reading_article_cmd(
+    db: State<'_, DatabasePool>,
+    llm: State<'_, LlmState>,
+    user_id: String,
+    target_language: String,
+    cefr_level: String,
+    native_lang: String,
+) -> Result<reading_mod::ReadingArticle, String> {
+    let article = reading_mod::generate_initial_reading_article(
+        &llm.client,
+        &db,
+        &user_id,
+        &target_language,
+        &cefr_level,
+        &native_lang,
+    )
+    .await?;
+    after_syncable_write(&db);
+    Ok(article)
+}
+
+#[tauri::command]
+pub async fn finish_and_generate_next_reading_article_cmd(
+    db: State<'_, DatabasePool>,
+    llm: State<'_, LlmState>,
+    current_article_id: i64,
+    cefr_level: String,
+    native_lang: String,
+) -> Result<reading_mod::ReadingArticle, String> {
+    let article = reading_mod::finish_and_generate_next_reading_article(
+        &llm.client,
+        &db,
+        current_article_id,
+        &cefr_level,
+        &native_lang,
+    )
+    .await?;
+    after_syncable_write(&db);
+    Ok(article)
+}
+
+#[tauri::command]
+pub async fn get_imported_articles_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+    target_language: String,
+) -> Result<Vec<reading_mod::ImportedArticle>, String> {
+    reading_mod::get_imported_articles(&db, &user_id, &target_language)
+}
+
+#[tauri::command]
+pub async fn get_imported_article_cmd(
+    db: State<'_, DatabasePool>,
+    id: i64,
+) -> Result<reading_mod::ImportedArticle, String> {
+    reading_mod::get_imported_article(&db, id)
+}
+
+#[tauri::command]
+pub async fn delete_imported_article_cmd(
+    db: State<'_, DatabasePool>,
+    id: i64,
+) -> Result<Option<String>, String> {
+    let audio_path = reading_mod::delete_imported_article(&db, id)?;
+    // If audio file exists, remove it from disk
+    if let Some(ref path_str) = audio_path {
+        let p = std::path::Path::new(path_str);
+        if p.exists() {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+    after_syncable_write(&db);
+    Ok(audio_path)
+}
