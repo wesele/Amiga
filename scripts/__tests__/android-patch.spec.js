@@ -294,10 +294,18 @@ describe("Android TV build patches", () => {
     expect(tvGradle).toContain('applicationId = "com.idioma.app.tv"');
     expect(mergeGradleApplicationId(tvGradle, false)).toContain('applicationId = "com.idioma.app"');
 
+    const devGradle = mergeGradleApplicationId(gradle, false, true);
+    expect(devGradle).toContain('applicationId = "com.idioma.app.dev"');
+    expect(mergeGradleApplicationId(devGradle, false, false)).toContain('applicationId = "com.idioma.app"');
+
     const strings = '<resources><string name="app_name">Amiga</string><string name="main_activity_title">Amiga</string></resources>';
     const tvStrings = mergeAndroidAppName(strings, true);
     expect(tvStrings).toContain('<string name="app_name">Amiga TV</string>');
     expect(tvStrings).toContain('<string name="main_activity_title">Amiga TV</string>');
+
+    const devStrings = mergeAndroidAppName(strings, false, true);
+    expect(devStrings).toContain('<string name="app_name">Amiga Dev</string>');
+    expect(devStrings).toContain('<string name="main_activity_title">Amiga Dev</string>');
   });
 });
 

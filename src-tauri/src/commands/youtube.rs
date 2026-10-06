@@ -8,7 +8,7 @@ pub async fn fetch_youtube_metadata_cmd(
     url: String,
     target_lang: String,
 ) -> Result<yt_mod::YoutubeMetadata, String> {
-    yt_mod::fetch_youtube_metadata(&url, &target_lang)
+    yt_mod::fetch_youtube_metadata(&url, &target_lang).await
 }
 
 #[tauri::command]

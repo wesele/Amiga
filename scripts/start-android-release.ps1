@@ -17,8 +17,8 @@ $env:Path = "C:\msys64\mingw64\bin;$($env:Path)"
 
 $Adb = Join-Path $env:ANDROID_HOME "platform-tools\adb.exe"
 $TauriCli = Join-Path $ProjectDir "node_modules\@tauri-apps\cli\tauri.js"
-$PackageName = "com.idioma.app"
-$ActivityName = "$PackageName/.MainActivity"
+$PackageName = if ($env:AMIGA_APP_ID) { $env:AMIGA_APP_ID } elseif ($env:AMIGA_DEV -eq "1") { "com.idioma.app.dev" } else { "com.idioma.app" }
+$ActivityName = "$PackageName/com.idioma.app.MainActivity"
 
 if ($Platform -eq "x86") {
     $Label = "x86_64 emulator"
@@ -142,7 +142,7 @@ function Test-ApkFresh {
 function Ensure-AndroidProject {
     if (Test-Path "src-tauri\gen\android") { return }
     Write-AmigaLine "Initializing the generated Android project (first run)..."
-    & node $TauriCli android init
+    & cmd.exe /c npm.cmd run tauri -- android init
     if ($LASTEXITCODE -ne 0) { throw "tauri android init failed with exit code $LASTEXITCODE." }
 }
 
@@ -173,7 +173,7 @@ function Sync-AndroidSources {
 
 function Build-ReleaseApk {
     Write-AmigaLine "Building $Label release APK only..."
-    & node $TauriCli android build --target $TauriTarget --apk --split-per-abi
+    & cmd.exe /c npm.cmd run tauri -- android build --target $TauriTarget --apk --split-per-abi
     if ($LASTEXITCODE -ne 0) { throw "Android release build failed with exit code $LASTEXITCODE." }
     if (-not (Test-Path $Apk)) { throw "Expected APK was not produced: $Apk" }
 }

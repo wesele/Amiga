@@ -1,14 +1,19 @@
 use crate::modules::database::DatabasePool;
 use crate::modules::reading as reading_mod;
+use futures_util::StreamExt;
 use log;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
 use std::sync::{Mutex, OnceLock};
 use tauri::{AppHandle, Emitter};
+
+#[cfg(not(target_os = "android"))]
+use std::io::{BufRead, BufReader};
+#[cfg(not(target_os = "android"))]
+use std::process::{Command, Stdio};
 
 type TaskRegistry = Mutex<HashMap<String, u32>>;
 
@@ -75,70 +80,109 @@ pub struct ImportProgressEvent {
     pub message: String,
 }
 
-/// Locate yt-dlp executable
-pub fn resolve_ytdlp_path() -> PathBuf {
-    // 1. Check local app bin directory (%LOCALAPPDATA%/idioma/bin/yt-dlp.exe)
-    if let Some(mut local_data) = dirs::data_local_dir() {
-        local_data.push("idioma");
-        local_data.push("bin");
-        #[cfg(windows)]
-        let exe = local_data.join("yt-dlp.exe");
-        #[cfg(not(windows))]
-        let exe = local_data.join("yt-dlp");
-        if exe.exists() {
-            return exe;
-        }
-    }
-
-    // 2. Check Python user scripts paths on Windows (%APPDATA%\Python and %LOCALAPPDATA%\Programs\Python)
-    #[cfg(windows)]
+pub fn resolve_audio_dir() -> PathBuf {
+    #[cfg(target_os = "android")]
     {
-        if let Some(mut app_data) = dirs::data_dir() {
-            app_data.push("Python");
-            if let Ok(entries) = fs::read_dir(&app_data) {
-                for entry in entries.flatten() {
-                    let p = entry.path().join("Scripts").join("yt-dlp.exe");
-                    if p.exists() {
-                        return p;
-                    }
-                }
-            }
-        }
-        if let Some(mut local_data) = dirs::data_local_dir() {
-            local_data.push("Programs");
-            local_data.push("Python");
-            if let Ok(entries) = fs::read_dir(&local_data) {
-                for entry in entries.flatten() {
-                    let p = entry.path().join("Scripts").join("yt-dlp.exe");
-                    if p.exists() {
-                        return p;
-                    }
-                }
-            }
-        }
+        crate::modules::android_paths::app_files_dir()
+            .join("idioma")
+            .join("audio")
     }
+    #[cfg(not(target_os = "android"))]
+    {
+        dirs::data_local_dir()
+            .unwrap_or_else(std::env::temp_dir)
+            .join("idioma")
+            .join("audio")
+    }
+}
 
-    // 3. Check PATH
-    PathBuf::from("yt-dlp")
+/// Locate yt-dlp executable if available (not available on Android)
+#[allow(dead_code)]
+pub fn resolve_ytdlp_path() -> Option<PathBuf> {
+    #[cfg(target_os = "android")]
+    {
+        None
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        // 1. Check local app bin directory (%LOCALAPPDATA%/idioma/bin/yt-dlp.exe)
+        if let Some(mut local_data) = dirs::data_local_dir() {
+            local_data.push("idioma");
+            local_data.push("bin");
+            #[cfg(windows)]
+            let exe = local_data.join("yt-dlp.exe");
+            #[cfg(not(windows))]
+            let exe = local_data.join("yt-dlp");
+            if exe.exists() {
+                return Some(exe);
+            }
+        }
+
+        // 2. Check Python user scripts paths on Windows (%APPDATA%\Python and %LOCALAPPDATA%\Programs\Python)
+        #[cfg(windows)]
+        {
+            if let Some(mut app_data) = dirs::data_dir() {
+                app_data.push("Python");
+                if let Ok(entries) = fs::read_dir(&app_data) {
+                    for entry in entries.flatten() {
+                        let p = entry.path().join("Scripts").join("yt-dlp.exe");
+                        if p.exists() {
+                            return Some(p);
+                        }
+                    }
+                }
+            }
+            if let Some(mut local_data) = dirs::data_local_dir() {
+                local_data.push("Programs");
+                local_data.push("Python");
+                if let Ok(entries) = fs::read_dir(&local_data) {
+                    for entry in entries.flatten() {
+                        let p = entry.path().join("Scripts").join("yt-dlp.exe");
+                        if p.exists() {
+                            return Some(p);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Check PATH
+        if let Ok(out) = std::process::Command::new("yt-dlp").arg("--version").output() {
+            if out.status.success() {
+                return Some(PathBuf::from("yt-dlp"));
+            }
+        }
+
+        None
+    }
 }
 
 pub fn update_ytdlp() -> Result<String, String> {
-    let ytdlp = resolve_ytdlp_path();
-    let output = Command::new(ytdlp)
-        .arg("-U")
-        .output()
-        .map_err(|e| format!("Failed to run yt-dlp -U: {}", e))?;
+    #[cfg(target_os = "android")]
+    {
+        Err("移动端使用内置原生解析器，无需安装或更新外部组件。".to_string())
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let Some(ytdlp) = resolve_ytdlp_path() else {
+            return Err("未找到本地 yt-dlp 组件。应用已支持内置原生下载，无需额外安装。".to_string());
+        };
+        let output = Command::new(ytdlp)
+            .arg("-U")
+            .output()
+            .map_err(|e| format!("Failed to run yt-dlp -U: {}", e))?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    if output.status.success() {
-        Ok(if stdout.trim().is_empty() {
-            stderr
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        if output.status.success() {
+            Ok(if stdout.trim().is_empty() {
+                stderr
+            } else {
+                stdout
+            })
         } else {
-            stdout
-        })
-    } else {
-        Err(format!("Update failed: {} {}", stdout, stderr))
+            Err(format!("Update failed: {} {}", stdout, stderr))
+        }
     }
 }
 
@@ -177,9 +221,392 @@ pub fn extract_video_id(url: &str) -> Option<String> {
     None
 }
 
-/// Fetch metadata and check subtitle availability for target language
-pub fn fetch_youtube_metadata(url: &str, target_lang: &str) -> Result<YoutubeMetadata, String> {
-    let ytdlp = resolve_ytdlp_path();
+struct YoutubeSession {
+    cookies: String,
+    player_response: Option<serde_json::Value>,
+}
+
+fn extract_visitor_id(html: &str) -> Option<String> {
+    let needle = "\"VISITOR_DATA\":\"";
+    if let Some(pos) = html.find(needle) {
+        let rest = &html[pos + needle.len()..];
+        if let Some(end) = rest.find('"') {
+            return Some(rest[..end].to_string());
+        }
+    }
+    None
+}
+
+fn extract_initial_player_response(html: &str) -> Option<serde_json::Value> {
+    let needle = "ytInitialPlayerResponse = ";
+    if let Some(pos) = html.find(needle) {
+        let rest = &html[pos + needle.len()..];
+        let end_candidates = [";</script>", ";var ", ";window", ";const "];
+        for end_pat in end_candidates {
+            if let Some(end) = rest.find(end_pat) {
+                let json_str = rest[..end].trim();
+                if let Ok(v) = serde_json::from_str(json_str) {
+                    return Some(v);
+                }
+            }
+        }
+    }
+    None
+}
+
+async fn fetch_youtube_session(
+    client: &reqwest::Client,
+    video_id: &str,
+    target_lang: &str,
+) -> Result<YoutubeSession, String> {
+    let watch_url = format!("https://www.youtube.com/watch?v={}", video_id);
+    let watch_resp = client
+        .get(&watch_url)
+        .header(
+            "User-Agent",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+        )
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .send()
+        .await
+        .map_err(|e| format!("请求视频页面失败: {}", e))?;
+
+    let mut cookies = String::new();
+    for val in watch_resp.headers().get_all(reqwest::header::SET_COOKIE) {
+        if let Ok(s) = val.to_str() {
+            if let Some(cookie_pair) = s.split(';').next() {
+                if !cookies.is_empty() {
+                    cookies.push_str("; ");
+                }
+                cookies.push_str(cookie_pair.trim());
+            }
+        }
+    }
+
+    let html = watch_resp.text().await.unwrap_or_default();
+    let visitor_id = extract_visitor_id(&html);
+    let html_player_response = extract_initial_player_response(&html);
+
+    let mut player_req = client
+        .post("https://www.youtube.com/youtubei/v1/player?prettyPrint=false")
+        .header("Content-Type", "application/json")
+        .header(
+            "User-Agent",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+        )
+        .header("X-Youtube-Client-Name", "101")
+        .header("X-Youtube-Client-Version", "1.02")
+        .header("Origin", "https://www.youtube.com");
+
+    if let Some(ref vid) = visitor_id {
+        player_req = player_req.header("X-Goog-Visitor-Id", vid);
+    }
+    if !cookies.is_empty() {
+        player_req = player_req.header("Cookie", &cookies);
+    }
+
+    let body_json = serde_json::json!({
+        "context": {
+            "client": {
+                "clientName": "VISIONOS",
+                "clientVersion": "1.02",
+                "deviceMake": "Apple",
+                "deviceModel": "RealityDevice17,1",
+                "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+                "osName": "visionOS",
+                "osVersion": "26.5.23O471",
+                "hl": target_lang,
+                "timeZone": "UTC",
+                "utcOffsetMinutes": 0
+            }
+        },
+        "videoId": video_id,
+        "playbackContext": {
+            "contentPlaybackContext": {
+                "html5Preference": "HTML5_PREF_WANTS",
+                "signatureTimestamp": 20728
+            }
+        },
+        "contentCheckOk": true,
+        "racyCheckOk": true
+    });
+
+    let player_json = match player_req.json(&body_json).send().await {
+        Ok(resp) => resp.json::<serde_json::Value>().await.ok(),
+        Err(_) => None,
+    };
+
+    let chosen_response = match player_json {
+        Some(json)
+            if json.pointer("/playabilityStatus/status").and_then(|v| v.as_str()) == Some("OK") =>
+        {
+            Some(json)
+        }
+        _ => html_player_response.or(player_json),
+    };
+
+    Ok(YoutubeSession {
+        cookies,
+        player_response: chosen_response,
+    })
+}
+
+fn parse_metadata_from_player_json(
+    url: &str,
+    video_id: &str,
+    player_json: &serde_json::Value,
+    target_lang: &str,
+) -> Result<YoutubeMetadata, String> {
+    let title = player_json
+        .pointer("/videoDetails/title")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Untitled")
+        .to_string();
+
+    let channel = player_json
+        .pointer("/videoDetails/author")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let duration_sec = player_json
+        .pointer("/videoDetails/lengthSeconds")
+        .and_then(|v| {
+            v.as_str()
+                .and_then(|s| s.parse::<i64>().ok())
+                .or_else(|| v.as_i64())
+        });
+
+    let approx_mb = duration_sec.map(|sec| (sec as f64 * 8.0) / 1024.0);
+
+    let norm_lang = target_lang.to_lowercase();
+    let lang_prefix = norm_lang.split('-').next().unwrap_or(&norm_lang);
+
+    let mut has_manual = false;
+    let mut has_auto = false;
+    let mut matched_lang = None;
+
+    if let Some(tracks) = player_json
+        .pointer("/captions/playerCaptionsTracklistRenderer/captionTracks")
+        .and_then(|v| v.as_array())
+    {
+        for track in tracks {
+            let code = track
+                .get("languageCode")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let kind = track.get("kind").and_then(|v| v.as_str());
+            let code_lower = code.to_lowercase();
+            let matches_lang = code_lower == norm_lang || code_lower.starts_with(lang_prefix);
+
+            if matches_lang {
+                if kind == Some("asr") {
+                    if !has_manual {
+                        has_auto = true;
+                        matched_lang = Some(code.to_string());
+                    }
+                } else {
+                    has_manual = true;
+                    matched_lang = Some(code.to_string());
+                    break;
+                }
+            }
+        }
+    }
+
+    Ok(YoutubeMetadata {
+        url: url.to_string(),
+        video_id: video_id.to_string(),
+        title,
+        channel,
+        duration_sec,
+        filesize_approx_mb: approx_mb,
+        has_manual_subtitles: has_manual,
+        has_auto_captions: has_auto,
+        subtitle_lang: matched_lang,
+    })
+}
+
+fn find_subtitle_url(player_json: &serde_json::Value, target_lang: &str) -> Option<String> {
+    let norm_lang = target_lang.to_lowercase();
+    let lang_prefix = norm_lang.split('-').next().unwrap_or(&norm_lang);
+
+    let tracks = player_json
+        .pointer("/captions/playerCaptionsTracklistRenderer/captionTracks")
+        .and_then(|v| v.as_array())?;
+
+    let mut manual_url = None;
+    let mut auto_url = None;
+
+    for track in tracks {
+        let code = track
+            .get("languageCode")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let base_url = track.get("baseUrl").and_then(|v| v.as_str())?;
+        let kind = track.get("kind").and_then(|v| v.as_str());
+        let code_lower = code.to_lowercase();
+        let matches_lang = code_lower == norm_lang || code_lower.starts_with(lang_prefix);
+
+        if matches_lang {
+            if kind == Some("asr") {
+                if auto_url.is_none() {
+                    auto_url = Some(base_url.to_string());
+                }
+            } else {
+                manual_url = Some(base_url.to_string());
+                break;
+            }
+        }
+    }
+
+    manual_url.or(auto_url)
+}
+
+async fn download_subtitle_direct(
+    client: &reqwest::Client,
+    base_url: &str,
+    cookies: &str,
+) -> Result<String, String> {
+    let sub_url = if base_url.contains("fmt=") {
+        base_url.to_string()
+    } else {
+        format!("{}&fmt=vtt", base_url)
+    };
+
+    let mut req = client.get(&sub_url).header(
+        "User-Agent",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    );
+    if !cookies.is_empty() {
+        req = req.header("Cookie", cookies);
+    }
+
+    let resp = req.send().await.map_err(|e| format!("请求字幕失败: {}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("字幕请求返回状态码: {}", resp.status()));
+    }
+
+    let text = resp
+        .text()
+        .await
+        .map_err(|e| format!("读取字幕内容失败: {}", e))?;
+
+    if text.trim().is_empty() {
+        return Err("获取到的字幕内容为空".to_string());
+    }
+
+    Ok(text)
+}
+
+fn find_audio_format(player_json: &serde_json::Value) -> Option<(String, Option<u64>)> {
+    let formats = player_json
+        .pointer("/streamingData/adaptiveFormats")
+        .and_then(|v| v.as_array())?;
+
+    let mut candidates: Vec<(&serde_json::Value, i64, bool)> = Vec::new();
+
+    for f in formats {
+        let mime = f.get("mimeType").and_then(|v| v.as_str()).unwrap_or("");
+        let url = f.get("url").and_then(|v| v.as_str());
+        if !mime.starts_with("audio/") || url.is_none() {
+            continue;
+        }
+        let bitrate = f.get("bitrate").and_then(|v| v.as_i64()).unwrap_or(0);
+        let is_m4a = mime.contains("mp4a") || mime.contains("audio/mp4");
+        candidates.push((f, bitrate, is_m4a));
+    }
+
+    candidates.sort_by(|a, b| match b.2.cmp(&a.2) {
+        std::cmp::Ordering::Equal => b.1.cmp(&a.1),
+        other => other,
+    });
+
+    if let Some(&(f, _, _)) = candidates.first() {
+        let url = f.get("url").and_then(|v| v.as_str())?.to_string();
+        let content_length = f
+            .get("contentLength")
+            .and_then(|v| v.as_str().and_then(|s| s.parse::<u64>().ok()));
+        Some((url, content_length))
+    } else {
+        None
+    }
+}
+
+async fn download_audio_direct<F>(
+    client: &reqwest::Client,
+    audio_url: &str,
+    cookies: &str,
+    dest_path: &PathBuf,
+    approx_size: Option<u64>,
+    task_id: &str,
+    mut progress_fn: F,
+) -> Result<(), String>
+where
+    F: FnMut(f64, Option<f64>, &str),
+{
+    let mut req = client.get(audio_url).header(
+        "User-Agent",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+    );
+    if !cookies.is_empty() {
+        req = req.header("Cookie", cookies);
+    }
+
+    let resp = req.send().await.map_err(|e| format!("连接音频流失败: {}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("音频流请求失败，状态码: {}", resp.status()));
+    }
+
+    let total_bytes = resp
+        .content_length()
+        .or(approx_size)
+        .unwrap_or(10_000_000);
+
+    let mut file = std::fs::File::create(dest_path)
+        .map_err(|e| format!("创建音频本地文件失败: {}", e))?;
+
+    let mut stream = resp.bytes_stream();
+    let mut downloaded: u64 = 0;
+    let start_time = std::time::Instant::now();
+    let mut last_notify = std::time::Instant::now();
+
+    while let Some(chunk_res) = stream.next().await {
+        if is_task_cancelled(task_id) {
+            let _ = std::fs::remove_file(dest_path);
+            return Err("导入已取消".to_string());
+        }
+
+        let chunk = chunk_res.map_err(|e| format!("下载音频数据错误: {}", e))?;
+        file.write_all(&chunk)
+            .map_err(|e| format!("写入音频数据失败: {}", e))?;
+        downloaded += chunk.len() as u64;
+
+        if last_notify.elapsed() >= std::time::Duration::from_millis(350) {
+            let pct = ((downloaded as f64 / total_bytes as f64) * 100.0).min(100.0);
+            let mapped = 30.0 + (pct * 0.60);
+            let elapsed_secs = start_time.elapsed().as_secs_f64();
+            let speed = if elapsed_secs > 0.1 {
+                Some((downloaded as f64 / 1024.0 / 1024.0) / elapsed_secs)
+            } else {
+                None
+            };
+            progress_fn(mapped, speed, &format!("正在下载音频: {:.1}%", pct));
+            last_notify = std::time::Instant::now();
+        }
+    }
+
+    file.flush()
+        .map_err(|e| format!("刷新音频文件写入失败: {}", e))?;
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "android"))]
+fn fetch_youtube_metadata_ytdlp(
+    ytdlp: &std::path::Path,
+    url: &str,
+    target_lang: &str,
+) -> Result<YoutubeMetadata, String> {
     let video_id = extract_video_id(url).unwrap_or_else(|| "unknown".to_string());
 
     let output = Command::new(ytdlp)
@@ -215,7 +642,6 @@ pub fn fetch_youtube_metadata(url: &str, target_lang: &str) -> Result<YoutubeMet
         .map(|s| s.to_string());
     let duration_sec = json.get("duration").and_then(|v| v.as_i64());
 
-    // Approximate audio size calculation (assume ~64kbps = 8KB/s)
     let approx_mb = duration_sec.map(|sec| (sec as f64 * 8.0) / 1024.0);
 
     let norm_lang = target_lang.to_lowercase();
@@ -260,6 +686,36 @@ pub fn fetch_youtube_metadata(url: &str, target_lang: &str) -> Result<YoutubeMet
         has_auto_captions: has_auto,
         subtitle_lang: matched_lang,
     })
+}
+
+/// Fetch metadata and check subtitle availability for target language
+pub async fn fetch_youtube_metadata(url: &str, target_lang: &str) -> Result<YoutubeMetadata, String> {
+    let video_id = extract_video_id(url).ok_or_else(|| "无法从输入中解析出有效的 YouTube 视频 ID".to_string())?;
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("创建网络客户端失败: {}", e))?;
+
+    match fetch_youtube_session(&client, &video_id, target_lang).await {
+        Ok(session) => {
+            if let Some(ref pjson) = session.player_response {
+                if let Ok(meta) = parse_metadata_from_player_json(url, &video_id, pjson, target_lang) {
+                    return Ok(meta);
+                }
+            }
+        }
+        Err(e) => {
+            log::warn!("Direct YouTube session fetch failed: {}", e);
+        }
+    }
+
+    #[cfg(not(target_os = "android"))]
+    if let Some(ytdlp) = resolve_ytdlp_path() {
+        return fetch_youtube_metadata_ytdlp(&ytdlp, url, target_lang);
+    }
+
+    Err("获取 YouTube 视频元数据失败，请检查网络或链接是否有效。".to_string())
 }
 
 /// Helper function to parse seconds from WebVTT timestamp (00:01:23.456 or 01:23.456)
@@ -546,13 +1002,133 @@ pub fn cancel_import(task_id: &str) {
                 .arg(pid.to_string())
                 .output();
         }
-        #[cfg(not(windows))]
+        #[cfg(all(unix, not(target_os = "android")))]
         {
             unsafe {
                 libc::kill(pid as i32, libc::SIGKILL);
             }
         }
+        #[cfg(target_os = "android")]
+        {
+            let _ = pid;
+        }
     }
+}
+
+#[cfg(not(target_os = "android"))]
+fn download_subtitle_ytdlp(
+    ytdlp: &std::path::Path,
+    url: &str,
+    matched_lang: &str,
+    temp_dir: &std::path::Path,
+    task_id: &str,
+) -> Option<String> {
+    let mut sub_cmd = Command::new(ytdlp);
+    sub_cmd
+        .arg("--skip-download")
+        .arg("--sub-format")
+        .arg("vtt")
+        .arg("-o")
+        .arg(temp_dir.join("sub.%(ext)s"))
+        .arg("--no-playlist")
+        .arg(url)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .arg("--write-auto-sub")
+        .arg("--sub-lang")
+        .arg(matched_lang);
+
+    let mut sub_child = sub_cmd.spawn().ok()?;
+    let sub_pid = sub_child.id();
+    if let Ok(mut tasks) = get_running_tasks().lock() {
+        tasks.insert(task_id.to_string(), sub_pid);
+    }
+    let _ = sub_child.wait();
+    if let Ok(mut tasks) = get_running_tasks().lock() {
+        tasks.remove(task_id);
+    }
+
+    if let Ok(entries) = fs::read_dir(temp_dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.extension().map(|e| e == "vtt").unwrap_or(false) {
+                return fs::read_to_string(&p).ok();
+            }
+        }
+    }
+    None
+}
+
+#[cfg(not(target_os = "android"))]
+fn download_audio_ytdlp<F>(
+    ytdlp: &std::path::Path,
+    url: &str,
+    dest_path: &std::path::Path,
+    task_id: &str,
+    mut progress_fn: F,
+) -> bool
+where
+    F: FnMut(f64, Option<f64>, &str),
+{
+    let mut audio_cmd = Command::new(ytdlp);
+    audio_cmd
+        .arg("-f")
+        .arg("bestaudio[ext=m4a]/bestaudio/best")
+        .arg("-o")
+        .arg(dest_path)
+        .arg("--newline")
+        .arg("--no-playlist")
+        .arg(url)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let mut audio_child = match audio_cmd.spawn() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+
+    let audio_pid = audio_child.id();
+    if let Ok(mut tasks) = get_running_tasks().lock() {
+        tasks.insert(task_id.to_string(), audio_pid);
+    }
+
+    let stdout = audio_child.stdout.take();
+    if let Some(out) = stdout {
+        let reader = BufReader::new(out);
+        for line in reader.lines().map_while(Result::ok) {
+            if line.contains("[download]") && line.contains('%') {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                for &part in &parts {
+                    if part.ends_with('%') {
+                        if let Ok(pct) = part.trim_end_matches('%').parse::<f64>() {
+                            let mapped = 30.0 + (pct * 0.60);
+                            let mut speed = None;
+                            if let Some(at_idx) = parts.iter().position(|&p| p == "at") {
+                                if let Some(spd_str) = parts.get(at_idx + 1) {
+                                    if spd_str.ends_with("MiB/s") {
+                                        speed = spd_str
+                                            .trim_end_matches("MiB/s")
+                                            .parse::<f64>()
+                                            .ok();
+                                    }
+                                }
+                            }
+                            progress_fn(mapped, speed, &format!("正在下载音频: {:.1}%", pct));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let audio_res = audio_child.wait();
+    if let Ok(mut tasks) = get_running_tasks().lock() {
+        tasks.remove(task_id);
+    }
+
+    audio_res.map(|s| s.success()).unwrap_or(false) && dest_path.exists()
 }
 
 pub fn run_import_pipeline(
@@ -568,7 +1144,7 @@ pub fn run_import_pipeline(
     let app_clone = app.clone();
     let task_id_clone = task_id.clone();
 
-    std::thread::spawn(move || {
+    tauri::async_runtime::spawn(async move {
         let notify = |phase: &str, percent: f64, speed: Option<f64>, msg: &str| {
             let evt = ImportProgressEvent {
                 task_id: task_id_clone.clone(),
@@ -590,16 +1166,62 @@ pub fn run_import_pipeline(
 
         notify("analyzing", 5.0, None, "正在解析视频元数据与字幕信息...");
 
-        let ytdlp = resolve_ytdlp_path();
+        let client = match reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(20))
+            .build()
+        {
+            Ok(c) => c,
+            Err(e) => {
+                notify("error", 0.0, None, &format!("创建网络客户端失败: {}", e));
+                return;
+            }
+        };
+
+        let video_id = match extract_video_id(&url) {
+            Some(vid) => vid,
+            None => {
+                notify("error", 0.0, None, "无法识别视频 ID");
+                return;
+            }
+        };
+
+        let session_res = fetch_youtube_session(&client, &video_id, &target_lang).await;
+        let session = session_res.ok();
+
         let meta = match prefetched_meta {
             Some(m) => m,
-            None => match fetch_youtube_metadata(&url, &target_lang) {
-                Ok(m) => m,
-                Err(e) => {
-                    notify("error", 0.0, None, &format!("获取视频信息失败: {}", e));
-                    return;
+            None => {
+                let from_session = session
+                    .as_ref()
+                    .and_then(|s| s.player_response.as_ref())
+                    .and_then(|pj| parse_metadata_from_player_json(&url, &video_id, pj, &target_lang).ok());
+
+                match from_session {
+                    Some(m) => m,
+                    None => {
+                        #[cfg(not(target_os = "android"))]
+                        {
+                            if let Some(ytdlp) = resolve_ytdlp_path() {
+                                match fetch_youtube_metadata_ytdlp(&ytdlp, &url, &target_lang) {
+                                    Ok(m) => m,
+                                    Err(e) => {
+                                        notify("error", 0.0, None, &format!("获取视频信息失败: {}", e));
+                                        return;
+                                    }
+                                }
+                            } else {
+                                notify("error", 0.0, None, "获取视频信息失败，请检查网络");
+                                return;
+                            }
+                        }
+                        #[cfg(target_os = "android")]
+                        {
+                            notify("error", 0.0, None, "获取视频信息失败，请检查网络连接");
+                            return;
+                        }
+                    }
                 }
-            },
+            }
         };
 
         if is_task_cancelled(&task_id_clone) {
@@ -620,82 +1242,30 @@ pub fn run_import_pipeline(
         let matched_lang = meta.subtitle_lang.as_deref().unwrap_or(&target_lang);
 
         // Prepare temporary directory
-        let temp_dir = std::env::temp_dir().join(format!("amiga_yt_{}", task_id_clone));
+        let temp_dir = resolve_audio_dir().join("temp").join(&task_id_clone);
         let _ = fs::create_dir_all(&temp_dir);
 
         // 1. Download subtitle
         notify("subtitles", 15.0, None, "正在下载字幕...");
-        let mut sub_cmd = Command::new(&ytdlp);
-        sub_cmd
-            .arg("--skip-download")
-            .arg("--sub-format")
-            .arg("vtt")
-            .arg("-o")
-            .arg(temp_dir.join("sub.%(ext)s"))
-            .arg("--no-playlist")
-            .arg(&url)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
 
-        if meta.has_manual_subtitles {
-            sub_cmd
-                .arg("--write-sub")
-                .arg("--sub-lang")
-                .arg(matched_lang);
-        } else {
-            sub_cmd
-                .arg("--write-auto-sub")
-                .arg("--sub-lang")
-                .arg(matched_lang);
-        }
+        let mut vtt_content = None;
+        let cookies_ref = session.as_ref().map(|s| s.cookies.as_str()).unwrap_or("");
 
-        let mut sub_child = match sub_cmd.spawn() {
-            Ok(c) => c,
-            Err(e) => {
-                notify("error", 0.0, None, &format!("启动字幕下载失败: {}", e));
-                let _ = fs::remove_dir_all(&temp_dir);
-                return;
-            }
-        };
-
-        let sub_pid = sub_child.id();
-        {
-            let mut tasks = get_running_tasks().lock().unwrap();
-            tasks.insert(task_id_clone.clone(), sub_pid);
-        }
-
-        let sub_stdout = sub_child.stdout.take();
-        let sub_out_handle = std::thread::spawn(move || {
-            if let Some(out) = sub_stdout {
-                let reader = BufReader::new(out);
-                for _ in reader.lines().map_while(Result::ok) {}
-            }
-        });
-
-        let sub_stderr = sub_child.stderr.take();
-        let sub_err_handle = std::thread::spawn(move || {
-            let mut err_msg = String::new();
-            if let Some(err) = sub_stderr {
-                let reader = BufReader::new(err);
-                for line in reader.lines().map_while(Result::ok) {
-                    if !err_msg.is_empty() {
-                        err_msg.push('\n');
+        if let Some(ref s) = session {
+            if let Some(ref pj) = s.player_response {
+                if let Some(sub_url) = find_subtitle_url(pj, matched_lang) {
+                    if let Ok(text) = download_subtitle_direct(&client, &sub_url, cookies_ref).await {
+                        vtt_content = Some(text);
                     }
-                    err_msg.push_str(&line);
                 }
             }
-            err_msg
-        });
+        }
 
-        let sub_res = sub_child.wait();
-        let _ = sub_out_handle.join();
-        let sub_err_output = sub_err_handle.join().unwrap_or_default();
-
-        // Clear sub task pid
-        {
-            let mut tasks = get_running_tasks().lock().unwrap();
-            tasks.remove(&task_id_clone);
+        #[cfg(not(target_os = "android"))]
+        if vtt_content.is_none() {
+            if let Some(ytdlp) = resolve_ytdlp_path() {
+                vtt_content = download_subtitle_ytdlp(&ytdlp, &url, matched_lang, &temp_dir, &task_id_clone);
+            }
         }
 
         if is_task_cancelled(&task_id_clone) {
@@ -704,45 +1274,13 @@ pub fn run_import_pipeline(
             return;
         }
 
-        if sub_res.is_err() || !sub_res.unwrap().success() {
-            let detail = if sub_err_output.trim().is_empty() {
-                "下载字幕失败或任务已被取消。".to_string()
-            } else {
-                format!("下载字幕失败: {}", sub_err_output.trim())
-            };
-            notify("error", 0.0, None, &detail);
-            let _ = fs::remove_dir_all(&temp_dir);
-            return;
-        }
-
-        // Find downloaded VTT file
-        let mut vtt_file = None;
-        if let Ok(entries) = fs::read_dir(&temp_dir) {
-            for entry in entries.flatten() {
-                let p = entry.path();
-                if p.extension().map(|e| e == "vtt").unwrap_or(false) {
-                    vtt_file = Some(p);
-                    break;
-                }
-            }
-        }
-
-        let Some(vtt_path) = vtt_file else {
+        let Some(vtt_text) = vtt_content else {
             notify("error", 0.0, None, "未能生成字幕文件。");
             let _ = fs::remove_dir_all(&temp_dir);
             return;
         };
 
-        let vtt_content = match fs::read_to_string(&vtt_path) {
-            Ok(s) => s,
-            Err(e) => {
-                notify("error", 0.0, None, &format!("读取字幕失败: {}", e));
-                let _ = fs::remove_dir_all(&temp_dir);
-                return;
-            }
-        };
-
-        let paragraphs = clean_and_parse_vtt(&vtt_content);
+        let paragraphs = clean_and_parse_vtt(&vtt_text);
         if paragraphs.is_empty() {
             notify("error", 0.0, None, "字幕内容为空或无法识别有效段落。");
             let _ = fs::remove_dir_all(&temp_dir);
@@ -753,102 +1291,49 @@ pub fn run_import_pipeline(
         notify("audio", 30.0, None, "开始下载音频...");
 
         // Determine destination audio path
-        let mut audio_dir = dirs::data_local_dir().unwrap_or_else(std::env::temp_dir);
-        audio_dir.push("idioma");
-        audio_dir.push("audio");
+        let audio_dir = resolve_audio_dir();
         let _ = fs::create_dir_all(&audio_dir);
         let audio_dest = audio_dir.join(format!("yt_{}_{}.m4a", meta.video_id, task_id_clone));
 
-        let mut audio_cmd = Command::new(&ytdlp);
-        audio_cmd
-            .arg("-f")
-            .arg("bestaudio[ext=m4a]/bestaudio/best")
-            .arg("-o")
-            .arg(&audio_dest)
-            .arg("--newline")
-            .arg("--no-playlist")
-            .arg(&url)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+        let mut audio_downloaded = false;
 
-        let mut audio_child = match audio_cmd.spawn() {
-            Ok(c) => c,
-            Err(e) => {
-                notify("error", 0.0, None, &format!("启动音频下载失败: {}", e));
-                let _ = fs::remove_dir_all(&temp_dir);
-                return;
-            }
-        };
+        // Try direct stream download
+        if let Some(ref s) = session {
+            if let Some(ref pj) = s.player_response {
+                if let Some((audio_url, approx_size)) = find_audio_format(pj) {
+                    let direct_res = download_audio_direct(
+                        &client,
+                        &audio_url,
+                        cookies_ref,
+                        &audio_dest,
+                        approx_size,
+                        &task_id_clone,
+                        |mapped, speed, msg| {
+                            notify("audio", mapped, speed, msg);
+                        },
+                    )
+                    .await;
 
-        let audio_pid = audio_child.id();
-        {
-            let mut tasks = get_running_tasks().lock().unwrap();
-            tasks.insert(task_id_clone.clone(), audio_pid);
-        }
-
-        let stdout = audio_child.stdout.take();
-        let stderr = audio_child.stderr.take();
-
-        // Drain stderr concurrently to prevent pipe buffer deadlock
-        let stderr_handle = std::thread::spawn(move || {
-            let mut err_msg = String::new();
-            if let Some(err) = stderr {
-                let reader = BufReader::new(err);
-                for line in reader.lines().map_while(Result::ok) {
-                    if !err_msg.is_empty() {
-                        err_msg.push('\n');
-                    }
-                    err_msg.push_str(&line);
-                }
-            }
-            err_msg
-        });
-
-        // Read progress from stdout
-        if let Some(out) = stdout {
-            let reader = BufReader::new(out);
-            for line in reader.lines().map_while(Result::ok) {
-                if line.contains("[download]") && line.contains('%') {
-                    let parts: Vec<&str> = line.split_whitespace().collect();
-                    for &part in &parts {
-                        if part.ends_with('%') {
-                            if let Ok(pct) = part.trim_end_matches('%').parse::<f64>() {
-                                // map download percent (0-100) to overall percent (30-90)
-                                let mapped = 30.0 + (pct * 0.60);
-                                let mut speed = None;
-                                if let Some(at_idx) = parts.iter().position(|&p| p == "at") {
-                                    if let Some(spd_str) = parts.get(at_idx + 1) {
-                                        if spd_str.ends_with("MiB/s") {
-                                            speed = spd_str
-                                                .trim_end_matches("MiB/s")
-                                                .parse::<f64>()
-                                                .ok();
-                                        }
-                                    }
-                                }
-                                notify(
-                                    "audio",
-                                    mapped,
-                                    speed,
-                                    &format!("正在下载音频: {:.1}%", pct),
-                                );
-                            }
-                        }
+                    if direct_res.is_ok()
+                        && audio_dest.exists()
+                        && fs::metadata(&audio_dest).map(|m| m.len() > 1024).unwrap_or(false)
+                    {
+                        audio_downloaded = true;
+                    } else if let Err(e) = direct_res {
+                        log::warn!("Direct audio download error: {}", e);
                     }
                 }
             }
         }
 
-        let audio_res = audio_child.wait();
-
-        // Remove from running tasks map
-        {
-            let mut tasks = get_running_tasks().lock().unwrap();
-            tasks.remove(&task_id_clone);
+        #[cfg(not(target_os = "android"))]
+        if !audio_downloaded && !is_task_cancelled(&task_id_clone) {
+            if let Some(ytdlp) = resolve_ytdlp_path() {
+                audio_downloaded = download_audio_ytdlp(&ytdlp, &url, &audio_dest, &task_id_clone, |mapped, speed, msg| {
+                    notify("audio", mapped, speed, msg);
+                });
+            }
         }
-
-        let audio_err_output = stderr_handle.join().unwrap_or_default();
 
         if is_task_cancelled(&task_id_clone) {
             notify("error", 0.0, None, "导入已取消");
@@ -857,13 +1342,8 @@ pub fn run_import_pipeline(
             return;
         }
 
-        if audio_res.is_err() || !audio_res.unwrap().success() || !audio_dest.exists() {
-            let detail = if audio_err_output.trim().is_empty() {
-                "音频下载失败或已被取消。".to_string()
-            } else {
-                format!("音频下载失败: {}", audio_err_output.trim())
-            };
-            notify("error", 0.0, None, &detail);
+        if !audio_downloaded || !audio_dest.exists() {
+            notify("error", 0.0, None, "音频下载失败，请检查网络后重试。");
             let _ = fs::remove_file(&audio_dest);
             let _ = fs::remove_dir_all(&temp_dir);
             return;
@@ -974,5 +1454,15 @@ vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c>
         let text = &paragraphs[0].text;
         assert_eq!(text.matches("Este es probablemente").count(), 1);
         assert_eq!(text.matches("hoteles en los que").count(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_fetch_youtube_metadata_network() {
+        let res = fetch_youtube_metadata("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "en").await;
+        if let Ok(meta) = res {
+            assert_eq!(meta.video_id, "dQw4w9WgXcQ");
+            assert!(!meta.title.is_empty());
+            assert!(meta.has_manual_subtitles || meta.has_auto_captions);
+        }
     }
 }

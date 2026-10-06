@@ -2,6 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
+if not defined AMIGA_DEV set "AMIGA_DEV=1"
 set "ARGS=-Platform arm"
 if /i "%~1"=="--full" set "ARGS=%ARGS% -ForceFull"
 if /i "%~1"=="/full" set "ARGS=%ARGS% -ForceFull"

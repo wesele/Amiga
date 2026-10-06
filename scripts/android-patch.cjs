@@ -72,6 +72,7 @@ const PATCH_JITPACK_END = "// AMIGA-PATCH-END: jitpack";
 
 const FORCE = process.argv.includes("--force");
 const TV_MODE = process.env.AMIGA_TV === "1";
+const DEV_MODE = process.env.AMIGA_DEV === "1";
 
 /**
  * Whether a tracked source file should replace the generated copy.
@@ -231,16 +232,20 @@ function mergeTvManifestAttributes(manifest, tvMode = false) {
   return result;
 }
 
-function mergeGradleApplicationId(gradle, tvMode = false) {
-  const applicationId = tvMode ? "com.idioma.app.tv" : "com.idioma.app";
+function mergeGradleApplicationId(gradle, tvMode = false, devMode = false) {
+  const applicationId = tvMode
+    ? "com.idioma.app.tv"
+    : devMode
+    ? "com.idioma.app.dev"
+    : "com.idioma.app";
   return gradle.replace(
-    /applicationId\s*=\s*"com\.idioma\.app(?:\.tv)?"/,
+    /applicationId\s*=\s*"com\.idioma\.app(?:\.tv|\.dev)?"/,
     `applicationId = "${applicationId}"`,
   );
 }
 
-function mergeAndroidAppName(stringsXml, tvMode = false) {
-  const name = tvMode ? "Amiga TV" : "Amiga";
+function mergeAndroidAppName(stringsXml, tvMode = false, devMode = false) {
+  const name = tvMode ? "Amiga TV" : devMode ? "Amiga Dev" : "Amiga";
   return stringsXml
     .replace(/(<string name="app_name">)[\s\S]*?(<\/string>)/, `$1${name}$2`)
     .replace(/(<string name="main_activity_title">)[\s\S]*?(<\/string>)/, `$1${name}$2`);
@@ -697,7 +702,7 @@ if (require.main === module) {
     const genGradle = fs.readFileSync(DST_GRADLE, "utf8");
     const nextGradle = mergeGradleKokoroDependency(
       mergeGradleJvm11(
-        mergeGradleApplicationId(mergeGradleDebugSigning(genGradle), TV_MODE),
+        mergeGradleApplicationId(mergeGradleDebugSigning(genGradle), TV_MODE, DEV_MODE),
       ),
     );
     if (nextGradle !== genGradle) {
@@ -721,11 +726,11 @@ if (require.main === module) {
 
   if (fs.existsSync(DST_STRINGS)) {
     const strings = fs.readFileSync(DST_STRINGS, "utf8");
-    const nextStrings = mergeAndroidAppName(strings, TV_MODE);
+    const nextStrings = mergeAndroidAppName(strings, TV_MODE, DEV_MODE);
     if (nextStrings !== strings) fs.writeFileSync(DST_STRINGS, nextStrings);
   }
 
   console.log(
-    `[android-patch] done. copied=${copied} skipped=${skipped} resCopied=${resCopied} resSkipped=${resSkipped} force=${FORCE} tv=${TV_MODE} manifestPatched=${manifestPatched} gradlePatched=${gradlePatched}`,
+    `[android-patch] done. copied=${copied} skipped=${skipped} resCopied=${resCopied} resSkipped=${resSkipped} force=${FORCE} tv=${TV_MODE} dev=${DEV_MODE} manifestPatched=${manifestPatched} gradlePatched=${gradlePatched}`,
   );
 }
