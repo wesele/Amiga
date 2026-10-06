@@ -34,6 +34,10 @@ function applyRuntimeDefaults(state) {
     state.settings.builtin_thinking_enabled = "true";
     state.settings.builtin_thinking_model = state.llm_config.builtin.model;
   }
+  if (!state.imported_articles || state.imported_articles.length === 0) {
+    state.imported_articles = clone(defaults.imported_articles || []);
+    changed = true;
+  }
   return changed;
 }
 

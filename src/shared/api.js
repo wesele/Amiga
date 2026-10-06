@@ -98,6 +98,25 @@ if (_isWebRuntime) {
     if (command === "get_section_progress_cmd") {
       return { completed_count: 8, total_count: 12, stars: 24, is_unlocked: true };
     }
+    if (command === "get_imported_article_cmd") {
+      return {
+        id: args?.id || 1,
+        title: "MI NUEVA VIDA EN HONG KONG🇭🇰",
+        subtitles_json: JSON.stringify([
+          { start: 0, end: 18.1, text: "Este es probablemente uno de los peores hoteles en los que he dormido en mi vida, o más bien debería decir en los que he no dormido en mi vida. Pero esta es mi nueva vida en Hong Kong y es que, como muchos de ustedes saben, hace poco nos rechazaron la visa en China Continental y eso significa que tenemos que encontrar un nuevo lugar donde vivir." },
+          { start: 18.1, end: 31.2, text: "Por eso el día de hoy me van a acompañar a ver cómo serían nuestras vidas en Hong Kong y vamos a ver de todo, desde dónde viviríamos, qué comeríamos, cómo nos transportaríamos y cómo es la vida en general en Hong Kong." },
+          { start: 31.2, end: 39.6, text: "Pero antes tengo que ir a hacer checkout porque no puedo pasar otra noche aquí. Ya llevo cinco y no he dormido en lo absoluto. Y es que si se dan cuenta, no hay ventilación." },
+          { start: 39.6, end: 55.8, text: "No hay nada de ventilación, hay muchísima humedad. Amanecí con condensación en el techo y además me estaba congelando porque hay un letrero que dice que no debes apagar el aire acondicionado porque precisamente se llena de humedad, pero por eso mismo te da muchísimo frío." },
+          { start: 55.8, end: 69.5, text: "Me estaba congelando. Entonces, hoy me voy a cambiar a otra zona un poquito más cara, pero necesito dormir algo. Pero bueno, vámonos porque va a ser un día bueno, vámonos porque va a ser un día largo." },
+          { start: 69.5, end: 81.5, text: "Listo. A ver, por si se lo preguntan, este hotel se llama Mini Central. Para una noche está fenomenal. Tiene una excelente relación, calidad precio, porque es el hotel más barato que hay en el centro de Hong Kong." },
+          { start: 81.5, end: 90.5, text: "Además, como vieron, la habitación no está mal. El problema es la humedad y el encierro. Y es que con el paso de los días pasa más y más factura. Por eso me quedé seis noches ahí." },
+        ]),
+        cefr_level: "A2",
+        created_at: "2026-10-06T12:00:00",
+        audio_path: null,
+        duration_sec: 180,
+      };
+    }
     return null;
   };
 }

@@ -326,6 +326,10 @@ export default {
     phaseAudio: "下载音频",
     phaseSaving: "整理文章",
     phaseCompleted: "导入完成",
+    audioSeek: "音频进度",
+    audioLoadFail: "音频加载失败，文件可能已被删除",
+    audioPlayFail: "音频播放失败",
+    paraTranslateRetry: "翻译失败，点击重试",
   },
 
   path: {

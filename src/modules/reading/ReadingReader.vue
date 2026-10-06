@@ -39,14 +39,28 @@
     </div>
 
     <div v-else-if="article" class="article-layout-wrapper">
-      <div class="article-body">
+      <div
+        ref="articleBodyEl"
+        class="article-body"
+        @scroll.passive="onBodyScroll"
+        @wheel.passive="markUserScroll"
+        @touchmove.passive="markUserScroll"
+      >
         <div v-if="!bilingualMode" class="article-text">
           <p
             v-for="(para, pidx) in bodyParagraphs"
             :key="pidx"
             class="para"
+            :data-pidx="pidx"
             :class="{ 'is-playing': isParagraphActive(pidx) }"
+            @click="onParagraphClick(pidx)"
           >
+            <span
+              v-if="formatParagraphTime(pidx)"
+              class="para-time"
+              :title="t('reading.playFromHere') || '从此处播放'"
+              @click.stop="playFromParagraph(pidx)"
+            >{{ formatParagraphTime(pidx) }}</span>
             <template v-for="(token, idx) in para" :key="idx">
               <span
                 v-if="token.isWord"
@@ -61,43 +75,68 @@
           </p>
         </div>
 
-        <div v-else-if="translations.length > 0" class="article-text bilingual">
-          <template v-for="(tokens, pidx) in paraTokens" :key="pidx">
-            <p class="para-original" :class="{ 'is-playing': isParagraphActive(pidx) }">
-            <template v-for="(token, idx) in tokens" :key="idx">
+        <div v-else class="article-text bilingual">
+          <template v-for="(tokens, pidx) in bodyParagraphs" :key="pidx">
+            <p
+              class="para-original"
+              :data-pidx="pidx"
+              :class="{ 'is-playing': isParagraphActive(pidx) }"
+              @click="onParagraphClick(pidx)"
+            >
               <span
-                v-if="token.isWord"
-                class="word"
-                :tabindex="isTvLayoutMode ? 0 : undefined"
-                @click.stop="onWordTap(token)"
-                @keydown.enter.prevent="onWordTap(token)"
-                @keydown.space.prevent="onWordTap(token)"
-              >{{ token.text }}</span>
-              <span v-else>{{ token.text }}</span>
-            </template>
-          </p>
+                v-if="formatParagraphTime(pidx)"
+                class="para-time"
+                :title="t('reading.playFromHere') || '从此处播放'"
+                @click.stop="playFromParagraph(pidx)"
+              >{{ formatParagraphTime(pidx) }}</span>
+              <template v-for="(token, idx) in tokens" :key="idx">
+                <span
+                  v-if="token.isWord"
+                  class="word"
+                  :tabindex="isTvLayoutMode ? 0 : undefined"
+                  @click.stop="onWordTap(token)"
+                  @keydown.enter.prevent="onWordTap(token)"
+                  @keydown.space.prevent="onWordTap(token)"
+                >{{ token.text }}</span>
+                <span v-else>{{ token.text }}</span>
+              </template>
+            </p>
           <p
             class="para-translation"
+            :data-tidx="pidx"
+            :class="{
+              'is-pending': translationState[pidx] !== 'done' && translationState[pidx] !== 'error',
+              'is-error': translationState[pidx] === 'error',
+            }"
             :tabindex="isTvLayoutMode ? 0 : undefined"
-          >{{ translations[pidx] || '...' }}</p>
+            @click="retryParagraphTranslation(pidx)"
+            @keydown.enter.prevent="retryParagraphTranslation(pidx)"
+          >{{ translationDisplay(pidx) }}</p>
         </template>
-      </div>
-
-      <div v-else-if="loadingTranslation" class="loading-center">
-        <div class="spinner" />
-        <p>{{ t('news.translating') }}</p>
-      </div>
-
-      <div v-else class="rewrite-prompt">
-        <p class="error-text">{{ translationError || t('news.bilingualLoadFail') }}</p>
-        <button class="btn-rewrite" @click="loadBilingual">{{ t('common.retry') }}</button>
       </div>
     </div>
 
-    <!-- Right-side fine timeline rail for imported audio -->
-    <div v-if="isImported && audioDuration > 0" class="audio-timeline-rail" aria-hidden="true">
-      <div class="audio-timeline-fill" :style="{ height: `${timelinePercent}%` }" />
-      <div class="audio-timeline-thumb" :style="{ top: `${timelinePercent}%` }" />
+    <!-- Right-side custom scrollbar: thin rail with green dot thumb -->
+    <div
+      v-show="canScroll"
+      ref="scrollRailEl"
+      class="article-scroll-rail"
+      :class="{ 'is-dragging': isScrollDragging }"
+      role="scrollbar"
+      tabindex="-1"
+      aria-orientation="vertical"
+      :aria-valuenow="Math.round(scrollPercent)"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      @pointerdown="onScrollRailPointerDown"
+      @pointermove="onScrollRailPointerMove"
+      @pointerup="onScrollRailPointerUp"
+      @pointercancel="onScrollRailPointerUp"
+    >
+      <div class="article-scroll-track">
+        <div class="article-scroll-fill" :style="{ height: `${scrollPercent}%` }" />
+      </div>
+      <div class="article-scroll-thumb" :style="{ top: `${scrollPercent}%` }" />
     </div>
   </div>
 
@@ -155,14 +194,15 @@
     </div>
 
     <Transition name="popup">
-      <div v-if="readStatus" class="read-toast">{{ readStatus }}</div>
+      <div v-if="readStatus || audioStatus" class="read-toast">{{ readStatus || audioStatus }}</div>
     </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { convertFileSrc, isTauri } from "@tauri-apps/api/core";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import {
@@ -209,10 +249,31 @@ const timelinePercent = computed(() => {
 });
 
 function isParagraphActive(pidx) {
-  if (!isImported.value) return false;
-  const p = importedParagraphs.value[pidx];
-  if (!p) return false;
-  return currentTime.value >= p.start && currentTime.value <= p.end;
+  return isImported.value && activeParagraphIdx.value === pidx;
+}
+
+function resolveAudioSrc(audioPath) {
+  if (/^(https?|blob|data|asset):/i.test(audioPath)) return audioPath;
+  const inTauri = typeof isTauri === "function" ? isTauri() : !!isTauri;
+  if (inTauri) {
+    try {
+      return convertFileSrc(audioPath);
+    } catch (e) {
+      console.warn("convertFileSrc failed:", e);
+    }
+  }
+  return audioPath;
+}
+
+const audioStatus = ref("");
+let audioStatusTimer = null;
+function showAudioStatus(msg) {
+  audioStatus.value = msg;
+  if (audioStatusTimer) clearTimeout(audioStatusTimer);
+  audioStatusTimer = setTimeout(() => {
+    audioStatus.value = "";
+    audioStatusTimer = null;
+  }, 3000);
 }
 
 function initAudio(audioPath, durationSec) {
@@ -227,31 +288,36 @@ function initAudio(audioPath, durationSec) {
 
   if (!audioPath) return;
 
-  let src = audioPath;
-  if (typeof window !== "undefined" && window.__TAURI__?.core?.convertFileSrc) {
-    src = window.__TAURI__.core.convertFileSrc(audioPath);
-  }
-  audioEl = new Audio(src);
+  const el = new Audio();
+  el.preload = "metadata";
+  audioEl = el;
   audioAvailable.value = true;
 
-  audioEl.addEventListener("loadedmetadata", () => {
-    if (audioEl.duration && !isNaN(audioEl.duration)) {
-      audioDuration.value = audioEl.duration;
+  el.addEventListener("loadedmetadata", () => {
+    if (el.duration && Number.isFinite(el.duration)) {
+      audioDuration.value = el.duration;
     }
   });
-  audioEl.addEventListener("timeupdate", () => {
-    currentTime.value = audioEl.currentTime || 0;
+  el.addEventListener("timeupdate", () => {
+    currentTime.value = el.currentTime || 0;
   });
-  audioEl.addEventListener("ended", () => {
+  el.addEventListener("ended", () => {
     isAudioPlaying.value = false;
     currentTime.value = 0;
   });
-  audioEl.addEventListener("pause", () => {
+  el.addEventListener("pause", () => {
     isAudioPlaying.value = false;
   });
-  audioEl.addEventListener("play", () => {
+  el.addEventListener("play", () => {
     isAudioPlaying.value = true;
   });
+  el.addEventListener("error", () => {
+    console.warn("Audio load failed:", el.error, el.src);
+    isAudioPlaying.value = false;
+    audioAvailable.value = false;
+    showAudioStatus(t("reading.audioLoadFail"));
+  });
+  el.src = resolveAudioSrc(audioPath);
 }
 
 function togglePlayAudio() {
@@ -259,29 +325,305 @@ function togglePlayAudio() {
   if (isAudioPlaying.value) {
     audioEl.pause();
   } else {
-    audioEl.play().catch((err) => {
-      console.warn("Audio play failed:", err);
-    });
+    const p = audioEl.play();
+    if (p && typeof p.catch === "function") {
+      p.catch((err) => {
+        console.warn("Audio play failed:", err);
+        showAudioStatus(t("reading.audioPlayFail"));
+      });
+    }
   }
 }
+
+function formatParagraphTime(pidx) {
+  if (!isImported.value) return "";
+  const p = importedParagraphs.value[pidx];
+  if (!p || p.start === undefined || p.start === null) return "";
+  const totalSec = Math.floor(p.start);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    const remM = m % 60;
+    return `${h}:${String(remM).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function playFromParagraph(pidx) {
+  if (!isImported.value) return;
+  const p = importedParagraphs.value[pidx];
+  if (!p || p.start === undefined || p.start === null) return;
+  currentTime.value = p.start;
+  if (audioEl) {
+    try {
+      audioEl.currentTime = p.start;
+    } catch (err) {
+      console.warn("audioEl.currentTime seek failed:", err);
+    }
+    const playPromise = audioEl.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch((err) => {
+        console.warn("Audio play failed:", err);
+        showAudioStatus(t("reading.audioPlayFail"));
+      });
+    }
+  }
+}
+
+function onParagraphClick(pidx) {
+  if (!isImported.value) return;
+  const selection = window.getSelection?.();
+  if (selection && selection.toString().trim().length > 0) return;
+  if (selectionText.value) return;
+  playFromParagraph(pidx);
+}
+
+// ---- Custom scrollbar: thin rail with green dot thumb ----
+const articleBodyEl = ref(null);
+const scrollRailEl = ref(null);
+const isScrollDragging = ref(false);
+const scrollPercent = ref(0);
+const canScroll = ref(true);
+let lastUserScrollAt = 0;
+
+function markUserScroll() {
+  lastUserScrollAt = Date.now();
+}
+
+function updateScrollState() {
+  const body = articleBodyEl.value;
+  if (!body) {
+    canScroll.value = true;
+    scrollPercent.value = 0;
+    return;
+  }
+  const maxScroll = body.scrollHeight - body.clientHeight;
+  canScroll.value = maxScroll > 4 || (article.value?.body?.length || 0) > 250;
+  if (maxScroll > 0) {
+    scrollPercent.value = Math.min(100, Math.max(0, (body.scrollTop / maxScroll) * 100));
+  } else {
+    scrollPercent.value = 0;
+  }
+}
+
+function onBodyScroll() {
+  updateScrollState();
+}
+
+function scrollToPercent(pct) {
+  const body = articleBodyEl.value;
+  if (!body) return;
+  const maxScroll = body.scrollHeight - body.clientHeight;
+  if (maxScroll <= 0) return;
+  const targetTop = Math.max(0, Math.min(maxScroll, pct * maxScroll));
+  body.scrollTop = targetTop;
+  updateScrollState();
+  markUserScroll();
+}
+
+function scrollFromPointer(e) {
+  const rail = scrollRailEl.value;
+  if (!rail) return;
+  const rect = rail.getBoundingClientRect();
+  if (rect.height <= 0) return;
+  const pct = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+  scrollToPercent(pct);
+}
+
+function onScrollRailPointerDown(e) {
+  isScrollDragging.value = true;
+  e.currentTarget?.setPointerCapture?.(e.pointerId);
+  scrollFromPointer(e);
+}
+
+function onScrollRailPointerMove(e) {
+  if (isScrollDragging.value) {
+    scrollFromPointer(e);
+  }
+}
+
+function onScrollRailPointerUp(e) {
+  if (!isScrollDragging.value) return;
+  isScrollDragging.value = false;
+  e.currentTarget?.releasePointerCapture?.(e.pointerId);
+}
+
+function scrollToParagraph(pidx, behavior = "smooth") {
+  const body = articleBodyEl.value;
+  if (!body || pidx < 0) return;
+  const el = body.querySelector(`[data-pidx="${pidx}"]`);
+  if (!el) return;
+  const top =
+    el.getBoundingClientRect().top -
+    body.getBoundingClientRect().top +
+    body.scrollTop -
+    body.clientHeight / 3;
+  if (typeof body.scrollTo === "function") {
+    body.scrollTo({ top: Math.max(0, top), behavior });
+  } else {
+    body.scrollTop = Math.max(0, top);
+  }
+  updateScrollState();
+}
+
+const activeParagraphIdx = computed(() => {
+  if (!isImported.value || !importedParagraphs.value.length) return -1;
+  const time = currentTime.value;
+  const paras = importedParagraphs.value;
+  return paras.findIndex((p, idx) => {
+    const isLast = idx === paras.length - 1;
+    return time >= p.start && (isLast ? time <= p.end : time < p.end);
+  });
+});
+
+watch(activeParagraphIdx, (idx) => {
+  if (idx < 0 || !isAudioPlaying.value || isScrollDragging.value) return;
+  if (Date.now() - lastUserScrollAt < 4000) return;
+  scrollToParagraph(idx, "smooth");
+});
 
 const article = ref(null);
 const loadError = ref("");
 const loading = ref(true);
 const bilingualMode = ref(false);
-const translations = ref([]);
-const paraTokens = ref([]);
 const titleTranslation = ref("");
-const loadingTranslation = ref(false);
-const translationError = ref("");
-const bodyParagraphs = computed(() => {
+const paragraphTexts = computed(() => {
   const body = article.value?.body || "";
   return body
     .split(/\n{2,}/)
     .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => tokenizeArticleText(p));
+    .filter(Boolean);
 });
+const bodyParagraphs = computed(() => paragraphTexts.value.map((p) => tokenizeArticleText(p)));
+
+// ---- Lazy per-paragraph translation ----
+// Each paragraph is translated only when it nears the viewport, with a small
+// concurrency cap so long imported transcripts never fire hundreds of calls.
+const MAX_CONCURRENT_TRANSLATIONS = 2;
+const translations = ref([]);
+const translationState = ref([]); // undefined | "queued" | "loading" | "done" | "error"
+let translateQueue = [];
+let activeTranslations = 0;
+let translateGeneration = 0;
+let paraObserver = null;
+let titleTranslationRequested = false;
+
+function resetTranslations() {
+  translateGeneration += 1;
+  translateQueue = [];
+  activeTranslations = 0;
+  translations.value = [];
+  translationState.value = [];
+  titleTranslation.value = "";
+  titleTranslationRequested = false;
+  teardownParaObserver();
+}
+
+function translationDisplay(pidx) {
+  const state = translationState.value[pidx];
+  if (state === "done") return translations.value[pidx] || "";
+  if (state === "error") return t("reading.paraTranslateRetry");
+  return "…";
+}
+
+function enqueueTranslation(pidx) {
+  const state = translationState.value[pidx];
+  if (state === "queued" || state === "loading" || state === "done") return;
+  translationState.value[pidx] = "queued";
+  translateQueue.push(pidx);
+  pumpTranslations();
+}
+
+function dequeueTranslation(pidx) {
+  if (translationState.value[pidx] !== "queued") return;
+  translateQueue = translateQueue.filter((i) => i !== pidx);
+  translationState.value[pidx] = undefined;
+}
+
+function pumpTranslations() {
+  while (activeTranslations < MAX_CONCURRENT_TRANSLATIONS && translateQueue.length > 0) {
+    runTranslation(translateQueue.shift());
+  }
+}
+
+async function runTranslation(pidx) {
+  const gen = translateGeneration;
+  const text = paragraphTexts.value[pidx];
+  if (!text) {
+    translationState.value[pidx] = "done";
+    return;
+  }
+  activeTranslations += 1;
+  translationState.value[pidx] = "loading";
+  try {
+    const result = await translateText(text, targetLang, getLocale());
+    if (gen !== translateGeneration) return;
+    translations.value[pidx] = result || "";
+    translationState.value[pidx] = "done";
+  } catch (e) {
+    if (gen !== translateGeneration) return;
+    console.error("Paragraph translation failed:", e);
+    translationState.value[pidx] = "error";
+  } finally {
+    if (gen === translateGeneration) {
+      activeTranslations -= 1;
+      pumpTranslations();
+    }
+  }
+}
+
+function retryParagraphTranslation(pidx) {
+  if (translationState.value[pidx] !== "error") return;
+  translationState.value[pidx] = undefined;
+  enqueueTranslation(pidx);
+}
+
+async function requestTitleTranslation() {
+  if (titleTranslationRequested) return;
+  const title = article.value?.title || "";
+  if (!title) return;
+  titleTranslationRequested = true;
+  const gen = translateGeneration;
+  try {
+    const result = await translateText(title, targetLang, getLocale());
+    if (gen === translateGeneration) titleTranslation.value = result || "";
+  } catch (_) {
+    if (gen === translateGeneration) titleTranslationRequested = false;
+  }
+}
+
+function teardownParaObserver() {
+  if (paraObserver) {
+    paraObserver.disconnect();
+    paraObserver = null;
+  }
+}
+
+async function setupParaObserver() {
+  teardownParaObserver();
+  await nextTick();
+  if (!bilingualMode.value) return;
+  const body = articleBodyEl.value;
+  if (!body) return;
+  const slots = body.querySelectorAll(".para-translation[data-tidx]");
+  if (typeof IntersectionObserver === "undefined") {
+    // Fallback for environments without IntersectionObserver: still bounded by the queue cap.
+    slots.forEach((el) => enqueueTranslation(Number(el.dataset.tidx)));
+    return;
+  }
+  paraObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        const pidx = Number(entry.target.dataset.tidx);
+        if (entry.isIntersecting) enqueueTranslation(pidx);
+        else dequeueTranslation(pidx);
+      }
+    },
+    { root: body, rootMargin: "300px 0px 300px 0px" },
+  );
+  slots.forEach((el) => paraObserver.observe(el));
+}
 const selectedWord = ref(null);
 const testLoading = ref(false);
 const wordsProcessed = ref(false);
@@ -363,6 +705,7 @@ const {
 });
 
 let releaseSelectionBack = null;
+let bodyResizeObserver = null;
 
 onMounted(async () => {
   document.addEventListener("selectionchange", onSelectionChange);
@@ -375,6 +718,11 @@ onMounted(async () => {
     }
     return null;
   });
+  window.addEventListener("resize", updateScrollState);
+  if (articleBodyEl.value && typeof ResizeObserver !== "undefined") {
+    bodyResizeObserver = new ResizeObserver(() => updateScrollState());
+    bodyResizeObserver.observe(articleBodyEl.value);
+  }
   await loadArticle();
 });
 
@@ -383,6 +731,15 @@ onBeforeUnmount(() => {
     audioEl.pause();
     audioEl = null;
   }
+  if (audioStatusTimer) {
+    clearTimeout(audioStatusTimer);
+    audioStatusTimer = null;
+  }
+  translateGeneration += 1;
+  teardownParaObserver();
+  window.removeEventListener("resize", updateScrollState);
+  bodyResizeObserver?.disconnect();
+  bodyResizeObserver = null;
   document.removeEventListener("selectionchange", onSelectionChange);
   document.removeEventListener("pointerup", onPointerUp);
   delete window.__amigaTranslateSelection;
@@ -434,6 +791,10 @@ async function loadArticle() {
     loadError.value = e?.message || String(e);
   } finally {
     loading.value = false;
+    await nextTick();
+    updateScrollState();
+    setTimeout(updateScrollState, 50);
+    setTimeout(updateScrollState, 200);
   }
 }
 
@@ -450,10 +811,10 @@ async function regenerateArticle() {
     selectedWord.value = null;
     wordsProcessed.value = false;
     bilingualMode.value = false;
-    translations.value = [];
-    paraTokens.value = [];
-    titleTranslation.value = "";
+    resetTranslations();
     await processArticleWords();
+    await nextTick();
+    updateScrollState();
   } catch (e) {
     console.error("Failed to regenerate article:", e);
   } finally {
@@ -463,36 +824,17 @@ async function regenerateArticle() {
 
 async function toggleBilingual() {
   bilingualMode.value = !bilingualMode.value;
-  if (bilingualMode.value && translations.value.length === 0) {
-    await loadBilingual();
+  if (bilingualMode.value) {
+    requestTitleTranslation();
+    await setupParaObserver();
+  } else {
+    teardownParaObserver();
+    // Drop not-yet-started requests; finished translations stay cached.
+    for (const pidx of translateQueue) translationState.value[pidx] = undefined;
+    translateQueue = [];
   }
-}
-
-async function loadBilingual() {
-  if (!article.value) return;
-  loadingTranslation.value = true;
-  translationError.value = "";
-  try {
-    const body = article.value?.body || "";
-    const paragraphs = body.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-    paraTokens.value = paragraphs.map((p) => tokenizeArticleText(p));
-    translations.value = await Promise.all(
-      paragraphs.map((paragraph) => translateText(paragraph, targetLang, getLocale())),
-    );
-    const title = article.value?.title || "";
-    if (title) {
-      try {
-        titleTranslation.value = await translateText(title, targetLang, getLocale());
-      } catch (_) {
-        titleTranslation.value = "";
-      }
-    }
-  } catch (e) {
-    console.error("Failed to load bilingual:", e);
-    translationError.value = typeof e === "string" ? e : (e?.message || t("news.bilingualLoadFail"));
-  } finally {
-    loadingTranslation.value = false;
-  }
+  await nextTick();
+  updateScrollState();
 }
 
 function formatDate(articleItem) {
@@ -711,38 +1053,79 @@ function goTest() {
   overscroll-behavior: contain;
   padding: 20px 20px 80px;
   box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.audio-timeline-rail {
-  width: 4px;
-  margin: 20px 8px 80px 0;
-  background: var(--border, #e5e7eb);
-  border-radius: 999px;
+.article-body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.article-scroll-rail {
+  width: 18px;
+  margin: 16px 2px 76px 0;
   position: relative;
   flex-shrink: 0;
-  pointer-events: none;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  z-index: 10;
 }
 
-.audio-timeline-fill {
+.article-scroll-track {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 4px;
+  transform: translateX(-50%);
+  background: var(--border, #e5e7eb);
+  border-radius: 999px;
+  overflow: hidden;
+  transition: width 0.15s ease;
+}
+
+.article-scroll-rail:hover .article-scroll-track,
+.article-scroll-rail.is-dragging .article-scroll-track {
+  width: 6px;
+}
+
+.article-scroll-fill {
   width: 100%;
   background: var(--green, #2ecc71);
   border-radius: 999px;
   position: absolute;
   top: 0;
   left: 0;
-  transition: height 0.15s linear;
+  transition: height 0.08s linear;
 }
 
-.audio-timeline-thumb {
+.article-scroll-thumb {
   position: absolute;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--green, #2ecc71);
-  box-shadow: 0 0 4px rgba(46, 204, 113, 0.6);
-  transition: top 0.15s linear;
+  box-shadow: 0 0 5px rgba(46, 204, 113, 0.7);
+  transition: top 0.08s linear, width 0.12s ease, height 0.12s ease;
+  pointer-events: none;
+}
+
+.article-scroll-rail:hover .article-scroll-thumb,
+.article-scroll-rail.is-dragging .article-scroll-thumb {
+  width: 14px;
+  height: 14px;
+  box-shadow: 0 0 8px rgba(46, 204, 113, 0.9);
+}
+
+.article-scroll-rail.is-dragging .article-scroll-fill,
+.article-scroll-rail.is-dragging .article-scroll-thumb {
+  transition: none;
 }
 
 /* Match news reader: full-pane reading, modest gutters (no narrow column). */
@@ -803,6 +1186,30 @@ html[data-app-mode="tv"] .header-title {
   border-left-color: var(--green, #2ecc71);
 }
 
+.para-time {
+  display: inline-block;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-lighter);
+  margin-right: 8px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  user-select: none;
+  cursor: pointer;
+  vertical-align: baseline;
+  transition: color 0.15s ease;
+}
+
+.para.is-playing .para-time,
+.para-original.is-playing .para-time {
+  color: var(--green, #2ecc71);
+  font-weight: 600;
+}
+
+.para-time:hover {
+  color: var(--green, #2ecc71);
+}
+
 .article-text .para:last-child {
   margin-bottom: 0;
 }
@@ -828,6 +1235,21 @@ html[data-app-mode="tv"] .header-title {
   border-left: 2px solid var(--border);
   white-space: pre-wrap;
   overflow-wrap: break-word;
+}
+
+.para-translation.is-pending {
+  opacity: 0.55;
+  animation: para-pending 1.2s ease-in-out infinite;
+}
+
+.para-translation.is-error {
+  color: var(--red);
+  cursor: pointer;
+}
+
+@keyframes para-pending {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.7; }
 }
 
 html[data-app-mode="tv"] .para-translation {

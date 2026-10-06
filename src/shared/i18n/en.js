@@ -323,6 +323,10 @@ export default {
     phaseAudio: "Downloading Audio",
     phaseSaving: "Saving Article",
     phaseCompleted: "Completed",
+    audioSeek: "Audio progress",
+    audioLoadFail: "Failed to load audio. The file may have been removed.",
+    audioPlayFail: "Audio playback failed",
+    paraTranslateRetry: "Translation failed, tap to retry",
   },
 
   path: {

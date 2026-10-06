@@ -279,9 +279,103 @@ fn parse_vtt_timestamp(ts: &str) -> Option<f64> {
     }
 }
 
+fn is_vtt_sentence_terminator(c: char) -> bool {
+    matches!(c, '.' | '?' | '!' | '。' | '？' | '！')
+}
+
+fn text_ends_with_sentence(text: &str) -> bool {
+    let trimmed = text.trim_end_matches(['"', '\'', ')', '”', '’']);
+    trimmed.ends_with(is_vtt_sentence_terminator)
+}
+
+fn strip_vtt_tags(s: &str) -> String {
+    let mut cleaned = String::new();
+    let mut in_tag = false;
+    for ch in s.chars() {
+        if ch == '<' {
+            in_tag = true;
+        } else if ch == '>' {
+            in_tag = false;
+        } else if !in_tag {
+            cleaned.push(ch);
+        }
+    }
+    cleaned.trim().to_string()
+}
+
+fn split_segment_into_sentences(start: f64, end: f64, text: &str) -> Vec<(f64, f64, String)> {
+    let chars: Vec<char> = text.chars().collect();
+    if chars.is_empty() {
+        return Vec::new();
+    }
+
+    let mut sentence_slices: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    let mut i = 0;
+    while i < chars.len() {
+        cur.push(chars[i]);
+        if is_vtt_sentence_terminator(chars[i]) {
+            let mut j = i + 1;
+            while j < chars.len()
+                && (chars[j] == '"'
+                    || chars[j] == '\''
+                    || chars[j] == '”'
+                    || chars[j] == '’'
+                    || chars[j] == ')')
+            {
+                cur.push(chars[j]);
+                j += 1;
+            }
+            if j == chars.len() || chars[j].is_whitespace() {
+                let trimmed = cur.trim().to_string();
+                if !trimmed.is_empty() {
+                    sentence_slices.push(trimmed);
+                }
+                cur.clear();
+                while j < chars.len() && chars[j].is_whitespace() {
+                    j += 1;
+                }
+                i = j;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    let rem = cur.trim();
+    if !rem.is_empty() {
+        sentence_slices.push(rem.to_string());
+    }
+
+    if sentence_slices.is_empty() {
+        return Vec::new();
+    }
+    if sentence_slices.len() == 1 {
+        return vec![(start, end, sentence_slices.remove(0))];
+    }
+
+    let total_chars: usize = sentence_slices.iter().map(|s| s.len()).sum();
+    let duration = (end - start).max(0.0);
+    let mut result = Vec::new();
+    let mut cur_time = start;
+
+    for s in sentence_slices {
+        let frac = if total_chars > 0 {
+            s.len() as f64 / total_chars as f64
+        } else {
+            0.0
+        };
+        let s_dur = duration * frac;
+        let s_end = cur_time + s_dur;
+        result.push((cur_time, s_end, s));
+        cur_time = s_end;
+    }
+
+    result
+}
+
 /// Clean WebVTT subtitles and group into coherent paragraphs with time spans
 pub fn clean_and_parse_vtt(vtt_content: &str) -> Vec<SubtitleParagraph> {
-    let mut raw_cues: Vec<(f64, f64, String)> = Vec::new();
+    let mut cues: Vec<(f64, f64, Vec<String>)> = Vec::new();
     let lines: Vec<&str> = vtt_content.lines().collect();
     let mut i = 0;
 
@@ -296,34 +390,19 @@ pub fn clean_and_parse_vtt(vtt_content: &str) -> Vec<SubtitleParagraph> {
                     (parse_vtt_timestamp(start_str), parse_vtt_timestamp(end_str))
                 {
                     i += 1;
-                    let mut cue_text = String::new();
+                    while i < lines.len() && lines[i].trim().is_empty() {
+                        i += 1;
+                    }
+                    let mut cue_lines = Vec::new();
                     while i < lines.len()
                         && !lines[i].trim().is_empty()
                         && !lines[i].contains("-->")
                     {
-                        let text_line = lines[i].trim();
-                        // Strip html tags like <c> or <00:00:01.000>
-                        let mut cleaned = String::new();
-                        let mut in_tag = false;
-                        for ch in text_line.chars() {
-                            if ch == '<' {
-                                in_tag = true;
-                            } else if ch == '>' {
-                                in_tag = false;
-                            } else if !in_tag {
-                                cleaned.push(ch);
-                            }
-                        }
-                        if !cleaned.trim().is_empty() {
-                            if !cue_text.is_empty() {
-                                cue_text.push(' ');
-                            }
-                            cue_text.push_str(cleaned.trim());
-                        }
+                        cue_lines.push(lines[i].trim().to_string());
                         i += 1;
                     }
-                    if !cue_text.is_empty() {
-                        raw_cues.push((start, end, cue_text));
+                    if !cue_lines.is_empty() {
+                        cues.push((start, end, cue_lines));
                     }
                     continue;
                 }
@@ -332,20 +411,55 @@ pub fn clean_and_parse_vtt(vtt_content: &str) -> Vec<SubtitleParagraph> {
         i += 1;
     }
 
-    if raw_cues.is_empty() {
+    if cues.is_empty() {
         return Vec::new();
     }
 
-    // Deduplicate auto-generated subtitles where successive cues repeat previous words
-    let mut deduped_cues: Vec<(f64, f64, String)> = Vec::new();
-    for (start, end, text) in raw_cues {
-        if let Some(last) = deduped_cues.last_mut() {
+    let mut clean_segments: Vec<(f64, f64, String)> = Vec::new();
+    for (start, end, tlines) in cues {
+        if end - start < 0.05 {
+            continue;
+        }
+        let c_lines: Vec<&String> = tlines
+            .iter()
+            .filter(|l| l.contains("<c>") || l.contains("</c>"))
+            .collect();
+        if !c_lines.is_empty() {
+            for cl in c_lines {
+                let cleaned = strip_vtt_tags(cl);
+                if !cleaned.is_empty() {
+                    clean_segments.push((start, end, cleaned));
+                }
+            }
+        } else {
+            let mut joined = String::new();
+            for l in tlines {
+                let cl = strip_vtt_tags(&l);
+                if !cl.is_empty() {
+                    if !joined.is_empty() {
+                        joined.push(' ');
+                    }
+                    joined.push_str(&cl);
+                }
+            }
+            if !joined.is_empty() {
+                clean_segments.push((start, end, joined));
+            }
+        }
+    }
+
+    let mut deduped: Vec<(f64, f64, String)> = Vec::new();
+    for (start, end, text) in clean_segments {
+        if let Some(last) = deduped.last_mut() {
             if text == last.2 {
-                last.1 = end; // extend timestamp
+                last.1 = end;
+                continue;
+            }
+            if last.2.ends_with(&text) {
+                last.1 = end;
                 continue;
             }
             if text.starts_with(&last.2) {
-                // e.g. "Hello" followed by "Hello world"
                 let new_part = text[last.2.len()..].trim();
                 if !new_part.is_empty() {
                     last.2.push(' ');
@@ -355,33 +469,42 @@ pub fn clean_and_parse_vtt(vtt_content: &str) -> Vec<SubtitleParagraph> {
                 continue;
             }
         }
-        deduped_cues.push((start, end, text));
+        deduped.push((start, end, text));
     }
 
-    // Merge cues into paragraphs by sentence terminal marks (. ? !) or pause > 1.8s
+    let mut sentence_units: Vec<(f64, f64, String)> = Vec::new();
+    for (start, end, text) in deduped {
+        let parts = split_segment_into_sentences(start, end, &text);
+        sentence_units.extend(parts);
+    }
+
     let mut paragraphs: Vec<SubtitleParagraph> = Vec::new();
     let mut cur_start = 0.0;
     let mut cur_end = 0.0;
     let mut cur_text = String::new();
 
-    for (start, end, text) in deduped_cues {
+    for (start, end, text) in sentence_units {
         if cur_text.is_empty() {
             cur_start = start;
             cur_end = end;
             cur_text = text;
         } else {
             let pause = start - cur_end;
-            let ends_with_sentence = cur_text.ends_with('.')
-                || cur_text.ends_with('?')
-                || cur_text.ends_with('!')
-                || cur_text.ends_with('。')
-                || cur_text.ends_with('！')
-                || cur_text.ends_with('？');
-            if (ends_with_sentence && pause > 0.8) || pause > 2.0 || cur_text.len() > 240 {
+            let is_sentence_end = text_ends_with_sentence(&cur_text);
+
+            let should_break = if is_sentence_end {
+                cur_text.len() >= 180 || pause >= 1.2
+            } else if pause >= 3.0 {
+                true
+            } else {
+                cur_text.len() >= 450 && pause >= 1.5
+            };
+
+            if should_break {
                 paragraphs.push(SubtitleParagraph {
                     start: cur_start,
                     end: cur_end,
-                    text: cur_text.clone(),
+                    text: cur_text,
                 });
                 cur_start = start;
                 cur_end = end;
@@ -821,5 +944,35 @@ Este es un test.
         assert!(paragraphs[0].text.contains("Hola mundo"));
         assert!(paragraphs[0].text.contains("Bienvenidos"));
     }
-}
 
+    #[test]
+    fn test_clean_and_parse_vtt_rolling_captions() {
+        let vtt = r#"WEBVTT
+Kind: captions
+Language: es
+
+00:00:00.120 --> 00:00:01.990 align:start position:0%
+Este<00:00:00.320><c> es</c><00:00:00.440><c> probablemente</c><00:00:01.000><c> uno</c><00:00:01.199><c> de</c><00:00:01.360><c> los</c><00:00:01.560><c> peores</c>
+
+00:00:01.990 --> 00:00:02.000 align:start position:0%
+Este es probablemente uno de los peores
+
+00:00:02.000 --> 00:00:03.669 align:start position:0%
+Este es probablemente uno de los peores
+hoteles<00:00:02.399><c> en</c><00:00:02.600><c> los</c><00:00:02.720><c> que</c><00:00:02.840><c> he</c><00:00:03.040><c> dormido</c><00:00:03.399><c> en</c><00:00:03.560><c> mi</c>
+
+00:00:03.669 --> 00:00:03.679 align:start position:0%
+hoteles en los que he dormido en mi
+
+00:00:03.679 --> 00:00:05.470 align:start position:0%
+hoteles en los que he dormido en mi
+vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c><00:00:04.560><c> debería</c><00:00:05.000><c> decir</c><00:00:05.240><c> en</c><00:00:05.359><c> los</c>
+"#;
+        let paragraphs = clean_and_parse_vtt(vtt);
+        assert_eq!(paragraphs.len(), 1);
+        // Verify no duplicate repeats
+        let text = &paragraphs[0].text;
+        assert_eq!(text.matches("Este es probablemente").count(), 1);
+        assert_eq!(text.matches("hoteles en los que").count(), 1);
+    }
+}
