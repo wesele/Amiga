@@ -1,6 +1,5 @@
 use crate::modules::database::DatabasePool;
 use crate::modules::reading as reading_mod;
-use futures_util::StreamExt;
 use log;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -473,10 +472,13 @@ async fn download_subtitle_direct(
         format!("{}&fmt=vtt", base_url)
     };
 
-    let mut req = client.get(&sub_url).header(
-        "User-Agent",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-    );
+    let mut req = client
+        .get(&sub_url)
+        .header(
+            "User-Agent",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+        )
+        .timeout(std::time::Duration::from_secs(20));
     if !cookies.is_empty() {
         req = req.header("Cookie", cookies);
     }
@@ -544,45 +546,85 @@ async fn download_audio_direct<F>(
 where
     F: FnMut(f64, Option<f64>, &str),
 {
-    let mut req = client.get(audio_url).header(
-        "User-Agent",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
-    );
-    if !cookies.is_empty() {
-        req = req.header("Cookie", cookies);
-    }
-
-    let resp = req.send().await.map_err(|e| format!("连接音频流失败: {}", e))?;
-    if !resp.status().is_success() {
-        return Err(format!("音频流请求失败，状态码: {}", resp.status()));
-    }
-
-    let total_bytes = resp
-        .content_length()
-        .or(approx_size)
-        .unwrap_or(10_000_000);
-
     let mut file = std::fs::File::create(dest_path)
         .map_err(|e| format!("创建音频本地文件失败: {}", e))?;
 
-    let mut stream = resp.bytes_stream();
+    let chunk_size: u64 = 2 * 1024 * 1024;
+    let mut start: u64 = 0;
+    let mut total_bytes: Option<u64> = approx_size;
     let mut downloaded: u64 = 0;
     let start_time = std::time::Instant::now();
     let mut last_notify = std::time::Instant::now();
 
-    while let Some(chunk_res) = stream.next().await {
+    loop {
         if is_task_cancelled(task_id) {
             let _ = std::fs::remove_file(dest_path);
             return Err("导入已取消".to_string());
         }
 
-        let chunk = chunk_res.map_err(|e| format!("下载音频数据错误: {}", e))?;
+        let range_val = match total_bytes {
+            Some(total) => {
+                let end = (start + chunk_size - 1).min(total.saturating_sub(1));
+                format!("bytes={}-{}", start, end)
+            }
+            None => {
+                format!("bytes={}-{}", start, start + chunk_size - 1)
+            }
+        };
+
+        let mut req = client
+            .get(audio_url)
+            .header(
+                "User-Agent",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+            )
+            .header("Range", range_val)
+            .timeout(std::time::Duration::from_secs(30));
+
+        if !cookies.is_empty() {
+            req = req.header("Cookie", cookies);
+        }
+
+        let resp = req.send().await.map_err(|e| format!("连接音频流失败: {}", e))?;
+        let status = resp.status();
+
+        if status == reqwest::StatusCode::RANGE_NOT_SATISFIABLE {
+            break;
+        }
+
+        if !status.is_success() && status != reqwest::StatusCode::PARTIAL_CONTENT {
+            return Err(format!("音频流请求失败，状态码: {}", status));
+        }
+
+        if total_bytes.is_none() {
+            if let Some(cr_val) = resp.headers().get(reqwest::header::CONTENT_RANGE) {
+                if let Ok(cr_str) = cr_val.to_str() {
+                    if let Some(total_str) = cr_str.split('/').nth(1) {
+                        if let Ok(tot) = total_str.trim().parse::<u64>() {
+                            total_bytes = Some(tot);
+                        }
+                    }
+                }
+            }
+        }
+
+        let chunk = resp
+            .bytes()
+            .await
+            .map_err(|e| format!("下载音频数据错误: {}", e))?;
+
+        if chunk.is_empty() {
+            break;
+        }
+
         file.write_all(&chunk)
             .map_err(|e| format!("写入音频数据失败: {}", e))?;
         downloaded += chunk.len() as u64;
+        start += chunk.len() as u64;
 
-        if last_notify.elapsed() >= std::time::Duration::from_millis(350) {
-            let pct = ((downloaded as f64 / total_bytes as f64) * 100.0).min(100.0);
+        if last_notify.elapsed() >= std::time::Duration::from_millis(200) {
+            let total_estimate = total_bytes.unwrap_or(downloaded.max(10_000_000));
+            let pct = ((downloaded as f64 / total_estimate as f64) * 100.0).min(100.0);
             let mapped = 30.0 + (pct * 0.60);
             let elapsed_secs = start_time.elapsed().as_secs_f64();
             let speed = if elapsed_secs > 0.1 {
@@ -593,10 +635,25 @@ where
             progress_fn(mapped, speed, &format!("正在下载音频: {:.1}%", pct));
             last_notify = std::time::Instant::now();
         }
+
+        if status == reqwest::StatusCode::OK {
+            break;
+        }
+
+        if let Some(tot) = total_bytes {
+            if start >= tot {
+                break;
+            }
+        }
     }
 
     file.flush()
         .map_err(|e| format!("刷新音频文件写入失败: {}", e))?;
+
+    if downloaded == 0 {
+        let _ = std::fs::remove_file(dest_path);
+        return Err("音频数据为空".to_string());
+    }
 
     Ok(())
 }
@@ -1167,7 +1224,7 @@ pub fn run_import_pipeline(
         notify("analyzing", 5.0, None, "正在解析视频元数据与字幕信息...");
 
         let client = match reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(20))
+            .connect_timeout(std::time::Duration::from_secs(15))
             .build()
         {
             Ok(c) => c,
@@ -1463,6 +1520,38 @@ vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c>
             assert_eq!(meta.video_id, "dQw4w9WgXcQ");
             assert!(!meta.title.is_empty());
             assert!(meta.has_manual_subtitles || meta.has_auto_captions);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_cmxkrr_video() {
+        let url = "https://youtu.be/CMXkrrSJEck?si=unSW1EFbciNfgZGE";
+        let res = fetch_youtube_metadata(url, "es").await;
+        if let Ok(meta) = res {
+            assert_eq!(meta.video_id, "CMXkrrSJEck");
+            assert!(meta.has_auto_captions || meta.has_manual_subtitles);
+        }
+        let client = reqwest::Client::new();
+        if let Ok(session) = fetch_youtube_session(&client, "CMXkrrSJEck", "es").await {
+            if let Some(ref pj) = session.player_response {
+                if let Some((ref audio_url, approx_size)) = find_audio_format(pj) {
+                    let temp_dest = std::env::temp_dir().join("test_cmxkrr_direct.m4a");
+                    let dl_res = download_audio_direct(
+                        &client,
+                        audio_url,
+                        &session.cookies,
+                        &temp_dest,
+                        approx_size,
+                        "test_cmxkrr_task",
+                        |_p, _s, _m| {},
+                    ).await;
+                    assert!(dl_res.is_ok());
+                    assert!(temp_dest.exists());
+                    let sz = std::fs::metadata(&temp_dest).map(|m| m.len()).unwrap_or(0);
+                    assert!(sz > 10_000_000);
+                    let _ = std::fs::remove_file(&temp_dest);
+                }
+            }
         }
     }
 }
