@@ -83,6 +83,32 @@ impl Log for FileLogger {
             record.args()
         );
 
+        #[cfg(target_os = "android")]
+        {
+            if let (Ok(tag), Ok(msg)) = (
+                std::ffi::CString::new("AmigaRust"),
+                std::ffi::CString::new(format!("{}", record.args())),
+            ) {
+                let prio = match record.level() {
+                    log::Level::Error => 6,
+                    log::Level::Warn => 5,
+                    log::Level::Info => 4,
+                    log::Level::Debug => 3,
+                    log::Level::Trace => 2,
+                };
+                extern "C" {
+                    fn __android_log_write(
+                        prio: std::os::raw::c_int,
+                        tag: *const std::os::raw::c_char,
+                        text: *const std::os::raw::c_char,
+                    ) -> std::os::raw::c_int;
+                }
+                unsafe {
+                    __android_log_write(prio, tag.as_ptr(), msg.as_ptr());
+                }
+            }
+        }
+
         let mut guard = self.current_file.lock().unwrap();
         let needs_new_file = match guard.as_ref() {
             Some((d, _)) => d != &date,

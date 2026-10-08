@@ -214,7 +214,13 @@ pub async fn get_imported_article_cmd(
     db: State<'_, DatabasePool>,
     id: i64,
 ) -> Result<reading_mod::ImportedArticle, String> {
-    reading_mod::get_imported_article(&db, id)
+    let article = reading_mod::get_imported_article(&db, id)?;
+    if let Some(ref path_str) = article.audio_path {
+        let p = std::path::Path::new(path_str);
+        let remux_res = crate::modules::youtube::ensure_audio_remuxed_inplace(p);
+        log::info!("get_imported_article_cmd: audio_path={:?}, exists={}, remux_res={:?}", p, p.exists(), remux_res);
+    }
+    Ok(article)
 }
 
 #[tauri::command]

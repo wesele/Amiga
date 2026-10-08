@@ -191,7 +191,7 @@ pub fn extract_video_id(url: &str) -> Option<String> {
         let rest = &trimmed[pos + 2..];
         let id: String = rest
             .chars()
-            .take_while(|c| *c != '&' && *c != '#' && *c != '?')
+            .take_while(|c| *c != '&' && *c != '#' && *c != '?' && *c != '/')
             .collect();
         if !id.is_empty() {
             return Some(id);
@@ -201,7 +201,7 @@ pub fn extract_video_id(url: &str) -> Option<String> {
         let rest = &trimmed[pos + 9..];
         let id: String = rest
             .chars()
-            .take_while(|c| *c != '&' && *c != '#' && *c != '?')
+            .take_while(|c| *c != '&' && *c != '#' && *c != '?' && *c != '/')
             .collect();
         if !id.is_empty() {
             return Some(id);
@@ -211,7 +211,27 @@ pub fn extract_video_id(url: &str) -> Option<String> {
         let rest = &trimmed[pos + 19..];
         let id: String = rest
             .chars()
-            .take_while(|c| *c != '&' && *c != '#' && *c != '?')
+            .take_while(|c| *c != '&' && *c != '#' && *c != '?' && *c != '/')
+            .collect();
+        if !id.is_empty() {
+            return Some(id);
+        }
+    }
+    if let Some(pos) = trimmed.find("youtube.com/live/") {
+        let rest = &trimmed[pos + 17..];
+        let id: String = rest
+            .chars()
+            .take_while(|c| *c != '&' && *c != '#' && *c != '?' && *c != '/')
+            .collect();
+        if !id.is_empty() {
+            return Some(id);
+        }
+    }
+    if let Some(pos) = trimmed.find("youtube.com/embed/") {
+        let rest = &trimmed[pos + 18..];
+        let id: String = rest
+            .chars()
+            .take_while(|c| *c != '&' && *c != '#' && *c != '?' && *c != '/')
             .collect();
         if !id.is_empty() {
             return Some(id);
@@ -335,14 +355,27 @@ async fn fetch_youtube_session(
         Err(_) => None,
     };
 
-    let chosen_response = match player_json {
+    let mut chosen_response = match player_json {
         Some(json)
             if json.pointer("/playabilityStatus/status").and_then(|v| v.as_str()) == Some("OK") =>
         {
             Some(json)
         }
-        _ => html_player_response.or(player_json),
+        _ => html_player_response.clone().or(player_json),
     };
+
+    if let (Some(ref mut chosen), Some(ref html_pj)) = (&mut chosen_response, &html_player_response) {
+        let has_captions = chosen
+            .pointer("/captions/playerCaptionsTracklistRenderer/captionTracks")
+            .and_then(|v| v.as_array())
+            .map(|a| !a.is_empty())
+            .unwrap_or(false);
+        if !has_captions {
+            if let Some(captions) = html_pj.get("captions") {
+                chosen["captions"] = captions.clone();
+            }
+        }
+    }
 
     Ok(YoutubeSession {
         cookies,
@@ -572,48 +605,107 @@ where
             }
         };
 
-        let mut req = client
-            .get(audio_url)
-            .header(
-                "User-Agent",
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
-            )
-            .header("Range", range_val)
-            .timeout(std::time::Duration::from_secs(30));
+        let mut retries = 0;
+        let max_retries = 3;
+        let mut chunk_res = None;
 
-        if !cookies.is_empty() {
-            req = req.header("Cookie", cookies);
+        while retries <= max_retries {
+            if is_task_cancelled(task_id) {
+                let _ = std::fs::remove_file(dest_path);
+                return Err("导入已取消".to_string());
+            }
+
+            let mut req = client
+                .get(audio_url)
+                .header(
+                    "User-Agent",
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+                )
+                .header("Range", &range_val)
+                .timeout(std::time::Duration::from_secs(30));
+
+            if !cookies.is_empty() {
+                req = req.header("Cookie", cookies);
+            }
+
+            match req.send().await {
+                Ok(resp) => {
+                    let status = resp.status();
+                    if status == reqwest::StatusCode::RANGE_NOT_SATISFIABLE {
+                        chunk_res = Some((status, Vec::new()));
+                        break;
+                    }
+
+                    if !status.is_success() && status != reqwest::StatusCode::PARTIAL_CONTENT {
+                        retries += 1;
+                        if retries > max_retries {
+                            let _ = std::fs::remove_file(dest_path);
+                            return Err(format!("音频流请求失败，状态码: {}", status));
+                        }
+                        tokio::time::sleep(std::time::Duration::from_millis(500 * retries as u64)).await;
+                        continue;
+                    }
+
+                    if total_bytes.is_none() {
+                        if let Some(cr_val) = resp.headers().get(reqwest::header::CONTENT_RANGE) {
+                            if let Ok(cr_str) = cr_val.to_str() {
+                                if let Some(total_str) = cr_str.split('/').nth(1) {
+                                    if let Ok(tot) = total_str.trim().parse::<u64>() {
+                                        total_bytes = Some(tot);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    match resp.bytes().await {
+                        Ok(bytes) => {
+                            chunk_res = Some((status, bytes.to_vec()));
+                            break;
+                        }
+                        Err(e) => {
+                            retries += 1;
+                            if retries > max_retries {
+                                let _ = std::fs::remove_file(dest_path);
+                                return Err(format!("下载音频数据错误: {}", e));
+                            }
+                            tokio::time::sleep(std::time::Duration::from_millis(500 * retries as u64)).await;
+                        }
+                    }
+                }
+                Err(e) => {
+                    retries += 1;
+                    if retries > max_retries {
+                        let _ = std::fs::remove_file(dest_path);
+                        return Err(format!("连接音频流失败: {}", e));
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(500 * retries as u64)).await;
+                }
+            }
         }
 
-        let resp = req.send().await.map_err(|e| format!("连接音频流失败: {}", e))?;
-        let status = resp.status();
+        let (status, chunk) = match chunk_res {
+            Some(res) => res,
+            None => {
+                let _ = std::fs::remove_file(dest_path);
+                return Err("获取音频分块数据失败，重试已耗尽".to_string());
+            }
+        };
 
         if status == reqwest::StatusCode::RANGE_NOT_SATISFIABLE {
             break;
         }
 
-        if !status.is_success() && status != reqwest::StatusCode::PARTIAL_CONTENT {
-            return Err(format!("音频流请求失败，状态码: {}", status));
-        }
-
-        if total_bytes.is_none() {
-            if let Some(cr_val) = resp.headers().get(reqwest::header::CONTENT_RANGE) {
-                if let Ok(cr_str) = cr_val.to_str() {
-                    if let Some(total_str) = cr_str.split('/').nth(1) {
-                        if let Ok(tot) = total_str.trim().parse::<u64>() {
-                            total_bytes = Some(tot);
-                        }
-                    }
+        if chunk.is_empty() {
+            if let Some(tot) = total_bytes {
+                if downloaded < tot {
+                    let _ = std::fs::remove_file(dest_path);
+                    return Err(format!(
+                        "音频流提前中断：已下载 {} 字节，预期 {} 字节",
+                        downloaded, tot
+                    ));
                 }
             }
-        }
-
-        let chunk = resp
-            .bytes()
-            .await
-            .map_err(|e| format!("下载音频数据错误: {}", e))?;
-
-        if chunk.is_empty() {
             break;
         }
 
@@ -637,6 +729,15 @@ where
         }
 
         if status == reqwest::StatusCode::OK {
+            if let Some(tot) = total_bytes {
+                if downloaded < tot {
+                    let _ = std::fs::remove_file(dest_path);
+                    return Err(format!(
+                        "音频流响应不完整（状态码 200）：已接收 {} 字节，预期 {} 字节",
+                        downloaded, tot
+                    ));
+                }
+            }
             break;
         }
 
@@ -655,7 +756,550 @@ where
         return Err("音频数据为空".to_string());
     }
 
+    if let Some(tot) = total_bytes {
+        let min_acceptable = (tot as f64 * 0.98) as u64;
+        if downloaded < min_acceptable {
+            let _ = std::fs::remove_file(dest_path);
+            return Err(format!(
+                "音频文件大小未达到预期：实际 {} 字节，预期 {} 字节",
+                downloaded, tot
+            ));
+        }
+    }
+
     Ok(())
+}
+
+fn wrap_box(tag: &[u8; 4], payload: &[u8]) -> Vec<u8> {
+    let sz = (8 + payload.len()) as u32;
+    let mut b = Vec::with_capacity(8 + payload.len());
+    b.extend_from_slice(&sz.to_be_bytes());
+    b.extend_from_slice(tag);
+    b.extend_from_slice(payload);
+    b
+}
+
+struct Mp4BoxHeader {
+    offset: u64,
+    size: u64,
+    header_size: u64,
+    tag: [u8; 4],
+}
+
+fn read_box_header<R: std::io::Read + std::io::Seek>(
+    r: &mut R,
+    cur_pos: u64,
+) -> std::io::Result<Option<Mp4BoxHeader>> {
+    let mut hdr = [0u8; 8];
+    if let Err(e) = r.read_exact(&mut hdr) {
+        if e.kind() == std::io::ErrorKind::UnexpectedEof {
+            return Ok(None);
+        }
+        return Err(e);
+    }
+    let sz32 = u32::from_be_bytes([hdr[0], hdr[1], hdr[2], hdr[3]]) as u64;
+    let tag = [hdr[4], hdr[5], hdr[6], hdr[7]];
+    if sz32 == 1 {
+        let mut large = [0u8; 8];
+        r.read_exact(&mut large)?;
+        let sz = u64::from_be_bytes(large);
+        Ok(Some(Mp4BoxHeader {
+            offset: cur_pos,
+            size: sz,
+            header_size: 16,
+            tag,
+        }))
+    } else if sz32 == 0 {
+        let end = r.seek(std::io::SeekFrom::End(0))?;
+        r.seek(std::io::SeekFrom::Start(cur_pos + 8))?;
+        Ok(Some(Mp4BoxHeader {
+            offset: cur_pos,
+            size: end.saturating_sub(cur_pos),
+            header_size: 8,
+            tag,
+        }))
+    } else {
+        Ok(Some(Mp4BoxHeader {
+            offset: cur_pos,
+            size: sz32,
+            header_size: 8,
+            tag,
+        }))
+    }
+}
+
+fn find_sub_box<'a>(data: &'a [u8], target_tag: &[u8; 4]) -> Option<(&'a [u8], usize)> {
+    let mut off = 0;
+    while off + 8 <= data.len() {
+        let sz = u32::from_be_bytes([data[off], data[off + 1], data[off + 2], data[off + 3]]) as usize;
+        let tag = [data[off + 4], data[off + 5], data[off + 6], data[off + 7]];
+        if sz < 8 || off + sz > data.len() {
+            break;
+        }
+        if &tag == target_tag {
+            return Some((&data[off + 8..off + sz], off));
+        }
+        off += sz;
+    }
+    None
+}
+
+fn build_progressive_moov(
+    timescale: u32,
+    total_duration: u64,
+    stsd_box: &[u8],
+    sample_durations: &[u32],
+    sample_sizes: &[u32],
+    chunk_offset: u64,
+) -> Vec<u8> {
+    let total_samples = sample_sizes.len() as u32;
+
+    // stts: run-length encoded time-to-sample table
+    let mut stts_entries: Vec<(u32, u32)> = Vec::new();
+    for &dur in sample_durations {
+        if let Some(last) = stts_entries.last_mut() {
+            if last.1 == dur {
+                last.0 += 1;
+                continue;
+            }
+        }
+        stts_entries.push((1, dur));
+    }
+    let mut stts_payload = Vec::with_capacity(8 + stts_entries.len() * 8);
+    stts_payload.extend_from_slice(&[0, 0, 0, 0]); // version/flags
+    stts_payload.extend_from_slice(&(stts_entries.len() as u32).to_be_bytes());
+    for (cnt, delta) in stts_entries {
+        stts_payload.extend_from_slice(&cnt.to_be_bytes());
+        stts_payload.extend_from_slice(&delta.to_be_bytes());
+    }
+    let stts = wrap_box(b"stts", &stts_payload);
+
+    // Chunking: group samples into ~1-second chunks (~43 AAC samples at 44.1kHz / 1024 frames)
+    // This allows Chromium's FFmpegDemuxer to buffer chunk-by-chunk and stream indefinitely
+    // without hitting PIPELINE_ERROR_READ from internal buffer exhaustion.
+    const CHUNK_SIZE: u32 = 43;
+    let num_full_chunks = total_samples / CHUNK_SIZE;
+    let rem_samples = total_samples % CHUNK_SIZE;
+    let total_chunks = if rem_samples > 0 { num_full_chunks + 1 } else { num_full_chunks };
+
+    let mut stsc_payload = Vec::new();
+    stsc_payload.extend_from_slice(&[0, 0, 0, 0]); // version/flags
+    if rem_samples == 0 || num_full_chunks == 0 {
+        stsc_payload.extend_from_slice(&1u32.to_be_bytes()); // 1 entry
+        stsc_payload.extend_from_slice(&1u32.to_be_bytes()); // first_chunk
+        stsc_payload.extend_from_slice(&(total_samples.min(CHUNK_SIZE).max(1)).to_be_bytes());
+        stsc_payload.extend_from_slice(&1u32.to_be_bytes()); // sample_description_index
+    } else {
+        stsc_payload.extend_from_slice(&2u32.to_be_bytes()); // 2 entries
+        stsc_payload.extend_from_slice(&1u32.to_be_bytes()); // first_chunk: 1
+        stsc_payload.extend_from_slice(&CHUNK_SIZE.to_be_bytes()); // samples_per_chunk: 43
+        stsc_payload.extend_from_slice(&1u32.to_be_bytes());
+
+        stsc_payload.extend_from_slice(&(num_full_chunks + 1).to_be_bytes()); // first_chunk: last
+        stsc_payload.extend_from_slice(&rem_samples.to_be_bytes()); // samples_per_chunk: remainder
+        stsc_payload.extend_from_slice(&1u32.to_be_bytes());
+    }
+    let stsc = wrap_box(b"stsc", &stsc_payload);
+
+    // stsz: sample sizes table
+    let mut stsz_payload = Vec::with_capacity(12 + sample_sizes.len() * 4);
+    stsz_payload.extend_from_slice(&[0, 0, 0, 0]);
+    stsz_payload.extend_from_slice(&0u32.to_be_bytes()); // variable sample size
+    stsz_payload.extend_from_slice(&total_samples.to_be_bytes());
+    for &sz in sample_sizes {
+        stsz_payload.extend_from_slice(&sz.to_be_bytes());
+    }
+    let stsz = wrap_box(b"stsz", &stsz_payload);
+
+    // co64: 64-bit chunk offsets table
+    let mut co64_payload = Vec::with_capacity(8 + (total_chunks as usize) * 8);
+    co64_payload.extend_from_slice(&[0, 0, 0, 0]);
+    co64_payload.extend_from_slice(&total_chunks.to_be_bytes());
+
+    let mut current_offset = chunk_offset;
+    let mut sample_idx = 0;
+    for c in 0..total_chunks {
+        co64_payload.extend_from_slice(&current_offset.to_be_bytes());
+        let count = if c < num_full_chunks { CHUNK_SIZE } else { rem_samples };
+        for _ in 0..count {
+            if sample_idx < sample_sizes.len() {
+                current_offset += sample_sizes[sample_idx] as u64;
+                sample_idx += 1;
+            }
+        }
+    }
+    let co64 = wrap_box(b"co64", &co64_payload);
+
+    // stbl
+    let mut stbl_payload = Vec::with_capacity(stsd_box.len() + stts.len() + stsc.len() + stsz.len() + co64.len());
+    stbl_payload.extend_from_slice(stsd_box);
+    stbl_payload.extend_from_slice(&stts);
+    stbl_payload.extend_from_slice(&stsc);
+    stbl_payload.extend_from_slice(&stsz);
+    stbl_payload.extend_from_slice(&co64);
+    let stbl = wrap_box(b"stbl", &stbl_payload);
+
+    // smhd
+    let smhd = wrap_box(b"smhd", &[0, 0, 0, 0, 0, 0, 0, 0]);
+
+    // dinf
+    let url_box = wrap_box(b"url ", &[0, 0, 0, 1]);
+    let mut dref_payload = Vec::with_capacity(8 + url_box.len());
+    dref_payload.extend_from_slice(&[0, 0, 0, 0]);
+    dref_payload.extend_from_slice(&1u32.to_be_bytes());
+    dref_payload.extend_from_slice(&url_box);
+    let dref = wrap_box(b"dref", &dref_payload);
+    let dinf = wrap_box(b"dinf", &dref);
+
+    // minf
+    let mut minf_payload = Vec::with_capacity(smhd.len() + dinf.len() + stbl.len());
+    minf_payload.extend_from_slice(&smhd);
+    minf_payload.extend_from_slice(&dinf);
+    minf_payload.extend_from_slice(&stbl);
+    let minf = wrap_box(b"minf", &minf_payload);
+
+    // hdlr
+    let mut hdlr_payload = Vec::with_capacity(36);
+    hdlr_payload.extend_from_slice(&[0, 0, 0, 0, 0, 0, 0, 0]);
+    hdlr_payload.extend_from_slice(b"soun");
+    hdlr_payload.extend_from_slice(&[0u8; 12]);
+    hdlr_payload.extend_from_slice(b"SoundHandler\0");
+    let hdlr = wrap_box(b"hdlr", &hdlr_payload);
+
+    // mdhd
+    let mut mdhd_payload = Vec::with_capacity(24);
+    mdhd_payload.extend_from_slice(&[0, 0, 0, 0]);
+    mdhd_payload.extend_from_slice(&0u32.to_be_bytes()); // create
+    mdhd_payload.extend_from_slice(&0u32.to_be_bytes()); // mod
+    mdhd_payload.extend_from_slice(&timescale.to_be_bytes());
+    let dur32 = total_duration.min(u32::MAX as u64) as u32;
+    mdhd_payload.extend_from_slice(&dur32.to_be_bytes());
+    mdhd_payload.extend_from_slice(&0x55c4u16.to_be_bytes()); // und language
+    mdhd_payload.extend_from_slice(&0u16.to_be_bytes());
+    let mdhd = wrap_box(b"mdhd", &mdhd_payload);
+
+    // mdia
+    let mut mdia_payload = Vec::with_capacity(mdhd.len() + hdlr.len() + minf.len());
+    mdia_payload.extend_from_slice(&mdhd);
+    mdia_payload.extend_from_slice(&hdlr);
+    mdia_payload.extend_from_slice(&minf);
+    let mdia = wrap_box(b"mdia", &mdia_payload);
+
+    // tkhd
+    let mut tkhd_payload = Vec::with_capacity(84);
+    tkhd_payload.extend_from_slice(&[0, 0, 0, 7]); // enabled | in movie | in preview
+    tkhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    tkhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    tkhd_payload.extend_from_slice(&1u32.to_be_bytes()); // track 1
+    tkhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    tkhd_payload.extend_from_slice(&dur32.to_be_bytes());
+    tkhd_payload.extend_from_slice(&[0u8; 8]);
+    tkhd_payload.extend_from_slice(&0u16.to_be_bytes()); // layer 0
+    tkhd_payload.extend_from_slice(&0u16.to_be_bytes()); // alt 0
+    tkhd_payload.extend_from_slice(&0x0100u16.to_be_bytes()); // vol 1.0
+    tkhd_payload.extend_from_slice(&0u16.to_be_bytes());
+    tkhd_payload.extend_from_slice(&0x00010000u32.to_be_bytes());
+    tkhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    tkhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    tkhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    tkhd_payload.extend_from_slice(&0x00010000u32.to_be_bytes());
+    tkhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    tkhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    tkhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    tkhd_payload.extend_from_slice(&0x40000000u32.to_be_bytes());
+    tkhd_payload.extend_from_slice(&0u32.to_be_bytes()); // width 0
+    tkhd_payload.extend_from_slice(&0u32.to_be_bytes()); // height 0
+    let tkhd = wrap_box(b"tkhd", &tkhd_payload);
+
+    // trak
+    let mut trak_payload = Vec::with_capacity(tkhd.len() + mdia.len());
+    trak_payload.extend_from_slice(&tkhd);
+    trak_payload.extend_from_slice(&mdia);
+    let trak = wrap_box(b"trak", &trak_payload);
+
+    // mvhd
+    let mut mvhd_payload = Vec::with_capacity(100);
+    mvhd_payload.extend_from_slice(&[0, 0, 0, 0]);
+    mvhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    mvhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    mvhd_payload.extend_from_slice(&timescale.to_be_bytes());
+    mvhd_payload.extend_from_slice(&dur32.to_be_bytes());
+    mvhd_payload.extend_from_slice(&0x00010000u32.to_be_bytes()); // rate 1.0
+    mvhd_payload.extend_from_slice(&0x0100u16.to_be_bytes()); // vol 1.0
+    mvhd_payload.extend_from_slice(&[0u8; 10]);
+    mvhd_payload.extend_from_slice(&0x00010000u32.to_be_bytes());
+    mvhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    mvhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    mvhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    mvhd_payload.extend_from_slice(&0x00010000u32.to_be_bytes());
+    mvhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    mvhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    mvhd_payload.extend_from_slice(&0u32.to_be_bytes());
+    mvhd_payload.extend_from_slice(&0x40000000u32.to_be_bytes());
+    mvhd_payload.extend_from_slice(&[0u8; 24]);
+    mvhd_payload.extend_from_slice(&2u32.to_be_bytes()); // next track id 2
+    let mvhd = wrap_box(b"mvhd", &mvhd_payload);
+
+    // moov
+    let mut moov_payload = Vec::with_capacity(mvhd.len() + trak.len());
+    moov_payload.extend_from_slice(&mvhd);
+    moov_payload.extend_from_slice(&trak);
+    wrap_box(b"moov", &moov_payload)
+}
+
+/// Remux a fragmented MP4 (DASH audio stream) into a standard progressive .m4a container.
+/// Returns Ok(true) if remuxed, Ok(false) if the file was not fragmented.
+pub fn remux_fmp4_to_m4a(raw_path: &std::path::Path, out_path: &std::path::Path) -> Result<bool, String> {
+    use std::io::{Read, Seek, SeekFrom, Write};
+
+    let mut r = std::fs::File::open(raw_path).map_err(|e| format!("打开原始音频文件失败: {}", e))?;
+    let file_len = r.metadata().map_err(|e| format!("读取文件属性失败: {}", e))?.len();
+
+    let mut cur_pos: u64 = 0;
+    let mut timescale: u32 = 44100;
+    let mut stsd_box: Option<Vec<u8>> = None;
+    let mut sample_sizes: Vec<u32> = Vec::new();
+    let mut sample_durations: Vec<u32> = Vec::new();
+    let mut mdat_chunks: Vec<(u64, u64)> = Vec::new();
+    let mut has_moof = false;
+
+    while cur_pos < file_len {
+        r.seek(SeekFrom::Start(cur_pos)).map_err(|e| format!("定位文件失败: {}", e))?;
+        let b_hdr = match read_box_header(&mut r, cur_pos).map_err(|e| format!("读取box头失败: {}", e))? {
+            Some(h) => h,
+            None => break,
+        };
+
+        if b_hdr.size == 0 || cur_pos.checked_add(b_hdr.size).is_none() {
+            break;
+        }
+
+        let p_off = b_hdr.offset + b_hdr.header_size;
+        let p_len = b_hdr.size.saturating_sub(b_hdr.header_size);
+
+        if &b_hdr.tag == b"moov" {
+            let mut moov_buf = vec![0u8; p_len as usize];
+            r.seek(SeekFrom::Start(p_off)).map_err(|e| format!("定位moov失败: {}", e))?;
+            r.read_exact(&mut moov_buf).map_err(|e| format!("读取moov失败: {}", e))?;
+
+            if let Some((trak, _)) = find_sub_box(&moov_buf, b"trak") {
+                if let Some((mdia, _)) = find_sub_box(trak, b"mdia") {
+                    if let Some((mdhd, _)) = find_sub_box(mdia, b"mdhd") {
+                        if mdhd.len() >= 16 {
+                            let ver = mdhd[0];
+                            if ver == 0 && mdhd.len() >= 16 {
+                                timescale = u32::from_be_bytes([mdhd[12], mdhd[13], mdhd[14], mdhd[15]]);
+                            } else if ver == 1 && mdhd.len() >= 24 {
+                                timescale = u32::from_be_bytes([mdhd[20], mdhd[21], mdhd[22], mdhd[23]]);
+                            }
+                        }
+                    }
+                    if let Some((minf, _)) = find_sub_box(mdia, b"minf") {
+                        if let Some((stbl, _)) = find_sub_box(minf, b"stbl") {
+                            if let Some((stsd_payload, stsd_off)) = find_sub_box(stbl, b"stsd") {
+                                let stsd_sz = u32::from_be_bytes([
+                                    stbl[stsd_off],
+                                    stbl[stsd_off + 1],
+                                    stbl[stsd_off + 2],
+                                    stbl[stsd_off + 3],
+                                ]) as usize;
+                                if stsd_off + stsd_sz <= stbl.len() {
+                                    stsd_box = Some(stbl[stsd_off..stsd_off + stsd_sz].to_vec());
+                                } else {
+                                    stsd_box = Some(wrap_box(b"stsd", stsd_payload));
+                                }
+                            }
+
+                            // If this is an existing progressive M4A that was previously remuxed with only a single chunk,
+                            // detect it so we can re-chunk it into ~1s chunks to prevent demuxer read buffer exhaustion.
+                            if let Some((stsz, _)) = find_sub_box(stbl, b"stsz") {
+                                if stsz.len() >= 12 {
+                                    let default_sz = u32::from_be_bytes([stsz[4], stsz[5], stsz[6], stsz[7]]);
+                                    let sample_cnt = u32::from_be_bytes([stsz[8], stsz[9], stsz[10], stsz[11]]) as usize;
+                                    if default_sz == 0 && sample_cnt > 100 && stsz.len() >= 12 + sample_cnt * 4 {
+                                        let needs_rechunk = if let Some((co64, _)) = find_sub_box(stbl, b"co64") {
+                                            co64.len() >= 8 && u32::from_be_bytes([co64[4], co64[5], co64[6], co64[7]]) == 1
+                                        } else if let Some((stco, _)) = find_sub_box(stbl, b"stco") {
+                                            stco.len() >= 8 && u32::from_be_bytes([stco[4], stco[5], stco[6], stco[7]]) == 1
+                                        } else {
+                                            false
+                                        };
+                                        if needs_rechunk {
+                                            for i in 0..sample_cnt {
+                                                let ptr = 12 + i * 4;
+                                                sample_sizes.push(u32::from_be_bytes([stsz[ptr], stsz[ptr + 1], stsz[ptr + 2], stsz[ptr + 3]]));
+                                            }
+                                            if let Some((stts, _)) = find_sub_box(stbl, b"stts") {
+                                                if stts.len() >= 8 {
+                                                    let entry_cnt = u32::from_be_bytes([stts[4], stts[5], stts[6], stts[7]]) as usize;
+                                                    let mut ptr = 8;
+                                                    for _ in 0..entry_cnt {
+                                                        if ptr + 8 <= stts.len() {
+                                                            let cnt = u32::from_be_bytes([stts[ptr], stts[ptr + 1], stts[ptr + 2], stts[ptr + 3]]);
+                                                            let delta = u32::from_be_bytes([stts[ptr + 4], stts[ptr + 5], stts[ptr + 6], stts[ptr + 7]]);
+                                                            for _ in 0..cnt {
+                                                                sample_durations.push(delta);
+                                                            }
+                                                            ptr += 8;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            while sample_durations.len() < sample_sizes.len() {
+                                                sample_durations.push(1024);
+                                            }
+                                            has_moof = true; // Mark as eligible for remux
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if &b_hdr.tag == b"moof" {
+            has_moof = true;
+            let mut moof_buf = vec![0u8; p_len as usize];
+            r.seek(SeekFrom::Start(p_off)).map_err(|e| format!("定位moof失败: {}", e))?;
+            r.read_exact(&mut moof_buf).map_err(|e| format!("读取moof失败: {}", e))?;
+
+            if let Some((traf, _)) = find_sub_box(&moof_buf, b"traf") {
+                let mut default_dur = 1024u32;
+                let mut default_sz = 0u32;
+                if let Some((tfhd, _)) = find_sub_box(traf, b"tfhd") {
+                    if tfhd.len() >= 8 {
+                        let tfhd_flags = u32::from_be_bytes([0, tfhd[1], tfhd[2], tfhd[3]]);
+                        let mut ptr = 8;
+                        if tfhd_flags & 0x000001 != 0 { ptr += 8; }
+                        if tfhd_flags & 0x000002 != 0 { ptr += 4; }
+                        if tfhd_flags & 0x000008 != 0 && ptr + 4 <= tfhd.len() {
+                            default_dur = u32::from_be_bytes([tfhd[ptr], tfhd[ptr + 1], tfhd[ptr + 2], tfhd[ptr + 3]]);
+                            ptr += 4;
+                        }
+                        if tfhd_flags & 0x000010 != 0 && ptr + 4 <= tfhd.len() {
+                            default_sz = u32::from_be_bytes([tfhd[ptr], tfhd[ptr + 1], tfhd[ptr + 2], tfhd[ptr + 3]]);
+                        }
+                    }
+                }
+                if let Some((trun, _)) = find_sub_box(traf, b"trun") {
+                    if trun.len() >= 8 {
+                        let trun_flags = u32::from_be_bytes([0, trun[1], trun[2], trun[3]]);
+                        let sample_cnt = u32::from_be_bytes([trun[4], trun[5], trun[6], trun[7]]) as usize;
+                        let mut ptr = 8;
+                        if trun_flags & 0x000001 != 0 { ptr += 4; }
+                        if trun_flags & 0x000004 != 0 { ptr += 4; }
+                        for _ in 0..sample_cnt {
+                            if ptr > trun.len() { break; }
+                            let dur = if trun_flags & 0x000100 != 0 && ptr + 4 <= trun.len() {
+                                let d = u32::from_be_bytes([trun[ptr], trun[ptr + 1], trun[ptr + 2], trun[ptr + 3]]);
+                                ptr += 4;
+                                d
+                            } else {
+                                default_dur
+                            };
+                            let sz = if trun_flags & 0x000200 != 0 && ptr + 4 <= trun.len() {
+                                let s = u32::from_be_bytes([trun[ptr], trun[ptr + 1], trun[ptr + 2], trun[ptr + 3]]);
+                                ptr += 4;
+                                s
+                            } else {
+                                default_sz
+                            };
+                            if trun_flags & 0x000400 != 0 { ptr += 4; }
+                            if trun_flags & 0x000800 != 0 { ptr += 4; }
+                            sample_durations.push(dur);
+                            sample_sizes.push(sz);
+                        }
+                    }
+                }
+            }
+        } else if &b_hdr.tag == b"mdat" {
+            mdat_chunks.push((p_off, p_len));
+        }
+
+        cur_pos += b_hdr.size;
+    }
+
+    if !has_moof || sample_sizes.is_empty() || mdat_chunks.is_empty() {
+        return Ok(false);
+    }
+
+    let stsd = match stsd_box {
+        Some(s) => s,
+        None => return Err("未能从原始音频中提取到stsd音频描述".to_string()),
+    };
+
+    let total_duration: u64 = sample_durations.iter().map(|&d| d as u64).sum();
+    let total_media_size: u64 = mdat_chunks.iter().map(|&(_, l)| l).sum();
+
+    let ftyp = wrap_box(b"ftyp", b"M4A \0\0\0\0M4A mp42isom\0\0\0\0");
+    let ftyp_len = ftyp.len() as u64;
+
+    let dummy_moov = build_progressive_moov(timescale, total_duration, &stsd, &sample_durations, &sample_sizes, 0);
+    let moov_len = dummy_moov.len() as u64;
+    let mdat_header_len = if total_media_size + 8 <= u32::MAX as u64 { 8u64 } else { 16u64 };
+    let exact_chunk_offset = ftyp_len + moov_len + mdat_header_len;
+
+    let final_moov = build_progressive_moov(timescale, total_duration, &stsd, &sample_durations, &sample_sizes, exact_chunk_offset);
+
+    let out_file = std::fs::File::create(out_path).map_err(|e| format!("创建输出音频文件失败: {}", e))?;
+    let mut w = std::io::BufWriter::with_capacity(128 * 1024, out_file);
+
+    w.write_all(&ftyp).map_err(|e| format!("写入ftyp失败: {}", e))?;
+    w.write_all(&final_moov).map_err(|e| format!("写入moov失败: {}", e))?;
+
+    if total_media_size + 8 <= u32::MAX as u64 {
+        let mdat_sz = (total_media_size + 8) as u32;
+        w.write_all(&mdat_sz.to_be_bytes()).map_err(|e| format!("写入mdat头失败: {}", e))?;
+        w.write_all(b"mdat").map_err(|e| format!("写入mdat头失败: {}", e))?;
+    } else {
+        w.write_all(&1u32.to_be_bytes()).map_err(|e| format!("写入mdat头失败: {}", e))?;
+        w.write_all(b"mdat").map_err(|e| format!("写入mdat头失败: {}", e))?;
+        let total_sz = total_media_size + 16;
+        w.write_all(&total_sz.to_be_bytes()).map_err(|e| format!("写入mdat头失败: {}", e))?;
+    }
+
+    let mut copy_buf = vec![0u8; 128 * 1024];
+    for (p_off, p_len) in mdat_chunks {
+        r.seek(SeekFrom::Start(p_off)).map_err(|e| format!("定位mdat失败: {}", e))?;
+        let mut remaining = p_len;
+        while remaining > 0 {
+            let to_read = remaining.min(copy_buf.len() as u64) as usize;
+            r.read_exact(&mut copy_buf[..to_read]).map_err(|e| format!("读取mdat数据失败: {}", e))?;
+            w.write_all(&copy_buf[..to_read]).map_err(|e| format!("写入mdat数据失败: {}", e))?;
+            remaining -= to_read as u64;
+        }
+    }
+    w.flush().map_err(|e| format!("刷新输出文件失败: {}", e))?;
+
+    Ok(true)
+}
+
+/// Automatically detect if an existing audio file on disk is an un-remuxed fragmented MP4
+/// and convert it in-place to a standard progressive Fast Start M4A.
+pub fn ensure_audio_remuxed_inplace(path: &std::path::Path) -> Result<bool, String> {
+    if !path.exists() {
+        return Ok(false);
+    }
+    let temp_out = path.with_extension("remux_tmp.m4a");
+    match remux_fmp4_to_m4a(path, &temp_out) {
+        Ok(true) => {
+            if std::fs::rename(&temp_out, path).is_err() {
+                let _ = std::fs::copy(&temp_out, path);
+                let _ = std::fs::remove_file(&temp_out);
+            }
+            log::info!("In-place remuxed legacy audio to progressive M4A: {:?}", path);
+            Ok(true)
+        }
+        Ok(false) => {
+            let _ = std::fs::remove_file(&temp_out);
+            Ok(false)
+        }
+        Err(e) => {
+            let _ = std::fs::remove_file(&temp_out);
+            log::warn!("In-place remux check failed for {:?}: {}", path, e);
+            Err(e)
+        }
+    }
 }
 
 #[cfg(not(target_os = "android"))]
@@ -1358,24 +2002,54 @@ pub fn run_import_pipeline(
         if let Some(ref s) = session {
             if let Some(ref pj) = s.player_response {
                 if let Some((audio_url, approx_size)) = find_audio_format(pj) {
+                    let raw_dest = temp_dir.join(format!("raw_{}_{}.mp4", meta.video_id, task_id_clone));
                     let direct_res = download_audio_direct(
                         &client,
                         &audio_url,
                         cookies_ref,
-                        &audio_dest,
+                        &raw_dest,
                         approx_size,
                         &task_id_clone,
                         |mapped, speed, msg| {
-                            notify("audio", mapped, speed, msg);
+                            // Scale 0..85% during download
+                            notify("audio", mapped * 0.9, speed, msg);
                         },
                     )
                     .await;
 
+                    let is_size_acceptable = if let Some(exp_sz) = approx_size {
+                        let min_acceptable = (exp_sz as f64 * 0.98) as u64;
+                        fs::metadata(&raw_dest).map(|m| m.len() >= min_acceptable).unwrap_or(false)
+                    } else {
+                        fs::metadata(&raw_dest).map(|m| m.len() > 1024).unwrap_or(false)
+                    };
+
                     if direct_res.is_ok()
-                        && audio_dest.exists()
-                        && fs::metadata(&audio_dest).map(|m| m.len() > 1024).unwrap_or(false)
+                        && raw_dest.exists()
+                        && is_size_acceptable
                     {
-                        audio_downloaded = true;
+                        notify("audio", 88.0, None, "正在优化音频索引...");
+                        match remux_fmp4_to_m4a(&raw_dest, &audio_dest) {
+                            Ok(true) => {
+                                let _ = fs::remove_file(&raw_dest);
+                                audio_downloaded = true;
+                            }
+                            Ok(false) => {
+                                if fs::rename(&raw_dest, &audio_dest).is_err() {
+                                    let _ = fs::copy(&raw_dest, &audio_dest);
+                                    let _ = fs::remove_file(&raw_dest);
+                                }
+                                audio_downloaded = true;
+                            }
+                            Err(e) => {
+                                log::warn!("fMP4转封装失败，回退到原始音频: {}", e);
+                                if fs::rename(&raw_dest, &audio_dest).is_err() {
+                                    let _ = fs::copy(&raw_dest, &audio_dest);
+                                    let _ = fs::remove_file(&raw_dest);
+                                }
+                                audio_downloaded = true;
+                            }
+                        }
                     } else if let Err(e) = direct_res {
                         log::warn!("Direct audio download error: {}", e);
                     }
@@ -1462,6 +2136,14 @@ mod tests {
             extract_video_id("https://youtu.be/mmXMGqAO82o?t=10"),
             Some("mmXMGqAO82o".to_string())
         );
+        assert_eq!(
+            extract_video_id("https://www.youtube.com/live/5hRaRgbMUG4?is=myyYkVEbYE_tb5ry"),
+            Some("5hRaRgbMUG4".to_string())
+        );
+        assert_eq!(
+            extract_video_id("https://www.youtube.com/embed/5hRaRgbMUG4"),
+            Some("5hRaRgbMUG4".to_string())
+        );
     }
 
     #[test]
@@ -1545,11 +2227,87 @@ vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c>
                         "test_cmxkrr_task",
                         |_p, _s, _m| {},
                     ).await;
-                    assert!(dl_res.is_ok());
+                    assert!(dl_res.is_ok(), "dl_res error: {:?}", dl_res);
                     assert!(temp_dest.exists());
                     let sz = std::fs::metadata(&temp_dest).map(|m| m.len()).unwrap_or(0);
                     assert!(sz > 10_000_000);
                     let _ = std::fs::remove_file(&temp_dest);
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    #[allow(non_snake_case)]
+    async fn test_5hRaRgbMUG4_video() {
+        let url = "https://www.youtube.com/live/5hRaRgbMUG4?is=myyYkVEbYE_tb5ry";
+        let res = fetch_youtube_metadata(url, "es").await;
+        println!("5hRaRgbMUG4 metadata res: {:?}", res);
+        assert!(res.is_ok(), "fetch_youtube_metadata failed: {:?}", res);
+        let meta = res.unwrap();
+        assert_eq!(meta.video_id, "5hRaRgbMUG4");
+        println!("5hRaRgbMUG4 title: {}, sub_lang: {:?}, manual: {}, auto: {}", meta.title, meta.subtitle_lang, meta.has_manual_subtitles, meta.has_auto_captions);
+        let client = reqwest::Client::new();
+        let session_res = fetch_youtube_session(&client, "5hRaRgbMUG4", "es").await;
+        println!("5hRaRgbMUG4 session ok: {}", session_res.is_ok());
+        if let Ok(session) = session_res {
+            if let Some(ref pj) = session.player_response {
+                let fmt = find_audio_format(pj);
+                println!("5hRaRgbMUG4 audio fmt: {:?}", fmt.is_some());
+                assert!(fmt.is_some());
+
+                let sub_url = find_subtitle_url(pj, "es");
+                println!("5hRaRgbMUG4 sub url: {:?}", sub_url);
+                if let Some(ref u) = sub_url {
+                    let dl_sub = download_subtitle_direct(&client, u, &session.cookies).await;
+                    println!("5hRaRgbMUG4 sub dl: ok={}, len={:?}", dl_sub.is_ok(), dl_sub.as_ref().map(|s| s.len()));
+                }
+            } else {
+                panic!("no player_response");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_remux_cmxkrr() {
+        let client = reqwest::Client::new();
+        if let Ok(session) = fetch_youtube_session(&client, "CMXkrrSJEck", "es").await {
+            if let Some(ref pj) = session.player_response {
+                if let Some((ref audio_url, approx_size)) = find_audio_format(pj) {
+                    let raw_dest = std::env::temp_dir().join("test_cmxkrr_raw.mp4");
+                    let remux_dest = std::env::temp_dir().join("test_cmxkrr_remuxed.m4a");
+                    let dl_res = download_audio_direct(
+                        &client,
+                        audio_url,
+                        &session.cookies,
+                        &raw_dest,
+                        approx_size,
+                        "test_cmxkrr_task",
+                        |_p, _s, _m| {},
+                    ).await;
+                    assert!(dl_res.is_ok());
+                    assert!(raw_dest.exists());
+
+                    let remux_res = remux_fmp4_to_m4a(&raw_dest, &remux_dest);
+                    assert!(remux_res.is_ok());
+                    assert!(remux_res.unwrap());
+                    assert!(remux_dest.exists());
+
+                    let bytes = std::fs::read(&remux_dest).unwrap();
+                    assert!(bytes.len() > 10_000_000);
+                    assert_eq!(&bytes[4..8], b"ftyp");
+                    let sz = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as usize;
+                    let tag2 = &bytes[sz + 4..sz + 8];
+                    assert_eq!(tag2, b"moov");
+
+                    let inplace_res = ensure_audio_remuxed_inplace(&raw_dest);
+                    assert!(inplace_res.is_ok());
+                    assert!(inplace_res.unwrap());
+
+                    let _ = std::fs::copy(&remux_dest, "target/test_cmxkrr_remuxed.m4a");
+                    let _ = std::fs::copy(&raw_dest, "target/test_cmxkrr_raw.mp4");
+                    let _ = std::fs::remove_file(&raw_dest);
+                    let _ = std::fs::remove_file(&remux_dest);
                 }
             }
         }

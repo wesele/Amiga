@@ -242,6 +242,19 @@ const currentTime = ref(0);
 const isAudioPlaying = ref(false);
 const audioAvailable = ref(false);
 let audioEl = null;
+let audioBlobUrl = null;
+let audioLoadToken = 0;
+let pendingSeekTime = null;
+let pendingAutoPlay = false;
+
+function cleanupAudioBlob() {
+  if (audioBlobUrl) {
+    try {
+      URL.revokeObjectURL(audioBlobUrl);
+    } catch (_) {}
+    audioBlobUrl = null;
+  }
+}
 
 const timelinePercent = computed(() => {
   if (audioDuration.value <= 0) return 0;
@@ -276,11 +289,37 @@ function showAudioStatus(msg) {
   }, 3000);
 }
 
+function applyPendingAudioActions(el) {
+  if (pendingSeekTime !== null) {
+    const t = pendingSeekTime;
+    pendingSeekTime = null;
+    try {
+      el.currentTime = t;
+    } catch (err) {
+      console.warn("audio seek failed:", err);
+    }
+  }
+  if (pendingAutoPlay) {
+    pendingAutoPlay = false;
+    const playPromise = el.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch((err) => {
+        console.warn("Audio play failed:", err);
+        showAudioStatus(t("reading.audioPlayFail"));
+      });
+    }
+  }
+}
+
 function initAudio(audioPath, durationSec) {
   if (audioEl) {
     audioEl.pause();
     audioEl = null;
   }
+  cleanupAudioBlob();
+  pendingSeekTime = null;
+  pendingAutoPlay = false;
+
   audioDuration.value = durationSec || 0;
   currentTime.value = 0;
   isAudioPlaying.value = false;
@@ -288,6 +327,7 @@ function initAudio(audioPath, durationSec) {
 
   if (!audioPath) return;
 
+  const currentToken = ++audioLoadToken;
   const el = new Audio();
   el.preload = "metadata";
   audioEl = el;
@@ -297,6 +337,10 @@ function initAudio(audioPath, durationSec) {
     if (el.duration && Number.isFinite(el.duration)) {
       audioDuration.value = el.duration;
     }
+    applyPendingAudioActions(el);
+  });
+  el.addEventListener("canplay", () => {
+    applyPendingAudioActions(el);
   });
   el.addEventListener("timeupdate", () => {
     currentTime.value = el.currentTime || 0;
@@ -317,14 +361,42 @@ function initAudio(audioPath, durationSec) {
     audioAvailable.value = false;
     showAudioStatus(t("reading.audioLoadFail"));
   });
-  el.src = resolveAudioSrc(audioPath);
+
+  const src = resolveAudioSrc(audioPath);
+  // On Android/Tauri WebView, playing directly via custom asset protocols breaks Range requests,
+  // causing PIPELINE_ERROR_READ stalling after ~32s and broken seeks.
+  // Converting local asset URLs to a memory Blob URL provides smooth playback and instantaneous seeks.
+  if (/asset\.localhost/i.test(src) || /^asset:\/\//i.test(src)) {
+    fetch(src)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        if (currentToken !== audioLoadToken || audioEl !== el) return;
+        audioBlobUrl = URL.createObjectURL(blob);
+        el.src = audioBlobUrl;
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch audio as blob, falling back to direct src:", err);
+        if (currentToken !== audioLoadToken || audioEl !== el) return;
+        el.src = src;
+      });
+  } else {
+    el.src = src;
+  }
 }
 
 function togglePlayAudio() {
   if (!audioEl) return;
   if (isAudioPlaying.value) {
     audioEl.pause();
+    pendingAutoPlay = false;
   } else {
+    if (!audioEl.src) {
+      pendingAutoPlay = true;
+      return;
+    }
     const p = audioEl.play();
     if (p && typeof p.catch === "function") {
       p.catch((err) => {
@@ -356,6 +428,11 @@ function playFromParagraph(pidx) {
   if (!p || p.start === undefined || p.start === null) return;
   currentTime.value = p.start;
   if (audioEl) {
+    if (!audioEl.src) {
+      pendingSeekTime = p.start;
+      pendingAutoPlay = true;
+      return;
+    }
     try {
       audioEl.currentTime = p.start;
     } catch (err) {
@@ -731,6 +808,7 @@ onBeforeUnmount(() => {
     audioEl.pause();
     audioEl = null;
   }
+  cleanupAudioBlob();
   if (audioStatusTimer) {
     clearTimeout(audioStatusTimer);
     audioStatusTimer = null;
