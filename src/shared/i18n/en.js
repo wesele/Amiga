@@ -327,6 +327,9 @@ export default {
     audioLoadFail: "Failed to load audio. The file may have been removed.",
     audioPlayFail: "Audio playback failed",
     paraTranslateRetry: "Translation failed, tap to retry",
+    bookmarkSaved: "Reading progress saved",
+    bookmarkCleared: "Reading bookmark cleared",
+    bookmarkLabel: "Reading bookmark",
   },
 
   path: {

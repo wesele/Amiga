@@ -47,47 +47,81 @@
         @touchmove.passive="markUserScroll"
       >
         <div v-if="!bilingualMode" class="article-text">
-          <p
-            v-for="(para, pidx) in bodyParagraphs"
-            :key="pidx"
-            class="para"
-            :data-pidx="pidx"
-            :class="{ 'is-playing': isParagraphActive(pidx) }"
-            @click="onParagraphClick(pidx)"
-          >
-            <span
-              v-if="formatParagraphTime(pidx)"
-              class="para-time"
-              :title="t('reading.playFromHere') || '从此处播放'"
-              @click.stop="playFromParagraph(pidx)"
-            >{{ formatParagraphTime(pidx) }}</span>
-            <template v-for="(token, idx) in para" :key="idx">
-              <span
-                v-if="token.isWord"
-                class="word"
-                :tabindex="isTvLayoutMode ? 0 : undefined"
-                @click.stop="onWordTap(token)"
-                @keydown.enter.prevent="onWordTap(token)"
-                @keydown.space.prevent="onWordTap(token)"
-              >{{ token.text }}</span>
-              <span v-else>{{ token.text }}</span>
-            </template>
-          </p>
-        </div>
-
-        <div v-else class="article-text bilingual">
-          <template v-for="(tokens, pidx) in bodyParagraphs" :key="pidx">
+          <template v-for="(para, pidx) in bodyParagraphs" :key="pidx">
+            <div
+              v-if="bookmarkedParagraphIdx === pidx"
+              class="reading-bookmark-line-wrapper"
+              role="separator"
+              :aria-label="t('reading.bookmarkLabel') || '阅读进度标记'"
+            >
+              <div class="reading-bookmark-line" />
+            </div>
             <p
-              class="para-original"
+              class="para"
               :data-pidx="pidx"
-              :class="{ 'is-playing': isParagraphActive(pidx) }"
+              :class="{
+                'is-playing': isParagraphActive(pidx),
+                'is-bookmarked': bookmarkedParagraphIdx === pidx,
+              }"
               @click="onParagraphClick(pidx)"
             >
               <span
                 v-if="formatParagraphTime(pidx)"
                 class="para-time"
+                :class="{ 'is-bookmarked': bookmarkedParagraphIdx === pidx }"
                 :title="t('reading.playFromHere') || '从此处播放'"
-                @click.stop="playFromParagraph(pidx)"
+                @pointerdown="onTimePointerDown($event, pidx)"
+                @pointermove="onTimePointerMove($event)"
+                @pointerup="onTimePointerUp"
+                @pointercancel="onTimePointerUp"
+                @contextmenu.prevent
+                @click.stop="onTimeClick($event, pidx)"
+              >{{ formatParagraphTime(pidx) }}</span>
+              <template v-for="(token, idx) in para" :key="idx">
+                <span
+                  v-if="token.isWord"
+                  class="word"
+                  :tabindex="isTvLayoutMode ? 0 : undefined"
+                  @click.stop="onWordTap(token)"
+                  @keydown.enter.prevent="onWordTap(token)"
+                  @keydown.space.prevent="onWordTap(token)"
+                >{{ token.text }}</span>
+                <span v-else>{{ token.text }}</span>
+              </template>
+            </p>
+          </template>
+        </div>
+
+        <div v-else class="article-text bilingual">
+          <template v-for="(tokens, pidx) in bodyParagraphs" :key="pidx">
+            <div
+              v-if="bookmarkedParagraphIdx === pidx"
+              class="reading-bookmark-line-wrapper"
+              role="separator"
+              :aria-label="t('reading.bookmarkLabel') || '阅读进度标记'"
+            >
+              <div class="reading-bookmark-line" />
+            </div>
+            <p
+              class="para-original"
+              :data-pidx="pidx"
+              :class="{
+                'is-playing': isParagraphActive(pidx),
+                'is-bookmarked': bookmarkedParagraphIdx === pidx,
+              }"
+              @click="onParagraphClick(pidx)"
+            >
+              <span
+                v-if="formatParagraphTime(pidx)"
+                class="para-time"
+                :class="{ 'is-bookmarked': bookmarkedParagraphIdx === pidx }"
+                :title="t('reading.playFromHere') || '从此处播放'"
+                @pointerdown="onTimePointerDown($event, pidx)"
+                @pointermove="onTimePointerMove($event)"
+                @pointerup="onTimePointerUp"
+                @pointercancel="onTimePointerUp"
+                @contextmenu.prevent
+                @click.stop="onTimeClick($event, pidx)"
               >{{ formatParagraphTime(pidx) }}</span>
               <template v-for="(token, idx) in tokens" :key="idx">
                 <span
@@ -101,19 +135,19 @@
                 <span v-else>{{ token.text }}</span>
               </template>
             </p>
-          <p
-            class="para-translation"
-            :data-tidx="pidx"
-            :class="{
-              'is-pending': translationState[pidx] !== 'done' && translationState[pidx] !== 'error',
-              'is-error': translationState[pidx] === 'error',
-            }"
-            :tabindex="isTvLayoutMode ? 0 : undefined"
-            @click="retryParagraphTranslation(pidx)"
-            @keydown.enter.prevent="retryParagraphTranslation(pidx)"
-          >{{ translationDisplay(pidx) }}</p>
-        </template>
-      </div>
+            <p
+              class="para-translation"
+              :data-tidx="pidx"
+              :class="{
+                'is-pending': translationState[pidx] !== 'done' && translationState[pidx] !== 'error',
+                'is-error': translationState[pidx] === 'error',
+              }"
+              :tabindex="isTvLayoutMode ? 0 : undefined"
+              @click="retryParagraphTranslation(pidx)"
+              @keydown.enter.prevent="retryParagraphTranslation(pidx)"
+            >{{ translationDisplay(pidx) }}</p>
+          </template>
+        </div>
     </div>
 
     <!-- Right-side custom scrollbar: thin rail with green dot thumb -->
@@ -225,6 +259,11 @@ import { useSelectionTranslation } from "@/shared/selectionTranslation.js";
 import { useReadAloud } from "@/shared/readAloud.js";
 import { isTvLayoutMode } from "@/shared/appMode.js";
 import { pushInPageBackHandler } from "@/shared/inPageBack.js";
+import {
+  getReadingBookmark,
+  clearReadingBookmark,
+  toggleReadingBookmark,
+} from "./readingBookmark.js";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -453,6 +492,76 @@ function onParagraphClick(pidx) {
   const selection = window.getSelection?.();
   if (selection && selection.toString().trim().length > 0) return;
   if (selectionText.value) return;
+  playFromParagraph(pidx);
+}
+
+// ---- Paragraph reading progress bookmark & long-press ----
+const bookmarkedParagraphIdx = ref(null);
+let longPressTimer = null;
+let longPressStartX = 0;
+let longPressStartY = 0;
+let isLongPressTriggered = false;
+
+function onTimePointerDown(e, pidx) {
+  if (e.button !== undefined && e.button !== 0) return;
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  isLongPressTriggered = false;
+  longPressStartX = e.clientX;
+  longPressStartY = e.clientY;
+  longPressTimer = setTimeout(() => {
+    isLongPressTriggered = true;
+    handleTimeLongPress(pidx);
+  }, 500);
+}
+
+function onTimePointerMove(e) {
+  if (!longPressTimer) return;
+  const dist = Math.hypot(e.clientX - longPressStartX, e.clientY - longPressStartY);
+  if (dist > 10) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}
+
+function onTimePointerUp() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}
+
+function handleTimeLongPress(pidx) {
+  const p = importedParagraphs.value[pidx];
+  const time = p?.start ?? 0;
+  const res = toggleReadingBookmark(
+    props.id,
+    { pidx, time },
+    isImported.value,
+  );
+  if (res.saved) {
+    bookmarkedParagraphIdx.value = pidx;
+    showAudioStatus(t("reading.bookmarkSaved") || "已记住阅读进度");
+  } else {
+    bookmarkedParagraphIdx.value = null;
+    showAudioStatus(t("reading.bookmarkCleared") || "已取消进度标记");
+  }
+  if (typeof navigator !== "undefined" && navigator.vibrate) {
+    try {
+      navigator.vibrate(40);
+    } catch (_) {}
+  }
+}
+
+function onTimeClick(e, pidx) {
+  if (isLongPressTriggered) {
+    isLongPressTriggered = false;
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    return;
+  }
   playFromParagraph(pidx);
 }
 
@@ -813,6 +922,10 @@ onBeforeUnmount(() => {
     clearTimeout(audioStatusTimer);
     audioStatusTimer = null;
   }
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
   translateGeneration += 1;
   teardownParaObserver();
   window.removeEventListener("resize", updateScrollState);
@@ -863,6 +976,26 @@ async function loadArticle() {
       await markReadingArticleRead(Number(props.id));
     }
 
+    // Restore bookmark if previously saved
+    const savedBookmark = getReadingBookmark(props.id, isImported.value);
+    if (savedBookmark && typeof savedBookmark.pidx === "number" && savedBookmark.pidx >= 0) {
+      bookmarkedParagraphIdx.value = savedBookmark.pidx;
+      if (typeof savedBookmark.time === "number" && savedBookmark.time > 0) {
+        currentTime.value = savedBookmark.time;
+        if (audioEl) {
+          try {
+            audioEl.currentTime = savedBookmark.time;
+          } catch (_) {
+            pendingSeekTime = savedBookmark.time;
+          }
+        } else {
+          pendingSeekTime = savedBookmark.time;
+        }
+      }
+    } else {
+      bookmarkedParagraphIdx.value = null;
+    }
+
     await processArticleWords();
   } catch (e) {
     console.error("Failed to load article:", e);
@@ -873,6 +1006,11 @@ async function loadArticle() {
     updateScrollState();
     setTimeout(updateScrollState, 50);
     setTimeout(updateScrollState, 200);
+    if (bookmarkedParagraphIdx.value !== null && bookmarkedParagraphIdx.value >= 0) {
+      setTimeout(() => {
+        scrollToParagraph(bookmarkedParagraphIdx.value, "smooth");
+      }, 150);
+    }
   }
 }
 
@@ -880,6 +1018,8 @@ async function regenerateArticle() {
   if (regenerating.value || !article.value) return;
   regenerating.value = true;
   try {
+    clearReadingBookmark(props.id, isImported.value);
+    bookmarkedParagraphIdx.value = null;
     const art = await regenerateReadingArticle(
       Number(props.id),
       cefrLevel,
@@ -1264,6 +1404,36 @@ html[data-app-mode="tv"] .header-title {
   border-left-color: var(--green, #2ecc71);
 }
 
+.reading-bookmark-line-wrapper {
+  width: 100%;
+  padding: 8px 0 6px;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+
+.reading-bookmark-line {
+  width: 100%;
+  height: 2.5px;
+  background: var(--green, #2ecc71);
+  border-radius: 999px;
+  box-shadow: 0 0 6px rgba(46, 204, 113, 0.55);
+  position: relative;
+}
+
+.reading-bookmark-line::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green, #2ecc71);
+  box-shadow: 0 0 5px rgba(46, 204, 113, 0.8);
+}
+
 .para-time {
   display: inline-block;
   font-size: 12px;
@@ -1272,6 +1442,8 @@ html[data-app-mode="tv"] .header-title {
   margin-right: 8px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
   user-select: none;
   cursor: pointer;
   vertical-align: baseline;
@@ -1282,6 +1454,12 @@ html[data-app-mode="tv"] .header-title {
 .para-original.is-playing .para-time {
   color: var(--green, #2ecc71);
   font-weight: 600;
+}
+
+.para-time.is-bookmarked {
+  color: var(--green, #2ecc71);
+  font-weight: 700;
+  text-shadow: 0 0 4px rgba(46, 204, 113, 0.3);
 }
 
 .para-time:hover {

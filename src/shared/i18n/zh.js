@@ -330,6 +330,9 @@ export default {
     audioLoadFail: "音频加载失败，文件可能已被删除",
     audioPlayFail: "音频播放失败",
     paraTranslateRetry: "翻译失败，点击重试",
+    bookmarkSaved: "已记住阅读进度",
+    bookmarkCleared: "已取消进度标记",
+    bookmarkLabel: "阅读进度标记",
   },
 
   path: {

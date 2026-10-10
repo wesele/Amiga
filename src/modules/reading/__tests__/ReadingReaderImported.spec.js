@@ -180,4 +180,106 @@ describe("ReadingReader Imported Article & Audio", () => {
     await paras[1].trigger("click");
     expect(wrapper.vm.currentTime).toBe(65.5);
   });
+
+  it("long-pressing timestamp marks reading progress with green line, and pressing same time again cancels it", async () => {
+    vi.useFakeTimers();
+    localStorage.clear();
+
+    const importedItem = {
+      id: 104,
+      user_id: "u1",
+      target_language: "es",
+      source_type: "youtube",
+      title: "Bookmark Test Lesson",
+      duration_sec: 200,
+      audio_path: null,
+      subtitles_json: JSON.stringify([
+        { start: 0, end: 10, text: "Intro phrase." },
+        { start: 45.2, end: 60, text: "Important paragraph to bookmark." },
+      ]),
+      created_at: "2026-07-11T10:00:00",
+    };
+
+    api.__setInvoke(vi.fn((command) => {
+      if (command === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (command === "get_target_language_cmd") return Promise.resolve("es");
+      if (command === "get_learning_goals_cmd") return Promise.resolve([{ target_language: "es", cefr_level: "B1" }]);
+      if (command === "get_imported_article_cmd") return Promise.resolve(importedItem);
+      return Promise.resolve(null);
+    }));
+
+    const wrapper = await mountPage(104, { type: "imported" });
+    await flushPromises();
+
+    // Initially no bookmark line
+    expect(wrapper.find(".reading-bookmark-line-wrapper").exists()).toBe(false);
+
+    const times = wrapper.findAll(".para-time");
+    expect(times).toHaveLength(2);
+
+    // 1. Long press on timestamp of paragraph 1 (45.2s)
+    await times[1].trigger("pointerdown", { clientX: 100, clientY: 200 });
+    vi.advanceTimersByTime(550);
+    await times[1].trigger("pointerup");
+    await times[1].trigger("click");
+    await flushPromises();
+
+    // Now paragraph 1 should be bookmarked
+    expect(wrapper.vm.bookmarkedParagraphIdx).toBe(1);
+    expect(wrapper.find(".reading-bookmark-line-wrapper").exists()).toBe(true);
+    expect(times[1].classes()).toContain("is-bookmarked");
+    expect(wrapper.text()).toContain("已记住阅读进度");
+
+    // 2. Long press again on the SAME timestamp cancels it
+    await times[1].trigger("pointerdown", { clientX: 100, clientY: 200 });
+    vi.advanceTimersByTime(550);
+    await times[1].trigger("pointerup");
+    await times[1].trigger("click");
+    await flushPromises();
+
+    expect(wrapper.vm.bookmarkedParagraphIdx).toBeNull();
+    expect(wrapper.find(".reading-bookmark-line-wrapper").exists()).toBe(false);
+    expect(times[1].classes()).not.toContain("is-bookmarked");
+    expect(wrapper.text()).toContain("已取消进度标记");
+
+    vi.useRealTimers();
+  });
+
+  it("automatically restores bookmark and positions view when reopening article", async () => {
+    localStorage.clear();
+    const { setReadingBookmark } = await import("../readingBookmark.js");
+    // Pre-save bookmark at paragraph 1 (start: 88.0)
+    setReadingBookmark(105, { pidx: 1, time: 88.0 }, true);
+
+    const importedItem = {
+      id: 105,
+      user_id: "u1",
+      target_language: "es",
+      source_type: "youtube",
+      title: "Resume Position Lesson",
+      duration_sec: 300,
+      audio_path: null,
+      subtitles_json: JSON.stringify([
+        { start: 0, end: 30, text: "First part." },
+        { start: 88.0, end: 120, text: "Resume part." },
+      ]),
+      created_at: "2026-07-11T10:00:00",
+    };
+
+    api.__setInvoke(vi.fn((command) => {
+      if (command === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (command === "get_target_language_cmd") return Promise.resolve("es");
+      if (command === "get_learning_goals_cmd") return Promise.resolve([{ target_language: "es", cefr_level: "B1" }]);
+      if (command === "get_imported_article_cmd") return Promise.resolve(importedItem);
+      return Promise.resolve(null);
+    }));
+
+    const wrapper = await mountPage(105, { type: "imported" });
+    await flushPromises();
+
+    // Bookmark should be restored
+    expect(wrapper.vm.bookmarkedParagraphIdx).toBe(1);
+    expect(wrapper.find(".reading-bookmark-line-wrapper").exists()).toBe(true);
+    expect(wrapper.vm.currentTime).toBe(88.0);
+  });
 });

@@ -218,7 +218,12 @@ pub async fn get_imported_article_cmd(
     if let Some(ref path_str) = article.audio_path {
         let p = std::path::Path::new(path_str);
         let remux_res = crate::modules::youtube::ensure_audio_remuxed_inplace(p);
-        log::info!("get_imported_article_cmd: audio_path={:?}, exists={}, remux_res={:?}", p, p.exists(), remux_res);
+        log::info!(
+            "get_imported_article_cmd: audio_path={:?}, exists={}, remux_res={:?}",
+            p,
+            p.exists(),
+            remux_res
+        );
     }
     Ok(article)
 }

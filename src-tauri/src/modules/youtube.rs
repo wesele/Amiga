@@ -146,7 +146,10 @@ pub fn resolve_ytdlp_path() -> Option<PathBuf> {
         }
 
         // 3. Check PATH
-        if let Ok(out) = std::process::Command::new("yt-dlp").arg("--version").output() {
+        if let Ok(out) = std::process::Command::new("yt-dlp")
+            .arg("--version")
+            .output()
+        {
             if out.status.success() {
                 return Some(PathBuf::from("yt-dlp"));
             }
@@ -164,7 +167,9 @@ pub fn update_ytdlp() -> Result<String, String> {
     #[cfg(not(target_os = "android"))]
     {
         let Some(ytdlp) = resolve_ytdlp_path() else {
-            return Err("未找到本地 yt-dlp 组件。应用已支持内置原生下载，无需额外安装。".to_string());
+            return Err(
+                "未找到本地 yt-dlp 组件。应用已支持内置原生下载，无需额外安装。".to_string(),
+            );
         };
         let output = Command::new(ytdlp)
             .arg("-U")
@@ -357,14 +362,18 @@ async fn fetch_youtube_session(
 
     let mut chosen_response = match player_json {
         Some(json)
-            if json.pointer("/playabilityStatus/status").and_then(|v| v.as_str()) == Some("OK") =>
+            if json
+                .pointer("/playabilityStatus/status")
+                .and_then(|v| v.as_str())
+                == Some("OK") =>
         {
             Some(json)
         }
         _ => html_player_response.clone().or(player_json),
     };
 
-    if let (Some(ref mut chosen), Some(ref html_pj)) = (&mut chosen_response, &html_player_response) {
+    if let (Some(ref mut chosen), Some(ref html_pj)) = (&mut chosen_response, &html_player_response)
+    {
         let has_captions = chosen
             .pointer("/captions/playerCaptionsTracklistRenderer/captionTracks")
             .and_then(|v| v.as_array())
@@ -516,7 +525,10 @@ async fn download_subtitle_direct(
         req = req.header("Cookie", cookies);
     }
 
-    let resp = req.send().await.map_err(|e| format!("请求字幕失败: {}", e))?;
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| format!("请求字幕失败: {}", e))?;
     if !resp.status().is_success() {
         return Err(format!("字幕请求返回状态码: {}", resp.status()));
     }
@@ -579,8 +591,8 @@ async fn download_audio_direct<F>(
 where
     F: FnMut(f64, Option<f64>, &str),
 {
-    let mut file = std::fs::File::create(dest_path)
-        .map_err(|e| format!("创建音频本地文件失败: {}", e))?;
+    let mut file =
+        std::fs::File::create(dest_path).map_err(|e| format!("创建音频本地文件失败: {}", e))?;
 
     let chunk_size: u64 = 2 * 1024 * 1024;
     let mut start: u64 = 0;
@@ -642,7 +654,8 @@ where
                             let _ = std::fs::remove_file(dest_path);
                             return Err(format!("音频流请求失败，状态码: {}", status));
                         }
-                        tokio::time::sleep(std::time::Duration::from_millis(500 * retries as u64)).await;
+                        tokio::time::sleep(std::time::Duration::from_millis(500 * retries as u64))
+                            .await;
                         continue;
                     }
 
@@ -669,7 +682,10 @@ where
                                 let _ = std::fs::remove_file(dest_path);
                                 return Err(format!("下载音频数据错误: {}", e));
                             }
-                            tokio::time::sleep(std::time::Duration::from_millis(500 * retries as u64)).await;
+                            tokio::time::sleep(std::time::Duration::from_millis(
+                                500 * retries as u64,
+                            ))
+                            .await;
                         }
                     }
                 }
@@ -679,7 +695,8 @@ where
                         let _ = std::fs::remove_file(dest_path);
                         return Err(format!("连接音频流失败: {}", e));
                     }
-                    tokio::time::sleep(std::time::Duration::from_millis(500 * retries as u64)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(500 * retries as u64))
+                        .await;
                 }
             }
         }
@@ -831,7 +848,8 @@ fn read_box_header<R: std::io::Read + std::io::Seek>(
 fn find_sub_box<'a>(data: &'a [u8], target_tag: &[u8; 4]) -> Option<(&'a [u8], usize)> {
     let mut off = 0;
     while off + 8 <= data.len() {
-        let sz = u32::from_be_bytes([data[off], data[off + 1], data[off + 2], data[off + 3]]) as usize;
+        let sz =
+            u32::from_be_bytes([data[off], data[off + 1], data[off + 2], data[off + 3]]) as usize;
         let tag = [data[off + 4], data[off + 5], data[off + 6], data[off + 7]];
         if sz < 8 || off + sz > data.len() {
             break;
@@ -880,7 +898,11 @@ fn build_progressive_moov(
     const CHUNK_SIZE: u32 = 43;
     let num_full_chunks = total_samples / CHUNK_SIZE;
     let rem_samples = total_samples % CHUNK_SIZE;
-    let total_chunks = if rem_samples > 0 { num_full_chunks + 1 } else { num_full_chunks };
+    let total_chunks = if rem_samples > 0 {
+        num_full_chunks + 1
+    } else {
+        num_full_chunks
+    };
 
     let mut stsc_payload = Vec::new();
     stsc_payload.extend_from_slice(&[0, 0, 0, 0]); // version/flags
@@ -920,7 +942,11 @@ fn build_progressive_moov(
     let mut sample_idx = 0;
     for c in 0..total_chunks {
         co64_payload.extend_from_slice(&current_offset.to_be_bytes());
-        let count = if c < num_full_chunks { CHUNK_SIZE } else { rem_samples };
+        let count = if c < num_full_chunks {
+            CHUNK_SIZE
+        } else {
+            rem_samples
+        };
         for _ in 0..count {
             if sample_idx < sample_sizes.len() {
                 current_offset += sample_sizes[sample_idx] as u64;
@@ -931,7 +957,8 @@ fn build_progressive_moov(
     let co64 = wrap_box(b"co64", &co64_payload);
 
     // stbl
-    let mut stbl_payload = Vec::with_capacity(stsd_box.len() + stts.len() + stsc.len() + stsz.len() + co64.len());
+    let mut stbl_payload =
+        Vec::with_capacity(stsd_box.len() + stts.len() + stsc.len() + stsz.len() + co64.len());
     stbl_payload.extend_from_slice(stsd_box);
     stbl_payload.extend_from_slice(&stts);
     stbl_payload.extend_from_slice(&stsc);
@@ -1049,11 +1076,18 @@ fn build_progressive_moov(
 
 /// Remux a fragmented MP4 (DASH audio stream) into a standard progressive .m4a container.
 /// Returns Ok(true) if remuxed, Ok(false) if the file was not fragmented.
-pub fn remux_fmp4_to_m4a(raw_path: &std::path::Path, out_path: &std::path::Path) -> Result<bool, String> {
+pub fn remux_fmp4_to_m4a(
+    raw_path: &std::path::Path,
+    out_path: &std::path::Path,
+) -> Result<bool, String> {
     use std::io::{Read, Seek, SeekFrom, Write};
 
-    let mut r = std::fs::File::open(raw_path).map_err(|e| format!("打开原始音频文件失败: {}", e))?;
-    let file_len = r.metadata().map_err(|e| format!("读取文件属性失败: {}", e))?.len();
+    let mut r =
+        std::fs::File::open(raw_path).map_err(|e| format!("打开原始音频文件失败: {}", e))?;
+    let file_len = r
+        .metadata()
+        .map_err(|e| format!("读取文件属性失败: {}", e))?
+        .len();
 
     let mut cur_pos: u64 = 0;
     let mut timescale: u32 = 44100;
@@ -1064,8 +1098,11 @@ pub fn remux_fmp4_to_m4a(raw_path: &std::path::Path, out_path: &std::path::Path)
     let mut has_moof = false;
 
     while cur_pos < file_len {
-        r.seek(SeekFrom::Start(cur_pos)).map_err(|e| format!("定位文件失败: {}", e))?;
-        let b_hdr = match read_box_header(&mut r, cur_pos).map_err(|e| format!("读取box头失败: {}", e))? {
+        r.seek(SeekFrom::Start(cur_pos))
+            .map_err(|e| format!("定位文件失败: {}", e))?;
+        let b_hdr = match read_box_header(&mut r, cur_pos)
+            .map_err(|e| format!("读取box头失败: {}", e))?
+        {
             Some(h) => h,
             None => break,
         };
@@ -1079,8 +1116,10 @@ pub fn remux_fmp4_to_m4a(raw_path: &std::path::Path, out_path: &std::path::Path)
 
         if &b_hdr.tag == b"moov" {
             let mut moov_buf = vec![0u8; p_len as usize];
-            r.seek(SeekFrom::Start(p_off)).map_err(|e| format!("定位moov失败: {}", e))?;
-            r.read_exact(&mut moov_buf).map_err(|e| format!("读取moov失败: {}", e))?;
+            r.seek(SeekFrom::Start(p_off))
+                .map_err(|e| format!("定位moov失败: {}", e))?;
+            r.read_exact(&mut moov_buf)
+                .map_err(|e| format!("读取moov失败: {}", e))?;
 
             if let Some((trak, _)) = find_sub_box(&moov_buf, b"trak") {
                 if let Some((mdia, _)) = find_sub_box(trak, b"mdia") {
@@ -1088,9 +1127,11 @@ pub fn remux_fmp4_to_m4a(raw_path: &std::path::Path, out_path: &std::path::Path)
                         if mdhd.len() >= 16 {
                             let ver = mdhd[0];
                             if ver == 0 && mdhd.len() >= 16 {
-                                timescale = u32::from_be_bytes([mdhd[12], mdhd[13], mdhd[14], mdhd[15]]);
+                                timescale =
+                                    u32::from_be_bytes([mdhd[12], mdhd[13], mdhd[14], mdhd[15]]);
                             } else if ver == 1 && mdhd.len() >= 24 {
-                                timescale = u32::from_be_bytes([mdhd[20], mdhd[21], mdhd[22], mdhd[23]]);
+                                timescale =
+                                    u32::from_be_bytes([mdhd[20], mdhd[21], mdhd[22], mdhd[23]]);
                             }
                         }
                     }
@@ -1114,29 +1155,62 @@ pub fn remux_fmp4_to_m4a(raw_path: &std::path::Path, out_path: &std::path::Path)
                             // detect it so we can re-chunk it into ~1s chunks to prevent demuxer read buffer exhaustion.
                             if let Some((stsz, _)) = find_sub_box(stbl, b"stsz") {
                                 if stsz.len() >= 12 {
-                                    let default_sz = u32::from_be_bytes([stsz[4], stsz[5], stsz[6], stsz[7]]);
-                                    let sample_cnt = u32::from_be_bytes([stsz[8], stsz[9], stsz[10], stsz[11]]) as usize;
-                                    if default_sz == 0 && sample_cnt > 100 && stsz.len() >= 12 + sample_cnt * 4 {
-                                        let needs_rechunk = if let Some((co64, _)) = find_sub_box(stbl, b"co64") {
-                                            co64.len() >= 8 && u32::from_be_bytes([co64[4], co64[5], co64[6], co64[7]]) == 1
-                                        } else if let Some((stco, _)) = find_sub_box(stbl, b"stco") {
-                                            stco.len() >= 8 && u32::from_be_bytes([stco[4], stco[5], stco[6], stco[7]]) == 1
+                                    let default_sz =
+                                        u32::from_be_bytes([stsz[4], stsz[5], stsz[6], stsz[7]]);
+                                    let sample_cnt =
+                                        u32::from_be_bytes([stsz[8], stsz[9], stsz[10], stsz[11]])
+                                            as usize;
+                                    if default_sz == 0
+                                        && sample_cnt > 100
+                                        && stsz.len() >= 12 + sample_cnt * 4
+                                    {
+                                        let needs_rechunk = if let Some((co64, _)) =
+                                            find_sub_box(stbl, b"co64")
+                                        {
+                                            co64.len() >= 8
+                                                && u32::from_be_bytes([
+                                                    co64[4], co64[5], co64[6], co64[7],
+                                                ]) == 1
+                                        } else if let Some((stco, _)) = find_sub_box(stbl, b"stco")
+                                        {
+                                            stco.len() >= 8
+                                                && u32::from_be_bytes([
+                                                    stco[4], stco[5], stco[6], stco[7],
+                                                ]) == 1
                                         } else {
                                             false
                                         };
                                         if needs_rechunk {
                                             for i in 0..sample_cnt {
                                                 let ptr = 12 + i * 4;
-                                                sample_sizes.push(u32::from_be_bytes([stsz[ptr], stsz[ptr + 1], stsz[ptr + 2], stsz[ptr + 3]]));
+                                                sample_sizes.push(u32::from_be_bytes([
+                                                    stsz[ptr],
+                                                    stsz[ptr + 1],
+                                                    stsz[ptr + 2],
+                                                    stsz[ptr + 3],
+                                                ]));
                                             }
                                             if let Some((stts, _)) = find_sub_box(stbl, b"stts") {
                                                 if stts.len() >= 8 {
-                                                    let entry_cnt = u32::from_be_bytes([stts[4], stts[5], stts[6], stts[7]]) as usize;
+                                                    let entry_cnt = u32::from_be_bytes([
+                                                        stts[4], stts[5], stts[6], stts[7],
+                                                    ])
+                                                        as usize;
                                                     let mut ptr = 8;
                                                     for _ in 0..entry_cnt {
                                                         if ptr + 8 <= stts.len() {
-                                                            let cnt = u32::from_be_bytes([stts[ptr], stts[ptr + 1], stts[ptr + 2], stts[ptr + 3]]);
-                                                            let delta = u32::from_be_bytes([stts[ptr + 4], stts[ptr + 5], stts[ptr + 6], stts[ptr + 7]]);
+                                                            let cnt = u32::from_be_bytes([
+                                                                stts[ptr],
+                                                                stts[ptr + 1],
+                                                                stts[ptr + 2],
+                                                                stts[ptr + 3],
+                                                            ]);
+                                                            let delta = u32::from_be_bytes([
+                                                                stts[ptr + 4],
+                                                                stts[ptr + 5],
+                                                                stts[ptr + 6],
+                                                                stts[ptr + 7],
+                                                            ]);
                                                             for _ in 0..cnt {
                                                                 sample_durations.push(delta);
                                                             }
@@ -1160,8 +1234,10 @@ pub fn remux_fmp4_to_m4a(raw_path: &std::path::Path, out_path: &std::path::Path)
         } else if &b_hdr.tag == b"moof" {
             has_moof = true;
             let mut moof_buf = vec![0u8; p_len as usize];
-            r.seek(SeekFrom::Start(p_off)).map_err(|e| format!("定位moof失败: {}", e))?;
-            r.read_exact(&mut moof_buf).map_err(|e| format!("读取moof失败: {}", e))?;
+            r.seek(SeekFrom::Start(p_off))
+                .map_err(|e| format!("定位moof失败: {}", e))?;
+            r.read_exact(&mut moof_buf)
+                .map_err(|e| format!("读取moof失败: {}", e))?;
 
             if let Some((traf, _)) = find_sub_box(&moof_buf, b"traf") {
                 let mut default_dur = 1024u32;
@@ -1170,42 +1246,77 @@ pub fn remux_fmp4_to_m4a(raw_path: &std::path::Path, out_path: &std::path::Path)
                     if tfhd.len() >= 8 {
                         let tfhd_flags = u32::from_be_bytes([0, tfhd[1], tfhd[2], tfhd[3]]);
                         let mut ptr = 8;
-                        if tfhd_flags & 0x000001 != 0 { ptr += 8; }
-                        if tfhd_flags & 0x000002 != 0 { ptr += 4; }
+                        if tfhd_flags & 0x000001 != 0 {
+                            ptr += 8;
+                        }
+                        if tfhd_flags & 0x000002 != 0 {
+                            ptr += 4;
+                        }
                         if tfhd_flags & 0x000008 != 0 && ptr + 4 <= tfhd.len() {
-                            default_dur = u32::from_be_bytes([tfhd[ptr], tfhd[ptr + 1], tfhd[ptr + 2], tfhd[ptr + 3]]);
+                            default_dur = u32::from_be_bytes([
+                                tfhd[ptr],
+                                tfhd[ptr + 1],
+                                tfhd[ptr + 2],
+                                tfhd[ptr + 3],
+                            ]);
                             ptr += 4;
                         }
                         if tfhd_flags & 0x000010 != 0 && ptr + 4 <= tfhd.len() {
-                            default_sz = u32::from_be_bytes([tfhd[ptr], tfhd[ptr + 1], tfhd[ptr + 2], tfhd[ptr + 3]]);
+                            default_sz = u32::from_be_bytes([
+                                tfhd[ptr],
+                                tfhd[ptr + 1],
+                                tfhd[ptr + 2],
+                                tfhd[ptr + 3],
+                            ]);
                         }
                     }
                 }
                 if let Some((trun, _)) = find_sub_box(traf, b"trun") {
                     if trun.len() >= 8 {
                         let trun_flags = u32::from_be_bytes([0, trun[1], trun[2], trun[3]]);
-                        let sample_cnt = u32::from_be_bytes([trun[4], trun[5], trun[6], trun[7]]) as usize;
+                        let sample_cnt =
+                            u32::from_be_bytes([trun[4], trun[5], trun[6], trun[7]]) as usize;
                         let mut ptr = 8;
-                        if trun_flags & 0x000001 != 0 { ptr += 4; }
-                        if trun_flags & 0x000004 != 0 { ptr += 4; }
+                        if trun_flags & 0x000001 != 0 {
+                            ptr += 4;
+                        }
+                        if trun_flags & 0x000004 != 0 {
+                            ptr += 4;
+                        }
                         for _ in 0..sample_cnt {
-                            if ptr > trun.len() { break; }
+                            if ptr > trun.len() {
+                                break;
+                            }
                             let dur = if trun_flags & 0x000100 != 0 && ptr + 4 <= trun.len() {
-                                let d = u32::from_be_bytes([trun[ptr], trun[ptr + 1], trun[ptr + 2], trun[ptr + 3]]);
+                                let d = u32::from_be_bytes([
+                                    trun[ptr],
+                                    trun[ptr + 1],
+                                    trun[ptr + 2],
+                                    trun[ptr + 3],
+                                ]);
                                 ptr += 4;
                                 d
                             } else {
                                 default_dur
                             };
                             let sz = if trun_flags & 0x000200 != 0 && ptr + 4 <= trun.len() {
-                                let s = u32::from_be_bytes([trun[ptr], trun[ptr + 1], trun[ptr + 2], trun[ptr + 3]]);
+                                let s = u32::from_be_bytes([
+                                    trun[ptr],
+                                    trun[ptr + 1],
+                                    trun[ptr + 2],
+                                    trun[ptr + 3],
+                                ]);
                                 ptr += 4;
                                 s
                             } else {
                                 default_sz
                             };
-                            if trun_flags & 0x000400 != 0 { ptr += 4; }
-                            if trun_flags & 0x000800 != 0 { ptr += 4; }
+                            if trun_flags & 0x000400 != 0 {
+                                ptr += 4;
+                            }
+                            if trun_flags & 0x000800 != 0 {
+                                ptr += 4;
+                            }
                             sample_durations.push(dur);
                             sample_sizes.push(sz);
                         }
@@ -1234,38 +1345,67 @@ pub fn remux_fmp4_to_m4a(raw_path: &std::path::Path, out_path: &std::path::Path)
     let ftyp = wrap_box(b"ftyp", b"M4A \0\0\0\0M4A mp42isom\0\0\0\0");
     let ftyp_len = ftyp.len() as u64;
 
-    let dummy_moov = build_progressive_moov(timescale, total_duration, &stsd, &sample_durations, &sample_sizes, 0);
+    let dummy_moov = build_progressive_moov(
+        timescale,
+        total_duration,
+        &stsd,
+        &sample_durations,
+        &sample_sizes,
+        0,
+    );
     let moov_len = dummy_moov.len() as u64;
-    let mdat_header_len = if total_media_size + 8 <= u32::MAX as u64 { 8u64 } else { 16u64 };
+    let mdat_header_len = if total_media_size + 8 <= u32::MAX as u64 {
+        8u64
+    } else {
+        16u64
+    };
     let exact_chunk_offset = ftyp_len + moov_len + mdat_header_len;
 
-    let final_moov = build_progressive_moov(timescale, total_duration, &stsd, &sample_durations, &sample_sizes, exact_chunk_offset);
+    let final_moov = build_progressive_moov(
+        timescale,
+        total_duration,
+        &stsd,
+        &sample_durations,
+        &sample_sizes,
+        exact_chunk_offset,
+    );
 
-    let out_file = std::fs::File::create(out_path).map_err(|e| format!("创建输出音频文件失败: {}", e))?;
+    let out_file =
+        std::fs::File::create(out_path).map_err(|e| format!("创建输出音频文件失败: {}", e))?;
     let mut w = std::io::BufWriter::with_capacity(128 * 1024, out_file);
 
-    w.write_all(&ftyp).map_err(|e| format!("写入ftyp失败: {}", e))?;
-    w.write_all(&final_moov).map_err(|e| format!("写入moov失败: {}", e))?;
+    w.write_all(&ftyp)
+        .map_err(|e| format!("写入ftyp失败: {}", e))?;
+    w.write_all(&final_moov)
+        .map_err(|e| format!("写入moov失败: {}", e))?;
 
     if total_media_size + 8 <= u32::MAX as u64 {
         let mdat_sz = (total_media_size + 8) as u32;
-        w.write_all(&mdat_sz.to_be_bytes()).map_err(|e| format!("写入mdat头失败: {}", e))?;
-        w.write_all(b"mdat").map_err(|e| format!("写入mdat头失败: {}", e))?;
+        w.write_all(&mdat_sz.to_be_bytes())
+            .map_err(|e| format!("写入mdat头失败: {}", e))?;
+        w.write_all(b"mdat")
+            .map_err(|e| format!("写入mdat头失败: {}", e))?;
     } else {
-        w.write_all(&1u32.to_be_bytes()).map_err(|e| format!("写入mdat头失败: {}", e))?;
-        w.write_all(b"mdat").map_err(|e| format!("写入mdat头失败: {}", e))?;
+        w.write_all(&1u32.to_be_bytes())
+            .map_err(|e| format!("写入mdat头失败: {}", e))?;
+        w.write_all(b"mdat")
+            .map_err(|e| format!("写入mdat头失败: {}", e))?;
         let total_sz = total_media_size + 16;
-        w.write_all(&total_sz.to_be_bytes()).map_err(|e| format!("写入mdat头失败: {}", e))?;
+        w.write_all(&total_sz.to_be_bytes())
+            .map_err(|e| format!("写入mdat头失败: {}", e))?;
     }
 
     let mut copy_buf = vec![0u8; 128 * 1024];
     for (p_off, p_len) in mdat_chunks {
-        r.seek(SeekFrom::Start(p_off)).map_err(|e| format!("定位mdat失败: {}", e))?;
+        r.seek(SeekFrom::Start(p_off))
+            .map_err(|e| format!("定位mdat失败: {}", e))?;
         let mut remaining = p_len;
         while remaining > 0 {
             let to_read = remaining.min(copy_buf.len() as u64) as usize;
-            r.read_exact(&mut copy_buf[..to_read]).map_err(|e| format!("读取mdat数据失败: {}", e))?;
-            w.write_all(&copy_buf[..to_read]).map_err(|e| format!("写入mdat数据失败: {}", e))?;
+            r.read_exact(&mut copy_buf[..to_read])
+                .map_err(|e| format!("读取mdat数据失败: {}", e))?;
+            w.write_all(&copy_buf[..to_read])
+                .map_err(|e| format!("写入mdat数据失败: {}", e))?;
             remaining -= to_read as u64;
         }
     }
@@ -1287,7 +1427,10 @@ pub fn ensure_audio_remuxed_inplace(path: &std::path::Path) -> Result<bool, Stri
                 let _ = std::fs::copy(&temp_out, path);
                 let _ = std::fs::remove_file(&temp_out);
             }
-            log::info!("In-place remuxed legacy audio to progressive M4A: {:?}", path);
+            log::info!(
+                "In-place remuxed legacy audio to progressive M4A: {:?}",
+                path
+            );
             Ok(true)
         }
         Ok(false) => {
@@ -1390,8 +1533,12 @@ fn fetch_youtube_metadata_ytdlp(
 }
 
 /// Fetch metadata and check subtitle availability for target language
-pub async fn fetch_youtube_metadata(url: &str, target_lang: &str) -> Result<YoutubeMetadata, String> {
-    let video_id = extract_video_id(url).ok_or_else(|| "无法从输入中解析出有效的 YouTube 视频 ID".to_string())?;
+pub async fn fetch_youtube_metadata(
+    url: &str,
+    target_lang: &str,
+) -> Result<YoutubeMetadata, String> {
+    let video_id = extract_video_id(url)
+        .ok_or_else(|| "无法从输入中解析出有效的 YouTube 视频 ID".to_string())?;
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
@@ -1401,7 +1548,9 @@ pub async fn fetch_youtube_metadata(url: &str, target_lang: &str) -> Result<Yout
     match fetch_youtube_session(&client, &video_id, target_lang).await {
         Ok(session) => {
             if let Some(ref pjson) = session.player_response {
-                if let Ok(meta) = parse_metadata_from_player_json(url, &video_id, pjson, target_lang) {
+                if let Ok(meta) =
+                    parse_metadata_from_player_json(url, &video_id, pjson, target_lang)
+                {
                     return Ok(meta);
                 }
             }
@@ -1809,10 +1958,8 @@ where
                             if let Some(at_idx) = parts.iter().position(|&p| p == "at") {
                                 if let Some(spd_str) = parts.get(at_idx + 1) {
                                     if spd_str.ends_with("MiB/s") {
-                                        speed = spd_str
-                                            .trim_end_matches("MiB/s")
-                                            .parse::<f64>()
-                                            .ok();
+                                        speed =
+                                            spd_str.trim_end_matches("MiB/s").parse::<f64>().ok();
                                     }
                                 }
                             }
@@ -1895,7 +2042,9 @@ pub fn run_import_pipeline(
                 let from_session = session
                     .as_ref()
                     .and_then(|s| s.player_response.as_ref())
-                    .and_then(|pj| parse_metadata_from_player_json(&url, &video_id, pj, &target_lang).ok());
+                    .and_then(|pj| {
+                        parse_metadata_from_player_json(&url, &video_id, pj, &target_lang).ok()
+                    });
 
                 match from_session {
                     Some(m) => m,
@@ -1906,7 +2055,12 @@ pub fn run_import_pipeline(
                                 match fetch_youtube_metadata_ytdlp(&ytdlp, &url, &target_lang) {
                                     Ok(m) => m,
                                     Err(e) => {
-                                        notify("error", 0.0, None, &format!("获取视频信息失败: {}", e));
+                                        notify(
+                                            "error",
+                                            0.0,
+                                            None,
+                                            &format!("获取视频信息失败: {}", e),
+                                        );
                                         return;
                                     }
                                 }
@@ -1955,7 +2109,8 @@ pub fn run_import_pipeline(
         if let Some(ref s) = session {
             if let Some(ref pj) = s.player_response {
                 if let Some(sub_url) = find_subtitle_url(pj, matched_lang) {
-                    if let Ok(text) = download_subtitle_direct(&client, &sub_url, cookies_ref).await {
+                    if let Ok(text) = download_subtitle_direct(&client, &sub_url, cookies_ref).await
+                    {
                         vtt_content = Some(text);
                     }
                 }
@@ -1965,7 +2120,8 @@ pub fn run_import_pipeline(
         #[cfg(not(target_os = "android"))]
         if vtt_content.is_none() {
             if let Some(ytdlp) = resolve_ytdlp_path() {
-                vtt_content = download_subtitle_ytdlp(&ytdlp, &url, matched_lang, &temp_dir, &task_id_clone);
+                vtt_content =
+                    download_subtitle_ytdlp(&ytdlp, &url, matched_lang, &temp_dir, &task_id_clone);
             }
         }
 
@@ -2002,7 +2158,8 @@ pub fn run_import_pipeline(
         if let Some(ref s) = session {
             if let Some(ref pj) = s.player_response {
                 if let Some((audio_url, approx_size)) = find_audio_format(pj) {
-                    let raw_dest = temp_dir.join(format!("raw_{}_{}.mp4", meta.video_id, task_id_clone));
+                    let raw_dest =
+                        temp_dir.join(format!("raw_{}_{}.mp4", meta.video_id, task_id_clone));
                     let direct_res = download_audio_direct(
                         &client,
                         &audio_url,
@@ -2019,15 +2176,16 @@ pub fn run_import_pipeline(
 
                     let is_size_acceptable = if let Some(exp_sz) = approx_size {
                         let min_acceptable = (exp_sz as f64 * 0.98) as u64;
-                        fs::metadata(&raw_dest).map(|m| m.len() >= min_acceptable).unwrap_or(false)
+                        fs::metadata(&raw_dest)
+                            .map(|m| m.len() >= min_acceptable)
+                            .unwrap_or(false)
                     } else {
-                        fs::metadata(&raw_dest).map(|m| m.len() > 1024).unwrap_or(false)
+                        fs::metadata(&raw_dest)
+                            .map(|m| m.len() > 1024)
+                            .unwrap_or(false)
                     };
 
-                    if direct_res.is_ok()
-                        && raw_dest.exists()
-                        && is_size_acceptable
-                    {
+                    if direct_res.is_ok() && raw_dest.exists() && is_size_acceptable {
                         notify("audio", 88.0, None, "正在优化音频索引...");
                         match remux_fmp4_to_m4a(&raw_dest, &audio_dest) {
                             Ok(true) => {
@@ -2060,9 +2218,15 @@ pub fn run_import_pipeline(
         #[cfg(not(target_os = "android"))]
         if !audio_downloaded && !is_task_cancelled(&task_id_clone) {
             if let Some(ytdlp) = resolve_ytdlp_path() {
-                audio_downloaded = download_audio_ytdlp(&ytdlp, &url, &audio_dest, &task_id_clone, |mapped, speed, msg| {
-                    notify("audio", mapped, speed, msg);
-                });
+                audio_downloaded = download_audio_ytdlp(
+                    &ytdlp,
+                    &url,
+                    &audio_dest,
+                    &task_id_clone,
+                    |mapped, speed, msg| {
+                        notify("audio", mapped, speed, msg);
+                    },
+                );
             }
         }
 
@@ -2226,7 +2390,8 @@ vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c>
                         approx_size,
                         "test_cmxkrr_task",
                         |_p, _s, _m| {},
-                    ).await;
+                    )
+                    .await;
                     assert!(dl_res.is_ok(), "dl_res error: {:?}", dl_res);
                     assert!(temp_dest.exists());
                     let sz = std::fs::metadata(&temp_dest).map(|m| m.len()).unwrap_or(0);
@@ -2246,7 +2411,10 @@ vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c>
         assert!(res.is_ok(), "fetch_youtube_metadata failed: {:?}", res);
         let meta = res.unwrap();
         assert_eq!(meta.video_id, "5hRaRgbMUG4");
-        println!("5hRaRgbMUG4 title: {}, sub_lang: {:?}, manual: {}, auto: {}", meta.title, meta.subtitle_lang, meta.has_manual_subtitles, meta.has_auto_captions);
+        println!(
+            "5hRaRgbMUG4 title: {}, sub_lang: {:?}, manual: {}, auto: {}",
+            meta.title, meta.subtitle_lang, meta.has_manual_subtitles, meta.has_auto_captions
+        );
         let client = reqwest::Client::new();
         let session_res = fetch_youtube_session(&client, "5hRaRgbMUG4", "es").await;
         println!("5hRaRgbMUG4 session ok: {}", session_res.is_ok());
@@ -2260,7 +2428,11 @@ vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c>
                 println!("5hRaRgbMUG4 sub url: {:?}", sub_url);
                 if let Some(ref u) = sub_url {
                     let dl_sub = download_subtitle_direct(&client, u, &session.cookies).await;
-                    println!("5hRaRgbMUG4 sub dl: ok={}, len={:?}", dl_sub.is_ok(), dl_sub.as_ref().map(|s| s.len()));
+                    println!(
+                        "5hRaRgbMUG4 sub dl: ok={}, len={:?}",
+                        dl_sub.is_ok(),
+                        dl_sub.as_ref().map(|s| s.len())
+                    );
                 }
             } else {
                 panic!("no player_response");
@@ -2284,7 +2456,8 @@ vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c>
                         approx_size,
                         "test_cmxkrr_task",
                         |_p, _s, _m| {},
-                    ).await;
+                    )
+                    .await;
                     assert!(dl_res.is_ok());
                     assert!(raw_dest.exists());
 

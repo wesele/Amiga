@@ -286,6 +286,9 @@ export default {
     regenerateSuccess: "Artículo regenerado",
     regenerate: "Regenerar artículo",
     redoTest: "Repetir examen",
+    bookmarkSaved: "Progreso de lectura guardado",
+    bookmarkCleared: "Marcador de lectura eliminado",
+    bookmarkLabel: "Marcador de lectura",
   },
 
   path: {
