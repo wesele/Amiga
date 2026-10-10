@@ -996,21 +996,28 @@ async function loadArticle() {
       bookmarkedParagraphIdx.value = null;
     }
 
-    await processArticleWords();
+    // Process article words in the background without blocking initial render/scroll
+    processArticleWords();
   } catch (e) {
     console.error("Failed to load article:", e);
     loadError.value = e?.message || String(e);
   } finally {
     loading.value = false;
     await nextTick();
+    if (bookmarkedParagraphIdx.value !== null && bookmarkedParagraphIdx.value >= 0) {
+      scrollToParagraph(bookmarkedParagraphIdx.value, "auto");
+      if (typeof requestAnimationFrame !== "undefined") {
+        requestAnimationFrame(() => {
+          if (Date.now() - lastUserScrollAt > 1000 && bookmarkedParagraphIdx.value !== null && bookmarkedParagraphIdx.value >= 0) {
+            scrollToParagraph(bookmarkedParagraphIdx.value, "auto");
+            updateScrollState();
+          }
+        });
+      }
+    }
     updateScrollState();
     setTimeout(updateScrollState, 50);
     setTimeout(updateScrollState, 200);
-    if (bookmarkedParagraphIdx.value !== null && bookmarkedParagraphIdx.value >= 0) {
-      setTimeout(() => {
-        scrollToParagraph(bookmarkedParagraphIdx.value, "smooth");
-      }, 150);
-    }
   }
 }
 
