@@ -282,4 +282,106 @@ describe("ReadingReader Imported Article & Audio", () => {
     expect(wrapper.find(".reading-bookmark-line-wrapper").exists()).toBe(true);
     expect(wrapper.vm.currentTime).toBe(88.0);
   });
+
+  it("renders chapter markers on scrollbar rail, highlights active chapter, and jumps on click", async () => {
+    const importedItem = {
+      id: 106,
+      user_id: "u1",
+      target_language: "es",
+      source_type: "youtube",
+      title: "Multi-chapter Video Lesson",
+      duration_sec: 240,
+      audio_path: null,
+      subtitles_json: JSON.stringify([
+        { start: 0, end: 25, text: "Chapter 1 text introduction." },
+        { start: 60, end: 85, text: "Chapter 2 text conversation." },
+        { start: 130, end: 155, text: "Chapter 3 text conclusion." },
+      ]),
+      created_at: "2026-07-11T10:00:00",
+    };
+
+    const chapters = [
+      {
+        id: 1,
+        article_id: 106,
+        chapter_index: 0,
+        title: "Introduction",
+        start_para_idx: 0,
+        end_para_idx: 0,
+        start_sec: 0,
+        end_sec: 60,
+        courseware_status: "done",
+      },
+      {
+        id: 2,
+        article_id: 106,
+        chapter_index: 1,
+        title: "Main Discussion",
+        start_para_idx: 1,
+        end_para_idx: 1,
+        start_sec: 60,
+        end_sec: 130,
+        courseware_status: "done",
+      },
+      {
+        id: 3,
+        article_id: 106,
+        chapter_index: 2,
+        title: "Summary",
+        start_para_idx: 2,
+        end_para_idx: 2,
+        start_sec: 130,
+        end_sec: 240,
+        courseware_status: "done",
+      },
+    ];
+
+    api.__setInvoke(vi.fn((command) => {
+      if (command === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (command === "get_target_language_cmd") return Promise.resolve("es");
+      if (command === "get_learning_goals_cmd") return Promise.resolve([{ target_language: "es", cefr_level: "B1" }]);
+      if (command === "get_imported_article_cmd") return Promise.resolve(importedItem);
+      if (command === "get_imported_article_chapters_cmd") return Promise.resolve(chapters);
+      return Promise.resolve(null);
+    }));
+
+    const wrapper = await mountPage(106, { type: "imported" });
+    await flushPromises();
+
+    // Custom scroll rail has .has-chapters class
+    const rail = wrapper.find(".article-scroll-rail");
+    expect(rail.exists()).toBe(true);
+    expect(rail.classes()).toContain("has-chapters");
+
+    // 3 chapter markers exist
+    const markers = wrapper.findAll(".chapter-rail-marker");
+    expect(markers).toHaveLength(3);
+
+    // Badges show "1", "2", "3"
+    expect(markers[0].find(".chapter-marker-badge").text()).toBe("1");
+    expect(markers[1].find(".chapter-marker-badge").text()).toBe("2");
+    expect(markers[2].find(".chapter-marker-badge").text()).toBe("3");
+
+    // Initially at t=0, chapter 1 is active
+    expect(markers[0].classes()).toContain("is-active");
+    expect(markers[1].classes()).not.toContain("is-active");
+
+    // Hover over chapter 2 displays tooltip card
+    await markers[1].trigger("mouseenter");
+    await flushPromises();
+    const tooltip = wrapper.find(".chapter-rail-tooltip");
+    expect(tooltip.exists()).toBe(true);
+    expect(tooltip.text()).toContain("CH 2");
+    expect(tooltip.text()).toContain("Main Discussion");
+    expect(tooltip.text()).toContain("1:00 - 2:10");
+
+    // Click chapter 2 marker jumps to chapter 2
+    await markers[1].trigger("click");
+    await flushPromises();
+
+    // Audio seeks to 60s and active chapter becomes 1
+    expect(wrapper.vm.currentTime).toBe(60);
+    expect(wrapper.vm.activeChapterIndex).toBe(1);
+    expect(markers[1].classes()).toContain("is-active");
+  });
 });

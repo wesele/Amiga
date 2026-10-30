@@ -5,9 +5,11 @@ export {
   explainReadingAnswer,
   fetchYoutubeMetadata,
   finishAndGenerateNextReadingArticle,
+  generateChapterCourseware,
   generateInitialReadingArticle,
   getCompletedReadingCount,
   getImportedArticle,
+  getImportedArticleChapters,
   getImportedArticles,
   getOrGenerateReadingTest,
   getReadingArticle,
@@ -18,5 +20,6 @@ export {
   regenerateReadingArticle,
   startYoutubeImport,
   submitReadingTest,
+  updateChapterCoursewareProgress,
   updateYtdlp,
 } from "@/shared/api.js";

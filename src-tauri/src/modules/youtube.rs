@@ -51,6 +51,12 @@ pub fn get_import_progress(task_id: &str) -> Option<ImportProgressEvent> {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct YoutubeChapterMarker {
+    pub start_sec: f64,
+    pub title: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct YoutubeMetadata {
     pub url: String,
     pub video_id: String,
@@ -61,6 +67,8 @@ pub struct YoutubeMetadata {
     pub has_manual_subtitles: bool,
     pub has_auto_captions: bool,
     pub subtitle_lang: Option<String>,
+    #[serde(default)]
+    pub chapters: Option<Vec<YoutubeChapterMarker>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -392,6 +400,59 @@ async fn fetch_youtube_session(
     })
 }
 
+pub fn extract_chapters_from_description(
+    description: &str,
+    duration_sec: Option<i64>,
+) -> Vec<YoutubeChapterMarker> {
+    let mut markers: Vec<YoutubeChapterMarker> = Vec::new();
+    let max_dur = duration_sec.map(|d| d as f64).unwrap_or(f64::MAX);
+
+    for raw_line in description.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let cleaned = line.trim_start_matches(['[', '(', '•', '-', '*', ' ']);
+        let mut token_end = 0;
+        for (idx, ch) in cleaned.char_indices() {
+            if ch.is_ascii_digit() || ch == ':' {
+                token_end = idx + ch.len_utf8();
+            } else {
+                break;
+            }
+        }
+        if token_end >= 3 {
+            let ts_token = &cleaned[..token_end];
+            if ts_token.contains(':') {
+                if let Some(sec) = parse_vtt_timestamp(ts_token) {
+                    if sec < max_dur {
+                        let rest = cleaned[token_end..]
+                            .trim_start_matches([']', ')', '-', '–', '—', ':', '|', ' '])
+                            .trim();
+                        if !rest.is_empty()
+                            && markers
+                                .last()
+                                .map(|m| sec > m.start_sec)
+                                .unwrap_or(sec <= 30.0)
+                        {
+                            markers.push(YoutubeChapterMarker {
+                                start_sec: sec,
+                                title: rest.to_string(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if markers.len() >= 2 {
+        markers
+    } else {
+        Vec::new()
+    }
+}
+
 fn parse_metadata_from_player_json(
     url: &str,
     video_id: &str,
@@ -457,6 +518,11 @@ fn parse_metadata_from_player_json(
     Ok(YoutubeMetadata {
         url: url.to_string(),
         video_id: video_id.to_string(),
+        chapters: player_json
+            .pointer("/videoDetails/shortDescription")
+            .and_then(|v| v.as_str())
+            .map(|desc| extract_chapters_from_description(desc, duration_sec))
+            .filter(|c| !c.is_empty()),
         title,
         channel,
         duration_sec,
@@ -1522,6 +1588,33 @@ fn fetch_youtube_metadata_ytdlp(
     Ok(YoutubeMetadata {
         url: url.to_string(),
         video_id,
+        chapters: json
+            .get("chapters")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|item| {
+                        let start_sec = item.get("start_time").and_then(|v| v.as_f64())?;
+                        let title = item
+                            .get("title")
+                            .and_then(|v| v.as_str())?
+                            .trim()
+                            .to_string();
+                        if title.is_empty() {
+                            None
+                        } else {
+                            Some(YoutubeChapterMarker { start_sec, title })
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .filter(|c| !c.is_empty())
+            .or_else(|| {
+                json.get("description")
+                    .and_then(|v| v.as_str())
+                    .map(|desc| extract_chapters_from_description(desc, duration_sec))
+                    .filter(|c| !c.is_empty())
+            }),
         title,
         channel,
         duration_sec,
@@ -1979,6 +2072,167 @@ where
     audio_res.map(|s| s.success()).unwrap_or(false) && dest_path.exists()
 }
 
+fn subdivide_paragraph_range(
+    paragraphs: &[SubtitleParagraph],
+    range_start: usize,
+    range_end: usize,
+    base_title: Option<&str>,
+) -> Vec<(usize, usize, Option<String>)> {
+    if range_start > range_end || range_end >= paragraphs.len() {
+        return Vec::new();
+    }
+    let total_dur = (paragraphs[range_end].end - paragraphs[range_start].start).max(0.0);
+    if total_dur <= 270.0 || range_start == range_end {
+        return vec![(range_start, range_end, base_title.map(|s| s.to_string()))];
+    }
+
+    let mut raw_ranges: Vec<(usize, usize)> = Vec::new();
+    let mut cur_start = range_start;
+
+    while cur_start <= range_end {
+        let rem_dur = (paragraphs[range_end].end - paragraphs[cur_start].start).max(0.0);
+        if rem_dur <= 270.0 || cur_start == range_end {
+            raw_ranges.push((cur_start, range_end));
+            break;
+        }
+
+        let mut best_end = cur_start;
+        let mut best_score = f64::NEG_INFINITY;
+        let mut found_in_window = false;
+
+        for idx in cur_start..range_end {
+            let seg_dur = (paragraphs[idx].end - paragraphs[cur_start].start).max(0.0);
+            let tail_dur = (paragraphs[range_end].end - paragraphs[idx + 1].start).max(0.0);
+
+            if seg_dur < 130.0 {
+                continue;
+            }
+            if tail_dur < 75.0 && (seg_dur + tail_dur) <= 340.0 {
+                best_end = range_end;
+                found_in_window = true;
+                break;
+            }
+            found_in_window = true;
+            let pause = (paragraphs[idx + 1].start - paragraphs[idx].end).clamp(0.0, 5.0);
+            let sentence_bonus = if text_ends_with_sentence(&paragraphs[idx].text) {
+                1.5
+            } else {
+                0.0
+            };
+            let dist_penalty = (seg_dur - 210.0).abs() / 50.0;
+            let score = pause + sentence_bonus - dist_penalty;
+            if score > best_score {
+                best_score = score;
+                best_end = idx;
+            }
+            if seg_dur >= 290.0 {
+                break;
+            }
+        }
+
+        if !found_in_window {
+            for idx in cur_start..range_end {
+                best_end = idx;
+                let seg_dur = (paragraphs[idx].end - paragraphs[cur_start].start).max(0.0);
+                if seg_dur >= 180.0 {
+                    break;
+                }
+            }
+        }
+
+        raw_ranges.push((cur_start, best_end));
+        if best_end >= range_end {
+            break;
+        }
+        cur_start = best_end + 1;
+    }
+
+    let count = raw_ranges.len();
+    raw_ranges
+        .into_iter()
+        .enumerate()
+        .map(|(i, (s, e))| {
+            let t = match base_title {
+                Some(bt) if count > 1 => Some(format!("{} ({})", bt, i + 1)),
+                Some(bt) => Some(bt.to_string()),
+                None => None,
+            };
+            (s, e, t)
+        })
+        .collect()
+}
+
+pub fn split_paragraphs_into_chapters(
+    paragraphs: &[SubtitleParagraph],
+    raw_markers: &[YoutubeChapterMarker],
+) -> Vec<reading_mod::ImportedChapterDraft> {
+    if paragraphs.is_empty() {
+        return Vec::new();
+    }
+
+    let mut segments: Vec<(usize, usize, Option<String>)> = Vec::new();
+
+    if raw_markers.len() >= 2 {
+        let mut marker_starts: Vec<(usize, String)> = Vec::new();
+        for (m_idx, m) in raw_markers.iter().enumerate() {
+            let p_idx = if m_idx == 0 {
+                0
+            } else {
+                paragraphs
+                    .iter()
+                    .position(|p| p.start + 1.5 >= m.start_sec)
+                    .unwrap_or(paragraphs.len() - 1)
+            };
+            if let Some(last) = marker_starts.last_mut() {
+                if p_idx <= last.0 {
+                    continue;
+                }
+            }
+            marker_starts.push((p_idx, m.title.clone()));
+        }
+
+        if marker_starts.len() >= 2 {
+            for idx in 0..marker_starts.len() {
+                let start_p = marker_starts[idx].0;
+                let end_p = if idx + 1 < marker_starts.len() {
+                    marker_starts[idx + 1].0.saturating_sub(1)
+                } else {
+                    paragraphs.len() - 1
+                };
+                if start_p <= end_p {
+                    let sub = subdivide_paragraph_range(
+                        paragraphs,
+                        start_p,
+                        end_p,
+                        Some(&marker_starts[idx].1),
+                    );
+                    segments.extend(sub);
+                }
+            }
+        }
+    }
+
+    if segments.is_empty() {
+        segments = subdivide_paragraph_range(paragraphs, 0, paragraphs.len() - 1, None);
+    }
+
+    segments
+        .into_iter()
+        .enumerate()
+        .map(|(i, (s, e, title_opt))| {
+            let title = title_opt.unwrap_or_else(|| format!("第 {} 章", i + 1));
+            reading_mod::ImportedChapterDraft {
+                chapter_index: i,
+                title,
+                start_para_idx: s,
+                end_para_idx: e,
+                start_sec: paragraphs[s].start,
+                end_sec: paragraphs[e].end,
+            }
+        })
+        .collect()
+}
+
 pub fn run_import_pipeline(
     app: AppHandle,
     db: DatabasePool,
@@ -2276,6 +2530,26 @@ pub fn run_import_pipeline(
         match save_res {
             Ok(aid) => {
                 log::info!("Successfully imported YouTube video article: {}", aid);
+                let chapter_drafts = split_paragraphs_into_chapters(
+                    &paragraphs,
+                    meta.chapters.as_deref().unwrap_or(&[]),
+                );
+                if let Err(e) =
+                    reading_mod::save_imported_article_chapters(&db, aid, &chapter_drafts)
+                {
+                    log::warn!(
+                        "Failed to save chapters for imported article {}: {}",
+                        aid,
+                        e
+                    );
+                }
+                let llm_client = crate::modules::llm::LlmClient::new();
+                reading_mod::spawn_article_courseware_generation(
+                    app_clone.clone(),
+                    db.clone(),
+                    llm_client,
+                    aid,
+                );
                 notify("completed", 100.0, None, "导入完成！");
             }
             Err(e) => {
@@ -2289,6 +2563,55 @@ pub fn run_import_pipeline(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_extract_chapters_from_description_and_split() {
+        let desc = "Bienvenidos al video.\n0:00 Introducción\n02:10 El problema principal\n05:30 Conclusión final\nGracias por ver.";
+        let markers = extract_chapters_from_description(desc, Some(500));
+        assert_eq!(markers.len(), 3);
+        assert_eq!(markers[0].title, "Introducción");
+        assert_eq!(markers[1].start_sec, 130.0);
+        assert_eq!(markers[2].title, "Conclusión final");
+
+        let paras = vec![
+            SubtitleParagraph {
+                start: 0.0,
+                end: 60.0,
+                text: "Uno.".to_string(),
+            },
+            SubtitleParagraph {
+                start: 61.0,
+                end: 125.0,
+                text: "Dos.".to_string(),
+            },
+            SubtitleParagraph {
+                start: 130.0,
+                end: 250.0,
+                text: "Tres.".to_string(),
+            },
+            SubtitleParagraph {
+                start: 330.0,
+                end: 420.0,
+                text: "Cuatro.".to_string(),
+            },
+        ];
+        let chapters = split_paragraphs_into_chapters(&paras, &markers);
+        assert_eq!(chapters.len(), 3);
+        assert_eq!(chapters[0].title, "Introducción");
+        assert_eq!(chapters[0].start_para_idx, 0);
+        assert_eq!(chapters[0].end_para_idx, 1);
+        assert_eq!(chapters[1].title, "El problema principal");
+        assert_eq!(chapters[1].start_para_idx, 2);
+        assert_eq!(chapters[1].end_para_idx, 2);
+        assert_eq!(chapters[2].title, "Conclusión final");
+        assert_eq!(chapters[2].start_para_idx, 3);
+        assert_eq!(chapters[2].end_para_idx, 3);
+
+        let auto_chapters = split_paragraphs_into_chapters(&paras, &[]);
+        assert!(auto_chapters.len() >= 2);
+        assert_eq!(auto_chapters[0].start_para_idx, 0);
+        assert_eq!(auto_chapters.last().unwrap().end_para_idx, 3);
+    }
 
     #[test]
     fn test_extract_video_id() {
@@ -2483,6 +2806,58 @@ vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c>
                     let _ = std::fs::remove_file(&remux_dest);
                 }
             }
+        }
+    }
+
+    #[tokio::test]
+    #[allow(non_snake_case)]
+    async fn test_uCaomVUs9j4_video() {
+        let url = "https://www.youtube.com/watch?v=uCaomVUs9j4";
+        let res = fetch_youtube_metadata(url, "es").await;
+        println!("uCaomVUs9j4 metadata res: {:?}", res);
+        assert!(res.is_ok(), "fetch_youtube_metadata failed: {:?}", res);
+        let meta = res.unwrap();
+        assert_eq!(meta.video_id, "uCaomVUs9j4");
+        println!(
+            "uCaomVUs9j4 title: {}, sub_lang: {:?}, manual: {}, auto: {}, dur: {:?}",
+            meta.title,
+            meta.subtitle_lang,
+            meta.has_manual_subtitles,
+            meta.has_auto_captions,
+            meta.duration_sec
+        );
+        let client = reqwest::Client::new();
+        let session_res = fetch_youtube_session(&client, "uCaomVUs9j4", "es").await;
+        assert!(session_res.is_ok());
+        let session = session_res.unwrap();
+        assert!(session.player_response.is_some());
+        let pj = session.player_response.as_ref().unwrap();
+
+        let sub_url = find_subtitle_url(pj, meta.subtitle_lang.as_deref().unwrap_or("es"));
+        println!("uCaomVUs9j4 sub url: {:?}", sub_url);
+        assert!(sub_url.is_some());
+
+        let dl_sub =
+            download_subtitle_direct(&client, sub_url.as_ref().unwrap(), &session.cookies).await;
+        assert!(dl_sub.is_ok());
+        let vtt_text = dl_sub.unwrap();
+        let paras = clean_and_parse_vtt(&vtt_text);
+        println!("uCaomVUs9j4 paragraphs count: {}", paras.len());
+        assert!(!paras.is_empty());
+
+        let chapters =
+            split_paragraphs_into_chapters(&paras, meta.chapters.as_deref().unwrap_or(&[]));
+        println!("uCaomVUs9j4 generated chapters count: {}", chapters.len());
+        for (i, c) in chapters.iter().enumerate() {
+            println!(
+                "  Chapter {}: {} (para {}..{}, time {:.1}s..{:.1}s)",
+                i + 1,
+                c.title,
+                c.start_para_idx,
+                c.end_para_idx,
+                c.start_sec,
+                c.end_sec
+            );
         }
     }
 }

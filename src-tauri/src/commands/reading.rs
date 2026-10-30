@@ -244,3 +244,47 @@ pub async fn delete_imported_article_cmd(
     after_syncable_write(&db);
     Ok(audio_path)
 }
+
+#[tauri::command]
+pub async fn get_imported_article_chapters_cmd(
+    db: State<'_, DatabasePool>,
+    article_id: i64,
+) -> Result<Vec<reading_mod::ImportedArticleChapter>, String> {
+    reading_mod::get_imported_article_chapters(&db, article_id)
+}
+
+#[tauri::command]
+pub async fn generate_chapter_courseware_cmd(
+    app: tauri::AppHandle,
+    db: State<'_, DatabasePool>,
+    llm: State<'_, LlmState>,
+    chapter_id: i64,
+) -> Result<reading_mod::ImportedArticleChapter, String> {
+    use tauri::Emitter;
+    if let Ok(gen_state) =
+        reading_mod::set_chapter_courseware_status(&db, chapter_id, "generating", None)
+    {
+        let _ = app.emit("chapter-courseware-updated", gen_state);
+    }
+    let res = reading_mod::generate_chapter_courseware(&llm.client, &db, chapter_id).await;
+    match &res {
+        Ok(ch) => {
+            let _ = app.emit("chapter-courseware-updated", ch.clone());
+        }
+        Err(_) => {
+            if let Ok(err_ch) = reading_mod::get_imported_article_chapter(&db, chapter_id) {
+                let _ = app.emit("chapter-courseware-updated", err_ch);
+            }
+        }
+    }
+    res
+}
+
+#[tauri::command]
+pub async fn update_chapter_courseware_progress_cmd(
+    db: State<'_, DatabasePool>,
+    chapter_id: i64,
+    viewed_pages: usize,
+) -> Result<reading_mod::ImportedArticleChapter, String> {
+    reading_mod::update_chapter_courseware_progress(&db, chapter_id, viewed_pages)
+}

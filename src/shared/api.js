@@ -173,6 +173,8 @@ export function createApiClient(invoke) {
       call("mark_words_seen_cmd", { userId, wordIds }),
     lookupWordIds: (words, language) =>
       call("lookup_word_ids_cmd", { words, language }),
+    getWordsMasteryMap: (userId, words, language) =>
+      call("get_words_mastery_map_cmd", { userId, words, language }),
     addDiscoveredWord: (userId, word, language, context) =>
       call("add_discovered_word_cmd", { userId, word, language, context }),
     ensureWordsSeen: (userId, words, language) =>
@@ -309,6 +311,12 @@ export function createApiClient(invoke) {
       call("get_imported_article_cmd", { id }),
     deleteImportedArticle: (id) =>
       call("delete_imported_article_cmd", { id }),
+    getImportedArticleChapters: (articleId) =>
+      call("get_imported_article_chapters_cmd", { articleId }),
+    generateChapterCourseware: (chapterId) =>
+      call("generate_chapter_courseware_cmd", { chapterId }),
+    updateChapterCoursewareProgress: (chapterId, viewedPages) =>
+      call("update_chapter_courseware_progress_cmd", { chapterId, viewedPages }),
 
     // YouTube
     fetchYoutubeMetadata: (url, targetLang) =>
@@ -437,6 +445,7 @@ export const getUserVocabStatsByLevel = (...args) =>
   defaultApiClient.getUserVocabStatsByLevel(...args);
 export const markWordsSeen = (...args) => defaultApiClient.markWordsSeen(...args);
 export const lookupWordIds = (...args) => defaultApiClient.lookupWordIds(...args);
+export const getWordsMasteryMap = (...args) => defaultApiClient.getWordsMasteryMap(...args);
 export const addDiscoveredWord = (...args) => defaultApiClient.addDiscoveredWord(...args);
 export const ensureWordsSeen = (...args) => defaultApiClient.ensureWordsSeen(...args);
 export const resetUserVocabByLevel = (...args) =>
@@ -542,6 +551,12 @@ export const getImportedArticle = (...args) =>
   defaultApiClient.getImportedArticle(...args);
 export const deleteImportedArticle = (...args) =>
   defaultApiClient.deleteImportedArticle(...args);
+export const getImportedArticleChapters = (...args) =>
+  defaultApiClient.getImportedArticleChapters(...args);
+export const generateChapterCourseware = (...args) =>
+  defaultApiClient.generateChapterCourseware(...args);
+export const updateChapterCoursewareProgress = (...args) =>
+  defaultApiClient.updateChapterCoursewareProgress(...args);
 export const fetchYoutubeMetadata = (...args) =>
   defaultApiClient.fetchYoutubeMetadata(...args);
 export const startYoutubeImport = (...args) =>

@@ -97,6 +97,16 @@ pub async fn lookup_word_ids_cmd(
 }
 
 #[tauri::command]
+pub async fn get_words_mastery_map_cmd(
+    db: State<'_, DatabasePool>,
+    user_id: String,
+    words: Vec<String>,
+    language: String,
+) -> Result<std::collections::HashMap<String, i32>, String> {
+    vocab_mod::get_words_mastery_map(&db, &user_id, &words, &language)
+}
+
+#[tauri::command]
 pub async fn ensure_words_seen_cmd(
     db: State<'_, DatabasePool>,
     user_id: String,

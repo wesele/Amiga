@@ -497,6 +497,47 @@ mod tests {
     }
 
     #[test]
+    fn test_get_words_mastery_map() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        let uid = create_test_user(&conn);
+        let w1 = insert_test_word(&conn, "gato", "A1", "es");
+        let w2 = insert_test_word(&conn, "perro", "A1", "es");
+        let _w3 = insert_test_word(&conn, "pajaro", "A1", "es");
+
+        // w1: mastered (2), w2: learning (1)
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 2, 'test')",
+            params![uid, w1],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO user_vocab (user_id, word_id, mastery, source) VALUES (?1, ?2, 1, 'test')",
+            params![uid, w2],
+        )
+        .unwrap();
+        drop(conn);
+
+        let map = get_words_mastery_map(
+            &pool,
+            &uid,
+            &[
+                "Gato".to_string(),
+                "PERRO".to_string(),
+                "pajaro".to_string(),
+                "inexistente".to_string(),
+            ],
+            "es",
+        )
+        .unwrap();
+
+        assert_eq!(map.get("gato"), Some(&2));
+        assert_eq!(map.get("perro"), Some(&1));
+        assert_eq!(map.get("pajaro"), None);
+        assert_eq!(map.get("inexistente"), None);
+    }
+
+    #[test]
     fn test_get_user_vocab_stats() {
         let pool = test_pool();
         let conn = pool.conn().unwrap();
@@ -1129,6 +1170,57 @@ pub fn lookup_word_ids(
         .collect();
 
     Ok(ids)
+}
+
+/// Look up word mastery for given words (case-insensitive) for a user and language.
+/// Returns a map of lowercase word -> mastery (1: unfamiliar/learning, 2: mastered).
+pub fn get_words_mastery_map(
+    db: &DatabasePool,
+    user_id: &str,
+    words: &[String],
+    language: &str,
+) -> Result<std::collections::HashMap<String, i32>, String> {
+    if words.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+
+    let conn = db.conn()?;
+    let placeholders: Vec<String> = (0..words.len()).map(|i| format!("?{}", i + 3)).collect();
+    let sql = format!(
+        "SELECT LOWER(v.word), uv.mastery
+         FROM vocab_bank v
+         JOIN user_vocab uv ON uv.word_id = v.id
+         WHERE uv.user_id = ?1 AND v.language = ?2 AND LOWER(v.word) IN ({})",
+        placeholders.join(",")
+    );
+
+    let mut params_vec: Vec<Box<dyn ToSql>> = vec![
+        Box::new(user_id.to_string()),
+        Box::new(language.to_string()),
+    ];
+    for w in words {
+        params_vec.push(Box::new(w.trim().to_lowercase()));
+    }
+    let param_refs: Vec<&dyn ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
+
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|e| format!("Query error: {}", e))?;
+
+    let rows = stmt
+        .query_map(param_refs.as_slice(), |row| {
+            let word: String = row.get(0)?;
+            let mastery: i32 = row.get(1)?;
+            Ok((word, mastery))
+        })
+        .map_err(|e| format!("Failed to lookup word mastery: {}", e))?;
+
+    let mut map = std::collections::HashMap::new();
+    for item in rows.flatten() {
+        map.insert(item.0, item.1);
+    }
+
+    Ok(map)
 }
 
 /// Add a word that is not in the pre-imported graded vocabulary to the

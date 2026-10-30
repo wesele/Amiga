@@ -8,6 +8,7 @@ export {
   importVocabBank,
   initUserVocab,
   lookupWordIds,
+  getWordsMasteryMap,
   markWordsSeen,
   reimportVocabBank,
   resetUserVocabByLevel,

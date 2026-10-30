@@ -48,6 +48,40 @@
       >
         <div v-if="!bilingualMode" class="article-text">
           <template v-for="(para, pidx) in bodyParagraphs" :key="pidx">
+            <!-- Chapter divider -->
+            <div v-if="getChapterForParagraph(pidx)" class="chapter-divider-banner">
+              <div class="chapter-left">
+                <div class="chapter-tag-row">
+                  <span class="chapter-num-badge">CH {{ getChapterForParagraph(pidx).chapter_index + 1 }}</span>
+                  <span class="chapter-time-pill">{{ formatChapterRange(getChapterForParagraph(pidx).start_sec, getChapterForParagraph(pidx).end_sec) }}</span>
+                </div>
+                <div class="chapter-headline">{{ getChapterForParagraph(pidx).title }}</div>
+              </div>
+              <div class="chapter-right">
+                <button
+                  type="button"
+                  class="btn-courseware-study"
+                  :class="{
+                    'is-generating': getChapterForParagraph(pidx).courseware_status === 'generating' || getChapterForParagraph(pidx).courseware_status === 'pending',
+                    'is-error': getChapterForParagraph(pidx).courseware_status === 'error',
+                    'is-finished': isChapterFinished(getChapterForParagraph(pidx))
+                  }"
+                  @click.stop="openCourseware(getChapterForParagraph(pidx))"
+                >
+                  <span v-if="getChapterForParagraph(pidx).courseware_status === 'generating' || getChapterForParagraph(pidx).courseware_status === 'pending'" class="study-spinner-dot" />
+                  <span v-else-if="getChapterForParagraph(pidx).courseware_status === 'error'">⚠️</span>
+                  <span v-else-if="isChapterFinished(getChapterForParagraph(pidx))">✅</span>
+                  <span v-else>📖</span>
+                  <span class="study-btn-text">{{ chapterButtonText(getChapterForParagraph(pidx)) }}</span>
+                </button>
+                <span
+                  class="chapter-percent-tag"
+                  :class="{ 'is-completed': isChapterFinished(getChapterForParagraph(pidx)) }"
+                >
+                  {{ getChapterProgressPercent(getChapterForParagraph(pidx)) }}%
+                </span>
+              </div>
+            </div>
             <div
               v-if="bookmarkedParagraphIdx === pidx"
               class="reading-bookmark-line-wrapper"
@@ -94,6 +128,40 @@
 
         <div v-else class="article-text bilingual">
           <template v-for="(tokens, pidx) in bodyParagraphs" :key="pidx">
+            <!-- Chapter divider -->
+            <div v-if="getChapterForParagraph(pidx)" class="chapter-divider-banner">
+              <div class="chapter-left">
+                <div class="chapter-tag-row">
+                  <span class="chapter-num-badge">CH {{ getChapterForParagraph(pidx).chapter_index + 1 }}</span>
+                  <span class="chapter-time-pill">{{ formatChapterRange(getChapterForParagraph(pidx).start_sec, getChapterForParagraph(pidx).end_sec) }}</span>
+                </div>
+                <div class="chapter-headline">{{ getChapterForParagraph(pidx).title }}</div>
+              </div>
+              <div class="chapter-right">
+                <button
+                  type="button"
+                  class="btn-courseware-study"
+                  :class="{
+                    'is-generating': getChapterForParagraph(pidx).courseware_status === 'generating' || getChapterForParagraph(pidx).courseware_status === 'pending',
+                    'is-error': getChapterForParagraph(pidx).courseware_status === 'error',
+                    'is-finished': isChapterFinished(getChapterForParagraph(pidx))
+                  }"
+                  @click.stop="openCourseware(getChapterForParagraph(pidx))"
+                >
+                  <span v-if="getChapterForParagraph(pidx).courseware_status === 'generating' || getChapterForParagraph(pidx).courseware_status === 'pending'" class="study-spinner-dot" />
+                  <span v-else-if="getChapterForParagraph(pidx).courseware_status === 'error'">⚠️</span>
+                  <span v-else-if="isChapterFinished(getChapterForParagraph(pidx))">✅</span>
+                  <span v-else>📖</span>
+                  <span class="study-btn-text">{{ chapterButtonText(getChapterForParagraph(pidx)) }}</span>
+                </button>
+                <span
+                  class="chapter-percent-tag"
+                  :class="{ 'is-completed': isChapterFinished(getChapterForParagraph(pidx)) }"
+                >
+                  {{ getChapterProgressPercent(getChapterForParagraph(pidx)) }}%
+                </span>
+              </div>
+            </div>
             <div
               v-if="bookmarkedParagraphIdx === pidx"
               class="reading-bookmark-line-wrapper"
@@ -150,12 +218,15 @@
         </div>
     </div>
 
-    <!-- Right-side custom scrollbar: thin rail with green dot thumb -->
+    <!-- Right-side custom scrollbar: thin rail with green dot thumb & chapter markers -->
     <div
       v-show="canScroll"
       ref="scrollRailEl"
       class="article-scroll-rail"
-      :class="{ 'is-dragging': isScrollDragging }"
+      :class="{
+        'is-dragging': isScrollDragging,
+        'has-chapters': hasChapters
+      }"
       role="scrollbar"
       tabindex="-1"
       aria-orientation="vertical"
@@ -170,6 +241,44 @@
       <div class="article-scroll-track">
         <div class="article-scroll-fill" :style="{ height: `${scrollPercent}%` }" />
       </div>
+
+      <!-- Chapter markers -->
+      <template v-if="hasChapters">
+        <div
+          v-for="marker in chapterRailMarkers"
+          :key="marker.id"
+          class="chapter-rail-marker"
+          :class="{
+            'is-active': activeChapterIndex === marker.chapter_index,
+            'is-hovered': hoveredChapter?.id === marker.id
+          }"
+          :style="{ top: `${marker.topPercent}%` }"
+          :title="`CH ${marker.chapter_index + 1} · ${marker.title}`"
+          @pointerdown.stop
+          @click.stop="jumpToChapter(marker)"
+          @mouseenter="onMarkerMouseEnter(marker)"
+          @mouseleave="onMarkerMouseLeave"
+        >
+          <span class="chapter-marker-badge">{{ marker.chapter_index + 1 }}</span>
+        </div>
+
+        <!-- Floating chapter preview tooltip card -->
+        <Transition name="fade">
+          <div
+            v-if="hoveredChapter"
+            class="chapter-rail-tooltip"
+            :style="{ top: `${tooltipTopPercentClamped}%` }"
+            @pointerdown.stop
+          >
+            <div class="tooltip-meta">
+              <span class="tooltip-ch">CH {{ hoveredChapter.chapter_index + 1 }}</span>
+              <span class="tooltip-time">{{ formatChapterRange(hoveredChapter.start_sec, hoveredChapter.end_sec) }}</span>
+            </div>
+            <div class="tooltip-title">{{ hoveredChapter.title }}</div>
+          </div>
+        </Transition>
+      </template>
+
       <div class="article-scroll-thumb" :style="{ top: `${scrollPercent}%` }" />
     </div>
   </div>
@@ -230,18 +339,36 @@
     <Transition name="popup">
       <div v-if="readStatus || audioStatus" class="read-toast">{{ readStatus || audioStatus }}</div>
     </Transition>
+
+    <!-- Courseware Modal -->
+    <CoursewareModal
+      :show="showCoursewareModal"
+      :chapter="selectedChapter"
+      :audio-el="audioPlayerRef"
+      :target-lang="targetLang"
+      :native-lang="nativeLang"
+      :user-id="userId"
+      @close="showCoursewareModal = false"
+      @progress="onCoursewareProgress"
+      @regenerate="onCoursewareRegenerate"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
+import { ref, shallowRef, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { convertFileSrc, isTauri } from "@tauri-apps/api/core";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
+import { listen } from "@tauri-apps/api/event";
+import CoursewareModal from "./CoursewareModal.vue";
 import {
   getReadingArticle,
   getImportedArticle,
+  getImportedArticleChapters,
+  generateChapterCourseware,
+  updateChapterCoursewareProgress,
   markReadingArticleRead,
   regenerateReadingArticle,
 } from "@/shared/backend/reading.js";
@@ -276,11 +403,16 @@ const props = defineProps({
 
 const isImported = ref(false);
 const importedParagraphs = ref([]);
+const chapters = ref([]);
+const selectedChapter = ref(null);
+const showCoursewareModal = ref(false);
+let unlistenCourseware = null;
 const audioDuration = ref(0);
 const currentTime = ref(0);
 const isAudioPlaying = ref(false);
 const audioAvailable = ref(false);
 let audioEl = null;
+const audioPlayerRef = shallowRef(null);
 let audioBlobUrl = null;
 let audioLoadToken = 0;
 let pendingSeekTime = null;
@@ -355,6 +487,7 @@ function initAudio(audioPath, durationSec) {
     audioEl.pause();
     audioEl = null;
   }
+  audioPlayerRef.value = null;
   cleanupAudioBlob();
   pendingSeekTime = null;
   pendingAutoPlay = false;
@@ -370,6 +503,7 @@ function initAudio(audioPath, durationSec) {
   const el = new Audio();
   el.preload = "metadata";
   audioEl = el;
+  audioPlayerRef.value = el;
   audioAvailable.value = true;
 
   el.addEventListener("loadedmetadata", () => {
@@ -565,7 +699,7 @@ function onTimeClick(e, pidx) {
   playFromParagraph(pidx);
 }
 
-// ---- Custom scrollbar: thin rail with green dot thumb ----
+// ---- Custom scrollbar: thin rail with green dot thumb & chapter markers ----
 const articleBodyEl = ref(null);
 const scrollRailEl = ref(null);
 const isScrollDragging = ref(false);
@@ -577,6 +711,201 @@ function markUserScroll() {
   lastUserScrollAt = Date.now();
 }
 
+const hasChapters = computed(() => {
+  return isImported.value && Array.isArray(chapters.value) && chapters.value.length > 0;
+});
+
+const chapterRailMarkers = ref([]);
+const visibleScrollChapterIndex = ref(0);
+const hoveredChapter = ref(null);
+const hoveredChapterTopPercent = ref(0);
+let tooltipHideTimer = null;
+
+const tooltipTopPercentClamped = computed(() => {
+  return Math.min(88, Math.max(6, hoveredChapterTopPercent.value));
+});
+
+function updateVisibleChapter() {
+  if (!isImported.value || !Array.isArray(chapters.value) || !chapters.value.length) {
+    visibleScrollChapterIndex.value = -1;
+    return;
+  }
+  const body = articleBodyEl.value;
+  if (!body) {
+    visibleScrollChapterIndex.value = 0;
+    return;
+  }
+  const maxScroll = body.scrollHeight - body.clientHeight;
+  if (maxScroll <= 0) {
+    if (currentTime.value > 0) {
+      const found = chapters.value.find((c) => currentTime.value >= c.start_sec && currentTime.value < c.end_sec);
+      if (found) {
+        visibleScrollChapterIndex.value = found.chapter_index;
+        return;
+      }
+    }
+    return;
+  }
+  const threshold = body.scrollTop + Math.min(220, body.clientHeight * 0.35);
+  for (let i = chapters.value.length - 1; i >= 0; i--) {
+    const ch = chapters.value[i];
+    const el = body.querySelector(`[data-pidx="${ch.start_para_idx}"]`);
+    if (el) {
+      const banner = el.previousElementSibling?.classList?.contains("chapter-divider-banner")
+        ? el.previousElementSibling
+        : el;
+      const elTop = banner.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop;
+      if (elTop <= threshold) {
+        visibleScrollChapterIndex.value = ch.chapter_index;
+        return;
+      }
+    }
+  }
+  visibleScrollChapterIndex.value = chapters.value[0]?.chapter_index ?? 0;
+}
+
+const activeChapterIndex = computed(() => {
+  if (!isImported.value || !Array.isArray(chapters.value) || !chapters.value.length) {
+    return -1;
+  }
+  if (isAudioPlaying.value) {
+    const t = currentTime.value;
+    const found = chapters.value.find((c) => t >= c.start_sec && t < c.end_sec);
+    if (found) return found.chapter_index;
+    if (t >= (chapters.value[chapters.value.length - 1]?.start_sec ?? 0)) {
+      return chapters.value[chapters.value.length - 1].chapter_index;
+    }
+    return chapters.value[0]?.chapter_index ?? 0;
+  }
+  return visibleScrollChapterIndex.value;
+});
+
+function updateChapterRailMarkers() {
+  if (!isImported.value || !Array.isArray(chapters.value) || !chapters.value.length) {
+    chapterRailMarkers.value = [];
+    return;
+  }
+  const body = articleBodyEl.value;
+  const totalParas = importedParagraphs.value.length;
+  const maxScroll = body ? body.scrollHeight - body.clientHeight : 0;
+
+  const markers = [];
+  for (let i = 0; i < chapters.value.length; i++) {
+    const ch = chapters.value[i];
+    let topPct = 0;
+    if (i === 0) {
+      topPct = 0;
+    } else if (body && maxScroll > 0) {
+      const el = body.querySelector(`[data-pidx="${ch.start_para_idx}"]`);
+      if (el) {
+        const banner = el.previousElementSibling?.classList?.contains("chapter-divider-banner")
+          ? el.previousElementSibling
+          : el;
+        const elTop = banner.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop;
+        topPct = Math.min(97, Math.max(0, (elTop / maxScroll) * 100));
+      } else {
+        topPct = totalParas > 0 ? (ch.start_para_idx / totalParas) * 100 : 0;
+      }
+    } else {
+      topPct = totalParas > 0 ? (ch.start_para_idx / totalParas) * 100 : 0;
+    }
+
+    markers.push({
+      id: ch.id,
+      chapter_index: ch.chapter_index,
+      title: ch.title,
+      start_sec: ch.start_sec,
+      end_sec: ch.end_sec,
+      start_para_idx: ch.start_para_idx,
+      topPercent: Math.round(topPct * 10) / 10,
+    });
+  }
+  chapterRailMarkers.value = markers;
+}
+
+function showChapterTooltip(marker) {
+  if (tooltipHideTimer) {
+    clearTimeout(tooltipHideTimer);
+    tooltipHideTimer = null;
+  }
+  hoveredChapter.value = marker;
+  hoveredChapterTopPercent.value = marker.topPercent;
+}
+
+function hideChapterTooltip(delay = 150) {
+  if (tooltipHideTimer) clearTimeout(tooltipHideTimer);
+  tooltipHideTimer = setTimeout(() => {
+    hoveredChapter.value = null;
+    tooltipHideTimer = null;
+  }, delay);
+}
+
+function onMarkerMouseEnter(marker) {
+  showChapterTooltip(marker);
+}
+
+function onMarkerMouseLeave() {
+  hideChapterTooltip(150);
+}
+
+function scrollToChapter(chapter) {
+  const body = articleBodyEl.value;
+  if (!body || !chapter) return;
+  visibleScrollChapterIndex.value = chapter.chapter_index;
+  const pidx = chapter.start_para_idx ?? 0;
+  const el = body.querySelector(`[data-pidx="${pidx}"]`);
+  if (!el) return;
+  const banner = el.previousElementSibling?.classList?.contains("chapter-divider-banner")
+    ? el.previousElementSibling
+    : null;
+  const targetEl = banner || el;
+  const top =
+    targetEl.getBoundingClientRect().top -
+    body.getBoundingClientRect().top +
+    body.scrollTop -
+    16;
+  if (typeof body.scrollTo === "function") {
+    body.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  } else {
+    body.scrollTop = Math.max(0, top);
+  }
+  markUserScroll();
+  updateScrollState();
+}
+
+function seekAudioToChapter(chapter) {
+  if (!isImported.value || !chapter) return;
+  const startSec = chapter.start_sec ?? 0;
+  currentTime.value = startSec;
+  if (audioEl) {
+    if (!audioEl.src) {
+      pendingSeekTime = startSec;
+      return;
+    }
+    try {
+      audioEl.currentTime = startSec;
+    } catch (err) {
+      console.warn("audioEl.currentTime seek failed:", err);
+    }
+    if (isAudioPlaying.value) {
+      const playPromise = audioEl.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch((err) => {
+          console.warn("Audio play failed:", err);
+        });
+      }
+    }
+  }
+}
+
+function jumpToChapter(chapter) {
+  if (!chapter) return;
+  scrollToChapter(chapter);
+  seekAudioToChapter(chapter);
+  showChapterTooltip(chapter);
+  hideChapterTooltip(2200);
+}
+
 function updateScrollState() {
   const body = articleBodyEl.value;
   if (!body) {
@@ -585,13 +914,29 @@ function updateScrollState() {
     return;
   }
   const maxScroll = body.scrollHeight - body.clientHeight;
-  canScroll.value = maxScroll > 4 || (article.value?.body?.length || 0) > 250;
+  canScroll.value = maxScroll > 4 || (article.value?.body?.length || 0) > 250 || hasChapters.value;
   if (maxScroll > 0) {
     scrollPercent.value = Math.min(100, Math.max(0, (body.scrollTop / maxScroll) * 100));
   } else {
     scrollPercent.value = 0;
   }
+  updateVisibleChapter();
 }
+
+function handleLayoutChange() {
+  updateScrollState();
+  updateChapterRailMarkers();
+}
+
+watch(
+  chapters,
+  () => {
+    nextTick(() => {
+      handleLayoutChange();
+    });
+  },
+  { deep: true }
+);
 
 function onBodyScroll() {
   updateScrollState();
@@ -904,12 +1249,30 @@ onMounted(async () => {
     }
     return null;
   });
-  window.addEventListener("resize", updateScrollState);
+  window.addEventListener("resize", handleLayoutChange);
   if (articleBodyEl.value && typeof ResizeObserver !== "undefined") {
-    bodyResizeObserver = new ResizeObserver(() => updateScrollState());
+    bodyResizeObserver = new ResizeObserver(() => handleLayoutChange());
     bodyResizeObserver.observe(articleBodyEl.value);
   }
   await loadArticle();
+  try {
+    const inTauri = typeof isTauri === "function" ? isTauri() : !!isTauri;
+    if (inTauri) {
+      unlistenCourseware = await listen("chapter-courseware-updated", (event) => {
+        const updated = event.payload;
+        if (!updated) return;
+        const idx = chapters.value.findIndex((c) => Number(c.id) === Number(updated.id));
+        if (idx >= 0) {
+          chapters.value[idx] = { ...chapters.value[idx], ...updated };
+        }
+        if (selectedChapter.value && Number(selectedChapter.value.id) === Number(updated.id)) {
+          selectedChapter.value = { ...selectedChapter.value, ...updated };
+        }
+      });
+    }
+  } catch (err) {
+    console.warn("Failed to attach chapter-courseware-updated listener:", err);
+  }
 });
 
 onBeforeUnmount(() => {
@@ -917,6 +1280,7 @@ onBeforeUnmount(() => {
     audioEl.pause();
     audioEl = null;
   }
+  audioPlayerRef.value = null;
   cleanupAudioBlob();
   if (audioStatusTimer) {
     clearTimeout(audioStatusTimer);
@@ -928,7 +1292,15 @@ onBeforeUnmount(() => {
   }
   translateGeneration += 1;
   teardownParaObserver();
-  window.removeEventListener("resize", updateScrollState);
+  if (unlistenCourseware) {
+    unlistenCourseware();
+    unlistenCourseware = null;
+  }
+  window.removeEventListener("resize", handleLayoutChange);
+  if (tooltipHideTimer) {
+    clearTimeout(tooltipHideTimer);
+    tooltipHideTimer = null;
+  }
   bodyResizeObserver?.disconnect();
   bodyResizeObserver = null;
   document.removeEventListener("selectionchange", onSelectionChange);
@@ -960,6 +1332,13 @@ async function loadArticle() {
         paras = [];
       }
       importedParagraphs.value = paras;
+      try {
+        const res = await getImportedArticleChapters(Number(props.id));
+        chapters.value = Array.isArray(res) ? res : [];
+      } catch (err) {
+        console.warn("Failed to load imported article chapters:", err);
+        chapters.value = [];
+      }
       article.value = {
         id: imp.id,
         title: imp.title,
@@ -1015,9 +1394,9 @@ async function loadArticle() {
         });
       }
     }
-    updateScrollState();
-    setTimeout(updateScrollState, 50);
-    setTimeout(updateScrollState, 200);
+    handleLayoutChange();
+    setTimeout(handleLayoutChange, 50);
+    setTimeout(handleLayoutChange, 200);
   }
 }
 
@@ -1059,7 +1438,7 @@ async function toggleBilingual() {
     translateQueue = [];
   }
   await nextTick();
-  updateScrollState();
+  handleLayoutChange();
 }
 
 function formatDate(articleItem) {
@@ -1129,6 +1508,79 @@ function goTest() {
   router.push(`/learn/reading/${props.id}/test`).finally(() => {
     testLoading.value = false;
   });
+}
+
+function getChapterForParagraph(pidx) {
+  if (!isImported.value || !Array.isArray(chapters.value) || !chapters.value.length) return null;
+  return chapters.value.find((c) => c && c.start_para_idx === pidx) || null;
+}
+
+function formatChapterTime(sec) {
+  if (sec == null) return "";
+  const s = Math.floor(sec);
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${m}:${String(rem).padStart(2, "0")}`;
+}
+
+function formatChapterRange(startSec, endSec) {
+  return `${formatChapterTime(startSec)} - ${formatChapterTime(endSec)}`;
+}
+
+function getChapterProgressPercent(ch) {
+  if (!ch) return 0;
+  const total = ch.total_pages || (ch.slides?.length ?? 0);
+  if (total <= 0) return 0;
+  return Math.min(100, Math.round(((ch.viewed_pages || 0) / total) * 100));
+}
+
+function isChapterFinished(ch) {
+  if (!ch) return false;
+  const total = ch.total_pages || (ch.slides?.length ?? 0);
+  return total > 0 && (ch.viewed_pages || 0) >= total;
+}
+
+function chapterButtonText(ch) {
+  if (ch.courseware_status === "generating") return t("reading.generatingCourseware");
+  if (ch.courseware_status === "pending") return t("reading.pendingCourseware") || "排队中";
+  if (ch.courseware_status === "error") return t("reading.retryCourseware");
+  if (isChapterFinished(ch)) return t("reading.coursewareCompleted");
+  return t("reading.studyCoursewareShort") || "学习";
+}
+
+function openCourseware(ch) {
+  selectedChapter.value = ch;
+  showCoursewareModal.value = true;
+}
+
+async function onCoursewareProgress({ chapterId, viewedPages }) {
+  try {
+    const updated = await updateChapterCoursewareProgress(chapterId, viewedPages);
+    const idx = chapters.value.findIndex((c) => Number(c.id) === Number(chapterId));
+    if (idx >= 0) {
+      chapters.value[idx] = { ...chapters.value[idx], ...updated };
+    }
+    if (selectedChapter.value && Number(selectedChapter.value.id) === Number(chapterId)) {
+      selectedChapter.value = { ...selectedChapter.value, ...updated };
+    }
+  } catch (e) {
+    console.warn("Failed to update courseware progress:", e);
+  }
+}
+
+async function onCoursewareRegenerate(chapterId) {
+  try {
+    const updated = await generateChapterCourseware(chapterId);
+    const idx = chapters.value.findIndex((c) => Number(c.id) === Number(chapterId));
+    if (idx >= 0) {
+      chapters.value[idx] = { ...chapters.value[idx], ...updated };
+    }
+    if (selectedChapter.value && Number(selectedChapter.value.id) === Number(chapterId)) {
+      selectedChapter.value = { ...selectedChapter.value, ...updated };
+    }
+  } catch (e) {
+    console.warn("Failed to regenerate courseware:", e);
+  }
 }
 
 </script>
@@ -1351,6 +1803,142 @@ function goTest() {
 .article-scroll-rail.is-dragging .article-scroll-fill,
 .article-scroll-rail.is-dragging .article-scroll-thumb {
   transition: none;
+}
+
+/* Chapter rail markers & tooltips */
+.article-scroll-rail.has-chapters {
+  width: 18px;
+}
+
+.chapter-rail-marker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 8;
+  height: 18px;
+}
+
+.chapter-marker-badge {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  font-family: inherit;
+  color: var(--text-light, #6b7280);
+  background: var(--surface, #ffffff);
+  border: 1.5px solid var(--border, #d1d5db);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.chapter-rail-marker:hover .chapter-marker-badge,
+.chapter-rail-marker.is-hovered .chapter-marker-badge {
+  transform: translate(-50%, -50%) scale(1.2);
+  color: #ffffff;
+  background: var(--blue, #3b82f6);
+  border-color: var(--blue, #3b82f6);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+}
+
+.chapter-rail-marker.is-active .chapter-marker-badge {
+  color: #ffffff;
+  background: var(--green, #2ecc71);
+  border-color: var(--green, #2ecc71);
+  box-shadow: 0 0 6px rgba(46, 204, 113, 0.7);
+  font-weight: 800;
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.article-scroll-rail.is-dragging .chapter-rail-marker,
+.article-scroll-rail.is-dragging .chapter-rail-tooltip {
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+.chapter-rail-tooltip {
+  position: absolute;
+  right: 26px;
+  transform: translateY(-50%);
+  max-width: 220px;
+  min-width: 140px;
+  background: rgba(17, 24, 39, 0.94);
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+  z-index: 50;
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.chapter-rail-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -6px;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 6px solid rgba(17, 24, 39, 0.94);
+}
+
+.chapter-rail-tooltip .tooltip-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.chapter-rail-tooltip .tooltip-ch {
+  font-size: 9px;
+  font-weight: 800;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.28);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.chapter-rail-tooltip .tooltip-time {
+  font-size: 10px;
+  color: #cbd5e1;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+}
+
+.chapter-rail-tooltip .tooltip-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #f9fafb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
 }
 
 /* Match news reader: full-pane reading, modest gutters (no narrow column). */
@@ -1779,5 +2367,127 @@ html[data-app-mode="tv"] .para-translation:focus-visible {
   text-align: center;
   box-shadow: var(--shadow-lg);
   line-height: 1.4;
+}
+
+/* Chapter Divider Card */
+.chapter-divider-banner {
+  margin: 20px 0 14px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.06);
+}
+
+.chapter-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chapter-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chapter-num-badge {
+  font-size: 10px;
+  font-weight: 800;
+  background: var(--green, #10b981);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.chapter-time-pill {
+  font-size: 11px;
+  color: #047857;
+  font-weight: 600;
+}
+
+.chapter-headline {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #064e3b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chapter-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-courseware-study {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: var(--green, #10b981);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+  transition: all 0.2s ease;
+}
+
+.btn-courseware-study:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.btn-courseware-study:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-courseware-study.is-generating {
+  background: #0284c7;
+}
+
+.btn-courseware-study.is-error {
+  background: #ef4444;
+}
+
+.btn-courseware-study.is-finished {
+  background: #047857;
+}
+
+.study-spinner-dot {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.chapter-progress-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #047857;
+  background: #d1fae5;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.chapter-progress-badge.is-completed {
+  background: #10b981;
+  color: #fff;
 }
 </style>

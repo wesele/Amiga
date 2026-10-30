@@ -330,6 +330,12 @@ async function invokeRead(command, args, state) {
       return completedHistory + completedCurrent;
     }
     case "get_imported_articles_cmd": return clone((state.imported_articles || []).filter((item) => item.user_id === args.userId && item.target_language === args.targetLanguage).sort((a, b) => b.id - a.id));
+    case "get_imported_article_chapters_cmd": {
+      const chapters = (state.imported_article_chapters || [])
+        .filter((ch) => Number(ch.article_id) === Number(args.articleId))
+        .sort((a, b) => a.chapter_index - b.chapter_index);
+      return clone(chapters);
+    }
     case "get_imported_article_cmd": {
       const item = (state.imported_articles || []).find((art) => Number(art.id) === Number(args.id));
       if (!item) throw new Error("Imported article not found");
@@ -368,6 +374,55 @@ async function invokeRead(command, args, state) {
         ]),
         cefr_level: args.cefrLevel || "A2",
         created_at: nowIso(),
+      });
+      state.imported_article_chapters ||= [];
+      const chId = Math.max(0, ...state.imported_article_chapters.map((c) => Number(c.id))) + 1;
+      const demoSlides = [
+        {
+          slide_type: 'vocab',
+          term: 'bienvenidos',
+          lemma: 'bienvenido',
+          pos: 'adj.',
+          pronunciation: 'bjen.beˈni.ðos',
+          meaning: '欢迎',
+          explanation: '用于热情迎接听众或客人的常用表达',
+          context_sentence: 'Hola a todos y bienvenidos a este video.',
+          context_translation: '大家好，欢迎来到这个视频。',
+          para_idx: 0,
+          start_sec: 0,
+          end_sec: 5,
+          svg: "<svg viewBox='0 0 320 180' xmlns='http://www.w3.org/2000/svg'><rect width='320' height='180' rx='16' fill='#ecfdf5'/><circle cx='90' cy='90' r='32' fill='#10b981'><animate attributeName='r' values='28;36;28' dur='2s' repeatCount='indefinite'/></circle><text x='190' y='85' text-anchor='middle' font-size='18' font-weight='700' fill='#065f46'>bienvenidos</text><text x='190' y='115' text-anchor='middle' font-size='14' fill='#047857'>欢迎</text></svg>",
+        },
+        {
+          slide_type: 'phrase',
+          term: 'conversación natural',
+          lemma: 'conversación natural',
+          pos: 'phrase',
+          pronunciation: '',
+          meaning: '自然的对话交流',
+          explanation: '字面义：自然的谈话 → 语境义：地道的日常口语交流',
+          context_sentence: 'Hoy vamos a practicar español con una conversación natural.',
+          context_translation: '今天我们将通过一段自然的对话来练习西班牙语。',
+          para_idx: 1,
+          start_sec: 5,
+          end_sec: 12,
+          svg: "<svg viewBox='0 0 320 180' xmlns='http://www.w3.org/2000/svg'><rect width='320' height='180' rx='16' fill='#eef2ff'/><text x='160' y='85' text-anchor='middle' font-size='16' font-weight='700' fill='#3730a3'>conversación natural</text><text x='160' y='115' text-anchor='middle' font-size='13' fill='#4f46e5'>自然的对话交流</text></svg>",
+        },
+      ];
+      state.imported_article_chapters.push({
+        id: chId,
+        article_id: newId,
+        chapter_index: 0,
+        title: '第 1 章 · 开场问候',
+        start_para_idx: 0,
+        end_para_idx: 1,
+        start_sec: 0,
+        end_sec: 12,
+        courseware_status: 'ready',
+        slides: demoSlides,
+        viewed_pages: 0,
+        total_pages: demoSlides.length,
+        error_message: null,
       });
       return null;
     }
@@ -435,6 +490,22 @@ async function invokeWrite(command, args) {
         return clone(goal || null);
       }
       case "init_user_vocab_cmd": return null;
+      case "get_words_mastery_map_cmd": {
+        const result = {};
+        const queryWords = (args.words || []).map((w) => normalize(w));
+        for (const item of allVocab(state)) {
+          if (item.language === args.language) {
+            const norm = normalize(item.word);
+            if (queryWords.includes(norm)) {
+              const masteryEntry = state.vocab_mastery[String(item.id)];
+              if (masteryEntry && masteryEntry.mastery != null) {
+                result[norm] = masteryEntry.mastery;
+              }
+            }
+          }
+        }
+        return result;
+      }
       case "update_word_mastery_cmd": state.vocab_mastery[String(args.wordId)] = { mastery: args.mastery, source: args.source, updated_at: nowIso() }; return null;
       case "mark_words_seen_cmd": for (const id of args.wordIds || []) if (!state.vocab_mastery[String(id)]) state.vocab_mastery[String(id)] = { mastery: 1, source: "news_reading", updated_at: nowIso() }; return null;
       case "add_discovered_word_cmd": {
@@ -598,6 +669,9 @@ async function invokeWrite(command, args) {
       }
       case "delete_imported_article_cmd": {
         state.imported_articles ||= [];
+        state.imported_article_chapters = (state.imported_article_chapters || []).filter(
+          (ch) => Number(ch.article_id) !== Number(args.id)
+        );
         const idx = state.imported_articles.findIndex((item) => Number(item.id) === Number(args.id));
         if (idx >= 0) {
           const removed = state.imported_articles.splice(idx, 1)[0];
@@ -624,6 +698,23 @@ async function invokeWrite(command, args) {
         const article = state.reading_articles.find((item) => Number(item.id) === Number(args.articleId));
         if (article) { article.status = "completed"; article.test_correct_count = args.correctCount; article.test_total_count = args.totalCount; }
         return null;
+      }
+      case "generate_chapter_courseware_cmd": {
+        state.imported_article_chapters ||= [];
+        const ch = state.imported_article_chapters.find((c) => Number(c.id) === Number(args.chapterId));
+        if (!ch) throw new Error("Chapter not found");
+        ch.courseware_status = "ready";
+        ch.error_message = null;
+        return clone(ch);
+      }
+      case "update_chapter_courseware_progress_cmd": {
+        state.imported_article_chapters ||= [];
+        const ch = state.imported_article_chapters.find((c) => Number(c.id) === Number(args.chapterId));
+        if (!ch) throw new Error("Chapter not found");
+        const maxPages = ch.total_pages || (ch.slides?.length ?? 0);
+        const clamped = maxPages > 0 ? Math.min(Number(args.viewedPages) || 0, maxPages) : Number(args.viewedPages) || 0;
+        ch.viewed_pages = Math.max(ch.viewed_pages || 0, clamped);
+        return clone(ch);
       }
       case "initialize_soulmate_cmd": {
         const request = args.request;

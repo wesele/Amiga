@@ -337,6 +337,105 @@ mod tests {
             .unwrap()
             .is_none());
     }
+
+    #[test]
+    fn test_imported_article_chapters_and_courseware_progress() {
+        let pool = test_pool();
+        let conn = pool.conn().unwrap();
+        insert_user(&conn);
+        drop(conn);
+
+        let aid = save_imported_article(
+            &pool,
+            "u1",
+            "es",
+            "youtube",
+            "https://www.youtube.com/watch?v=test123",
+            "test123",
+            "Test Video",
+            Some("Test Channel"),
+            Some(420),
+            None,
+            r#"[{"start":0.0,"end":180.0,"text":"Hola amigos."},{"start":181.0,"end":360.0,"text":"Adiós amigos."}]"#,
+            Some("A2"),
+        )
+        .unwrap();
+
+        let drafts = vec![
+            ImportedChapterDraft {
+                chapter_index: 0,
+                title: "第 1 章".to_string(),
+                start_para_idx: 0,
+                end_para_idx: 0,
+                start_sec: 0.0,
+                end_sec: 180.0,
+            },
+            ImportedChapterDraft {
+                chapter_index: 1,
+                title: "第 2 章".to_string(),
+                start_para_idx: 1,
+                end_para_idx: 1,
+                start_sec: 181.0,
+                end_sec: 360.0,
+            },
+        ];
+
+        let chapters = save_imported_article_chapters(&pool, aid, &drafts).unwrap();
+        assert_eq!(chapters.len(), 2);
+        assert_eq!(chapters[0].title, "第 1 章");
+        assert_eq!(chapters[0].courseware_status, "pending");
+
+        // Simulate courseware ready with 5 pages
+        let conn = pool.conn().unwrap();
+        conn.execute(
+            "UPDATE imported_article_chapters SET courseware_status = 'ready', total_pages = 5 WHERE id = ?1",
+            params![chapters[0].id],
+        )
+        .unwrap();
+        drop(conn);
+
+        let updated = update_chapter_courseware_progress(&pool, chapters[0].id, 3).unwrap();
+        assert_eq!(updated.viewed_pages, 3);
+        assert_eq!(updated.total_pages, 5);
+
+        // Monotonic progress: flipping back to page 1 does not reduce viewed_pages
+        let updated2 = update_chapter_courseware_progress(&pool, chapters[0].id, 1).unwrap();
+        assert_eq!(updated2.viewed_pages, 3);
+
+        // Clamping to total_pages
+        let updated3 = update_chapter_courseware_progress(&pool, chapters[0].id, 99).unwrap();
+        assert_eq!(updated3.viewed_pages, 5);
+    }
+
+    #[test]
+    fn test_parse_courseware_json_and_svg_fallback() {
+        let raw = r#"```json
+{
+  "chapter_title": "En el restaurante",
+  "slides": [
+    {
+      "slide_type": "vocab",
+      "term": "propina",
+      "lemma": "propina",
+      "pos": "n.",
+      "meaning": "小费",
+      "explanation": "用餐后额外给服务员的费用",
+      "context_sentence": "Dejamos una buena propina.",
+      "context_translation": "我们留下了一笔丰厚的小费。",
+      "para_idx": 0,
+      "svg": "<script>alert(1)</script>"
+    }
+  ]
+}
+```"#;
+        let parsed = parse_generated_courseware_json(raw).unwrap();
+        assert_eq!(parsed.chapter_title.as_deref(), Some("En el restaurante"));
+        assert_eq!(parsed.slides.len(), 1);
+        let safe_svg = sanitize_or_fallback_slide_svg(&parsed.slides[0]);
+        assert!(safe_svg.starts_with("<svg"));
+        assert!(!safe_svg.contains("<script"));
+        assert!(safe_svg.contains("propina"));
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -393,6 +492,65 @@ pub struct ImportedArticle {
     pub subtitles_json: String,
     pub cefr_level: Option<String>,
     pub created_at: String,
+}
+
+fn default_slide_type() -> String {
+    "vocab".to_string()
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CoursewareSlide {
+    #[serde(default = "default_slide_type")]
+    pub slide_type: String,
+    pub term: String,
+    #[serde(default)]
+    pub lemma: Option<String>,
+    #[serde(default)]
+    pub pos: Option<String>,
+    #[serde(default)]
+    pub pronunciation: Option<String>,
+    pub meaning: String,
+    #[serde(default)]
+    pub explanation: String,
+    #[serde(default)]
+    pub context_sentence: String,
+    #[serde(default)]
+    pub context_translation: String,
+    #[serde(default)]
+    pub para_idx: Option<usize>,
+    #[serde(default)]
+    pub start_sec: Option<f64>,
+    #[serde(default)]
+    pub end_sec: Option<f64>,
+    #[serde(default)]
+    pub svg: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ImportedChapterDraft {
+    pub chapter_index: usize,
+    pub title: String,
+    pub start_para_idx: usize,
+    pub end_para_idx: usize,
+    pub start_sec: f64,
+    pub end_sec: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ImportedArticleChapter {
+    pub id: i64,
+    pub article_id: i64,
+    pub chapter_index: usize,
+    pub title: String,
+    pub start_para_idx: usize,
+    pub end_para_idx: usize,
+    pub start_sec: f64,
+    pub end_sec: f64,
+    pub courseware_status: String,
+    pub slides: Vec<CoursewareSlide>,
+    pub viewed_pages: usize,
+    pub total_pages: usize,
+    pub error_message: Option<String>,
 }
 
 // ── 100 default topics ─────────────────────────────────────────────
@@ -1515,4 +1673,583 @@ pub async fn finish_and_generate_next_reading_article(
     .ok();
 
     get_reading_article(db, new_id)
+}
+
+// ── Imported Article Chapters & Courseware ─────────────────────────
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GeneratedCoursewareResponse {
+    #[serde(default)]
+    chapter_title: Option<String>,
+    slides: Vec<CoursewareSlide>,
+}
+
+fn parse_chapter_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ImportedArticleChapter> {
+    let slides_json: String = row.get(9)?;
+    let slides: Vec<CoursewareSlide> = serde_json::from_str(&slides_json).unwrap_or_default();
+    let chapter_index: i64 = row.get(2)?;
+    let start_para_idx: i64 = row.get(4)?;
+    let end_para_idx: i64 = row.get(5)?;
+    let viewed_pages: i64 = row.get(10)?;
+    let total_pages: i64 = row.get(11)?;
+    Ok(ImportedArticleChapter {
+        id: row.get(0)?,
+        article_id: row.get(1)?,
+        chapter_index: chapter_index.max(0) as usize,
+        title: row.get(3)?,
+        start_para_idx: start_para_idx.max(0) as usize,
+        end_para_idx: end_para_idx.max(0) as usize,
+        start_sec: row.get(6)?,
+        end_sec: row.get(7)?,
+        courseware_status: row.get(8)?,
+        slides,
+        viewed_pages: viewed_pages.max(0) as usize,
+        total_pages: total_pages.max(0) as usize,
+        error_message: row.get(12)?,
+    })
+}
+
+pub fn save_imported_article_chapters(
+    db: &DatabasePool,
+    article_id: i64,
+    chapters: &[ImportedChapterDraft],
+) -> Result<Vec<ImportedArticleChapter>, String> {
+    let conn = db.conn()?;
+    for ch in chapters {
+        conn.execute(
+            "INSERT OR REPLACE INTO imported_article_chapters (
+                article_id, chapter_index, title, start_para_idx, end_para_idx,
+                start_sec, end_sec, courseware_status, slides_json, viewed_pages, total_pages
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending', '[]', 0, 0)",
+            params![
+                article_id,
+                ch.chapter_index as i64,
+                ch.title,
+                ch.start_para_idx as i64,
+                ch.end_para_idx as i64,
+                ch.start_sec,
+                ch.end_sec,
+            ],
+        )
+        .map_err(|e| format!("Failed to save chapter {}: {}", ch.chapter_index, e))?;
+    }
+    drop(conn);
+    get_imported_article_chapters(db, article_id)
+}
+
+pub fn get_imported_article_chapters(
+    db: &DatabasePool,
+    article_id: i64,
+) -> Result<Vec<ImportedArticleChapter>, String> {
+    let conn = db.conn()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, article_id, chapter_index, title, start_para_idx, end_para_idx,
+                    start_sec, end_sec, courseware_status, slides_json, viewed_pages, total_pages, error_message
+             FROM imported_article_chapters
+             WHERE article_id = ?1
+             ORDER BY chapter_index ASC",
+        )
+        .map_err(|e| format!("Failed to query chapters: {}", e))?;
+
+    let rows = stmt
+        .query_map(params![article_id], parse_chapter_row)
+        .map_err(|e| format!("Failed to map chapters: {}", e))?
+        .filter_map(|r| r.ok())
+        .collect();
+    Ok(rows)
+}
+
+pub fn get_imported_article_chapter(
+    db: &DatabasePool,
+    chapter_id: i64,
+) -> Result<ImportedArticleChapter, String> {
+    let conn = db.conn()?;
+    conn.query_row(
+        "SELECT id, article_id, chapter_index, title, start_para_idx, end_para_idx,
+                start_sec, end_sec, courseware_status, slides_json, viewed_pages, total_pages, error_message
+         FROM imported_article_chapters
+         WHERE id = ?1",
+        params![chapter_id],
+        parse_chapter_row,
+    )
+    .map_err(|e| format!("Chapter not found: {}", e))
+}
+
+pub fn update_chapter_courseware_progress(
+    db: &DatabasePool,
+    chapter_id: i64,
+    viewed_pages: usize,
+) -> Result<ImportedArticleChapter, String> {
+    let current = get_imported_article_chapter(db, chapter_id)?;
+    let clamped = if current.total_pages > 0 {
+        viewed_pages.min(current.total_pages)
+    } else {
+        viewed_pages
+    };
+    let next_viewed = current.viewed_pages.max(clamped);
+
+    let conn = db.conn()?;
+    conn.execute(
+        "UPDATE imported_article_chapters
+         SET viewed_pages = ?1, updated_at = datetime('now')
+         WHERE id = ?2",
+        params![next_viewed as i64, chapter_id],
+    )
+    .map_err(|e| format!("Failed to update courseware progress: {}", e))?;
+    drop(conn);
+
+    get_imported_article_chapter(db, chapter_id)
+}
+
+pub fn set_chapter_courseware_status(
+    db: &DatabasePool,
+    chapter_id: i64,
+    status: &str,
+    error_message: Option<&str>,
+) -> Result<ImportedArticleChapter, String> {
+    let conn = db.conn()?;
+    conn.execute(
+        "UPDATE imported_article_chapters
+         SET courseware_status = ?1, error_message = ?2, updated_at = datetime('now')
+         WHERE id = ?3",
+        params![status, error_message, chapter_id],
+    )
+    .map_err(|e| format!("Failed to update chapter status: {}", e))?;
+    drop(conn);
+    get_imported_article_chapter(db, chapter_id)
+}
+
+fn escape_svg_xml(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
+fn truncate_chars(s: &str, max_chars: usize) -> String {
+    let count = s.chars().count();
+    if count <= max_chars {
+        s.to_string()
+    } else {
+        let mut t: String = s.chars().take(max_chars.saturating_sub(1)).collect();
+        t.push('…');
+        t
+    }
+}
+
+pub fn sanitize_or_fallback_slide_svg(slide: &CoursewareSlide) -> String {
+    let trimmed = slide.svg.trim();
+    if let (Some(start), Some(end)) = (trimmed.find("<svg"), trimmed.rfind("</svg>")) {
+        if end > start {
+            let candidate = &trimmed[start..end + 6];
+            let lower = candidate.to_ascii_lowercase();
+            if !lower.contains("<script")
+                && !lower.contains("javascript:")
+                && !lower.contains("onload=")
+                && !lower.contains("onerror=")
+                && candidate.len() >= 60
+            {
+                return candidate.to_string();
+            }
+        }
+    }
+    synthesize_fallback_slide_svg(slide)
+}
+
+pub fn synthesize_fallback_slide_svg(slide: &CoursewareSlide) -> String {
+    let term = escape_svg_xml(&truncate_chars(&slide.term, 24));
+    let meaning = escape_svg_xml(&truncate_chars(&slide.meaning, 26));
+    let note = escape_svg_xml(&truncate_chars(
+        if slide.explanation.trim().is_empty() {
+            &slide.context_sentence
+        } else {
+            &slide.explanation
+        },
+        34,
+    ));
+
+    if slide.slide_type == "phrase" {
+        format!(
+            r##"<svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgPhr" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#eef2ff"/>
+      <stop offset="100%" stop-color="#e0e7ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="180" rx="16" fill="url(#bgPhr)"/>
+  <g transform="translate(18, 26)">
+    <rect width="116" height="92" rx="12" fill="#ffffff" stroke="#c7d2fe" stroke-width="1.5"/>
+    <text x="58" y="26" text-anchor="middle" font-size="10" fill="#6366f1" font-weight="700">LITERAL / EXPRESSION</text>
+    <text x="58" y="56" text-anchor="middle" font-size="13" fill="#1e1b4b" font-weight="700">{term}</text>
+    <circle cx="58" cy="76" r="4" fill="#818cf8">
+      <animate attributeName="r" values="3;6;3" dur="2.2s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  <g transform="translate(142, 62)">
+    <path d="M0 10 L28 10" stroke="#4f46e5" stroke-width="3" stroke-linecap="round" stroke-dasharray="5 4">
+      <animate attributeName="stroke-dashoffset" values="18;0" dur="1.2s" repeatCount="indefinite"/>
+    </path>
+    <polygon points="26,4 36,10 26,16" fill="#4f46e5">
+      <animateTransform attributeName="transform" type="translate" values="0,0;4,0;0,0" dur="1.2s" repeatCount="indefinite"/>
+    </polygon>
+  </g>
+  <g transform="translate(186, 26)">
+    <rect width="116" height="92" rx="12" fill="#4f46e5"/>
+    <text x="58" y="26" text-anchor="middle" font-size="10" fill="#c7d2fe" font-weight="700">CONTEXT MEANING</text>
+    <text x="58" y="56" text-anchor="middle" font-size="13" fill="#ffffff" font-weight="700">{meaning}</text>
+    <rect x="28" y="70" width="60" height="4" rx="2" fill="#a5b4fc">
+      <animate attributeName="width" values="30;72;30" dur="2.4s" repeatCount="indefinite"/>
+      <animate attributeName="x" values="43;22;43" dur="2.4s" repeatCount="indefinite"/>
+    </rect>
+  </g>
+  <rect x="18" y="132" width="284" height="32" rx="8" fill="#ffffff" fill-opacity="0.85"/>
+  <text x="160" y="152" text-anchor="middle" font-size="11" fill="#3730a3">{note}</text>
+</svg>"##
+        )
+    } else {
+        format!(
+            r##"<svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgVoc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ecfdf5"/>
+      <stop offset="100%" stop-color="#d1fae5"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="180" rx="16" fill="url(#bgVoc)"/>
+  <circle cx="72" cy="76" r="36" fill="#10b981" fill-opacity="0.15">
+    <animate attributeName="r" values="32;42;32" dur="2.6s" repeatCount="indefinite"/>
+  </circle>
+  <g transform="translate(72, 76)">
+    <circle cx="0" cy="0" r="24" fill="#10b981"/>
+    <path d="M-8 -4 L8 -4 M-8 4 L4 4" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+    <animateTransform attributeName="transform" type="translate" values="72,76;72,70;72,76" dur="2.6s" repeatCount="indefinite"/>
+  </g>
+  <g transform="translate(126, 34)">
+    <rect width="174" height="84" rx="14" fill="#ffffff" stroke="#a7f3d0" stroke-width="1.5"/>
+    <text x="16" y="32" font-size="16" fill="#065f46" font-weight="800">{term}</text>
+    <text x="16" y="58" font-size="13" fill="#047857" font-weight="600">{meaning}</text>
+    <circle cx="154" cy="24" r="5" fill="#34d399">
+      <animate attributeName="opacity" values="0.3;1;0.3" dur="1.8s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  <rect x="20" y="132" width="280" height="32" rx="8" fill="#ffffff" fill-opacity="0.88"/>
+  <text x="160" y="152" text-anchor="middle" font-size="11" fill="#065f46">{note}</text>
+</svg>"##
+        )
+    }
+}
+
+fn parse_generated_courseware_json(raw: &str) -> Result<GeneratedCoursewareResponse, String> {
+    let trimmed = raw.trim();
+    let cleaned = if trimmed.starts_with("```") {
+        let without_open = trimmed
+            .trim_start_matches("```json")
+            .trim_start_matches("```JSON")
+            .trim_start_matches("```");
+        without_open.trim_end_matches("```").trim()
+    } else {
+        trimmed
+    };
+
+    if let Ok(parsed) = serde_json::from_str::<GeneratedCoursewareResponse>(cleaned) {
+        if !parsed.slides.is_empty() {
+            return Ok(parsed);
+        }
+    }
+
+    if let (Some(start), Some(end)) = (cleaned.find('{'), cleaned.rfind('}')) {
+        if end > start {
+            let slice = &cleaned[start..=end];
+            if let Ok(parsed) = serde_json::from_str::<GeneratedCoursewareResponse>(slice) {
+                if !parsed.slides.is_empty() {
+                    return Ok(parsed);
+                }
+            }
+        }
+    }
+
+    if let (Some(start), Some(end)) = (cleaned.find('['), cleaned.rfind(']')) {
+        if end > start {
+            let slice = &cleaned[start..=end];
+            if let Ok(slides) = serde_json::from_str::<Vec<CoursewareSlide>>(slice) {
+                if !slides.is_empty() {
+                    return Ok(GeneratedCoursewareResponse {
+                        chapter_title: None,
+                        slides,
+                    });
+                }
+            }
+        }
+    }
+
+    Err(format!(
+        "无法解析课件 JSON 数据: {}",
+        &cleaned[..cleaned.len().min(200)]
+    ))
+}
+
+fn query_user_native_lang(db: &DatabasePool, user_id: &str) -> String {
+    let Ok(conn) = db.conn() else {
+        return "zh".to_string();
+    };
+    conn.query_row(
+        "SELECT native_language FROM users WHERE id = ?1",
+        params![user_id],
+        |row| row.get::<_, String>(0),
+    )
+    .ok()
+    .filter(|s| !s.trim().is_empty())
+    .unwrap_or_else(|| "zh".to_string())
+}
+
+fn query_mastered_words_for_user(
+    db: &DatabasePool,
+    user_id: &str,
+    target_lang: &str,
+) -> Vec<String> {
+    let Ok(conn) = db.conn() else {
+        return Vec::new();
+    };
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT vb.word
+         FROM user_vocab uv
+         JOIN vocab_bank vb ON vb.id = uv.word_id
+         WHERE uv.user_id = ?1 AND vb.language = ?2 AND uv.mastery >= 2
+         LIMIT 200",
+    ) else {
+        return Vec::new();
+    };
+    let rows = match stmt.query_map(params![user_id, target_lang], |row| row.get::<_, String>(0)) {
+        Ok(mapped) => mapped.filter_map(|r| r.ok()).collect(),
+        Err(_) => Vec::new(),
+    };
+    rows
+}
+
+pub async fn generate_chapter_courseware(
+    llm: &llm_mod::LlmClient,
+    db: &DatabasePool,
+    chapter_id: i64,
+) -> Result<ImportedArticleChapter, String> {
+    let chapter = get_imported_article_chapter(db, chapter_id)?;
+    let article = get_imported_article(db, chapter.article_id)?;
+    let _ = set_chapter_courseware_status(db, chapter_id, "generating", None);
+
+    let paragraphs: Vec<crate::modules::youtube::SubtitleParagraph> =
+        serde_json::from_str(&article.subtitles_json).unwrap_or_default();
+
+    if paragraphs.is_empty() || chapter.start_para_idx >= paragraphs.len() {
+        let err_msg = "章节字幕段落为空，无法生成课件".to_string();
+        let _ = set_chapter_courseware_status(db, chapter_id, "error", Some(&err_msg));
+        return Err(err_msg);
+    }
+
+    let end_idx = chapter.end_para_idx.min(paragraphs.len() - 1);
+    let chapter_paras = &paragraphs[chapter.start_para_idx..=end_idx];
+
+    let mut numbered_transcript = String::new();
+    for (offset, p) in chapter_paras.iter().enumerate() {
+        let abs_idx = chapter.start_para_idx + offset;
+        numbered_transcript.push_str(&format!("[P{}] {}\n", abs_idx, p.text.trim()));
+    }
+
+    let cefr = article.cefr_level.as_deref().unwrap_or("A2");
+    let native_lang = query_user_native_lang(db, &article.user_id);
+    let target_label = llm_mod::lang_name(&article.target_language);
+    let native_label = llm_mod::lang_name(&native_lang);
+    let mastered = query_mastered_words_for_user(db, &article.user_id, &article.target_language);
+    let mastered_hint = if mastered.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\nAvoid selecting these words the learner has already mastered: {}.",
+            mastered
+                .iter()
+                .take(60)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    };
+
+    let system_prompt = format!(
+        "You are an expert language teacher and SVG motion designer creating a pre-reading & pre-listening interactive courseware for a {target_label} video chapter (learner level: CEFR {cefr}, native language: {native_label}).\n\
+         Return ONLY valid JSON without markdown code fences."
+    );
+
+    let user_prompt = format!(
+        "Analyze the following {target_label} video chapter transcript and create a 5 to 8 slide pre-study courseware so the learner can clear out (1) unfamiliar vocabulary and (2) difficult phrases/idioms/spoken expressions BEFORE reading and listening.\n\
+         {mastered_hint}\n\
+         Requirements:\n\
+         1. Select 3 to 4 key unfamiliar vocabulary words (`slide_type`: \"vocab\") suitable for a CEFR {cefr} learner, followed by 2 to 4 difficult phrases, idioms, collocations, or colloquial expressions (`slide_type`: \"phrase\") from the transcript.\n\
+         2. Explain `meaning`, `explanation`, and `context_translation` in {native_label}.\n\
+            - For \"vocab\": `explanation` gives a vivid memory cue, collocation, or usage tip in {native_label}.\n\
+            - For \"phrase\": `explanation` contrasts the literal word-by-word meaning with the actual contextual meaning in {native_label}.\n\
+         3. `para_idx` MUST be the integer paragraph number from `[P<num>]` where the item appears.\n\
+         4. For EACH slide, create a custom, vivid, self-contained animated SVG (`svg` field, `<svg viewBox='0 0 320 180' xmlns='http://www.w3.org/2000/svg'>...</svg>`):\n\
+            - Use single quotes `'` for XML attributes inside `svg` so JSON remains valid.\n\
+            - Smart style adaptation:\n\
+              * Concrete vocabulary (`vocab`): Scene/Action micro-theater animation (场景/动作小剧场动画) with colorful flat-vector shapes, characters or objects, and continuous `<animate>` / `<animateTransform>` motion depicting the word's action or scene.\n\
+              * Abstract words & phrases (`phrase`): Literal vs. Contextual visual contrast or step-by-step animated diagram (字面义 → 语境义视觉对比或分步图解动画) with cards, arrows, speech bubbles, and `<animate>` / `<animateTransform>` transitions.\n\
+            - Keep each SVG concise (under 1100 characters), visually appealing, with readable labels and smooth infinite loop animations.\n\n\
+         Output strict JSON format:\n\
+         {{\n\
+           \"chapter_title\": \"<short 2-5 word topic summary in {native_label}>\",\n\
+           \"slides\": [\n\
+             {{\n\
+               \"slide_type\": \"vocab\",\n\
+               \"term\": \"...\",\n\
+               \"lemma\": \"...\",\n\
+               \"pos\": \"n./v./adj./phrase/idiom\",\n\
+               \"pronunciation\": \"...\",\n\
+               \"meaning\": \"...\",\n\
+               \"explanation\": \"...\",\n\
+               \"context_sentence\": \"...\",\n\
+               \"context_translation\": \"...\",\n\
+               \"para_idx\": {start_p},\n\
+               \"svg\": \"<svg viewBox='0 0 320 180' xmlns='http://www.w3.org/2000/svg'>...</svg>\"\n\
+             }}\n\
+           ]\n\
+         }}\n\n\
+         Chapter Transcript:\n\
+         {transcript}",
+        start_p = chapter.start_para_idx,
+        transcript = numbered_transcript
+    );
+
+    let messages = vec![
+        llm_mod::ChatMessage {
+            role: "system".to_string(),
+            content: system_prompt,
+        },
+        llm_mod::ChatMessage {
+            role: "user".to_string(),
+            content: user_prompt,
+        },
+    ];
+
+    let raw_resp = match llm.chat_for_reading_content(db, messages).await {
+        Ok(r) => r,
+        Err(e) => {
+            let _ = set_chapter_courseware_status(db, chapter_id, "error", Some(&e));
+            return Err(e);
+        }
+    };
+
+    let parsed = match parse_generated_courseware_json(&raw_resp) {
+        Ok(p) => p,
+        Err(e) => {
+            let _ = set_chapter_courseware_status(db, chapter_id, "error", Some(&e));
+            return Err(e);
+        }
+    };
+
+    let mut finalized_slides: Vec<CoursewareSlide> = Vec::with_capacity(parsed.slides.len());
+    for mut slide in parsed.slides.into_iter().take(10) {
+        if slide.slide_type != "vocab" && slide.slide_type != "phrase" {
+            slide.slide_type = "vocab".to_string();
+        }
+        // Match paragraph index and audio timestamps
+        let matched_idx = slide
+            .para_idx
+            .filter(|&idx| idx >= chapter.start_para_idx && idx <= end_idx)
+            .or_else(|| {
+                let term_lower = slide.term.to_lowercase();
+                chapter_paras
+                    .iter()
+                    .position(|p| p.text.to_lowercase().contains(&term_lower))
+                    .map(|off| chapter.start_para_idx + off)
+            })
+            .unwrap_or(chapter.start_para_idx);
+
+        slide.para_idx = Some(matched_idx);
+        if let Some(p) = paragraphs.get(matched_idx) {
+            slide.start_sec = Some(p.start);
+            slide.end_sec = Some(p.end);
+            if slide.context_sentence.trim().is_empty() {
+                slide.context_sentence = p.text.clone();
+            }
+        }
+        slide.svg = sanitize_or_fallback_slide_svg(&slide);
+        finalized_slides.push(slide);
+    }
+
+    let updated_title = if let Some(ref sub_title) = parsed.chapter_title {
+        let clean_sub = sub_title.trim();
+        if !clean_sub.is_empty()
+            && !chapter.title.contains('·')
+            && (chapter.title.starts_with("Chapter ") || chapter.title.starts_with("第 "))
+        {
+            format!("{} · {}", chapter.title, clean_sub)
+        } else {
+            chapter.title.clone()
+        }
+    } else {
+        chapter.title.clone()
+    };
+
+    let slides_json = serde_json::to_string(&finalized_slides)
+        .map_err(|e| format!("Failed to serialize slides: {}", e))?;
+    let total_pages = finalized_slides.len();
+
+    let conn = db.conn()?;
+    conn.execute(
+        "UPDATE imported_article_chapters
+         SET title = ?1, courseware_status = 'ready', slides_json = ?2,
+             total_pages = ?3, error_message = NULL, updated_at = datetime('now')
+         WHERE id = ?4",
+        params![updated_title, slides_json, total_pages as i64, chapter_id],
+    )
+    .map_err(|e| format!("Failed to save chapter courseware: {}", e))?;
+    drop(conn);
+
+    get_imported_article_chapter(db, chapter_id)
+}
+
+pub fn spawn_article_courseware_generation(
+    app: tauri::AppHandle,
+    db: DatabasePool,
+    llm: llm_mod::LlmClient,
+    article_id: i64,
+) {
+    use tauri::Emitter;
+    tauri::async_runtime::spawn(async move {
+        let Ok(chapters) = get_imported_article_chapters(&db, article_id) else {
+            return;
+        };
+        for ch in chapters {
+            if ch.courseware_status == "ready" {
+                continue;
+            }
+            if let Ok(gen_state) = set_chapter_courseware_status(&db, ch.id, "generating", None) {
+                let _ = app.emit("chapter-courseware-updated", gen_state);
+            }
+            match generate_chapter_courseware(&llm, &db, ch.id).await {
+                Ok(ready_chapter) => {
+                    let _ = app.emit("chapter-courseware-updated", ready_chapter);
+                }
+                Err(err) => {
+                    log::warn!(
+                        "Failed to generate courseware for chapter {} (article {}): {}",
+                        ch.id,
+                        article_id,
+                        err
+                    );
+                    if let Ok(err_chapter) = get_imported_article_chapter(&db, ch.id) {
+                        let _ = app.emit("chapter-courseware-updated", err_chapter);
+                    }
+                }
+            }
+        }
+    });
 }

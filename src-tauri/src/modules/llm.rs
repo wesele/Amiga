@@ -232,7 +232,8 @@ pub struct TranslationResult {
 /// Map a language code to a human-readable name (used in LLM prompts and
 /// bio strings). Falls back to the raw code for unsupported languages.
 pub fn lang_name(code: &str) -> &'static str {
-    match code {
+    let base = code.split('-').next().unwrap_or(code).to_lowercase();
+    match base.as_str() {
         "zh" => "Chinese",
         "en" => "English",
         "es" => "Spanish",
@@ -244,7 +245,8 @@ pub fn lang_name(code: &str) -> &'static str {
 /// Chinese-locale prompts.
 #[allow(dead_code)]
 pub fn lang_name_zh(code: &str) -> &'static str {
-    match code {
+    let base = code.split('-').next().unwrap_or(code).to_lowercase();
+    match base.as_str() {
         "zh" => "中文",
         "en" => "英语",
         "es" => "西班牙语",
@@ -263,6 +265,7 @@ pub struct TestResult {
     pub completion_tokens: u32,
 }
 
+#[derive(Clone)]
 pub struct LlmClient {
     http: reqwest::Client,
 }

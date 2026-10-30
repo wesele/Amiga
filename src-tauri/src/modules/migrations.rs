@@ -101,8 +101,36 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add reading_history and imported_articles; backfill reading history and retain only latest AI article",
             MIGRATION_V23,
         ),
+        (
+            24,
+            "Add imported_article_chapters table for YouTube chapter splitting and learning courseware",
+            MIGRATION_V24,
+        ),
     ]
 }
+
+const MIGRATION_V24: &str = r#"
+CREATE TABLE IF NOT EXISTS imported_article_chapters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL REFERENCES imported_articles(id) ON DELETE CASCADE,
+    chapter_index INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    start_para_idx INTEGER NOT NULL,
+    end_para_idx INTEGER NOT NULL,
+    start_sec REAL NOT NULL,
+    end_sec REAL NOT NULL,
+    courseware_status TEXT NOT NULL DEFAULT 'pending',
+    slides_json TEXT NOT NULL DEFAULT '[]',
+    viewed_pages INTEGER NOT NULL DEFAULT 0,
+    total_pages INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(article_id, chapter_index)
+);
+
+CREATE INDEX IF NOT EXISTS idx_imported_article_chapters_article
+ON imported_article_chapters(article_id, chapter_index);
+"#;
 
 const MIGRATION_V23: &str = r#"
 CREATE TABLE IF NOT EXISTS reading_history (

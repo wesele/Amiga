@@ -86,6 +86,7 @@ pub fn run() {
             commands::vocabulary::get_user_vocab_stats_by_level_cmd,
             commands::vocabulary::mark_words_seen_cmd,
             commands::vocabulary::lookup_word_ids_cmd,
+            commands::vocabulary::get_words_mastery_map_cmd,
             commands::vocabulary::add_discovered_word_cmd,
             commands::vocabulary::ensure_words_seen_cmd,
             commands::vocabulary::reset_user_vocab_by_level_cmd,
@@ -124,6 +125,9 @@ pub fn run() {
             commands::reading::get_imported_articles_cmd,
             commands::reading::get_imported_article_cmd,
             commands::reading::delete_imported_article_cmd,
+            commands::reading::get_imported_article_chapters_cmd,
+            commands::reading::generate_chapter_courseware_cmd,
+            commands::reading::update_chapter_courseware_progress_cmd,
             // YouTube commands
             commands::youtube::fetch_youtube_metadata_cmd,
             commands::youtube::start_youtube_import_cmd,
