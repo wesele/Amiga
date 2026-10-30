@@ -51,11 +51,8 @@
             <!-- Chapter divider -->
             <div v-if="getChapterForParagraph(pidx)" class="chapter-divider-banner">
               <div class="chapter-left">
-                <div class="chapter-tag-row">
-                  <span class="chapter-num-badge">CH {{ getChapterForParagraph(pidx).chapter_index + 1 }}</span>
-                  <span class="chapter-time-pill">{{ formatChapterRange(getChapterForParagraph(pidx).start_sec, getChapterForParagraph(pidx).end_sec) }}</span>
-                </div>
                 <div class="chapter-headline">{{ getChapterForParagraph(pidx).title }}</div>
+                <div class="chapter-time-sub">{{ formatChapterRange(getChapterForParagraph(pidx).start_sec, getChapterForParagraph(pidx).end_sec) }}</div>
               </div>
               <div class="chapter-right">
                 <button
@@ -66,7 +63,7 @@
                     'is-error': getChapterForParagraph(pidx).courseware_status === 'error',
                     'is-finished': isChapterFinished(getChapterForParagraph(pidx))
                   }"
-                  @click.stop="openCourseware(getChapterForParagraph(pidx))"
+                  @click.stop="onChapterButtonClick(getChapterForParagraph(pidx))"
                 >
                   <span v-if="getChapterForParagraph(pidx).courseware_status === 'generating' || getChapterForParagraph(pidx).courseware_status === 'pending'" class="study-spinner-dot" />
                   <span v-else-if="getChapterForParagraph(pidx).courseware_status === 'error'">⚠️</span>
@@ -74,12 +71,6 @@
                   <span v-else>📖</span>
                   <span class="study-btn-text">{{ chapterButtonText(getChapterForParagraph(pidx)) }}</span>
                 </button>
-                <span
-                  class="chapter-percent-tag"
-                  :class="{ 'is-completed': isChapterFinished(getChapterForParagraph(pidx)) }"
-                >
-                  {{ getChapterProgressPercent(getChapterForParagraph(pidx)) }}%
-                </span>
               </div>
             </div>
             <div
@@ -131,11 +122,8 @@
             <!-- Chapter divider -->
             <div v-if="getChapterForParagraph(pidx)" class="chapter-divider-banner">
               <div class="chapter-left">
-                <div class="chapter-tag-row">
-                  <span class="chapter-num-badge">CH {{ getChapterForParagraph(pidx).chapter_index + 1 }}</span>
-                  <span class="chapter-time-pill">{{ formatChapterRange(getChapterForParagraph(pidx).start_sec, getChapterForParagraph(pidx).end_sec) }}</span>
-                </div>
                 <div class="chapter-headline">{{ getChapterForParagraph(pidx).title }}</div>
+                <div class="chapter-time-sub">{{ formatChapterRange(getChapterForParagraph(pidx).start_sec, getChapterForParagraph(pidx).end_sec) }}</div>
               </div>
               <div class="chapter-right">
                 <button
@@ -146,7 +134,7 @@
                     'is-error': getChapterForParagraph(pidx).courseware_status === 'error',
                     'is-finished': isChapterFinished(getChapterForParagraph(pidx))
                   }"
-                  @click.stop="openCourseware(getChapterForParagraph(pidx))"
+                  @click.stop="onChapterButtonClick(getChapterForParagraph(pidx))"
                 >
                   <span v-if="getChapterForParagraph(pidx).courseware_status === 'generating' || getChapterForParagraph(pidx).courseware_status === 'pending'" class="study-spinner-dot" />
                   <span v-else-if="getChapterForParagraph(pidx).courseware_status === 'error'">⚠️</span>
@@ -154,12 +142,6 @@
                   <span v-else>📖</span>
                   <span class="study-btn-text">{{ chapterButtonText(getChapterForParagraph(pidx)) }}</span>
                 </button>
-                <span
-                  class="chapter-percent-tag"
-                  :class="{ 'is-completed': isChapterFinished(getChapterForParagraph(pidx)) }"
-                >
-                  {{ getChapterProgressPercent(getChapterForParagraph(pidx)) }}%
-                </span>
               </div>
             </div>
             <div
@@ -1541,16 +1523,83 @@ function isChapterFinished(ch) {
 }
 
 function chapterButtonText(ch) {
+  if (!ch) return "";
   if (ch.courseware_status === "generating") return t("reading.generatingCourseware");
   if (ch.courseware_status === "pending") return t("reading.pendingCourseware") || "排队中";
-  if (ch.courseware_status === "error") return t("reading.retryCourseware");
+  if (ch.courseware_status === "error") return t("reading.retryCourseware") || "重试";
   if (isChapterFinished(ch)) return t("reading.coursewareCompleted");
-  return t("reading.studyCoursewareShort") || "学习";
+  if (!ch.viewed_pages || ch.viewed_pages === 0) return t("reading.studyCoursewareShort") || "学习";
+  return `${getChapterProgressPercent(ch)}%`;
 }
 
 function openCourseware(ch) {
   selectedChapter.value = ch;
   showCoursewareModal.value = true;
+}
+
+let isRetryingCourseware = false;
+
+async function retryFailedCoursewareChain(startChapterId) {
+  if (isRetryingCourseware) return;
+  isRetryingCourseware = true;
+  try {
+    const startIdx = chapters.value.findIndex(
+      (c) => Number(c.id) === Number(startChapterId)
+    );
+    if (startIdx === -1) return;
+
+    for (let i = startIdx; i < chapters.value.length; i++) {
+      const ch = chapters.value[i];
+      if (!ch || ch.courseware_status !== "error") {
+        continue;
+      }
+
+      ch.courseware_status = "generating";
+      if (selectedChapter.value && Number(selectedChapter.value.id) === Number(ch.id)) {
+        selectedChapter.value.courseware_status = "generating";
+      }
+
+      try {
+        const updated = await generateChapterCourseware(ch.id);
+        const curIdx = chapters.value.findIndex(
+          (c) => Number(c.id) === Number(ch.id)
+        );
+        if (curIdx >= 0 && updated) {
+          chapters.value[curIdx] = { ...chapters.value[curIdx], ...updated };
+        }
+        if (selectedChapter.value && Number(selectedChapter.value.id) === Number(ch.id) && updated) {
+          selectedChapter.value = { ...selectedChapter.value, ...updated };
+        }
+
+        if (!updated || updated.courseware_status !== "ready") {
+          break;
+        }
+      } catch (err) {
+        console.warn(`Failed to retry courseware for chapter ${ch.id}:`, err);
+        const curIdx = chapters.value.findIndex(
+          (c) => Number(c.id) === Number(ch.id)
+        );
+        if (curIdx >= 0) {
+          chapters.value[curIdx].courseware_status = "error";
+        }
+        if (selectedChapter.value && Number(selectedChapter.value.id) === Number(ch.id)) {
+          selectedChapter.value.courseware_status = "error";
+        }
+        break;
+      }
+    }
+  } finally {
+    isRetryingCourseware = false;
+  }
+}
+
+function onChapterButtonClick(ch) {
+  if (!ch) return;
+  if (ch.courseware_status === "error") {
+    retryFailedCoursewareChain(ch.id);
+    return;
+  }
+  openCourseware(ch);
 }
 
 async function onCoursewareProgress({ chapterId, viewedPages }) {
@@ -1569,18 +1618,7 @@ async function onCoursewareProgress({ chapterId, viewedPages }) {
 }
 
 async function onCoursewareRegenerate(chapterId) {
-  try {
-    const updated = await generateChapterCourseware(chapterId);
-    const idx = chapters.value.findIndex((c) => Number(c.id) === Number(chapterId));
-    if (idx >= 0) {
-      chapters.value[idx] = { ...chapters.value[idx], ...updated };
-    }
-    if (selectedChapter.value && Number(selectedChapter.value.id) === Number(chapterId)) {
-      selectedChapter.value = { ...selectedChapter.value, ...updated };
-    }
-  } catch (e) {
-    console.warn("Failed to regenerate courseware:", e);
-  }
+  await retryFailedCoursewareChain(chapterId);
 }
 
 </script>
@@ -2388,29 +2426,8 @@ html[data-app-mode="tv"] .para-translation:focus-visible {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.chapter-tag-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.chapter-num-badge {
-  font-size: 10px;
-  font-weight: 800;
-  background: var(--green, #10b981);
-  color: #fff;
-  padding: 2px 6px;
-  border-radius: 4px;
-  letter-spacing: 0.5px;
-}
-
-.chapter-time-pill {
-  font-size: 11px;
-  color: #047857;
-  font-weight: 600;
+  justify-content: center;
+  gap: 3px;
 }
 
 .chapter-headline {
@@ -2418,9 +2435,17 @@ html[data-app-mode="tv"] .para-translation:focus-visible {
   font-size: 14px;
   font-weight: 700;
   color: #064e3b;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.chapter-time-sub {
+  font-size: 11px;
+  color: #059669;
+  font-weight: 500;
+  line-height: 1.2;
 }
 
 .chapter-right {

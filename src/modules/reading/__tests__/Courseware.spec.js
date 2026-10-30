@@ -265,13 +265,17 @@ describe("Courseware & Chapter Splitting", () => {
     const chapterBanners = wrapper.findAll(".chapter-divider-banner");
     expect(chapterBanners.length).toBe(2);
 
-    expect(chapterBanners[0].text()).toContain("CH 1");
+    expect(chapterBanners[0].find(".chapter-num-badge").exists()).toBe(false);
     expect(chapterBanners[0].text()).toContain("第 1 章 · 基础问候");
-    expect(chapterBanners[0].text()).toContain("100%"); // 2/2 pages = 100%
+    expect(chapterBanners[0].find(".chapter-time-sub").text()).toContain("0:00 - 0:20");
+    expect(chapterBanners[0].text()).toContain("已学完"); // 2/2 pages = 已学完
+    expect(chapterBanners[0].find(".chapter-percent-tag").exists()).toBe(false);
 
-    expect(chapterBanners[1].text()).toContain("CH 2");
+    expect(chapterBanners[1].find(".chapter-num-badge").exists()).toBe(false);
     expect(chapterBanners[1].text()).toContain("第 2 章 · 进阶表达");
-    expect(chapterBanners[1].text()).toContain("0%");
+    expect(chapterBanners[1].find(".chapter-time-sub").text()).toContain("0:21 - 0:35");
+    expect(chapterBanners[1].text()).toContain("排队中");
+    expect(chapterBanners[1].find(".chapter-percent-tag").exists()).toBe(false);
 
     // Click "学习" on Chapter 1
     const studyBtn = chapterBanners[0].find(".btn-courseware-study");
@@ -385,5 +389,155 @@ describe("Courseware & Chapter Splitting", () => {
     // Must stay on slide 0 (1 / 2), and NOT emit another progress or jump to 100%
     expect(wrapper.emitted("progress").length).toBe(1);
     expect(wrapper.text()).toContain("1 / 2");
+  });
+
+  it("handles chapter button progress text logic, direct retry without modal, and chain-retry of subsequent failed chapters", async () => {
+    const importedItem = {
+      id: 301,
+      user_id: "u1",
+      target_language: "es",
+      source_type: "youtube",
+      source_url: "https://youtube.com/watch?v=chain",
+      source_id: "chain",
+      title: "Retry Chain Video",
+      channel: "Spanish Today",
+      duration_sec: 180,
+      audio_path: null,
+      subtitles_json: JSON.stringify([
+        { start: 0, end: 10, text: "Capitulo 1." },
+        { start: 11, end: 20, text: "Capitulo 2." },
+        { start: 21, end: 30, text: "Capitulo 3." },
+        { start: 31, end: 40, text: "Capitulo 4." },
+      ]),
+      cefr_level: "A2",
+      created_at: "2026-07-11T10:00:00",
+    };
+
+    const chapters = [
+      {
+        id: 901,
+        article_id: 301,
+        chapter_index: 0,
+        title: "第 1 章 · 未学习",
+        start_para_idx: 0,
+        end_para_idx: 0,
+        start_sec: 0,
+        end_sec: 10,
+        courseware_status: "ready",
+        viewed_pages: 0,
+        total_pages: 4,
+        slides: [],
+      },
+      {
+        id: 902,
+        article_id: 301,
+        chapter_index: 1,
+        title: "第 2 章 · 学习中",
+        start_para_idx: 1,
+        end_para_idx: 1,
+        start_sec: 11,
+        end_sec: 20,
+        courseware_status: "ready",
+        viewed_pages: 2,
+        total_pages: 4,
+        slides: [],
+      },
+      {
+        id: 903,
+        article_id: 301,
+        chapter_index: 2,
+        title: "第 3 章 · 失败一",
+        start_para_idx: 2,
+        end_para_idx: 2,
+        start_sec: 21,
+        end_sec: 30,
+        courseware_status: "error",
+        viewed_pages: 0,
+        total_pages: 0,
+        slides: [],
+      },
+      {
+        id: 904,
+        article_id: 301,
+        chapter_index: 3,
+        title: "第 4 章 · 失败二",
+        start_para_idx: 3,
+        end_para_idx: 3,
+        start_sec: 31,
+        end_sec: 40,
+        courseware_status: "error",
+        viewed_pages: 0,
+        total_pages: 0,
+        slides: [],
+      },
+    ];
+
+    const generateCalls = [];
+
+    api.__setInvoke(vi.fn((command, args) => {
+      if (command === "get_current_user") return Promise.resolve({ id: "u1", native_language: "zh" });
+      if (command === "get_target_language_cmd") return Promise.resolve("es");
+      if (command === "get_learning_goals_cmd") return Promise.resolve([{ target_language: "es", cefr_level: "A2" }]);
+      if (command === "get_imported_article_cmd") return Promise.resolve(importedItem);
+      if (command === "get_imported_article_chapters_cmd") return Promise.resolve(chapters);
+      if (command === "generate_chapter_courseware_cmd") {
+        generateCalls.push(args.chapterId);
+        return Promise.resolve({
+          id: args.chapterId,
+          courseware_status: "ready",
+          viewed_pages: 0,
+          total_pages: 4,
+          slides: [],
+        });
+      }
+      return Promise.resolve(null);
+    }));
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/learn/reading/:id", component: ReadingReader, props: true },
+      ],
+    });
+    await router.push({ path: "/learn/reading/301", query: { type: "imported" } });
+    await router.isReady();
+
+    const wrapper = mount(ReadingReader, {
+      props: { id: 301 },
+      global: {
+        plugins: [router],
+        stubs: { WordPopup: true },
+      },
+    });
+
+    await flushPromises();
+
+    const banners = wrapper.findAll(".chapter-divider-banner");
+    expect(banners.length).toBe(4);
+
+    // 1. 未学习 -> "学习"
+    expect(banners[0].find(".btn-courseware-study").text()).toContain("学习");
+
+    // 2. 学习中 -> "50%" (2/4)
+    expect(banners[1].find(".btn-courseware-study").text()).toContain("50%");
+
+    // 3. 失败一 -> "重试" (not "生成失败，点击重试")
+    expect(banners[2].find(".btn-courseware-study").text()).toContain("重试");
+    expect(banners[2].find(".btn-courseware-study").text()).not.toContain("生成失败");
+
+    // 4. 点击"重试"：不应该弹出 CoursewareModal，而是直接触发重试，并链式重试后续失败课件
+    await banners[2].find(".btn-courseware-study").trigger("click");
+    await flushPromises();
+
+    // Modal 不应打开
+    const modal = wrapper.findComponent(CoursewareModal);
+    expect(modal.props("show")).toBe(false);
+
+    // 验证调用了 chapter 903 的重试，并在其成功后自动继续重试了后续失败的 904
+    expect(generateCalls).toEqual([903, 904]);
+
+    // 验证两个章节状态均已变为 ready
+    expect(banners[2].find(".btn-courseware-study").text()).toContain("学习");
+    expect(banners[3].find(".btn-courseware-study").text()).toContain("学习");
   });
 });

@@ -48,7 +48,7 @@
         <!-- Error State -->
         <div v-else-if="isError" class="status-panel">
           <div class="error-badge">⚠️</div>
-          <h4 class="status-title">{{ t('reading.retryCourseware') }}</h4>
+          <h4 class="status-title">{{ t('reading.coursewareGenFailed') || '课件生成失败' }}</h4>
           <p class="status-desc">{{ chapter?.error_message || '生成课件时遇到网络或模型超时' }}</p>
           <button class="btn-retry" @click="onRegenerate">
             {{ t('reading.retry') }}
