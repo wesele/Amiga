@@ -6,6 +6,7 @@ node_modules/
 
 # Build outputs
 dist/
+dist_tv/
 src-tauri/target/
 src-tauri/target-test/
 src-tauri/target-tv/
@@ -18,9 +19,12 @@ src-tauri/gen/
 .DS_Store
 Thumbs.db
 
-# IDE
+# IDE & AI Agent tooling
 .vscode/
 .idea/
+.opencode/
+.agents/
+.codex/
 terminals/
 agent-tools/
 
@@ -41,12 +45,13 @@ content-studio/data/*.bak
 src-tauri/amiga-release.keystore
 src-tauri/gen/android/app/keystore.properties
 
-# Screenshot test artifacts
+# Screenshot & test artifacts
 screenshots/
+*-screenshot.html
+*screenshot*.html
+learn-hub-screenshot.html
 
 # Isolated second Windows dev instance (complete copy, 100% independent process + data)
 # See run-windows-2.bat and AGENTS.md
 windows-2/
 windows-2/**
-
-.codex/

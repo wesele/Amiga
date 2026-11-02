@@ -119,14 +119,14 @@ ssh -i c:\wh\ssh.pem ubuntu@49.235.121.91 "pm2 restart amiga-web"
 
 所有用户数据存储在浏览器 IndexedDB（`amiga-web` 数据库），服务器不存储任何用户数据。
 
-## 限制
+## 限制与 Demo 取舍
 
-- **Demo 定位**：实例可随时重新构建和覆盖，不承载重要服务端数据；简单 HTTP、`scp` 覆盖和单进程 Express 是当前接受的取舍。
-- **无 HTTPS**：LLM API key 在传输中为明文。如需 SSL，建议前置 nginx 做 termination。
+- **Demo 定位与运维取舍**：实例为可随时重新构建和覆盖部署的临时演示，不承载重要服务端数据，所有用户状态均在各浏览器 IndexedDB。当前公网 HTTP、简单 `scp` 覆盖、Express 单进程、无生产级鉴权、无原子发布、无持久缓存和无并发限制，均为用户接受的 Demo 取舍。除非用户要求加固或准备正式上线，不要反复把这些项目当成阻塞问题，也不要擅自引入复杂基础设施。
+- **无 HTTPS**：LLM API key 在传输中为明文。如需 SSL，建议前置 nginx 做 termination（备选参考 `deploy/web/nginx.conf.example`，当前生产仅使用 Express 单进程）。
 - **无语音输入**：Speaking 模块依赖 Tauri 原生能力，Web 版不可用。
-- **无云同步**：Cloudflare sync 相关功能隐藏。
-- **无多用户**：IndexedDB 为单浏览器实例，清缓存即重置。
-- **演示 LLM key**：`VITE_AMIGA_LLM_API_KEY` 内置在构建产物中，仅使用可回收、有额度限制的演示 key。
+- **无云同步**：不连接 Cloudflare，Cloudflare 同步相关功能在 Web 版中隐藏或禁用。
+- **无多用户与服务端状态**：IndexedDB 为单浏览器实例，清缓存即重置；服务器是极轻量无状态静态托管和 API relay，不使用数据库、不缓存响应、不校验应用身份、无会话管理。
+- **演示 LLM key**：`VITE_AMIGA_LLM_API_KEY` 内置在构建产物中，仅使用可回收、有额度限制的演示 key；不要把它误改成复杂的用户鉴权系统，除非用户重新要求。
 
 ## 服务器其他服务
 
@@ -143,5 +143,7 @@ ssh -i c:\wh\ssh.pem ubuntu@49.235.121.91 "pm2 restart amiga-web"
 |---------|------|
 | `deploy/web/server.js` | Express 生产服务器源码 |
 | `deploy/web/package.json` | 服务器依赖 |
+| `deploy/web/README.md` | 本地说明与备忘 |
+| `deploy/web/nginx.conf.example` | Nginx 反代备选参考配置（未启用） |
 | `.env.web` | Web 模式环境变量（LLM key） |
 | `vite.config.js` | 构建配置（proxy 表与 `server.js` 同步） |

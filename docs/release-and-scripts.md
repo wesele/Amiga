@@ -29,7 +29,6 @@ CI/CD 与 Cloudflare Pages 详见 [github-actions-cloudflare-pages.md](./github-
 | `scripts/extract-android-icon.cjs` | 从 release APK 提取 launcher icon → `public/amiga-icon.png` |
 | `scripts/start-windows-dev.ps1` | `run-windows.bat` 背后 dev 启动 |
 | `scripts/start-windows-2-dev.ps1` | 第二隔离实例 dev |
-| `scripts/test-bump-lock.cjs` / `test-cargo-lock*.cjs` | 锁文件一致性测试 |
 | `scripts/setup-env.sh` | Linux/macOS 环境设置 |
 | `scripts/setup-ci-secrets.ps1` | GitHub Actions secrets 辅助配置 |
 
