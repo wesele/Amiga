@@ -49,6 +49,19 @@
       <!-- Custom: editable form -->
       <template v-else>
         <div class="settings-card custom-fields-card">
+          <div v-if="presets.length" class="field-group">
+            <label class="field-label">{{ t('llm.presetLabel') }}</label>
+            <select
+              class="field-input preset-select"
+              :value="activePresetKey"
+              @change="onPresetSelect"
+            >
+              <option value="">{{ t('llm.presetPlaceholder') }}</option>
+              <option v-for="preset in presets" :key="preset.base_url" :value="normalizePresetUrl(preset.base_url)">
+                {{ preset.base_url }}
+              </option>
+            </select>
+          </div>
           <div class="field-group">
             <label class="field-label">{{ t('llm.provider') }}</label>
             <select v-model="provider" @change="onProviderChange" class="field-input provider-select">
@@ -57,6 +70,10 @@
               <option value="deepseek">DeepSeek</option>
               <option value="nvidia_nim">NVIDIA NIM</option>
             </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">{{ t('llm.baseUrl') }}</label>
+            <input v-model="baseUrl" @change="onApiParamsChange" type="text" class="field-input" placeholder="https://api.openai.com/v1" />
           </div>
           <div class="field-group">
             <label class="field-label">{{ t('llm.apiKey') }}</label>
@@ -77,10 +94,6 @@
                 </svg>
               </button>
             </div>
-          </div>
-          <div class="field-group">
-            <label class="field-label">{{ t('llm.baseUrl') }}</label>
-            <input v-model="baseUrl" @change="onApiParamsChange" type="text" class="field-input" placeholder="https://api.openai.com/v1" />
           </div>
           <div class="field-group">
             <label class="field-label">{{ t('llm.model') }}</label>
@@ -121,10 +134,17 @@
           <span v-if="testing" class="test-spinner" />
           <span>{{ testing ? t('llm.testing') : t('llm.test') }}</span>
         </button>
+        <button
+          v-if="mode === 'custom'"
+          type="button"
+          class="btn-delete-preset"
+          :disabled="!activePreset"
+          @click="askDeletePreset"
+        >{{ t('llm.presetDelete') }}</button>
       </div>
 
       <div v-if="testResult" class="test-result" :class="testResult">
-        {{ testResult === 'ok' ? t('llm.testOk') : t('llm.testFail') }}
+        {{ testResultText }}
       </div>
       <div v-if="error" class="error-banner">{{ error }}</div>
 
@@ -141,6 +161,17 @@
       alert-only
       @confirm="showMetricsModal = false"
     />
+
+    <!-- Delete remembered preset -->
+    <ConfirmDialog
+      :show="showDeleteConfirm"
+      :title="t('llm.presetDeleteTitle')"
+      :message="deleteConfirmMessage"
+      :confirm-text="t('llm.presetDelete')"
+      danger
+      @confirm="confirmDeletePreset"
+      @cancel="showDeleteConfirm = false"
+    />
   </div>
 </template>
 
@@ -154,9 +185,20 @@ import {
   testLlmConnection,
 } from "@/shared/api.js";
 import {
+  getSetting,
   saveSetting,
 } from "@/shared/api.js";
 import { fetchModels } from "@/shared/api.js";
+import {
+  LLM_PRESETS_SETTING_KEY,
+  findPreset,
+  normalizePresetUrl,
+  parsePresets,
+  presetFromConfig,
+  removePreset,
+  serializePresets,
+  upsertPreset,
+} from "@/shared/llmPresets.js";
 import { useI18n } from "@/shared/i18n";
 import { isTvLayoutMode } from "@/shared/appMode.js";
 
@@ -195,6 +237,24 @@ const metricsMessage = ref("");
 
 const modelList = ref([]);
 const fetchingModels = ref(false);
+
+// Saved connection presets (key = normalized Base URL, see shared/llmPresets.js).
+const presets = ref([]);
+const showDeleteConfirm = ref(false);
+const testRemembered = ref(false);
+
+/** Preset matching whatever URL is currently typed in the form. */
+const activePreset = computed(() => findPreset(presets.value, baseUrl.value));
+const activePresetKey = computed(() => (
+  activePreset.value ? normalizePresetUrl(activePreset.value.base_url) : ""
+));
+const deleteConfirmMessage = computed(() => t("llm.presetDeleteMessage", {
+  url: activePreset.value?.base_url || "",
+}));
+const testResultText = computed(() => {
+  if (testResult.value !== "ok") return t("llm.testFail");
+  return testRemembered.value ? t("llm.testOkRemembered") : t("llm.testOk");
+});
 
 const PROVIDER_DEFAULTS = {
   openai: {
@@ -250,6 +310,61 @@ async function onProviderChange() {
   await loadModels();
 }
 
+async function loadPresets() {
+  try {
+    presets.value = parsePresets(await getSetting(LLM_PRESETS_SETTING_KEY));
+  } catch (e) {
+    console.error("Failed to load LLM presets:", e);
+    presets.value = [];
+  }
+}
+
+async function persistPresets() {
+  try {
+    await saveSetting(LLM_PRESETS_SETTING_KEY, serializePresets(presets.value));
+  } catch (e) {
+    console.error("Failed to save LLM presets:", e);
+  }
+}
+
+/** Remember the given config, overwriting the entry with the same Base URL. */
+async function rememberConfig(config) {
+  const preset = presetFromConfig(config);
+  if (!preset) return;
+  presets.value = upsertPreset(presets.value, preset);
+  await persistPresets();
+}
+
+/** Dropdown: switching a preset replaces Base URL + key + model + provider. */
+async function onPresetSelect(event) {
+  const key = event.target.value;
+  const preset = presets.value.find((item) => normalizePresetUrl(item.base_url) === key);
+  if (!preset) return;
+  provider.value = preset.provider || provider.value;
+  baseUrl.value = preset.base_url;
+  apiKey.value = preset.api_key;
+  modelName.value = preset.model;
+  customThinkingEnabled.value = preset.thinking_enabled;
+  error.value = "";
+  await saveConfig();
+}
+
+function askDeletePreset() {
+  if (!activePreset.value) return;
+  showDeleteConfirm.value = true;
+}
+
+async function confirmDeletePreset() {
+  const target = activePreset.value;
+  showDeleteConfirm.value = false;
+  if (!target) return;
+  presets.value = removePreset(presets.value, target.base_url);
+  await persistPresets();
+  savedMessage.value = t("llm.presetDeleted");
+  saved.value = true;
+  setTimeout(() => { saved.value = false; }, 2500);
+}
+
 onMounted(async () => {
   try {
     const config = await getLlmConfig();
@@ -273,6 +388,7 @@ onMounted(async () => {
       builtinThinkingEnabled.value = builtin.value.thinkingEnabled;
       customThinkingEnabled.value = !!config.primary?.thinking_enabled;
     }
+    await loadPresets();
     if (apiKey.value && baseUrl.value) {
       loadModels();
     }
@@ -372,10 +488,17 @@ async function testConnection() {
   }
   testing.value = true;
   testResult.value = null;
+  testRemembered.value = false;
   try {
     const res = await testLlmConnection(currentConfig());
     if (res.success) {
       testResult.value = "ok";
+      // A successful test is what "remembers" the preset; built-in mode is not
+      // part of the custom dropdown.
+      if (mode.value === "custom") {
+        await rememberConfig(currentConfig());
+        testRemembered.value = true;
+      }
       const ttftVal = res.time_to_first_token_ms ?? 0;
       const thinkSpeedVal = res.thinking_speed ?? 0;
       const decodeSpeedVal = res.decode_speed ?? 0;
@@ -483,6 +606,7 @@ async function testConnection() {
   border-color: var(--blue);
 }
 .provider-select { appearance: auto; }
+.preset-select { appearance: auto; }
 .thinking-card {
   display: flex;
   align-items: center;
@@ -543,8 +667,10 @@ async function testConnection() {
 .thinking-card:focus-visible,
 .btn-test:focus-visible,
 .btn-save:focus-visible,
+.btn-delete-preset:focus-visible,
 .toggle-key-btn:focus-visible,
 .field-input:focus-visible,
+.preset-select:focus-visible,
 .provider-select:focus-visible {
   z-index: 2;
   outline: 3px solid var(--blue) !important;
@@ -662,6 +788,32 @@ async function testConnection() {
 }
 .btn-test:disabled {
   opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Delete the remembered preset sitting next to the test button */
+.btn-delete-preset {
+  flex: 0 0 auto;
+  min-width: 84px;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--red);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition);
+  box-sizing: border-box;
+}
+.btn-delete-preset:hover:not(:disabled) {
+  background: var(--red-bg);
+  border-color: var(--red);
+}
+.btn-delete-preset:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
 .test-spinner {

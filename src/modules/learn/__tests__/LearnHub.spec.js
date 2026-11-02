@@ -254,6 +254,45 @@ describe("LearnHubPage", () => {
     expect(wrapper.find(".header-days").find(".days-num").text()).toBe("9");
   });
 
+  it("shows the active LLM model in the header, capped at 20 chars", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "get_current_user") return Promise.resolve({ id: "u1" });
+      if (cmd === "get_learning_goals_cmd") return Promise.resolve([]);
+      if (cmd === "get_llm_config_cmd") {
+        return Promise.resolve({
+          mode: "custom",
+          builtin: { model: "nvidia/nemotron-3-nano-omni-30b" },
+          primary: { model: "nvidia/nemotron-3-nano-omni-30b" },
+        });
+      }
+      return Promise.resolve(null);
+    });
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    await flushPromises();
+
+    const label = wrapper.find(".header-model");
+    expect(label.exists()).toBe(true);
+    expect(label.text()).toBe("nvidia/nemotron-3-n…");
+    expect(Array.from(label.text()).length).toBe(20);
+    // Full name stays reachable via the native tooltip.
+    expect(label.attributes("title")).toBe("nvidia/nemotron-3-nano-omni-30b");
+  });
+
+  it("hides the model label when no model is configured", async () => {
+    const router = makeRouter();
+    const wrapper = mount(LearnHubPage, {
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".header-model").exists()).toBe(false);
+  });
+
   it("falls back to 0 when the stats APIs fail", async () => {
     mockInvoke.mockImplementation((cmd) => {
       if (cmd === "get_target_language_cmd") return Promise.resolve("es");

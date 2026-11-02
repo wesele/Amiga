@@ -26,6 +26,8 @@ const SENSITIVE_SETTING_KEYS: &[&str] = &[
     "backup_api_key",
     "backup_model",
     "llm_mode",
+    // Saved custom LLM presets carry API keys per Base URL.
+    "llm_presets",
 ];
 
 const LOCAL_ONLY_SETTING_KEYS: &[&str] = &[

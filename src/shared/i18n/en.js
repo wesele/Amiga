@@ -719,6 +719,13 @@ export default {
     decodeSpeed: "Decode speed",
     thinkingTokens: "Thinking length",
     completionTokens: "Output length",
+    presetLabel: "Saved configurations",
+    presetPlaceholder: "Select a saved configuration",
+    testOkRemembered: "Connected — configuration saved",
+    presetDelete: "Delete",
+    presetDeleteTitle: "Delete saved configuration",
+    presetDeleteMessage: "This deletes the saved parameters for {{url}}. Your active configuration is untouched.",
+    presetDeleted: "Saved configuration deleted",
   },
 
   prompts: {

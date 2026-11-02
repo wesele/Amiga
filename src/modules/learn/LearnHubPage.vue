@@ -2,6 +2,12 @@
   <div class="learn-hub" :class="{ 'tv-content-pane tv-learn-hub': isTvLayoutMode }">
     <header class="page-header">
       <h1 class="page-title">{{ t("learn.title") }}</h1>
+      <div
+        v-if="modelLabel"
+        class="header-model"
+        data-testid="header-model"
+        :title="activeModelName"
+      >{{ modelLabel }}</div>
       <div class="header-days">
         {{ t("learn.learnedPrefix") }}<span class="days-num">{{ learningDays }}</span>{{ t("learn.learnedSuffix") }}
       </div>
@@ -79,6 +85,8 @@ import { getPathCurriculum } from "@/shared/api.js";
 import { getCompletedReadingCount } from "@/shared/api.js";
 import { getCompletedSpeakingCount } from "@/shared/api.js";
 import { getUserVocabStats } from "@/shared/api.js";
+import { getLlmConfig } from "@/shared/api.js";
+import { resolveActiveModelName, truncateModelLabel } from "@/shared/llmModelLabel.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { isTvLayoutMode, isTvMode, isWebMode } from "@/shared/appMode.js";
 import { requestInstallAppPrompt } from "@/shared/installAppPrompt.js";
@@ -94,6 +102,8 @@ const completedReadingCount = ref(0);
 const completedSpeakingCount = ref(0);
 const pathCurriculum = ref(null);
 const pathCefr = ref("A1");
+const activeModelName = ref("");
+const modelLabel = computed(() => truncateModelLabel(activeModelName.value));
 
 const pathModule = { id: "path", labelKey: "learn.path", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M4 20l4-4" stroke="var(--green)"/><path d="M8 16l4-4" stroke="var(--blue)"/><path d="M12 12l4-4" stroke="var(--green)"/><path d="M16 8l4-4" stroke="var(--blue)"/></svg>', route: { name: "path" } };
 const allModules = [
@@ -131,7 +141,18 @@ const pathProgressLabel = computed(() => {
   });
 });
 
+// Model name for the header. Non-blocking: stats must render even when the
+// LLM config read fails (fresh install / Web backend without config).
+async function loadActiveModelName() {
+  try {
+    activeModelName.value = resolveActiveModelName(await getLlmConfig());
+  } catch (e) {
+    console.error("Failed to load LLM model name:", e);
+  }
+}
+
 onMounted(async () => {
+  loadActiveModelName();
   try {
     const ctx = await loadLearningContext({
       targetLangStore,
@@ -193,22 +214,45 @@ function openVocab() {
 }
 
 .page-header {
-  display: flex;
+  display: grid;
+  /* Three equal tracks: the middle track IS the header centre, so the model
+     label stays centred regardless of title / streak width. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  column-gap: 8px;
   padding: 16px 20px 12px;
   background: var(--white);
 }
 
 .page-title {
+  grid-column: 1;
+  justify-self: start;
   margin: 0;
   font-size: 22px;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Current LLM name: small, 20 chars max (ellipsis beyond), at most 2 lines. */
+.header-model {
+  grid-column: 2;
+  justify-self: center;
+  max-width: 100%;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--text-lighter);
+  text-align: center;
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 .header-days {
-  flex-shrink: 0;
+  grid-column: 3;
+  justify-self: end;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-light);
@@ -434,6 +478,11 @@ function openVocab() {
 
 .tv-learn-hub .page-title {
   font-size: clamp(26px, 2.4vw, 34px);
+}
+
+/* 10-foot UI: 11px would be unreadable, but keep it clearly below the title. */
+.tv-learn-hub .header-model {
+  font-size: 14px;
 }
 
 .tv-learn-hub .header-days {

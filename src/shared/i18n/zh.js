@@ -722,6 +722,13 @@ export default {
     decodeSpeed: "解码速度",
     thinkingTokens: "思考长度",
     completionTokens: "输出长度",
+    presetLabel: "已记住的配置",
+    presetPlaceholder: "选择已记住的配置",
+    testOkRemembered: "连接成功，已记住这套配置",
+    presetDelete: "删除",
+    presetDeleteTitle: "删除已记住的配置",
+    presetDeleteMessage: "将删除 {{url}} 记住的参数，当前正在使用的配置不受影响。",
+    presetDeleted: "已删除记住的配置",
   },
 
   prompts: {

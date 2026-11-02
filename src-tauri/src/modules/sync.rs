@@ -459,6 +459,7 @@ mod tests {
     fn is_syncable_setting_filters_sensitive_and_local_keys() {
         assert!(is_syncable_setting("ui_language"));
         assert!(!is_syncable_setting("primary_api_key"));
+        assert!(!is_syncable_setting("llm_presets"));
         assert!(!is_syncable_setting("cloud_sync_enabled"));
         assert!(!is_syncable_setting("cloud_sync_restore_mode"));
         assert!(!is_syncable_setting("vocab_bank_content_fingerprint"));

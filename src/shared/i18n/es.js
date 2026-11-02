@@ -719,6 +719,13 @@ export default {
     decodeSpeed: "Velocidad de decodificación",
     thinkingTokens: "Longitud de pensamiento",
     completionTokens: "Longitud de salida",
+    presetLabel: "Configuraciones guardadas",
+    presetPlaceholder: "Selecciona una configuración guardada",
+    testOkRemembered: "Conexión correcta: configuración guardada",
+    presetDelete: "Eliminar",
+    presetDeleteTitle: "Eliminar configuración guardada",
+    presetDeleteMessage: "Se eliminarán los parámetros guardados de {{url}}. La configuración activa no cambia.",
+    presetDeleted: "Configuración guardada eliminada",
   },
 
   prompts: {
