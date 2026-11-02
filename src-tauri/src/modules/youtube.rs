@@ -2682,7 +2682,13 @@ vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c>
         assert_eq!(text.matches("hoteles en los que").count(), 1);
     }
 
+    // ---- 以下 5 个测试依赖真实 YouTube 网络 ----
+    // 它们断言的是「远端当下的状态」（字幕是否存在、音频格式是否可取），
+    // YouTube 会对机房 IP 限流，导致 CI 随机红。默认跳过：
+    //   cargo test              → 只跑确定性单测
+    //   cargo test -- --ignored → 连同网络测试一起跑
     #[tokio::test]
+    #[ignore = "live YouTube network — run with: cargo test -- --ignored"]
     async fn test_fetch_youtube_metadata_network() {
         let res = fetch_youtube_metadata("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "en").await;
         if let Ok(meta) = res {
@@ -2693,6 +2699,7 @@ vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c>
     }
 
     #[tokio::test]
+    #[ignore = "live YouTube network — run with: cargo test -- --ignored"]
     async fn test_cmxkrr_video() {
         let url = "https://youtu.be/CMXkrrSJEck?si=unSW1EFbciNfgZGE";
         let res = fetch_youtube_metadata(url, "es").await;
@@ -2726,6 +2733,7 @@ vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c>
     }
 
     #[tokio::test]
+    #[ignore = "live YouTube network — run with: cargo test -- --ignored"]
     #[allow(non_snake_case)]
     async fn test_5hRaRgbMUG4_video() {
         let url = "https://www.youtube.com/live/5hRaRgbMUG4?is=myyYkVEbYE_tb5ry";
@@ -2764,6 +2772,7 @@ vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c>
     }
 
     #[tokio::test]
+    #[ignore = "live YouTube network — run with: cargo test -- --ignored"]
     async fn test_remux_cmxkrr() {
         let client = reqwest::Client::new();
         if let Ok(session) = fetch_youtube_session(&client, "CMXkrrSJEck", "es").await {
@@ -2810,6 +2819,7 @@ vida,<00:00:04.000><c> o</c><00:00:04.200><c> más</c><00:00:04.359><c> bien</c>
     }
 
     #[tokio::test]
+    #[ignore = "live YouTube network — run with: cargo test -- --ignored"]
     #[allow(non_snake_case)]
     async fn test_uCaomVUs9j4_video() {
         let url = "https://www.youtube.com/watch?v=uCaomVUs9j4";
