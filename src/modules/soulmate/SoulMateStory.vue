@@ -128,14 +128,14 @@ import { isTvLayoutMode } from "@/shared/appMode.js";
 import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { translateText } from "@/shared/backend/llm.js";
+import { translateText } from "@/shared/api.js";
 import { useSelectionTranslation } from "@/shared/selectionTranslation.js";
-import { getSoulMateEpisode, markSoulMateStoryRead } from "@/shared/backend/soulmate.js";
+import { getSoulMateEpisode, markSoulMateStoryRead } from "@/shared/api.js";
 import {
   addDiscoveredWord,
   lookupWordIds,
   updateWordMastery,
-} from "@/shared/backend/vocabulary.js";
+} from "@/shared/api.js";
 
 const props = defineProps({ episodeId: { type: String, required: true } });
 const router = useRouter();
@@ -354,7 +354,7 @@ html[data-app-mode="tv"] .para-translation {
   outline: none;
 }
 html[data-app-mode="tv"] .para-translation:focus-visible {
-  outline: 2px solid #1cb0f6 !important;
+  outline: 2px solid var(--blue) !important;
   outline-offset: 2px !important;
   box-shadow: none !important;
   transform: none !important;
@@ -431,7 +431,7 @@ html[data-app-mode="tv"] .para-translation:focus-visible {
 .word:hover { background: var(--blue-bg); }
 /* TV: tight inline focus — never scale or use the global 5px outer ring. */
 .word:focus-visible {
-  outline: 2px solid #1cb0f6 !important;
+  outline: 2px solid var(--blue) !important;
   outline-offset: 0 !important;
   box-shadow: none !important;
   background: var(--blue-bg) !important;

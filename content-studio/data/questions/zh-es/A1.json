@@ -2273,7 +2273,7 @@
   },
   {
     "id": "zh-es-A1-U02-S03-007",
-    "type": "fill-blank",
+    "type": "T05",
     "typeName": "补全句子",
     "language": "es",
     "cefr": "A1",
@@ -7897,7 +7897,7 @@
   },
   {
     "id": "zh-es-A1-U06-S03-006",
-    "type": "07",
+    "type": "T07",
     "typeName": "翻译选择",
     "language": "es",
     "cefr": "A1",
@@ -7975,7 +7975,7 @@
   },
   {
     "id": "zh-es-A1-U06-S03-009",
-    "type": "t10",
+    "type": "T10",
     "typeName": "翻译输入",
     "language": "es",
     "cefr": "A1",
@@ -9775,7 +9775,7 @@
   },
   {
     "id": "zh-es-A1-U06-S05-010",
-    "type": "12",
+    "type": "T12",
     "typeName": "情景回应",
     "language": "es",
     "cefr": "A1",
@@ -10868,7 +10868,7 @@
   },
   {
     "id": "zh-es-A1-U08-S03-006",
-    "type": "05",
+    "type": "T05",
     "typeName": "补全句子",
     "language": "es",
     "cefr": "A1",
@@ -11258,7 +11258,7 @@
   },
   {
     "id": "zh-es-A1-U08-S04-009",
-    "type": "10",
+    "type": "T10",
     "typeName": "翻译输入",
     "language": "es",
     "cefr": "A1",
@@ -11461,7 +11461,7 @@
   },
   {
     "id": "zh-es-A1-U08-S05-006",
-    "type": "05",
+    "type": "T05",
     "typeName": "补全句子",
     "language": "es",
     "cefr": "A1",
@@ -11666,7 +11666,7 @@
   },
   {
     "id": "zh-es-A1-U09-S01-003",
-    "type": "03",
+    "type": "T03",
     "typeName": "双向配对",
     "language": "es",
     "cefr": "A1",
@@ -12524,7 +12524,7 @@
   },
   {
     "id": "zh-es-A1-U10-S01-003",
-    "type": "03",
+    "type": "T03",
     "typeName": "配对题",
     "language": "es",
     "cefr": "A1",
@@ -14074,7 +14074,7 @@
   },
   {
     "id": "zh-es-A1-U10-S04-005",
-    "type": "03",
+    "type": "T03",
     "typeName": "配对题",
     "language": "es",
     "cefr": "A1",

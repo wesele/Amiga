@@ -103,10 +103,10 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { useRouter } from "vue-router";
-import { fetchNews, getArticles } from "@/shared/backend/news.js";
-import { getCurrentUser } from "@/shared/backend/user.js";
-import { getSetting } from "@/shared/backend/settings.js";
-import { translateText } from "@/shared/backend/llm.js";
+import { fetchNews, getArticles } from "@/shared/api.js";
+import { getCurrentUser } from "@/shared/api.js";
+import { getSetting } from "@/shared/api.js";
+import { translateText } from "@/shared/api.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { openSourceUrl } from "./utils.js";
 import { useI18n } from "@/shared/i18n";
@@ -405,7 +405,7 @@ const {
 
 .article-card:focus-visible {
   z-index: 2;
-  outline: 3px solid #1cb0f6 !important;
+  outline: 3px solid var(--blue) !important;
   outline-offset: -3px;
   box-shadow: var(--shadow-lg), inset 0 0 0 1px rgba(28, 176, 246, 0.22) !important;
   transform: none !important;

@@ -1,29 +1,15 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { fileURLToPath, URL } from "node:url";
+import providers from "./src/shared/web/llmProviders.json";
 
 const host = process.env.TAURI_DEV_HOST;
 const port = parseInt(process.env.VITE_PORT || "1420", 10);
 const hmrPort = parseInt(process.env.VITE_HMR_PORT || "1421", 10);
 
-const webProxyTargets = {
-  openai: "https://api.openai.com",
-  nvidia: "https://integrate.api.nvidia.com",
-  deepseek: "https://api.deepseek.com",
-  groq: "https://api.groq.com",
-  openrouter: "https://openrouter.ai",
-  mistral: "https://api.mistral.ai",
-  xai: "https://api.x.ai",
-  together: "https://api.together.xyz",
-  fireworks: "https://api.fireworks.ai",
-  perplexity: "https://api.perplexity.ai",
-  siliconflow: "https://api.siliconflow.cn",
-  dashscope: "https://dashscope.aliyuncs.com",
-  gemini: "https://generativelanguage.googleapis.com",
-};
-
-function createWebDevProxy() {
-  return Object.fromEntries(Object.entries(webProxyTargets).map(([alias, target]) => {
+// Exported so llmProviders.spec.js can verify the dev proxy against the JSON.
+export function createWebDevProxy() {
+  return Object.fromEntries(Object.entries(providers).map(([alias, target]) => {
     const prefix = `/llm/${alias}`;
     return [prefix, {
       target,

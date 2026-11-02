@@ -85,7 +85,7 @@ const componentType = computed(() => {
  * overflow:hidden and looks messy on full-width list rows. */
 .settings-item:focus-visible {
   z-index: 2;
-  outline: 3px solid #1cb0f6 !important;
+  outline: 3px solid var(--blue) !important;
   outline-offset: -3px;
   box-shadow: inset 0 0 0 1px rgba(28, 176, 246, 0.22) !important;
   background: var(--green-bg);

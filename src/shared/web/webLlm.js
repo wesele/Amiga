@@ -1,18 +1,8 @@
-const PROVIDER_ROUTES = new Map([
-  ["api.openai.com", "openai"],
-  ["integrate.api.nvidia.com", "nvidia"],
-  ["api.deepseek.com", "deepseek"],
-  ["api.groq.com", "groq"],
-  ["openrouter.ai", "openrouter"],
-  ["api.mistral.ai", "mistral"],
-  ["api.x.ai", "xai"],
-  ["api.together.xyz", "together"],
-  ["api.fireworks.ai", "fireworks"],
-  ["api.perplexity.ai", "perplexity"],
-  ["api.siliconflow.cn", "siliconflow"],
-  ["dashscope.aliyuncs.com", "dashscope"],
-  ["generativelanguage.googleapis.com", "gemini"],
-]);
+import providers from "./llmProviders.json";
+
+const PROVIDER_ROUTES = new Map(
+  Object.entries(providers).map(([alias, origin]) => [new URL(origin).hostname, alias]),
+);
 
 export function proxyBaseUrl(baseUrl) {
   const raw = String(baseUrl || "").trim().replace(/\/$/, "");

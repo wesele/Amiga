@@ -116,11 +116,11 @@ import {
   explainGrammarPoint,
   getGrammarExplanationCached,
   getTeachingContent,
-} from "@/shared/backend/path.js";
+} from "@/shared/api.js";
 import {
   getUserVocabByLevel,
   updateWordMastery,
-} from "@/shared/backend/vocabulary.js";
+} from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { promiseWithTimeout } from "@/shared/promiseTimeout.js";
@@ -371,7 +371,7 @@ onMounted(load);
 
 .teaching-page.grammar .kind-badge {
   background: #f3e8ff;
-  color: #7c3aed;
+  color: var(--purple);
 }
 
 .unit-label {

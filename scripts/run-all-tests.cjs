@@ -25,6 +25,9 @@ async function main() {
   const results = await Promise.all([
     run("frontend", npm, ["test"], root),
     run("backend", cargo, ["test"], path.join(root, "src-tauri")),
+    // Content Studio validates the 4k+ question shards the app is built from.
+    // It has its own package.json / node_modules, so it needs `--prefix`.
+    run("content", npm, ["--prefix", "content-studio", "test"], root),
   ]);
 
   const failed = results.filter((result) => result.code !== 0);

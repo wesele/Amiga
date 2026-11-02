@@ -290,7 +290,7 @@ function handleBack() {
 
 /* Phone may still tab to back; TV uses tabindex=-1 (remote Back only). */
 .back-btn:focus-visible {
-  outline: 3px solid #1cb0f6 !important;
+  outline: 3px solid var(--blue) !important;
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.2) !important;
   transform: none !important;

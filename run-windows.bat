@@ -17,10 +17,6 @@ setlocal EnableDelayedExpansion
 ::    - Skips Rust rebuild when target\release\idioma.exe is fresh
 ::    Use --full to force a restart of ports + Vite and check the Rust build.
 ::    This launcher intentionally supports the release profile only.
-::
-::  For a SECOND, FULLY ISOLATED instance (separate DB, logs,
-::  build cache, process, etc.) use run-windows-2.bat instead.
-::  See AGENTS.md table and the comments inside run-windows-2.bat.
 :: ============================================================
 
 set "PROJECT_DIR=%~dp0"

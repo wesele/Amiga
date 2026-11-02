@@ -81,7 +81,7 @@ onBeforeUnmount(() => unsubscribe?.());
 }
 
 .project-link:focus-visible {
-  outline: 3px solid #1cb0f6;
+  outline: 3px solid var(--blue);
   outline-offset: 3px;
 }
 
@@ -114,7 +114,7 @@ onBeforeUnmount(() => unsubscribe?.());
 }
 
 .dialog-btn:focus-visible {
-  outline: 3px solid #1cb0f6;
+  outline: 3px solid var(--blue);
   outline-offset: 3px;
 }
 </style>

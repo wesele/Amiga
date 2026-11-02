@@ -1,8 +1,8 @@
 # GitHub Actions: 构建发布 + 同步 Cloudflare Pages 教程
 
-> **Last verified**: `.github/workflows/release.yml` @ v0.4.x。当前 workflow 用 GitHub **Variables** `CF_PROJECT_NAME` / `CF_PAGES_BRANCH`。
+> **Last verified**: `.github/workflows/release.yml` @ v0.4.x。当前应用版本已是 0.5.x——**workflow 与本文冲突时，以 `.github/workflows/release.yml` 为准**。当前 workflow 用 GitHub **Variables** `CF_PROJECT_NAME` / `CF_PAGES_BRANCH`。
 >
-> **日常发版**：看文末 [§发布流程](#发布流程) + [release-and-scripts.md](./release-and-scripts.md) 即可。下文为 CI/CD 教程与历史踩坑，非 Amiga 应用开发必读。
+> **日常发版**：看文末 [§发布流程](#发布流程) + [release-and-scripts.md](./release-and-scripts.md) 即可。下文为 CI/CD 教程与历史踩坑（§踩坑总结 里的 v0.3.x 记录只作背景），非 Amiga 应用开发必读。
 
 本文档以 Amiga 项目为实例，完整说明如何用一条 GitHub Actions workflow 实现：**打 tag → 构建 Android APK + Windows 安装包 → 发布 GitHub Release → 同步下载页到 Cloudflare Pages**。
 

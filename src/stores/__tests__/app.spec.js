@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { setActivePinia, createPinia } from "pinia";
 import { useAppStore } from "../app.js";
 

@@ -6346,7 +6346,7 @@
   },
   {
     "id": "zh-es-A2-U05-S04-008",
-    "type": "05",
+    "type": "T05",
     "typeName": "补全句子",
     "language": "es",
     "cefr": "A2",
@@ -7032,7 +7032,7 @@
   },
   {
     "id": "zh-es-A2-U07-S03-003",
-    "type": "03",
+    "type": "T03",
     "typeName": "双向配对",
     "language": "es",
     "cefr": "A2",
@@ -9730,7 +9730,7 @@
   },
   {
     "id": "zh-es-A2-U09-S01-008",
-    "type": "03",
+    "type": "T03",
     "typeName": "双向配对",
     "language": "es",
     "cefr": "A2",
@@ -10014,7 +10014,7 @@
   },
   {
     "id": "zh-es-A2-U09-S04-007",
-    "type": "08",
+    "type": "T08",
     "typeName": "听力选择",
     "language": "es",
     "cefr": "A2",
@@ -11508,7 +11508,7 @@
   },
   {
     "id": "zh-es-A2-U08-S03-010",
-    "type": "t11",
+    "type": "T11",
     "typeName": "语音跟读",
     "language": "es",
     "cefr": "A2",
@@ -11521,14 +11521,14 @@
       "preposiciones de tiempo",
       "ordenador portátil"
     ],
-    "sentence": "Voy a usar el ordenador portátil desde las 14:00 hasta las 16:00.",
-    "dimensions": [
+    "pairId": "zh-es",
+    "sectionId": "zh-es/U08-S03",
+    "audioText": "Voy a usar el ordenador portátil desde las 14:00 hasta las 16:00.",
+    "scoringDimensions": [
       "pronunciación",
       "fluidez",
       "integridad"
-    ],
-    "pairId": "zh-es",
-    "sectionId": "zh-es/U08-S03"
+    ]
   },
   {
     "id": "zh-es-A2-U09-S02-001",
@@ -11650,7 +11650,7 @@
   },
   {
     "id": "zh-es-A2-U09-S02-005",
-    "type": "05",
+    "type": "T05",
     "typeName": "补全句子",
     "language": "es",
     "cefr": "A2",
@@ -11922,7 +11922,7 @@
   },
   {
     "id": "zh-es-A2-U09-S03-004",
-    "type": "07",
+    "type": "T07",
     "typeName": "翻译选择",
     "language": "es",
     "cefr": "A2",
@@ -12386,7 +12386,7 @@
   },
   {
     "id": "zh-es-A2-U03-S05-010",
-    "type": "01",
+    "type": "T01",
     "typeName": "图片题",
     "language": "es",
     "cefr": "A2",

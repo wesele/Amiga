@@ -77,7 +77,7 @@ import {
   getPrompt,
   resetPrompt as apiResetPrompt,
   savePrompt as apiSavePrompt,
-} from "@/shared/backend/prompts.js";
+} from "@/shared/api.js";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";
@@ -339,7 +339,7 @@ onMounted(async () => {
 .btn-save:focus-visible,
 .reset-one-btn:focus-visible {
   z-index: 2;
-  outline: 3px solid #1cb0f6 !important;
+  outline: 3px solid var(--blue) !important;
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.2) !important;
   transform: none !important;

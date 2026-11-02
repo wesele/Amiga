@@ -11,10 +11,10 @@
     xmlns="http://www.w3.org/2000/svg"
     aria-hidden="true"
   >
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="#58cc02" />
-    <circle cx="9" cy="7" r="4" stroke="#58cc02" />
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="#1cb0f6" />
-    <circle cx="19" cy="7" r="4" stroke="#1cb0f6" />
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="var(--green)" />
+    <circle cx="9" cy="7" r="4" stroke="var(--green)" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="var(--blue)" />
+    <circle cx="19" cy="7" r="4" stroke="var(--blue)" />
   </svg>
 </template>
 

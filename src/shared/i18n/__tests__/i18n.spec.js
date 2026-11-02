@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import * as api from "@/shared/api.js";
 import { i18n as i18nInstance, t, setLocale, initLocale, useI18n, getLocale } from "@/shared/i18n/index.js";

@@ -190,7 +190,7 @@ import {
   updateWordMastery,
   addDiscoveredWord,
   getWordsMasteryMap,
-} from "@/shared/backend/vocabulary.js";
+} from "@/shared/api.js";
 
 const props = defineProps({
   show: Boolean,

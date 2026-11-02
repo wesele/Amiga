@@ -152,10 +152,10 @@ import {
   getLlmConfig,
   saveLlmConfig,
   testLlmConnection,
-} from "@/shared/backend/llm.js";
+} from "@/shared/api.js";
 import {
   saveSetting,
-} from "@/shared/backend/settings.js";
+} from "@/shared/api.js";
 import { fetchModels } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
 import { isTvLayoutMode } from "@/shared/appMode.js";
@@ -547,7 +547,7 @@ async function testConnection() {
 .field-input:focus-visible,
 .provider-select:focus-visible {
   z-index: 2;
-  outline: 3px solid #1cb0f6 !important;
+  outline: 3px solid var(--blue) !important;
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.2) !important;
   transform: none !important;

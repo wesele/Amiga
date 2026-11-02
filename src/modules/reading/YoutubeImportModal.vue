@@ -148,7 +148,7 @@ import {
   getYoutubeImportProgress,
   cancelYoutubeImport,
   updateYtdlp,
-} from "@/shared/backend/reading.js";
+} from "@/shared/api.js";
 
 const props = defineProps({
   show: Boolean,

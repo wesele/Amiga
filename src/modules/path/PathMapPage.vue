@@ -146,8 +146,8 @@ import { CEFR_LEVELS, learningCefrLevels } from "@/shared/constants.js";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";
-import { getPathCurriculum } from "@/shared/backend/path.js";
-import { getCurrentUser, updateLearningGoalCefr } from "@/shared/backend/user.js";
+import { getPathCurriculum } from "@/shared/api.js";
+import { getCurrentUser, updateLearningGoalCefr } from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { isTvLayoutMode } from "@/shared/appMode.js";
@@ -715,14 +715,14 @@ html[data-app-mode="tv"] .node-inner {
 }
 
 .path-node.vocab .node-inner {
-  background: linear-gradient(180deg, #7dd3fc 0%, #1cb0f6 100%);
-  box-shadow: 0 6px 0 #1899d6;
+  background: linear-gradient(180deg, #7dd3fc 0%, var(--blue) 100%);
+  box-shadow: 0 6px 0 var(--blue-hover);
   color: var(--white);
 }
 
 .path-node.practice .node-inner {
-  background: linear-gradient(180deg, #7ee028 0%, #58cc02 100%);
-  box-shadow: 0 6px 0 #46a302;
+  background: linear-gradient(180deg, #7ee028 0%, var(--green) 100%);
+  box-shadow: 0 6px 0 var(--green-hover);
   color: var(--white);
 }
 
@@ -760,7 +760,7 @@ html[data-app-mode="tv"] .node-inner {
 
 .path-node:not([aria-disabled="true"]):active .node-inner {
   transform: translateY(4px);
-  box-shadow: 0 2px 0 #46a302;
+  box-shadow: 0 2px 0 var(--green-hover);
 }
 
 .path-node.grammar:not([aria-disabled="true"]):active .node-inner {
@@ -768,7 +768,7 @@ html[data-app-mode="tv"] .node-inner {
 }
 
 .path-node.vocab:not([aria-disabled="true"]):active .node-inner {
-  box-shadow: 0 2px 0 #1899d6;
+  box-shadow: 0 2px 0 var(--blue-hover);
 }
 
 /* Locked/empty nodes stay focusable + clickable so TV remotes can surface

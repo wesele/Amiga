@@ -187,14 +187,14 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "@/shared/i18n";
-import { getCurrentUser } from "@/shared/backend/user.js";
+import { getCurrentUser } from "@/shared/api.js";
 import {
   getAchievementDays,
   getAchievementProgress,
   getMakeupCheckinStatus,
   recordAppOpen,
   useMakeupCheckin,
-} from "@/shared/backend/achievements.js";
+} from "@/shared/api.js";
 import {
   appOpenLevel,
   createAchievementMatrix,
@@ -464,7 +464,7 @@ onMounted(async () => {
 }
 
 .makeup-token-count {
-  color: var(--primary, #1cb0f6);
+  color: var(--primary, var(--blue));
 }
 
 .makeup-token-count.no-tokens {
@@ -492,12 +492,12 @@ onMounted(async () => {
 
 .makeup-date-btn:hover:not(:disabled) {
   background: #e8f7ff;
-  border-color: #1cb0f6;
+  border-color: var(--blue);
 }
 
 .makeup-date-btn.selected {
-  background: #1cb0f6;
-  border-color: #1cb0f6;
+  background: var(--blue);
+  border-color: var(--blue);
   color: #fff;
 }
 
@@ -512,7 +512,7 @@ onMounted(async () => {
   padding: 7px 0;
   border: none;
   border-radius: 20px;
-  background: #58cc02;
+  background: var(--green);
   color: #fff;
   font-size: 13px;
   font-weight: 800;
@@ -598,7 +598,7 @@ onMounted(async () => {
 }
 
 .unlocked .badge-icon {
-  background: #58cc02;
+  background: var(--green);
   color: white;
 }
 
@@ -665,7 +665,7 @@ onMounted(async () => {
 }
 
 .day-cell:focus-visible {
-  outline: 2px solid #1cb0f6;
+  outline: 2px solid var(--blue);
   outline-offset: 1px;
 }
 
@@ -679,8 +679,8 @@ onMounted(async () => {
 }
 
 .level-empty { background: #d9dee5; }
-.level-active { background: #1cb0f6; }
-.level-complete { background: #58cc02; }
+.level-active { background: var(--blue); }
+.level-complete { background: var(--green); }
 
 @media (min-width: 620px) {
   .matrix-section {
@@ -886,7 +886,7 @@ onMounted(async () => {
 }
 
 .achievement-badge:focus-visible {
-  outline: 3px solid #1cb0f6;
+  outline: 3px solid var(--blue);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.25);
 }

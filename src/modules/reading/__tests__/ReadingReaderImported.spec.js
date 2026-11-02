@@ -136,10 +136,11 @@ describe("ReadingReader Imported Article & Audio", () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const src = fs.readFileSync(path.resolve(__dirname, "../ReadingReader.vue"), "utf8");
-    const railCss = src.match(/\.article-scroll-rail\s*\{[^}]*\}/)[0];
+    const css = fs.readFileSync(path.resolve(__dirname, "../ReadingReader.css"), "utf8");
+    const railCss = css.match(/\.article-scroll-rail\s*\{[^}]*\}/)[0];
     expect(railCss).not.toMatch(/pointer-events:\s*none/);
     expect(src).toMatch(/@pointerdown="onScrollRailPointerDown"/);
-    const bodyCss = src.match(/\.article-body\s*\{[^}]*\}/)[0];
+    const bodyCss = css.match(/\.article-body\s*\{[^}]*\}/)[0];
     expect(bodyCss).toMatch(/scrollbar-width:\s*none/);
   });
 

@@ -84,9 +84,9 @@ import {
   deleteChatSession,
   getChatMessages,
   getChatSessions,
-} from "@/shared/backend/chat.js";
+} from "@/shared/api.js";
 import { isTauri } from "@tauri-apps/api/core";
-import { getCurrentUser } from "@/shared/backend/user.js";
+import { getCurrentUser } from "@/shared/api.js";
 import MarkdownText from "@/shared/components/MarkdownText.vue";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
 import TranslatorIcon from "@/shared/components/TranslatorIcon.vue";

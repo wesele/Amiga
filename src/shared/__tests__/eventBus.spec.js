@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { EventBus } from "../eventBus.js";
 
 describe("EventBus", () => {

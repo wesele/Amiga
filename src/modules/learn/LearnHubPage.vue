@@ -74,11 +74,11 @@ import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { openAiContact } from "@/shared/aiContact.js";
-import { getLearningDays, getReadArticleCount } from "@/shared/backend/news.js";
-import { getPathCurriculum } from "@/shared/backend/path.js";
-import { getCompletedReadingCount } from "@/shared/backend/reading.js";
-import { getCompletedSpeakingCount } from "@/shared/backend/speaking.js";
-import { getUserVocabStats } from "@/shared/backend/vocabulary.js";
+import { getLearningDays, getReadArticleCount } from "@/shared/api.js";
+import { getPathCurriculum } from "@/shared/api.js";
+import { getCompletedReadingCount } from "@/shared/api.js";
+import { getCompletedSpeakingCount } from "@/shared/api.js";
+import { getUserVocabStats } from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { isTvLayoutMode, isTvMode, isWebMode } from "@/shared/appMode.js";
 import { requestInstallAppPrompt } from "@/shared/installAppPrompt.js";
@@ -95,15 +95,15 @@ const completedSpeakingCount = ref(0);
 const pathCurriculum = ref(null);
 const pathCefr = ref("A1");
 
-const pathModule = { id: "path", labelKey: "learn.path", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M4 20l4-4" stroke="#58cc02"/><path d="M8 16l4-4" stroke="#1cb0f6"/><path d="M12 12l4-4" stroke="#58cc02"/><path d="M16 8l4-4" stroke="#1cb0f6"/></svg>', route: { name: "path" } };
+const pathModule = { id: "path", labelKey: "learn.path", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M4 20l4-4" stroke="var(--green)"/><path d="M8 16l4-4" stroke="var(--blue)"/><path d="M12 12l4-4" stroke="var(--green)"/><path d="M16 8l4-4" stroke="var(--blue)"/></svg>', route: { name: "path" } };
 const allModules = [
-  { id: "news", labelKey: "learn.news", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><rect x="4" y="4" width="16" height="16" rx="2" stroke="#58cc02"/><path d="M4 12h16" stroke="#1cb0f6"/><path d="M12 4v16" stroke="#58cc02"/><path d="M8 8h8" stroke="#1cb0f6"/></svg>', route: { name: "news" } },
-  { id: "reading", labelKey: "learn.reading", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="#58cc02"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="#1cb0f6"/></svg>', route: { name: "reading" } },
-  { id: "speaking", labelKey: "learn.speaking", clientOnly: true, icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M7 8a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" stroke="#58cc02"/><path d="M17 8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" stroke="#1cb0f6"/><path d="M6 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="#58cc02"/><path d="M14 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="#1cb0f6"/></svg>', route: { name: "speaking" } },
-  { id: "translator", labelKey: "chat.translator", clientOnly: true, icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><circle cx="12" cy="12" r="9" stroke="#58cc02"/><line x1="3" y1="12" x2="21" y2="12" stroke="#1cb0f6"/><path d="M12 3a9 9 0 0 1 3 9 9 9 0 0 1-3 9 9 9 0 0 1-3-9 9 9 0 0 1 3-9z" stroke="#58cc02"/></svg>', action: "translator" },
-  { id: "vocab", labelKey: "learn.vocab", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M4 5h7a3 3 0 0 1 3 3v11a2.5 2.5 0 0 0-2.5-2.5H4z" stroke="#58cc02"/><path d="M20 5h-7a3 3 0 0 0-3 3v11a2.5 2.5 0 0 1 2.5-2.5H20z" stroke="#1cb0f6"/><path d="M9 9h2" stroke="#58cc02"/><path d="M13 9h2" stroke="#1cb0f6"/></svg>', route: { name: "vocab" } },
+  { id: "news", labelKey: "learn.news", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><rect x="4" y="4" width="16" height="16" rx="2" stroke="var(--green)"/><path d="M4 12h16" stroke="var(--blue)"/><path d="M12 4v16" stroke="var(--green)"/><path d="M8 8h8" stroke="var(--blue)"/></svg>', route: { name: "news" } },
+  { id: "reading", labelKey: "learn.reading", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="var(--green)"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="var(--blue)"/></svg>', route: { name: "reading" } },
+  { id: "speaking", labelKey: "learn.speaking", clientOnly: true, icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M7 8a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" stroke="var(--green)"/><path d="M17 8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" stroke="var(--blue)"/><path d="M6 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="var(--green)"/><path d="M14 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="var(--blue)"/></svg>', route: { name: "speaking" } },
+  { id: "translator", labelKey: "chat.translator", clientOnly: true, icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><circle cx="12" cy="12" r="9" stroke="var(--green)"/><line x1="3" y1="12" x2="21" y2="12" stroke="var(--blue)"/><path d="M12 3a9 9 0 0 1 3 9 9 9 0 0 1-3 9 9 9 0 0 1-3-9 9 9 0 0 1 3-9z" stroke="var(--green)"/></svg>', action: "translator" },
+  { id: "vocab", labelKey: "learn.vocab", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M4 5h7a3 3 0 0 1 3 3v11a2.5 2.5 0 0 0-2.5-2.5H4z" stroke="var(--green)"/><path d="M20 5h-7a3 3 0 0 0-3 3v11a2.5 2.5 0 0 1 2.5-2.5H20z" stroke="var(--blue)"/><path d="M9 9h2" stroke="var(--green)"/><path d="M13 9h2" stroke="var(--blue)"/></svg>', route: { name: "vocab" } },
   // Multisexual five-color ring: pink / yellow / green / blue / purple.
-  { id: "soulmate", labelKey: "learn.soulmate", icon: '<svg viewBox="0 0 24 24" fill="none" width="1em" height="1em"><path d="M12 4 A8 8 0 0 1 19.6 9.5" stroke="#FF4D9A" stroke-width="2.6" stroke-linecap="round"/><path d="M19.6 9.5 A8 8 0 0 1 16.5 18.3" stroke="#FFC94D" stroke-width="2.6" stroke-linecap="round"/><path d="M16.5 18.3 A8 8 0 0 1 7.5 18.3" stroke="#58cc02" stroke-width="2.6" stroke-linecap="round"/><path d="M7.5 18.3 A8 8 0 0 1 4.4 9.5" stroke="#1cb0f6" stroke-width="2.6" stroke-linecap="round"/><path d="M4.4 9.5 A8 8 0 0 1 12 4" stroke="#9B6DFF" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="12" r="2.9" fill="#FF4D9A"/><circle cx="12" cy="12" r="1.35" fill="#FFC94D"/></svg>', route: { name: "soulmate" } },
+  { id: "soulmate", labelKey: "learn.soulmate", icon: '<svg viewBox="0 0 24 24" fill="none" width="1em" height="1em"><path d="M12 4 A8 8 0 0 1 19.6 9.5" stroke="#FF4D9A" stroke-width="2.6" stroke-linecap="round"/><path d="M19.6 9.5 A8 8 0 0 1 16.5 18.3" stroke="#FFC94D" stroke-width="2.6" stroke-linecap="round"/><path d="M16.5 18.3 A8 8 0 0 1 7.5 18.3" stroke="var(--green)" stroke-width="2.6" stroke-linecap="round"/><path d="M7.5 18.3 A8 8 0 0 1 4.4 9.5" stroke="var(--blue)" stroke-width="2.6" stroke-linecap="round"/><path d="M4.4 9.5 A8 8 0 0 1 12 4" stroke="#9B6DFF" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="12" r="2.9" fill="#FF4D9A"/><circle cx="12" cy="12" r="1.35" fill="#FFC94D"/></svg>', route: { name: "soulmate" } },
 ];
 
 const tvExcludedModules = new Set(["speaking", "translator"]);
@@ -371,7 +371,7 @@ function openVocab() {
 .path-progress-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--green) 0%, #1cb0f6 100%);
+  background: linear-gradient(90deg, var(--green) 0%, var(--blue) 100%);
   transition: width var(--transition);
 }
 
@@ -543,7 +543,7 @@ function openVocab() {
 .tv-learn-hub .path-progress-card:focus-visible,
 .tv-learn-hub .stat-cell-link:focus-visible {
   transform: none;
-  outline: 4px solid #1cb0f6 !important;
+  outline: 4px solid var(--blue) !important;
   outline-offset: -4px;
   box-shadow:
     inset 0 0 0 2px rgba(28, 176, 246, 0.2),

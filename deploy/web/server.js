@@ -7,6 +7,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 1420;
 const DIST_DIR = process.env.DIST_DIR || join(__dirname, "dist");
 
+// This list must stay identical to src/shared/web/llmProviders.json.
+// This file is deployed on its own (only server.js + package.json are uploaded),
+// so it cannot import the JSON; src/shared/web/__tests__/llmProviders.spec.js
+// fails the build when the two drift apart.
 const LLM_PROVIDERS = {
   openai: "https://api.openai.com",
   nvidia: "https://integrate.api.nvidia.com",

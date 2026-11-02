@@ -1,5 +1,5 @@
-import { createChatSession, getChatSessions } from "@/shared/backend/chat.js";
-import { getCurrentUser } from "@/shared/backend/user.js";
+import { createChatSession, getChatSessions } from "@/shared/api.js";
+import { getCurrentUser } from "@/shared/api.js";
 
 /**
  * Open an AI contact chat (amiga / translator). Finds an existing session

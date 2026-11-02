@@ -1,5 +1,6 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   shouldBlockUiOnRewrite,
@@ -8,6 +9,13 @@ import {
 } from "@/shared/tvPolicy.js";
 
 const ROOT = resolve(__dirname, "../../..");
+
+// 组件样式可能外置到同名 .css 文件，读源码时一并拼接，保持断言语义不变。
+function readSourceWithStyles(rel) {
+  const source = readFileSync(resolve(ROOT, rel), "utf8");
+  const cssPath = resolve(ROOT, rel.replace(/\.vue$/, ".css"));
+  return existsSync(cssPath) ? `${source}\n${readFileSync(cssPath, "utf8")}` : source;
+}
 
 describe("TV news reader policy (shipped)", () => {
   it("does not block the UI on rewrite in TV mode", () => {
@@ -49,7 +57,7 @@ describe("TV news reader policy (shipped)", () => {
   });
 
   it("ReadingReader matches news paragraph + word focus wiring", () => {
-    const source = readFileSync(resolve(ROOT, "modules/reading/ReadingReader.vue"), "utf8");
+    const source = readSourceWithStyles("modules/reading/ReadingReader.vue");
     expect(source).toMatch(/:tabindex="isTvLayoutMode \? 0 : undefined"/);
     expect(source).toMatch(/@keydown\.enter\.prevent="onWordTap\(token\)"/);
     expect(source).toMatch(/bodyParagraphs/);
@@ -64,7 +72,7 @@ describe("TV news reader policy (shipped)", () => {
       "modules/news/NewsReader.vue",
       "modules/reading/ReadingReader.vue",
     ]) {
-      const source = readFileSync(resolve(ROOT, rel), "utf8");
+      const source = readSourceWithStyles(rel);
       expect(source).toMatch(/html\[data-app-mode="tv"\] \.article-body\s*\{[^}]*padding:\s*14px\s+16px/s);
       expect(source).toMatch(/html\[data-app-mode="tv"\] \.article-text\s*\{[^}]*max-width:\s*none/s);
       expect(source).toMatch(/html\[data-app-mode="tv"\] \.article-text\s*\{[^}]*margin-inline:\s*0/s);

@@ -57,7 +57,7 @@ import PageHeader from "@/shared/components/PageHeader.vue";
 import { isTvLayoutMode } from "@/shared/appMode.js";
 import { useI18n } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { generateSoulMateEpisode, getSoulMateHome } from "@/shared/backend/soulmate.js";
+import { generateSoulMateEpisode, getSoulMateHome } from "@/shared/api.js";
 
 const BACKGROUND_BY_GENDER = {
   female: "/soulmate/companion-female.jpg",

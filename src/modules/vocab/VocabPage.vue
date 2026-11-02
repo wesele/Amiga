@@ -158,13 +158,13 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { isTvLayoutMode } from "@/shared/appMode.js";
-import { getCurrentUser } from "@/shared/backend/user.js";
+import { getCurrentUser } from "@/shared/api.js";
 import {
   getUserVocabByLevel,
   getUserVocabStatsByLevel,
   resetUserVocabByLevel,
   updateWordMastery,
-} from "@/shared/backend/vocabulary.js";
+} from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
 import { eventBus } from "@/shared/eventBus.js";
@@ -761,7 +761,7 @@ html[data-app-mode="tv"] .level-card:focus-visible,
 html[data-app-mode="tv"] .status-tab:focus-visible,
 html[data-app-mode="tv"] .reset-btn:focus-visible {
   transform: none;
-  outline: 4px solid #1cb0f6 !important;
+  outline: 4px solid var(--blue) !important;
   outline-offset: -4px !important;
   box-shadow:
     inset 0 0 0 2px rgba(28, 176, 246, 0.2),

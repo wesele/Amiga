@@ -1,4 +1,4 @@
-import { getSetting, saveSetting } from "@/shared/backend/settings.js";
+import { getSetting, saveSetting } from "@/shared/api.js";
 import {
   TTS_ENGINE_KOKORO,
   TTS_ENGINE_SYSTEM,

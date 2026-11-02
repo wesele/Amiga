@@ -25,6 +25,7 @@ Thumbs.db
 .opencode/
 .agents/
 .codex/
+.workbuddy-ai/
 terminals/
 agent-tools/
 
@@ -39,6 +40,8 @@ vite-log.txt
 # Content Studio config (contains API keys)
 content-studio/studio.config.json
 content-studio/studio.config.json.bak
+content-studio/data/**/*.bak
+# questionStore.js 每次写入都会生成 <file>.bak（任意层级），不要提交
 content-studio/data/*.bak
 
 # Release keystore

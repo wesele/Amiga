@@ -1,0 +1,7 @@
+node_modules/
+dist/
+dist_tv/
+src-tauri/
+content-studio/
+cloudflare-chat/
+*.md

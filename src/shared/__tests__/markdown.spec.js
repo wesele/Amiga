@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { renderMarkdown, containsMarkdown } from "@/shared/markdown.js";
 

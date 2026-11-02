@@ -28,7 +28,7 @@ CI/CD 与 Cloudflare Pages 详见 [github-actions-cloudflare-pages.md](./github-
 | `scripts/android-patch.cjs` | 把 `src-tauri/android/` 同步到 `gen/`（mtime 比对，`--force` 强刷） |
 | `scripts/extract-android-icon.cjs` | 从 release APK 提取 launcher icon → `public/amiga-icon.png` |
 | `scripts/start-windows-dev.ps1` | `run-windows.bat` 背后 dev 启动 |
-| `scripts/start-windows-2-dev.ps1` | 第二隔离实例 dev |
+| `scripts/start-windows-2-dev.ps1` | 第二隔离实例 dev（**当前不可用**：依赖已移除的 `windows-2/`） |
 | `scripts/setup-env.sh` | Linux/macOS 环境设置 |
 | `scripts/setup-ci-secrets.ps1` | GitHub Actions secrets 辅助配置 |
 

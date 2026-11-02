@@ -22,6 +22,8 @@ server {
 
     # LLM streams: no request/response buffering and no cache.
     # A full connection slot is rejected immediately with 429.
+    # Each /llm/<alias>/ block must match src/shared/web/llmProviders.json;
+    # this file is plain config and is guarded by llmProviders.spec.js.
 
     location /llm/openai/ {
         limit_conn amiga_llm_global 24;

@@ -128,7 +128,7 @@ import PageHeader from "@/shared/components/PageHeader.vue";
 import { isTvLayoutMode } from "@/shared/appMode.js";
 import { useI18n } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { initializeSoulMate } from "@/shared/backend/soulmate.js";
+import { initializeSoulMate } from "@/shared/api.js";
 import { pushInPageBackHandler } from "@/shared/inPageBack.js";
 
 const dialLevels = [0, 1, 2, 3];

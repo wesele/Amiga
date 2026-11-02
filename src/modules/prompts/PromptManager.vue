@@ -52,7 +52,7 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { getAllPrompts, resetAllPrompts as apiResetAll } from "@/shared/backend/prompts.js";
+import { getAllPrompts, resetAllPrompts as apiResetAll } from "@/shared/api.js";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import { useI18n } from "@/shared/i18n";
@@ -199,7 +199,7 @@ onMounted(async () => {
 .prompt-card:focus-visible,
 .reset-all-btn:focus-visible {
   z-index: 2;
-  outline: 3px solid #1cb0f6 !important;
+  outline: 3px solid var(--blue) !important;
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.2) !important;
   transform: none !important;

@@ -26,7 +26,6 @@ Tauri 2 + Vue 3 主应用（`src/`、`src-tauri/`）。命名、migration、权�
 | `src/app/androidBridge.js` | `__amigaGoBack` / `__amigaSetInsets` 实现 |
 | `src/shared/kernel.js` | 动态 `loadModule` |
 | `%LOCALAPPDATA%\idioma\` | Windows 主实例 DB（`idioma.db`）与日志 |
-| `run-windows-2.bat` | 第二实例，数据/构建完全隔离（见 bat 注释） |
 
 `src/modules/`、`src/shared/api.js` 等常规目录不赘述；用 `rg` 定位即可。
 
@@ -43,7 +42,25 @@ Tauri 2 + Vue 3 主应用（`src/`、`src-tauri/`）。命名、migration、权�
 
 ## Rust / Tauri
 
-`commands/` 薄 IPC，`modules/` 业务。新增：`modules/` → `commands/` → `api.js`。改 schema 只追加 migration（见 conventions）。
+`commands/` 薄 IPC（只做参数解包 + 调 `modules/`），`modules/` 放业务。改 schema 只追加 migration（见 conventions）。
+
+### 新增一个 command：一共 5 处
+
+| # | 文件 | 做什么 |
+|---|------|--------|
+| 1 | `src-tauri/src/modules/<area>.rs` | 真正的实现 |
+| 2 | `src-tauri/src/commands/<area>.rs` | `#[tauri::command] pub async fn xxx_cmd(...)` 薄封装 |
+| 3 | `src-tauri/src/lib.rs` | 加进 `generate_handler![...]`（漏了这一步调用会报 command not found） |
+| 4 | `src/shared/api.js` | `createApiClient` 里加一行 `xxx: (a) => call("xxx_cmd", { a })`，再在文件底部加 `export const xxx = (...args) => defaultApiClient.xxx(...args);` |
+| 5 | `src/shared/web/webBackend.js` **或** `src/shared/web/nativeOnlyCommands.js` | Web 演示版要实现就加 `case "xxx_cmd":`；只支持原生就登记到白名单并写明原因 |
+
+第 5 步有守卫：`src/shared/web/__tests__/contractParity.spec.js` 会解析 `lib.rs` 的命令列表，任何命令既没实现也没登记就直接失败。**不要为了让它变绿而往白名单里塞**——先确认对应界面在 Web 模式下确实不可达。
+
+命名规则见 [conventions.md](./conventions.md)：默认 `<verb>_<noun>_cmd`，与 `modules/` 同名函数冲突时才加 `_cmd` 后缀（历史遗留导致两种风格并存）。
+
+### 改前端调用面
+
+`src/shared/api.js` 是**唯一**的后端调用入口（旧 `src/shared/backend/*.js` 转发层已删除）。组件里不要直接 `invoke()`。
 
 ## Android
 
@@ -54,7 +71,7 @@ Android release 运行：模拟器用 **`run-android-x86.bat`**，ARM64 真机�
 | 命令 | 用途 |
 |------|------|
 | `npm test` / `npm run test:all` | 前端 / 全量 |
-| `run-windows.bat` / `run-windows-2.bat` | Windows Tauri dev |
+| `run-windows.bat` | Windows Tauri dev |
 | `run-android-x86.bat` | x86_64 模拟器 release 运行 |
 | `run-android-arm.bat` | ARM64 真机 release 运行 |
 | `build-android.bat` | Android phone release APK（arm64） |

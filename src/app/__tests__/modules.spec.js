@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
 import { APP_MODULES, TV_APP_MODULES, loadFeatureModules, loadShellModule } from "../modules.js";
 

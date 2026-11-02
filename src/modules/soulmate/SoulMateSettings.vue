@@ -179,12 +179,12 @@ import {
   getAllPrompts,
   resetPrompt as apiResetPrompt,
   savePrompt as apiSavePrompt,
-} from "@/shared/backend/prompts.js";
+} from "@/shared/api.js";
 import {
   getSoulMateWorld,
   resetSoulMate,
   updateSoulMate,
-} from "@/shared/backend/soulmate.js";
+} from "@/shared/api.js";
 
 const SOULMATE_PROMPT_ORDER = [
   "soulmate-greeting",

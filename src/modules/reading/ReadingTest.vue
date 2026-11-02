@@ -152,7 +152,7 @@ import {
   explainReadingAnswer,
   submitReadingTest,
   getReadingTestExplanations,
-} from "@/shared/backend/reading.js";
+} from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import { normalizeQuestions, optionLabels, readingOptionClass } from "./readingTestQuestions.js";
 import { useListeningQuestionAudio } from "./useListeningQuestionAudio.js";
@@ -927,7 +927,7 @@ html[data-app-mode="tv"] .test-nav-btn:focus-visible,
 html[data-app-mode="tv"] .result-btn:focus-visible,
 html[data-app-mode="tv"] .retry-link:focus-visible {
   transform: none;
-  outline: 4px solid #1cb0f6 !important;
+  outline: 4px solid var(--blue) !important;
   outline-offset: -4px;
   z-index: 5;
 }

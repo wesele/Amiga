@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { setActivePinia, createPinia } from "pinia";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "../targetLang.js";

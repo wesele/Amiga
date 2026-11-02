@@ -4,7 +4,7 @@ import {
   ensureWordsSeen,
   lookupWordIds,
   updateWordMastery,
-} from "@/shared/backend/vocabulary.js";
+} from "@/shared/api.js";
 import { extractWordTexts } from "./articleText.js";
 
 export function useNewsArticleWords({ getUserId, getTargetLang, getArticle }) {

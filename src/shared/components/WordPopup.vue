@@ -178,7 +178,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
-import { translateText, translateWord } from "@/shared/backend/llm.js";
+import { translateText, translateWord } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
 import { openAiContact } from "@/shared/aiContact.js";
 import { pushInPageBackHandler } from "@/shared/inPageBack.js";
@@ -326,10 +326,12 @@ async function loadTranslation({ force = false } = {}) {
     if (seq !== loadSeq) return;
     error.value = t("popup.fail");
   } finally {
-    if (seq !== loadSeq) return;
-    loading.value = false;
-    refreshing.value = false;
-    await restoreActionFocus();
+    // 用条件包裹代替 `return`：finally 里的 return 会吞掉 try 中抛出的异常。
+    if (seq === loadSeq) {
+      loading.value = false;
+      refreshing.value = false;
+      await restoreActionFocus();
+    }
   }
 }
 

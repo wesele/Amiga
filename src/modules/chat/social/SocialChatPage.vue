@@ -65,7 +65,7 @@
 import { computed, markRaw, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
-import { getCurrentUser } from "@/shared/backend/user.js";
+import { getCurrentUser } from "@/shared/api.js";
 import StylizedAvatar from "@/shared/components/StylizedAvatar.vue";
 import GroupChatIcon from "@/shared/components/GroupChatIcon.vue";
 import {

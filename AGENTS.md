@@ -51,6 +51,7 @@
 
 - 每轮：**本文件** + [Codex.md](./Codex.md)。
 - **Amiga 主应用开发**（`src/`、`src-tauri/`）：[docs/app-development.md](./docs/app-development.md)。
+- **改 UI 前**（TV / Web / 手机布局分支）：[docs/modes.md](./docs/modes.md)——4 个模式维度与 `isTvMode` vs `isTvLayoutMode` 的区别。
 - **其他主题**（Content Studio、Social 后端、发版/CI、产品背景）：[docs/README.md](./docs/README.md) 按任务选读，不要默认全读。
 
 ## 自动化任务

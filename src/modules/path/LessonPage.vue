@@ -82,7 +82,7 @@ import { useI18n } from "@/shared/i18n";
 import {
   completeSection,
   getSectionLesson,
-} from "@/shared/backend/path.js";
+} from "@/shared/api.js";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import QuestionRenderer from "./components/QuestionRenderer.vue";

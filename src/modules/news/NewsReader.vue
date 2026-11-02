@@ -199,9 +199,9 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
-import { getArticle, saveReadingLog } from "@/shared/backend/news.js";
-import { getBilingual, rewriteArticle, translateText } from "@/shared/backend/llm.js";
-import { shareText as nativeShareText } from "@/shared/backend/share.js";
+import { getArticle, saveReadingLog } from "@/shared/api.js";
+import { getBilingual, rewriteArticle, translateText } from "@/shared/api.js";
+import { shareText as nativeShareText } from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore, TARGET_LANG_CHANGED } from "@/stores/targetLang.js";
@@ -815,7 +815,7 @@ html[data-app-mode="tv"] .header-title {
 
 /* TV: tight inline focus — never scale or use the global 5px outer ring. */
 .word:focus-visible {
-  outline: 2px solid #1cb0f6 !important;
+  outline: 2px solid var(--blue) !important;
   outline-offset: 0 !important;
   box-shadow: none !important;
   background: var(--blue-bg) !important;
@@ -880,8 +880,8 @@ html[data-app-mode="tv"] .header-title {
 }
 
 .read-btn {
-  color: var(--purple, #7c3aed);
-  border-color: var(--purple, #7c3aed);
+  color: var(--purple, var(--purple));
+  border-color: var(--purple, var(--purple));
   background: rgba(124, 58, 237, 0.08);
   box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.12);
 }
@@ -897,8 +897,8 @@ html[data-app-mode="tv"] .header-title {
 }
 
 .share-btn {
-  color: var(--green, #58cc02);
-  border-color: var(--green, #58cc02);
+  color: var(--green, var(--green));
+  border-color: var(--green, var(--green));
   background: var(--green-bg, rgba(88, 204, 2, 0.08));
   box-shadow: 0 0 0 2px rgba(88, 204, 2, 0.12);
 }
@@ -960,7 +960,7 @@ html[data-app-mode="tv"] .bilingual .para-translation {
 }
 /* TV: translation blocks must be focusable targets for remote Up/Down. */
 html[data-app-mode="tv"] .bilingual .para-translation:focus-visible {
-  outline: 2px solid #1cb0f6 !important;
+  outline: 2px solid var(--blue) !important;
   outline-offset: 2px !important;
   box-shadow: none !important;
   transform: none !important;
@@ -989,7 +989,7 @@ html[data-app-mode="tv"] .bilingual .para-translation:focus-visible {
 .translate-fab {
   position: fixed;
   z-index: 600;
-  background: var(--purple, #7c3aed);
+  background: var(--purple, var(--purple));
   color: #fff;
   font-size: 14px;
   font-weight: 700;

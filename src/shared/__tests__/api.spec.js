@@ -1,3 +1,4 @@
+// @vitest-environment node
 import * as api from "../api.js";
 
 describe("API module", () => {

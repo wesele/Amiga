@@ -64,8 +64,8 @@
               <svg viewBox="0 0 24 24" fill="none" width="1em" height="1em">
                 <path d="M12 4 A8 8 0 0 1 19.6 9.5" stroke="#FF4D9A" stroke-width="2.6" stroke-linecap="round"/>
                 <path d="M19.6 9.5 A8 8 0 0 1 16.5 18.3" stroke="#FFC94D" stroke-width="2.6" stroke-linecap="round"/>
-                <path d="M16.5 18.3 A8 8 0 0 1 7.5 18.3" stroke="#58cc02" stroke-width="2.6" stroke-linecap="round"/>
-                <path d="M7.5 18.3 A8 8 0 0 1 4.4 9.5" stroke="#1cb0f6" stroke-width="2.6" stroke-linecap="round"/>
+                <path d="M16.5 18.3 A8 8 0 0 1 7.5 18.3" stroke="var(--green)" stroke-width="2.6" stroke-linecap="round"/>
+                <path d="M7.5 18.3 A8 8 0 0 1 4.4 9.5" stroke="var(--blue)" stroke-width="2.6" stroke-linecap="round"/>
                 <path d="M4.4 9.5 A8 8 0 0 1 12 4" stroke="#9B6DFF" stroke-width="2.6" stroke-linecap="round"/>
                 <circle cx="12" cy="12" r="2.9" fill="#FF4D9A"/>
                 <circle cx="12" cy="12" r="1.35" fill="#FFC94D"/>
@@ -141,7 +141,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import { checkUpdate } from "@/shared/backend/update.js";
+import { checkUpdate } from "@/shared/api.js";
 import { openExternalUrl } from "@/shared/external.js";
 import { canAutoInstallUpdate, pickPreferredUpdateAsset, startAppUpdate } from "@/shared/update.js";
 import SettingsItem from "./components/SettingsItem.vue";
@@ -589,14 +589,14 @@ async function handleInstallUpdate() {
 /* TV: clean inset focus on language pills (global scale/outer ring is messy). */
 .lang-pill:focus-visible {
   z-index: 2;
-  outline: 3px solid #1cb0f6 !important;
+  outline: 3px solid var(--blue) !important;
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.2) !important;
   transform: none !important;
 }
 .lang-pill.active:focus-visible {
   outline-color: #fff !important;
-  box-shadow: 0 0 0 3px #1cb0f6, 0 0 0 6px rgba(28, 176, 246, 0.25) !important;
+  box-shadow: 0 0 0 3px var(--blue), 0 0 0 6px rgba(28, 176, 246, 0.25) !important;
 }
 
 /* Let list-row focus rings paint fully inside the card. */

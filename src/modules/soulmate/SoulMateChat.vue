@@ -110,19 +110,19 @@ import { tokenizeArticleText } from "@/shared/articleText.js";
 import { isTvLayoutMode } from "@/shared/appMode.js";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { translateText } from "@/shared/backend/llm.js";
+import { translateText } from "@/shared/api.js";
 import { useSelectionTranslation } from "@/shared/selectionTranslation.js";
 import {
   getSoulMateChat,
   getSoulMateReplyOptions,
   getSoulMateWorld,
   submitSoulMateTurn,
-} from "@/shared/backend/soulmate.js";
+} from "@/shared/api.js";
 import {
   addDiscoveredWord,
   lookupWordIds,
   updateWordMastery,
-} from "@/shared/backend/vocabulary.js";
+} from "@/shared/api.js";
 
 const props = defineProps({ episodeId: { type: String, required: true } });
 const { t } = useI18n();
@@ -347,10 +347,12 @@ async function refreshReplyOptions() {
     if (requestId !== optionsRequestId) return;
     replyOptions.value = fallbackOptions();
   } finally {
-    if (requestId !== optionsRequestId) return;
-    // Unmount spinner first so option buttons exist before focusing.
-    optionsLoading.value = false;
-    await focusFirstReplyOption();
+    // 用条件包裹代替 `return`：finally 里的 return 会吞掉 try 中抛出的异常。
+    if (requestId === optionsRequestId) {
+      // Unmount spinner first so option buttons exist before focusing.
+      optionsLoading.value = false;
+      await focusFirstReplyOption();
+    }
   }
 }
 
@@ -442,7 +444,7 @@ async function sendOption(option) {
 }
 .message-word:hover { background: var(--blue-bg); }
 .message-word:focus-visible {
-  outline: 2px solid var(--primary, #1cb0f6);
+  outline: 2px solid var(--primary, var(--blue));
   background: var(--blue-bg, rgba(28, 176, 246, 0.15));
 }
 .role-user .bubble {

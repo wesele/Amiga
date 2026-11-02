@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/shared/backend/user.js";
+import { getCurrentUser } from "@/shared/api.js";
 import { getSocialConfigDefaults, toWebSocketBase, trimSlash } from "@/shared/socialConfig.js";
 
 export async function getSocialConfig() {

@@ -182,9 +182,9 @@
 import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
-import { getSetting, saveSetting } from "@/shared/backend/settings.js";
-import { getCloudSyncStatus, setCloudSyncEnabled } from "@/shared/backend/sync.js";
-import { getLearningGoals, updateLearningGoalCefr, resetWizard as resetWizardApi } from "@/shared/backend/user.js";
+import { getSetting, saveSetting } from "@/shared/api.js";
+import { getCloudSyncStatus, setCloudSyncEnabled } from "@/shared/api.js";
+import { getLearningGoals, updateLearningGoalCefr, resetWizard as resetWizardApi } from "@/shared/api.js";
 import SettingsItem from "./components/SettingsItem.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import ModalShell from "@/shared/components/ModalShell.vue";
@@ -744,14 +744,14 @@ function confirmReset() {
 .keyword-input:focus-visible,
 .dialog-btn:focus-visible {
   z-index: 2;
-  outline: 3px solid #1cb0f6 !important;
+  outline: 3px solid var(--blue) !important;
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.2) !important;
   transform: none !important;
 }
 .lang-pill.active:focus-visible {
   outline-color: #fff !important;
-  box-shadow: 0 0 0 3px #1cb0f6, 0 0 0 6px rgba(28, 176, 246, 0.25) !important;
+  box-shadow: 0 0 0 3px var(--blue), 0 0 0 6px rgba(28, 176, 246, 0.25) !important;
 }
 .stepper-btn:focus-visible {
   outline-offset: 3px;

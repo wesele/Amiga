@@ -4,6 +4,8 @@ use rusqlite::{params, types::ToSql, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 const VOCAB_IMPORT_FINGERPRINT_KEY: &str = "vocab_bank_content_fingerprint";
+// 编译期嵌入：content-studio/data/vocabulary.json 必须保持在 git 跟踪状态，
+// 否则新克隆无法 cargo build（改内容后需重新编译才会生效）。
 const VOCAB_JSON: &str = include_str!("../../../content-studio/data/vocabulary.json");
 
 fn vocabulary_fingerprint(content: &str) -> String {

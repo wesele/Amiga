@@ -178,7 +178,7 @@ import {
   generateInitialReadingArticle,
   getImportedArticles,
   deleteImportedArticle,
-} from "@/shared/backend/reading.js";
+} from "@/shared/api.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";

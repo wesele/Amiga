@@ -8,10 +8,10 @@
     :width="size" 
     :height="size"
   >
-    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93.77 6.7 2.06" stroke="#58cc02" />
-    <path d="M21 12a9 9 0 1 1-9 9c2.52 0 4.93-.77 6.7-2.06" stroke="#1cb0f6" />
-    <polyline points="21 3 21 9 15 9" stroke="#58cc02" />
-    <polyline points="3 21 3 15 9 15" stroke="#1cb0f6" />
+    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93.77 6.7 2.06" stroke="var(--green)" />
+    <path d="M21 12a9 9 0 1 1-9 9c2.52 0 4.93-.77 6.7-2.06" stroke="var(--blue)" />
+    <polyline points="21 3 21 9 15 9" stroke="var(--green)" />
+    <polyline points="3 21 3 15 9 15" stroke="var(--blue)" />
   </svg>
 </template>
 

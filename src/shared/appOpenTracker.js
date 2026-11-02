@@ -1,4 +1,4 @@
-import { recordAppOpen } from "@/shared/backend/achievements.js";
+import { recordAppOpen } from "@/shared/api.js";
 
 export function installAppOpenTracker(router) {
   const record = () => recordAppOpen().catch((error) => {

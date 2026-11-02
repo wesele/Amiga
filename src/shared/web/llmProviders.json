@@ -1,0 +1,15 @@
+{
+  "dashscope": "https://dashscope.aliyuncs.com",
+  "deepseek": "https://api.deepseek.com",
+  "fireworks": "https://api.fireworks.ai",
+  "gemini": "https://generativelanguage.googleapis.com",
+  "groq": "https://api.groq.com",
+  "mistral": "https://api.mistral.ai",
+  "nvidia": "https://integrate.api.nvidia.com",
+  "openai": "https://api.openai.com",
+  "openrouter": "https://openrouter.ai",
+  "perplexity": "https://api.perplexity.ai",
+  "siliconflow": "https://api.siliconflow.cn",
+  "together": "https://api.together.xyz",
+  "xai": "https://api.x.ai"
+}
