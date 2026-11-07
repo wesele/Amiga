@@ -1,3 +1,4 @@
+import { cleanRssSummary } from "@/shared/articleText.js";
 import {
   chat,
   clone,
@@ -41,7 +42,9 @@ export async function invokeRemote(command, args, state) {
     case "rewrite_article_cmd": {
       const article = state.news_articles.find((item) => Number(item.id) === Number(args.articleId));
       if (!article) throw new Error("Article not found");
-      const reply = await chat(state, "You simplify news for language learners while preserving every fact. Return strict JSON.", `Rewrite for CEFR ${args.cefrLevel} in ${args.targetLang}. Return {"rewritten":"...","new_words_used":[]}.\nTitle: ${article.original_title}\n${article.original_body}`, { maxTokens: 1200, responseFormat: { type: "json_object" } });
+      const cleanBody = cleanRssSummary(article.original_title, article.original_body);
+      const bodyForPrompt = cleanBody || "(Headline only — no article body in RSS feed; expand into a 2-4 paragraph news reading passage)";
+      const reply = await chat(state, "You are a language-learning news rewrite assistant. Output strict JSON only.", `Rewrite or expand for CEFR ${args.cefrLevel} in ${args.targetLang}. Keep all stated facts intact; if the body is empty or only a 1-2 sentence snippet, expand it into a complete 2-4 paragraph news passage (120-200 words) with helpful background context, separating paragraphs with \\n\\n. Return {"rewritten":"...","new_words_used":[]}.\nTitle: ${article.original_title}\nBody: ${bodyForPrompt}`, { maxTokens: 1500, responseFormat: { type: "json_object" } });
       const parsed = parseJsonReply(reply);
       await store.update((next) => {
         const saved = next.news_articles.find((item) => Number(item.id) === Number(args.articleId));

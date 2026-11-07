@@ -18,6 +18,7 @@ export function cleanHtmlText(text) {
   return text
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<a\b[^>]*>\s*(?:leer(?:\s+m[áa]s)?|read\s+more|continue\s+reading|seguir\s+leyendo)\s*<\/a>/gi, "")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/gi, " ")
     .replace(/&quot;/gi, '"')
@@ -26,6 +27,32 @@ export function cleanHtmlText(text) {
     .replace(/&gt;/gi, ">")
     .replace(/&#39;/gi, "'")
     .replace(/&apos;/gi, "'");
+}
+
+function normalizeForComparison(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+export function isSummaryDuplicateOfTitle(title, summary) {
+  const normSummary = normalizeForComparison(cleanHtmlText(summary));
+  if (!normSummary) return true;
+  const normTitle = normalizeForComparison(cleanHtmlText(title));
+  if (!normTitle) return false;
+  if (normSummary === normTitle) return true;
+  if (normTitle.includes(normSummary)) return true;
+  if (normSummary.startsWith(normTitle) && normSummary.length - normTitle.length <= 30) {
+    return true;
+  }
+  return false;
+}
+
+export function cleanRssSummary(title, rawBody) {
+  const cleaned = cleanHtmlText(rawBody).replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+  if (isSummaryDuplicateOfTitle(title, cleaned)) return "";
+  return cleaned;
 }
 
 export function tokenizeArticleText(text) {

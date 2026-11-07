@@ -182,6 +182,13 @@ if (_isWebRuntime) {
   };
 }
 
+const _multimodalConfigListeners = new Set();
+
+export function onMultimodalConfigSaved(fn) {
+  _multimodalConfigListeners.add(fn);
+  return () => _multimodalConfigListeners.delete(fn);
+}
+
 function invokeWithOptionalArgs(invoke, command, args) {
   return args === undefined ? invoke(command) : invoke(command, args);
 }
@@ -415,7 +422,14 @@ export function createApiClient(invoke) {
     getCompletedSpeakingCount: (userId) =>
       call("get_completed_speaking_count_cmd", { userId }),
     getMultimodalConfig: () => call("get_multimodal_config_cmd"),
-    saveMultimodalConfig: (config) => call("save_multimodal_config_cmd", { config }),
+    saveMultimodalConfig: (config) => {
+      _multimodalConfigListeners.forEach((fn) => {
+        try {
+          fn(config);
+        } catch (e) {}
+      });
+      return call("save_multimodal_config_cmd", { config });
+    },
     testMultimodalConnection: (config) =>
       call("test_multimodal_connection_cmd", { config }),
 

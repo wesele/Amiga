@@ -818,6 +818,14 @@ export default {
     presetDeleteTitle: "Delete saved configuration",
     presetDeleteMessage: "This deletes the saved parameters for {{url}}. Your active configuration is untouched.",
     presetDeleted: "Saved configuration deleted",
+    readingVoiceLabel: "Global reading default voice",
+    readingVoiceDesc: "Default voice used for global read-aloud when Gemini 3.8 Live is configured",
+    hiddenVoiceTag: "Hidden",
+    testVoice: "Test voice",
+    stopVoiceTest: "Stop preview",
+    testingVoice: "Synthesizing…",
+    voiceSaved: "Default reading voice set to {voice}",
+    voiceTestFail: "Voice preview failed — please check your Gemini API Key and network",
   },
 
   prompts: {

@@ -821,6 +821,14 @@ export default {
     presetDeleteTitle: "删除已记住的配置",
     presetDeleteMessage: "将删除 {{url}} 记住的参数，当前正在使用的配置不受影响。",
     presetDeleted: "已删除记住的配置",
+    readingVoiceLabel: "全局阅读默认音色",
+    readingVoiceDesc: "配置 Gemini 3.8 Live 时，新闻与阅读全文朗读默认使用的音色",
+    hiddenVoiceTag: "隐藏",
+    testVoice: "试听音色",
+    stopVoiceTest: "停止试听",
+    testingVoice: "正在合成…",
+    voiceSaved: "默认朗读音色已切换为 {voice}",
+    voiceTestFail: "音色试听失败，请检查 Gemini API Key 与网络连接",
   },
 
   prompts: {

@@ -19,15 +19,16 @@ const DEFAULTS: &[(&str, &str, &str, &str, &str)] = &[
         "rewrite-article",
         "新闻文章改写",
         "学习功能",
-        "You are a language-learning rewrite assistant. Output only JSON, no extra prose.",
-        r#"Rewrite the following {{SOURCE_LANG}} news article for a CEFR {{CEFR_LEVEL}} language learner.
+        "You are a language-learning news rewrite assistant. Output only valid JSON, no extra prose or markdown fences.",
+        r#"Rewrite or expand the following {{SOURCE_LANG}} news item for a CEFR {{CEFR_LEVEL}} language learner.
 
 Requirements:
-1. Stay faithful — keep all facts, names, places, numbers, and dates intact
-2. Word level — prefer vocabulary at CEFR {{CEFR_LEVEL}} or below
-3. Optional words — naturally weave in: {{NEW_WORDS}}
+1. Stay faithful — keep all stated facts, names, places, numbers, and dates intact; do not invent fake quotes or unverified statistics
+2. Complete article — if the body is empty, repeats the title, or is only a short 1-2 sentence snippet, expand it into a complete, natural 2-4 paragraph news reading passage (about 120-200 words) in {{SOURCE_LANG}} by providing relevant background context and explaining the topic clearly
+3. Word level — use vocabulary and grammar appropriate for CEFR {{CEFR_LEVEL}}; separate paragraphs with \n\n
+4. Optional words — naturally weave in where they fit: {{NEW_WORDS}}
 
-Return JSON: {"rewritten": "the rewritten article", "new_words_used": ["words actually used"]}
+Return JSON: {"rewritten": "the rewritten article in {{SOURCE_LANG}}", "new_words_used": ["words actually used"]}
 
 Title: {{TITLE}}
 Body: {{TEXT}}"#,
@@ -470,6 +471,18 @@ Requirements:
 
 /// Ensure default prompts are up-to-date (upserts on every startup)
 pub fn ensure_default_prompts(db: &DatabasePool) {
+    const LEGACY_REWRITE_TEMPLATE: &str = r#"Rewrite the following {{SOURCE_LANG}} news article for a CEFR {{CEFR_LEVEL}} language learner.
+
+Requirements:
+1. Stay faithful — keep all facts, names, places, numbers, and dates intact
+2. Word level — prefer vocabulary at CEFR {{CEFR_LEVEL}} or below
+3. Optional words — naturally weave in: {{NEW_WORDS}}
+
+Return JSON: {"rewritten": "the rewritten article", "new_words_used": ["words actually used"]}
+
+Title: {{TITLE}}
+Body: {{TEXT}}"#;
+
     let conn = match db.conn() {
         Ok(c) => c,
         Err(e) => {
@@ -490,6 +503,16 @@ pub fn ensure_default_prompts(db: &DatabasePool) {
             params![key, name, category, system_prompt, user_prompt_template],
         ) {
             log::error!("Failed to insert default prompt '{}': {}", key, e);
+        }
+
+        // Upgrade unmodified legacy default rewrite-article prompt so existing DBs gain headline-expansion support
+        if *key == "rewrite-article" {
+            let _ = conn.execute(
+                "UPDATE prompts
+                 SET system_prompt = ?1, user_prompt_template = ?2, updated_at = datetime('now')
+                 WHERE key = 'rewrite-article' AND user_prompt_template = ?3",
+                params![system_prompt, user_prompt_template, LEGACY_REWRITE_TEMPLATE],
+            );
         }
     }
 

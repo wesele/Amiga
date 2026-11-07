@@ -57,7 +57,7 @@
           {{ t('news.cancelRewrite') }}
         </button>
       </div>
-      <div v-else-if="rewriteError && !article.rewritten_body && !blocksOnRewrite" class="rewrite-banner rewrite-banner-error" role="alert">
+      <div v-else-if="rewriteError && !article.rewritten_body" class="rewrite-banner rewrite-banner-error" role="alert">
         <span>{{ rewriteError }}</span>
         <button type="button" class="btn-cancel-rewrite" @click="doRewrite">{{ t('common.retry') }}</button>
       </div>
@@ -209,7 +209,7 @@ import { eventBus } from "@/shared/eventBus.js";
 import { openSourceUrl } from "./utils.js";
 import { displayLang } from "@/shared/constants.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { cleanHtmlText, tokenizeArticleText } from "./articleText.js";
+import { cleanHtmlText, cleanRssSummary, tokenizeArticleText } from "./articleText.js";
 import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
 import { useReadAloud } from "@/shared/readAloud.js";
@@ -236,13 +236,18 @@ let rewriteGeneration = 0;
 
 const blocksOnRewrite = shouldBlockUiOnRewrite(isTvLayoutMode);
 const articleTitle = computed(() => cleanHtmlText(article.value?.original_title || ""));
+const cleanOriginalBody = computed(() => {
+  const art = article.value;
+  if (!art) return "";
+  return cleanRssSummary(art.original_title, art.original_body);
+});
 const displayBody = computed(() => {
   const art = article.value;
   if (!art) return "";
-  return art.rewritten_body || art.original_body || "";
+  return art.rewritten_body || cleanOriginalBody.value || "";
 });
 const showingOriginalFallback = computed(() => (
-  Boolean(article.value?.original_body)
+  Boolean(cleanOriginalBody.value)
   && !article.value?.rewritten_body
   && !rewriting.value
 ));

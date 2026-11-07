@@ -1,81 +1,55 @@
-import { onBeforeUnmount, ref, watch } from "vue";
-import { getSpeechLang, pickSpeechVoice } from "@/shared/speechTts.js";
-import { speakNativeTts, stopNativeTts } from "@/shared/ttsBridge.js";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { canUseSpeechTts, speakText, stopSpeech } from "@/shared/speechTts.js";
 
 export function useListeningQuestionAudio({ currentQuestion, currentQuestionIndex, getTargetLang }) {
   const audioBusy = ref(false);
+  const speakingQuestionKey = ref(null);
 
-  let speechUtterance = null;
-  let pendingNativeRead = null;
-  let nativeToken = null;
-
-  function speakWithWeb(text, speechLang) {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      return false;
-    }
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = speechLang;
-    utterance.voice = pickSpeechVoice(speechLang);
-    utterance.rate = 0.9;
-    utterance.onend = () => {
-      if (speechUtterance === utterance) {
-        audioBusy.value = false;
-        speechUtterance = null;
-      }
-    };
-    utterance.onerror = utterance.onend;
-    speechUtterance = utterance;
-    audioBusy.value = true;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-    return true;
-  }
-
-  function onTtsDone() {
-    pendingNativeRead = null;
-    nativeToken = null;
-    audioBusy.value = false;
-    speechUtterance = null;
-  }
-
-  function onTtsError() {
-    const pending = pendingNativeRead;
-    pendingNativeRead = null;
-    nativeToken = null;
-    audioBusy.value = false;
-    speechUtterance = null;
-    if (pending) speakWithWeb(pending.text, pending.speechLang);
-  }
+  const canPlayListeningAudio = computed(() => {
+    return canUseSpeechTts() && !!currentQuestion.value?.audio_text;
+  });
 
   function stopAudio() {
-    pendingNativeRead = null;
-    stopNativeTts(nativeToken);
-    nativeToken = null;
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
+    stopSpeech();
     audioBusy.value = false;
-    speechUtterance = null;
+    speakingQuestionKey.value = null;
   }
 
   function playAudio() {
     const text = currentQuestion.value?.audio_text;
     if (!text || audioBusy.value) return;
     stopAudio();
-    const speechLang = getSpeechLang(getTargetLang());
+    const speechLang = typeof getTargetLang === "function" ? getTargetLang() : (getTargetLang || "en");
+    audioBusy.value = true;
+    speakingQuestionKey.value = currentQuestion.value?.id ?? currentQuestionIndex?.value ?? "current";
 
-    const native = speakNativeTts(text, speechLang, {
-      onDone: onTtsDone,
-      onError: onTtsError,
+    const ok = speakText(text, speechLang, {
+      rate: 0.9,
+      onStart: () => {
+        audioBusy.value = true;
+      },
+      onEnd: () => {
+        audioBusy.value = false;
+        speakingQuestionKey.value = null;
+      },
+      onError: () => {
+        audioBusy.value = false;
+        speakingQuestionKey.value = null;
+      },
     });
-    if (native.started) {
-      nativeToken = native.token;
-      pendingNativeRead = { text, speechLang };
-      audioBusy.value = true;
-      return;
-    }
 
-    speakWithWeb(text, speechLang);
+    if (!ok) {
+      audioBusy.value = false;
+      speakingQuestionKey.value = null;
+    }
+  }
+
+  function toggleListeningAudio() {
+    if (audioBusy.value) {
+      stopAudio();
+    } else {
+      playAudio();
+    }
   }
 
   watch(currentQuestionIndex, () => {
@@ -88,7 +62,12 @@ export function useListeningQuestionAudio({ currentQuestion, currentQuestionInde
 
   return {
     audioBusy,
+    isPlaying: audioBusy,
+    speakingQuestionKey,
+    canPlayListeningAudio,
     playAudio,
     stopAudio,
+    stopListeningAudio: stopAudio,
+    toggleListeningAudio,
   };
 }

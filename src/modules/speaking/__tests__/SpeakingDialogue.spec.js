@@ -35,6 +35,7 @@ function makeRouter() {
 describe("SpeakingDialogue", () => {
   let mockInvoke;
   let speakTextSpy;
+  let stopSpeechSpy;
 
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -45,6 +46,7 @@ describe("SpeakingDialogue", () => {
       onEnd?.();
       return true;
     });
+    stopSpeechSpy = vi.spyOn(speechTts, "stopSpeech").mockImplementation(() => {});
 
     vi.spyOn(learningContext, "loadLearningContext").mockResolvedValue({
       user: { id: "u1", native_language: "zh" },
@@ -120,7 +122,8 @@ describe("SpeakingDialogue", () => {
     expect(wrapper.findAll(".goal-chip").length).toBe(3);
     expect(wrapper.find(".goals-counter").text()).toContain("0/3");
     expect(wrapper.find(".voice-badge").text()).toContain("Aoede");
-    expect(speakTextSpy).toHaveBeenCalledWith("Hola, ¿cómo estás?", "es");
+    expect(stopSpeechSpy).toHaveBeenCalled();
+    expect(speakTextSpy).not.toHaveBeenCalled();
   });
 
   it("translates AI bubble when translate button is clicked", async () => {
@@ -168,6 +171,7 @@ describe("SpeakingDialogue", () => {
     );
     expect(wrapper.find(".hint-box").exists()).toBe(true);
     expect(wrapper.find(".hint-text").text()).toBe("Estoy bien, gracias.");
+    expect(speakTextSpy).toHaveBeenCalledWith("Estoy bien, gracias.", "es");
   });
 
   it("toggles mic mute state on mic button click", async () => {
@@ -211,5 +215,75 @@ describe("SpeakingDialogue", () => {
     const snapshot = getLiveSessionSnapshot("sess-1");
     expect(snapshot).not.toBeNull();
     expect(snapshot.totalGoalsCount).toBe(3);
+  });
+
+  it("scrolls chat stream to bottom when messages or streaming text update", async () => {
+    const router = makeRouter();
+    await router.push({ name: "speaking-dialogue", params: { topicId: "greetings" } });
+    const wrapper = mount(SpeakingDialogue, {
+      global: { plugins: [router] },
+      props: { topicId: "greetings" },
+    });
+
+    await flushPromises();
+
+    const streamEl = wrapper.find(".chat-stream").element;
+    expect(streamEl).toBeDefined();
+
+    // Mock scrollHeight
+    Object.defineProperty(streamEl, "scrollHeight", {
+      value: 500,
+      configurable: true,
+      writable: true,
+    });
+
+    // Push new AI message into live session messages
+    wrapper.vm.live.messages.value = [
+      {
+        id: "msg-1",
+        role: "ai",
+        text: "Hola, ¿cómo estás?",
+        streaming: true,
+      },
+    ];
+
+    await flushPromises();
+
+    expect(streamEl.scrollTop).toBe(500);
+
+    // Stream text update on the same active message
+    streamEl.scrollHeight = 850;
+    wrapper.vm.live.messages.value[0].text = "Hola, ¿cómo estás hoy?";
+
+    await flushPromises();
+
+    expect(streamEl.scrollTop).toBe(850);
+
+    // Verify coaching on a user message triggers scroll even when an AI message is already after it
+    wrapper.vm.live.messages.value = [
+      {
+        id: "msg-user-1",
+        role: "user",
+        text: "Me gustaría un café.",
+        coaching: null,
+      },
+      {
+        id: "msg-ai-2",
+        role: "ai",
+        text: "¡Claro! ¿Con leche o solo?",
+        streaming: false,
+      },
+    ];
+    await flushPromises();
+
+    streamEl.scrollHeight = 1200;
+    wrapper.vm.live.messages.value[0].coaching = {
+      betterExpression: "Quisiera un café, por favor.",
+      tipNative: "Use quisiera for polite requests.",
+      total: 92,
+    };
+    await flushPromises();
+
+    expect(streamEl.scrollTop).toBe(1200);
   });
 });

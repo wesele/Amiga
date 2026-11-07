@@ -1,1 +1,8 @@
-export { cleanHtmlText, extractWordTexts, getContext, tokenizeArticleText } from "@/shared/articleText.js";
+export {
+  cleanHtmlText,
+  cleanRssSummary,
+  extractWordTexts,
+  getContext,
+  isSummaryDuplicateOfTitle,
+  tokenizeArticleText,
+} from "@/shared/articleText.js";

@@ -91,6 +91,52 @@
         </div>
       </template>
 
+      <!-- Global Reading Default Voice Card -->
+      <div class="settings-card voice-selector-card">
+        <div class="field-group">
+          <div class="voice-header">
+            <div>
+              <label class="field-label voice-label">{{ t('llm.readingVoiceLabel') }}</label>
+              <p class="voice-desc">{{ t('llm.readingVoiceDesc') }}</p>
+            </div>
+            <button
+              type="button"
+              class="btn-voice-test"
+              :class="{ active: voiceTesting || voicePlaying }"
+              @click="toggleVoiceTest"
+            >
+              <span v-if="voiceTesting && !voicePlaying" class="test-spinner" />
+              <span v-else class="voice-icon">{{ voicePlaying ? '⏹' : '🔊' }}</span>
+              <span>
+                {{
+                  voicePlaying
+                    ? t('llm.stopVoiceTest')
+                    : voiceTesting
+                    ? t('llm.testingVoice')
+                    : t('llm.testVoice')
+                }}
+              </span>
+            </button>
+          </div>
+
+          <div class="voice-options-grid" role="radiogroup" :aria-label="t('llm.readingVoiceLabel')">
+            <button
+              v-for="voice in voiceOptions"
+              :key="voice.id"
+              type="button"
+              role="radio"
+              :aria-checked="selectedVoice === voice.id"
+              class="voice-chip"
+              :class="{ selected: selectedVoice === voice.id, 'is-hidden-voice': voice.hidden }"
+              @click="selectVoice(voice.id)"
+            >
+              <span class="voice-chip-name">{{ voice.name }}</span>
+              <span v-if="voice.hidden" class="voice-hidden-badge">{{ t('llm.hiddenVoiceTag') }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Action buttons -->
       <div class="action-buttons">
         <button class="btn-test" :disabled="testing" @click="testConnection">
@@ -121,10 +167,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onBeforeUnmount } from "vue";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import {
+  getCurrentUser,
   getMultimodalConfig,
   saveMultimodalConfig,
   testMultimodalConnection,
@@ -132,6 +179,14 @@ import {
   fetchModels,
 } from "@/shared/api.js";
 import { testGeminiLiveConnection } from "@/modules/speaking/useGeminiLiveSession.js";
+import {
+  GEMINI_LIVE_TTS_VOICE,
+  GEMINI_LIVE_VOICE_OPTIONS,
+  loadGeminiLiveVoiceSetting,
+  previewGeminiLiveVoice,
+  saveGeminiLiveVoiceSetting,
+  stopSpeech,
+} from "@/shared/speechTts.js";
 import { useI18n } from "@/shared/i18n";
 import { isTvLayoutMode } from "@/shared/appMode.js";
 
@@ -147,6 +202,12 @@ const testResult = ref(null);
 const saved = ref(false);
 const savedMessage = ref("");
 const error = ref("");
+
+const voiceOptions = GEMINI_LIVE_VOICE_OPTIONS;
+const selectedVoice = ref(GEMINI_LIVE_TTS_VOICE);
+const voiceTesting = ref(false);
+const voicePlaying = ref(false);
+const targetLang = ref("es");
 
 const showMetricsModal = ref(false);
 const metricsMessage = ref("");
@@ -194,7 +255,15 @@ async function onApiParamsChange() {
 
 onMounted(async () => {
   try {
-    const config = await getMultimodalConfig();
+    const [config, savedVoice, user] = await Promise.all([
+      getMultimodalConfig(),
+      loadGeminiLiveVoiceSetting(),
+      getCurrentUser().catch(() => null),
+    ]);
+    selectedVoice.value = savedVoice || GEMINI_LIVE_TTS_VOICE;
+    if (user && user.target_language) {
+      targetLang.value = user.target_language;
+    }
     mode.value = config.mode || "builtin";
     if (config.builtin) {
       builtin.value = {
@@ -238,6 +307,67 @@ onMounted(async () => {
     console.error("Failed to load multimodal config:", e);
   }
 });
+
+onBeforeUnmount(() => {
+  if (voiceTesting.value || voicePlaying.value) {
+    stopSpeech();
+  }
+});
+
+async function selectVoice(voiceId) {
+  error.value = "";
+  saved.value = false;
+  try {
+    const next = await saveGeminiLiveVoiceSetting(voiceId);
+    selectedVoice.value = next;
+    savedMessage.value = t("llm.voiceSaved", { voice: next });
+    saved.value = true;
+    setTimeout(() => {
+      saved.value = false;
+    }, 2500);
+  } catch (e) {
+    console.error("Failed to save reading voice:", e);
+    error.value = t("llm.saveFail");
+  }
+}
+
+function toggleVoiceTest() {
+  if (voiceTesting.value || voicePlaying.value) {
+    stopSpeech();
+    voiceTesting.value = false;
+    voicePlaying.value = false;
+    return;
+  }
+
+  error.value = "";
+  const cfg = currentConfig();
+  voiceTesting.value = true;
+  voicePlaying.value = false;
+
+  const started = previewGeminiLiveVoice({
+    voiceName: selectedVoice.value,
+    lang: targetLang.value || "es",
+    config: cfg,
+    onStart: () => {
+      voiceTesting.value = false;
+      voicePlaying.value = true;
+    },
+    onEnd: () => {
+      voiceTesting.value = false;
+      voicePlaying.value = false;
+    },
+    onError: (err) => {
+      voiceTesting.value = false;
+      voicePlaying.value = false;
+      error.value = t("llm.voiceTestFail") + (err?.message ? ` (${err.message})` : "");
+    },
+  });
+
+  if (!started) {
+    voiceTesting.value = false;
+    voicePlaying.value = false;
+  }
+}
 
 function currentConfig() {
   if (mode.value === "builtin") {
@@ -421,6 +551,8 @@ async function testConnection() {
 .source-option:focus-visible,
 .btn-test:focus-visible,
 .btn-save:focus-visible,
+.btn-voice-test:focus-visible,
+.voice-chip:focus-visible,
 .field-input:focus-visible {
   z-index: 2;
   outline: 3px solid var(--blue) !important;
@@ -544,6 +676,96 @@ async function testConnection() {
 .toggle-key-btn:hover {
   background: var(--surface-variant);
   color: var(--text);
+}
+
+/* Voice selector card */
+.voice-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.voice-label {
+  margin-bottom: 2px;
+}
+.voice-desc {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-light);
+}
+.btn-voice-test {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--blue);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+.btn-voice-test:hover {
+  background: #e8f0fe;
+}
+.btn-voice-test.active {
+  background: var(--blue);
+  color: #fff;
+}
+.btn-voice-test.active .test-spinner {
+  border-color: #fff;
+  border-top-color: transparent;
+}
+.voice-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+.voice-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+  gap: 8px;
+}
+.voice-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+.voice-chip:hover {
+  background: var(--surface-variant);
+}
+.voice-chip.selected {
+  border-color: var(--blue);
+  background: #e8f0fe;
+  color: var(--blue);
+  font-weight: 600;
+}
+.voice-hidden-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #fff1b8;
+  color: #ad6800;
+  border: 1px solid #ffd666;
+  line-height: 1.2;
 }
 
 /* Action buttons */

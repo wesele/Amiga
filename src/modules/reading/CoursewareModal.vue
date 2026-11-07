@@ -185,6 +185,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import { useI18n } from "@/shared/i18n";
 import { isTvLayoutMode } from "@/shared/appMode.js";
 import { pushInPageBackHandler } from "@/shared/inPageBack.js";
+import { speakText, stopSpeech } from "@/shared/speechTts.js";
 import {
   lookupWordIds,
   updateWordMastery,
@@ -273,11 +274,7 @@ watch(
 watch(currentSlideIndex, () => {
   replayCurrentSvg();
   cleanupSnippetPlayback();
-  if (typeof window !== "undefined" && window.speechSynthesis) {
-    try {
-      window.speechSynthesis.cancel();
-    } catch (_) {}
-  }
+  stopSpeech();
   isSpeaking.value = false;
 });
 
@@ -365,11 +362,7 @@ function finishCourseware() {
 function onClose() {
   persistProgressIfNeeded();
   cleanupSnippetPlayback();
-  if (typeof window !== "undefined" && window.speechSynthesis) {
-    try {
-      window.speechSynthesis.cancel();
-    } catch (_) {}
-  }
+  stopSpeech();
   isSpeaking.value = false;
   emit("close");
 }
@@ -382,18 +375,21 @@ function onRegenerate() {
 
 // ---- Audio Pronunciation & Snippets ----
 function speakTerm(text) {
-  if (!text || typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  try {
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = props.targetLang === "es" ? "es-ES" : props.targetLang === "en" ? "en-US" : props.targetLang;
-    utter.rate = 0.88;
-    isSpeaking.value = true;
-    utter.onend = () => { isSpeaking.value = false; };
-    utter.onerror = () => { isSpeaking.value = false; };
-    window.speechSynthesis.speak(utter);
-  } catch (e) {
-    console.warn("TTS speak failed:", e);
+  if (!text) return;
+  isSpeaking.value = true;
+  const ok = speakText(text, props.targetLang || "en", {
+    rate: 0.88,
+    onStart: () => {
+      isSpeaking.value = true;
+    },
+    onEnd: () => {
+      isSpeaking.value = false;
+    },
+    onError: () => {
+      isSpeaking.value = false;
+    },
+  });
+  if (!ok) {
     isSpeaking.value = false;
   }
 }
@@ -515,6 +511,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", handleKeydown);
   cleanupSnippetPlayback();
+  stopSpeech();
   if (removeBackHandler) removeBackHandler();
 });
 </script>

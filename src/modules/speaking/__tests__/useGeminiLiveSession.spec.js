@@ -51,11 +51,14 @@ class MockWebSocket {
 
 // Mock WebAudio context
 class MockAudioContext {
+  static instances = [];
   constructor(options = {}) {
     this.sampleRate = options.sampleRate || 24000;
     this.currentTime = 0;
     this.state = "running";
     this.destination = {};
+    this.lastScriptProcessor = null;
+    MockAudioContext.instances.push(this);
   }
   createBuffer(channels, length, sampleRate) {
     const channelData = new Float32Array(length);
@@ -95,11 +98,13 @@ class MockAudioContext {
     };
   }
   createScriptProcessor() {
-    return {
+    const proc = {
       onaudioprocess: null,
       connect: vi.fn(),
       disconnect: vi.fn(),
     };
+    this.lastScriptProcessor = proc;
+    return proc;
   }
   resume() {
     return Promise.resolve();
@@ -161,7 +166,7 @@ describe("useGeminiLiveSession helper functions", () => {
         model: "gemini-3.8-live",
         voiceName: "Aoede",
         systemInstruction: "You are a Spanish barista in Madrid.",
-        silenceDurationMs: 1400,
+        silenceDurationMs: 800,
       });
 
       expect(payload.setup.model).toBe("models/gemini-3.8-live");
@@ -173,8 +178,14 @@ describe("useGeminiLiveSession helper functions", () => {
         "You are a Spanish barista in Madrid."
       );
       expect(
+        payload.setup.realtimeInputConfig.automaticActivityDetection.startOfSpeechSensitivity
+      ).toBe("START_SENSITIVITY_HIGH");
+      expect(
+        payload.setup.realtimeInputConfig.automaticActivityDetection.endOfSpeechSensitivity
+      ).toBe("END_SENSITIVITY_HIGH");
+      expect(
         payload.setup.realtimeInputConfig.automaticActivityDetection.silenceDurationMs
-      ).toBe(1400);
+      ).toBe(800);
 
       // Verify report_turn_and_progress tool
       const tool = payload.setup.tools[0].functionDeclarations[0];
@@ -285,6 +296,7 @@ describe("useGeminiLiveSession helper functions", () => {
 describe("useGeminiLiveSession composable", () => {
   beforeEach(() => {
     MockWebSocket.instances = [];
+    MockAudioContext.instances = [];
   });
 
   it("handles full lifecycle: connect, greeting, transcription, tool call, coaching update", async () => {
@@ -331,6 +343,9 @@ describe("useGeminiLiveSession composable", () => {
       m.clientContent?.turns?.[0]?.parts?.[0]?.text?.includes("¡Hola! ¿En qué puedo ayudarte hoy?")
     );
     expect(greetingMsg).toBeTruthy();
+    expect(greetingMsg.clientContent.turns[0].parts[0].text).toBe(
+      'Please start the roleplay now by greeting the learner in character with this opening line: "¡Hola! ¿En qué puedo ayudarte hoy?"'
+    );
 
     // 2. Simulate AI streaming output transcription and audio chunk
     ws.receive({
@@ -422,6 +437,7 @@ describe("useGeminiLiveSession composable", () => {
     // Verify silent toolResponse was sent back over WebSocket
     const toolResp = ws.sent.find((m) => m.toolResponse?.functionResponses?.[0]?.id === "call_123");
     expect(toolResp).toBeTruthy();
+    expect(toolResp.toolResponse.functionResponses[0].scheduling).toBe("SILENT");
     expect(toolResp.toolResponse.functionResponses[0].response.scheduling).toBe("SILENT");
 
     // Verify onTurnRecorded callback was invoked
@@ -485,5 +501,311 @@ describe("useGeminiLiveSession composable", () => {
     // Interrupt AI audio
     session.interruptAi();
     expect(session.isAiSpeaking.value).toBe(false);
+  });
+
+  it("streams mic audio using realtimeInput.audio schema and suppresses frames when isAiSpeaking is true", async () => {
+    const mockTracks = [{ stop: vi.fn() }];
+    const mockNavigator = {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getTracks: () => mockTracks,
+        }),
+      },
+    };
+
+    const session = useGeminiLiveSession({
+      WebSocketImpl: MockWebSocket,
+      AudioContextImpl: MockAudioContext,
+      navigatorImpl: mockNavigator,
+      autoStartMic: false,
+    });
+
+    await session.connect({
+      apiKey: "test-api-key",
+      baseUrl: "https://generativelanguage.googleapis.com",
+    });
+
+    await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(1));
+    const ws = MockWebSocket.instances[0];
+    await vi.waitFor(() => expect(ws.readyState).toBe(MockWebSocket.OPEN));
+
+    ws.receive({ setupComplete: {} });
+    expect(session.status.value).toBe("connected");
+
+    await session.startMicCapture();
+
+    const inputCtx = MockAudioContext.instances.find((ctx) => ctx.lastScriptProcessor);
+    expect(inputCtx).toBeTruthy();
+    const processor = inputCtx.lastScriptProcessor;
+    expect(typeof processor.onaudioprocess).toBe("function");
+
+    // 1. Send normal audio frame when AI is silent
+    const fakeBuffer = new Float32Array([0.1, -0.2, 0.3, -0.4]);
+    processor.onaudioprocess({
+      inputBuffer: {
+        getChannelData: () => fakeBuffer,
+      },
+    });
+
+    const sentAudioMsg = ws.sent.find((m) => m.realtimeInput?.audio);
+    expect(sentAudioMsg).toBeTruthy();
+    expect(sentAudioMsg.realtimeInput.audio.mimeType).toBe("audio/pcm;rate=16000");
+    expect(typeof sentAudioMsg.realtimeInput.audio.data).toBe("string");
+    expect(sentAudioMsg.realtimeInput.audio.data.length).toBeGreaterThan(0);
+
+    // Verify deprecated mediaChunks is NOT used
+    const sentMediaChunks = ws.sent.find((m) => m.realtimeInput?.mediaChunks);
+    expect(sentMediaChunks).toBeUndefined();
+
+    // 2. Suppress microphone streaming while isAiSpeaking is true
+    session.isAiSpeaking.value = true;
+    const sentCountBefore = ws.sent.length;
+    processor.onaudioprocess({
+      inputBuffer: {
+        getChannelData: () => fakeBuffer,
+      },
+    });
+
+    expect(session.userAudioLevel.value).toBe(0);
+    expect(ws.sent.length).toBe(sentCountBefore);
+
+    // 3. Suppress microphone streaming when mic is muted
+    session.isAiSpeaking.value = false;
+    session.isMicMuted.value = true;
+    processor.onaudioprocess({
+      inputBuffer: {
+        getChannelData: () => fakeBuffer,
+      },
+    });
+
+    expect(session.userAudioLevel.value).toBe(0);
+    expect(ws.sent.length).toBe(sentCountBefore);
+
+    // 4. Suppress microphone streaming and zero userAudioLevel when WebSocket is not OPEN
+    session.isMicMuted.value = false;
+    ws.readyState = 2; // CLOSING
+    processor.onaudioprocess({
+      inputBuffer: {
+        getChannelData: () => fakeBuffer,
+      },
+    });
+
+    expect(session.userAudioLevel.value).toBe(0);
+    expect(ws.sent.length).toBe(sentCountBefore);
+
+    await session.disconnect();
+  });
+
+  it("handles server error messages by setting status to error and populating error.value", async () => {
+    const session = useGeminiLiveSession({
+      WebSocketImpl: MockWebSocket,
+      AudioContextImpl: MockAudioContext,
+      autoStartMic: false,
+    });
+
+    await session.connect({
+      apiKey: "test-api-key",
+      baseUrl: "https://generativelanguage.googleapis.com",
+    });
+
+    await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(1));
+    const ws = MockWebSocket.instances[0];
+
+    // Simulate server error frame with custom message
+    ws.receive({
+      error: {
+        code: 429,
+        message: "Resource has been exhausted (quota exceeded)",
+        status: "RESOURCE_EXHAUSTED",
+      },
+    });
+
+    expect(session.status.value).toBe("error");
+    expect(session.error.value).toBe("Resource has been exhausted (quota exceeded)");
+
+    // Test fallback error message when error.message is not provided
+    ws.receive({
+      error: {},
+    });
+    expect(session.status.value).toBe("error");
+    expect(session.error.value).toBe("Gemini Live 服务端错误");
+
+    await session.disconnect();
+  });
+
+  it("safety cleanup timer prevents isAiSpeaking from staying true if onended never fires", async () => {
+    vi.useFakeTimers();
+    try {
+      class LeakyAudioContext extends MockAudioContext {
+        createBufferSource() {
+          const src = {
+            buffer: null,
+            connect: vi.fn(),
+            disconnect: vi.fn(),
+            start: vi.fn(),
+            stop: vi.fn(),
+            onended: null,
+          };
+          return src;
+        }
+      }
+
+      const session = useGeminiLiveSession({
+        WebSocketImpl: MockWebSocket,
+        AudioContextImpl: LeakyAudioContext,
+        autoStartMic: false,
+      });
+
+      const connectPromise = session.connect({
+        apiKey: "test-api-key",
+      });
+      vi.advanceTimersByTime(10);
+      await connectPromise;
+
+      const ws = MockWebSocket.instances[0];
+      ws.receive({ setupComplete: {} });
+
+      const sampleAudioB64 = float32ToPcm16Base64(new Float32Array([0.1, -0.1]));
+      ws.receive({
+        serverContent: {
+          modelTurn: {
+            parts: [{ inlineData: { mimeType: "audio/pcm;rate=24000", data: sampleAudioB64 } }],
+          },
+        },
+      });
+
+      expect(session.isAiSpeaking.value).toBe(true);
+
+      // Advance timers past maxWaitMs (duration + 400ms)
+      vi.advanceTimersByTime(1000);
+
+      expect(session.isAiSpeaking.value).toBe(false);
+      expect(session.aiAudioLevel.value).toBe(0);
+
+      await session.disconnect();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stopAiPlayback clears _safetyTimer and resets onended on all active sources", async () => {
+    vi.useFakeTimers();
+    try {
+      const session = useGeminiLiveSession({
+        WebSocketImpl: MockWebSocket,
+        AudioContextImpl: MockAudioContext,
+        autoStartMic: false,
+      });
+
+      const connectPromise = session.connect({ apiKey: "test-api-key" });
+      vi.advanceTimersByTime(10);
+      await connectPromise;
+
+      const ws = MockWebSocket.instances[0];
+      ws.receive({ setupComplete: {} });
+
+      const sampleAudioB64 = float32ToPcm16Base64(new Float32Array([0.1, -0.1]));
+      ws.receive({
+        serverContent: {
+          modelTurn: {
+            parts: [{ inlineData: { mimeType: "audio/pcm;rate=24000", data: sampleAudioB64 } }],
+          },
+        },
+      });
+
+      expect(session.isAiSpeaking.value).toBe(true);
+
+      // Stop playback directly
+      session.interruptAi();
+      expect(session.isAiSpeaking.value).toBe(false);
+      expect(session.aiAudioLevel.value).toBe(0);
+
+      // Advancing timer after stop should not trigger ghost state changes
+      vi.advanceTimersByTime(2000);
+      expect(session.isAiSpeaking.value).toBe(false);
+
+      await session.disconnect();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("enforces 350ms echo tail cooldown after AI speech ends before mic frames can be processed", async () => {
+    vi.useFakeTimers();
+    try {
+      const mockTracks = [{ stop: vi.fn() }];
+      const mockNavigator = {
+        mediaDevices: {
+          getUserMedia: vi.fn().mockResolvedValue({
+            getTracks: () => mockTracks,
+          }),
+        },
+      };
+
+      const session = useGeminiLiveSession({
+        WebSocketImpl: MockWebSocket,
+        AudioContextImpl: MockAudioContext,
+        navigatorImpl: mockNavigator,
+        autoStartMic: false,
+      });
+
+      const connectPromise = session.connect({
+        apiKey: "test-api-key",
+      });
+      vi.advanceTimersByTime(10);
+      await connectPromise;
+
+      const ws = MockWebSocket.instances[0];
+      ws.receive({ setupComplete: {} });
+      await session.startMicCapture();
+
+      const inputCtx = MockAudioContext.instances.find((ctx) => ctx.lastScriptProcessor);
+      const processor = inputCtx.lastScriptProcessor;
+
+      // Play an AI audio chunk
+      const sampleAudioB64 = float32ToPcm16Base64(new Float32Array([0.1, -0.1]));
+      ws.receive({
+        serverContent: {
+          modelTurn: {
+            parts: [{ inlineData: { mimeType: "audio/pcm;rate=24000", data: sampleAudioB64 } }],
+          },
+        },
+      });
+      expect(session.isAiSpeaking.value).toBe(true);
+
+      // Advance timers by 500ms so playPcmChunk safety timer or onended fires
+      vi.advanceTimersByTime(500);
+      expect(session.isAiSpeaking.value).toBe(false);
+
+      // Now AI is no longer speaking, but 350ms echo tail cooldown is active!
+      const fakeBuffer = new Float32Array([0.2, -0.2, 0.4]);
+      const sentBefore = ws.sent.length;
+      processor.onaudioprocess({
+        inputBuffer: {
+          getChannelData: () => fakeBuffer,
+        },
+      });
+
+      // Frame should be suppressed and userAudioLevel zeroed
+      expect(session.userAudioLevel.value).toBe(0);
+      expect(ws.sent.length).toBe(sentBefore);
+
+      // Advance timers past 350ms cooldown (e.g. 360ms)
+      vi.advanceTimersByTime(360);
+
+      // Now mic frame should be processed and sent!
+      processor.onaudioprocess({
+        inputBuffer: {
+          getChannelData: () => fakeBuffer,
+        },
+      });
+
+      expect(session.userAudioLevel.value).toBeGreaterThan(0);
+      expect(ws.sent.length).toBe(sentBefore + 1);
+
+      await session.disconnect();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

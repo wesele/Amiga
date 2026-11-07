@@ -118,9 +118,10 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "@/shared/i18n";
 import QuestionImage from "./QuestionImage.vue";
+import { speakText, stopSpeech } from "@/shared/speechTts.js";
 
 const props = defineProps({
   question: { type: Object, required: true },
@@ -277,27 +278,31 @@ function removeWord(idx) {
   emit("update:answer", [...builtWords.value]);
 }
 
+const isPlayingAudio = audioBusy;
+
 function emitAnswer() {
   emit("update:answer", textAnswer.value);
 }
 
-async function playAudio() {
+function playAudio() {
   const text = props.question.audioText;
-  if (!text || !("speechSynthesis" in window)) return;
+  if (!text || audioBusy.value) return;
+  stopSpeech();
   audioBusy.value = true;
-  try {
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    const lang = props.question.language === "es" ? "es-ES"
-      : props.question.language === "en" ? "en-US"
-      : "zh-CN";
-    utter.lang = lang;
-    await new Promise((resolve) => {
-      utter.onend = resolve;
-      utter.onerror = resolve;
-      window.speechSynthesis.speak(utter);
-    });
-  } finally {
+  const lang = props.question.language || props.targetLang || "en";
+  const ok = speakText(text, lang, {
+    rate: 0.9,
+    onStart: () => {
+      audioBusy.value = true;
+    },
+    onEnd: () => {
+      audioBusy.value = false;
+    },
+    onError: () => {
+      audioBusy.value = false;
+    },
+  });
+  if (!ok) {
     audioBusy.value = false;
   }
 }
@@ -305,6 +310,8 @@ async function playAudio() {
 watch(
   () => props.question,
   () => {
+    stopSpeech();
+    audioBusy.value = false;
     // Questions from generated lessons do not always have an id. Watch the
     // question object so internal answer state is reset whenever the lesson
     // advances, regardless of the question schema.
@@ -316,6 +323,11 @@ watch(
   },
   { immediate: true },
 );
+
+onBeforeUnmount(() => {
+  stopSpeech();
+  audioBusy.value = false;
+});
 </script>
 
 <style scoped>

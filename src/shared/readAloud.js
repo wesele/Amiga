@@ -1,42 +1,25 @@
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
-import { isNativeTtsAvailable, speakNativeTts, stopNativeTts } from "@/shared/ttsBridge.js";
-
-const SPEECH_LANG_MAP = {
-  es: "es-ES",
-  en: "en-US",
-  zh: "zh-CN",
-};
-
-function getSpeechLang(lang) {
-  return SPEECH_LANG_MAP[lang] || lang || "en-US";
-}
-
-function pickSpeechVoice(lang) {
-  if (typeof window === "undefined" || !window.speechSynthesis) return null;
-  const voices = window.speechSynthesis.getVoices?.() || [];
-  const langLower = lang.toLowerCase();
-  const family = langLower.split("-")[0];
-  return (
-    voices.find((voice) => voice.lang.toLowerCase() === langLower) ||
-    voices.find((voice) => voice.lang.toLowerCase().startsWith(`${family}-`)) ||
-    voices.find((voice) => voice.lang.toLowerCase() === family) ||
-    null
-  );
-}
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import {
+  canUseSpeechTts,
+  fetchSpeechMultimodalConfig,
+  speakText,
+  stopSpeech,
+} from "@/shared/speechTts.js";
 
 export function useReadAloud({ getText, getTargetLang, t }) {
   const reading = ref(false);
   const readStatus = ref("");
-  let speechUtterance = null;
   let readStatusTimer = null;
-  let pendingNativeRead = null;
-  let nativeToken = null;
-  const nativeTtsAvailable = ref(false);
+  const ttsAvailable = ref(canUseSpeechTts());
 
   const canRead = computed(() => {
-    const text = getText();
+    const text = getText ? getText() : "";
     if (!text || !String(text).trim()) return false;
-    return nativeTtsAvailable.value || (typeof window !== "undefined" && "speechSynthesis" in window);
+    return ttsAvailable.value || canUseSpeechTts();
+  });
+
+  const currentLang = computed(() => {
+    return (typeof getTargetLang === "function" ? getTargetLang() : getTargetLang) || "en";
   });
 
   function showReadStatus(msg) {
@@ -48,90 +31,55 @@ export function useReadAloud({ getText, getTargetLang, t }) {
     }, 2800);
   }
 
-  function onTtsDone() {
-    pendingNativeRead = null;
-    nativeToken = null;
-    reading.value = false;
-    speechUtterance = null;
-  }
-
-  function onTtsError(code) {
-    const pending = pendingNativeRead;
-    pendingNativeRead = null;
-    nativeToken = null;
-    reading.value = false;
-    speechUtterance = null;
-    if (!pending) return;
-    if (speakWithWeb(pending.text, pending.speechLang)) return;
-    if (code === "missing-language" || String(code).includes("missing")) {
-      showReadStatus(t("news.readAloudMissingLanguage"));
-    } else {
-      showReadStatus(t("news.readAloudFail"));
-    }
-  }
-
-  function speakWithWeb(text, speechLang) {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      return false;
-    }
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = speechLang;
-    utterance.voice = pickSpeechVoice(speechLang);
-    utterance.rate = 0.9;
-    utterance.onend = () => {
-      if (speechUtterance === utterance) {
-        reading.value = false;
-        speechUtterance = null;
-      }
-    };
-    utterance.onerror = utterance.onend;
-    speechUtterance = utterance;
-    reading.value = true;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-    return true;
-  }
-
   function startReading() {
     if (!canRead.value) return;
     stopReading();
-    const text = String(getText()).trim();
-    const speechLang = getSpeechLang(getTargetLang());
+    const text = String(getText ? getText() : "").trim();
+    if (!text) return;
+    const speechLang = currentLang.value;
 
-    const native = speakNativeTts(text, speechLang, {
-      onDone: onTtsDone,
-      onError: onTtsError,
+    const ok = speakText(text, speechLang, {
+      rate: 0.9,
+      onStart: () => {
+        reading.value = true;
+      },
+      onEnd: () => {
+        reading.value = false;
+      },
+      onError: (err) => {
+        reading.value = false;
+        const msg = String(err?.message || err || "");
+        if (msg.includes("missing-language") || msg.includes("missing")) {
+          showReadStatus(t ? t("news.readAloudMissingLanguage") : "Speech data missing");
+        } else {
+          showReadStatus(
+            t
+              ? (t("common.readAloudUnavailable") !== "common.readAloudUnavailable"
+                  ? t("common.readAloudUnavailable")
+                  : t("news.readAloudFail"))
+              : "Read aloud failed",
+          );
+        }
+      },
     });
-    if (native.started) {
-      nativeToken = native.token;
-      pendingNativeRead = { text, speechLang };
-      reading.value = true;
-      return;
-    }
-    if (native.result !== "unavailable") {
-      if (speakWithWeb(text, speechLang)) return;
-      if (native.result === "missing-language") {
-        showReadStatus(t("news.readAloudMissingLanguage"));
-      } else {
-        showReadStatus(t("news.readAloudFail"));
-      }
-      return;
-    }
 
-    if (!speakWithWeb(text, speechLang)) {
-      showReadStatus(t("news.readAloudFail"));
+    if (ok) {
+      reading.value = true;
+    } else {
+      reading.value = false;
+      showReadStatus(
+        t
+          ? (t("common.readAloudUnavailable") !== "common.readAloudUnavailable"
+              ? t("common.readAloudUnavailable")
+              : t("news.readAloudFail"))
+          : "Read aloud failed",
+      );
     }
   }
 
   function stopReading() {
-    pendingNativeRead = null;
-    stopNativeTts(nativeToken);
-    nativeToken = null;
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
+    stopSpeech();
     reading.value = false;
-    speechUtterance = null;
   }
 
   function toggleReading() {
@@ -142,8 +90,12 @@ export function useReadAloud({ getText, getTargetLang, t }) {
     startReading();
   }
 
-  onMounted(() => {
-    nativeTtsAvailable.value = isNativeTtsAvailable();
+  onMounted(async () => {
+    ttsAvailable.value = canUseSpeechTts();
+    try {
+      await fetchSpeechMultimodalConfig();
+    } catch (_) {}
+    ttsAvailable.value = canUseSpeechTts();
   });
 
   onBeforeUnmount(() => {
@@ -156,9 +108,13 @@ export function useReadAloud({ getText, getTargetLang, t }) {
 
   return {
     reading,
+    isReading: reading,
     readStatus,
+    readError: readStatus,
+    currentLang,
     canRead,
     toggleReading,
+    startReading,
     stopReading,
   };
 }

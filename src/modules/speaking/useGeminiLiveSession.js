@@ -44,14 +44,14 @@ export function buildGeminiLiveWsUrl(baseUrl, apiKey) {
  * @param {string} [params.model="gemini-3.8-live"]
  * @param {string} [params.voiceName="Aoede"]
  * @param {string} [params.systemInstruction=""]
- * @param {number} [params.silenceDurationMs=1400]
+ * @param {number} [params.silenceDurationMs=800]
  * @returns {object}
  */
 export function buildGeminiLiveSetupPayload({
   model = "gemini-3.8-live",
   voiceName = "Aoede",
   systemInstruction = "",
-  silenceDurationMs = 1400,
+  silenceDurationMs = 800,
 } = {}) {
   const rawModel = model || "gemini-3.8-live";
   const normalizedModel = rawModel.startsWith("models/") ? rawModel : `models/${rawModel}`;
@@ -77,8 +77,8 @@ export function buildGeminiLiveSetupPayload({
       realtimeInputConfig: {
         automaticActivityDetection: {
           disabled: false,
-          startOfSpeechSensitivity: "START_SENSITIVITY_LOW",
-          endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
+          startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
+          endOfSpeechSensitivity: "END_SENSITIVITY_HIGH",
           prefixPaddingMs: 300,
           silenceDurationMs,
         },
@@ -344,6 +344,19 @@ export function testGeminiLiveConnection(
     ws.onmessage = (event) => {
       const handleData = (data) => {
         if (!data) return;
+        if (data.error) {
+          finish({
+            success: false,
+            message: data.error.message || "Gemini Live 服务端错误",
+            time_to_first_token_ms: 0,
+            handshake_ms: handshakeMs,
+            thinking_speed: 0,
+            decode_speed: 0,
+            thinking_tokens: 0,
+            completion_tokens: 0,
+          });
+          return;
+        }
         if (data.setupComplete) {
           handshakeMs = Math.max(1, Date.now() - startTime);
           promptSentTime = Date.now();
@@ -457,6 +470,7 @@ export function useGeminiLiveSession(options = {}) {
   let outputAudioCtx = null;
   let activeAudioSources = [];
   let nextAiPlayTime = 0;
+  let aiSpeechCooldownUntil = 0;
 
   function ensureOutputAudioContext() {
     if (!outputAudioCtx && AudioContextImpl) {
@@ -475,6 +489,10 @@ export function useGeminiLiveSession(options = {}) {
   function playPcmChunk(base64Pcm) {
     const ctx = ensureOutputAudioContext();
     if (!ctx || !ctx.createBuffer) return;
+
+    if (outputAudioCtx && outputAudioCtx.state === "suspended") {
+      outputAudioCtx.resume().catch(() => {});
+    }
 
     const float32Data = pcm16Base64ToFloat32(base64Pcm);
     if (!float32Data || float32Data.length === 0) return;
@@ -508,7 +526,15 @@ export function useGeminiLiveSession(options = {}) {
     isAiSpeaking.value = true;
     activeAudioSources.push(source);
 
-    source.onended = () => {
+    let cleanedUp = false;
+    let safetyTimer = null;
+    const cleanupSource = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      if (safetyTimer) {
+        clearTimeout(safetyTimer);
+        safetyTimer = null;
+      }
       const idx = activeAudioSources.indexOf(source);
       if (idx !== -1) {
         activeAudioSources.splice(idx, 1);
@@ -516,12 +542,23 @@ export function useGeminiLiveSession(options = {}) {
       if (activeAudioSources.length === 0) {
         isAiSpeaking.value = false;
         aiAudioLevel.value = 0;
+        aiSpeechCooldownUntil = Date.now() + 350;
       }
     };
+
+    source.onended = cleanupSource;
+    const maxWaitMs = Math.max(0, (nextAiPlayTime - currentTime) * 1000) + 400;
+    safetyTimer = setTimeout(cleanupSource, maxWaitMs);
+    source._safetyTimer = safetyTimer;
   }
 
   function stopAiPlayback() {
     for (const s of activeAudioSources) {
+      if (s._safetyTimer) {
+        clearTimeout(s._safetyTimer);
+        s._safetyTimer = null;
+      }
+      s.onended = null;
       try {
         s.stop();
         s.disconnect();
@@ -531,6 +568,7 @@ export function useGeminiLiveSession(options = {}) {
     nextAiPlayTime = 0;
     isAiSpeaking.value = false;
     aiAudioLevel.value = 0;
+    aiSpeechCooldownUntil = 0;
   }
 
   async function startMicCapture() {
@@ -571,29 +609,31 @@ export function useGeminiLiveSession(options = {}) {
         }
         const rms = Math.sqrt(sum / inputBuffer.length);
 
-        if (isMicMuted.value) {
+        if (
+          isMicMuted.value ||
+          isAiSpeaking.value ||
+          Date.now() < aiSpeechCooldownUntil ||
+          !ws ||
+          ws.readyState !== 1 /* OPEN */
+        ) {
           userAudioLevel.value = 0;
           return;
         }
 
         userAudioLevel.value = Math.min(1, Math.max(0, rms * 4));
 
-        if (ws && ws.readyState === 1 /* OPEN */) {
-          const base64Chunk = float32ToPcm16Base64(inputBuffer, inputAudioCtx.sampleRate, 16000);
-          if (base64Chunk) {
-            ws.send(
-              JSON.stringify({
-                realtimeInput: {
-                  mediaChunks: [
-                    {
-                      mimeType: "audio/pcm;rate=16000",
-                      data: base64Chunk,
-                    },
-                  ],
+        const base64Chunk = float32ToPcm16Base64(inputBuffer, inputAudioCtx.sampleRate, 16000);
+        if (base64Chunk) {
+          ws.send(
+            JSON.stringify({
+              realtimeInput: {
+                audio: {
+                  mimeType: "audio/pcm;rate=16000",
+                  data: base64Chunk,
                 },
-              })
-            );
-          }
+              },
+            })
+          );
         }
       };
 
@@ -615,7 +655,7 @@ export function useGeminiLiveSession(options = {}) {
     voiceName = "Aoede",
     systemInstruction = "",
     openingLine = "",
-    silenceDurationMs = 1400,
+    silenceDurationMs = 800,
     onTurnRecorded,
   } = {}) {
     if (!WebSocketImpl) {
@@ -653,6 +693,12 @@ export function useGeminiLiveSession(options = {}) {
     const handleServerMessage = (msg) => {
       if (!msg) return;
 
+      if (msg.error) {
+        status.value = "error";
+        error.value = msg.error.message || "Gemini Live 服务端错误";
+        return;
+      }
+
       // 1. Setup complete
       if (msg.setupComplete) {
         status.value = "connected";
@@ -660,7 +706,7 @@ export function useGeminiLiveSession(options = {}) {
           startMicCapture();
         }
         const greetingPrompt = openingLine
-          ? `Please start the roleplay now by greeting the learner naturally (for example: "${openingLine}").`
+          ? `Please start the roleplay now by greeting the learner in character with this opening line: "${openingLine}"`
           : "Please start the conversation now by greeting the learner in character.";
         ws.send(
           JSON.stringify({
@@ -854,6 +900,7 @@ export function useGeminiLiveSession(options = {}) {
             functionResponses.push({
               id: fc.id,
               name: fc.name,
+              scheduling: "SILENT",
               response: {
                 result: { ok: true },
                 scheduling: "SILENT",
@@ -966,7 +1013,15 @@ export function useGeminiLiveSession(options = {}) {
     isAiSpeaking.value = true;
     activeAudioSources.push(source);
 
-    source.onended = () => {
+    let cleanedUp = false;
+    let safetyTimer = null;
+    const cleanupSource = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      if (safetyTimer) {
+        clearTimeout(safetyTimer);
+        safetyTimer = null;
+      }
       const idx = activeAudioSources.indexOf(source);
       if (idx !== -1) {
         activeAudioSources.splice(idx, 1);
@@ -974,8 +1029,14 @@ export function useGeminiLiveSession(options = {}) {
       if (activeAudioSources.length === 0) {
         isAiSpeaking.value = false;
         aiAudioLevel.value = 0;
+        aiSpeechCooldownUntil = Date.now() + 350;
       }
     };
+
+    source.onended = cleanupSource;
+    const maxWaitMs = Math.max(0, audioBuffer.duration * 1000) + 400;
+    safetyTimer = setTimeout(cleanupSource, maxWaitMs);
+    source._safetyTimer = safetyTimer;
   }
 
   function interruptAi() {
@@ -1028,6 +1089,7 @@ export function useGeminiLiveSession(options = {}) {
     userAudioLevel.value = 0;
     aiAudioLevel.value = 0;
     isAiSpeaking.value = false;
+    aiSpeechCooldownUntil = 0;
   }
 
   if (getCurrentInstance()) {

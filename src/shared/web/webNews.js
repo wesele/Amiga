@@ -1,3 +1,4 @@
+import { cleanRssSummary } from "@/shared/articleText.js";
 import { filterSimilarNewsTopics } from "@/shared/newsTopicFilter.js";
 
 const FEEDS = {
@@ -67,7 +68,7 @@ function parseFeed(xmlText, sourceUrl) {
       return {
         id: null,
         original_title: plainText(title),
-        original_body: plainText(body),
+        original_body: cleanRssSummary(plainText(title), plainText(body)),
         rewritten_body: null,
         rewrite_level: null,
         source,
@@ -81,7 +82,7 @@ function parseFeed(xmlText, sourceUrl) {
       // A single malformed entry must not drop the whole feed.
       return null;
     }
-  }).filter((article) => article && article.original_title && article.original_body);
+  }).filter((article) => article && article.original_title);
 }
 
 export async function fetchNewsThroughProxy(targetLang, { fetchImpl = globalThis.fetch, keyword = "" } = {}) {

@@ -746,6 +746,21 @@ mod tests {
             1
         );
     }
+
+    #[test]
+    fn test_clean_rss_summary_drops_google_news_title_duplicate_and_strips_read_more() {
+        let title = "OpenAI encuentra 948 vulnerabilidades de kernel de Linux con IA - El Chapuzas Informático";
+        let google_news_html = r##"<a href="https://news.google.com/rss/articles/CBMiigFBVV95cUxNbzJWV24zVk14OW5PcE1fV2R2dkN5TkpPTVFxZUctU1BsRjJCSGlwaWoyZHBrUjZUSDJwZzh3YUpwSDhWd3FjVVcyVzhzUERTZkJPc2x2WkR4VG9seDZOR1JFMElNMjNGRzhGUmJ0V3NVMnNUSDdoVDVTdUIwbkxtdDFEek8tQnFib1E?oc=5" target="_blank">OpenAI encuentra 948 vulnerabilidades de kernel de Linux con IA</a>&nbsp;&nbsp;<font color="#6f6f6f">El Chapuzas Informático</font>"##;
+        assert_eq!(clean_rss_summary(title, google_news_html), "");
+
+        let elmundo_title =
+            "Sánchez pide \"de una vez por todas\" un pacto de Estado contra el cambio climático";
+        let elmundo_html = r#"El fuego de la Vall d'Uixó mantiene en vilo a 80.000 personas tras arrasar 7.500 hectáreas&nbsp;<a href="https://www.elmundo.es/comunidad-valenciana/2026/07/27/6a671f50.html">Leer</a>"#;
+        assert_eq!(
+            clean_rss_summary(elmundo_title, elmundo_html),
+            "El fuego de la Vall d'Uixó mantiene en vilo a 80.000 personas tras arrasar 7.500 hectáreas"
+        );
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1216,17 +1231,19 @@ pub async fn fetch_news(
                 if let Ok(feed) = feed_rs::parser::parse(body.as_bytes()) {
                     let remaining = candidate_limit - raw_entries.len();
                     for entry in feed.entries.iter().take(remaining) {
-                        let title = entry
+                        let raw_title = entry
                             .title
                             .as_ref()
                             .map(|t| t.content.clone())
                             .unwrap_or_else(|| "Untitled".to_string());
-                        let summary = entry
+                        let raw_summary = entry
                             .summary
                             .as_ref()
                             .map(|s| s.content.clone())
                             .or_else(|| entry.content.as_ref().and_then(|c| c.body.clone()))
                             .unwrap_or_default();
+                        let title = clean_rss_text(&raw_title);
+                        let summary = clean_rss_summary(&title, &raw_summary);
                         let image_url = entry
                             .media
                             .iter()
@@ -1293,10 +1310,13 @@ pub fn get_articles(db: &DatabasePool, region: &str) -> Result<Vec<Article>, Str
 
     let articles: Vec<Article> = stmt
         .query_map(params![region], |row| {
+            let original_title: String = row.get(1)?;
+            let raw_body: Option<String> = row.get(2)?;
+            let original_body = raw_body.map(|b| sanitize_stored_body(&original_title, b));
             Ok(Article {
                 id: Some(row.get(0)?),
-                original_title: row.get(1)?,
-                original_body: row.get(2)?,
+                original_title,
+                original_body,
                 rewritten_body: row.get(3)?,
                 rewrite_level: row.get(4)?,
                 source: row.get(5)?,
@@ -1323,10 +1343,13 @@ pub fn get_article(db: &DatabasePool, article_id: i32) -> Result<Article, String
          FROM news_articles WHERE id = ?1",
         params![article_id],
         |row| {
+            let original_title: String = row.get(1)?;
+            let raw_body: Option<String> = row.get(2)?;
+            let original_body = raw_body.map(|b| sanitize_stored_body(&original_title, b));
             Ok(Article {
                 id: Some(row.get(0)?),
-                original_title: row.get(1)?,
-                original_body: row.get(2)?,
+                original_title,
+                original_body,
                 rewritten_body: row.get(3)?,
                 rewrite_level: row.get(4)?,
                 source: row.get(5)?,
@@ -1354,6 +1377,10 @@ pub fn save_rewritten_article(
         "UPDATE news_articles SET rewritten_body = ?1, rewrite_level = ?2, new_words = ?3 WHERE id = ?4",
         params![rewritten_body, level, new_words_json, article_id],
     ).map_err(|e| format!("Failed to save rewritten article: {}", e))?;
+    let _ = conn.execute(
+        "DELETE FROM news_bilingual_cache WHERE article_id = ?1",
+        params![article_id],
+    );
     log::info!("Article {} rewritten at level {}", article_id, level);
     Ok(())
 }
@@ -1534,6 +1561,240 @@ pub struct NewsHook {
 
 fn collapse_whitespace(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn strip_tag_block_case_insensitive(input: &str, tag: &str) -> String {
+    let open_pat = format!("<{}", tag);
+    let close_pat = format!("</{}>", tag);
+    let mut out = String::with_capacity(input.len());
+    let mut rest = input;
+    while let Some(start) = rest.to_ascii_lowercase().find(&open_pat) {
+        out.push_str(&rest[..start]);
+        let after_open = &rest[start..];
+        if let Some(end) = after_open.to_ascii_lowercase().find(&close_pat) {
+            rest = &after_open[end + close_pat.len()..];
+        } else {
+            rest = "";
+            break;
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+fn is_read_more_link_label(label: &str) -> bool {
+    let trimmed = label
+        .trim()
+        .trim_matches(|c: char| !c.is_alphanumeric() && !is_cjk_char(c))
+        .to_lowercase();
+    matches!(
+        trimmed.as_str(),
+        "leer"
+            | "leer más"
+            | "leer mas"
+            | "seguir leyendo"
+            | "ver más"
+            | "ver mas"
+            | "read more"
+            | "continue reading"
+            | "full story"
+            | "阅读全文"
+            | "全文"
+    )
+}
+
+fn strip_read_more_anchors(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut rest = input;
+    while let Some(a_start) = rest.to_ascii_lowercase().find("<a") {
+        let after_a = &rest[a_start..];
+        let is_anchor = after_a
+            .as_bytes()
+            .get(2)
+            .map(|b| b.is_ascii_whitespace() || *b == b'>')
+            .unwrap_or(false);
+        if !is_anchor {
+            out.push_str(&rest[..a_start + 2]);
+            rest = &rest[a_start + 2..];
+            continue;
+        }
+        out.push_str(&rest[..a_start]);
+        if let Some(open_end) = after_a.find('>') {
+            let after_open = &after_a[open_end + 1..];
+            if let Some(close_pos) = after_open.to_ascii_lowercase().find("</a>") {
+                let inner = &after_open[..close_pos];
+                if !inner.contains('<') && is_read_more_link_label(inner) {
+                    rest = &after_open[close_pos + 4..];
+                    continue;
+                }
+            }
+        }
+        out.push_str(&after_a[..2]);
+        rest = &after_a[2..];
+    }
+    out.push_str(rest);
+    out
+}
+
+fn decode_html_entity(entity: &str) -> Option<String> {
+    match entity {
+        "nbsp" => Some(" ".to_string()),
+        "amp" => Some("&".to_string()),
+        "quot" | "ldquo" | "rdquo" | "laquo" | "raquo" => Some("\"".to_string()),
+        "apos" | "#39" | "rsquo" | "lsquo" => Some("'".to_string()),
+        "lt" => Some("<".to_string()),
+        "gt" => Some(">".to_string()),
+        "ndash" => Some("–".to_string()),
+        "mdash" => Some("—".to_string()),
+        "hellip" => Some("…".to_string()),
+        _ if entity.starts_with("#x") || entity.starts_with("#X") => {
+            u32::from_str_radix(&entity[2..], 16)
+                .ok()
+                .and_then(char::from_u32)
+                .map(|c| if c == '\u{00a0}' { ' ' } else { c }.to_string())
+        }
+        _ if entity.starts_with('#') => entity[1..]
+            .parse::<u32>()
+            .ok()
+            .and_then(char::from_u32)
+            .map(|c| if c == '\u{00a0}' { ' ' } else { c }.to_string()),
+        _ => None,
+    }
+}
+
+/// Strip HTML tags, decode common HTML entities, and normalize whitespace.
+pub fn clean_rss_text(raw: &str) -> String {
+    if raw.trim().is_empty() {
+        return String::new();
+    }
+    let no_style = strip_tag_block_case_insensitive(raw, "style");
+    let no_script = strip_tag_block_case_insensitive(&no_style, "script");
+    let no_read_more = strip_read_more_anchors(&no_script);
+
+    let mut unescaped_tags = String::with_capacity(no_read_more.len());
+    let mut in_tag = false;
+    let mut tag_buf = String::new();
+    for ch in no_read_more.chars() {
+        if in_tag {
+            if ch == '>' {
+                in_tag = false;
+                let tag_lower = tag_buf.trim().to_ascii_lowercase();
+                if tag_lower.starts_with("br")
+                    || tag_lower.starts_with("/p")
+                    || tag_lower.starts_with("/div")
+                    || tag_lower.starts_with("/li")
+                {
+                    unescaped_tags.push('\n');
+                } else {
+                    unescaped_tags.push(' ');
+                }
+                tag_buf.clear();
+            } else {
+                tag_buf.push(ch);
+            }
+        } else if ch == '<' {
+            in_tag = true;
+            tag_buf.clear();
+        } else {
+            unescaped_tags.push(ch);
+        }
+    }
+
+    let mut decoded = String::with_capacity(unescaped_tags.len());
+    let mut chars = unescaped_tags.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '&' {
+            let mut entity = String::new();
+            let mut found_semi = false;
+            for _ in 0..12 {
+                if let Some(&next_ch) = chars.peek() {
+                    if next_ch == ';' {
+                        chars.next();
+                        found_semi = true;
+                        break;
+                    } else if next_ch.is_ascii_alphanumeric() || next_ch == '#' {
+                        entity.push(next_ch);
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            if found_semi {
+                if let Some(rep) = decode_html_entity(&entity) {
+                    decoded.push_str(&rep);
+                    continue;
+                }
+                decoded.push('&');
+                decoded.push_str(&entity);
+                decoded.push(';');
+            } else {
+                decoded.push('&');
+                decoded.push_str(&entity);
+            }
+        } else {
+            decoded.push(ch);
+        }
+    }
+
+    let paragraphs: Vec<String> = decoded
+        .lines()
+        .map(collapse_whitespace)
+        .filter(|line| !line.is_empty())
+        .collect();
+    paragraphs.join("\n\n")
+}
+
+fn normalize_for_comparison(text: &str) -> String {
+    text.chars()
+        .filter(|c| c.is_alphanumeric() || is_cjk_char(*c))
+        .flat_map(|c| c.to_lowercase())
+        .collect()
+}
+
+/// True when the RSS summary is empty or merely repeats the article title
+/// (e.g. Google News RSS `<a href="...">Headline</a> <font>Publisher</font>`).
+pub fn is_summary_duplicate_of_title(title: &str, summary: &str) -> bool {
+    let norm_summary = normalize_for_comparison(&clean_rss_text(summary));
+    if norm_summary.is_empty() {
+        return true;
+    }
+    let norm_title = normalize_for_comparison(&clean_rss_text(title));
+    if norm_title.is_empty() {
+        return false;
+    }
+    if norm_summary == norm_title || norm_title.contains(&norm_summary) {
+        return true;
+    }
+    if norm_summary.starts_with(&norm_title)
+        && norm_summary
+            .chars()
+            .count()
+            .saturating_sub(norm_title.chars().count())
+            <= 30
+    {
+        return true;
+    }
+    false
+}
+
+/// Clean an RSS summary and drop it if it only duplicates the headline.
+pub fn clean_rss_summary(title: &str, raw_summary: &str) -> String {
+    let cleaned = clean_rss_text(raw_summary);
+    if cleaned.is_empty() || is_summary_duplicate_of_title(title, &cleaned) {
+        return String::new();
+    }
+    cleaned
+}
+
+fn sanitize_stored_body(title: &str, body: String) -> String {
+    if body.contains('<') || body.contains('&') || is_summary_duplicate_of_title(title, &body) {
+        clean_rss_summary(title, &body)
+    } else {
+        body
+    }
 }
 
 fn article_snippet(body: Option<&str>, max_chars: usize) -> String {

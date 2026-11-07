@@ -228,6 +228,7 @@ struct ChatChoice {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RewriteResult {
     pub rewritten: String,
+    #[serde(default)]
     pub new_words_used: Vec<String>,
 }
 
@@ -1046,12 +1047,20 @@ pub async fn rewrite_article(
 ) -> Result<RewriteResult, String> {
     let words_list = new_words.join(", ");
     let source_label = lang_name(source_lang);
+    let clean_title = crate::modules::news::clean_rss_text(original_title);
+    let clean_body = crate::modules::news::clean_rss_summary(&clean_title, original_text);
+    let body_for_prompt = if clean_body.is_empty() {
+        "(Headline only — no article body provided in RSS feed; expand the headline into a complete 2-4 paragraph news reading passage)"
+    } else {
+        clean_body.as_str()
+    };
+
     let vars = [
         ("CEFR_LEVEL", cefr_level),
         ("NEW_WORDS", &words_list),
         ("SOURCE_LANG", source_label),
-        ("TITLE", original_title),
-        ("TEXT", original_text),
+        ("TITLE", clean_title.as_str()),
+        ("TEXT", body_for_prompt),
     ];
 
     let messages = build_chat_messages(db, "rewrite-article", &vars);
@@ -1059,17 +1068,18 @@ pub async fn rewrite_article(
     // Fallback to hardcoded prompt if DB prompt not available
     let messages = if messages.is_empty() {
         let prompt = format!(
-            "Rewrite the following {source_label} news article for a CEFR {cefr_level} language learner.\n\n\
+            "Rewrite or expand the following {source_label} news item for a CEFR {cefr_level} language learner.\n\n\
              Requirements:\n\
-             1. Stay faithful — keep all facts, names, places, numbers, and dates intact\n\
-             2. Word level — prefer vocabulary at CEFR {cefr_level} or below\n\
-             3. Optional words — naturally weave in: {words_list}\n\n\
-             Return JSON: {{\"rewritten\": \"the rewritten article\", \"new_words_used\": [\"words actually used\"]}}\n\n\
-             Title: {original_title}\n\
-             Body: {original_text}"
+             1. Stay faithful — keep all stated facts, names, places, numbers, and dates intact; do not invent fake quotes or unverified statistics\n\
+             2. Complete article — if the body is empty, repeats the title, or is only a short 1-2 sentence snippet, expand it into a complete, natural 2-4 paragraph news reading passage (about 120-200 words) in {source_label} by providing relevant background context and explaining the topic clearly\n\
+             3. Word level — use vocabulary and grammar appropriate for CEFR {cefr_level}; separate paragraphs with \\n\\n\n\
+             4. Optional words — naturally weave in where they fit: {words_list}\n\n\
+             Return JSON: {{\"rewritten\": \"the rewritten article in {source_label}\", \"new_words_used\": [\"words actually used\"]}}\n\n\
+             Title: {clean_title}\n\
+             Body: {body_for_prompt}"
         );
         build_chat_messages_fallback(
-            "You are a language-learning rewrite assistant. Output only JSON, no extra prose.",
+            "You are a language-learning news rewrite assistant. Output only valid JSON, no extra prose or markdown fences.",
             &prompt,
         )
     } else {
@@ -1078,20 +1088,26 @@ pub async fn rewrite_article(
 
     let response = client.chat(db, messages).await?;
 
-    // Parse JSON response
-    let cleaned = response
-        .trim()
-        .trim_start_matches("```json")
-        .trim_start_matches("```")
-        .trim_end_matches("```")
-        .trim();
+    // Parse JSON response (extract_json_object handles surrounding prose or markdown fences)
+    let cleaned = extract_json_object(&response).unwrap_or_else(|| {
+        response
+            .trim()
+            .trim_start_matches("```json")
+            .trim_start_matches("```")
+            .trim_end_matches("```")
+            .trim()
+    });
 
-    let result: RewriteResult = serde_json::from_str(cleaned).map_err(|e| {
+    let mut result: RewriteResult = serde_json::from_str(cleaned).map_err(|e| {
         log::error!("Failed to parse rewrite response: {}. Raw: {}", e, response);
         format!("AI response format error: {}", e)
     })?;
 
-    validate_rewrite_output(original_text, &result.rewritten)?;
+    result.rewritten = crate::modules::news::clean_rss_text(&result.rewritten);
+    validate_rewrite_output(&clean_body, &result.rewritten)?;
+    if crate::modules::news::is_summary_duplicate_of_title(&clean_title, &result.rewritten) {
+        return Err("改写结果仅重复了标题，请重试".to_string());
+    }
 
     log::info!(
         "Article rewritten successfully, {} new words used",
@@ -1102,18 +1118,20 @@ pub async fn rewrite_article(
 
 /// Reject truncated or obviously broken rewrites so the frontend can prompt retry.
 pub fn validate_rewrite_output(original: &str, rewritten: &str) -> Result<(), String> {
-    let original = original.trim();
+    let cleaned_original = crate::modules::news::clean_rss_text(original);
+    let original = cleaned_original.trim();
     let rewritten = rewritten.trim();
 
     if rewritten.is_empty() {
         return Err("改写结果为空，请重试".to_string());
     }
 
-    if !original.is_empty() && rewritten.len() < original.len() / 2 {
+    let min_expected_len = (original.len() / 2).min(400);
+    if !original.is_empty() && rewritten.len() < min_expected_len {
         return Err("改写结果过短，可能不完整，请重试".to_string());
     }
 
-    if rewritten.len() < original.len()
+    if (rewritten.len() < original.len() || original.is_empty())
         && ends_with_incomplete_word(rewritten)
         && !ends_with_sentence_punctuation(rewritten)
     {
@@ -1845,6 +1863,13 @@ mod tests {
         let original = "Los inmigrantes llegaron a la ciudad ayer por la tarde.";
         let rewritten =
             "Los inmigrantes llegaron a la ciudad ayer por la tarde. Fue un día tranquilo.";
+        assert!(validate_rewrite_output(original, rewritten).is_ok());
+    }
+
+    #[test]
+    fn validate_rewrite_ignores_html_link_bloat_in_original() {
+        let original = r##"<a href="https://news.google.com/rss/articles/CBMi1gFBVV95cUxOVjVROF9HLXpLV21Vb2ZhRmhuLXEyX2ZwQmdDM19lZUZvZFNoM2drTTJWOUhIZzloYjZqV0tVWlFMSGxtUGhPcDcxNmhoanBIRy1DdkY4SUQ4N2pFLTdUTERGbXlvd0RHRVdCY1pTSXR1MnBCOU1OeFZ2TDFrWXpEM3FhVEJmZFdpQWoxVGs4WmRUY0xVcWozaUtPU3ZodE5zYWdNbi15QkxBeFFJNEt0OHFuS3dLVkpzRmNiWVU2SXhkajJpTXUxRmktZ2NHNzI1UjZhM1hn?oc=5" target="_blank">Una startup resuelve un problema cuántico con IA</a>&nbsp;&nbsp;<font color="#6f6f6f">Infobae</font>"##;
+        let rewritten = "Una empresa joven usó un nuevo modelo de inteligencia artificial para resolver un problema de física cuántica que estaba abierto desde el año 2008.";
         assert!(validate_rewrite_output(original, rewritten).is_ok());
     }
 

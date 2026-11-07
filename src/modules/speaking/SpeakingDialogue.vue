@@ -97,7 +97,7 @@
       </section>
 
       <!-- Streaming Conversation Timeline -->
-      <section class="chat-stream">
+      <section ref="chatStreamRef" class="chat-stream">
         <div
           v-for="msg in displayMessages"
           :key="msg.id"
@@ -228,7 +228,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import PageHeader from "@/shared/components/PageHeader.vue";
 import AmigaIcon from "@/shared/components/AmigaIcon.vue";
@@ -254,6 +254,7 @@ const router = useRouter();
 const targetLangStore = useTargetLangStore();
 
 const live = useGeminiLiveSession();
+const chatStreamRef = ref(null);
 
 const booting = ref(true);
 const bootError = ref("");
@@ -263,6 +264,7 @@ const goalKeys = ref(["g1", "g2", "g3"]);
 const initialOpeningLine = ref("");
 const initialTranslation = ref("");
 const hint = ref("");
+const hintText = hint;
 const usedHint = ref(false);
 const assistBusy = ref(false);
 const actionError = ref("");
@@ -342,9 +344,42 @@ const haloStyle = computed(() => {
   return { transform: `scale(${scale})` };
 });
 
+async function scrollToBottom() {
+  await nextTick();
+  const el = chatStreamRef.value;
+  if (!el) return;
+  el.scrollTop = el.scrollHeight;
+}
+
+watch(
+  () => {
+    const msgs = displayMessages.value;
+    const last = msgs[msgs.length - 1];
+    const latestCoachedMsg = [...msgs].reverse().find((m) => m.role === "user" && m.coaching);
+    return [
+      msgs.length,
+      last?.id,
+      last?.text,
+      last?.translation,
+      last?.streaming,
+      latestCoachedMsg?.id,
+      latestCoachedMsg?.coaching?.betterExpression,
+      latestCoachedMsg?.coaching?.tipNative,
+      latestCoachedMsg?.coaching?.total,
+      live.turnCount.value,
+      hintText.value,
+    ];
+  },
+  () => {
+    scrollToBottom();
+  },
+  { flush: "post" }
+);
+
 boot();
 
 async function boot() {
+  stopSpeech();
   booting.value = true;
   bootError.value = "";
   try {
@@ -382,10 +417,7 @@ async function boot() {
       openingLine: session.ai_text,
       onTurnRecorded: handleTurnRecorded,
     });
-
-    if (session.ai_text) {
-      speakText(session.ai_text, targetLang.value);
-    }
+    scrollToBottom();
   } catch (e) {
     bootError.value = e?.message || String(e);
   } finally {
@@ -533,6 +565,12 @@ onBeforeUnmount(() => {
   try {
     live.disconnect();
   } catch (e) {}
+});
+
+defineExpose({
+  scrollToBottom,
+  chatStreamRef,
+  live,
 });
 </script>
 
