@@ -38,9 +38,9 @@ if (_isWebRuntime) {
       return {
         mode: "custom",
         builtin: {
-          base_url: "https://integrate.api.nvidia.com/v1",
+          base_url: "https://generativelanguage.googleapis.com",
           api_key: "nvapi-secret-key-1234567890ABCDEF",
-          model: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+          model: "gemini-3.8-live",
         },
         custom: {
           base_url: "https://api.openai.com/v1",
@@ -115,6 +115,67 @@ if (_isWebRuntime) {
         created_at: "2026-10-06T12:00:00",
         audio_path: null,
         duration_sec: 180,
+      };
+    }
+    if (command === "speaking_list_topics_cmd") {
+      return [
+        { id: "free-talk", cefr: "A1", role: "language buddy", scene: "Free conversation on any topic", voice: "Zephyr", goals: ["g1", "g2", "g3"] },
+        { id: "self-intro", cefr: "A1", role: "new friend", scene: "Meeting someone for the first time", voice: "Aoede", goals: ["g1", "g2", "g3"] },
+        { id: "cafe-order", cefr: "A1", role: "barista", scene: "Ordering at a café", voice: "Puck", goals: ["g1", "g2", "g3"] },
+        { id: "directions", cefr: "A1", role: "local passerby", scene: "Asking for directions on the street", voice: "Charon", goals: ["g1", "g2", "g3"] },
+        { id: "shopping", cefr: "A2", role: "shop assistant", scene: "Buying something at a store", voice: "Kore", goals: ["g1", "g2", "g3"] },
+        { id: "weather", cefr: "A2", role: "friend", scene: "Casual chat about the weather", voice: "Zephyr", goals: ["g1", "g2", "g3"] },
+        { id: "meetup", cefr: "A2", role: "friend", scene: "Making plans to meet", voice: "Aoede", goals: ["g1", "g2", "g3"] },
+        { id: "doctor", cefr: "A2", role: "doctor", scene: "Describing symptoms at a clinic", voice: "Charon", goals: ["g1", "g2", "g3"] },
+        { id: "hotel", cefr: "A2", role: "hotel receptionist", scene: "Checking in at a hotel", voice: "Kore", goals: ["g1", "g2", "g3"] },
+        { id: "work-chat", cefr: "B1", role: "colleague", scene: "Simple workplace conversation", voice: "Puck", goals: ["g1", "g2", "g3"] },
+        { id: "opinion", cefr: "B1", role: "friend", scene: "Sharing opinions on a familiar topic", voice: "Zephyr", goals: ["g1", "g2", "g3"] },
+        { id: "complaint", cefr: "B1", role: "customer service agent", scene: "Politely explaining a problem", voice: "Fenrir", goals: ["g1", "g2", "g3"] },
+        { id: "interview", cefr: "B2", role: "interviewer", scene: "Job interview self-introduction", voice: "Charon", goals: ["g1", "g2", "g3"] },
+      ];
+    }
+    if (command === "speaking_start_session_cmd") {
+      return {
+        session_id: "mock-session-1",
+        topic_id: args?.topicId || args?.topic_id || "cafe-order",
+        turn: 1,
+        total_turns: 8,
+        ai_text: "¡Buenos días! Bienvenido a nuestra cafetería. ¿Qué te gustaría tomar hoy?",
+        status: "active",
+        voice_name: "Puck",
+        goals: ["g1", "g2", "g3"],
+        system_instruction: "Roleplay barista",
+        live_model: "gemini-3.8-live",
+        live_base_url: "https://generativelanguage.googleapis.com",
+        live_api_key: "AIzaSyMockKeyForPreview",
+      };
+    }
+    if (command === "speaking_translate_cmd") {
+      return "早上好！欢迎来到我们的咖啡馆。今天你想喝点什么？";
+    }
+    if (command === "speaking_hint_cmd") {
+      return "Hola, me gustaría un café con leche caliente, por favor.";
+    }
+    if (command === "speaking_record_live_turn_cmd") {
+      return 2;
+    }
+    if (command === "speaking_finish_cmd") {
+      return "本场咖啡厅点单练习表现非常棒！你不仅自然地完成了点单和杯型确认，发音清晰度也很高。建议继续巩固礼貌点单句型「Me gustaría...」与询问价格的常用表达。";
+    }
+    if (command === "get_completed_speaking_count_cmd") {
+      return 0;
+    }
+    if (command === "speaking_score_turn_cmd") {
+      return {
+        transcript: "Me gustaría un café",
+        scores: { relevance: 90, grammar: 85, pronunciation: 88 },
+        total: 88,
+        pass: true,
+        feedback: "Muy bien!",
+        feedback_target: null,
+        completed: false,
+        turn: 1,
+        next_ai_text: "¡Perfecto! ¿De qué tamaño lo prefieres?",
       };
     }
     return null;
@@ -347,8 +408,9 @@ export function createApiClient(invoke) {
         audioFormat,
         usedHint,
       }),
-    speakingHint: (sessionId) => call("speaking_hint_cmd", { sessionId }),
-    speakingTranslate: (sessionId) => call("speaking_translate_cmd", { sessionId }),
+    speakingHint: (sessionId, aiText) => call("speaking_hint_cmd", { sessionId, aiText }),
+    speakingTranslate: (sessionId, aiText) => call("speaking_translate_cmd", { sessionId, aiText }),
+    speakingRecordLiveTurn: (input) => call("speaking_record_live_turn_cmd", { input }),
     speakingFinish: (sessionId) => call("speaking_finish_cmd", { sessionId }),
     getCompletedSpeakingCount: (userId) =>
       call("get_completed_speaking_count_cmd", { userId }),
@@ -572,6 +634,8 @@ export const updateYtdlp = (...args) =>
 export const speakingListTopics = (...args) => defaultApiClient.speakingListTopics(...args);
 export const speakingStartSession = (...args) => defaultApiClient.speakingStartSession(...args);
 export const speakingScoreTurn = (...args) => defaultApiClient.speakingScoreTurn(...args);
+export const speakingRecordLiveTurn = (...args) =>
+  defaultApiClient.speakingRecordLiveTurn(...args);
 export const speakingHint = (...args) => defaultApiClient.speakingHint(...args);
 export const speakingTranslate = (...args) => defaultApiClient.speakingTranslate(...args);
 export const speakingFinish = (...args) => defaultApiClient.speakingFinish(...args);

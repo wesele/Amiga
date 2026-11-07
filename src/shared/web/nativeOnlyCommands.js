@@ -17,6 +17,7 @@ export const NATIVE_ONLY_COMMANDS = new Map([
   ["speaking_list_topics_cmd", "web 模式隐藏 speaking 模块（clientOnly，LearnHubPage.vue）"],
   ["speaking_start_session_cmd", "web 模式隐藏 speaking 模块（clientOnly，LearnHubPage.vue）"],
   ["speaking_score_turn_cmd", "web 模式隐藏 speaking 模块（clientOnly，LearnHubPage.vue）"],
+  ["speaking_record_live_turn_cmd", "web 模式隐藏 speaking 模块（clientOnly，LearnHubPage.vue）"],
   ["speaking_hint_cmd", "web 模式隐藏 speaking 模块（clientOnly，LearnHubPage.vue）"],
   ["speaking_translate_cmd", "web 模式隐藏 speaking 模块（clientOnly，LearnHubPage.vue）"],
   ["speaking_finish_cmd", "web 模式隐藏 speaking 模块（clientOnly，LearnHubPage.vue）"],

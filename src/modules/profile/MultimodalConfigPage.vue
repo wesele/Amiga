@@ -71,12 +71,12 @@
           </div>
           <div class="field-group">
             <label class="field-label">{{ t('llm.baseUrl') }}</label>
-            <input v-model="baseUrl" @change="onApiParamsChange" type="text" class="field-input" placeholder="https://api.openai.com/v1" />
+            <input v-model="baseUrl" @change="onApiParamsChange" type="text" class="field-input" placeholder="https://generativelanguage.googleapis.com" />
           </div>
           <div class="field-group">
             <label class="field-label">{{ t('llm.model') }}</label>
             <div class="model-input-wrapper">
-              <input v-model="modelName" @change="saveConfig" list="multimodal-model-options" type="text" class="field-input" placeholder="gpt-4o-mini" />
+              <input v-model="modelName" @change="saveConfig" list="multimodal-model-options" type="text" class="field-input" placeholder="gemini-3.8-live" />
               <button class="fetch-models-btn" @click="loadModels" type="button" :disabled="fetchingModels">
                 <span v-if="fetchingModels" class="btn-spinner" />
                 <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
@@ -128,19 +128,18 @@ import {
   getMultimodalConfig,
   saveMultimodalConfig,
   testMultimodalConnection,
-} from "@/shared/api.js";
-import {
   saveSetting,
+  fetchModels,
 } from "@/shared/api.js";
-import { fetchModels } from "@/shared/api.js";
+import { testGeminiLiveConnection } from "@/modules/speaking/useGeminiLiveSession.js";
 import { useI18n } from "@/shared/i18n";
 import { isTvLayoutMode } from "@/shared/appMode.js";
 
 const { t } = useI18n();
 const mode = ref("builtin");
 const apiKey = ref("");
-const baseUrl = ref("https://api.openai.com/v1");
-const modelName = ref("");
+const baseUrl = ref("https://generativelanguage.googleapis.com");
+const modelName = ref("gemini-3.8-live");
 const builtin = ref({ baseUrl: "", apiKey: "", model: "" });
 const showKey = ref(false);
 const testing = ref(false);
@@ -152,7 +151,11 @@ const error = ref("");
 const showMetricsModal = ref(false);
 const metricsMessage = ref("");
 
-const modelList = ref([]);
+const modelList = ref([
+  "gemini-3.8-live",
+  "gemini-3.8-live-extended-thinking",
+  "gemini-3.1-flash-live-preview",
+]);
 const fetchingModels = ref(false);
 
 async function loadModels() {
@@ -167,7 +170,15 @@ async function loadModels() {
   error.value = "";
   try {
     const list = await fetchModels(trimmedUrl, trimmedKey);
-    modelList.value = list || [];
+    const defaults = ["gemini-3.8-live", "gemini-3.8-live-extended-thinking"];
+    const fetched = Array.isArray(list) ? list : [];
+    const merged = [...defaults];
+    for (const m of fetched) {
+      if (!merged.includes(m)) {
+        merged.push(m);
+      }
+    }
+    modelList.value = merged;
   } catch (e) {
     console.error("Failed to load multimodal models list:", e);
     error.value = t("llm.fetchModelsFail") + ": " + (e.message || e);
@@ -194,8 +205,8 @@ onMounted(async () => {
     }
     if (config.custom) {
       apiKey.value = config.custom.api_key || "";
-      baseUrl.value = config.custom.base_url || "https://api.openai.com/v1";
-      modelName.value = config.custom.model || "";
+      baseUrl.value = config.custom.base_url || "https://generativelanguage.googleapis.com";
+      modelName.value = config.custom.model || "gemini-3.8-live";
     }
     if (apiKey.value && baseUrl.value) {
       loadModels();
@@ -211,14 +222,14 @@ onMounted(async () => {
         } else if (testStep === "complete") {
           mode.value = "custom";
           apiKey.value = "sk-mock-key-123456";
-          baseUrl.value = "https://api.openai.com/v1";
+          baseUrl.value = "https://generativelanguage.googleapis.com";
           await loadModels();
-          modelName.value = "gpt-4o-mini";
+          modelName.value = "gemini-3.8-live";
         } else if (testStep === "test_metrics") {
           mode.value = "custom";
           apiKey.value = "sk-mock-key-123456";
-          baseUrl.value = "https://api.openai.com/v1";
-          modelName.value = "gpt-4o-mini";
+          baseUrl.value = "https://generativelanguage.googleapis.com";
+          modelName.value = "gemini-3.8-live";
           testConnection();
         }
       }, 500);
@@ -277,9 +288,34 @@ async function testConnection() {
   }
   testing.value = true;
   testResult.value = null;
+  error.value = "";
   try {
-    const result = await testMultimodalConnection(currentConfig());
-    if (result.success) {
+    const cfg = currentConfig();
+    let result = null;
+    const modelStr = cfg.model || "";
+    const baseUrlStr = cfg.base_url || "";
+    if (modelStr.includes("live") || baseUrlStr.includes("generativelanguage.googleapis.com")) {
+      const wsResult = await testGeminiLiveConnection(cfg, { timeoutMs: 10000 });
+      if (wsResult && wsResult.success) {
+        result = wsResult;
+      } else {
+        try {
+          result = await testMultimodalConnection(cfg);
+        } catch (fallbackErr) {
+          result = {
+            success: false,
+            message: wsResult?.message || fallbackErr?.message || String(fallbackErr),
+          };
+        }
+        if (result && !result.success && wsResult?.message && !result.message) {
+          result.message = wsResult.message;
+        }
+      }
+    } else {
+      result = await testMultimodalConnection(cfg);
+    }
+
+    if (result && result.success) {
       testResult.value = "ok";
       const ttftVal = result.time_to_first_token_ms ?? 0;
       const thinkSpeedVal = result.thinking_speed ?? 0;
@@ -294,9 +330,15 @@ async function testConnection() {
       showMetricsModal.value = true;
     } else {
       testResult.value = "fail";
+      if (result && result.message) {
+        error.value = result.message;
+      }
     }
-  } catch {
+  } catch (err) {
     testResult.value = "fail";
+    if (err && err.message) {
+      error.value = err.message;
+    }
   } finally {
     testing.value = false;
   }

@@ -138,6 +138,7 @@ pub fn run() {
             commands::speaking::speaking_list_topics_cmd,
             commands::speaking::speaking_start_session_cmd,
             commands::speaking::speaking_score_turn_cmd,
+            commands::speaking::speaking_record_live_turn_cmd,
             commands::speaking::speaking_hint_cmd,
             commands::speaking::speaking_translate_cmd,
             commands::speaking::speaking_finish_cmd,

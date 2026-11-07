@@ -65,12 +65,23 @@ pub async fn speaking_score_turn_cmd(
 }
 
 #[tauri::command]
+pub fn speaking_record_live_turn_cmd(
+    db: State<'_, DatabasePool>,
+    input: speaking_mod::LiveTurnRecordInput,
+) -> Result<i32, String> {
+    let next_turn = speaking_mod::record_live_turn(&db, &input)?;
+    after_syncable_write(&db);
+    Ok(next_turn)
+}
+
+#[tauri::command]
 pub async fn speaking_hint_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,
     session_id: String,
+    ai_text: Option<String>,
 ) -> Result<String, String> {
-    speaking_mod::get_hint(&llm.client, &db, &session_id).await
+    speaking_mod::get_hint(&llm.client, &db, &session_id, ai_text).await
 }
 
 #[tauri::command]
@@ -78,8 +89,9 @@ pub async fn speaking_translate_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,
     session_id: String,
+    ai_text: Option<String>,
 ) -> Result<String, String> {
-    speaking_mod::translate_ai_line(&llm.client, &db, &session_id).await
+    speaking_mod::translate_ai_line(&llm.client, &db, &session_id, ai_text).await
 }
 
 #[tauri::command]

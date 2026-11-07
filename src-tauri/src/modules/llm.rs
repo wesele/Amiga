@@ -13,10 +13,13 @@ pub const BUILTIN_API_KEY: &str =
     "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";
 pub const BUILTIN_MODEL: &str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning";
 /// Default multimodal model for speaking scoring (transcribe + rubric).
-pub const MULTIMODAL_BUILTIN_MODEL: &str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning";
+pub const MULTIMODAL_BUILTIN_MODEL: &str = "gemini-3.8-live";
+pub const MULTIMODAL_BUILTIN_BASE_URL: &str = "https://generativelanguage.googleapis.com";
 const ENV_BUILTIN_BASE_URL: &str = "IDIOMA_BUILTIN_LLM_BASE_URL";
 const ENV_BUILTIN_API_KEY: &str = "IDIOMA_BUILTIN_LLM_API_KEY";
 const ENV_BUILTIN_MODEL: &str = "IDIOMA_BUILTIN_LLM_MODEL";
+const ENV_MULTIMODAL_BUILTIN_BASE_URL: &str = "IDIOMA_BUILTIN_MULTIMODAL_BASE_URL";
+const ENV_MULTIMODAL_BUILTIN_API_KEY: &str = "IDIOMA_BUILTIN_MULTIMODAL_API_KEY";
 const ENV_MULTIMODAL_BUILTIN_MODEL: &str = "IDIOMA_BUILTIN_MULTIMODAL_MODEL";
 const BUILTIN_THINKING_MODEL_SETTING: &str = "builtin_thinking_model";
 
@@ -56,13 +59,25 @@ pub fn builtin_config() -> ModelConfig {
 pub fn multimodal_builtin_config() -> ModelConfig {
     let base = builtin_config();
     ModelConfig {
-        base_url: base.base_url,
-        api_key: base.api_key,
+        base_url: setting_or_default(
+            std::env::var(ENV_MULTIMODAL_BUILTIN_BASE_URL)
+                .ok()
+                .as_deref(),
+            MULTIMODAL_BUILTIN_BASE_URL,
+        )
+        .trim_end_matches('/')
+        .to_string(),
+        api_key: setting_or_default(
+            std::env::var(ENV_MULTIMODAL_BUILTIN_API_KEY)
+                .ok()
+                .as_deref(),
+            &base.api_key,
+        ),
         model: setting_or_default(
             std::env::var(ENV_MULTIMODAL_BUILTIN_MODEL).ok().as_deref(),
             MULTIMODAL_BUILTIN_MODEL,
         ),
-        provider: LlmProvider::NvidiaNim,
+        provider: LlmProvider::Gemini,
         thinking_enabled: false,
     }
 }
@@ -1501,11 +1516,12 @@ pub fn get_multimodal_config(db: &DatabasePool) -> Result<MultimodalConfig, Stri
         let model_name = get_setting("multimodal_model");
         match (base_url, api_key, model_name) {
             (Some(b), Some(k), Some(m)) if !b.is_empty() && !k.is_empty() && !m.is_empty() => {
+                let provider = LlmProvider::from_setting(None, &b, &m);
                 Some(ModelConfig {
                     base_url: b,
                     api_key: k,
                     model: m,
-                    provider: LlmProvider::Openai,
+                    provider,
                     thinking_enabled: false,
                 })
             }
@@ -1856,12 +1872,14 @@ mod tests {
     }
 
     #[test]
-    fn multimodal_builtin_shares_builtin_endpoint() {
+    fn multimodal_builtin_config_defaults() {
         let text = builtin_config();
         let mm = multimodal_builtin_config();
-        assert_eq!(mm.base_url, text.base_url);
+        assert_eq!(mm.base_url, MULTIMODAL_BUILTIN_BASE_URL);
         assert_eq!(mm.api_key, text.api_key);
         assert_eq!(mm.model, MULTIMODAL_BUILTIN_MODEL);
+        assert_eq!(mm.provider, LlmProvider::Gemini);
+        assert!(!mm.thinking_enabled);
     }
 
     #[tokio::test]
