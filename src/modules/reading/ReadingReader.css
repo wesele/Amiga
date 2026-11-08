@@ -75,6 +75,26 @@
  overflow-wrap: break-word;
  }
 
+.header-title.is-playing {
+  background: rgba(46, 204, 113, 0.22);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.14);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.article-sentence {
+  display: inline;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.article-sentence.is-playing {
+  background: rgba(46, 204, 113, 0.22);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.14);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
  .header-title-translation {
  font-size: 12px;
  font-weight: 400;

@@ -452,6 +452,7 @@ export function useGeminiLiveSession(options = {}) {
   // Reactive state
   const status = ref("idle"); // 'idle' | 'connecting' | 'connected' | 'error' | 'closed'
   const error = ref("");
+  const errorCode = ref(null);
   const isAiSpeaking = ref(false);
   const isMicMuted = ref(false);
   const userAudioLevel = ref(0); // 0.0 - 1.0
@@ -573,6 +574,9 @@ export function useGeminiLiveSession(options = {}) {
 
   async function startMicCapture() {
     if (!navigatorImpl?.mediaDevices?.getUserMedia) {
+      status.value = "error";
+      errorCode.value = "MIC_UNAVAILABLE";
+      error.value = "Microphone is not supported";
       return;
     }
     try {
@@ -585,11 +589,13 @@ export function useGeminiLiveSession(options = {}) {
         },
       });
 
-      if (!AudioContextImpl) return;
-      inputAudioCtx = new AudioContextImpl();
-      if (inputAudioCtx.state === "suspended") {
-        await inputAudioCtx.resume();
+      if (!AudioContextImpl) {
+        status.value = "error";
+        errorCode.value = "MIC_UNAVAILABLE";
+        error.value = "WebAudio is not supported";
+        return;
       }
+      inputAudioCtx = new AudioContextImpl();
 
       micSource = inputAudioCtx.createMediaStreamSource(micStream);
       const bufferSize = 2048;
@@ -642,9 +648,27 @@ export function useGeminiLiveSession(options = {}) {
       silentGain.gain.value = 0;
       micProcessor.connect(silentGain);
       silentGain.connect(inputAudioCtx.destination);
+
+      if (inputAudioCtx.state === "suspended") {
+        inputAudioCtx.resume().catch(() => {});
+      }
+
+      if (status.value === "error" && errorCode.value && errorCode.value.startsWith("MIC_")) {
+        status.value = "connected";
+        error.value = "";
+        errorCode.value = null;
+      }
     } catch (err) {
       status.value = "error";
-      error.value = err.message || "Failed to access microphone";
+      const errName = err?.name || "";
+      if (errName === "NotAllowedError" || errName === "PermissionDeniedError") {
+        errorCode.value = "MIC_PERMISSION_DENIED";
+      } else if (errName === "NotFoundError" || errName === "DevicesNotFoundError") {
+        errorCode.value = "MIC_NOT_FOUND";
+      } else {
+        errorCode.value = "MIC_ERROR";
+      }
+      error.value = err?.message || "Failed to access microphone";
     }
   }
 
@@ -660,7 +684,15 @@ export function useGeminiLiveSession(options = {}) {
   } = {}) {
     if (!WebSocketImpl) {
       status.value = "error";
+      errorCode.value = "WS_UNSUPPORTED";
       error.value = "WebSocket is not supported";
+      return;
+    }
+
+    if (!apiKey) {
+      status.value = "error";
+      errorCode.value = "API_KEY_MISSING";
+      error.value = "Gemini API Key not configured";
       return;
     }
 
@@ -668,6 +700,8 @@ export function useGeminiLiveSession(options = {}) {
 
     status.value = "connecting";
     error.value = "";
+    errorCode.value = null;
+    ensureOutputAudioContext();
     isAiSpeaking.value = false;
     isMicMuted.value = false;
     userAudioLevel.value = 0;
@@ -695,6 +729,7 @@ export function useGeminiLiveSession(options = {}) {
 
       if (msg.error) {
         status.value = "error";
+        errorCode.value = "SERVER_ERROR";
         error.value = msg.error.message || "Gemini Live 服务端错误";
         return;
       }
@@ -932,9 +967,10 @@ export function useGeminiLiveSession(options = {}) {
       } catch (e) {}
     };
 
-    ws.onerror = () => {
+    ws.onerror = (err) => {
       status.value = "error";
-      error.value = "WebSocket connection error";
+      errorCode.value = "WS_ERROR";
+      error.value = err?.message || "WebSocket connection error";
     };
 
     ws.onclose = () => {
@@ -958,6 +994,13 @@ export function useGeminiLiveSession(options = {}) {
             })
           );
         } catch (e) {}
+      }
+    } else {
+      if (inputAudioCtx && inputAudioCtx.state === "suspended") {
+        inputAudioCtx.resume().catch(() => {});
+      }
+      if (outputAudioCtx && outputAudioCtx.state === "suspended") {
+        outputAudioCtx.resume().catch(() => {});
       }
     }
   }
@@ -1102,6 +1145,7 @@ export function useGeminiLiveSession(options = {}) {
     // Reactive state
     status,
     error,
+    errorCode,
     isAiSpeaking,
     isMicMuted,
     userAudioLevel,

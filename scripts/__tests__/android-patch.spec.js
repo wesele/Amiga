@@ -190,6 +190,27 @@ describe("mergeManifest", () => {
     expect(mergeManifest(GENERATED, "")).toBe(GENERATED);
   });
 
+  it("preserves audio permission declarations including MODIFY_AUDIO_SETTINGS and RECORD_AUDIO", () => {
+    const audioFragment = `<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+</manifest>
+`;
+    const merged = mergeManifest(GENERATED, extractFragmentBody(audioFragment));
+    expect(merged).toContain('<uses-permission android:name="android.permission.RECORD_AUDIO" />');
+    expect(merged).toContain('<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />');
+  });
+
+  it("tracked manifest fragment contains both RECORD_AUDIO and MODIFY_AUDIO_SETTINGS", () => {
+    const trackedManifest = fs.readFileSync(
+      path.resolve(__dirname, "../../src-tauri/android/app/src/main/AndroidManifest.xml"),
+      "utf8",
+    );
+    expect(trackedManifest).toContain('<uses-permission android:name="android.permission.RECORD_AUDIO" />');
+    expect(trackedManifest).toContain('<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />');
+  });
+
   it("throws when the generated manifest has no </manifest> tag", () => {
     expect(() => mergeManifest("<manifest/>", "<x/>")).toThrow(/<\/manifest>/);
   });

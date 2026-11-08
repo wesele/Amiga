@@ -7,7 +7,7 @@
         </svg>
       </button>
       <div class="header-info">
-        <div class="header-title">{{ article?.title || t('reading.title') }}</div>
+        <div class="header-title" :class="{ 'is-playing': !isImported && isTitleActive }">{{ article?.title || t('reading.title') }}</div>
         <div v-if="bilingualMode && titleTranslation" class="header-title-translation">
           {{ titleTranslation }}
         </div>
@@ -102,16 +102,40 @@
                 @contextmenu.prevent
                 @click.stop="onTimeClick($event, pidx)"
               >{{ formatParagraphTime(pidx) }}</span>
-              <template v-for="(token, idx) in para" :key="idx">
-                <span
-                  v-if="token.isWord"
-                  class="word"
-                  :tabindex="isTvLayoutMode ? 0 : undefined"
-                  @click.stop="onWordTap(token)"
-                  @keydown.enter.prevent="onWordTap(token)"
-                  @keydown.space.prevent="onWordTap(token)"
-                >{{ token.text }}</span>
-                <span v-else>{{ token.text }}</span>
+              <template v-if="isImported">
+                <template v-for="(token, idx) in para" :key="idx">
+                  <span
+                    v-if="token.isWord"
+                    class="word"
+                    :tabindex="isTvLayoutMode ? 0 : undefined"
+                    @click.stop="onWordTap(token)"
+                    @keydown.enter.prevent="onWordTap(token)"
+                    @keydown.space.prevent="onWordTap(token)"
+                  >{{ token.text }}</span>
+                  <span v-else>{{ token.text }}</span>
+                </template>
+              </template>
+              <template v-else>
+                <template v-for="(sentence, sidx) in para" :key="sidx">
+                  <span
+                    class="article-sentence"
+                    :class="{ 'is-playing': !isImported && isSentenceActive(pidx, sidx) }"
+                    :data-sentence-key="`${pidx}-${sidx}`"
+                  >
+                    <template v-for="(token, idx) in sentence.tokens" :key="idx">
+                      <span
+                        v-if="token.isWord"
+                        class="word"
+                        :tabindex="isTvLayoutMode ? 0 : undefined"
+                        @click.stop="onWordTap(token)"
+                        @keydown.enter.prevent="onWordTap(token)"
+                        @keydown.space.prevent="onWordTap(token)"
+                      >{{ token.text }}</span>
+                      <span v-else>{{ token.text }}</span>
+                    </template>
+                  </span>
+                  <template v-if="sidx < para.length - 1">{{ ' ' }}</template>
+                </template>
               </template>
             </p>
           </template>
@@ -173,16 +197,40 @@
                 @contextmenu.prevent
                 @click.stop="onTimeClick($event, pidx)"
               >{{ formatParagraphTime(pidx) }}</span>
-              <template v-for="(token, idx) in tokens" :key="idx">
-                <span
-                  v-if="token.isWord"
-                  class="word"
-                  :tabindex="isTvLayoutMode ? 0 : undefined"
-                  @click.stop="onWordTap(token)"
-                  @keydown.enter.prevent="onWordTap(token)"
-                  @keydown.space.prevent="onWordTap(token)"
-                >{{ token.text }}</span>
-                <span v-else>{{ token.text }}</span>
+              <template v-if="isImported">
+                <template v-for="(token, idx) in tokens" :key="idx">
+                  <span
+                    v-if="token.isWord"
+                    class="word"
+                    :tabindex="isTvLayoutMode ? 0 : undefined"
+                    @click.stop="onWordTap(token)"
+                    @keydown.enter.prevent="onWordTap(token)"
+                    @keydown.space.prevent="onWordTap(token)"
+                  >{{ token.text }}</span>
+                  <span v-else>{{ token.text }}</span>
+                </template>
+              </template>
+              <template v-else>
+                <template v-for="(sentence, sidx) in tokens" :key="sidx">
+                  <span
+                    class="article-sentence"
+                    :class="{ 'is-playing': !isImported && isSentenceActive(pidx, sidx) }"
+                    :data-sentence-key="`${pidx}-${sidx}`"
+                  >
+                    <template v-for="(token, idx) in sentence.tokens" :key="idx">
+                      <span
+                        v-if="token.isWord"
+                        class="word"
+                        :tabindex="isTvLayoutMode ? 0 : undefined"
+                        @click.stop="onWordTap(token)"
+                        @keydown.enter.prevent="onWordTap(token)"
+                        @keydown.space.prevent="onWordTap(token)"
+                      >{{ token.text }}</span>
+                      <span v-else>{{ token.text }}</span>
+                    </template>
+                  </span>
+                  <template v-if="sidx < tokens.length - 1">{{ ' ' }}</template>
+                </template>
               </template>
             </p>
             <p
@@ -363,7 +411,7 @@ import {
 } from "@/shared/api.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { tokenizeArticleText, extractWordTexts } from "@/shared/articleText.js";
+import { tokenizeArticleText, tokenizeParagraphSentences, buildArticleReadSegments, extractWordTexts } from "@/shared/articleText.js";
 import { useSelectionTranslation } from "@/shared/selectionTranslation.js";
 import { useReadAloud } from "@/shared/readAloud.js";
 import { isTvLayoutMode } from "@/shared/appMode.js";
@@ -1008,7 +1056,12 @@ const paragraphTexts = computed(() => {
     .map((p) => p.trim())
     .filter(Boolean);
 });
-const bodyParagraphs = computed(() => paragraphTexts.value.map((p) => tokenizeArticleText(p)));
+const bodyParagraphs = computed(() => {
+  if (isImported.value) {
+    return paragraphTexts.value.map((p) => tokenizeArticleText(p));
+  }
+  return paragraphTexts.value.map((p) => tokenizeParagraphSentences(p));
+});
 
 // ---- Lazy per-paragraph translation ----
 // Each paragraph is translated only when it nears the viewport, with a small
@@ -1185,10 +1238,26 @@ const {
   readStatus,
   canRead,
   toggleReading,
+  stopReading,
+  activeSentence,
+  isTitleActive,
+  isSentenceActive,
 } = useReadAloud({
   getText: getReadableArticleText,
+  getSegments: () =>
+    buildArticleReadSegments({
+      title: article.value?.title || "",
+      paragraphs: paragraphTexts.value,
+    }),
   getTargetLang: () => targetLang,
   t,
+});
+
+watch(activeSentence, async (val) => {
+  if (isImported.value || !val || val.isTitle) return;
+  await nextTick();
+  const el = articleBodyEl.value?.querySelector?.(".article-sentence.is-playing");
+  el?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
 });
 
 let targetLang = "es";
@@ -1258,6 +1327,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  stopReading();
   if (audioEl) {
     audioEl.pause();
     audioEl = null;

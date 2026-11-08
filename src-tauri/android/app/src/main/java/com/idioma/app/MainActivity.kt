@@ -127,6 +127,7 @@ class MainActivity : TauriActivity() {
     override fun onWebViewCreate(webView: WebView) {
         mainWebView = webView
         WebView.setWebContentsDebuggingEnabled(true)
+        webView.settings.mediaPlaybackRequiresUserGesture = false
 
         // Neither legacy-directory preparation nor backup export is required
         // to render the Activity. Keep OEM storage providers off the launch

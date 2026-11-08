@@ -72,7 +72,8 @@
               :class="{
                 speaking: live.isAiSpeaking.value,
                 muted: live.isMicMuted.value,
-                active: !live.isMicMuted.value && !live.isAiSpeaking.value,
+                error: live.status.value === 'error',
+                active: live.status.value === 'connected' && !live.isMicMuted.value && !live.isAiSpeaking.value,
               }"
             />
             <span class="status-text">{{ stageStatusText }}</span>
@@ -88,10 +89,30 @@
         </div>
 
         <!-- Missing / Invalid API Key Banner -->
-        <div v-if="showConfigBanner" class="config-banner">
+        <div v-if="showConfigBanner" class="config-banner config-banner-key">
           <p class="config-prompt">{{ t('speaking.configureLiveKeyPrompt') }}</p>
           <button class="btn-config" @click="goToConfig">
             {{ t('speaking.goConfigure') }}
+          </button>
+        </div>
+
+        <!-- Microphone Error Banner -->
+        <div v-else-if="isMicError" class="config-banner config-banner-mic">
+          <p class="config-prompt">
+            {{ live.errorCode?.value === 'MIC_PERMISSION_DENIED' ? t('speaking.micPermissionPrompt') : t('speaking.micUnavailablePrompt') }}
+          </p>
+          <button class="btn-config btn-retry" @click="retryMic">
+            {{ t('speaking.retryMic') }}
+          </button>
+        </div>
+
+        <!-- Generic Connection Error Banner -->
+        <div v-else-if="live.status.value === 'error'" class="config-banner config-banner-error">
+          <p class="config-prompt">
+            {{ live.error?.value || t('speaking.connectionErrorPrompt') }}
+          </p>
+          <button class="btn-config btn-retry" @click="retryConnection">
+            {{ t('speaking.retry') }}
           </button>
         </div>
       </section>
@@ -285,8 +306,8 @@ const allGoalsDone = computed(() => {
   );
 });
 
-const showConfigBanner = computed(() => {
-  if (live.status.value === "error") return true;
+const isApiKeyMissingOrInvalid = computed(() => {
+  if (live.errorCode?.value === "API_KEY_MISSING") return true;
   const key = sessionData.value?.live_api_key || "";
   const base = sessionData.value?.live_base_url || "";
   if (!key) return true;
@@ -296,9 +317,38 @@ const showConfigBanner = computed(() => {
   return false;
 });
 
+const showConfigBanner = computed(() => {
+  return isApiKeyMissingOrInvalid.value;
+});
+
+const isMicError = computed(() => {
+  if (live.status.value !== "error") return false;
+  if (live.errorCode?.value && live.errorCode.value.startsWith("MIC_")) return true;
+  const msg = (live.error?.value || "").toLowerCase();
+  return (
+    msg.includes("microphone") ||
+    msg.includes("audio") ||
+    msg.includes("permission") ||
+    msg.includes("notallowederror") ||
+    msg.includes("notfounderror")
+  );
+});
+
 const stageStatusText = computed(() => {
   if (live.status.value === "connecting") {
     return t("speaking.connectingLive");
+  }
+  if (live.status.value === "error") {
+    if (live.errorCode?.value === "MIC_PERMISSION_DENIED") {
+      return t("speaking.micPermissionDenied");
+    }
+    if (isMicError.value) {
+      return t("speaking.micError");
+    }
+    if (isApiKeyMissingOrInvalid.value) {
+      return t("speaking.apiKeyMissing");
+    }
+    return t("speaking.connectionError");
   }
   if (live.isAiSpeaking.value) {
     return t("speaking.aiSpeaking");
@@ -510,6 +560,40 @@ function askRescue() {
 function playPhrase(phrase) {
   if (!phrase) return;
   speakText(phrase, targetLang.value);
+}
+
+async function retryMic() {
+  actionError.value = "";
+  if (live.status.value === "connected" || live.status.value === "error") {
+    await live.startMicCapture();
+  }
+  if (live.status.value === "error" && !live.errorCode?.value?.startsWith("MIC_")) {
+    retryConnection();
+  }
+}
+
+function retryConnection() {
+  actionError.value = "";
+  if (sessionData.value) {
+    const goalTexts = goalKeys.value
+      .map((k, idx) => `${idx}: ${getGoalText(k)}`)
+      .join("\n");
+    const fullSystemInstruction =
+      (sessionData.value.system_instruction || "") +
+      `\n\nScenario Micro-Goals (indices 0, 1, 2):\n${goalTexts}`;
+
+    live.connect({
+      apiKey: sessionData.value.live_api_key,
+      baseUrl: sessionData.value.live_base_url,
+      model: sessionData.value.live_model || "gemini-3.8-live",
+      voiceName: voiceName.value,
+      systemInstruction: fullSystemInstruction,
+      openingLine: initialOpeningLine.value,
+      onTurnRecorded: handleTurnRecorded,
+    });
+  } else {
+    boot();
+  }
 }
 
 function goToConfig() {
@@ -798,6 +882,11 @@ defineExpose({
   background: #f59e0b;
 }
 
+.status-dot.error {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+
 .status-text {
   font-size: 12px;
   color: var(--text-light);
@@ -846,6 +935,22 @@ defineExpose({
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.config-banner.config-banner-mic,
+.config-banner.config-banner-error {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.config-banner.config-banner-mic .config-prompt,
+.config-banner.config-banner-error .config-prompt {
+  color: #991b1b;
+}
+
+.config-banner.config-banner-mic .btn-config,
+.config-banner.config-banner-error .btn-config {
+  background: #ef4444;
 }
 
 /* Chat Stream */

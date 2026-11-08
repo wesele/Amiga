@@ -291,6 +291,232 @@ describe("useGeminiLiveSession helper functions", () => {
       expect(res.message).toContain("连接超时");
     });
   });
+
+  describe("error code differentiation and microphone error recovery", () => {
+    it("wires up createScriptProcessor and onaudioprocess even if AudioContext.resume() is suspended and non-resolving", async () => {
+      class SuspendedHangingAudioContext extends MockAudioContext {
+        constructor(options) {
+          super(options);
+          this.state = "suspended";
+        }
+        resume() {
+          // Returns a promise that never resolves (simulating Android WebView gesture block)
+          return new Promise(() => {});
+        }
+      }
+
+      const mockTracks = [{ stop: vi.fn() }];
+      const mockNavigator = {
+        mediaDevices: {
+          getUserMedia: vi.fn().mockResolvedValue({
+            getTracks: () => mockTracks,
+          }),
+        },
+      };
+
+      const session = useGeminiLiveSession({
+        WebSocketImpl: MockWebSocket,
+        AudioContextImpl: SuspendedHangingAudioContext,
+        navigatorImpl: mockNavigator,
+        autoStartMic: false,
+      });
+
+      await session.connect({
+        apiKey: "test-api-key",
+      });
+
+      // Calling startMicCapture must not hang even if AudioContext.resume() never resolves!
+      await session.startMicCapture();
+
+      const inputCtx = SuspendedHangingAudioContext.instances.find((ctx) => ctx.lastScriptProcessor);
+      expect(inputCtx).toBeTruthy();
+      expect(inputCtx.lastScriptProcessor).toBeTruthy();
+      expect(typeof inputCtx.lastScriptProcessor.onaudioprocess).toBe("function");
+
+      await session.disconnect();
+    });
+
+    it("resumes outputAudioCtx non-blockingly when playPcmChunk is called on suspended context", async () => {
+      let resumed = false;
+      class SuspendedOutputAudioContext extends MockAudioContext {
+        constructor(options) {
+          super(options);
+          this.state = "suspended";
+        }
+        resume() {
+          resumed = true;
+          return Promise.resolve();
+        }
+      }
+
+      const session = useGeminiLiveSession({
+        WebSocketImpl: MockWebSocket,
+        AudioContextImpl: SuspendedOutputAudioContext,
+        autoStartMic: false,
+      });
+
+      await session.connect({
+        apiKey: "test-api-key",
+      });
+      await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(1));
+      const ws = MockWebSocket.instances[0];
+      await vi.waitFor(() => expect(ws.readyState).toBe(MockWebSocket.OPEN));
+
+      // Receive audio frame
+      ws.receive({
+        serverContent: {
+          modelTurn: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: "audio/pcm;rate=24000",
+                  data: "AAAA",
+                },
+              },
+            ],
+          },
+        },
+      });
+
+      expect(resumed).toBe(true);
+      await session.disconnect();
+    });
+    beforeEach(() => {
+      MockWebSocket.instances = [];
+      MockAudioContext.instances = [];
+    });
+    it("sets API_KEY_MISSING and status to error when connect is called without apiKey", async () => {
+      const session = useGeminiLiveSession({
+        WebSocketImpl: MockWebSocket,
+        AudioContextImpl: MockAudioContext,
+      });
+
+      await session.connect({
+        apiKey: "",
+        baseUrl: "https://generativelanguage.googleapis.com",
+      });
+
+      expect(session.status.value).toBe("error");
+      expect(session.errorCode.value).toBe("API_KEY_MISSING");
+      expect(session.error.value).toBe("Gemini API Key not configured");
+    });
+
+    it("sets MIC_PERMISSION_DENIED when getUserMedia throws NotAllowedError", async () => {
+      const mockNavigator = {
+        mediaDevices: {
+          getUserMedia: vi.fn().mockRejectedValue(new DOMException("Permission denied", "NotAllowedError")),
+        },
+      };
+
+      const session = useGeminiLiveSession({
+        WebSocketImpl: MockWebSocket,
+        AudioContextImpl: MockAudioContext,
+        navigatorImpl: mockNavigator,
+        autoStartMic: false,
+      });
+
+      await session.connect({
+        apiKey: "test-api-key",
+      });
+
+      await session.startMicCapture();
+
+      expect(session.status.value).toBe("error");
+      expect(session.errorCode.value).toBe("MIC_PERMISSION_DENIED");
+      expect(session.error.value).toBe("Permission denied");
+    });
+
+    it("sets MIC_NOT_FOUND when getUserMedia throws NotFoundError", async () => {
+      const mockNavigator = {
+        mediaDevices: {
+          getUserMedia: vi.fn().mockRejectedValue(new DOMException("Requested device not found", "NotFoundError")),
+        },
+      };
+
+      const session = useGeminiLiveSession({
+        WebSocketImpl: MockWebSocket,
+        AudioContextImpl: MockAudioContext,
+        navigatorImpl: mockNavigator,
+        autoStartMic: false,
+      });
+
+      await session.connect({
+        apiKey: "test-api-key",
+      });
+
+      await session.startMicCapture();
+
+      expect(session.status.value).toBe("error");
+      expect(session.errorCode.value).toBe("MIC_NOT_FOUND");
+    });
+
+    it("sets MIC_UNAVAILABLE when getUserMedia is not supported", async () => {
+      const session = useGeminiLiveSession({
+        WebSocketImpl: MockWebSocket,
+        AudioContextImpl: MockAudioContext,
+        navigatorImpl: {},
+        autoStartMic: false,
+      });
+
+      await session.connect({
+        apiKey: "test-api-key",
+      });
+
+      await session.startMicCapture();
+
+      expect(session.status.value).toBe("error");
+      expect(session.errorCode.value).toBe("MIC_UNAVAILABLE");
+      expect(session.error.value).toBe("Microphone is not supported");
+    });
+
+    it("recovers status from error to connected when mic capture succeeds after prior error", async () => {
+      let allowMic = false;
+      const mockTracks = [{ stop: vi.fn() }];
+      const mockNavigator = {
+        mediaDevices: {
+          getUserMedia: vi.fn().mockImplementation(() => {
+            if (!allowMic) {
+              return Promise.reject(new DOMException("Permission denied", "NotAllowedError"));
+            }
+            return Promise.resolve({
+              getTracks: () => mockTracks,
+            });
+          }),
+        },
+      };
+
+      const session = useGeminiLiveSession({
+        WebSocketImpl: MockWebSocket,
+        AudioContextImpl: MockAudioContext,
+        navigatorImpl: mockNavigator,
+        autoStartMic: false,
+      });
+
+      await session.connect({
+        apiKey: "test-api-key",
+      });
+      await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(1));
+      const ws = MockWebSocket.instances[0];
+      await vi.waitFor(() => expect(ws.readyState).toBe(MockWebSocket.OPEN));
+      ws.receive({ setupComplete: {} });
+      expect(session.status.value).toBe("connected");
+
+      // First attempt fails
+      await session.startMicCapture();
+      expect(session.status.value).toBe("error");
+      expect(session.errorCode.value).toBe("MIC_PERMISSION_DENIED");
+
+      // User grants permission and retries
+      allowMic = true;
+      await session.startMicCapture();
+
+      expect(session.status.value).toBe("connected");
+      expect(session.errorCode.value).toBeNull();
+      expect(session.error.value).toBe("");
+
+      await session.disconnect();
+    });
+  });
 });
 
 describe("useGeminiLiveSession composable", () => {

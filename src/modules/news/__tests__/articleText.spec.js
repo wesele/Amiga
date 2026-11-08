@@ -41,4 +41,9 @@ describe("news article text helpers", () => {
       "mundo",
     ]);
   });
+
+  it("supports options shifting when second argument is an options object", () => {
+    const tokens = tokenizeArticleText("Hola", { contextSourceText: "Hola querido amigo" });
+    expect(tokens[0].context).toBe("Hola querido amigo");
+  });
 });

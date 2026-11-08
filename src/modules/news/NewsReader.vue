@@ -8,7 +8,7 @@
         </svg>
       </button>
       <div class="header-info">
-        <div class="header-title">{{ articleTitle }}</div>
+        <div class="header-title" :class="{ 'is-playing': isTitleActive }">{{ articleTitle }}</div>
         <div class="header-title-translation" v-if="bilingualMode && titleTranslation">{{ titleTranslation }}</div>
         <!-- TV: source is display-only (remote must not focus or open the original URL). -->
         <span
@@ -47,7 +47,7 @@
     </div>
 
     <!-- Article body (TV: original-first while rewrite runs in background) -->
-    <div v-else-if="displayBody || !blocksOnRewrite" class="article-body">
+    <div v-else-if="displayBody || !blocksOnRewrite" ref="articleBodyEl" class="article-body">
       <div v-if="rewriting && !blocksOnRewrite" class="rewrite-banner" role="status">
         <div class="rewrite-banner-main">
           <div class="mini-spinner" aria-hidden="true" />
@@ -69,34 +69,52 @@
       <!-- Original mode: paragraph-aware like daily reading -->
       <div v-if="!bilingualMode" class="article-text">
         <p v-for="(para, pidx) in bodyParagraphs" :key="pidx" class="para">
-          <template v-for="(token, idx) in para" :key="idx">
+          <template v-for="(sentence, sidx) in para" :key="sidx">
             <span
-              v-if="token.isWord"
-              class="word"
-              :tabindex="isTvLayoutMode ? 0 : undefined"
-              @click.stop="onWordTap(token)"
-              @keydown.enter.prevent="onWordTap(token)"
-              @keydown.space.prevent="onWordTap(token)"
-            >{{ token.text }}</span>
-            <span v-else>{{ token.text }}</span>
+              class="article-sentence"
+              :class="{ 'is-playing': isSentenceActive(pidx, sidx) }"
+              :data-sentence-key="`${pidx}-${sidx}`"
+            >
+              <template v-for="(token, idx) in sentence.tokens" :key="idx">
+                <span
+                  v-if="token.isWord"
+                  class="word"
+                  :tabindex="isTvLayoutMode ? 0 : undefined"
+                  @click.stop="onWordTap(token)"
+                  @keydown.enter.prevent="onWordTap(token)"
+                  @keydown.space.prevent="onWordTap(token)"
+                >{{ token.text }}</span>
+                <span v-else>{{ token.text }}</span>
+              </template>
+            </span>
+            <template v-if="sidx < para.length - 1">{{ ' ' }}</template>
           </template>
         </p>
       </div>
 
       <!-- Bilingual mode -->
       <div v-else-if="translations.length > 0" class="article-text bilingual">
-        <template v-for="(tokens, pidx) in paraTokens" :key="pidx">
+        <template v-for="(para, pidx) in (paraTokens.length > 0 ? paraTokens : bodyParagraphs)" :key="pidx">
           <p class="para-original">
-            <template v-for="(token, idx) in tokens" :key="idx">
+            <template v-for="(sentence, sidx) in para" :key="sidx">
               <span
-                v-if="token.isWord"
-                class="word"
-                :tabindex="isTvLayoutMode ? 0 : undefined"
-                @click.stop="onWordTap(token)"
-                @keydown.enter.prevent="onWordTap(token)"
-                @keydown.space.prevent="onWordTap(token)"
-              >{{ token.text }}</span>
-              <span v-else>{{ token.text }}</span>
+                class="article-sentence"
+                :class="{ 'is-playing': isSentenceActive(pidx, sidx) }"
+                :data-sentence-key="`${pidx}-${sidx}`"
+              >
+                <template v-for="(token, idx) in sentence.tokens" :key="idx">
+                  <span
+                    v-if="token.isWord"
+                    class="word"
+                    :tabindex="isTvLayoutMode ? 0 : undefined"
+                    @click.stop="onWordTap(token)"
+                    @keydown.enter.prevent="onWordTap(token)"
+                    @keydown.space.prevent="onWordTap(token)"
+                  >{{ token.text }}</span>
+                  <span v-else>{{ token.text }}</span>
+                </template>
+              </span>
+              <template v-if="sidx < para.length - 1">{{ ' ' }}</template>
             </template>
           </p>
           <p
@@ -197,7 +215,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { getArticle, saveReadingLog } from "@/shared/api.js";
 import { getBilingual, rewriteArticle, translateText } from "@/shared/api.js";
@@ -209,7 +227,7 @@ import { eventBus } from "@/shared/eventBus.js";
 import { openSourceUrl } from "./utils.js";
 import { displayLang } from "@/shared/constants.js";
 import { loadLearningContext } from "@/shared/learningContext.js";
-import { cleanHtmlText, cleanRssSummary, tokenizeArticleText } from "./articleText.js";
+import { cleanHtmlText, cleanRssSummary, tokenizeArticleText, tokenizeParagraphSentences, buildArticleReadSegments } from "./articleText.js";
 import { shareArticle } from "./share.js";
 import { useSelectionTranslation } from "./selectionTranslation.js";
 import { useReadAloud } from "@/shared/readAloud.js";
@@ -224,6 +242,7 @@ const router = useRouter();
 const targetLangStore = useTargetLangStore();
 
 const article = ref(null);
+const articleBodyEl = ref(null);
 const rewriting = ref(false);
 const rewriteError = ref("");
 const rewriteCancelled = ref(false);
@@ -295,10 +314,30 @@ const {
   canRead: canReadArticle,
   toggleReading,
   stopReading,
+  activeSentence,
+  isTitleActive,
+  isSentenceActive,
 } = useReadAloud({
   getText: getReadableArticleText,
+  getSegments: () => buildArticleReadSegments({
+    title: articleTitle.value,
+    paragraphs: rawParagraphStrings.value,
+  }),
   getTargetLang: () => targetLang,
   t,
+});
+
+watch(displayBody, () => {
+  if (reading.value) {
+    stopReading();
+  }
+});
+
+watch(activeSentence, async (val) => {
+  if (!val || val.isTitle) return;
+  await nextTick();
+  const el = articleBodyEl.value?.querySelector?.(".article-sentence.is-playing") || document.querySelector?.(".news-reader .article-sentence.is-playing");
+  el?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
 });
 
 const {
@@ -446,9 +485,8 @@ async function loadBilingual() {
   translationError.value = "";
   try {
     // Split body into paragraphs
-    const body = article.value?.rewritten_body || article.value?.original_body || "";
-    paragraphs.value = body.split("\n\n").map(p => p.trim()).filter(p => p);
-    paraTokens.value = paragraphs.value.map(p => tokenizeArticleText(p));
+    paragraphs.value = rawParagraphStrings.value;
+    paraTokens.value = rawParagraphStrings.value.map(p => tokenizeParagraphSentences(p));
     const result = await getBilingual(Number(props.id), targetLang, getLocale());
     translations.value = result;
     // Translate title
@@ -468,14 +506,17 @@ async function loadBilingual() {
   }
 }
 
-/** Split body into paragraphs (same structure as daily reading). */
-const bodyParagraphs = computed(() => {
+const rawParagraphStrings = computed(() => {
   const body = displayBody.value || "";
   return body
     .split(/\n{2,}/)
     .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => tokenizeArticleText(p));
+    .filter(Boolean);
+});
+
+/** Split body into paragraphs (same structure as daily reading). */
+const bodyParagraphs = computed(() => {
+  return rawParagraphStrings.value.map((p) => tokenizeParagraphSentences(p));
 });
 
 function showShareStatus(msg) {
@@ -586,6 +627,26 @@ function formatSource(source) {
  overflow: hidden;
  overflow-wrap: break-word;
  }
+
+.header-title.is-playing {
+  background: rgba(46, 204, 113, 0.22);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.14);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.article-sentence {
+  display: inline;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.article-sentence.is-playing {
+  background: rgba(46, 204, 113, 0.22);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.14);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
 
  .header-title-translation {
  font-size: 12px;

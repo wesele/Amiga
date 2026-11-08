@@ -54,6 +54,11 @@ getByName("debug") {
 - `enableEdgeToEdge()` 让 status / nav bar 透明
 - `setOnApplyWindowInsetsListener` 把 `systemBars()` + `ime()` inset 通过 `window.__amigaSetInsets(top, bottom, left, right)` 传给 JS 层，JS 更新 `--safe-*` CSS 自定义属性。CSS 变量方案与桌面 WebView 共用样式（**本项目无 iOS 构建**；若将来有 iOS 可复用 `--safe-*` 或 `env(safe-area-inset-*)`）。
 - `OnBackPressedCallback` 拦截系统返回键，调用 `window.__amigaGoBack()`：JS 端读当前路由的 `meta.parent`，有父级就 `router.replace({ name: parent })`、无父级返回 `"at-root"`，Kotlin 收到 `"at-root"` 就 `finish()` Activity。这避开了 `history.back()` 走"上一个 URL"的死循环问题。
+- `webView.settings.mediaPlaybackRequiresUserGesture = false`：解除 Web Audio / 媒体播放对手势激活的严格限制，确保前端在 WebSocket 连接就绪或异步授权完成后恢复 `AudioContext` 不会被挂起。
+
+### WebView 麦克风权限与 `RustWebChromeClient`
+
+Tauri / Wry 生成的 `RustWebChromeClient` 统一托管了 WebView 的 `onPermissionRequest`。当前端调用 `navigator.mediaDevices.getUserMedia({ audio: true })` 时，`RustWebChromeClient` 拦截 `RESOURCE_AUDIO_CAPTURE` 并通过 `ActivityResultContracts.RequestMultiplePermissions` 同时申请 `RECORD_AUDIO` 与 `MODIFY_AUDIO_SETTINGS`。若其中任一权限未在 `AndroidManifest.xml` 中声明，系统会判定申请失败并触发 `request.deny()`。因此 `src-tauri/android/app/src/main/AndroidManifest.xml` 必须显式声明这两个权限。Kotlin 端无需重复覆盖 `WebChromeClient` 或拦截 `onRequestPermissionsResult`。配合上述 `mediaPlaybackRequiresUserGesture = false` 设置，保障了实时会话音频流收发的顺畅。
 
 ### `MainActivity.kt` TTS 桥 `__amigaTts`
 

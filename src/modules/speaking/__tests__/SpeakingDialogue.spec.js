@@ -286,4 +286,114 @@ describe("SpeakingDialogue", () => {
 
     expect(streamEl.scrollTop).toBe(1200);
   });
+
+  it("does NOT show API key missing banner when apiKey is present and status is error due to mic failure", async () => {
+    const router = makeRouter();
+    await router.push({ name: "speaking-dialogue", params: { topicId: "greetings" } });
+    const wrapper = mount(SpeakingDialogue, {
+      global: { plugins: [router] },
+      props: { topicId: "greetings" },
+    });
+
+    await flushPromises();
+
+    // Trigger mic error on live session
+    wrapper.vm.live.status.value = "error";
+    wrapper.vm.live.errorCode.value = "MIC_PERMISSION_DENIED";
+    wrapper.vm.live.error.value = "Permission denied";
+    await flushPromises();
+
+    // API Key banner should NOT be displayed
+    expect(wrapper.find(".config-banner-key").exists()).toBe(false);
+    expect(wrapper.find(".config-banner-mic").exists()).toBe(true);
+    expect(wrapper.find(".status-dot.error").exists()).toBe(true);
+    // stageStatusText should reflect mic permission denied, NOT listening
+    expect(wrapper.find(".status-text").text()).toContain("Microphone permission denied");
+    expect(wrapper.find(".status-text").text()).not.toContain("Listening");
+  });
+
+  it("shows API key missing banner when API key is missing", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "get_target_language_cmd") return Promise.resolve("es");
+      if (cmd === "speaking_start_session_cmd") {
+        return Promise.resolve({
+          session_id: "sess-no-key",
+          topic_id: "greetings",
+          turn: 1,
+          total_turns: 8,
+          ai_text: "Hola",
+          voice_name: "Aoede",
+          goals: ["g1"],
+          system_instruction: "Tutor",
+          live_model: "gemini-3.8-live",
+          live_base_url: "generativelanguage.googleapis.com",
+          live_api_key: "", // empty key
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    const router = makeRouter();
+    await router.push({ name: "speaking-dialogue", params: { topicId: "greetings" } });
+    const wrapper = mount(SpeakingDialogue, {
+      global: { plugins: [router] },
+      props: { topicId: "greetings" },
+    });
+
+    await flushPromises();
+
+    expect(wrapper.find(".config-banner-key").exists()).toBe(true);
+    expect(wrapper.vm.live.errorCode.value).toBe("API_KEY_MISSING");
+  });
+
+  it("shows retry microphone button and triggers startMicCapture when clicked", async () => {
+    const router = makeRouter();
+    await router.push({ name: "speaking-dialogue", params: { topicId: "greetings" } });
+    const wrapper = mount(SpeakingDialogue, {
+      global: { plugins: [router] },
+      props: { topicId: "greetings" },
+    });
+
+    await flushPromises();
+
+    const startMicSpy = vi.spyOn(wrapper.vm.live, "startMicCapture").mockResolvedValue();
+
+    wrapper.vm.live.status.value = "error";
+    wrapper.vm.live.errorCode.value = "MIC_ERROR";
+    wrapper.vm.live.error.value = "Failed to access microphone";
+    await flushPromises();
+
+    const micBanner = wrapper.find(".config-banner-mic");
+    expect(micBanner.exists()).toBe(true);
+    const retryBtn = micBanner.find(".btn-retry");
+    expect(retryBtn.exists()).toBe(true);
+
+    await retryBtn.trigger("click");
+    await flushPromises();
+
+    expect(startMicSpy).toHaveBeenCalled();
+  });
+
+  it("shows connection error banner with retry when a network error occurs", async () => {
+    const router = makeRouter();
+    await router.push({ name: "speaking-dialogue", params: { topicId: "greetings" } });
+    const wrapper = mount(SpeakingDialogue, {
+      global: { plugins: [router] },
+      props: { topicId: "greetings" },
+    });
+
+    await flushPromises();
+
+    wrapper.vm.live.status.value = "error";
+    wrapper.vm.live.errorCode.value = "SERVER_ERROR";
+    wrapper.vm.live.error.value = "Resource exhausted (quota exceeded)";
+    await flushPromises();
+
+    expect(wrapper.find(".config-banner-key").exists()).toBe(false);
+    expect(wrapper.find(".config-banner-mic").exists()).toBe(false);
+    const errorBanner = wrapper.find(".config-banner-error");
+    expect(errorBanner.exists()).toBe(true);
+    expect(errorBanner.text()).toContain("Resource exhausted");
+    expect(wrapper.find(".status-text").text()).toContain("Connection error");
+  });
 });
