@@ -106,8 +106,19 @@ pub fn all_migrations() -> Vec<(i32, &'static str, &'static str)> {
             "Add imported_article_chapters table for YouTube chapter splitting and learning courseware",
             MIGRATION_V24,
         ),
+        (25, "Add versioned chapter teaching plans and classroom sessions", MIGRATION_V25),
     ]
 }
+
+const MIGRATION_V25: &str = r#"
+CREATE TABLE IF NOT EXISTS chapter_classrooms (
+    chapter_id INTEGER PRIMARY KEY REFERENCES imported_article_chapters(id) ON DELETE CASCADE,
+    plan_json TEXT NOT NULL,
+    session_json TEXT,
+    revision INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+"#;
 
 const MIGRATION_V24: &str = r#"
 CREATE TABLE IF NOT EXISTS imported_article_chapters (

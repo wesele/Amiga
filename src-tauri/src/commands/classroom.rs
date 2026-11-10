@@ -1,0 +1,39 @@
+use crate::commands::llm::LlmState;
+use crate::modules::{classroom, database::DatabasePool};
+use serde_json::Value;
+use tauri::State;
+
+#[tauri::command]
+pub async fn get_chapter_classroom_cmd(
+    db: State<'_, DatabasePool>,
+    chapter_id: i64,
+) -> Result<Value, String> {
+    classroom::get_classroom(&db, chapter_id)
+}
+
+#[tauri::command]
+pub async fn generate_chapter_teaching_plan_cmd(
+    db: State<'_, DatabasePool>,
+    llm: State<'_, LlmState>,
+    chapter_id: i64,
+) -> Result<Value, String> {
+    classroom::generate_plan(&db, &llm.client, chapter_id).await
+}
+
+#[tauri::command]
+pub async fn save_chapter_classroom_cmd(
+    db: State<'_, DatabasePool>,
+    chapter_id: i64,
+    session: Value,
+) -> Result<Value, String> {
+    classroom::save_session(&db, chapter_id, session)
+}
+
+#[tauri::command]
+pub async fn get_classroom_live_config_cmd(db: State<'_, DatabasePool>) -> Result<Value, String> {
+    let config = crate::modules::llm::get_multimodal_config(&db)?;
+    let active = config.active().unwrap_or(&config.builtin);
+    Ok(
+        serde_json::json!({"api_key":active.api_key,"base_url":active.base_url,"model":active.model}),
+    )
+}

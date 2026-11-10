@@ -22,7 +22,7 @@ if ([string]::IsNullOrWhiteSpace($WorkingDir)) {
 Set-Location $WorkingDir
 
 if ([string]::IsNullOrWhiteSpace($ExePath)) {
-    $ExePath = Join-Path $WorkingDir "src-tauri\target\release\idioma.exe"
+    $ExePath = Join-Path $WorkingDir "src-tauri\target\debug\idioma.exe"
 } else {
     $requestedExe = $ExePath
     $resolvedExe = Resolve-Path $requestedExe -ErrorAction SilentlyContinue
@@ -44,13 +44,16 @@ $ViteCacheRelative = if ($env:VITE_CACHE_DIR) { $env:VITE_CACHE_DIR } else { "no
 $ViteCacheDir = Join-Path $WorkingDir $ViteCacheRelative
 
 $RustWatchRoots = @(
+    $PSCommandPath,
     "src-tauri\Cargo.toml",
     "src-tauri\Cargo.lock",
     "src-tauri\build.rs",
     "src-tauri\tauri.conf.json",
     "src-tauri\tauri.conf.test.json",
     "src-tauri\capabilities",
-    "src-tauri\src"
+    "src-tauri\src",
+    # Shared prompt is embedded into the Rust binary with include_str!.
+    "src\modules\reading\classroom\teachingPlanPrompt.txt"
 )
 
 if (-not [string]::IsNullOrWhiteSpace($TauriConfig)) {
@@ -227,9 +230,9 @@ function Start-ViteServer {
     throw "Vite did not become ready at $DevUrl within 15 seconds."
 }
 
-function Build-ReleaseBinary {
-    Write-AmigaLine "Building changed Rust sources (release profile)..."
-    $args = @("build", "--release", "--no-default-features", "--bin", "idioma")
+function Build-DebugBinary {
+    Write-AmigaLine "Building changed Rust sources (debug profile)..."
+    $args = @("build", "--no-default-features", "--bin", "idioma")
     if ($TauriConfig) {
         $configPath = $TauriConfig
         if (-not [System.IO.Path]::IsPathRooted($configPath)) {
@@ -239,13 +242,13 @@ function Build-ReleaseBinary {
     }
     & cargo @args --manifest-path (Join-Path $WorkingDir "src-tauri\Cargo.toml")
     if ($LASTEXITCODE -ne 0) {
-        throw "Cargo release build failed with exit code $LASTEXITCODE."
+        throw "Cargo debug build failed with exit code $LASTEXITCODE."
     }
 }
 
-function Start-ReleaseApp {
+function Start-DebugApp {
     Stop-AmigaProcess
-    Write-AmigaLine "Launching cached release binary directly."
+    Write-AmigaLine "Launching cached debug binary directly."
     & $ExePath
     return $LASTEXITCODE
 }
@@ -277,10 +280,10 @@ if (-not $viteConfigFresh -and (Test-PortListening -Port $DevPort)) {
 Start-ViteServer
 
 if (-not $rustFresh) {
-    Build-ReleaseBinary
+    Build-DebugBinary
 } else {
-    Write-AmigaLine "Rust release binary is up to date; skipping Cargo entirely."
+    Write-AmigaLine "Rust debug binary is up to date; skipping Cargo entirely."
 }
 
-$exitCode = Start-ReleaseApp
+$exitCode = Start-DebugApp
 exit $exitCode

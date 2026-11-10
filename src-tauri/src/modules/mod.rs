@@ -2,6 +2,7 @@ pub mod achievements;
 #[cfg(any(test, target_os = "android"))]
 mod android_paths;
 pub mod chat;
+pub mod classroom;
 pub mod database;
 pub mod greeting;
 pub mod llm;

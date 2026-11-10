@@ -14,9 +14,9 @@ setlocal EnableDelayedExpansion
 ::
 ::  Fast start (no code changes):
 ::    - Reuses a running Vite server on :1420 when possible
-::    - Skips Rust rebuild when target\release\idioma.exe is fresh
+::    - Skips Rust rebuild when target\debug\idioma.exe is fresh
 ::    Use --full to force a restart of ports + Vite and check the Rust build.
-::    This launcher intentionally supports the release profile only.
+::    This launcher uses the debug profile for everyday development.
 :: ============================================================
 
 set "PROJECT_DIR=%~dp0"

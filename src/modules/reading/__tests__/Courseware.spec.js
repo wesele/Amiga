@@ -4,6 +4,8 @@ import { createPinia, setActivePinia } from "pinia";
 import { createMemoryHistory, createRouter } from "vue-router";
 import * as api from "@/shared/api.js";
 import CoursewareModal from "@/modules/reading/CoursewareModal.vue";
+// Preserve regression coverage for the archived rollback path.
+vi.mock("@/modules/reading/classroom/features.js", () => ({ READING_FEATURES: { legacyCourseware: true } }));
 
 const ReadingReader = (await import("@/modules/reading/ReadingReader.vue")).default;
 

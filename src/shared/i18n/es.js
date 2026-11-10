@@ -1,6 +1,8 @@
 // Spanish (Español) translation strings.
 
+import { classroomEs } from "@/modules/reading/classroom/messages.js";
 export default {
+  classroom: classroomEs,
   app: {
     name: "Amiga",
     tagline: "Aprende idiomas, conecta el mundo",

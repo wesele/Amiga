@@ -6,6 +6,7 @@
 /** Routes that hide L1 chrome on phone, but keep the TV side rail. */
 export const PHONE_NO_NAV_ROUTES = new Set([
   "wizard",
+  "reading-classroom",
   "reader",
   "chat-session",
   "social-chat",
@@ -18,6 +19,7 @@ export const PHONE_NO_NAV_ROUTES = new Set([
 /** On TV, only fullscreen immersive routes hide the L1 rail. */
 export const TV_NO_NAV_ROUTES = new Set([
   "wizard",
+  "reading-classroom",
 ]);
 
 /**

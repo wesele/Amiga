@@ -2,6 +2,7 @@ import express from "express";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { mintClassroomToken, classroomTokenAllowed } from "./classroom-token.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 1420;
@@ -38,6 +39,12 @@ const NEWS_FEEDS = {
 };
 
 const app = express();
+app.all("/api/classroom-token", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  if (!classroomTokenAllowed(req)) return res.status(403).json({ error: "Forbidden" });
+  try { res.json(await mintClassroomToken()); }
+  catch (error) { res.status(503).json({ error: error.message }); }
+});
 
 for (const [alias, target] of Object.entries(LLM_PROVIDERS)) {
   app.use(`/llm/${alias}`, createProxyMiddleware({

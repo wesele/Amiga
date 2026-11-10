@@ -387,6 +387,10 @@ export function createApiClient(invoke) {
       call("update_chapter_courseware_progress_cmd", { chapterId, viewedPages }),
 
     // YouTube
+    getChapterClassroom: (chapterId) => call("get_chapter_classroom_cmd", { chapterId }),
+    generateChapterTeachingPlan: (chapterId) => call("generate_chapter_teaching_plan_cmd", { chapterId }),
+    saveChapterClassroom: (chapterId, session) => call("save_chapter_classroom_cmd", { chapterId, session }),
+    getClassroomLiveConfig: () => call("get_classroom_live_config_cmd"),
     fetchYoutubeMetadata: (url, targetLang) =>
       call("fetch_youtube_metadata_cmd", { url, targetLang }),
     startYoutubeImport: (taskId, url, targetLang, userId, cefrLevel, meta) =>
@@ -646,6 +650,10 @@ export const updateYtdlp = (...args) =>
 
 // --- Speaking ---
 export const speakingListTopics = (...args) => defaultApiClient.speakingListTopics(...args);
+export const getChapterClassroom = (...args) => defaultApiClient.getChapterClassroom(...args);
+export const generateChapterTeachingPlan = (...args) => defaultApiClient.generateChapterTeachingPlan(...args);
+export const saveChapterClassroom = (...args) => defaultApiClient.saveChapterClassroom(...args);
+export const getClassroomLiveConfig = (...args) => defaultApiClient.getClassroomLiveConfig(...args);
 export const speakingStartSession = (...args) => defaultApiClient.speakingStartSession(...args);
 export const speakingScoreTurn = (...args) => defaultApiClient.speakingScoreTurn(...args);
 export const speakingRecordLiveTurn = (...args) =>

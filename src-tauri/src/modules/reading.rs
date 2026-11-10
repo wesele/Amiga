@@ -2216,6 +2216,8 @@ pub async fn generate_chapter_courseware(
     get_imported_article_chapter(db, chapter_id)
 }
 
+// Archived with the card UI; retained for the internal rollback path.
+#[allow(dead_code)]
 pub fn spawn_article_courseware_generation(
     app: tauri::AppHandle,
     db: DatabasePool,

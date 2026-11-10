@@ -2544,7 +2544,7 @@ pub fn run_import_pipeline(
                     );
                 }
                 let llm_client = crate::modules::llm::LlmClient::new();
-                reading_mod::spawn_article_courseware_generation(
+                crate::modules::classroom::spawn_article_plan_generation(
                     app_clone.clone(),
                     db.clone(),
                     llm_client,

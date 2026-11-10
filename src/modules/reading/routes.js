@@ -1,10 +1,12 @@
 import ReadingList from "./ReadingList.vue";
 import ReadingReader from "./ReadingReader.vue";
 import ReadingTest from "./ReadingTest.vue";
+import ClassroomPage from "./ClassroomPage.vue";
 
 // `meta.parent` is consumed by window.__amigaGoBack() in androidBridge.js — the
 // Android back button walks the parent chain instead of history.back().
 export default [
+  { path: "/learn/reading/:id/chapters/:chapterId/classroom", name: "reading-classroom", component: ClassroomPage, props: true, meta: { parent: "reading-article" } },
   {
     path: "/learn/reading",
     name: "reading",

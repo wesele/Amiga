@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { fileURLToPath, URL } from "node:url";
 import providers from "./src/shared/web/llmProviders.json";
+import { mintClassroomToken, classroomTokenAllowed } from "./deploy/web/classroom-token.js";
 
 const host = process.env.TAURI_DEV_HOST;
 const port = parseInt(process.env.VITE_PORT || "1420", 10);
@@ -36,7 +37,15 @@ function createWebNewsDevProxy() {
 }
 
 export default defineConfig(({ mode }) => ({
-  plugins: [vue()],
+  plugins: [vue(), ...(mode === "web" ? [{ name: "amiga-classroom-token", configureServer(server) {
+    server.middlewares.use("/api/classroom-token", async (req, res) => {
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Content-Type", "application/json");
+      if (!classroomTokenAllowed(req)) { res.statusCode = 403; res.end(JSON.stringify({ error: "Forbidden" })); return; }
+      try { res.end(JSON.stringify(await mintClassroomToken())); }
+      catch (error) { res.statusCode = 503; res.end(JSON.stringify({ error: error.message })); }
+    });
+  } }] : [])],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

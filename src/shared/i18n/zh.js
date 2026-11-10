@@ -3,7 +3,9 @@
 // en.js / es.js). Keys are namespaced by feature (e.g. "nav.learn",
 // "news.title") so a tree of keys maps roughly onto the module layout.
 
+import { classroomZh } from "@/modules/reading/classroom/messages.js";
 export default {
+  classroom: classroomZh,
   app: {
     name: "阿米加",
     tagline: "学语言，连世界",

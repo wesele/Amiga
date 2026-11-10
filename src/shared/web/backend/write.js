@@ -1,3 +1,4 @@
+import { validateSession } from "@/modules/reading/classroom/teachingPlan.js";
 import {
   allVocab,
   chat,
@@ -15,6 +16,15 @@ import {
 export async function invokeWrite(command, args) {
   return store.update(async (state) => {
     switch (command) {
+      case "save_chapter_classroom_cmd": {
+        const classroom = state.chapter_classrooms?.[args.chapterId];
+        if (!classroom) throw new Error("教学大纲尚未准备好");
+        validateSession(args.session, classroom.plan);
+        const revision = classroom.session?.revision || 0;
+        if (args.session.revision !== revision) throw new Error("课堂记录已更新，请重新进入课堂");
+        classroom.session = clone({ ...args.session, revision: revision + 1 });
+        return clone(classroom.session);
+      }
       case "reset_database_cmd":
       case "delete_database_file_cmd":
       case "delete_database_and_restart_cmd": Object.assign(state, createSeedState()); return null;
@@ -217,6 +227,9 @@ export async function invokeWrite(command, args) {
         return clone(newArticle);
       }
       case "delete_imported_article_cmd": {
+        for (const chapter of state.imported_article_chapters || []) {
+          if (Number(chapter.article_id) === Number(args.id) && state.chapter_classrooms) delete state.chapter_classrooms[chapter.id];
+        }
         state.imported_articles ||= [];
         state.imported_article_chapters = (state.imported_article_chapters || []).filter(
           (ch) => Number(ch.article_id) !== Number(args.id)

@@ -11,7 +11,7 @@ $launcher = Join-Path $PSScriptRoot "start-windows-dev.ps1"
     -ForceFull:$ForceFull `
     -DevPort 1430 `
     -HmrPort 1431 `
-    -ExePath (Join-Path $ProjectDir "src-tauri\target-tv\release\idioma.exe") `
+    -ExePath (Join-Path $ProjectDir "src-tauri\target-tv\debug\idioma.exe") `
     -TauriConfig (Join-Path $ProjectDir "src-tauri\tauri.tv.conf.json") `
     -LogPrefix "Amiga-TV" `
     -ExtraEnv @{

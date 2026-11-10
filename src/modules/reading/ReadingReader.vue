@@ -59,14 +59,14 @@
                   type="button"
                   class="btn-courseware-study"
                   :class="{
-                    'is-generating': getChapterForParagraph(pidx).courseware_status === 'generating' || getChapterForParagraph(pidx).courseware_status === 'pending',
-                    'is-error': getChapterForParagraph(pidx).courseware_status === 'error',
+                    'is-generating': legacyCoursewareEnabled && ['generating', 'pending'].includes(getChapterForParagraph(pidx).courseware_status),
+                    'is-error': legacyCoursewareEnabled && getChapterForParagraph(pidx).courseware_status === 'error',
                     'is-finished': isChapterFinished(getChapterForParagraph(pidx))
                   }"
                   @click.stop="onChapterButtonClick(getChapterForParagraph(pidx))"
                 >
-                  <span v-if="getChapterForParagraph(pidx).courseware_status === 'generating' || getChapterForParagraph(pidx).courseware_status === 'pending'" class="study-spinner-dot" />
-                  <span v-else-if="getChapterForParagraph(pidx).courseware_status === 'error'">⚠️</span>
+                  <span v-if="legacyCoursewareEnabled && ['generating', 'pending'].includes(getChapterForParagraph(pidx).courseware_status)" class="study-spinner-dot" />
+                  <span v-else-if="legacyCoursewareEnabled && getChapterForParagraph(pidx).courseware_status === 'error'">⚠️</span>
                   <span v-else-if="isChapterFinished(getChapterForParagraph(pidx))">✅</span>
                   <span v-else>📖</span>
                   <span class="study-btn-text">{{ chapterButtonText(getChapterForParagraph(pidx)) }}</span>
@@ -154,14 +154,14 @@
                   type="button"
                   class="btn-courseware-study"
                   :class="{
-                    'is-generating': getChapterForParagraph(pidx).courseware_status === 'generating' || getChapterForParagraph(pidx).courseware_status === 'pending',
-                    'is-error': getChapterForParagraph(pidx).courseware_status === 'error',
+                    'is-generating': legacyCoursewareEnabled && ['generating', 'pending'].includes(getChapterForParagraph(pidx).courseware_status),
+                    'is-error': legacyCoursewareEnabled && getChapterForParagraph(pidx).courseware_status === 'error',
                     'is-finished': isChapterFinished(getChapterForParagraph(pidx))
                   }"
                   @click.stop="onChapterButtonClick(getChapterForParagraph(pidx))"
                 >
-                  <span v-if="getChapterForParagraph(pidx).courseware_status === 'generating' || getChapterForParagraph(pidx).courseware_status === 'pending'" class="study-spinner-dot" />
-                  <span v-else-if="getChapterForParagraph(pidx).courseware_status === 'error'">⚠️</span>
+                  <span v-if="legacyCoursewareEnabled && ['generating', 'pending'].includes(getChapterForParagraph(pidx).courseware_status)" class="study-spinner-dot" />
+                  <span v-else-if="legacyCoursewareEnabled && getChapterForParagraph(pidx).courseware_status === 'error'">⚠️</span>
                   <span v-else-if="isChapterFinished(getChapterForParagraph(pidx))">✅</span>
                   <span v-else>📖</span>
                   <span class="study-btn-text">{{ chapterButtonText(getChapterForParagraph(pidx)) }}</span>
@@ -372,6 +372,7 @@
 
     <!-- Courseware Modal -->
     <CoursewareModal
+      v-if="legacyCoursewareEnabled"
       :show="showCoursewareModal"
       :chapter="selectedChapter"
       :audio-el="audioPlayerRef"
@@ -393,10 +394,12 @@ import { useI18n, getLocale } from "@/shared/i18n";
 import { useTargetLangStore } from "@/stores/targetLang.js";
 import { listen } from "@tauri-apps/api/event";
 import CoursewareModal from "./CoursewareModal.vue";
+import { READING_FEATURES } from "./classroom/features.js";
 import {
   getReadingArticle,
   getImportedArticle,
   getImportedArticleChapters,
+  getChapterClassroom,
   generateChapterCourseware,
   updateChapterCoursewareProgress,
   markReadingArticleRead,
@@ -434,6 +437,8 @@ const props = defineProps({
 const isImported = ref(false);
 const importedParagraphs = ref([]);
 const chapters = ref([]);
+const legacyCoursewareEnabled = READING_FEATURES.legacyCourseware;
+const classroomSessions = ref({});
 const selectedChapter = ref(null);
 const showCoursewareModal = ref(false);
 let unlistenCourseware = null;
@@ -1387,6 +1392,12 @@ async function loadArticle() {
       try {
         const res = await getImportedArticleChapters(Number(props.id));
         chapters.value = Array.isArray(res) ? res : [];
+        if (!legacyCoursewareEnabled) {
+          void Promise.all(chapters.value.map(async (chapter) => {
+            try { const result = await getChapterClassroom(chapter.id); classroomSessions.value[chapter.id] = result?.session || null; }
+            catch { /* Classroom preparation can still start from its entry. */ }
+          }));
+        }
       } catch (err) {
         console.warn("Failed to load imported article chapters:", err);
         chapters.value = [];
@@ -1447,6 +1458,10 @@ async function loadArticle() {
       }
     }
     handleLayoutChange();
+    if (route.query.chapter) {
+      const chapter = chapters.value.find(c => String(c.id) === String(route.query.chapter));
+      if (chapter) scrollToChapter(chapter);
+    }
     setTimeout(handleLayoutChange, 50);
     setTimeout(handleLayoutChange, 200);
   }
@@ -1587,12 +1602,17 @@ function getChapterProgressPercent(ch) {
 }
 
 function isChapterFinished(ch) {
+  if (!legacyCoursewareEnabled) return classroomSessions.value[ch?.id]?.phase === "completed";
   if (!ch) return false;
   const total = ch.total_pages || (ch.slides?.length ?? 0);
   return total > 0 && (ch.viewed_pages || 0) >= total;
 }
 
 function chapterButtonText(ch) {
+  if (!legacyCoursewareEnabled) {
+    const saved = classroomSessions.value[ch?.id];
+    return t(saved?.phase === "completed" ? "classroom.review" : saved ? "classroom.resume" : "classroom.enter");
+  }
   if (!ch) return "";
   if (ch.courseware_status === "generating") return t("reading.generatingCourseware");
   if (ch.courseware_status === "pending") return t("reading.pendingCourseware") || "排队中";
@@ -1665,6 +1685,11 @@ async function retryFailedCoursewareChain(startChapterId) {
 
 function onChapterButtonClick(ch) {
   if (!ch) return;
+  if (!legacyCoursewareEnabled) {
+    stopReading(); audioEl?.pause(); isAudioPlaying.value = false;
+    router.push({ name: "reading-classroom", params: { id: props.id, chapterId: ch.id } });
+    return;
+  }
   if (ch.courseware_status === "error") {
     retryFailedCoursewareChain(ch.id);
     return;

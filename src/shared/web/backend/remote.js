@@ -1,4 +1,5 @@
 import { cleanRssSummary } from "@/shared/articleText.js";
+import { chapterContext, normalizePlan, planPrompt } from "@/modules/reading/classroom/teachingPlan.js";
 import {
   chat,
   clone,
@@ -11,6 +12,37 @@ import {
 
 export async function invokeRemote(command, args, state) {
   switch (command) {
+    case "generate_chapter_teaching_plan_cmd": {
+      if (state.chapter_classrooms?.[args.chapterId]?.plan) {
+        const { invokeRead } = await import("./read.js");
+        return invokeRead("get_chapter_classroom_cmd", args, state);
+      }
+      const chapter = (state.imported_article_chapters || []).find(c => Number(c.id) === Number(args.chapterId));
+      const article = (state.imported_articles || []).find(a => Number(a.id) === Number(chapter?.article_id));
+      if (!chapter || !article) throw new Error("Chapter not found");
+      const context = chapterContext(article, chapter, state.user?.native_language || "zh");
+      const raw = parseJsonReply(await chat(state, planPrompt, JSON.stringify(context), { maxTokens: 5000, responseFormat: { type: "json_object" } }));
+      const plan = normalizePlan(raw, context);
+      await store.update(next => {
+        next.chapter_classrooms ||= {};
+        if (!(next.imported_article_chapters || []).some(c => Number(c.id) === Number(args.chapterId))) throw new Error("Chapter no longer exists");
+        next.chapter_classrooms[args.chapterId] ||= { plan, session: null };
+        return null;
+      });
+      const { invokeRead } = await import("./read.js");
+      return invokeRead("get_chapter_classroom_cmd", args, await store.get());
+    }
+    case "get_classroom_live_config_cmd": {
+      const custom = state.settings?.multimodal_mode === "custom" ? state.settings.multimodal_custom : null;
+      if (custom?.api_key) {
+        if (new URL(custom.base_url).origin !== "https://generativelanguage.googleapis.com") throw new Error("Web 课堂自定义语音仅支持 Google 官方地址");
+        return { api_key: custom.api_key, base_url: custom.base_url, model: custom.model || "gemini-3.8-live" };
+      }
+      const response = await fetch("/api/classroom-token", { method: "POST", headers: { "X-Amiga-Classroom": "1" }, signal: AbortSignal.timeout(15000) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "无法连接 AI 老师，请配置 Gemini Live");
+      return { api_key: result.token, base_url: "https://generativelanguage.googleapis.com", model: "gemini-3.8-live" };
+    }
     case "fetch_news_cmd": {
       const keyword = String(args.keyword || "").trim().slice(0, 100);
       const fetched = await fetchNewsThroughProxy(args.targetLang, { keyword }).catch(() => []);

@@ -71,7 +71,7 @@ Android release 运行：模拟器用 **`run-android-x86.bat`**，ARM64 真机�
 | 命令 | 用途 |
 |------|------|
 | `npm test` / `npm run test:all` | 前端 / 全量 |
-| `run-windows.bat` | Windows Tauri dev |
+| `run-windows.bat` | Windows Tauri dev（debug，复用未过期的 `src-tauri/target/debug/idioma.exe`） |
 | `run-android-x86.bat` | x86_64 模拟器 release 运行 |
 | `run-android-arm.bat` | ARM64 真机 release 运行 |
 | `build-android.bat` | Android phone release APK（arm64） |

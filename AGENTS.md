@@ -2,6 +2,12 @@
 
 跨平台外语学习应用：Tauri 2.x (Rust) + Vue 3。**正式客户端构建目标仅 Windows 与 Android**（无 iOS 构建）。默认窗口 480×800 移动端布局（Windows 可 resize）。仓库另含特殊 Web TV 演示版本。
 
+## 调试范围与工具（优先规则）
+
+- **只调试标准 Windows debug 版**：使用 `run-windows.bat` 与 `src-tauri/target/debug/idioma.exe`。未经用户针对当前任务明确授权，不启动、构建或调试 Web / Web TV、Windows TV / release、Android、第二实例等其他版本，不为主应用验收额外创建其他版本的调试副本。本轮自行创建的其他版本调试服务、副本与临时产物须停止并删除。
+- **禁止使用 Computer Use 调试**：不使用桌面或浏览器的点击、键盘、可访问性树等 Computer Use 自动化；使用命令行、日志、测试及程序接口定位和验证问题。需要截图时使用仓库命令行截图脚本的 `-Mode App`，不自动回退到浏览器截图。
+- 本节优先于下文及其他文档中的跨版本构建、Web TV 实测、Android 真机等默认验证要求；这些要求仅在用户明确指定相应版本任务时适用。
+
 ## 特别版本：Web TV Demo
 
 独立浏览器演示版（复用主应用 Vue 界面与 TV 布局，非 Tauri 构建，不取代客户端）。云端部署与运维细节（IP/SSH/PM2/Nginx 备选等）详见 [docs/webdemo-deployment.md](./docs/webdemo-deployment.md)。
@@ -10,7 +16,7 @@
 - **架构与契约**：前端经 `src/shared/web/webBackend.js` 兼容层调用 Tauri commands，状态持久化在浏览器 IndexedDB（无登录/多用户/云同步）。新增或修改 command 时必须保持 Tauri 与 WebBackend 参数及返回值契约一致。
 - **代理安全红线**：禁止通用代理。LLM 严格使用固定供应商别名与 HTTPS 主机白名单（防 SSRF）。新增 LLM 供应商须同步三处：`src/shared/web/webLlm.js`、`vite.config.js`、`deploy/web/server.js`。服务端 relay 严禁引入数据库或持久缓存等服务端状态。
 - **LLM 测试**：连接测试必须执行带超时的真实小型生成（可见输出长度 > 0），严禁用 `/models` 冒充。
-- **验证要求**：改动后运行 `npm run test -- src/shared/web/__tests__` 与 `npm run build:web`；涉及页面时在 `dev:web` 下实测 TV 布局与至少一次真实 LLM 调用。
+- **验证要求（仅用户明确指定 Web 版本任务时）**：改动后运行 `npm run test -- src/shared/web/__tests__` 与 `npm run build:web`；涉及页面时在 `dev:web` 下实测 TV 布局与至少一次真实 LLM 调用。Windows debug 任务不启动或构建 Web 版本。
 
 ## Agent 行为
 
@@ -37,9 +43,9 @@
 |----------|--------|
 | UI（`.vue` / `.css` / 布局 / 交互呈现） | 截图验证（见下）；测完删除截图文件 |
 | Rust / Tauri（`src-tauri/` 下 `.rs`、`Cargo.toml`、`tauri*.conf.json`、`capabilities/`） | `cd src-tauri && cargo build`；命令行为须在 Tauri 环境验证 |
-| Web 兼容层 / 代理（`src/shared/web/`、`deploy/web/`） | `npm run test -- src/shared/web/__tests__` 与 `npm run build:web` |
+| Web 兼容层 / 代理（仅明确指定 Web 版本任务时） | `npm run test -- src/shared/web/__tests__` 与 `npm run build:web` |
 | 任意代码 | 跑最接近的测试；跨模块/迁移/权限改动扩大到 `npm run test:all`、`cargo fmt`、`cargo clippy` |
-| Android 原生 | 只改 `src-tauri/android/...`；Kotlin 改动后重启 dev 循环 |
+| Android 原生（仅明确指定 Android 任务时） | 只改 `src-tauri/android/...`；Kotlin 改动后重启 dev 循环 |
 
 **截图**（详见 [docs/testing.md](./docs/testing.md)）：首选 `pwsh scripts/screenshot.ps1 -OutFile screenshots/<name>.png`；Android 用 adb screencap；测完删图。
 

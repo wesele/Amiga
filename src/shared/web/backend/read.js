@@ -17,6 +17,14 @@ import {
 
 export async function invokeRead(command, args, state) {
   switch (command) {
+    case "get_chapter_classroom_cmd": {
+      const chapter = (state.imported_article_chapters || []).find(c => Number(c.id) === Number(args.chapterId));
+      if (!chapter) throw new Error("Chapter not found");
+      const article = (state.imported_articles || []).find(a => Number(a.id) === Number(chapter.article_id));
+      if (!article) throw new Error("Imported article not found");
+      const saved = state.chapter_classrooms?.[args.chapterId];
+      return clone({ chapter, article, plan: saved?.plan || null, session: saved?.session || null });
+    }
     case "is_schema_compatible_cmd": return true;
     case "get_database_status_cmd": return { ok: true, error: null, schema_compatible: true };
     case "get_current_user": return clone(state.user);

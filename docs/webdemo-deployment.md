@@ -24,6 +24,7 @@
 │   └── soulmate/
 ├── node_modules/
 ├── server.js           # Express 生产服务器
+├── classroom-token.js  # 固定 Google 上游的课堂短期令牌签发
 ├── package.json
 └── package-lock.json
 ```
@@ -41,6 +42,8 @@
 浏览器所有请求发到同源地址，由 Node.js 服务器完成 LLM 和新闻的代理转发，避免 CORS 和混合内容问题。
 
 ## 启动方式
+
+AI 老师课堂在服务端使用 `GEMINI_API_KEY` 签发一次性短期令牌，长期密钥不返回浏览器。更新服务端时同时上传 `deploy/web/server.js` 和 `deploy/web/classroom-token.js`。设置／修改环境变量或服务端文件后需要重启进程（PM2 使用 `--update-env`）。本地 `dev:web` 从进程环境读取同名变量，设置后需重启 Vite。缺少服务端密钥时，可在应用中配置自己的 Google Gemini Live 密钥；公共 HTTP 页面无法采集麦克风时仍可文字互动，语音采集需要 HTTPS 或 localhost。
 
 本地需要固定验证手机布局时，可临时设置 `VITE_AMIGA_WEB_PHONE=1` 后运行
 `npm run dev:web -- --host 127.0.0.1`。该开关仅用于可重复的浏览器测试；正式

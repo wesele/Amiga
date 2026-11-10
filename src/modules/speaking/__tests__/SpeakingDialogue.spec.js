@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { createPinia, setActivePinia } from "pinia";
@@ -38,6 +38,9 @@ describe("SpeakingDialogue", () => {
   let stopSpeechSpy;
 
   beforeEach(() => {
+    // These UI tests set session errors explicitly. A real socket with the
+    // fixture API key can race those assignments and overwrite error banners.
+    vi.stubGlobal("WebSocket", class { readyState = 0; send() {} close() {} });
     setActivePinia(createPinia());
     setLocale("en", { persist: false });
     clearLiveSessionSnapshots();
@@ -85,6 +88,7 @@ describe("SpeakingDialogue", () => {
     });
     api.__setInvoke(mockInvoke);
   });
+  afterEach(() => { vi.unstubAllGlobals(); });
 
   it("calls speaking_start_session_cmd with user context on mount", async () => {
     const router = makeRouter();

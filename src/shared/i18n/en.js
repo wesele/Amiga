@@ -1,6 +1,8 @@
 // English translation strings.
 
+import { classroomEn } from "@/modules/reading/classroom/messages.js";
 export default {
+  classroom: classroomEn,
   app: {
     name: "Amiga",
     tagline: "Learn languages, connect the world",

@@ -7,7 +7,7 @@
 | 我要… | 跑这个 |
 | --- | --- |
 | 改了 Vue 页面想看一眼 | `run-windows.bat`（Vite 热更新，改前端不用重启） |
-| 改了 Rust / Tauri command | `run-windows.bat`（检测到 `src-tauri/src` 变更才 cargo build release） |
+| 改了 Rust / Tauri command | `run-windows.bat`（检测到 Rust 源码或启动脚本变更才 cargo build debug） |
 | 验证 TV 布局 | `run-windows-tv.bat`，再用 `scripts/tv-focus-uat.ps1` 走一遍遥控器 |
 | 验证 Web 演示版 | `run-web.bat`（`dev:web`，自动开 127.0.0.1:1420） |
 | 跑全量测试 | `npm run test:all`（= `scripts/run-all-tests.cjs`） |
