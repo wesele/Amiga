@@ -15,6 +15,9 @@
 defineProps({ name: String });
 const paths = {
   back: "M15 5l-7 7 7 7",
+  next: "M9 5l7 7-7 7",
+  previousBeat: "M5 5v14m14-14L8 12l11 7V5z",
+  nextBeat: "M19 5v14M5 5l11 7-11 7V5z",
   more: "M5 11v2m7-2v2m7-2v2",
   close: "M6 6l12 12M6 18L18 6",
   play: "M9 5l10 7-10 7V5z",

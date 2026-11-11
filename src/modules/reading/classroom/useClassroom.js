@@ -30,19 +30,35 @@ export function useClassroom({
   const notice = ref("");
   const connecting = ref(false);
   const changingLanguage = ref(false);
+  const changingBeat = ref(false);
+  const beats = plan.nodes.flatMap((node, node_index) =>
+    node.beats.map((beat, beat_index) => ({
+      node_index,
+      beat_index,
+      key: `${node.id}/${beat.id}`,
+    })),
+  );
+  const beatPosition = computed(() =>
+    beats.findIndex(
+      ({ node_index, beat_index }) =>
+        node_index === session.value.node_index && beat_index === session.value.beat_index,
+    ),
+  );
   const node = computed(() => plan.nodes[session.value.node_index]);
   const beat = computed(() => node.value.beats[session.value.beat_index]);
   const progress = computed(() =>
-    Math.round(
-      (session.value.completed_beats.length / plan.nodes.reduce((n, p) => n + p.beats.length, 0)) *
-        100,
-    ),
+    Math.round((session.value.completed_beats.length / beats.length) * 100),
   );
   const transcript = computed(() => session.value.turns);
+  const teacherCaption = ref(
+    session.value.teach_selected_beat
+      ? ""
+      : [...session.value.turns].reverse().find((turn) => turn.role === "teacher")?.text || "",
+  );
   const board = computed(() => session.value.board);
   let pendingBoard = new Map(),
     audibleEpoch = -1;
-  let epoch = 0,
+  let epoch = session.value.turns.at(-1)?.epoch ?? 0,
     outcome = null,
     turnDone = false,
     task = null,
@@ -71,6 +87,7 @@ export function useClassroom({
     if (role === "teacher") {
       const current = turns[turns.length - 1];
       current.text = current.text.replace(/<no speech>|\{pause\}/gi, "");
+      teacherCaption.value = current.text;
     }
     while (
       new TextEncoder().encode(JSON.stringify(session.value)).length > 220000 &&
@@ -144,7 +161,11 @@ export function useClassroom({
   function teach() {
     request(
       "lecture",
-      "Explain only this beat naturally, adapting to the recent conversation. Write short board notes with write_classroom_board AS you explain each idea. Do not repeat already clear material. Then call complete_teaching_beat and end your turn. Do not start a practice yet.",
+      "Explain only this beat naturally, adapting to the recent conversation. " +
+        (session.value.teach_selected_beat
+          ? "The learner selected this beat. Explain it from the beginning, even if it was covered earlier. "
+          : "Do not repeat already clear material. ") +
+        "Write short board notes with write_classroom_board AS you explain each idea. Then call complete_teaching_beat and end your turn. Do not start a practice yet.",
     );
   }
   function invite() {
@@ -159,6 +180,11 @@ export function useClassroom({
   }
   function advanceNode() {
     if (session.value.node_index + 1 >= plan.nodes.length) {
+      const unfinished = beats.find((beat) => !session.value.completed_beats.includes(beat.key));
+      if (unfinished) {
+        void selectBeat(unfinished);
+        return;
+      }
       clearTimeout(responseTimer);
       phase.value = "completed";
       session.value.summary = plan.goals.join(" · ");
@@ -219,6 +245,7 @@ export function useClassroom({
     }
     if (result === "beat") {
       if (!session.value.completed_beats.includes(key())) session.value.completed_beats.push(key());
+      delete session.value.teach_selected_beat;
       void persist();
       afterTeaching();
       return;
@@ -299,7 +326,8 @@ export function useClassroom({
       connecting.value = false;
       // Capture is opt-in: background speech must not interrupt the first
       // explanation before the learner has chosen to turn on the microphone.
-      if (
+      if (session.value.teach_selected_beat) teach();
+      else if (
         restorePractice ||
         (session.value.completed_beats.includes(key()) &&
           node.value.practice &&
@@ -373,11 +401,11 @@ export function useClassroom({
     void persist();
   }
   async function start() {
-    if (connecting.value || changingLanguage.value) return;
+    if (connecting.value || changingLanguage.value || changingBeat.value) return;
     stopped = false;
     connecting.value = true;
     notice.value = "";
-    if (phase.value === "completed") {
+    if (phase.value === "completed" && !session.value.teach_selected_beat) {
       const revision = session.value.revision;
       const interaction_mode = session.value.interaction_mode;
       const teaching_language = session.value.teaching_language;
@@ -388,6 +416,7 @@ export function useClassroom({
         teaching_language,
         board: emptyBoard(plan.nodes[0], teaching_language),
       };
+      teacherCaption.value = "";
       live.clearResumption();
     }
     try {
@@ -420,15 +449,49 @@ export function useClassroom({
     }, 120000);
   }
   function resume() {
+    if (changingBeat.value) return;
     clearTimeout(pauseTimer);
     notice.value = "";
     if (!live.connected.value || phase.value === "completed") {
       void start();
       return;
     }
-    if (restorePractice || phase.value === "awaiting_answer") invite();
+    if (session.value.teach_selected_beat) teach();
+    else if (restorePractice || phase.value === "awaiting_answer") invite();
     else if (session.value.completed_beats.includes(key())) afterTeaching();
     else teach();
+  }
+  function moveBeat(offset) {
+    const target = beats[beatPosition.value + offset];
+    if (!target || connecting.value || changingLanguage.value || changingBeat.value) return;
+    return selectBeat(target);
+  }
+  async function selectBeat(target) {
+    changingBeat.value = true;
+    epoch += 1;
+    clearTimeout(responseTimer);
+    clearTimeout(pauseTimer);
+    pendingBoard.clear();
+    audibleEpoch = -1;
+    outcome = null;
+    turnDone = false;
+    task = null;
+    restorePractice = false;
+    studentStarted = false;
+    notice.value = "";
+    teacherCaption.value = "";
+    if (phase.value !== "completed") phase.value = "paused";
+    session.value.node_index = target.node_index;
+    session.value.beat_index = target.beat_index;
+    session.value.teach_selected_beat = true;
+    session.value.board = emptyBoard(node.value, session.value.teaching_language);
+    live.clearResumption();
+    void persist();
+    try {
+      await live.disconnect();
+    } finally {
+      changingBeat.value = false;
+    }
   }
   function ask(text) {
     const value = String(text).trim();
@@ -460,7 +523,12 @@ export function useClassroom({
     );
   }
   function skipInteraction() {
-    if (!node.value.practice || !practice() || ["answered", "skipped"].includes(practice().status))
+    if (
+      session.value.teach_selected_beat ||
+      !node.value.practice ||
+      !practice() ||
+      ["answered", "skipped"].includes(practice().status)
+    )
       return;
     practice().status = "skipped";
     epoch += 1;
@@ -476,6 +544,7 @@ export function useClassroom({
     session.value.interaction_mode = mode;
     if (
       mode === "listen_only" &&
+      !session.value.teach_selected_beat &&
       practice() &&
       !["answered", "skipped"].includes(practice().status)
     )
@@ -519,24 +588,30 @@ export function useClassroom({
     clearTimeout(pauseTimer);
     clearTimeout(responseTimer);
     await live.disconnect();
-    await persist();
+    if (phase.value === "ready") await saveChain;
+    else await persist();
   }
   return {
     session,
     phase,
     node,
     beat,
+    beatPosition,
+    totalBeats: beats.length,
     progress,
     transcript,
+    teacherCaption,
     board,
     live,
     saveError,
     notice,
     connecting,
     changingLanguage,
+    changingBeat,
     start,
     pause,
     resume,
+    moveBeat,
     ask,
     skipInteraction,
     setInteractionMode,

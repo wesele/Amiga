@@ -166,9 +166,10 @@ pub async fn generate_plan(
     db: &DatabasePool,
     client: &llm::LlmClient,
     chapter_id: i64,
+    regenerate: bool,
 ) -> Result<Value, String> {
     let current = get_classroom(db, chapter_id)?;
-    if !current["plan"].is_null() {
+    if !regenerate && !current["plan"].is_null() {
         return Ok(current);
     }
     let chapter = reading::get_imported_article_chapter(db, chapter_id)?;
@@ -224,14 +225,34 @@ pub async fn generate_plan(
         serde_json::from_str(stripped).map_err(|e| format!("教学大纲格式无效，请重试: {e}"))?;
     let version = uuid::Uuid::new_v4().to_string();
     let plan = normalize_plan(&raw, &context, &version)?;
-    // Concurrent requests must not replace the plan used by an active classroom.
-    db.conn()?
-        .execute(
+    store_plan(db, chapter_id, &plan, current["plan"]["version"].as_str())?;
+    get_classroom(db, chapter_id)
+}
+
+fn store_plan(
+    db: &DatabasePool,
+    chapter_id: i64,
+    plan: &Value,
+    previous_version: Option<&str>,
+) -> Result<(), String> {
+    let conn = db.conn()?;
+    if let Some(version) = previous_version {
+        let changed = conn.execute(
+            "UPDATE chapter_classrooms SET plan_json=?1, session_json=NULL, revision=0, updated_at=datetime('now')
+             WHERE chapter_id=?2 AND json_extract(plan_json, '$.version')=?3",
+            params![plan.to_string(), chapter_id, version],
+        ).map_err(|e| e.to_string())?;
+        if changed != 1 {
+            return Err("课程已更新，请重新进入课堂".into());
+        }
+    } else {
+        conn.execute(
             "INSERT OR IGNORE INTO chapter_classrooms (chapter_id, plan_json) VALUES (?1, ?2)",
             params![chapter_id, plan.to_string()],
         )
         .map_err(|e| e.to_string())?;
-    get_classroom(db, chapter_id)
+    }
+    Ok(())
 }
 
 pub fn save_session(db: &DatabasePool, chapter_id: i64, session: Value) -> Result<Value, String> {
@@ -250,7 +271,7 @@ pub fn save_session(db: &DatabasePool, chapter_id: i64, session: Value) -> Resul
     }
     let mut saved = session;
     saved["revision"] = json!(revision + 1);
-    let changed = conn.execute("UPDATE chapter_classrooms SET session_json=?1, revision=revision+1, updated_at=datetime('now') WHERE chapter_id=?2 AND revision=?3", params![saved.to_string(),chapter_id,revision]).map_err(|e| e.to_string())?;
+    let changed = conn.execute("UPDATE chapter_classrooms SET session_json=?1, revision=revision+1, updated_at=datetime('now') WHERE chapter_id=?2 AND revision=?3 AND plan_json=?4", params![saved.to_string(),chapter_id,revision,plan_json]).map_err(|e| e.to_string())?;
     if changed != 1 {
         return Err("课堂记录已更新，请重新进入课堂".into());
     }
@@ -294,7 +315,7 @@ pub fn spawn_article_plan_generation(
     tauri::async_runtime::spawn(async move {
         if let Ok(chapters) = reading::get_imported_article_chapters(&db, article_id) {
             for chapter in chapters {
-                if let Err(error) = generate_plan(&db, &client, chapter.id).await {
+                if let Err(error) = generate_plan(&db, &client, chapter.id, false).await {
                     log::warn!("Could not prepare classroom {}: {}", chapter.id, error);
                 }
             }
@@ -306,7 +327,7 @@ pub fn spawn_article_plan_generation(
 mod tests {
     use super::*;
     #[test]
-    fn classroom_revision_and_cascade_preserve_legacy_progress() {
+    fn classroom_revision_regeneration_and_cascade_preserve_legacy_progress() {
         let db = DatabasePool::new_in_memory();
         let conn = db.conn().unwrap();
         conn.execute(
@@ -328,11 +349,27 @@ mod tests {
             save_session(&db, 9002, session.clone()).unwrap()["revision"],
             1
         );
-        assert!(save_session(&db, 9002, session).is_err());
+        assert!(save_session(&db, 9002, session.clone()).is_err());
         let saved = get_classroom(&db, 9002).unwrap();
         assert_eq!(saved["chapter"]["viewed_pages"], 4);
         assert_eq!(saved["session"]["revision"], 1);
         assert_eq!(saved["session"]["teaching_language"], "target");
+
+        let mut regenerated = plan.clone();
+        regenerated["version"] = json!("v2");
+        assert!(store_plan(&db, 9002, &regenerated, Some("stale")).is_err());
+        assert_eq!(get_classroom(&db, 9002).unwrap(), saved);
+        store_plan(&db, 9002, &regenerated, Some("v1")).unwrap();
+        store_plan(&db, 9002, &plan, None).unwrap();
+        let replaced = get_classroom(&db, 9002).unwrap();
+        assert_eq!(replaced["plan"], regenerated);
+        assert!(replaced["session"].is_null());
+        assert_eq!(replaced["chapter"]["viewed_pages"], 4);
+        assert!(save_session(&db, 9002, session.clone()).is_err());
+        let mut new_session = session;
+        new_session["plan_version"] = json!("v2");
+        assert_eq!(save_session(&db, 9002, new_session).unwrap()["revision"], 1);
+
         db.conn()
             .unwrap()
             .execute("DELETE FROM imported_articles WHERE id=9001", [])

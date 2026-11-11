@@ -13,7 +13,8 @@ import {
 export async function invokeRemote(command, args, state) {
   switch (command) {
     case "generate_chapter_teaching_plan_cmd": {
-      if (state.chapter_classrooms?.[args.chapterId]?.plan) {
+      const currentPlan = state.chapter_classrooms?.[args.chapterId]?.plan;
+      if (currentPlan && !args.regenerate) {
         const { invokeRead } = await import("./read.js");
         return invokeRead("get_chapter_classroom_cmd", args, state);
       }
@@ -26,7 +27,14 @@ export async function invokeRemote(command, args, state) {
       await store.update(next => {
         next.chapter_classrooms ||= {};
         if (!(next.imported_article_chapters || []).some(c => Number(c.id) === Number(args.chapterId))) throw new Error("Chapter no longer exists");
-        next.chapter_classrooms[args.chapterId] ||= { plan, session: null };
+        if (currentPlan) {
+          if (next.chapter_classrooms[args.chapterId]?.plan?.version !== currentPlan.version) {
+            throw new Error("课程已更新，请重新进入课堂");
+          }
+          next.chapter_classrooms[args.chapterId] = { plan, session: null };
+        } else {
+          next.chapter_classrooms[args.chapterId] ||= { plan, session: null };
+        }
         return null;
       });
       const { invokeRead } = await import("./read.js");

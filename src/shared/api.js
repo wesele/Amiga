@@ -388,7 +388,8 @@ export function createApiClient(invoke) {
 
     // YouTube
     getChapterClassroom: (chapterId) => call("get_chapter_classroom_cmd", { chapterId }),
-    generateChapterTeachingPlan: (chapterId) => call("generate_chapter_teaching_plan_cmd", { chapterId }),
+    generateChapterTeachingPlan: (chapterId, regenerate = false) =>
+      call("generate_chapter_teaching_plan_cmd", { chapterId, regenerate }),
     saveChapterClassroom: (chapterId, session) => call("save_chapter_classroom_cmd", { chapterId, session }),
     getClassroomLiveConfig: () => call("get_classroom_live_config_cmd"),
     fetchYoutubeMetadata: (url, targetLang) =>

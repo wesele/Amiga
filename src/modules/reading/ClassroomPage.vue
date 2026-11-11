@@ -47,7 +47,29 @@
           })
         "
       />
-      <main v-if="loading || loadError" class="classroom-empty" role="status">
+      <nav
+        v-if="chapterPosition >= 0 && chapters.length > 1"
+        class="classroom-chapters"
+        :aria-label="t('classroom.chapters')"
+      >
+        <button
+          :disabled="!previousChapter || loading || regenerating"
+          @click="goToChapter(previousChapter)"
+        >
+          <ClassroomIcon name="back" />{{ t("classroom.previous") }}
+        </button>
+        <span>{{ chapterPosition + 1 }} / {{ chapters.length }}</span>
+        <button
+          :disabled="!nextChapter || loading || regenerating"
+          @click="goToChapter(nextChapter)"
+        >
+          {{ t("classroom.next") }}<ClassroomIcon name="next" />
+        </button>
+      </nav>
+      <main v-if="regenerating" class="classroom-empty" role="status">
+        <h2>{{ t("classroom.regenerating") }}</h2>
+      </main>
+      <main v-else-if="loading || loadError" class="classroom-empty" role="status">
         <h2>{{ loadError ? t("classroom.prepareFailed") : t("classroom.preparing") }}</h2>
         <p v-if="loadError">{{ loadError }}</p>
         <button v-if="loadError" @click="load">{{ t("classroom.retry") }}</button>
@@ -55,9 +77,11 @@
       <template v-else-if="room">
         <main class="classroom-stage">
           <div class="classroom-board-meta">
-            <span class="board-mark"
-              ><span aria-hidden="true">✦</span> {{ t("classroom.board") }}</span
-            ><button
+            <div class="board-mark">
+              <span aria-hidden="true">✦</span>
+              <h2 class="board-topic" :title="beatTopic">{{ beatTopic }}</h2>
+            </div>
+            <button
               v-if="room.board.value.items.length && data.article.audio_path"
               class="board-audio"
               :aria-label="t(sourceAudio ? 'classroom.stopSource' : 'classroom.sourceAudio')"
@@ -77,9 +101,21 @@
                 : data.plan.native_language
             "
           />
-          <div class="board-ledge" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="board-ledge" :title="beatPositionLabel">
+            <span class="classroom-beat-position" role="status">{{ beatPositionLabel }}</span>
+            <span
+              v-for="position in totalBeats"
+              :key="position"
+              class="board-ledge-mark"
+              :class="{ 'is-current': position === room.beatPosition.value + 1 }"
+              aria-hidden="true"
+            ></span>
+          </div>
         </main>
         <footer class="classroom-controls">
+          <p v-if="regenerateError" class="classroom-message" role="alert">
+            {{ t("classroom.regenerateFailed") }} {{ regenerateError }}
+          </p>
           <section class="classroom-teacher" :aria-label="t('classroom.teacher')">
             <div class="teacher-status">
               <span
@@ -94,7 +130,7 @@
             </div>
             <p class="teacher-caption">
               {{
-                lastTeacher ||
+                room.teacherCaption.value ||
                 t(
                   room.connecting.value
                     ? "classroom.connecting"
@@ -136,6 +172,15 @@
           </form>
           <div class="classroom-actions">
             <button
+              class="icon-button"
+              :disabled="classroomBusy || room.beatPosition.value === 0"
+              :aria-label="t('classroom.previousBeat')"
+              :title="t('classroom.previousBeat')"
+              @click="moveBeat(-1)"
+            >
+              <ClassroomIcon name="previousBeat" />
+            </button>
+            <button
               class="icon-button mic-button"
               :class="{ 'is-on': room.live.micEnabled.value }"
               :disabled="!room.live.connected.value"
@@ -145,11 +190,7 @@
             >
               <ClassroomIcon :name="room.live.micEnabled.value ? 'mic' : 'micOff'" />
             </button>
-            <button
-              class="classroom-primary"
-              :disabled="room.connecting.value || room.changingLanguage.value"
-              @click="mainAction"
-            >
+            <button class="classroom-primary" :disabled="classroomBusy" @click="mainAction">
               <ClassroomIcon :name="isTeaching ? 'pause' : 'play'" /><span>{{ mainLabel }}</span>
             </button>
             <button
@@ -161,6 +202,15 @@
               @click="toggleComposer"
             >
               <ClassroomIcon name="ask" />
+            </button>
+            <button
+              class="icon-button"
+              :disabled="classroomBusy || room.beatPosition.value + 1 === totalBeats"
+              :aria-label="t('classroom.nextBeat')"
+              :title="t('classroom.nextBeat')"
+              @click="moveBeat(1)"
+            >
+              <ClassroomIcon name="nextBeat" />
             </button>
           </div>
           <button v-if="canSkip" class="classroom-skip" @click="room.skipInteraction">
@@ -247,6 +297,34 @@
             /></label>
             <p class="panel-hint">{{ t("classroom.hint") }}</p>
             <button class="panel-link" @click="configure">{{ t("classroom.configure") }} →</button>
+            <div class="classroom-regenerate">
+              <template v-if="confirmRegeneration">
+                <p class="panel-hint">{{ t("classroom.regenerateConfirm") }}</p>
+                <button
+                  ref="regenerateControl"
+                  class="panel-link"
+                  @click="setRegenerateConfirmation(false)"
+                >
+                  {{ t("common.cancel") }}
+                </button>
+                <button
+                  class="panel-link"
+                  :disabled="room.connecting.value || room.changingLanguage.value"
+                  @click="regenerateCourse"
+                >
+                  {{ t("classroom.regenerate") }}
+                </button>
+              </template>
+              <button
+                v-else
+                ref="regenerateControl"
+                class="panel-link"
+                :disabled="room.connecting.value || room.changingLanguage.value"
+                @click="setRegenerateConfirmation(true)"
+              >
+                {{ t("classroom.regenerate") }}
+              </button>
+            </div>
           </template>
           <template v-else-if="panelTab === 'outline'"
             ><h3>{{ t("classroom.goals") }}</h3>
@@ -266,7 +344,7 @@
             <div v-if="room.phase.value === 'completed'" class="classroom-summary">
               <h3>{{ t("classroom.lessonSummary") }}</h3>
               <p>{{ room.session.value.summary }}</p>
-              <button v-if="nextChapter" class="panel-link" @click="goNext">
+              <button v-if="nextChapter" class="panel-link" @click="goToChapter(nextChapter)">
                 {{ t("classroom.next") }} →
               </button>
             </div></template
@@ -312,14 +390,25 @@ const loading = ref(true),
   loadError = ref(""),
   data = shallowRef(null),
   room = shallowRef(null);
+const regenerating = ref(false),
+  confirmRegeneration = ref(false),
+  regenerateControl = ref(null),
+  regenerateError = ref("");
 const draft = ref(""),
   panelOpen = ref(false),
   panelTab = ref("settings"),
   panelElement = ref(null),
   composerOpen = ref(false),
   composerInput = ref(null),
-  nextChapter = ref(null),
+  chapters = ref([]),
   sourceAudio = shallowRef(null);
+const chapterPosition = computed(() =>
+  chapters.value.findIndex((c) => Number(c.id) === Number(props.chapterId)),
+);
+const previousChapter = computed(() => chapters.value[chapterPosition.value - 1]);
+const nextChapter = computed(() =>
+  chapterPosition.value < 0 ? null : chapters.value[chapterPosition.value + 1],
+);
 const panelTabs = [
   { key: "outline", label: "classroom.outline" },
   { key: "settings", label: "classroom.lessonSettings" },
@@ -327,20 +416,32 @@ const panelTabs = [
 ];
 let panelTrigger = null;
 let loadToken = 0,
-  releaseBack = () => {},
-  disposed = false;
-const totalBeats = computed(
-  () => data.value?.plan.nodes.reduce((n, node) => n + node.beats.length, 0) || 0,
-);
-const lastTeacher = computed(
+  releaseBack = () => {};
+const totalBeats = computed(() => room.value?.totalBeats || 0);
+const beatTopic = computed(
   () =>
-    [...(room.value?.transcript.value || [])].reverse().find((turn) => turn.role === "teacher")
-      ?.text || "",
+    room.value?.beat.value.objective?.trim() ||
+    room.value?.node.value.title ||
+    t("classroom.board"),
+);
+const beatPositionLabel = computed(() =>
+  t("classroom.beatPosition", {
+    current: (room.value?.beatPosition.value ?? -1) + 1,
+    total: totalBeats.value,
+  }),
+);
+const classroomBusy = computed(
+  () =>
+    room.value?.connecting.value ||
+    room.value?.changingLanguage.value ||
+    room.value?.changingBeat.value,
 );
 const canSkip = computed(
   () =>
-    ["inviting", "awaiting_answer", "feedback"].includes(room.value?.phase.value) ||
-    room.value?.session.value.interactions[room.value?.node.value.id]?.status === "awaiting_answer",
+    !room.value?.session.value.teach_selected_beat &&
+    (["inviting", "awaiting_answer", "feedback"].includes(room.value?.phase.value) ||
+      room.value?.session.value.interactions[room.value?.node.value.id]?.status ===
+        "awaiting_answer"),
 );
 const isTeaching = computed(() =>
   ["teaching", "inviting", "answering", "feedback", "listening"].includes(room.value?.phase.value),
@@ -355,6 +456,7 @@ async function openPanel(tab = "settings") {
 }
 async function closePanel() {
   panelOpen.value = false;
+  confirmRegeneration.value = false;
   await nextTick();
   panelTrigger?.focus?.();
 }
@@ -389,9 +491,10 @@ async function toggleComposer() {
 const mainLabel = computed(() => {
   if (room.value?.connecting.value) return t("classroom.starting");
   const phase = room.value?.phase.value;
-  if (phase === "completed") return t("classroom.review");
   if (["teaching", "inviting", "answering", "feedback", "listening"].includes(phase))
     return t("classroom.pause");
+  if (room.value?.session.value.teach_selected_beat) return t("classroom.resume");
+  if (phase === "completed") return t("classroom.review");
   if (phase !== "ready") return t("classroom.resume");
   return t(
     room.value?.session.value.completed_beats.length || room.value?.transcript.value.length
@@ -414,42 +517,88 @@ async function changeTeachingLanguage(mode) {
   stopSource();
   await room.value.setTeachingLanguage(mode);
 }
+function installRoom(result, chapterId) {
+  if (result.session) validateSession(result.session, result.plan);
+  room.value = useClassroom({
+    plan: result.plan,
+    savedSession: result.session,
+    saveSession: (session) => saveChapterClassroom(chapterId, session),
+    getConfig: getClassroomLiveConfig,
+  });
+  data.value = result;
+}
 async function load() {
   const token = ++loadToken;
+  const articleId = Number(props.id);
+  const chapterId = Number(props.chapterId);
   loading.value = true;
   loadError.value = "";
+  regenerating.value = false;
+  regenerateError.value = "";
+  panelOpen.value = false;
+  confirmRegeneration.value = false;
+  composerOpen.value = false;
+  draft.value = "";
   stopSource();
-  if (room.value) await room.value.close();
+  const previousRoom = room.value;
   room.value = null;
+  data.value = null;
   try {
-    let result = await getChapterClassroom(Number(props.chapterId));
-    if (Number(result.chapter.article_id) !== Number(props.id)) throw new Error("章节与文章不匹配");
-    if (!result.plan) result = await generateChapterTeachingPlan(Number(props.chapterId));
-    if (token !== loadToken || disposed) return;
-    if (result.session) validateSession(result.session, result.plan);
+    await previousRoom?.close();
+    const articleChapters = await getImportedArticleChapters(articleId).catch(() => []);
+    if (token !== loadToken) return;
+    chapters.value = articleChapters;
+    let result = await getChapterClassroom(chapterId);
+    if (token !== loadToken) return;
+    if (Number(result.chapter.article_id) !== articleId) throw new Error("章节与文章不匹配");
     data.value = result;
-    const chapterId = Number(props.chapterId);
-    room.value = useClassroom({
-      plan: result.plan,
-      savedSession: result.session,
-      saveSession: (session) => saveChapterClassroom(chapterId, session),
-      getConfig: getClassroomLiveConfig,
-    });
-    const chapters = await getImportedArticleChapters(result.article.id);
-    if (token === loadToken)
-      nextChapter.value =
-        chapters.find((c) => c.chapter_index > result.chapter.chapter_index) || null;
+    if (!result.plan) result = await generateChapterTeachingPlan(chapterId);
+    if (token === loadToken) installRoom(result, chapterId);
   } catch (error) {
     if (token === loadToken) loadError.value = String(error?.message || error);
   } finally {
     if (token === loadToken) loading.value = false;
   }
 }
+async function setRegenerateConfirmation(show) {
+  confirmRegeneration.value = show;
+  await nextTick();
+  regenerateControl.value?.focus();
+}
+async function regenerateCourse() {
+  if (regenerating.value || !room.value) return;
+  const token = loadToken;
+  const chapterId = Number(props.chapterId);
+  const previousRoom = room.value;
+  regenerating.value = true;
+  regenerateError.value = "";
+  room.value = null;
+  stopSource();
+  void closePanel();
+  composerOpen.value = false;
+  draft.value = "";
+  try {
+    await previousRoom.close();
+    if (token !== loadToken) return;
+    const result = await generateChapterTeachingPlan(chapterId, true);
+    if (token === loadToken) installRoom(result, chapterId);
+  } catch (error) {
+    if (token === loadToken) {
+      room.value = previousRoom;
+      regenerateError.value = String(error?.message || error);
+    }
+  } finally {
+    if (token === loadToken) regenerating.value = false;
+  }
+}
 function stopSource() {
   if (sourceAudio.value) {
-    sourceAudio.value.pause();
-    sourceAudio.value.src = "";
+    const audio = sourceAudio.value;
     sourceAudio.value = null;
+    audio.onloadedmetadata = audio.ontimeupdate = audio.onended = audio.onerror = null;
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
   }
 }
 function toggleSource() {
@@ -470,6 +619,7 @@ function toggleSource() {
   audio.onloadedmetadata = () => {
     audio.currentTime = room.value.node.value.source.start_sec;
     void audio.play().catch(() => {
+      if (sourceAudio.value !== audio) return;
       room.value.notice.value = t("classroom.noAudio");
       stopSource();
     });
@@ -491,6 +641,10 @@ function mainAction() {
   )
     room.value.pause();
   else room.value.resume();
+}
+function moveBeat(offset) {
+  stopSource();
+  void room.value.moveBeat(offset);
 }
 function toggleMic() {
   stopSource();
@@ -519,10 +673,11 @@ function back() {
     query: { type: "imported", chapter: props.chapterId },
   });
 }
-function goNext() {
+function goToChapter(chapter) {
+  if (!chapter) return;
   void router.push({
     name: "reading-classroom",
-    params: { id: props.id, chapterId: nextChapter.value.id },
+    params: { id: props.id, chapterId: chapter.id },
   });
 }
 function configure() {
@@ -538,7 +693,7 @@ onBeforeRouteLeave(async () => {
   stopSource();
   await room.value?.close();
 });
-watch(() => props.chapterId, load, { immediate: true });
+watch([() => props.id, () => props.chapterId], load, { immediate: true });
 onMounted(() => {
   releaseBack = pushInPageBackHandler(() => {
     if (panelOpen.value) {
@@ -556,7 +711,6 @@ onMounted(() => {
   window.addEventListener("pagehide", visibility);
 });
 onBeforeUnmount(() => {
-  disposed = true;
   loadToken += 1;
   releaseBack();
   stopSource();
@@ -664,6 +818,31 @@ onBeforeUnmount(() => {
 .classroom-progress::-webkit-progress-value {
   background: #96b99d;
 }
+.classroom-chapters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: 2px 12px 0;
+  color: var(--chalk-muted);
+  font-size: 12px;
+}
+.classroom-chapters button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 0 6px;
+  border-radius: 8px;
+}
+.classroom-chapters button:hover:not(:disabled) {
+  background: #ffffff0b;
+  color: var(--chalk);
+}
+.classroom-chapters svg {
+  width: 16px;
+  height: 16px;
+}
 .classroom-stage {
   flex: 1;
   min-height: 0;
@@ -703,15 +882,35 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  letter-spacing: 0.1em;
+  min-width: 0;
 }
 .board-mark > span {
   font-size: 13px;
   color: #c8d6b8;
 }
+.board-topic {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.classroom-beat-position {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .board-audio {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 6px;
   min-height: 34px;
   font-variant-numeric: tabular-nums;
@@ -724,30 +923,21 @@ onBeforeUnmount(() => {
 .board-ledge {
   height: 16px;
   display: flex;
-  gap: 5px;
-  align-items: flex-start;
+  gap: 4px;
+  align-items: center;
   justify-content: flex-end;
-  padding-right: 9px;
-  opacity: 0.75;
+  padding: 0 9px 4px 0;
   flex-shrink: 0;
 }
-.board-ledge i {
-  display: block;
-  width: 22px;
-  height: 4px;
-  border-radius: 1px;
-  background: #e8e9dc;
-  box-shadow: 0 2px 3px #0004;
-  transform: rotate(-3deg);
+.board-ledge-mark {
+  flex: 0 1 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: #729184;
 }
-.board-ledge i:nth-child(2) {
-  width: 17px;
-  background: #d9ce92;
-  transform: rotate(2deg);
-}
-.board-ledge i:last-child {
-  width: 13px;
-  background: #c3d4c2;
+.board-ledge-mark.is-current {
+  height: 5px;
+  background: var(--chalk-yellow);
 }
 .classroom-controls {
   flex-shrink: 0;
@@ -800,17 +990,18 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 22px;
+  gap: clamp(2px, 1.5vw, 12px);
 }
 .classroom-page .classroom-primary {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  flex: 0 1 160px;
+  gap: 6px;
   border-radius: 24px;
   min-height: 46px;
-  min-width: 160px;
-  padding: 10px 25px;
+  min-width: 0;
+  padding: 10px clamp(6px, 2.5vw, 25px);
   font-size: 13px;
   font-weight: 600;
   color: #183226;
@@ -1004,6 +1195,14 @@ onBeforeUnmount(() => {
   padding: 10px 0;
   color: #36573d;
 }
+.classroom-regenerate {
+  margin-top: 10px;
+  border-top: 1px solid #233f2f24;
+  padding-top: 8px;
+}
+.classroom-regenerate .panel-link + .panel-link {
+  margin-inline-start: 20px;
+}
 .panel-content h3 {
   font-size: 12px;
   margin: 0 0 10px;
@@ -1071,12 +1270,6 @@ onBeforeUnmount(() => {
   }
   .classroom-controls {
     padding: 12px 17px;
-  }
-  .classroom-actions {
-    gap: 15px;
-  }
-  .classroom-page .classroom-primary {
-    min-width: 140px;
   }
 }
 @media (min-width: 800px) {

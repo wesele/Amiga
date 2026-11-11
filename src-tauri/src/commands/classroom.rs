@@ -16,8 +16,9 @@ pub async fn generate_chapter_teaching_plan_cmd(
     db: State<'_, DatabasePool>,
     llm: State<'_, LlmState>,
     chapter_id: i64,
+    regenerate: Option<bool>,
 ) -> Result<Value, String> {
-    classroom::generate_plan(&db, &llm.client, chapter_id).await
+    classroom::generate_plan(&db, &llm.client, chapter_id, regenerate.unwrap_or(false)).await
 }
 
 #[tauri::command]

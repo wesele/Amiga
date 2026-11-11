@@ -111,6 +111,66 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 describe("AI teacher classroom", () => {
+  it("moves between beats across teaching topics, saving the cursor without marking skipped beats complete", async () => {
+    const h = harness();
+    rooms.push(h.room);
+    await h.room.start();
+    const original = h.current();
+    expect(h.room.moveBeat(-1)).toBeUndefined();
+    await h.room.moveBeat(1);
+    expect(h.live.disconnect).toHaveBeenCalledOnce();
+    expect(h.room.phase.value).toBe("paused");
+    expect(h.room.beatPosition.value).toBe(1);
+    expect(h.room.session.value.completed_beats).toEqual([]);
+    expect(h.room.board.value.items).toEqual([]);
+    expect(h.call("complete_teaching_beat", original).ok).toBe(false);
+    await h.room.moveBeat(1);
+    expect(h.room.session.value).toMatchObject({ node_index: 1, beat_index: 0 });
+    expect(h.room.moveBeat(1)).toBeUndefined();
+    await h.room.moveBeat(-1);
+    expect(h.room.session.value).toMatchObject({ node_index: 0, beat_index: 1 });
+    await h.room.persist();
+    const saved = h.saveSession.mock.calls.at(-1)[0];
+    const restored = harness(saved);
+    rooms.push(restored.room);
+    await restored.room.start();
+    expect(restored.current().beat_id).toBe(h.plan.nodes[0].beats[1].id);
+  });
+  it("replays the chosen beat in a finished lesson without resetting progress", async () => {
+    const plan = normalizePlan(raw, context, "v1");
+    const completed = plan.nodes.flatMap((node) =>
+      node.beats.map((beat) => `${node.id}/${beat.id}`),
+    );
+    const h = harness({
+      ...freshSession(plan),
+      phase: "completed",
+      node_index: 1,
+      completed_beats: completed,
+    });
+    rooms.push(h.room);
+    await h.room.moveBeat(-1);
+    await h.room.persist();
+    const restored = harness(h.saveSession.mock.calls.at(-1)[0]);
+    rooms.push(restored.room);
+    await restored.room.start();
+    expect(restored.current().beat_id).toBe(plan.nodes[0].beats[1].id);
+    restored.complete();
+    expect(restored.room.session.value.completed_beats).toEqual(completed);
+    expect(restored.room.progress.value).toBe(100);
+  });
+  it("returns to unfinished material after the last beat when earlier material was skipped", async () => {
+    const h = harness();
+    rooms.push(h.room);
+    await h.room.moveBeat(1);
+    await h.room.moveBeat(1);
+    await h.room.start();
+    h.complete();
+    expect(h.room.beatPosition.value).toBe(0);
+    expect(h.room.phase.value).toBe("paused");
+    expect(h.room.session.value.completed_beats).toEqual([
+      `${h.plan.nodes[1].id}/${h.plan.nodes[1].beats[0].id}`,
+    ]);
+  });
   it("starts teaching without opening the microphone", async () => {
     const h = harness();
     rooms.push(h.room);
