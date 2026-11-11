@@ -1,4 +1,5 @@
 import { invoke as tauriInvoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 let _invoke = tauriInvoke;
 
@@ -199,6 +200,19 @@ export function createApiClient(invoke) {
   }
 
   const call = (command, args) => invokeWithOptionalArgs(invoke, command, args);
+  async function generatePlan(command, args, onProgress) {
+    if (!onProgress) return call(command, args);
+    if (!_isTauriRuntime) return call(command, { ...args, onProgress });
+    const requestId = crypto.randomUUID();
+    const unlisten = await listen("classroom-plan-progress", ({ payload }) => {
+      if (payload.id === requestId) onProgress(payload.stage, payload.tokenCount);
+    });
+    try {
+      return await call(command, { ...args, requestId });
+    } finally {
+      unlisten();
+    }
+  }
 
   return {
     // Database
@@ -388,8 +402,10 @@ export function createApiClient(invoke) {
 
     // YouTube
     getChapterClassroom: (chapterId) => call("get_chapter_classroom_cmd", { chapterId }),
-    generateChapterTeachingPlan: (chapterId, regenerate = false) =>
-      call("generate_chapter_teaching_plan_cmd", { chapterId, regenerate }),
+    generateTopicTeachingPlan: (goal, locale, onProgress) =>
+      generatePlan("generate_topic_teaching_plan_cmd", { goal, locale }, onProgress),
+    generateChapterTeachingPlan: (chapterId, regenerate = false, onProgress) =>
+      generatePlan("generate_chapter_teaching_plan_cmd", { chapterId, regenerate }, onProgress),
     saveChapterClassroom: (chapterId, session) => call("save_chapter_classroom_cmd", { chapterId, session }),
     getClassroomLiveConfig: () => call("get_classroom_live_config_cmd"),
     fetchYoutubeMetadata: (url, targetLang) =>
@@ -652,6 +668,7 @@ export const updateYtdlp = (...args) =>
 // --- Speaking ---
 export const speakingListTopics = (...args) => defaultApiClient.speakingListTopics(...args);
 export const getChapterClassroom = (...args) => defaultApiClient.getChapterClassroom(...args);
+export const generateTopicTeachingPlan = (...args) => defaultApiClient.generateTopicTeachingPlan(...args);
 export const generateChapterTeachingPlan = (...args) => defaultApiClient.generateChapterTeachingPlan(...args);
 export const saveChapterClassroom = (...args) => defaultApiClient.saveChapterClassroom(...args);
 export const getClassroomLiveConfig = (...args) => defaultApiClient.getClassroomLiveConfig(...args);

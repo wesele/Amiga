@@ -12,6 +12,7 @@
 export const NATIVE_ONLY_COMMANDS = new Map([
   // 遗留命令：没有 UI 入口，仅保留以兼容旧调用
   ["greet", "legacy 命令，前端没有任何调用入口"],
+  ["generate_topic_teaching_plan_cmd", "教学入口与路由仅在标准客户端注册"],
 
   // speaking 模块整体在 web 模式隐藏
   ["speaking_list_topics_cmd", "web 模式隐藏 speaking 模块（clientOnly，LearnHubPage.vue）"],

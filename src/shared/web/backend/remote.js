@@ -22,8 +22,12 @@ export async function invokeRemote(command, args, state) {
       const article = (state.imported_articles || []).find(a => Number(a.id) === Number(chapter?.article_id));
       if (!chapter || !article) throw new Error("Chapter not found");
       const context = chapterContext(article, chapter, state.user?.native_language || "zh");
-      const raw = parseJsonReply(await chat(state, planPrompt, JSON.stringify(context), { maxTokens: 5000, responseFormat: { type: "json_object" } }));
+      args.onProgress?.("generating");
+      const reply = await chat(state, planPrompt, JSON.stringify(context), { maxTokens: 5000, responseFormat: { type: "json_object" } });
+      args.onProgress?.("validating");
+      const raw = parseJsonReply(reply);
       const plan = normalizePlan(raw, context);
+      args.onProgress?.("saving");
       await store.update(next => {
         next.chapter_classrooms ||= {};
         if (!(next.imported_article_chapters || []).some(c => Number(c.id) === Number(args.chapterId))) throw new Error("Chapter no longer exists");

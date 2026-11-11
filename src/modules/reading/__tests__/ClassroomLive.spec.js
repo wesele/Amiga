@@ -85,6 +85,29 @@ async function setup(extra = {}) {
   return { s, socket, events, contexts, stop };
 }
 describe("Classroom Live transport", () => {
+  it("keeps interim Live speech in the same turn until the server becomes idle", async () => {
+    const h = await setup();
+    h.s.send("Explain");
+    const part = { inlineData: { mimeType: "audio/pcm;rate=24000", data: "AAAAAA==" } };
+    await h.socket.receive({
+      serverContent: {
+        modelTurn: { parts: [part] },
+        turnComplete: true,
+        interactionStatus: "IN_PROGRESS",
+      },
+    });
+    expect(h.events.some((event) => event.type === "turn_ended")).toBe(false);
+    await h.socket.receive({
+      serverContent: {
+        modelTurn: { parts: [part] },
+        turnComplete: true,
+        interactionStatus: "IDLE",
+      },
+    });
+    expect(h.events.some((event) => event.type === "student_started")).toBe(false);
+    expect(h.events.filter((event) => event.type === "turn_ended")).toHaveLength(1);
+    expect(h.contexts[0].sources[0].stop).not.toHaveBeenCalled();
+  });
   it("does not end a teaching turn for a board-only acknowledgement before speech", async () => {
     const h = await setup({ onTool: () => ({ ok: true }) });
     h.s.send("Explain and write a note");
@@ -124,7 +147,29 @@ describe("Classroom Live transport", () => {
     expect(h.contexts[0].sources[0].stop).not.toHaveBeenCalled();
     expect(h.s.speaking.value).toBe(true);
   });
-  it("stops old buffered speech when the student speaks after server generation ended", async () => {
+  it("acknowledges a late completion tool without interrupting speech or blocking the next request", async () => {
+    const h = await setup({ onTool: () => ({ ok: true }) });
+    h.s.send("Explain the first step");
+    await h.socket.receive({
+      serverContent: {
+        modelTurn: {
+          parts: [{ inlineData: { mimeType: "audio/pcm;rate=24000", data: "AAAAAA==" } }],
+        },
+        turnComplete: true,
+      },
+    });
+    await h.socket.receive({
+      toolCall: { functionCalls: [{ id: "done-late", name: "complete_teaching_beat", args: {} }] },
+    });
+    const item = h.contexts[0].sources[0];
+    expect(item.stop).not.toHaveBeenCalled();
+    expect(h.events.some((event) => event.type === "student_started")).toBe(false);
+    expect(h.socket.sent.at(-1).toolResponse.functionResponses[0].id).toBe("done-late");
+    item.onended();
+    h.s.send("Explain the second step");
+    expect(h.socket.sent.at(-1).clientContent.turns[0].parts[0].text).toBe("Explain the second step");
+  });
+  it("ignores late transcription for playback and stops buffered speech on new voice activity", async () => {
     const h = await setup();
     h.s.send("Explain");
     await h.socket.receive({
@@ -137,9 +182,15 @@ describe("Classroom Live transport", () => {
     });
     expect(h.s.speaking.value).toBe(true);
     expect(h.events.some((event) => event.type === "audio_started")).toBe(true);
-    await h.socket.receive({ serverContent: { inputTranscription: { text: "等一下" } } });
+    await h.socket.receive({
+      serverContent: { inputTranscription: { text: "上一轮转写", finished: true } },
+    });
+    expect(h.contexts[0].sources[0].stop).not.toHaveBeenCalled();
+    expect(h.events.at(-1)).toMatchObject({ type: "student_text", finished: true });
+    await h.socket.receive({ voiceActivity: { type: "ACTIVITY_START" } });
     expect(h.contexts[0].sources[0].stop).toHaveBeenCalled();
     expect(h.s.speaking.value).toBe(false);
+    expect(h.events.at(-1)).toEqual({ type: "student_started" });
   });
   it("treats a tool-only voice-control turn as busy until its boundary", async () => {
     const h = await setup({ onTool: () => ({ ok: true }) });
@@ -155,7 +206,7 @@ describe("Classroom Live transport", () => {
       "Continue after skipped practice",
     );
   });
-  it("drops microphone PCM during playback and its echo tail, then resumes student input", async () => {
+  it("streams microphone PCM during playback and still drops the natural echo tail", async () => {
     vi.useFakeTimers();
     const h = await setup();
     await h.s.startMic();
@@ -178,23 +229,45 @@ describe("Classroom Live transport", () => {
     });
     expect(h.s.speaking.value).toBe(true);
     capture();
-    expect(uploaded()).toBe(1);
+    expect(uploaded()).toBe(2);
     await h.socket.receive({ serverContent: { turnComplete: true } });
     capture();
-    expect(uploaded()).toBe(1); // Generation ended, but local audio is still playing.
+    expect(uploaded()).toBe(3);
     mic.currentTime = 1.1;
     h.contexts[0].sources[0].onended();
     await vi.advanceTimersByTimeAsync(499);
     mic.currentTime = 1.599;
     capture();
-    expect(uploaded()).toBe(1);
+    expect(uploaded()).toBe(3);
     await vi.advanceTimersByTimeAsync(101);
     mic.currentTime = 1.7;
     capture();
-    expect(uploaded()).toBe(2);
+    expect(uploaded()).toBe(4);
     expect(h.socket.sent.at(-1).realtimeInput.audio.mimeType).toBe("audio/pcm;rate=16000");
     await h.s.disconnect();
     expect(h.stop).toHaveBeenCalled();
+  });
+  it("stops teacher audio on a server interruption without muting the ongoing question", async () => {
+    const h = await setup();
+    await h.s.startMic();
+    const mic = h.contexts[1];
+    h.s.send("Teach");
+    await h.socket.receive({
+      serverContent: {
+        modelTurn: { parts: [{ inlineData: { mimeType: "audio/pcm", data: "AAAAAA==" } }] },
+      },
+    });
+    await h.socket.receive({ serverContent: { interrupted: true, turnComplete: true } });
+    expect(h.s.speaking.value).toBe(false);
+    expect(h.events.slice(-2)).toMatchObject([
+      { type: "interrupted" },
+      { type: "turn_ended", cancelled: true },
+    ]);
+    mic.currentTime = 1;
+    mic.processor.onaudioprocess({
+      inputBuffer: { getChannelData: () => new Float32Array(2048).fill(0.1) },
+    });
+    expect(h.socket.sent.at(-1).realtimeInput.audio).toBeDefined();
   });
   it("rejects delayed worklet blocks captured during playback, including after explicit stop", async () => {
     vi.useFakeTimers();

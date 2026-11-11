@@ -1,11 +1,43 @@
 <template>
-  <section class="teaching-board" :aria-label="t('classroom.board')">
+  <section
+    class="teaching-board"
+    :class="{ 'with-diagram': diagram }"
+    :aria-label="t('classroom.board')"
+  >
     <div
       v-if="source && focus && focus.kind !== 'source' && source.text !== focus.text"
       class="board-note board-source board-context"
     >
       <p :lang="targetLanguage">{{ source.text }}</p>
     </div>
+    <svg
+      v-if="diagram"
+      class="board-diagram"
+      viewBox="0 0 100 56"
+      role="img"
+      :aria-label="diagram.description"
+    >
+      <defs>
+        <marker :id="arrowId" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M 1 1 L 5 3 L 1 5" fill="none" stroke="currentColor" />
+        </marker>
+      </defs>
+      <template v-for="(shape, index) in diagram.shapes" :key="index">
+        <text
+          v-if="shape.kind === 'label'"
+          :x="shape.at[0]"
+          :y="shape.at[1]"
+          text-anchor="middle"
+          dominant-baseline="middle"
+        >{{ shape.text }}</text>
+        <circle v-else-if="shape.kind === 'dot'" :cx="shape.at[0]" :cy="shape.at[1]" r="1.25" />
+        <polyline
+          v-else
+          :points="shape.points.map((point) => point.join(',')).join(' ')"
+          :marker-end="shape.kind === 'arrow' ? `url(#${arrowId})` : undefined"
+        />
+      </template>
+    </svg>
     <Transition name="board-write" mode="out-in">
       <div
         v-if="focus"
@@ -16,7 +48,7 @@
         aria-live="polite"
         aria-atomic="true"
       >
-        <span class="board-label">{{ t(`classroom.board_${focus.kind}`) }}</span>
+        <span class="board-label">{{ t(label) }}</span>
         <p
           v-if="focus.kind === 'explanation' && expression"
           class="board-expression-heading"
@@ -38,14 +70,17 @@
   </section>
 </template>
 <script setup>
-import { computed, ref, watch, nextTick } from "vue";
+import { computed, ref, watch, nextTick, useId } from "vue";
 import { useI18n } from "@/shared/i18n";
 const props = defineProps({
   board: { type: Object, required: true },
+  diagram: Object,
+  topic: Boolean,
   targetLanguage: String,
   teachingLanguage: String,
 });
 const { t } = useI18n();
+const arrowId = useId();
 const focusElement = ref(null);
 const source = computed(() => props.board.items.find((item) => item.kind === "source"));
 const expression = computed(() => props.board.items.find((item) => item.kind === "expression"));
@@ -54,6 +89,12 @@ const focus = computed(
     props.board.items.find((item) => item.kind === props.board.active_kind) ||
     props.board.items.at(-1),
 );
+const label = computed(() => {
+  const kind = focus.value?.kind;
+  if (props.topic && kind === "expression") return "teaching.boardConcept";
+  if (props.topic && kind === "explanation") return "teaching.boardExplanation";
+  return `classroom.board_${kind}`;
+});
 watch(
   () => focus.value?.text,
   async () => {
@@ -76,6 +117,45 @@ watch(
 }
 .board-note {
   min-width: 0;
+}
+.with-diagram {
+  padding-block: 10px 18px;
+}
+.board-diagram {
+  align-self: center;
+  flex: 0 0 auto;
+  width: 100%;
+  height: clamp(92px, 24vh, 220px);
+  margin-block: 0 12px;
+  color: #b5ddb9;
+}
+.board-diagram polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 0.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.board-diagram circle {
+  fill: currentColor;
+}
+.board-diagram text {
+  fill: #edeed7;
+  font-size: 3.8px;
+  stroke: #18372c;
+  stroke-width: 0.55;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+.with-diagram .board-context {
+  max-height: 66px;
+  padding-bottom: 12px;
+}
+.with-diagram .board-label {
+  margin-bottom: 9px;
+}
+.with-diagram .board-focus > p {
+  font-size: clamp(18px, 5vw, 28px);
 }
 .board-context {
   flex-shrink: 0;

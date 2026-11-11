@@ -3,6 +3,17 @@
 import { classroomEn } from "@/modules/reading/classroom/messages.js";
 export default {
   classroom: classroomEn,
+  teaching: {
+    title: "Teaching",
+    goal: "Learning goal or problem",
+    placeholder: "Type or paste what you want to learn. For example, show me how to solve quadratic equations step by step.",
+    generate: "Generate and start lesson",
+    openCourse: "Open last lesson · {title}",
+    back: "Back to teaching",
+    courseUnavailable: "This lesson is unavailable. Return to Teaching to generate a new one.",
+    boardConcept: "Key concept",
+    boardExplanation: "Explanation",
+  },
   app: {
     name: "Amiga",
     tagline: "Learn languages, connect the world",

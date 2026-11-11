@@ -53,7 +53,8 @@ $RustWatchRoots = @(
     "src-tauri\capabilities",
     "src-tauri\src",
     # Shared prompt is embedded into the Rust binary with include_str!.
-    "src\modules\reading\classroom\teachingPlanPrompt.txt"
+    "src\modules\reading\classroom\teachingPlanPrompt.txt",
+    "src\modules\reading\classroom\boardDiagramPrompt.txt"
 )
 
 if (-not [string]::IsNullOrWhiteSpace($TauriConfig)) {

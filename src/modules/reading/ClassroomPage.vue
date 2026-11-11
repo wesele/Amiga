@@ -4,15 +4,15 @@
       <header class="classroom-header">
         <button
           class="icon-button classroom-back"
-          :aria-label="t('classroom.back')"
-          :title="t('classroom.back')"
+          :aria-label="backLabel"
+          :title="backLabel"
           @click="back"
         >
           <ClassroomIcon name="back" />
         </button>
         <div class="classroom-heading">
           <span class="classroom-eyebrow">{{ t("classroom.title") }}</span>
-          <h1>{{ data?.chapter.title || t("classroom.preparing") }}</h1>
+          <h1>{{ data?.chapter?.title || data?.plan?.title || t("classroom.preparing") }}</h1>
         </div>
         <span
           v-if="room"
@@ -66,13 +66,18 @@
           {{ t("classroom.next") }}<ClassroomIcon name="next" />
         </button>
       </nav>
-      <main v-if="regenerating" class="classroom-empty" role="status">
+      <main v-if="regenerating" class="classroom-empty">
         <h2>{{ t("classroom.regenerating") }}</h2>
+        <PlanGenerationStatus :stage="generationStage" :token-count="tokenCount" />
       </main>
-      <main v-else-if="loading || loadError" class="classroom-empty" role="status">
-        <h2>{{ loadError ? t("classroom.prepareFailed") : t("classroom.preparing") }}</h2>
-        <p v-if="loadError">{{ loadError }}</p>
-        <button v-if="loadError" @click="load">{{ t("classroom.retry") }}</button>
+      <main v-else-if="loading || loadError" class="classroom-empty">
+        <template v-if="loadError">
+          <h2>{{ t("classroom.prepareFailed") }}</h2>
+          <p role="alert">{{ loadError }}</p>
+          <button @click="load">{{ t("classroom.retry") }}</button>
+        </template>
+        <h2 v-else-if="topicId">{{ t("classroom.preparing") }}</h2>
+        <PlanGenerationStatus v-else :stage="generationStage" :token-count="tokenCount" />
       </main>
       <template v-else-if="room">
         <main class="classroom-stage">
@@ -82,7 +87,7 @@
               <h2 class="board-topic" :title="beatTopic">{{ beatTopic }}</h2>
             </div>
             <button
-              v-if="room.board.value.items.length && data.article.audio_path"
+              v-if="room.board.value.items.length && data.article?.audio_path"
               class="board-audio"
               :aria-label="t(sourceAudio ? 'classroom.stopSource' : 'classroom.sourceAudio')"
               @click="toggleSource"
@@ -94,7 +99,9 @@
           </div>
           <ClassroomBoard
             :board="room.board.value"
-            :target-language="data.plan.target_language"
+            :diagram="room.diagram.value"
+            :target-language="data.plan.target_language || data.plan.native_language"
+            :topic="Boolean(topicId)"
             :teaching-language="
               room.session.value.teaching_language === 'target'
                 ? data.plan.target_language
@@ -260,34 +267,39 @@
           :aria-labelledby="`classroom-tab-${panelTab}`"
         >
           <template v-if="panelTab === 'settings'">
-            <label for="classroom-language" class="setting-label">{{
-              t("classroom.teachingLanguage")
-            }}</label>
-            <select
-              id="classroom-language"
-              :value="room.session.value.teaching_language"
-              :disabled="room.connecting.value || room.changingLanguage.value"
-              @change="changeTeachingLanguage($event.target.value)"
-            >
-              <option value="native">
-                {{
-                  t("classroom.nativeTeaching", {
-                    language: languageName(data.plan.native_language),
-                  })
-                }}
-              </option>
-              <option value="target">
-                {{
-                  t("classroom.targetTeaching", {
-                    language: languageName(data.plan.target_language),
-                  })
-                }}
-              </option>
-            </select>
-            <p class="classroom-language-hint">
-              <span class="classroom-level">{{ data.plan.cefr_level }}</span
-              >{{ t("classroom.levelTeachingHint", { level: data.plan.cefr_level }) }}
-            </p>
+            <template v-if="!topicId">
+              <label for="classroom-language" class="setting-label">{{
+                t("classroom.teachingLanguage")
+              }}</label>
+              <select
+                id="classroom-language"
+                :value="room.session.value.teaching_language"
+                :disabled="room.connecting.value || room.changingLanguage.value"
+                @change="changeTeachingLanguage"
+              >
+                <option value="native">
+                  {{
+                    t("classroom.nativeTeaching", {
+                      language: languageName(data.plan.native_language),
+                    })
+                  }}
+                </option>
+                <option value="target">
+                  {{
+                    t("classroom.targetTeaching", {
+                      language: languageName(data.plan.target_language),
+                    })
+                  }}
+                </option>
+              </select>
+              <p class="classroom-language-hint">
+                <span class="classroom-level">{{ data.plan.cefr_level }}</span
+                >{{ t("classroom.levelTeachingHint", { level: data.plan.cefr_level }) }}
+              </p>
+              <p v-if="languageError" class="panel-hint" role="alert">
+                {{ t("classroom.teachingLanguageSaveFailed") }}
+              </p>
+            </template>
             <label class="classroom-preference"
               ><span>{{ t("classroom.listenOnly") }}</span
               ><input
@@ -297,7 +309,7 @@
             /></label>
             <p class="panel-hint">{{ t("classroom.hint") }}</p>
             <button class="panel-link" @click="configure">{{ t("classroom.configure") }} →</button>
-            <div class="classroom-regenerate">
+            <div v-if="!topicId" class="classroom-regenerate">
               <template v-if="confirmRegeneration">
                 <p class="panel-hint">{{ t("classroom.regenerateConfirm") }}</p>
                 <button
@@ -371,21 +383,27 @@ import { convertFileSrc, isTauri } from "@tauri-apps/api/core";
 import { useI18n, getLocale } from "@/shared/i18n";
 import { isTvLayoutMode } from "@/shared/appMode.js";
 import { pushInPageBackHandler } from "@/shared/inPageBack.js";
+import { getTopicClassroom, saveTopicClassroomSession } from "@/modules/learn/topicClassroom.js";
 import {
   getChapterClassroom,
   generateChapterTeachingPlan,
   saveChapterClassroom,
   getClassroomLiveConfig,
   getImportedArticleChapters,
+  getSetting,
+  saveSetting,
 } from "@/shared/api.js";
 import { validateSession } from "./classroom/teachingPlan.js";
 import { useClassroom } from "./classroom/useClassroom.js";
 import ClassroomBoard from "./classroom/ClassroomBoard.vue";
+import PlanGenerationStatus from "./classroom/PlanGenerationStatus.vue";
 import ClassroomIcon from "./classroom/ClassroomIcon.vue";
 
-const props = defineProps({ id: [String, Number], chapterId: [String, Number] });
+const props = defineProps({ id: [String, Number], chapterId: [String, Number], topicId: String });
+const TEACHING_LANGUAGE_SETTING = "classroom_teaching_language";
 const { t } = useI18n();
 const router = useRouter();
+const backLabel = computed(() => t(props.topicId ? "teaching.back" : "classroom.back"));
 const loading = ref(true),
   loadError = ref(""),
   data = shallowRef(null),
@@ -394,6 +412,9 @@ const regenerating = ref(false),
   confirmRegeneration = ref(false),
   regenerateControl = ref(null),
   regenerateError = ref("");
+const generationStage = ref("preparing");
+const tokenCount = ref(null);
+const languageError = ref(false);
 const draft = ref(""),
   panelOpen = ref(false),
   panelTab = ref("settings"),
@@ -415,6 +436,7 @@ const panelTabs = [
   { key: "record", label: "classroom.transcript" },
 ];
 let panelTrigger = null;
+let languageChange;
 let loadToken = 0,
   releaseBack = () => {};
 const totalBeats = computed(() => room.value?.totalBeats || 0);
@@ -513,16 +535,27 @@ function languageName(code) {
     return code;
   }
 }
-async function changeTeachingLanguage(mode) {
+function changeTeachingLanguage(event) {
+  const activeRoom = room.value;
+  const select = event.target;
+  const mode = select.value;
+  select.value = activeRoom.session.value.teaching_language;
   stopSource();
-  await room.value.setTeachingLanguage(mode);
+  languageError.value = false;
+  languageChange = activeRoom.setTeachingLanguage(mode).catch(() => {
+    if (room.value === activeRoom) languageError.value = true;
+  });
 }
-function installRoom(result, chapterId) {
+function installRoom(result, chapterId, teachingLanguage, topicId = null) {
   if (result.session) validateSession(result.session, result.plan);
   room.value = useClassroom({
     plan: result.plan,
     savedSession: result.session,
-    saveSession: (session) => saveChapterClassroom(chapterId, session),
+    teachingLanguage: teachingLanguage === "target" ? "target" : "native",
+    saveTeachingLanguage: (mode) => saveSetting(TEACHING_LANGUAGE_SETTING, mode),
+    saveSession: topicId
+      ? (session) => saveTopicClassroomSession(topicId, session)
+      : (session) => saveChapterClassroom(chapterId, session),
     getConfig: getClassroomLiveConfig,
   });
   data.value = result;
@@ -531,10 +564,14 @@ async function load() {
   const token = ++loadToken;
   const articleId = Number(props.id);
   const chapterId = Number(props.chapterId);
+  const topicId = props.topicId;
   loading.value = true;
+  generationStage.value = "preparing";
+  tokenCount.value = null;
   loadError.value = "";
   regenerating.value = false;
   regenerateError.value = "";
+  languageError.value = false;
   panelOpen.value = false;
   confirmRegeneration.value = false;
   composerOpen.value = false;
@@ -544,16 +581,29 @@ async function load() {
   room.value = null;
   data.value = null;
   try {
+    await languageChange;
     await previousRoom?.close();
+    if (token !== loadToken) return;
+    if (topicId) {
+      const course = getTopicClassroom();
+      if (course?.plan.version !== topicId) throw new Error(t("teaching.courseUnavailable"));
+      chapters.value = [];
+      installRoom(course, null, "native", topicId);
+      if (!course.session) void room.value.start();
+      return;
+    }
     const articleChapters = await getImportedArticleChapters(articleId).catch(() => []);
     if (token !== loadToken) return;
     chapters.value = articleChapters;
-    let result = await getChapterClassroom(chapterId);
+    const [result, teachingLanguage] = await Promise.all([
+      getChapterClassroom(chapterId),
+      getSetting(TEACHING_LANGUAGE_SETTING),
+    ]);
     if (token !== loadToken) return;
     if (Number(result.chapter.article_id) !== articleId) throw new Error("章节与文章不匹配");
     data.value = result;
-    if (!result.plan) result = await generateChapterTeachingPlan(chapterId);
-    if (token === loadToken) installRoom(result, chapterId);
+    const prepared = result.plan ? result : await generatePlan(chapterId, false, token);
+    if (token === loadToken) installRoom(prepared, chapterId, teachingLanguage);
   } catch (error) {
     if (token === loadToken) loadError.value = String(error?.message || error);
   } finally {
@@ -565,12 +615,21 @@ async function setRegenerateConfirmation(show) {
   await nextTick();
   regenerateControl.value?.focus();
 }
+function generatePlan(chapterId, regenerate, token) {
+  return generateChapterTeachingPlan(chapterId, regenerate, (stage, count) => {
+    if (token !== loadToken) return;
+    generationStage.value = stage;
+    if (count) tokenCount.value = count;
+  });
+}
 async function regenerateCourse() {
   if (regenerating.value || !room.value) return;
   const token = loadToken;
   const chapterId = Number(props.chapterId);
   const previousRoom = room.value;
   regenerating.value = true;
+  generationStage.value = "preparing";
+  tokenCount.value = null;
   regenerateError.value = "";
   room.value = null;
   stopSource();
@@ -580,8 +639,10 @@ async function regenerateCourse() {
   try {
     await previousRoom.close();
     if (token !== loadToken) return;
-    const result = await generateChapterTeachingPlan(chapterId, true);
-    if (token === loadToken) installRoom(result, chapterId);
+    const result = await generatePlan(chapterId, true, token);
+    if (token === loadToken) {
+      installRoom(result, chapterId, previousRoom.session.value.teaching_language);
+    }
   } catch (error) {
     if (token === loadToken) {
       room.value = previousRoom;
@@ -649,10 +710,7 @@ function moveBeat(offset) {
 function toggleMic() {
   stopSource();
   if (room.value.live.micEnabled.value) void room.value.live.stopMic();
-  else {
-    if (isTeaching.value) room.value.pause();
-    void room.value.live.startMic();
-  }
+  else void room.value.live.startMic();
 }
 function pauseForTyping() {
   if (
@@ -667,6 +725,10 @@ function send() {
   draft.value = "";
 }
 function back() {
+  if (props.topicId) {
+    void router.push({ name: "learn-teaching" });
+    return;
+  }
   void router.push({
     name: "reading-article",
     params: { id: props.id },
@@ -691,9 +753,10 @@ function visibility() {
 }
 onBeforeRouteLeave(async () => {
   stopSource();
+  await languageChange;
   await room.value?.close();
 });
-watch([() => props.id, () => props.chapterId], load, { immediate: true });
+watch([() => props.id, () => props.chapterId, () => props.topicId], load, { immediate: true });
 onMounted(() => {
   releaseBack = pushInPageBackHandler(() => {
     if (panelOpen.value) {
@@ -976,12 +1039,12 @@ onBeforeUnmount(() => {
 .teacher-caption {
   margin-top: 8px;
   min-height: 20px;
-  max-height: 40px;
+  max-height: 6.2em;
   font-size: 13px;
   color: #d1dcd0;
   line-height: 1.55;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;

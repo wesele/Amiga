@@ -1,9 +1,80 @@
 use crate::modules::{database::DatabasePool, llm, reading};
 use rusqlite::{params, OptionalExtension};
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 const PLAN_PROMPT: &str =
     include_str!("../../../src/modules/reading/classroom/teachingPlanPrompt.txt");
+const TOPIC_PROMPT: &str = include_str!("topic_teaching_prompt.txt");
+const DIAGRAM_PROMPT: &str =
+    include_str!("../../../src/modules/reading/classroom/boardDiagramPrompt.txt");
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PlanStage {
+    Generating,
+    Validating,
+    Saving,
+}
+
+pub type TokenProgress = Option<llm::CompletionProgress>;
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct BoardDiagram {
+    description: String,
+    shapes: Vec<DiagramShape>,
+}
+
+type Point = [f64; 2];
+
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum DiagramShape {
+    Line { points: [Point; 2] },
+    Arrow { points: [Point; 2] },
+    Polyline { points: Vec<Point> },
+    Dot { at: Point },
+    Label { at: Point, text: String },
+}
+
+fn valid_point([x, y]: Point) -> bool {
+    (0.0..=100.0).contains(&x) && (0.0..=56.0).contains(&y)
+}
+
+impl DiagramShape {
+    fn is_valid(&self) -> bool {
+        match self {
+            Self::Line { points } | Self::Arrow { points } => {
+                points.iter().copied().all(valid_point)
+            }
+            Self::Polyline { points } => {
+                (2..=24).contains(&points.len()) && points.iter().copied().all(valid_point)
+            }
+            Self::Dot { at } => valid_point(*at),
+            Self::Label { at, text } => {
+                valid_point(*at) && !text.trim().is_empty() && text.chars().count() <= 28
+            }
+        }
+    }
+}
+
+fn plan_beat(index: usize, objective: String, board_text: String, diagram: &Value) -> Value {
+    let mut beat = json!({
+        "id": format!("beat-{}", index + 1),
+        "objective": objective,
+        "board_text": board_text
+    });
+    if let Ok(diagram) = BoardDiagram::deserialize(diagram) {
+        if !diagram.description.trim().is_empty()
+            && diagram.description.chars().count() <= 160
+            && (1..=14).contains(&diagram.shapes.len())
+            && diagram.shapes.iter().all(DiagramShape::is_valid)
+        {
+            beat["diagram"] = json!(diagram);
+        }
+    }
+    beat
+}
 
 pub fn get_classroom(db: &DatabasePool, chapter_id: i64) -> Result<Value, String> {
     let chapter = reading::get_imported_article_chapter(db, chapter_id)?;
@@ -92,7 +163,12 @@ pub fn normalize_plan(raw: &Value, context: &Value, version: &str) -> Result<Val
             if clean(&beat["objective"]).is_empty() || clean(&beat["board_text"]).is_empty() {
                 return Err("教学小段缺少目标或板书".into());
             }
-            final_beats.push(json!({"id": format!("beat-{}", i+1), "objective": clean(&beat["objective"]), "board_text": clean(&beat["board_text"])}));
+            final_beats.push(plan_beat(
+                i,
+                clean(&beat["objective"]),
+                clean(&beat["board_text"]),
+                &beat["diagram"],
+            ));
         }
         let practice = &node["practice"];
         let practice = if matches!(
@@ -162,11 +238,148 @@ pub fn normalize_plan(raw: &Value, context: &Value, version: &str) -> Result<Val
     )
 }
 
+fn topic_plan(raw: &Value, goal: &str, default_language: &str) -> Result<Value, String> {
+    fn required(value: &Value) -> Result<String, String> {
+        let text = clean(value);
+        if text.is_empty() {
+            return Err("课程大纲缺少必要内容，请重试".into());
+        }
+        Ok(text)
+    }
+
+    fn items(value: &Value, max: usize) -> Result<&[Value], String> {
+        value
+            .as_array()
+            .filter(|items| !items.is_empty() && items.len() <= max)
+            .map(Vec::as_slice)
+            .ok_or_else(|| "课程大纲结构无效，请重试".into())
+    }
+
+    let goals = items(&raw["goals"], 6)?
+        .iter()
+        .map(required)
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut nodes = Vec::new();
+    for (index, node) in items(&raw["nodes"], 6)?.iter().enumerate() {
+        let mut beats = Vec::new();
+        for (i, beat) in items(&node["beats"], 4)?.iter().enumerate() {
+            beats.push(plan_beat(
+                i,
+                required(&beat["objective"])?,
+                required(&beat["board_text"])?,
+                &beat["diagram"],
+            ));
+        }
+        let title = required(&node["title"])?;
+        let practice = &node["practice"];
+        let practice = if practice.is_null() {
+            Value::Null
+        } else {
+            json!({
+                "kind": "comprehension",
+                "objective": required(&practice["objective"])?,
+                "scaffold": required(&practice["scaffold"])?,
+                "answer_example": required(&practice["answer_example"])?
+            })
+        };
+        nodes.push(json!({
+            "id": format!("node-{}", index + 1),
+            "title": title,
+            "objective": required(&node["objective"])?,
+            "focus_expression": title,
+            "beats": beats,
+            "practice": practice
+        }));
+    }
+    let language = raw["teaching_language"]
+        .as_str()
+        .filter(|code| {
+            (2..=35).contains(&code.len())
+                && code.as_bytes()[0].is_ascii_alphabetic()
+                && code
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+        })
+        .unwrap_or(default_language);
+    Ok(json!({
+        "schema_version": 2,
+        "version": uuid::Uuid::new_v4().to_string(),
+        "kind": "topic",
+        "title": required(&raw["title"])?.chars().take(150).collect::<String>(),
+        "learning_goal": goal,
+        "goals": goals,
+        "native_language": language,
+        "nodes": nodes
+    }))
+}
+
+pub async fn generate_topic_plan(
+    db: &DatabasePool,
+    client: &llm::LlmClient,
+    goal: &str,
+    locale: &str,
+    report: impl Fn(PlanStage, TokenProgress),
+) -> Result<Value, String> {
+    let goal = goal.trim();
+    if goal.is_empty() || goal.chars().count() > 16000 {
+        return Err("请输入 1 至 16000 字的学习目标或题目".into());
+    }
+    let default_language = match locale {
+        "en" => "en",
+        "es" => "es",
+        _ => "zh",
+    };
+    let raw = request_plan(
+        db,
+        client,
+        TOPIC_PROMPT,
+        &json!({"learning_goal": goal, "default_language": default_language}),
+        &report,
+    )
+    .await?;
+    topic_plan(&raw, goal, default_language)
+}
+
+async fn request_plan(
+    db: &DatabasePool,
+    client: &llm::LlmClient,
+    prompt: &str,
+    context: &Value,
+    report: &impl Fn(PlanStage, TokenProgress),
+) -> Result<Value, String> {
+    report(PlanStage::Generating, None);
+    let reply = client
+        .chat_for_teaching_plan(
+            db,
+            vec![
+                llm::ChatMessage {
+                    role: "system".into(),
+                    content: format!("{prompt}\n\n{DIAGRAM_PROMPT}"),
+                },
+                llm::ChatMessage {
+                    role: "user".into(),
+                    content: context.to_string(),
+                },
+            ],
+            |count| report(PlanStage::Generating, Some(count)),
+        )
+        .await?;
+    report(PlanStage::Validating, None);
+    let stripped = reply
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+    serde_json::from_str(stripped).map_err(|e| format!("教学大纲格式无效，请重试: {e}"))
+}
+
 pub async fn generate_plan(
     db: &DatabasePool,
     client: &llm::LlmClient,
     chapter_id: i64,
     regenerate: bool,
+    report: impl Fn(PlanStage, TokenProgress),
 ) -> Result<Value, String> {
     let current = get_classroom(db, chapter_id)?;
     if !regenerate && !current["plan"].is_null() {
@@ -200,31 +413,10 @@ pub async fn generate_plan(
         return Err("本节没有字幕".into());
     }
     let context = json!({"title":chapter.title,"native_language":native,"target_language":article.target_language,"cefr_level":article.cefr_level.unwrap_or_else(||"A2".into()),"paragraphs":source});
-    let reply = client
-        .chat_for_reading_content(
-            db,
-            vec![
-                llm::ChatMessage {
-                    role: "system".into(),
-                    content: PLAN_PROMPT.into(),
-                },
-                llm::ChatMessage {
-                    role: "user".into(),
-                    content: context.to_string(),
-                },
-            ],
-        )
-        .await?;
-    let stripped = reply
-        .trim()
-        .trim_start_matches("```json")
-        .trim_start_matches("```")
-        .trim_end_matches("```")
-        .trim();
-    let raw: Value =
-        serde_json::from_str(stripped).map_err(|e| format!("教学大纲格式无效，请重试: {e}"))?;
+    let raw = request_plan(db, client, PLAN_PROMPT, &context, &report).await?;
     let version = uuid::Uuid::new_v4().to_string();
     let plan = normalize_plan(&raw, &context, &version)?;
+    report(PlanStage::Saving, None);
     store_plan(db, chapter_id, &plan, current["plan"]["version"].as_str())?;
     get_classroom(db, chapter_id)
 }
@@ -315,7 +507,8 @@ pub fn spawn_article_plan_generation(
     tauri::async_runtime::spawn(async move {
         if let Ok(chapters) = reading::get_imported_article_chapters(&db, article_id) {
             for chapter in chapters {
-                if let Err(error) = generate_plan(&db, &client, chapter.id, false).await {
+                if let Err(error) = generate_plan(&db, &client, chapter.id, false, |_, _| {}).await
+                {
                     log::warn!("Could not prepare classroom {}: {}", chapter.id, error);
                 }
             }
@@ -325,6 +518,25 @@ pub fn spawn_article_plan_generation(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn board_diagram_is_optional_and_validated() {
+        let diagram = json!({
+            "description": "A timeline",
+            "shapes": [
+                {"kind": "arrow", "points": [[10, 30], [90, 30]], "extra": "ignored"},
+                {"kind": "label", "at": [28, 22], "text": "Ayer"}
+            ]
+        });
+        let beat = plan_beat(0, "Explain".into(), "Yesterday".into(), &diagram);
+        assert_eq!(beat["diagram"]["shapes"][1]["text"], "Ayer");
+        assert!(beat["diagram"]["shapes"][0].get("extra").is_none());
+        let mut invalid = diagram;
+        invalid["shapes"][0]["points"][1][0] = json!(101);
+        let beat = plan_beat(0, "Explain".into(), "Yesterday".into(), &invalid);
+        assert!(beat.get("diagram").is_none());
+        assert_eq!(beat["board_text"], "Yesterday");
+    }
+
     use super::*;
     #[test]
     fn classroom_revision_regeneration_and_cascade_preserve_legacy_progress() {
@@ -467,5 +679,27 @@ mod tests {
         let mut raw = valid_language_plan();
         raw["nodes"][0]["source_quote"] = json!(paragraph);
         assert!(normalize_plan(&raw, &context, "v2").is_err());
+    }
+
+    #[test]
+    fn topic_plan_accepts_a_problem_without_subtitles() {
+        let goal = "解方程\nx² − 5x + 6 = 0";
+        let mut raw = json!({
+            "title": "因式分解",
+            "teaching_language": "zh-CN",
+            "goals": ["用因式分解解方程"],
+            "nodes": [{
+                "title": "分解二次三项式",
+                "objective": "找出两个因数",
+                "beats": [{"objective": "用零乘积性质", "board_text": "(x − 2)(x − 3) = 0"}]
+            }]
+        });
+        let plan = topic_plan(&raw, goal, "en").unwrap();
+        assert_eq!(plan["learning_goal"], goal);
+        assert_eq!(plan["native_language"], "zh-CN");
+        assert_eq!(plan["nodes"][0]["beats"][0]["id"], "beat-1");
+        assert!(plan["nodes"][0].get("source").is_none());
+        raw["nodes"][0]["beats"][0]["board_text"] = json!("");
+        assert!(topic_plan(&raw, goal, "en").is_err());
     }
 }

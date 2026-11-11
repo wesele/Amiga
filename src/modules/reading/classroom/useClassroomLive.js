@@ -7,7 +7,7 @@ import {
 } from "@/modules/speaking/useGeminiLiveSession.js";
 import { classroomTools } from "./classroomTools.js";
 
-// Protect speaker playback even when the device's echo cancellation leaves residual audio.
+// Drop the brief echo tail when playback stops or drains.
 const ECHO_TAIL_MS = 500;
 export function useClassroomLive({
   WebSocketImpl = globalThis.WebSocket,
@@ -47,8 +47,8 @@ export function useClassroomLive({
   function emit(event) {
     onEvent(event);
   }
-  function stopAudio() {
-    if (sources.size) blockEchoTail();
+  function stopAudio({ protectEchoTail = true } = {}) {
+    if (protectEchoTail && sources.size) blockEchoTail();
     for (const source of sources) {
       source.onended = null;
       clearTimeout(source.cleanupTimer);
@@ -107,9 +107,6 @@ export function useClassroomLive({
     return false;
   }
   function beginResponse() {
-    // Server generation can end before its buffered audio finishes locally.
-    // A new spoken response must never queue behind the interrupted old one.
-    if (!busy && speaking.value) stopAudio();
     busy = true;
     responseHasContent = true;
   }
@@ -192,15 +189,19 @@ export function useClassroomLive({
       sessionHandle = message.sessionResumptionUpdate.newHandle;
     if (message.goAway) emit({ type: "go_away" });
     const content = message.serverContent;
+    const wasDropping = dropping;
+    if (
+      !dropping &&
+      (message.voiceActivity?.type === "ACTIVITY_START" || content?.speechState === "SPEECH")
+    ) {
+      if (!busy && speaking.value) stopAudio({ protectEchoTail: false });
+      emit({ type: "student_started" });
+    }
     if (content) {
       if (content.interrupted) {
         interrupted = true;
-        stopAudio();
+        stopAudio({ protectEchoTail: dropping });
         if (!dropping) emit({ type: "interrupted" });
-      }
-      if (content.inputTranscription?.text) {
-        if (!busy && speaking.value) stopAudio();
-        emit({ type: "student_text", text: content.inputTranscription.text });
       }
       if (!dropping && !interrupted) {
         if (content.outputTranscription?.text || content.modelTurn?.parts?.length) beginResponse();
@@ -215,12 +216,13 @@ export function useClassroomLive({
       }
     }
     if (message.toolCall?.functionCalls && !dropping && !interrupted) {
-      // Board updates are ancillary. Their SILENT acknowledgement may get its
-      // own empty turnComplete before speech arrives; it neither ends the
-      // teaching turn nor cancels audio that is still playing locally.
-      if (message.toolCall.functionCalls.some((call) => call.name !== "write_classroom_board"))
-        beginResponse();
-      else busy = true;
+      // A tool can arrive after turnComplete while the teacher's audio drains.
+      // Acknowledge it without treating it as a new turn or a student interruption.
+      if (busy || !speaking.value) {
+        busy = true;
+        if (message.toolCall.functionCalls.some((call) => call.name !== "write_classroom_board"))
+          responseHasContent = true;
+      }
       for (const call of message.toolCall.functionCalls) {
         let result;
         try {
@@ -237,7 +239,7 @@ export function useClassroomLive({
         });
       }
     }
-    if (content?.turnComplete) {
+    if (content?.turnComplete && (content.interactionStatus !== "IN_PROGRESS" || content.interrupted)) {
       const hadContent = responseHasContent;
       responseHasContent = false;
       busy = false;
@@ -254,6 +256,10 @@ export function useClassroomLive({
         }
       }
       if (hadContent || cancelled) emit({ type: "turn_ended", cancelled, audible: speaking.value });
+    }
+    if (!wasDropping && !dropping && content?.inputTranscription) {
+      const { text, finished } = content.inputTranscription;
+      if (text || finished) emit({ type: "student_text", text: text || "", finished });
     }
   }
   async function connect(config, instruction) {
@@ -386,10 +392,9 @@ export function useClassroomLive({
       source = input.createMediaStreamSource(stream);
       const upload = (samples, capturedAt = input.currentTime) => {
         if (!connected.value || !micEnabled.value) return;
-        // Drop, never queue, captured speaker audio. Include the entire capture
-        // block and its worklet timestamp so delayed messages cannot leak echo.
+        // Echo cancellation is requested above so the microphone stays live
+        // during speech. Use the capture timestamp to drop echo-tail blocks.
         if (
-          speaking.value ||
           dropping ||
           Date.now() < echoTailUntil ||
           capturedAt - samples.length / input.sampleRate < captureBlockedThrough
@@ -444,15 +449,17 @@ export function useClassroomLive({
     connected.value = false;
     status.value = "closed";
     busy = false;
+    responseHasContent = false;
     dropping = interrupted = false;
     if (previous) {
       previous.onmessage = previous.onclose = previous.onerror = previous.onopen = null;
       previous.close();
     }
     stopAudio();
-    await stopMic();
-    if (output) await output.close().catch(() => {});
+    const previousOutput = output;
     output = null;
+    await stopMic();
+    if (previousOutput) await previousOutput.close().catch(() => {});
   }
   return {
     status,

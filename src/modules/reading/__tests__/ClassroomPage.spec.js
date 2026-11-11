@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import ClassroomPage from "../ClassroomPage.vue";
+import { storeTopicClassroom } from "@/modules/learn/topicClassroom.js";
 import {
   getChapterClassroom,
   generateChapterTeachingPlan,
   getImportedArticleChapters,
   saveChapterClassroom,
   getClassroomLiveConfig,
+  getSetting,
+  saveSetting,
 } from "@/shared/api.js";
 
 const transport = vi.hoisted(() => ({ live: null, onEvent: null, onTool: null, push: vi.fn() }));
@@ -22,6 +25,8 @@ vi.mock("@/shared/api.js", () => ({
   saveChapterClassroom: vi.fn(),
   getClassroomLiveConfig: vi.fn(),
   getImportedArticleChapters: vi.fn(),
+  getSetting: vi.fn(),
+  saveSetting: vi.fn(),
 }));
 vi.mock("../classroom/useClassroomLive.js", async () => {
   const { ref } = await import("vue");
@@ -83,6 +88,8 @@ beforeEach(() => {
   });
   getImportedArticleChapters.mockResolvedValue([]);
   getClassroomLiveConfig.mockResolvedValue({ api_key: "test" });
+  getSetting.mockResolvedValue(null);
+  saveSetting.mockResolvedValue(undefined);
   saveChapterClassroom.mockImplementation(async (_id, session) => ({
     ...session,
     revision: session.revision + 1,
@@ -91,8 +98,40 @@ beforeEach(() => {
 afterEach(async () => {
   wrapper?.unmount();
   await flushPromises();
+  sessionStorage.clear();
 });
 describe("Classroom page presentation", () => {
+  it("opens the generated topic and starts voice teaching without loading an article", async () => {
+    const topicPlan = {
+      kind: "topic",
+      version: "math",
+      title: "解一元二次方程",
+      learning_goal: "解 x² − 5x + 6 = 0",
+      native_language: "zh",
+      goals: ["用因式分解解方程"],
+      nodes: [{
+        id: "node-1",
+        title: "找两个因数",
+        focus_expression: "因式分解",
+        beats: [{ id: "beat-1", objective: "分解二次三项式", board_text: "(x − 2)(x − 3) = 0" }],
+      }],
+    };
+    storeTopicClassroom({ plan: topicPlan, session: null });
+    wrapper = mount(ClassroomPage, { props: { topicId: "math" } });
+    await flushPromises();
+
+    expect(wrapper.get("h1").text()).toBe(topicPlan.title);
+    expect(wrapper.find(".board-audio").exists()).toBe(false);
+    expect(getChapterClassroom).not.toHaveBeenCalled();
+    expect(transport.live.connect.mock.lastCall[1]).toContain("Teach the learner's requested subject directly");
+    expect(transport.live.send.mock.lastCall[0]).toContain("(x − 2)(x − 3) = 0");
+
+    transport.onEvent({ type: "audio_started" });
+    await flushPromises();
+    expect(wrapper.get(".board-label").text()).toBe("重点");
+    expect(saveChapterClassroom).not.toHaveBeenCalled();
+  });
+
   it("places beat navigation outside the microphone and text controls and updates the cursor", async () => {
     const result = await getChapterClassroom();
     const node = plan.nodes[0];
@@ -153,6 +192,8 @@ describe("Classroom page presentation", () => {
     expect(transport.onTool("complete_teaching_beat", { control_epoch, node_id, beat_id }).ok).toBe(
       true,
     );
+    transport.onEvent({ type: "audio_started" });
+    transport.onEvent({ type: "audio_drained" });
     transport.onEvent({ type: "turn_ended" });
     await flushPromises();
     expect(marks()).toEqual([false, true]);
@@ -182,11 +223,38 @@ describe("Classroom page presentation", () => {
     await flushPromises();
     expect(wrapper.find(".teaching-board").text()).toContain("tienes que");
     await wrapper.find('button[aria-label="开启麦克风"]').trigger("click");
-    expect(transport.live.silence).toHaveBeenCalled();
+    expect(transport.live.silence).not.toHaveBeenCalled();
     expect(transport.live.startMic).toHaveBeenCalledOnce();
-    expect(wrapper.find(".classroom-primary").text()).toBe("继续上课");
+    expect(wrapper.find(".classroom-primary").text()).toBe("暂停");
   });
-  it("keeps the central board empty and persists the selected CEFR-aware teaching language", async () => {
+  it("uses the global teaching language in new classrooms and when resuming older sessions", async () => {
+    const first = await getChapterClassroom();
+    const second = {
+      ...first,
+      chapter: { ...first.chapter, id: 3 },
+      session: {
+        plan_version: "v1",
+        node_index: 0,
+        beat_index: 0,
+        phase: "paused",
+        interaction_mode: "guided",
+        teaching_language: "native",
+        revision: 1,
+        completed_beats: [],
+        interactions: {},
+        turns: [],
+      },
+    };
+    const third = {
+      ...first,
+      article: { id: 4 },
+      chapter: { ...first.chapter, id: 5, article_id: 4 },
+      plan: { ...plan, target_language: "en" },
+    };
+    getChapterClassroom.mockImplementation(async (id) => ({ 1: first, 3: second, 5: third })[id]);
+    saveSetting.mockImplementation(async (_key, value) => {
+      getSetting.mockResolvedValue(value);
+    });
     wrapper = mount(ClassroomPage, { props: { id: 2, chapterId: 1 } });
     await flushPromises();
     expect(wrapper.find(".teaching-board").text()).toBe("");
@@ -204,10 +272,36 @@ describe("Classroom page presentation", () => {
     await flushPromises();
     expect(wrapper.find(".classroom-level").text()).toBe("A2");
     expect(wrapper.find(".classroom-language-hint").text()).toContain("适合 A2");
-    expect(saveChapterClassroom.mock.calls.at(-1)[1].teaching_language).toBe("target");
+    expect(saveSetting).toHaveBeenCalledWith("classroom_teaching_language", "target");
+    expect(saveChapterClassroom).not.toHaveBeenCalled();
     await wrapper.find('button[aria-label="关闭"]').trigger("click");
     await flushPromises();
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+
+    await wrapper.setProps({ chapterId: 3 });
+    await flushPromises();
+    await wrapper.get('button[aria-label="课堂"]').trigger("click");
+    expect(wrapper.get("select").element.value).toBe("target");
+    wrapper.unmount();
+
+    wrapper = mount(ClassroomPage, { props: { id: 4, chapterId: 5 } });
+    await flushPromises();
+    await wrapper.get('button[aria-label="课堂"]').trigger("click");
+    expect(wrapper.get("select").element.value).toBe("target");
+    await wrapper.get('button[aria-label="关闭"]').trigger("click");
+    await wrapper.get(".classroom-primary").trigger("click");
+    await flushPromises();
+    expect(transport.live.send.mock.lastCall[0]).toContain('"teaching_language_code":"en"');
+  });
+  it("keeps the existing teaching language if the global setting fails to save", async () => {
+    saveSetting.mockRejectedValueOnce(new Error("unavailable"));
+    wrapper = mount(ClassroomPage, { props: { id: 2, chapterId: 1 } });
+    await flushPromises();
+    await wrapper.get('button[aria-label="课堂"]').trigger("click");
+    await wrapper.get("select").setValue("target");
+    await flushPromises();
+    expect(wrapper.get("select").element.value).toBe("native");
+    expect(wrapper.get('[role="alert"]').text()).toBe("授课语言保存失败，请重试。");
   });
   it("opens completed lessons with a blank legacy board and a collapsed summary", async () => {
     const result = await getChapterClassroom();
@@ -325,8 +419,8 @@ describe("Classroom page presentation", () => {
     await confirm.trigger("click");
     await flushPromises();
     expect(generateChapterTeachingPlan).toHaveBeenCalledTimes(2);
-    expect(generateChapterTeachingPlan).toHaveBeenLastCalledWith(1, true);
-    expect(wrapper.get(".classroom-empty").text()).toBe("正在重新生成课程…");
+    expect(generateChapterTeachingPlan).toHaveBeenLastCalledWith(1, true, expect.any(Function));
+    expect(wrapper.get(".classroom-empty h2").text()).toBe("正在重新生成课程…");
     finish({ ...result, plan: { ...plan, version: "v2" } });
     await flushPromises();
     expect(wrapper.get(".classroom-primary").text()).toBe("开始上课");

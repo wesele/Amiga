@@ -3,6 +3,8 @@ use log;
 use reqwest;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::time::{Duration, Instant};
 use tauri::Emitter;
 
 /// Built-in (system-provided) model configuration. Free tier hosted by
@@ -286,6 +288,89 @@ pub struct LlmClient {
     http: reqwest::Client,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+pub struct CompletionProgress {
+    pub tokens: u64,
+    pub estimated: bool,
+}
+
+#[derive(Default)]
+struct StreamedCompletion {
+    content: String,
+    reasoning: String,
+    tokens: Option<u64>,
+}
+
+impl StreamedCompletion {
+    fn push(&mut self, line: &[u8]) -> Result<bool, String> {
+        let line = std::str::from_utf8(line).map_err(|e| format!("Invalid stream text: {e}"))?;
+        let Some(data) = line.strip_prefix("data:").map(str::trim) else {
+            return Ok(false);
+        };
+        if data == "[DONE]" {
+            return Ok(true);
+        }
+        if data.is_empty() {
+            return Ok(false);
+        }
+        let event: Value =
+            serde_json::from_str(data).map_err(|e| format!("Invalid stream response: {e}"))?;
+        if event.get("error").is_some_and(|error| !error.is_null()) {
+            return Err("大模型返回了流式生成错误，请重试".into());
+        }
+        if let Some(tokens) = completion_tokens(&event) {
+            self.tokens = Some(tokens);
+        }
+        let choice = &event["choices"][0];
+        let delta = &choice["delta"];
+        if let Some(content) = delta["content"]
+            .as_str()
+            .or_else(|| choice["text"].as_str())
+        {
+            self.content.push_str(content);
+        }
+        if let Some(reasoning) = reasoning_text(delta) {
+            self.reasoning.push_str(reasoning);
+        }
+        Ok(false)
+    }
+
+    fn progress(&self) -> Option<CompletionProgress> {
+        if let Some(tokens) = self.tokens {
+            return Some(CompletionProgress {
+                tokens,
+                estimated: false,
+            });
+        }
+        let bytes = self.content.len() + self.reasoning.len();
+        (bytes > 0).then(|| CompletionProgress {
+            tokens: bytes.div_ceil(3) as u64,
+            estimated: true,
+        })
+    }
+}
+
+fn completion_tokens(reply: &Value) -> Option<u64> {
+    reply
+        .pointer("/usage/completion_tokens")
+        .and_then(Value::as_u64)
+}
+
+fn reasoning_text(message: &Value) -> Option<&str> {
+    message["reasoning_content"]
+        .as_str()
+        .or_else(|| message["reasoning"].as_str())
+}
+
+fn reasoning_answer(reasoning: &str) -> &str {
+    if let (Some(start), Some(end)) = (reasoning.find('{'), reasoning.rfind('}')) {
+        if start < end {
+            return &reasoning[start..=end];
+        }
+    }
+    reasoning
+}
+
 fn apply_thinking_params(body: &mut serde_json::Value, config: &ModelConfig) {
     // 逻辑更改：config.thinking_enabled 现在代表“关闭思考”开关是否被启用。
     // 如果启用 (true)，则发送明确关闭思考的参数；
@@ -438,8 +523,6 @@ impl LlmClient {
         timeout_secs: u64,
         include_completion_tokens: bool,
     ) -> Result<String, String> {
-        let url = format!("{}/chat/completions", config.base_url.trim_end_matches('/'));
-
         let mut body = serde_json::json!({
             "model": config.model,
             "messages": messages,
@@ -450,22 +533,29 @@ impl LlmClient {
             body["max_completion_tokens"] = serde_json::json!(max_tokens);
         }
         apply_thinking_params(&mut body, config);
+        let response = self.send_completion(config, &body, timeout_secs).await?;
+        Self::read_completion(response, |_| {}).await
+    }
 
+    async fn send_completion(
+        &self,
+        config: &ModelConfig,
+        body: &Value,
+        timeout_secs: u64,
+    ) -> Result<reqwest::Response, String> {
+        let url = format!("{}/chat/completions", config.base_url.trim_end_matches('/'));
         log::debug!(
-            "LLM request to {}: model={} max_tokens={} timeout={}s",
+            "LLM request to {}: model={} timeout={}s",
             url,
             config.model,
-            max_tokens,
             timeout_secs
         );
-
-        let response = self
-            .http
+        self.http
             .post(&url)
-            .timeout(std::time::Duration::from_secs(timeout_secs))
+            .timeout(Duration::from_secs(timeout_secs))
             .header("Authorization", format!("Bearer {}", config.api_key))
             .header("Content-Type", "application/json")
-            .json(&body)
+            .json(body)
             .send()
             .await
             .map_err(|e| {
@@ -474,15 +564,19 @@ impl LlmClient {
                 } else {
                     format!("HTTP request failed: {e}")
                 }
-            })?;
+            })
+    }
 
+    async fn read_completion(
+        response: reqwest::Response,
+        report: impl FnOnce(CompletionProgress),
+    ) -> Result<String, String> {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
             return Err(format!(
-                "API error {}: {}",
-                status,
-                &text[..text.len().min(300)]
+                "API error {status}: {}",
+                text.chars().take(300).collect::<String>()
             ));
         }
 
@@ -493,6 +587,12 @@ impl LlmClient {
 
         let json: serde_json::Value =
             serde_json::from_str(&raw_text).map_err(|e| format!("Invalid JSON response: {}", e))?;
+        if let Some(tokens) = completion_tokens(&json) {
+            report(CompletionProgress {
+                tokens,
+                estimated: false,
+            });
+        }
 
         // Standard OpenAI: choices[0].message.content
         if let Some(content) = json
@@ -507,26 +607,13 @@ impl LlmClient {
 
         // Reasoning models: reasoning_content (DeepSeek-style) or reasoning (Nemotron-style)
         // Contains chain-of-thought, NOT the final answer
-        let reasoning = json
-            .pointer("/choices/0/message/reasoning_content")
-            .or_else(|| json.pointer("/choices/0/message/reasoning"))
-            .and_then(|v| v.as_str());
+        let reasoning = reasoning_text(&json["choices"][0]["message"]);
 
         if let Some(reason) = reasoning {
             log::warn!("LLM returned reasoning ({} chars) but content is null/empty. \
                        The model may need more token budget. Trying to extract answer from reasoning...", reason.len());
 
-            // Try to find a JSON block in the reasoning (some models embed the answer there)
-            if let Some(json_start) = reason.find('{') {
-                if let Some(json_end) = reason.rfind('}') {
-                    let candidate = &reason[json_start..=json_end];
-                    log::debug!("Extracted JSON from reasoning: {} chars", candidate.len());
-                    return Ok(candidate.to_string());
-                }
-            }
-
-            // If no JSON found, return reasoning as-is
-            return Ok(reason.to_string());
+            return Ok(reasoning_answer(reason).to_string());
         }
 
         // Other fallback formats
@@ -536,8 +623,111 @@ impl LlmClient {
 
         Err(format!(
             "LLM returned empty content. Response: {}",
-            &raw_text[..raw_text.len().min(500)]
+            raw_text.chars().take(500).collect::<String>()
         ))
+    }
+
+    pub async fn chat_for_teaching_plan(
+        &self,
+        db: &DatabasePool,
+        messages: Vec<ChatMessage>,
+        report: impl Fn(CompletionProgress),
+    ) -> Result<String, String> {
+        const MAX_TOKENS: u32 = 8192;
+        const TIMEOUT_SECS: u64 = 120;
+        let config = get_llm_config(db)?;
+        let active = config.active()?;
+        let mut body = serde_json::json!({
+            "model": active.model,
+            "messages": messages,
+            "temperature": 0.3,
+            "max_tokens": MAX_TOKENS,
+            "max_completion_tokens": MAX_TOKENS,
+            "stream": true,
+            "stream_options": { "include_usage": true },
+        });
+        apply_thinking_params(&mut body, active);
+        let rejected =
+            |status: reqwest::StatusCode| matches!(status.as_u16(), 400 | 415 | 422 | 501);
+        let mut response = self.send_completion(active, &body, TIMEOUT_SECS).await?;
+        if rejected(response.status()) {
+            // Some compatible providers reject usage options or max_completion_tokens.
+            let options = body.as_object_mut().unwrap();
+            options.remove("stream_options");
+            options.remove("max_completion_tokens");
+            response = self.send_completion(active, &body, TIMEOUT_SECS).await?;
+            if rejected(response.status()) {
+                body.as_object_mut().unwrap().remove("stream");
+                response = self.send_completion(active, &body, TIMEOUT_SECS).await?;
+                return Self::read_completion(response, report).await;
+            }
+        }
+        let json_response = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.contains("/json") || value.contains("+json"));
+        if !response.status().is_success() || json_response {
+            return Self::read_completion(response, report).await;
+        }
+        Self::read_streamed_completion(response, report).await
+    }
+
+    async fn read_streamed_completion(
+        mut response: reqwest::Response,
+        report: impl Fn(CompletionProgress),
+    ) -> Result<String, String> {
+        let mut completion = StreamedCompletion::default();
+        let mut pending = Vec::new();
+        let mut last_report = None;
+        let mut done = false;
+        while !done {
+            let Some(chunk) = response
+                .chunk()
+                .await
+                .map_err(|e| format!("Stream read error: {e}"))?
+            else {
+                break;
+            };
+            pending.extend_from_slice(&chunk);
+            // Keep incomplete lines as bytes so a split UTF-8 character is decoded only once.
+            let complete = pending
+                .iter()
+                .rposition(|&byte| byte == b'\n')
+                .map_or(0, |i| i + 1);
+            for line in pending[..complete].split_inclusive(|&byte| byte == b'\n') {
+                if completion.push(line)? {
+                    done = true;
+                    break;
+                }
+            }
+            pending.drain(..complete);
+            if let Some(progress) = completion.progress() {
+                if last_report.as_ref().is_none_or(
+                    |&(previous, at): &(CompletionProgress, Instant)| {
+                        progress != previous && at.elapsed() >= Duration::from_millis(150)
+                    },
+                ) {
+                    report(progress);
+                    last_report = Some((progress, Instant::now()));
+                }
+            }
+        }
+        if !done && !pending.is_empty() {
+            completion.push(&pending)?;
+        }
+        if let Some(progress) = completion.progress() {
+            if last_report.is_none_or(|(previous, _)| progress != previous) {
+                report(progress);
+            }
+        }
+        if !completion.content.trim().is_empty() {
+            Ok(completion.content)
+        } else if !completion.reasoning.trim().is_empty() {
+            Ok(reasoning_answer(&completion.reasoning).into())
+        } else {
+            Err("大模型返回了空的教学大纲，请重试".into())
+        }
     }
 
     /// Send messages using whichever model is currently active (per
@@ -1597,6 +1787,45 @@ pub fn save_setting(db: &DatabasePool, key: &str, value: &str) -> Result<(), Str
 mod tests {
     use super::*;
     use crate::modules::database::DatabasePool;
+
+    #[test]
+    fn classroom_stream_estimates_output_until_usage_arrives() {
+        let mut reply = StreamedCompletion::default();
+        assert!(reply.progress().is_none());
+        assert!(!reply.push(b": keep-alive\r\n").unwrap());
+        assert!(!reply
+            .push(r#"data: {"choices":[{"delta":{"reasoning_content":"想法"}}]}"#.as_bytes())
+            .unwrap());
+        assert_eq!(
+            reply.progress(),
+            Some(CompletionProgress {
+                tokens: 2,
+                estimated: true
+            })
+        );
+        assert!(!reply
+            .push(r#"data: {"choices":[{"delta":{"content":"课程"}}]}"#.as_bytes())
+            .unwrap());
+        assert_eq!(
+            reply.progress(),
+            Some(CompletionProgress {
+                tokens: 4,
+                estimated: true
+            })
+        );
+        assert!(!reply
+            .push(br#"data: {"choices":[],"usage":{"completion_tokens":7}}"#)
+            .unwrap());
+        assert!(reply.push(b"data: [DONE]\r\n").unwrap());
+        assert_eq!(reply.content, "课程");
+        assert_eq!(
+            reply.progress(),
+            Some(CompletionProgress {
+                tokens: 7,
+                estimated: false
+            })
+        );
+    }
 
     fn empty_db() -> DatabasePool {
         DatabasePool::new_in_memory()

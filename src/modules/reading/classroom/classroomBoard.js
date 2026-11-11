@@ -9,7 +9,7 @@ export function boardEntry(node, kind, text) {
   if (!BOARD_KINDS.includes(kind)) return null;
   // Source and highlighted expressions always come from the saved, verified plan.
   const value =
-    kind === "source" ? node.source.text : kind === "expression" ? node.focus_expression : text;
+    kind === "source" ? node.source?.text : kind === "expression" ? node.focus_expression : text;
   if (typeof value !== "string" || !value.trim()) return null;
   return { kind, text: value.trim().slice(0, kind === "source" ? 1500 : 320) };
 }
@@ -21,7 +21,7 @@ export function writeBoard(board, entry) {
   return { ...board, items, active_kind: entry.kind };
 }
 
-export function restoreBoard(saved, node, languageMode) {
+export function restoreBoard(saved, node, languageMode, beatId) {
   let board = emptyBoard(node, languageMode);
   if (
     saved?.node_id !== node.id ||
@@ -35,5 +35,6 @@ export function restoreBoard(saved, node, languageMode) {
   }
   if (board.items.some((item) => item.kind === saved.active_kind))
     board.active_kind = saved.active_kind;
+  if (beatId && saved.diagram_beat_id === beatId) board.diagram_beat_id = beatId;
   return board;
 }

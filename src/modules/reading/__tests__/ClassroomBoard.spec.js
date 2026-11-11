@@ -9,6 +9,28 @@ const node = {
   focus_expression: "viene bien",
 };
 describe("Live classroom whiteboard", () => {
+  it("renders a diagram beside a board note with escaped text labels", () => {
+    const board = writeBoard(emptyBoard(node, "native"), boardEntry(node, "explanation", "时间轴"));
+    const wrapper = mount(ClassroomBoard, {
+      props: {
+        board,
+        diagram: {
+          description: "时间轴示意图",
+          shapes: [
+            { kind: "arrow", points: [[10, 30], [90, 30]] },
+            { kind: "dot", at: [35, 30] },
+            { kind: "label", at: [35, 22], text: "<script>" },
+          ],
+        },
+      },
+    });
+    expect(wrapper.get("svg").attributes("aria-label")).toBe("时间轴示意图");
+    expect(wrapper.get("svg polyline").attributes("marker-end")).toMatch(/^url\(#.+\)$/);
+    expect(wrapper.get("svg text").text()).toBe("<script>");
+    expect(wrapper.find("script").exists()).toBe(false);
+    expect(wrapper.get(".board-focus").text()).toContain("时间轴");
+    wrapper.unmount();
+  });
   it("spotlights the latest note while retaining previous notes for later teaching", async () => {
     let board = emptyBoard(node, "native");
     for (const [kind, text] of [

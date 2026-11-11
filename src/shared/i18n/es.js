@@ -3,6 +3,17 @@
 import { classroomEs } from "@/modules/reading/classroom/messages.js";
 export default {
   classroom: classroomEs,
+  teaching: {
+    title: "Clases",
+    goal: "Objetivo de aprendizaje o problema",
+    placeholder: "Escribe o pega lo que quieres aprender. Por ejemplo, explícame paso a paso cómo resolver ecuaciones de segundo grado.",
+    generate: "Generar e iniciar clase",
+    openCourse: "Abrir última clase · {title}",
+    back: "Volver a Clases",
+    courseUnavailable: "Esta clase ya no está disponible. Vuelve a Clases para generar otra.",
+    boardConcept: "Concepto clave",
+    boardExplanation: "Explicación",
+  },
   app: {
     name: "Amiga",
     tagline: "Aprende idiomas, conecta el mundo",

@@ -23,6 +23,7 @@ function makeRouter() {
       { path: "/learn", name: "learn", component: LearnHubPage },
       { path: "/learn/path", name: "path", component: { template: "<div/>" } },
       { path: "/learn/vocab", name: "vocab", component: { template: "<div/>" } },
+      { path: "/learn/teaching", name: "learn-teaching", component: { template: "<div/>" } },
       { path: "/learn/soulmate", name: "soulmate", component: { template: "<div/>" } },
       { path: "/news", name: "news", component: { template: "<div/>" } },
       {
@@ -74,7 +75,7 @@ describe("LearnHubPage", () => {
     expect(source).toMatch(/font-size:\s*clamp\(12px,\s*3\.6vw,\s*16px\)/);
   });
 
-  it("renders the unchanged path card above six module tiles", async () => {
+  it("renders the path card above the module tiles including Teaching", async () => {
     const router = makeRouter();
     const wrapper = mount(LearnHubPage, {
       global: { plugins: [router] },
@@ -89,15 +90,19 @@ describe("LearnHubPage", () => {
     expect(pathCard.text()).toContain("★ 7");
     expect(pathCard.find(".path-progress-fill").attributes("style")).toContain("width: 30%");
     const tiles = wrapper.findAll(".module-tile");
-    expect(tiles.length).toBe(6);
+    expect(tiles.length).toBe(7);
     const labels = tiles.map((t) => t.find(".module-label").text());
     expect(labels).toContain("新闻");
     expect(labels).toContain("阅读");
+    expect(labels).toContain("教学");
     expect(labels).toContain("口语");
     expect(labels).toContain("翻译");
     expect(labels).toContain("单词");
     expect(labels).toContain("灵伴");
     expect(labels.indexOf("单词")).toBe(labels.indexOf("翻译") + 1);
+    await wrapper.get('[data-tv-focus-key="learn-teaching"]').trigger("click");
+    await flushPromises();
+    expect(router.currentRoute.value.name).toBe("learn-teaching");
   });
 
   it("navigates to path when the path progress bar is clicked", async () => {

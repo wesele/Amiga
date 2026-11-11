@@ -6,6 +6,17 @@
 import { classroomZh } from "@/modules/reading/classroom/messages.js";
 export default {
   classroom: classroomZh,
+  teaching: {
+    title: "教学",
+    goal: "学习目标或题目",
+    placeholder: "输入或粘贴你想学的内容。例如：怎样解一元二次方程？请用几个例子一步步讲解。",
+    generate: "生成课程并上课",
+    openCourse: "打开上次课程 · {title}",
+    back: "返回教学",
+    courseUnavailable: "这节课已不可用，请返回教学重新生成。",
+    boardConcept: "重点",
+    boardExplanation: "讲解",
+  },
   app: {
     name: "阿米加",
     tagline: "学语言，连世界",

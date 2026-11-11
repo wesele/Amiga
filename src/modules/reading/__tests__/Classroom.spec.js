@@ -50,7 +50,7 @@ const raw = {
     },
   ],
 };
-function harness(savedSession) {
+function harness(savedSession, lesson = raw) {
   let callbacks;
   const live = {
     connected: ref(false),
@@ -71,7 +71,7 @@ function harness(savedSession) {
       live.connected.value = false;
     }),
   };
-  const plan = normalizePlan(raw, context, "v1");
+  const plan = normalizePlan(lesson, context, "v1");
   const saveSession = vi.fn(async (value) => ({ ...value, revision: value.revision + 1 }));
   const room = useClassroom({
     plan,
@@ -88,8 +88,13 @@ function harness(savedSession) {
   const call = (name, args = {}) =>
     callbacks.onTool(name, { control_epoch: current().control_epoch, ...args });
   const end = () => callbacks.onEvent({ type: "turn_ended", cancelled: false });
+  const playAudio = () => {
+    callbacks.onEvent({ type: "audio_started" });
+    callbacks.onEvent({ type: "audio_drained" });
+  };
   const complete = () => {
     const p = current();
+    if (!live.speaking.value) playAudio();
     call("complete_teaching_beat", { node_id: p.node_id, beat_id: p.beat_id });
     end();
   };
@@ -101,6 +106,7 @@ function harness(savedSession) {
     current,
     call,
     end,
+    playAudio,
     complete,
     saveSession,
   };
@@ -111,6 +117,33 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 describe("AI teacher classroom", () => {
+  it("reveals the current step's drawing when speech starts and restores it from the saved cursor", async () => {
+    const lesson = structuredClone(raw);
+    const diagram = {
+      description: "Una línea temporal",
+      shapes: [{ kind: "arrow", points: [[10, 30], [90, 30]] }],
+    };
+    lesson.nodes[0].beats[0].diagram = diagram;
+    lesson.nodes[0].beats[1].diagram = {
+      ...diagram,
+      shapes: [{ kind: "image", href: "https://example.com/image.svg" }],
+    };
+    const h = harness(undefined, lesson);
+    rooms.push(h.room);
+    expect(h.plan.nodes[0].beats[1].diagram).toBeUndefined();
+    expect(h.room.diagram.value).toBeNull();
+    await h.room.start();
+    expect(h.room.diagram.value).toBeNull();
+    expect(h.current().visible_diagram).toBe(diagram.description);
+    h.playAudio();
+    expect(h.room.diagram.value).toEqual(diagram);
+    await h.room.persist();
+    const restored = harness(h.saveSession.mock.calls.at(-1)[0], lesson);
+    rooms.push(restored.room);
+    expect(restored.room.diagram.value).toEqual(diagram);
+    await restored.room.moveBeat(1);
+    expect(restored.room.diagram.value).toBeNull();
+  });
   it("moves between beats across teaching topics, saving the cursor without marking skipped beats complete", async () => {
     const h = harness();
     rooms.push(h.room);
@@ -196,15 +229,21 @@ describe("AI teacher classroom", () => {
     expect(h.room.phase.value).toBe("teaching");
     expect(h.room.session.value.beat_index).toBe(0);
   });
-  it("clears the response watchdog when audible teaching begins", async () => {
+  it("lets buffered speech finish and times out if the server never ends the turn", async () => {
     vi.useFakeTimers();
     const h = harness();
     rooms.push(h.room);
     await h.room.start();
+    h.live.speaking.value = true;
     h.callbacks().onEvent({ type: "audio_started" });
     await vi.advanceTimersByTimeAsync(25000);
     expect(h.room.phase.value).toBe("teaching");
     expect(h.live.disconnect).not.toHaveBeenCalled();
+    h.live.speaking.value = false;
+    h.callbacks().onEvent({ type: "audio_drained" });
+    await vi.advanceTimersByTimeAsync(20000);
+    expect(h.room.phase.value).toBe("paused");
+    expect(h.room.session.value.completed_beats).toEqual([]);
   });
   it("starts with a blank board, then reveals only spoken teaching notes", async () => {
     const h = harness();
@@ -239,6 +278,7 @@ describe("AI teacher classroom", () => {
     h.room.resume();
     h.complete();
     h.call("begin_interaction", { interaction_id: h.current().interaction_id });
+    h.playAudio();
     h.end();
     h.room.skipInteraction();
     expect(h.room.board.value.node_id).toBe("node-2");
@@ -465,12 +505,117 @@ describe("AI teacher classroom", () => {
     rooms.push(h.room);
     await h.room.start();
     h.live.speaking.value = true;
+    h.callbacks().onEvent({ type: "audio_started" });
     h.complete();
     expect(h.room.session.value.completed_beats).toHaveLength(0);
     h.live.speaking.value = false;
     h.callbacks().onEvent({ type: "audio_drained" });
     expect(h.room.session.value.completed_beats).toEqual(["node-1/beat-1"]);
     expect(h.room.session.value.beat_index).toBe(1);
+  });
+  it("keeps the cursor when the teacher reports completion without playing audio", async () => {
+    const h = harness();
+    rooms.push(h.room);
+    await h.room.start();
+    const { node_id, beat_id } = h.current();
+    expect(h.call("complete_teaching_beat", { node_id, beat_id }).ok).toBe(true);
+    h.end();
+    expect(h.room.phase.value).toBe("awaiting_continue");
+    expect(h.room.session.value.completed_beats).toEqual([]);
+    expect(h.room.beatPosition.value).toBe(0);
+    h.room.resume();
+    await Promise.resolve();
+    expect(h.live.clearResumption).toHaveBeenCalled();
+    expect(h.live.connect).toHaveBeenCalledTimes(2);
+    expect(h.current().beat_id).toBe(beat_id);
+  });
+  it("continues automatically after a finished spoken explanation without a completion tool", async () => {
+    const h = harness();
+    rooms.push(h.room);
+    await h.room.start();
+    h.callbacks().onEvent({ type: "teacher_text", text: "Aquí significa que te va bien." });
+    h.live.speaking.value = true;
+    h.callbacks().onEvent({ type: "audio_started" });
+    h.end();
+    expect(h.room.session.value.completed_beats).toEqual([]);
+    h.live.speaking.value = false;
+    h.callbacks().onEvent({ type: "audio_drained" });
+    expect(h.room.session.value.completed_beats).toEqual(["node-1/beat-1"]);
+    expect(h.current().beat_id).toBe("beat-2");
+  });
+  it("reopens a clean connection to explain the same beat after a silent reply", async () => {
+    const h = harness();
+    rooms.push(h.room);
+    await h.room.start();
+    const original = h.current();
+    h.callbacks().onEvent({ type: "teacher_text", text: "<no speech>" });
+    h.playAudio();
+    h.end();
+    expect(h.room.transcript.value).toEqual([]);
+    expect(h.room.session.value.completed_beats).toEqual([]);
+    expect(h.room.phase.value).toBe("awaiting_continue");
+    h.room.resume();
+    await Promise.resolve();
+    expect(h.live.clearResumption).toHaveBeenCalledOnce();
+    expect(h.live.connect).toHaveBeenCalledTimes(2);
+    expect(h.current()).toMatchObject({
+      beat_id: original.beat_id,
+      control_epoch: original.control_epoch + 1,
+    });
+    expect(h.live.send.mock.lastCall[0]).toContain("Speak now");
+  });
+  it("recovers from a canceled voice turn that never receives a reply", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    rooms.push(h.room);
+    await h.room.start();
+    h.callbacks().onEvent({ type: "interrupted" });
+    h.callbacks().onEvent({ type: "student_text", text: "等一下" });
+    h.callbacks().onEvent({ type: "turn_ended", cancelled: true });
+    expect(h.room.phase.value).toBe("listening");
+    await vi.advanceTimersByTimeAsync(20000);
+    expect(h.room.phase.value).toBe("paused");
+    expect(h.room.notice.value).toContain("继续上课");
+    expect(h.live.disconnect).toHaveBeenCalled();
+    expect(h.room.beatPosition.value).toBe(0);
+  });
+  it("records late transcription without canceling the resumed lecture", async () => {
+    const h = harness();
+    rooms.push(h.room);
+    await h.room.start();
+    h.callbacks().onEvent({ type: "interrupted" });
+    h.call("report_student_question");
+    h.end();
+    h.room.resume();
+    const { node_id, beat_id } = h.current();
+    h.live.speaking.value = true;
+    h.callbacks().onEvent({ type: "audio_started" });
+    expect(h.call("complete_teaching_beat", { node_id, beat_id }).ok).toBe(true);
+    h.callbacks().onEvent({ type: "student_text", text: "上一轮问题的迟到转写", finished: true });
+    h.end();
+    h.live.speaking.value = false;
+    h.callbacks().onEvent({ type: "audio_drained" });
+    expect(h.room.session.value.completed_beats).toEqual([`${node_id}/${beat_id}`]);
+    expect(h.room.beatPosition.value).toBe(1);
+  });
+  it("continues from an exact spoken command without a model tool", async () => {
+    const h = harness();
+    rooms.push(h.room);
+    await h.room.start();
+    h.callbacks().onEvent({ type: "interrupted" });
+    h.call("report_student_question");
+    h.end();
+    expect(h.room.phase.value).toBe("awaiting_continue");
+    h.callbacks().onEvent({ type: "student_text", text: "继续", finished: false });
+    expect(h.live.send).toHaveBeenCalledTimes(1);
+    h.callbacks().onEvent({ type: "student_text", text: "问刚才的问题", finished: true });
+    expect(h.live.send).toHaveBeenCalledTimes(1);
+    h.call("report_student_question");
+    h.end();
+    h.callbacks().onEvent({ type: "student_text", text: "继续。", finished: true });
+    expect(h.room.phase.value).toBe("teaching");
+    expect(h.live.send).toHaveBeenCalledTimes(2);
+    expect(h.room.beatPosition.value).toBe(0);
   });
   it("waits for an optional answer, records feedback, then continues", async () => {
     vi.useFakeTimers();
@@ -480,6 +625,7 @@ describe("AI teacher classroom", () => {
     h.complete();
     h.complete();
     h.call("begin_interaction", { interaction_id: h.current().interaction_id });
+    h.playAudio();
     h.end();
     expect(h.room.phase.value).toBe("awaiting_answer");
     h.end();
@@ -492,6 +638,7 @@ describe("AI teacher classroom", () => {
       interaction_id: h.current().interaction_id,
       feedback: "Correct",
     });
+    h.playAudio();
     h.end();
     expect(h.room.session.value.interactions["node-1"].status).toBe("answered");
     expect(h.room.session.value.node_index).toBe(1);

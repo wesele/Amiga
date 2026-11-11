@@ -130,6 +130,7 @@ pub fn run() {
             commands::reading::update_chapter_courseware_progress_cmd,
             commands::classroom::get_chapter_classroom_cmd,
             commands::classroom::generate_chapter_teaching_plan_cmd,
+            commands::classroom::generate_topic_teaching_plan_cmd,
             commands::classroom::save_chapter_classroom_cmd,
             commands::classroom::get_classroom_live_config_cmd,
             // YouTube commands

@@ -6,11 +6,18 @@ import {
   classroomId,
 } from "./teachingPlan.js";
 import { emptyBoard, boardEntry, writeBoard, restoreBoard } from "./classroomBoard.js";
+import { normalizeBoardDiagram } from "./boardDiagram.js";
 import { useClassroomLive } from "./useClassroomLive.js";
+
+const CONTINUE_COMMAND = /^(继续|继续上课|继续讲|continue|continúa)[。.!！]?$/iu;
+const RESPONSE_TIMEOUT_MS = 20000;
+const RESPONSE_PHASES = ["teaching", "inviting", "listening", "answering", "feedback"];
 
 export function useClassroom({
   plan,
   savedSession,
+  teachingLanguage = savedSession?.teaching_language,
+  saveTeachingLanguage,
   saveSession,
   getConfig,
   liveFactory = useClassroomLive,
@@ -18,12 +25,13 @@ export function useClassroom({
   const session = ref({
     ...freshSession(plan),
     ...savedSession,
-    teaching_language: savedSession?.teaching_language === "target" ? "target" : "native",
+    teaching_language: teachingLanguage === "target" ? "target" : "native",
   });
   session.value.board = restoreBoard(
     session.value.board,
     plan.nodes[session.value.node_index],
     session.value.teaching_language,
+    plan.nodes[session.value.node_index].beats[session.value.beat_index].id,
   );
   const phase = ref(session.value.phase === "completed" ? "completed" : "ready");
   const saveError = ref("");
@@ -56,19 +64,28 @@ export function useClassroom({
       : [...session.value.turns].reverse().find((turn) => turn.role === "teacher")?.text || "",
   );
   const board = computed(() => session.value.board);
+  const plannedDiagram = computed(() => normalizeBoardDiagram(beat.value.diagram));
+  const diagram = computed(() =>
+    board.value.node_id === node.value.id && board.value.diagram_beat_id === beat.value.id
+      ? plannedDiagram.value
+      : null,
+  );
   let pendingBoard = new Map(),
-    audibleEpoch = -1;
+    audibleEpoch = -1,
+    playbackDrained = false;
   let epoch = session.value.turns.at(-1)?.epoch ?? 0,
     outcome = null,
     turnDone = false,
     task = null,
-    studentStarted = false;
+    studentStarted = false,
+    voiceText = null;
   let saveChain = Promise.resolve(),
     saveTimer,
     pauseTimer,
     responseTimer,
     stopped = false;
   let restorePractice = false;
+  let retryLecture = false;
   const live = liveFactory({
     onEvent,
     onTool,
@@ -78,6 +95,8 @@ export function useClassroom({
   const practice = () => session.value.interactions[node.value.id];
 
   function record(role, text) {
+    if (role === "teacher" && typeof text === "string")
+      text = text.replace(/<no speech>|\{pause\}/gi, "");
     if (!text) return;
     const turns = session.value.turns;
     const last = turns[turns.length - 1];
@@ -114,6 +133,21 @@ export function useClassroom({
     });
     return saveChain;
   }
+  function watchResponse() {
+    clearTimeout(responseTimer);
+    const requestedEpoch = epoch;
+    responseTimer = setTimeout(() => {
+      if (stopped || epoch !== requestedEpoch) return;
+      if (live.speaking.value) {
+        watchResponse();
+        return;
+      }
+      pause();
+      notice.value = "老师暂未回应，请点击继续上课重试";
+      live.clearResumption();
+      void live.disconnect();
+    }, RESPONSE_TIMEOUT_MS);
+  }
   function request(kind, instruction) {
     epoch += 1;
     pendingBoard.clear();
@@ -123,6 +157,7 @@ export function useClassroom({
     outcome = null;
     turnDone = false;
     studentStarted = false;
+    voiceText = null;
     task = kind;
     phase.value = kind === "interaction" ? "inviting" : "teaching";
     const state = {
@@ -138,6 +173,10 @@ export function useClassroom({
         ]),
       ),
       objective: kind === "interaction" ? node.value.practice?.objective : beat.value.objective,
+      ...(plan.kind === "topic" && { board_text: beat.value.board_text }),
+      ...(kind === "lecture" && plannedDiagram.value && {
+        visible_diagram: plannedDiagram.value.description,
+      }),
       recent_turns: session.value.turns.slice(-6),
       source: node.value.source,
       teaching_language: session.value.teaching_language,
@@ -149,23 +188,17 @@ export function useClassroom({
     live.send(
       `${instruction}\n${teachingLanguageInstruction(plan, session.value.teaching_language)}\nCurrent classroom state: ${JSON.stringify(state)}`,
     );
-    clearTimeout(responseTimer);
-    const requestedEpoch = epoch;
-    responseTimer = setTimeout(() => {
-      if (stopped || epoch !== requestedEpoch) return;
-      pause();
-      notice.value = "老师暂未回应，请点击继续上课重试";
-      void live.disconnect();
-    }, 20000);
+    watchResponse();
   }
   function teach() {
+    retryLecture = false;
     request(
       "lecture",
-      "Explain only this beat naturally, adapting to the recent conversation. " +
+      "Speak now and explain only this beat aloud. This instruction authorizes speaking even after a pause. " +
         (session.value.teach_selected_beat
           ? "The learner selected this beat. Explain it from the beginning, even if it was covered earlier. "
-          : "Do not repeat already clear material. ") +
-        "Write short board notes with write_classroom_board AS you explain each idea. Then call complete_teaching_beat and end your turn. Do not start a practice yet.",
+          : "Give a short, self-contained explanation even if an earlier attempt is in the transcript. ") +
+        "When visible_diagram is provided, the app shows it as you begin speaking. Refer to it when helpful. Write short board notes with write_classroom_board AS you explain each idea. Then call complete_teaching_beat and end your turn. Do not start a practice yet.",
     );
   }
   function invite() {
@@ -225,34 +258,48 @@ export function useClassroom({
     clearTimeout(responseTimer);
     const result = outcome;
     outcome = null;
+    voiceText = null;
+    const heard = audibleEpoch === epoch && playbackDrained;
+    // A finished spoken lecture can omit its optional tool call. The transport
+    // only reports a finished turn after the server's final boundary.
+    const spoke =
+      task === "lecture" &&
+      !studentStarted &&
+      phase.value === "teaching" &&
+      transcript.value.some(
+        (turn) => turn.epoch === epoch && turn.role === "teacher" && turn.text.trim(),
+      );
     if (result === "question") {
       phase.value = "awaiting_continue";
       void persist();
       return;
     }
-    if (result === "invite") {
+    if (result === "invite" && heard) {
       phase.value = "awaiting_answer";
       practice().status = "awaiting_answer";
       void persist();
       return;
     }
-    if (result === "feedback") {
+    if (result === "feedback" && heard) {
       restorePractice = false;
       if (practice()?.status !== "skipped") practice().status = "answered";
       void persist();
       advanceNode();
       return;
     }
-    if (result === "beat") {
+    if (heard && (result === "beat" || (!result && spoke))) {
       if (!session.value.completed_beats.includes(key())) session.value.completed_beats.push(key());
       delete session.value.teach_selected_beat;
       void persist();
       afterTeaching();
       return;
     }
-    // Missing/invalid tools cannot silently advance a lesson.
+    retryLecture = task === "lecture" && !studentStarted && phase.value === "teaching";
     phase.value = "awaiting_continue";
-    notice.value = "老师已停下，准备好后可以继续";
+    notice.value =
+      !heard && (retryLecture || result)
+        ? "这段语音没有播完，点击继续上课重试"
+        : "老师已停下，准备好后可以继续";
     void persist();
   }
   function onTool(name, args) {
@@ -278,6 +325,7 @@ export function useClassroom({
     }
     if (
       name === "complete_teaching_beat" &&
+      phase.value === "teaching" &&
       task === "lecture" &&
       !studentStarted &&
       args.node_id === node.value.id &&
@@ -320,6 +368,18 @@ export function useClassroom({
     } else return { ok: false, reason: "Tool does not match the current lesson step" };
     return { ok: true };
   }
+  function beginVoiceTurn() {
+    if (["ready", "completed", "playing_source"].includes(phase.value)) return;
+    if (phase.value === "listening" && voiceText !== null) return;
+    pendingBoard.clear();
+    audibleEpoch = -1;
+    outcome = null;
+    turnDone = false;
+    studentStarted = true;
+    voiceText = "";
+    phase.value = "listening";
+    watchResponse();
+  }
   function onEvent(event) {
     if (stopped) return;
     if (event.type === "ready") {
@@ -338,35 +398,38 @@ export function useClassroom({
       else if (session.value.completed_beats.includes(key())) afterTeaching();
       else teach();
     }
-    if (event.type === "interrupted") {
-      clearTimeout(responseTimer);
-      pendingBoard.clear();
-      audibleEpoch = -1;
-      outcome = null;
-      turnDone = false;
-      studentStarted = true;
-      phase.value = "listening";
-    }
+    if (event.type === "interrupted" || event.type === "student_started") beginVoiceTurn();
     if (event.type === "student_text") {
-      clearTimeout(responseTimer);
-      if (phase.value === "paused") phase.value = "listening";
-      if (!studentStarted) {
-        outcome = null;
-        turnDone = false;
-        studentStarted = true;
+      // Transcripts can arrive after the audio turn that produced them. Only
+      // an activity event can interrupt a new lecture already in progress.
+      if (
+        voiceText === null &&
+        ["paused", "awaiting_answer", "awaiting_continue"].includes(phase.value)
+      ) {
+        beginVoiceTurn();
       }
       record("user", event.text);
+      if (voiceText !== null) {
+        voiceText += event.text;
+        watchResponse();
+        if (event.finished !== false && CONTINUE_COMMAND.test(voiceText.trim())) resume();
+      }
     }
     if (event.type === "teacher_text") {
-      clearTimeout(responseTimer);
       record("teacher", event.text);
+      if (RESPONSE_PHASES.includes(phase.value)) watchResponse();
     }
     if (
       event.type === "audio_started" &&
       !["ready", "paused", "completed", "playing_source"].includes(phase.value)
     ) {
-      clearTimeout(responseTimer);
+      if (RESPONSE_PHASES.includes(phase.value)) watchResponse();
       audibleEpoch = epoch;
+      playbackDrained = false;
+      if (task === "lecture" && plannedDiagram.value && board.value.diagram_beat_id !== beat.value.id) {
+        board.value.diagram_beat_id = beat.value.id;
+        void persist();
+      }
       // A trustworthy starting quote still appears if the model omits a board call.
       if (!board.value.items.length && task === "lecture") {
         for (const kind of ["source", "expression"]) {
@@ -386,7 +449,11 @@ export function useClassroom({
         settle();
       }
     }
-    if (event.type === "audio_drained") settle();
+    if (event.type === "audio_drained") {
+      playbackDrained = true;
+      if (RESPONSE_PHASES.includes(phase.value)) watchResponse();
+      settle();
+    }
     if (event.type === "connection_lost" || event.type === "go_away") {
       pause();
       connecting.value = false;
@@ -437,6 +504,7 @@ export function useClassroom({
     audibleEpoch = -1;
     outcome = null;
     turnDone = false;
+    voiceText = null;
     if (["inviting", "awaiting_answer", "feedback"].includes(phase.value)) restorePractice = true;
     phase.value = "paused";
     live.silence(
@@ -452,7 +520,8 @@ export function useClassroom({
     if (changingBeat.value) return;
     clearTimeout(pauseTimer);
     notice.value = "";
-    if (!live.connected.value || phase.value === "completed") {
+    if (retryLecture) live.clearResumption();
+    if (retryLecture || !live.connected.value || phase.value === "completed") {
       void start();
       return;
     }
@@ -476,8 +545,10 @@ export function useClassroom({
     outcome = null;
     turnDone = false;
     task = null;
+    retryLecture = false;
     restorePractice = false;
     studentStarted = false;
+    voiceText = null;
     notice.value = "";
     teacherCaption.value = "";
     if (phase.value !== "completed") phase.value = "paused";
@@ -496,7 +567,7 @@ export function useClassroom({
   function ask(text) {
     const value = String(text).trim();
     if (!value || !live.connected.value) return;
-    if (/^(继续|继续上课|继续讲|continue|continúa)[。!！]?$/iu.test(value)) {
+    if (CONTINUE_COMMAND.test(value)) {
       resume();
       return;
     }
@@ -516,11 +587,13 @@ export function useClassroom({
     outcome = isAnswer ? null : "question";
     turnDone = false;
     studentStarted = true;
+    voiceText = null;
     phase.value = isAnswer ? "feedback" : "answering";
     record("user", value);
     live.send(
       `${isAnswer ? "Student practice answer. Give brief feedback and call finish_interaction." : "Student question. Answer directly, call report_student_question, then wait for explicit continue."}\n${teachingLanguageInstruction(plan, session.value.teaching_language)}\ncontrol_epoch=${epoch}; interaction_id=${practice()?.id || "none"}; node_id=${node.value.id}; beat_id=${beat.value.id}\nStudent: ${value}`,
     );
+    watchResponse();
   }
   function skipInteraction() {
     if (
@@ -565,14 +638,16 @@ export function useClassroom({
       return;
     changingLanguage.value = true;
     try {
-      if (phase.value !== "ready" && phase.value !== "completed") pause();
+      await saveTeachingLanguage?.(mode);
+      if (!stopped && phase.value !== "ready" && phase.value !== "completed") pause();
       session.value.teaching_language = mode;
       session.value.board = emptyBoard(node.value, mode);
       pendingBoard.clear();
       audibleEpoch = -1;
       live.clearResumption();
+      if (stopped) return;
       await live.disconnect();
-      await persist();
+      if (phase.value !== "ready") await persist();
     } finally {
       changingLanguage.value = false;
     }
@@ -602,6 +677,7 @@ export function useClassroom({
     transcript,
     teacherCaption,
     board,
+    diagram,
     live,
     saveError,
     notice,

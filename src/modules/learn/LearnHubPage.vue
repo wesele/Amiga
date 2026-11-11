@@ -107,6 +107,7 @@ const modelLabel = computed(() => truncateModelLabel(activeModelName.value));
 
 const pathModule = { id: "path", labelKey: "learn.path", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M4 20l4-4" stroke="var(--green)"/><path d="M8 16l4-4" stroke="var(--blue)"/><path d="M12 12l4-4" stroke="var(--green)"/><path d="M16 8l4-4" stroke="var(--blue)"/></svg>', route: { name: "path" } };
 const allModules = [
+  { id: "teaching", labelKey: "teaching.title", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><rect x="3" y="3" width="18" height="13" rx="2" stroke="var(--green)"/><path d="M8 21l4-5 4 5M8 11l3-3 2 2 3-3" stroke="var(--blue)"/></svg>', route: { name: "learn-teaching" } },
   { id: "news", labelKey: "learn.news", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><rect x="4" y="4" width="16" height="16" rx="2" stroke="var(--green)"/><path d="M4 12h16" stroke="var(--blue)"/><path d="M12 4v16" stroke="var(--green)"/><path d="M8 8h8" stroke="var(--blue)"/></svg>', route: { name: "news" } },
   { id: "reading", labelKey: "learn.reading", icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="var(--green)"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="var(--blue)"/></svg>', route: { name: "reading" } },
   { id: "speaking", labelKey: "learn.speaking", clientOnly: true, icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M7 8a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" stroke="var(--green)"/><path d="M17 8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" stroke="var(--blue)"/><path d="M6 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="var(--green)"/><path d="M14 16c0-2 2-3 3-3h4c1 0 2 1 2 3" stroke="var(--blue)"/></svg>', route: { name: "speaking" } },
@@ -117,9 +118,10 @@ const allModules = [
 ];
 
 const tvExcludedModules = new Set(["speaking", "translator"]);
-const modules = computed(() => (
-  isTvMode && !isWebMode ? allModules.filter((mod) => !tvExcludedModules.has(mod.id)) : allModules
-));
+const modules = allModules.filter(({ id }) => {
+  if (id === "teaching") return !isTvMode && !isWebMode;
+  return !isTvMode || isWebMode || !tvExcludedModules.has(id);
+});
 
 const pathProgressDone = computed(() => pathCurriculum.value?.completed_sections || 0);
 const pathProgressTotal = computed(() => pathCurriculum.value?.total_sections || 0);
