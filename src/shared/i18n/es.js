@@ -648,6 +648,7 @@ export default {
     prev: "Anterior",
     next: "Siguiente",
     progress: "{current}/{total}",
+    autoPlay: "Audio auto",
   },
 
   chat: {

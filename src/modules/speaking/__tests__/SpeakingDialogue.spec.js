@@ -289,6 +289,45 @@ describe("SpeakingDialogue", () => {
     await flushPromises();
 
     expect(streamEl.scrollTop).toBe(1200);
+
+    // Completing all goals adds the celebration banner and keeps stream scrolled to bottom
+    streamEl.scrollHeight = 1350;
+    wrapper.vm.live.completedGoalIndices.value = [0, 1, 2];
+    await flushPromises();
+
+    expect(streamEl.scrollTop).toBe(1350);
+  });
+
+  it("configures Gemini Live session with 2000ms silenceDurationMs", async () => {
+    const sentPayloads = [];
+    vi.stubGlobal(
+      "WebSocket",
+      class {
+        readyState = 1;
+        constructor() {
+          queueMicrotask(() => this.onopen?.());
+        }
+        send(raw) {
+          sentPayloads.push(JSON.parse(raw));
+        }
+        close() {}
+      }
+    );
+
+    const router = makeRouter();
+    await router.push({ name: "speaking-dialogue", params: { topicId: "greetings" } });
+    mount(SpeakingDialogue, {
+      global: { plugins: [router] },
+      props: { topicId: "greetings" },
+    });
+
+    await flushPromises();
+
+    const setupPayload = sentPayloads.find((p) => p.setup);
+    expect(setupPayload).toBeDefined();
+    expect(
+      setupPayload.setup.realtimeInputConfig.automaticActivityDetection.silenceDurationMs
+    ).toBe(2000);
   });
 
   it("does NOT show API key missing banner when apiKey is present and status is error due to mic failure", async () => {

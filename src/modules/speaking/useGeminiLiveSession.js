@@ -44,14 +44,14 @@ export function buildGeminiLiveWsUrl(baseUrl, apiKey) {
  * @param {string} [params.model="gemini-3.8-live"]
  * @param {string} [params.voiceName="Aoede"]
  * @param {string} [params.systemInstruction=""]
- * @param {number} [params.silenceDurationMs=800]
+ * @param {number} [params.silenceDurationMs=2000]
  * @returns {object}
  */
 export function buildGeminiLiveSetupPayload({
   model = "gemini-3.8-live",
   voiceName = "Aoede",
   systemInstruction = "",
-  silenceDurationMs = 800,
+  silenceDurationMs = 2000,
 } = {}) {
   const rawModel = model || "gemini-3.8-live";
   const normalizedModel = rawModel.startsWith("models/") ? rawModel : `models/${rawModel}`;
@@ -679,7 +679,7 @@ export function useGeminiLiveSession(options = {}) {
     voiceName = "Aoede",
     systemInstruction = "",
     openingLine = "",
-    silenceDurationMs = 800,
+    silenceDurationMs = 2000,
     onTurnRecorded,
   } = {}) {
     if (!WebSocketImpl) {

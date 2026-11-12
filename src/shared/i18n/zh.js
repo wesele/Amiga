@@ -651,6 +651,7 @@ export default {
     prev: "上一个",
     next: "下一个",
     progress: "{current}/{total}",
+    autoPlay: "自动播放",
   },
 
   chat: {

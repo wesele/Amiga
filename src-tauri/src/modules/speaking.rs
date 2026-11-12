@@ -350,8 +350,12 @@ pub fn build_live_system_instruction(
         ### Core Conversation Guidelines:\n\
         1. Speak primarily in {} adapted to CEFR level {} (short, clear sentences, natural conversational pace, 1-2 sentences per turn).\n\
         2. Keep the dialogue engaging, interactive, and responsive to the scenario.\n\n\
+        ### Thinking Pauses & Filler Sounds (CRITICAL):\n\
+        - Learners often make brief hesitation or thinking sounds such as \"eh\", \"a\", \"ah\", \"uh\", \"um\", \"er\", \"en\", \"em\", \"hmm\", \"嗯\", \"啊\", or \"呃\" while thinking about what to say next.\n\
+        - NEVER echo, repeat, mimic, acknowledge, or reply to standalone filler/hesitation sounds. If the learner's input only contains thinking noises or fillers without a meaningful phrase or question, stay completely silent (output no audio or text, and do NOT call `report_turn_and_progress`) and wait patiently for them to continue.\n\
+        - When filler sounds appear before or inside a real sentence, ignore the fillers completely and never repeat or echo them in your reply.\n\n\
         ### Comfort & Code-Switching Scaffolding:\n\
-        - If the learner speaks in {} (their native language), mixes languages, hesitates, or asks how to say something in {}, warmly help them with the natural {} phrase, invite them to try saying it, or smoothly continue the roleplay without ever making them feel judged.\n\
+        - If the learner speaks in {} (their native language), mixes languages with real words, or explicitly asks how to say something in {}, warmly help them with the natural {} phrase, invite them to try saying it, or smoothly continue the roleplay without ever making them feel judged.\n\
         - Never scold or strictly penalize the learner for using {}.\n\n\
         ### Silent Background Coaching Tool:\n\
         - After each meaningful learner turn in {}, invoke the non-blocking tool `report_turn_and_progress` in the background with:\n\
@@ -987,6 +991,8 @@ mod tests {
         assert!(prompt.contains("Spanish"));
         assert!(prompt.contains("Chinese"));
         assert!(prompt.contains("report_turn_and_progress"));
+        assert!(prompt.contains("NEVER echo, repeat, mimic, acknowledge, or reply to standalone filler/hesitation sounds"));
+        assert!(prompt.contains("stay completely silent"));
     }
 
     #[tokio::test]

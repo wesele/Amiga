@@ -204,11 +204,14 @@ describe("useGeminiLiveSession helper functions", () => {
       expect(rawJson).not.toContain("proactive_audio");
     });
 
-    it("keeps already normalized model name without double prefix", () => {
+    it("keeps already normalized model name without double prefix and defaults silenceDurationMs to 2000", () => {
       const payload = buildGeminiLiveSetupPayload({
         model: "models/gemini-3.8-live",
       });
       expect(payload.setup.model).toBe("models/gemini-3.8-live");
+      expect(
+        payload.setup.realtimeInputConfig.automaticActivityDetection.silenceDurationMs
+      ).toBe(2000);
     });
   });
 
@@ -556,6 +559,9 @@ describe("useGeminiLiveSession composable", () => {
     await vi.waitFor(() => expect(ws.sent.length).toBeGreaterThanOrEqual(1));
     const setupMsg = ws.sent[0];
     expect(setupMsg.setup.model).toBe("models/gemini-3.8-live");
+    expect(
+      setupMsg.setup.realtimeInputConfig.automaticActivityDetection.silenceDurationMs
+    ).toBe(2000);
     expect(setupMsg.setup.tools[0].functionDeclarations[0].name).toBe(
       "report_turn_and_progress"
     );

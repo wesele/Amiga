@@ -206,6 +206,10 @@ const props = defineProps({
   canNext: { type: Boolean, default: false },
   /** When false, known/unknown only emit events (parent navigates). */
   closeOnAction: { type: Boolean, default: true },
+  /** When true, advancing via autoPlayTrigger speaks the word and example. */
+  autoPlay: { type: Boolean, default: false },
+  /** Monotonic counter incremented by parent only when auto-play should trigger. */
+  autoPlayTrigger: { type: Number, default: 0 },
 });
 
 const emit = defineEmits(["close", "known", "unknown", "prev", "next"]);
@@ -221,6 +225,8 @@ const error = ref("");
 const speaking = ref(false);
 let releaseBackHandler = null;
 let loadSeq = 0;
+let autoPlayRunId = 0;
+let activeAutoPlayRun = null;
 /** TV page-study: last action key — also drives data-tv-preferred-focus for global focusFirst. */
 const preferredActionFocusKey = ref("word-known");
 
@@ -286,6 +292,7 @@ async function loadTranslation({ force = false } = {}) {
       applyCached(cached);
       loading.value = false;
       refreshing.value = false;
+      onTranslationSettled(seq);
       await restoreActionFocus();
       return;
     }
@@ -330,6 +337,7 @@ async function loadTranslation({ force = false } = {}) {
     if (seq === loadSeq) {
       loading.value = false;
       refreshing.value = false;
+      onTranslationSettled(seq);
       await restoreActionFocus();
     }
   }
@@ -346,8 +354,105 @@ function applyCached(cached) {
   }
 }
 
+function isSpeechStarted(result) {
+  return result !== false && !(result && typeof result === "object" && result.started === false);
+}
+
+function cancelAutoPlay({ stopActiveSpeech = false } = {}) {
+  autoPlayRunId += 1;
+  const hadActive = activeAutoPlayRun !== null;
+  activeAutoPlayRun = null;
+  if (stopActiveSpeech && hadActive) {
+    stopSpeech();
+    speaking.value = false;
+  }
+}
+
+function getSpeakableExample() {
+  return String(translation.value?.example || "").trim();
+}
+
+function speakSequenceStep(text, run, { onStepEnd }) {
+  const result = speakText(text, props.sourceLang, {
+    onStart: () => {
+      if (run.id !== autoPlayRunId || run.aborted) return;
+      speaking.value = true;
+    },
+    onEnd: () => {
+      if (run.id !== autoPlayRunId || run.aborted) return;
+      onStepEnd();
+    },
+    onError: () => {
+      if (run.id !== autoPlayRunId) return;
+      run.aborted = true;
+      speaking.value = false;
+      if (activeAutoPlayRun === run) activeAutoPlayRun = null;
+    },
+  });
+  if (!isSpeechStarted(result) && run.id === autoPlayRunId) {
+    run.aborted = true;
+    speaking.value = false;
+    if (activeAutoPlayRun === run) activeAutoPlayRun = null;
+    return false;
+  }
+  return true;
+}
+
+function maybeSpeakExample(run) {
+  if (run.id !== autoPlayRunId || run.aborted || !props.autoPlay) return;
+  if (!run.wordDone || !run.translationReady || run.exampleStarted) return;
+  const example = getSpeakableExample();
+  if (!example) {
+    speaking.value = false;
+    if (activeAutoPlayRun === run) activeAutoPlayRun = null;
+    return;
+  }
+  run.exampleStarted = true;
+  speakSequenceStep(example, run, {
+    onStepEnd: () => {
+      speaking.value = false;
+      if (activeAutoPlayRun === run) activeAutoPlayRun = null;
+    },
+  });
+}
+
+function startAutoPlay(expectedLoadSeq) {
+  if (!props.autoPlay) return;
+  const wordText = String(props.word || "").trim();
+  if (!wordText) return;
+
+  const run = {
+    id: ++autoPlayRunId,
+    expectedLoadSeq,
+    wordDone: false,
+    translationReady: !loading.value,
+    exampleStarted: false,
+    aborted: false,
+  };
+  activeAutoPlayRun = run;
+
+  speakSequenceStep(wordText, run, {
+    onStepEnd: () => {
+      run.wordDone = true;
+      if (run.translationReady) {
+        maybeSpeakExample(run);
+      } else {
+        speaking.value = false;
+      }
+    },
+  });
+}
+
+function onTranslationSettled(seq) {
+  const run = activeAutoPlayRun;
+  if (!run || run.id !== autoPlayRunId || run.expectedLoadSeq !== seq) return;
+  run.translationReady = true;
+  maybeSpeakExample(run);
+}
+
 async function onRefresh() {
   if (loading.value || refreshing.value) return;
+  cancelAutoPlay();
   refreshing.value = true;
   await loadTranslation({ force: true });
 }
@@ -355,6 +460,7 @@ async function onRefresh() {
 function onSpeakWord() {
   const text = String(props.word || "").trim();
   if (!text) return;
+  cancelAutoPlay();
   if (speaking.value) {
     stopSpeech();
     speaking.value = false;
@@ -368,7 +474,7 @@ function onSpeakWord() {
       speaking.value = false;
     },
   });
-  if (!started) speaking.value = false;
+  if (!isSpeechStarted(started)) speaking.value = false;
 }
 
 function triggerActionWithReveal(actionType) {
@@ -426,6 +532,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   clearActionTimer();
+  cancelAutoPlay();
   releaseBackHandler?.();
   releaseBackHandler = null;
   stopSpeech();
@@ -433,11 +540,49 @@ onBeforeUnmount(() => {
 });
 
 watch(
-  () => [props.word, props.mode, props.sourceLang, props.nativeLang, props.context],
-  () => {
+  () => [
+    props.word,
+    props.mode,
+    props.sourceLang,
+    props.nativeLang,
+    props.context,
+    props.autoPlayTrigger,
+  ],
+  (
+    [word, mode, sourceLang, nativeLang, context, trigger],
+    [prevWord, prevMode, prevSourceLang, prevNativeLang, prevContext, prevTrigger] = [],
+  ) => {
+    const wordOrContextChanged =
+      word !== prevWord ||
+      mode !== prevMode ||
+      sourceLang !== prevSourceLang ||
+      nativeLang !== prevNativeLang ||
+      context !== prevContext;
+    const shouldAutoPlay =
+      props.autoPlay &&
+      typeof trigger === "number" &&
+      trigger > 0 &&
+      trigger !== prevTrigger;
+
+    cancelAutoPlay();
     stopSpeech();
     speaking.value = false;
-    loadTranslation({ force: false });
+
+    if (wordOrContextChanged) {
+      loadTranslation({ force: false });
+    }
+    if (shouldAutoPlay) {
+      startAutoPlay(loadSeq);
+    }
+  },
+);
+
+watch(
+  () => props.autoPlay,
+  (enabled) => {
+    if (!enabled) {
+      cancelAutoPlay({ stopActiveSpeech: true });
+    }
   },
 );
 

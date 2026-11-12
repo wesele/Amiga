@@ -336,4 +336,198 @@ describe("WordPopup", () => {
 
     vi.useRealTimers();
   });
+
+  it("auto-plays word then example when autoPlayTrigger increments with cached translation", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "translate_word_cmd") {
+        return Promise.resolve({
+          translation: "世界",
+          pos: "n",
+          ipa: "/ˈmundo/",
+          example: "Hola mundo bonito.",
+        });
+      }
+      return Promise.reject(new Error(`unexpected invoke: ${cmd}`));
+    });
+
+    const callbacks = [];
+    speakSpy.mockImplementation((text, lang, opts) => {
+      callbacks.push({ text, lang, opts });
+      opts.onStart?.();
+      return true;
+    });
+
+    const wrapper = mount(WordPopup, {
+      props: {
+        word: "hola",
+        context: "hola",
+        sourceLang: "es",
+        nativeLang: "zh",
+        layout: "page",
+        autoPlay: true,
+        autoPlayTrigger: 0,
+      },
+    });
+    await flushPromises();
+    // Initial mount does not auto-play.
+    expect(speakSpy).not.toHaveBeenCalled();
+
+    // Pre-populate cache for "mundo"
+    const preload = mount(WordPopup, {
+      props: { word: "mundo", context: "mundo", sourceLang: "es", nativeLang: "zh" },
+    });
+    await flushPromises();
+    preload.unmount();
+
+    await wrapper.setProps({ word: "mundo", context: "mundo", autoPlayTrigger: 1 });
+    await flushPromises();
+
+    // First speaks the word
+    expect(speakSpy).toHaveBeenCalledTimes(1);
+    expect(callbacks[0].text).toBe("mundo");
+    expect(callbacks[0].lang).toBe("es");
+
+    // Finish speaking the word -> chains into example sentence
+    callbacks[0].opts.onEnd?.();
+    await flushPromises();
+    expect(speakSpy).toHaveBeenCalledTimes(2);
+    expect(callbacks[1].text).toBe("Hola mundo bonito.");
+    expect(callbacks[1].lang).toBe("es");
+    expect(wrapper.find(".act-speak").classes()).toContain("is-speaking");
+
+    callbacks[1].opts.onEnd?.();
+    await flushPromises();
+    expect(wrapper.find(".act-speak").classes()).not.toContain("is-speaking");
+    wrapper.unmount();
+  });
+
+  it("speaks word immediately while translation loads and speaks example once both finish", async () => {
+    let resolveSecond;
+    const secondPromise = new Promise((resolve) => {
+      resolveSecond = resolve;
+    });
+    let callCount = 0;
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "translate_word_cmd") {
+        callCount += 1;
+        if (callCount === 1) {
+          return Promise.resolve({ translation: "你好", pos: "interj", example: "Hola amigo." });
+        }
+        return secondPromise;
+      }
+      return Promise.reject(new Error(`unexpected invoke: ${cmd}`));
+    });
+
+    const callbacks = [];
+    speakSpy.mockImplementation((text, lang, opts) => {
+      callbacks.push({ text, lang, opts });
+      opts.onStart?.();
+      return true;
+    });
+
+    const wrapper = mount(WordPopup, {
+      props: {
+        word: "hola",
+        context: "hola",
+        sourceLang: "es",
+        nativeLang: "zh",
+        layout: "page",
+        autoPlay: true,
+        autoPlayTrigger: 0,
+      },
+    });
+    await flushPromises();
+
+    await wrapper.setProps({ word: "mundo", context: "mundo", autoPlayTrigger: 1 });
+    // Immediately starts speaking word before translation resolves
+    expect(speakSpy).toHaveBeenCalledTimes(1);
+    expect(callbacks[0].text).toBe("mundo");
+
+    // Word finishes BEFORE translation resolves
+    callbacks[0].opts.onEnd?.();
+    expect(speakSpy).toHaveBeenCalledTimes(1);
+
+    // Now translation resolves with an example -> immediately speaks the example
+    resolveSecond({ translation: "世界", pos: "n", example: "El mundo es grande." });
+    await flushPromises();
+
+    expect(speakSpy).toHaveBeenCalledTimes(2);
+    expect(callbacks[1].text).toBe("El mundo es grande.");
+    callbacks[1].opts.onEnd?.();
+    wrapper.unmount();
+  });
+
+  it("does not auto-play when word changes without autoPlayTrigger incrementing", async () => {
+    const wrapper = mount(WordPopup, {
+      props: {
+        word: "hola",
+        context: "hola",
+        sourceLang: "es",
+        nativeLang: "zh",
+        layout: "page",
+        autoPlay: true,
+        autoPlayTrigger: 1,
+      },
+    });
+    await flushPromises();
+    expect(speakSpy).not.toHaveBeenCalled();
+
+    await wrapper.setProps({ word: "mundo", context: "mundo", autoPlayTrigger: 1 });
+    await flushPromises();
+    expect(speakSpy).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("stops active auto-play and skips example when autoPlay is turned off or word speech errors", async () => {
+    mockInvoke.mockImplementation((cmd) => {
+      if (cmd === "translate_word_cmd") {
+        return Promise.resolve({ translation: "世界", pos: "n", example: "El mundo gira." });
+      }
+      return Promise.reject(new Error(`unexpected invoke: ${cmd}`));
+    });
+
+    const callbacks = [];
+    speakSpy.mockImplementation((text, lang, opts) => {
+      callbacks.push({ text, lang, opts });
+      opts.onStart?.();
+      return true;
+    });
+
+    const wrapper = mount(WordPopup, {
+      props: {
+        word: "hola",
+        context: "hola",
+        sourceLang: "es",
+        nativeLang: "zh",
+        layout: "page",
+        autoPlay: true,
+        autoPlayTrigger: 0,
+      },
+    });
+    await flushPromises();
+
+    // Case 1: turning autoPlay off mid-word stops speech and cancels example
+    await wrapper.setProps({ word: "mundo", context: "mundo", autoPlayTrigger: 1 });
+    await flushPromises();
+    expect(speakSpy).toHaveBeenCalledTimes(1);
+    stopSpy.mockClear();
+
+    await wrapper.setProps({ autoPlay: false });
+    expect(stopSpy).toHaveBeenCalled();
+    callbacks[0].opts.onEnd?.();
+    expect(speakSpy).toHaveBeenCalledTimes(1);
+
+    // Case 2: word speech error prevents chaining example
+    speakSpy.mockClear();
+    callbacks.length = 0;
+    await wrapper.setProps({ autoPlay: true });
+    await wrapper.setProps({ word: "gracias", context: "gracias", autoPlayTrigger: 2 });
+    await flushPromises();
+    expect(speakSpy).toHaveBeenCalledTimes(1);
+    callbacks[0].opts.onError?.(new Error("tts error"));
+    callbacks[0].opts.onEnd?.();
+    expect(speakSpy).toHaveBeenCalledTimes(1);
+
+    wrapper.unmount();
+  });
 });

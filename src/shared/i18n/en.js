@@ -648,6 +648,7 @@ export default {
     prev: "Previous",
     next: "Next",
     progress: "{current}/{total}",
+    autoPlay: "Auto-play",
   },
 
   chat: {

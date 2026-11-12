@@ -21,8 +21,25 @@
           </svg>
         </button>
         <h1 class="page-title study-heading">{{ t('vocab.study') }}</h1>
-        <div class="study-progress">
-          {{ t('vocab.progress', { current: studyIndex + 1, total: studyList.length }) }}
+        <div class="study-header-right">
+          <button
+            type="button"
+            class="auto-play-toggle"
+            :class="{ 'is-on': autoPlay }"
+            role="switch"
+            :aria-checked="String(autoPlay)"
+            :aria-label="t('vocab.autoPlay')"
+            :title="t('vocab.autoPlay')"
+            data-tv-defer-focus
+            data-tv-focus-key="vocab-autoplay"
+            @click="toggleAutoPlay"
+          >
+            <span class="auto-play-label">{{ t('vocab.autoPlay') }}</span>
+            <span class="auto-play-track" :class="{ on: autoPlay }" aria-hidden="true" />
+          </button>
+          <div class="study-progress">
+            {{ t('vocab.progress', { current: studyIndex + 1, total: studyList.length }) }}
+          </div>
         </div>
       </header>
 
@@ -36,6 +53,8 @@
         :can-prev="studyIndex > 0"
         :can-next="studyIndex < studyList.length - 1"
         :close-on-action="false"
+        :auto-play="autoPlay"
+        :auto-play-trigger="autoPlaySeq"
         @close="exitStudy"
         @known="onKnown"
         @unknown="onUnknown"
@@ -158,11 +177,13 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { isTvLayoutMode } from "@/shared/appMode.js";
-import { getCurrentUser } from "@/shared/api.js";
 import {
+  getCurrentUser,
+  getSetting,
   getUserVocabByLevel,
   getUserVocabStatsByLevel,
   resetUserVocabByLevel,
+  saveSetting,
   updateWordMastery,
 } from "@/shared/api.js";
 import { useI18n } from "@/shared/i18n";
@@ -172,6 +193,8 @@ import { displayLang } from "@/shared/constants.js";
 import WordPopup from "@/shared/components/WordPopup.vue";
 import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import { focusElement, focusableElements, pickPreferredContentFocus } from "@/app/tvRemoteNavigation.js";
+
+const VOCAB_AUTO_PLAY_SETTING_KEY = "vocab_auto_play";
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -187,6 +210,9 @@ const userId = ref("");
 const studyList = ref([]);
 const studyIndex = ref(-1);
 const showResetDialog = ref(false);
+const autoPlay = ref(true);
+const autoPlaySeq = ref(0);
+let autoPlayTouched = false;
 let unsubscribe = null;
 
 const studyWord = computed(() => {
@@ -311,6 +337,7 @@ async function loadStats() {
 }
 
 function onWordTap(w) {
+  autoPlaySeq.value = 0;
   studyList.value = filteredWords.value.slice();
   const idx = studyList.value.findIndex((item) => item.id === w.id);
   studyIndex.value = idx >= 0 ? idx : 0;
@@ -318,6 +345,7 @@ function onWordTap(w) {
 
 function exitStudy({ restoreListFocus = true } = {}) {
   const wasStudying = studyIndex.value >= 0;
+  autoPlaySeq.value = 0;
   studyList.value = [];
   studyIndex.value = -1;
   // After finishing the last word on TV, return focus to the word list.
@@ -346,9 +374,21 @@ function goNext() {
 function advanceAfterMark() {
   if (studyIndex.value < studyList.value.length - 1) {
     studyIndex.value += 1;
+    if (autoPlay.value) {
+      autoPlaySeq.value += 1;
+    }
     return;
   }
   exitStudy();
+}
+
+async function toggleAutoPlay() {
+  autoPlayTouched = true;
+  const next = !autoPlay.value;
+  autoPlay.value = next;
+  try {
+    await saveSetting(VOCAB_AUTO_PLAY_SETTING_KEY, next ? "true" : "false");
+  } catch (_) {}
 }
 
 function syncMasteryInLists(wordId, mastery) {
@@ -358,24 +398,23 @@ function syncMasteryInLists(wordId, mastery) {
   if (inWords) inWords.mastery = mastery;
 }
 
-async function onKnown() {
+async function markWord(mastery) {
   if (!studyWord.value) return;
   const w = studyWord.value;
   try {
-    await updateWordMastery(userId.value, w.id, 2, "vocab_review");
-    syncMasteryInLists(w.id, 2);
+    await updateWordMastery(userId.value, w.id, mastery, "vocab_review");
+    syncMasteryInLists(w.id, mastery);
   } catch (_) {}
+  if (!studyWord.value || studyWord.value.id !== w.id) return;
   advanceAfterMark();
 }
 
-async function onUnknown() {
-  if (!studyWord.value) return;
-  const w = studyWord.value;
-  try {
-    await updateWordMastery(userId.value, w.id, 1, "vocab_review");
-    syncMasteryInLists(w.id, 1);
-  } catch (_) {}
-  advanceAfterMark();
+function onKnown() {
+  return markWord(2);
+}
+
+function onUnknown() {
+  return markWord(1);
 }
 
 function resetLevel() {
@@ -398,6 +437,16 @@ onMounted(async () => {
     const user = await getCurrentUser();
     userId.value = user.id;
     await targetLangStore.load();
+    try {
+      const savedAutoPlay = await getSetting(VOCAB_AUTO_PLAY_SETTING_KEY);
+      if (!autoPlayTouched) {
+        if (savedAutoPlay === "false" || savedAutoPlay === false) {
+          autoPlay.value = false;
+        } else if (savedAutoPlay === "true" || savedAutoPlay === true) {
+          autoPlay.value = true;
+        }
+      }
+    } catch (_) {}
     await loadStats();
   } catch (e) {
     error.value = t("common.fail");
@@ -463,17 +512,90 @@ watch(studyIndex, () => {
 .study-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .study-heading {
   font-size: 18px;
   font-weight: 700;
   color: var(--text-light);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.study-header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.auto-play-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-light);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+}
+
+.auto-play-toggle:hover {
+  border-color: var(--green);
+}
+
+.auto-play-toggle.is-on {
+  border-color: rgba(88, 204, 2, 0.45);
+  background: var(--green-bg);
+  color: var(--text);
+}
+
+.auto-play-label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.auto-play-track {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--outline-variant);
+  transition: background var(--transition);
+  flex-shrink: 0;
+}
+
+.auto-play-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform var(--transition);
+}
+
+.auto-play-track.on {
+  background: var(--green);
+}
+
+.auto-play-track.on::after {
+  transform: translateX(14px);
 }
 
 .study-progress {
-  margin-left: auto;
   font-size: 13px;
   color: var(--text-lighter);
   font-weight: 600;
@@ -505,6 +627,40 @@ html[data-app-mode="tv"] .vocab-page--study .study-header {
 
 html[data-app-mode="tv"] .vocab-page--study .study-heading {
   font-size: 22px;
+}
+
+html[data-app-mode="tv"] .vocab-page--study .study-header-right {
+  gap: 12px;
+}
+
+html[data-app-mode="tv"] .vocab-page--study .auto-play-toggle {
+  padding: 6px 12px 6px 14px;
+  gap: 8px;
+}
+
+html[data-app-mode="tv"] .vocab-page--study .auto-play-label {
+  font-size: 14px;
+}
+
+html[data-app-mode="tv"] .vocab-page--study .auto-play-track {
+  width: 38px;
+  height: 22px;
+}
+
+html[data-app-mode="tv"] .vocab-page--study .auto-play-track::after {
+  width: 18px;
+  height: 18px;
+}
+
+html[data-app-mode="tv"] .vocab-page--study .auto-play-track.on::after {
+  transform: translateX(16px);
+}
+
+html[data-app-mode="tv"] .vocab-page--study .auto-play-toggle:focus-visible {
+  outline: 3px solid var(--blue) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.2);
+  transform: none;
 }
 
 html[data-app-mode="tv"] .vocab-page--study .study-progress {

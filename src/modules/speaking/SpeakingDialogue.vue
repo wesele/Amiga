@@ -407,6 +407,7 @@ watch(
     const last = msgs[msgs.length - 1];
     const latestCoachedMsg = [...msgs].reverse().find((m) => m.role === "user" && m.coaching);
     return [
+      booting.value,
       msgs.length,
       last?.id,
       last?.text,
@@ -418,10 +419,16 @@ watch(
       latestCoachedMsg?.coaching?.total,
       live.turnCount.value,
       hintText.value,
+      allGoalsDone.value,
+      live.status.value,
+      showConfigBanner.value,
+      isMicError.value,
     ];
   },
   () => {
-    scrollToBottom();
+    if (!booting.value) {
+      scrollToBottom();
+    }
   },
   { flush: "post" }
 );
@@ -465,13 +472,16 @@ async function boot() {
       voiceName: voiceName.value,
       systemInstruction: fullSystemInstruction,
       openingLine: session.ai_text,
+      silenceDurationMs: 2000,
       onTurnRecorded: handleTurnRecorded,
     });
-    scrollToBottom();
   } catch (e) {
     bootError.value = e?.message || String(e);
   } finally {
     booting.value = false;
+    if (!bootError.value) {
+      scrollToBottom();
+    }
   }
 }
 
@@ -589,6 +599,7 @@ function retryConnection() {
       voiceName: voiceName.value,
       systemInstruction: fullSystemInstruction,
       openingLine: initialOpeningLine.value,
+      silenceDurationMs: 2000,
       onTurnRecorded: handleTurnRecorded,
     });
   } else {
@@ -660,11 +671,12 @@ defineExpose({
 
 <style scoped>
 .speaking-dialogue {
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   background: var(--bg);
   display: flex;
   flex-direction: column;
-  padding-bottom: 16px;
   position: relative;
 }
 
@@ -690,6 +702,7 @@ defineExpose({
 
 /* Goals Bar */
 .goals-bar {
+  flex-shrink: 0;
   margin: 10px 14px 6px;
   padding: 10px 12px;
   border-radius: var(--radius-md);
@@ -792,6 +805,7 @@ defineExpose({
 
 /* Live Stage */
 .live-stage {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -956,6 +970,7 @@ defineExpose({
 /* Chat Stream */
 .chat-stream {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1085,6 +1100,7 @@ defineExpose({
 
 /* Assist Dock */
 .assist-dock {
+  flex-shrink: 0;
   padding: 6px 14px 10px;
 }
 
@@ -1172,8 +1188,7 @@ defineExpose({
 
 /* Bottom Hands-Free Control Bar */
 .control-bar {
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
   width: 100%;
   box-sizing: border-box;
   max-width: 480px;
