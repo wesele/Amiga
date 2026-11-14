@@ -1,10 +1,19 @@
 import { ref } from "vue";
 import {
+  buildGeminiLiveContinuationInstruction,
   buildGeminiLiveWsUrl,
   buildGeminiLiveSetupPayload,
   float32ToPcm16Base64,
   pcm16Base64ToFloat32,
 } from "@/modules/speaking/useGeminiLiveSession.js";
+import {
+  formatGeminiLiveQuotaWaitMessage,
+  isGeminiLiveRateLimitError,
+  markGeminiLiveKeyRateLimited,
+  normalizeGeminiLiveKeys,
+  recordGeminiLiveUsage,
+  selectGeminiLiveKey,
+} from "@/shared/geminiLiveKeyPool.js";
 import { classroomTools } from "./classroomTools.js";
 
 // Drop the brief echo tail when playback stops or drains.
@@ -38,6 +47,30 @@ export function useClassroomLive({
   let micGeneration = 0;
   let echoTailUntil = 0;
   let captureBlockedThrough = 0;
+  let activeConfig = null;
+  let activeInstruction = "";
+  let activeKeyPool = [];
+  let currentApiKey = "";
+  let isEphemeralToken = false;
+  let pendingKeySwitch = false;
+  let rotatingKey = false;
+  let queuedSendDuringRotation = null;
+  let lastDispatchedText = null;
+  let recentDialogue = [];
+
+  function appendDialogue(role, chunk) {
+    const text = String(chunk || "");
+    if (!text) return;
+    const last = recentDialogue[recentDialogue.length - 1];
+    if (last && last.role === role) {
+      last.text += text;
+    } else {
+      recentDialogue.push({ role, text });
+      if (recentDialogue.length > 20) {
+        recentDialogue = recentDialogue.slice(-20);
+      }
+    }
+  }
 
   function blockEchoTail() {
     echoTailUntil = Date.now() + ECHO_TAIL_MS;
@@ -87,6 +120,7 @@ export function useClassroomLive({
       if (!sources.size) {
         blockEchoTail();
         speaking.value = false;
+        maybeRotateKey();
         emit({ type: "audio_drained" });
       }
     };
@@ -114,10 +148,15 @@ export function useClassroomLive({
     busy = true;
     responseHasContent = false;
     interrupted = false;
+    lastDispatchedText = text;
     write({ clientContent: { turns: [{ role: "user", parts: [{ text }] }], turnComplete: true } });
   }
   function send(text) {
     if (!connected.value) return false;
+    if (rotatingKey) {
+      queuedSendDuringRotation = text;
+      return true;
+    }
     if (busy) {
       pending = text;
       if (!dropping) {
@@ -171,10 +210,89 @@ export function useClassroomLive({
       }, 6000);
     }
   }
+  function maybeRotateKey() {
+    if (
+      isEphemeralToken ||
+      !pendingKeySwitch ||
+      rotatingKey ||
+      busy ||
+      sources.size > 0 ||
+      pending ||
+      dropping ||
+      !connected.value
+    ) {
+      return false;
+    }
+    rotateKey({ immediate: false });
+    return true;
+  }
+
+  function rotateKey({ immediate = false } = {}) {
+    if (isEphemeralToken || rotatingKey || !activeConfig) return;
+    pendingKeySwitch = false;
+    const nextSel = selectGeminiLiveKey(activeKeyPool, { excludeKey: currentApiKey });
+    if (nextSel.exhausted || !nextSel.key) {
+      error.value = formatGeminiLiveQuotaWaitMessage(nextSel.waitMs);
+      emit({ type: "connection_lost" });
+      void disconnect();
+      return;
+    }
+
+    rotatingKey = true;
+    sessionHandle = "";
+    if (immediate) {
+      stopAudio({ protectEchoTail: false });
+      if (pending) {
+        queuedSendDuringRotation = pending;
+        pending = null;
+      } else if (lastDispatchedText && !responseHasContent) {
+        queuedSendDuringRotation = lastDispatchedText;
+      }
+      busy = false;
+      dropping = false;
+      interrupted = false;
+      responseHasContent = false;
+    }
+
+    clearTimeout(handshakeTimer);
+    const previous = socket;
+    socket = null;
+    if (previous) {
+      previous.onmessage = previous.onclose = previous.onerror = previous.onopen = null;
+      previous.close();
+    }
+
+    currentApiKey = nextSel.key;
+    const continuationInstruction = buildGeminiLiveContinuationInstruction(
+      activeInstruction,
+      recentDialogue.map((item) => ({
+        role: item.role === "teacher" ? "ai" : "user",
+        text: item.text,
+      })),
+    );
+    openSocket({
+      keyToUse: nextSel.key,
+      instructionToUse: continuationInstruction,
+      isRotation: true,
+    });
+  }
+
   async function receive(message) {
+    if (!isEphemeralToken && message.usageMetadata) {
+      const stat = recordGeminiLiveUsage(currentApiKey, message);
+      if (stat.overThreshold) {
+        pendingKeySwitch = true;
+      }
+    }
     if (message.error) {
+      const errMsg = message.error.message || "Gemini Live 错误";
+      if (!isEphemeralToken && isGeminiLiveRateLimitError(errMsg)) {
+        markGeminiLiveKeyRateLimited(currentApiKey);
+        rotateKey({ immediate: true });
+        return;
+      }
       sessionHandle = "";
-      error.value = message.error.message || "Gemini Live 错误";
+      error.value = errMsg;
       emit({ type: "connection_lost" });
       await disconnect();
       return;
@@ -183,7 +301,16 @@ export function useClassroomLive({
       clearTimeout(handshakeTimer);
       connected.value = true;
       status.value = "connected";
-      emit({ type: "ready" });
+      if (rotatingKey) {
+        rotatingKey = false;
+        if (queuedSendDuringRotation) {
+          const next = queuedSendDuringRotation;
+          queuedSendDuringRotation = null;
+          dispatch(next);
+        }
+      } else {
+        emit({ type: "ready" });
+      }
     }
     if (message.sessionResumptionUpdate?.newHandle)
       sessionHandle = message.sessionResumptionUpdate.newHandle;
@@ -205,6 +332,9 @@ export function useClassroomLive({
       }
       if (!dropping && !interrupted) {
         if (content.outputTranscription?.text || content.modelTurn?.parts?.length) beginResponse();
+        if (content.outputTranscription?.text) {
+          appendDialogue("teacher", content.outputTranscription.text);
+        }
         if (content.outputTranscription?.text && acceptOutput())
           emit({ type: "teacher_text", text: content.outputTranscription.text });
         for (const part of content.modelTurn?.parts || []) {
@@ -243,6 +373,7 @@ export function useClassroomLive({
       const hadContent = responseHasContent;
       responseHasContent = false;
       busy = false;
+      lastDispatchedText = null;
       const cancelled = interrupted || dropping;
       interrupted = false;
       if (dropping) {
@@ -255,19 +386,99 @@ export function useClassroomLive({
           return;
         }
       }
+      if (!cancelled) maybeRotateKey();
       if (hadContent || cancelled) emit({ type: "turn_ended", cancelled, audible: speaking.value });
     }
     if (!wasDropping && !dropping && content?.inputTranscription) {
       const { text, finished } = content.inputTranscription;
+      if (text) appendDialogue("user", text);
       if (text || finished) emit({ type: "student_text", text: text || "", finished });
     }
+    maybeRotateKey();
   }
+  function openSocket({ keyToUse, instructionToUse, isRotation = false }) {
+    const url = isEphemeralToken
+      ? `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=${encodeURIComponent(keyToUse)}`
+      : buildGeminiLiveWsUrl(activeConfig.base_url, keyToUse);
+    const current = new WebSocketImpl(url);
+    socket = current;
+    current.onopen = () => {
+      if (socket !== current) return;
+      const payload = buildGeminiLiveSetupPayload({
+        model: activeConfig.model || "gemini-3.8-live",
+        systemInstruction: instructionToUse,
+        silenceDurationMs: 1200,
+      });
+      payload.setup.tools = [{ functionDeclarations: classroomTools }];
+      payload.setup.sessionResumption = sessionHandle ? { handle: sessionHandle } : {};
+      payload.setup.contextWindowCompression = { slidingWindow: {} };
+      write(payload);
+    };
+    current.onmessage = (event) => {
+      eventQueue = eventQueue
+        .then(async () => {
+          if (socket !== current) return;
+          const raw = typeof event.data === "string" ? event.data : await event.data.text();
+          const message = JSON.parse(raw);
+          if (socket === current) await receive(message);
+        })
+        .catch(() => {
+          rotatingKey = false;
+          error.value = "课堂连接数据异常，请重新连接";
+          emit({ type: "connection_lost" });
+          void disconnect();
+        });
+    };
+    current.onerror = () => {
+      if (socket === current) {
+        rotatingKey = false;
+        error.value = "无法连接 Gemini Live，请检查语音配置和网络";
+        sessionHandle = "";
+      }
+    };
+    current.onclose = () => {
+      if (socket === current) {
+        rotatingKey = false;
+        connected.value = false;
+        status.value = "closed";
+        stopAudio();
+        void stopMic();
+        emit({ type: "connection_lost" });
+      }
+    };
+    handshakeTimer = setTimeout(() => {
+      const timedOut = isRotation ? rotatingKey : !connected.value;
+      if (timedOut && socket === current) {
+        rotatingKey = false;
+        error.value = "连接 AI 老师超时";
+        void disconnect();
+        emit({ type: "connection_lost" });
+      }
+    }, 15000);
+  }
+
   async function connect(config, instruction) {
     await disconnect();
     error.value = "";
     status.value = "connecting";
     const generation = ++connectionGeneration;
-    if (!config.api_key) throw new Error("请先配置 Gemini Live");
+    isEphemeralToken = Boolean(config?.api_key && String(config.api_key).startsWith("auth_tokens/"));
+    if (isEphemeralToken) {
+      activeKeyPool = [];
+      currentApiKey = config.api_key;
+    } else {
+      activeKeyPool = normalizeGeminiLiveKeys(config?.api_keys, config?.api_key);
+      if (activeKeyPool.length === 0) throw new Error("请先配置 Gemini Live");
+      const selection = selectGeminiLiveKey(activeKeyPool);
+      if (selection.exhausted || !selection.key) {
+        const msg = formatGeminiLiveQuotaWaitMessage(selection.waitMs);
+        error.value = msg;
+        throw new Error(msg);
+      }
+      currentApiKey = selection.key;
+    }
+    activeConfig = config;
+    activeInstruction = instruction;
     const audio = new AudioContextImpl({ sampleRate: 24000 });
     output = audio;
     let resumeTimer;
@@ -292,60 +503,7 @@ export function useClassroomLive({
       await audio.close().catch(() => {});
       return;
     }
-    const token = config.api_key.startsWith("auth_tokens/");
-    const url = token
-      ? `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=${encodeURIComponent(config.api_key)}`
-      : buildGeminiLiveWsUrl(config.base_url, config.api_key);
-    const current = new WebSocketImpl(url);
-    socket = current;
-    current.onopen = () => {
-      if (socket !== current) return;
-      const payload = buildGeminiLiveSetupPayload({
-        model: config.model || "gemini-3.8-live",
-        systemInstruction: instruction,
-        silenceDurationMs: 1200,
-      });
-      payload.setup.tools = [{ functionDeclarations: classroomTools }];
-      payload.setup.sessionResumption = sessionHandle ? { handle: sessionHandle } : {};
-      payload.setup.contextWindowCompression = { slidingWindow: {} };
-      write(payload);
-    };
-    current.onmessage = (event) => {
-      eventQueue = eventQueue
-        .then(async () => {
-          if (socket !== current) return;
-          const raw = typeof event.data === "string" ? event.data : await event.data.text();
-          const message = JSON.parse(raw);
-          if (socket === current) await receive(message);
-        })
-        .catch(() => {
-          error.value = "课堂连接数据异常，请重新连接";
-          emit({ type: "connection_lost" });
-          void disconnect();
-        });
-    };
-    current.onerror = () => {
-      if (socket === current) {
-        error.value = "无法连接 Gemini Live，请检查语音配置和网络";
-        sessionHandle = "";
-      }
-    };
-    current.onclose = () => {
-      if (socket === current) {
-        connected.value = false;
-        status.value = "closed";
-        stopAudio();
-        void stopMic();
-        emit({ type: "connection_lost" });
-      }
-    };
-    handshakeTimer = setTimeout(() => {
-      if (!connected.value && socket === current) {
-        error.value = "连接 AI 老师超时";
-        void disconnect();
-        emit({ type: "connection_lost" });
-      }
-    }, 15000);
+    openSocket({ keyToUse: currentApiKey, instructionToUse: instruction, isRotation: false });
   }
   async function stopMic() {
     micGeneration += 1;
@@ -391,7 +549,7 @@ export function useClassroomLive({
       captureBlockedThrough = input.currentTime + Math.max(0, echoTailUntil - Date.now()) / 1000;
       source = input.createMediaStreamSource(stream);
       const upload = (samples, capturedAt = input.currentTime) => {
-        if (!connected.value || !micEnabled.value) return;
+        if (!connected.value || !micEnabled.value || rotatingKey) return;
         // Echo cancellation is requested above so the microphone stays live
         // during speech. Use the capture timestamp to drop echo-tail blocks.
         if (
@@ -444,6 +602,15 @@ export function useClassroomLive({
     clearTimeout(handshakeTimer);
     clearTimeout(boundaryTimer);
     pending = null;
+    pendingKeySwitch = false;
+    rotatingKey = false;
+    queuedSendDuringRotation = null;
+    lastDispatchedText = null;
+    recentDialogue = [];
+    activeConfig = null;
+    activeKeyPool = [];
+    currentApiKey = "";
+    isEphemeralToken = false;
     const previous = socket;
     socket = null;
     connected.value = false;

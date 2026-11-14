@@ -850,6 +850,16 @@ export default {
     testingVoice: "Sintetizando…",
     voiceSaved: "Voz de lectura cambiada a {voice}",
     voiceTestFail: "Error al probar la voz — revisa tu API Key de Gemini y la red",
+    keyPoolLabel: "Grupo de API Keys (cambio automático por TPM de 60s)",
+    keyPoolHint: "Agrega claves de distintos proyectos de Google. Las nuevas sesiones eligen la clave con menor TPM; al alcanzar el 80% del límite, cambia al terminar la frase actual.",
+    addKey: "Agregar Key",
+    removeKey: "Eliminar",
+    projectLabelPlaceholder: "Nombre del proyecto (ej. Proyecto A)",
+    tpmLimitLabel: "Límite TPM",
+    tpmUsageBadge: "{tpm} / {limit} TPM ({percent}%)",
+    tpmThresholdWarn: "Umbral del 80% alcanzado",
+    tpmCooldownBadge: "En espera por límite ({seconds}s)",
+    geminiLiveQuotaWait: "Todas las API Keys de Gemini Live están cerca del límite TPM (>= 80%). Espera {seconds} s para continuar",
   },
 
   prompts: {

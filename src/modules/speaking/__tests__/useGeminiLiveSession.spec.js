@@ -7,6 +7,10 @@ import {
   testGeminiLiveConnection,
   useGeminiLiveSession,
 } from "../useGeminiLiveSession.js";
+import {
+  recordGeminiLiveUsage,
+  resetGeminiLiveTpmTracker,
+} from "@/shared/geminiLiveKeyPool.js";
 
 // Mock WebSocket class for deterministic tests
 class MockWebSocket {
@@ -1037,6 +1041,93 @@ describe("useGeminiLiveSession composable", () => {
 
       await session.disconnect();
     } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("picks lowest-TPM key on connect, switches seamlessly after current turn reaches 80%, and halts when all keys exceed 80%", async () => {
+    resetGeminiLiveTpmTracker();
+    MockWebSocket.instances = [];
+    MockAudioContext.instances = [];
+    vi.useFakeTimers();
+    try {
+      const now = Date.now();
+      recordGeminiLiveUsage("key-proj-1", 20000, now);
+      recordGeminiLiveUsage("key-proj-2", 5000, now);
+
+      const session = useGeminiLiveSession({
+        WebSocketImpl: MockWebSocket,
+        AudioContextImpl: MockAudioContext,
+        navigatorImpl: undefined,
+        autoStartMic: false,
+      });
+
+      const pool = [
+        { id: "1", label: "Proj 1", api_key: "key-proj-1", tpm_limit: 65000 },
+        { id: "2", label: "Proj 2", api_key: "key-proj-2", tpm_limit: 65000 },
+      ];
+
+      await session.connect({
+        apiKeys: pool,
+        systemInstruction: "You are a tutor.",
+        openingLine: "Hola!",
+      });
+      vi.advanceTimersByTime(10);
+
+      // Lowest TPM key (key-proj-2) should be picked first
+      expect(MockWebSocket.instances[0].url).toContain("key=key-proj-2");
+      const ws1 = MockWebSocket.instances[0];
+      ws1.receive({ setupComplete: {} });
+      expect(ws1.sent.length).toBe(2); // setup + greeting
+
+      // Simulate AI speaking + usageMetadata hitting >= 80% of 65000 (5000 + 48000 = 53000)
+      const pcm = float32ToPcm16Base64(new Float32Array([0.1, -0.1]));
+      ws1.receive({
+        serverContent: {
+          outputTranscription: { text: "Hola, ¿cómo estás?" },
+          modelTurn: {
+            parts: [{ inlineData: { mimeType: "audio/pcm;rate=24000", data: pcm } }],
+          },
+          turnComplete: true,
+        },
+        usageMetadata: { totalTokenCount: 48000 },
+      });
+
+      // Must NOT cut off mid-sentence while AI audio is still playing!
+      expect(MockWebSocket.instances.length).toBe(1);
+      expect(session.isAiSpeaking.value).toBe(true);
+
+      // Once AI audio finishes playing, it switches to key-proj-1 cleanly
+      vi.advanceTimersByTime(500);
+      expect(session.isAiSpeaking.value).toBe(false);
+      expect(MockWebSocket.instances.length).toBe(2);
+
+      const ws2 = MockWebSocket.instances[1];
+      expect(ws2.url).toContain("key=key-proj-1");
+      vi.advanceTimersByTime(10);
+      // Continuation setup must carry transcript and NOT re-send opening greeting
+      expect(ws2.sent[0].setup.systemInstruction.parts[0].text).toContain("Hola, ¿cómo estás?");
+      ws2.receive({ setupComplete: {} });
+      expect(ws2.sent.length).toBe(1);
+      expect(session.messages.value.some((m) => m.text.includes("Hola, ¿cómo estás?"))).toBe(true);
+
+      // Now push key-proj-1 >= 80% too (20000 + 35000 = 55000) -> all keys exhausted -> hard halt
+      ws2.receive({
+        serverContent: {
+          outputTranscription: { text: "Bien, gracias." },
+          turnComplete: true,
+        },
+        usageMetadata: { totalTokenCount: 35000 },
+      });
+
+      await vi.waitFor(() => {
+        expect(session.errorCode.value).toBe("TPM_LIMIT_REACHED");
+      });
+      expect(session.status.value).toBe("error");
+      expect(session.messages.value.length).toBeGreaterThanOrEqual(2);
+      await session.disconnect();
+    } finally {
+      resetGeminiLiveTpmTracker();
       vi.useRealTimers();
     }
   });

@@ -159,6 +159,8 @@ pub struct SpeakingSessionView {
     pub live_model: String,
     pub live_base_url: String,
     pub live_api_key: String,
+    #[serde(default)]
+    pub live_api_keys: Vec<llm::MultimodalApiKeyEntry>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -487,6 +489,10 @@ pub async fn start_session(
     let live_model = active_cfg.model.clone();
     let live_base_url = active_cfg.base_url.clone();
     let live_api_key = active_cfg.api_key.clone();
+    let live_api_keys = match mm_cfg.mode {
+        llm::LlmMode::Custom => mm_cfg.custom_api_keys.clone(),
+        llm::LlmMode::Builtin => Vec::new(),
+    };
 
     let voice_name = topic.voice.to_string();
     let goals: Vec<String> = topic.goals.iter().map(|s| s.to_string()).collect();
@@ -526,6 +532,7 @@ pub async fn start_session(
         live_model,
         live_base_url,
         live_api_key,
+        live_api_keys,
     })
 }
 

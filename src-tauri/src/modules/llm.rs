@@ -191,11 +191,30 @@ impl LlmConfig {
     }
 }
 
+pub const DEFAULT_GEMINI_LIVE_TPM_LIMIT: u32 = 65_000;
+
+fn default_gemini_live_tpm_limit() -> u32 {
+    DEFAULT_GEMINI_LIVE_TPM_LIMIT
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct MultimodalApiKeyEntry {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub label: String,
+    pub api_key: String,
+    #[serde(default = "default_gemini_live_tpm_limit")]
+    pub tpm_limit: u32,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MultimodalConfig {
     pub mode: LlmMode,
     pub custom: Option<ModelConfig>,
     pub builtin: ModelConfig,
+    #[serde(default)]
+    pub custom_api_keys: Vec<MultimodalApiKeyEntry>,
 }
 
 impl MultimodalConfig {
@@ -1705,6 +1724,46 @@ pub fn get_llm_config(db: &DatabasePool) -> Result<LlmConfig, String> {
     })
 }
 
+pub fn parse_multimodal_api_keys(
+    raw_json: Option<&str>,
+    fallback_api_key: Option<&str>,
+) -> Vec<MultimodalApiKeyEntry> {
+    let mut result: Vec<MultimodalApiKeyEntry> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    if let Some(raw) = raw_json.map(str::trim).filter(|s| !s.is_empty()) {
+        if let Ok(entries) = serde_json::from_str::<Vec<MultimodalApiKeyEntry>>(raw) {
+            for (idx, mut entry) in entries.into_iter().enumerate() {
+                entry.api_key = entry.api_key.trim().to_string();
+                if entry.api_key.is_empty() || !seen.insert(entry.api_key.clone()) {
+                    continue;
+                }
+                entry.label = entry.label.trim().to_string();
+                if entry.id.trim().is_empty() {
+                    entry.id = format!("key-{}", idx + 1);
+                }
+                if entry.tpm_limit == 0 {
+                    entry.tpm_limit = DEFAULT_GEMINI_LIVE_TPM_LIMIT;
+                }
+                result.push(entry);
+            }
+        }
+    }
+
+    if result.is_empty() {
+        if let Some(fallback) = fallback_api_key.map(str::trim).filter(|s| !s.is_empty()) {
+            result.push(MultimodalApiKeyEntry {
+                id: "default".to_string(),
+                label: String::new(),
+                api_key: fallback.to_string(),
+                tpm_limit: DEFAULT_GEMINI_LIVE_TPM_LIMIT,
+            });
+        }
+    }
+
+    result
+}
+
 pub fn get_multimodal_config(db: &DatabasePool) -> Result<MultimodalConfig, String> {
     let conn = db.conn()?;
 
@@ -1718,29 +1777,39 @@ pub fn get_multimodal_config(db: &DatabasePool) -> Result<MultimodalConfig, Stri
     };
 
     let mode = LlmMode::from_setting(get_setting("multimodal_mode").as_deref());
-    let custom = {
-        let base_url = get_setting("multimodal_base_url");
-        let api_key = get_setting("multimodal_api_key");
-        let model_name = get_setting("multimodal_model");
-        match (base_url, api_key, model_name) {
-            (Some(b), Some(k), Some(m)) if !b.is_empty() && !k.is_empty() && !m.is_empty() => {
-                let provider = LlmProvider::from_setting(None, &b, &m);
-                Some(ModelConfig {
-                    base_url: b,
-                    api_key: k,
-                    model: m,
-                    provider,
-                    thinking_enabled: false,
-                })
-            }
-            _ => None,
+    let base_url = get_setting("multimodal_base_url");
+    let raw_api_key = get_setting("multimodal_api_key");
+    let model_name = get_setting("multimodal_model");
+    let custom_api_keys = parse_multimodal_api_keys(
+        get_setting("multimodal_api_keys").as_deref(),
+        raw_api_key.as_deref(),
+    );
+    let primary_api_key = raw_api_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|k| !k.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| custom_api_keys.first().map(|entry| entry.api_key.clone()));
+
+    let custom = match (base_url, primary_api_key, model_name) {
+        (Some(b), Some(k), Some(m)) if !b.is_empty() && !k.is_empty() && !m.is_empty() => {
+            let provider = LlmProvider::from_setting(None, &b, &m);
+            Some(ModelConfig {
+                base_url: b,
+                api_key: k,
+                model: m,
+                provider,
+                thinking_enabled: false,
+            })
         }
+        _ => None,
     };
 
     Ok(MultimodalConfig {
         mode,
         custom,
         builtin: multimodal_builtin_config(),
+        custom_api_keys,
     })
 }
 
@@ -2134,6 +2203,54 @@ mod tests {
         assert_eq!(mm.model, MULTIMODAL_BUILTIN_MODEL);
         assert_eq!(mm.provider, LlmProvider::Gemini);
         assert!(!mm.thinking_enabled);
+    }
+
+    #[test]
+    fn parse_multimodal_api_keys_dedupes_and_applies_default_tpm() {
+        let raw = r#"[
+            {"id":"p1","label":"Project A","api_key":" AIza-A ","tpm_limit":0},
+            {"id":"p2","label":"Project B","api_key":"AIza-B","tpm_limit":120000},
+            {"id":"dup","label":"Dup","api_key":"AIza-A","tpm_limit":50000},
+            {"id":"blank","label":"Blank","api_key":"   ","tpm_limit":65000}
+        ]"#;
+        let parsed = parse_multimodal_api_keys(Some(raw), Some("AIza-Fallback"));
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].api_key, "AIza-A");
+        assert_eq!(parsed[0].tpm_limit, DEFAULT_GEMINI_LIVE_TPM_LIMIT);
+        assert_eq!(parsed[1].api_key, "AIza-B");
+        assert_eq!(parsed[1].tpm_limit, 120_000);
+    }
+
+    #[test]
+    fn get_multimodal_config_hydrates_multi_key_pool_and_falls_back_to_single_key() {
+        let db = empty_db();
+        save_llm_setting(&db, "multimodal_mode", "custom").unwrap();
+        save_llm_setting(
+            &db,
+            "multimodal_base_url",
+            "https://generativelanguage.googleapis.com",
+        )
+        .unwrap();
+        save_llm_setting(&db, "multimodal_model", "gemini-3.8-live").unwrap();
+        save_llm_setting(&db, "multimodal_api_key", "AIza-Legacy").unwrap();
+
+        let legacy_cfg = get_multimodal_config(&db).unwrap();
+        assert_eq!(legacy_cfg.custom_api_keys.len(), 1);
+        assert_eq!(legacy_cfg.custom_api_keys[0].api_key, "AIza-Legacy");
+        assert_eq!(
+            legacy_cfg.custom_api_keys[0].tpm_limit,
+            DEFAULT_GEMINI_LIVE_TPM_LIMIT
+        );
+
+        save_llm_setting(
+            &db,
+            "multimodal_api_keys",
+            r#"[{"id":"k1","label":"Proj 1","api_key":"AIza-1","tpm_limit":65000},{"id":"k2","label":"Proj 2","api_key":"AIza-2","tpm_limit":65000}]"#,
+        )
+        .unwrap();
+        let pool_cfg = get_multimodal_config(&db).unwrap();
+        assert_eq!(pool_cfg.custom_api_keys.len(), 2);
+        assert_eq!(pool_cfg.custom_api_keys[1].api_key, "AIza-2");
     }
 
     #[tokio::test]

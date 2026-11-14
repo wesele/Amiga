@@ -14,6 +14,15 @@ import {
   buildGeminiLiveSetupPayload,
   pcm16Base64ToFloat32,
 } from "@/modules/speaking/useGeminiLiveSession.js";
+import {
+  formatGeminiLiveQuotaWaitMessage,
+  isGeminiLiveRateLimitError,
+  markGeminiLiveKeyRateLimited,
+  normalizeGeminiLiveKeys,
+  recordGeminiLiveUsage,
+  resolveGeminiLiveKeyPool,
+  selectGeminiLiveKey,
+} from "@/shared/geminiLiveKeyPool.js";
 
 export const GEMINI_LIVE_TTS_VOICE = "Fola";
 export const GEMINI_LIVE_TTS_MODEL = "gemini-3.8-live";
@@ -93,12 +102,15 @@ export function isGemini38LiveConfigured(config) {
   const normalizedModel = rawModel.toLowerCase().replace(/^models\//, "");
   const baseUrl = (active.base_url || active.baseUrl || active.live_base_url || "").trim();
 
+  const pool = resolveGeminiLiveKeyPool(config);
+  const effectiveKey = pool[0]?.api_key || apiKey;
+
   // If apiKey starts with nvapi- and targets Google Gemini API, it's a fallback placeholder key and cannot use Gemini Live
-  if (apiKey.startsWith("nvapi-") && (!baseUrl || baseUrl.includes("generativelanguage.googleapis.com"))) {
+  if (effectiveKey.startsWith("nvapi-") && (!baseUrl || baseUrl.includes("generativelanguage.googleapis.com"))) {
     return false;
   }
 
-  return apiKey.length > 0 && normalizedModel === GEMINI_LIVE_TTS_MODEL;
+  return effectiveKey.length > 0 && normalizedModel === GEMINI_LIVE_TTS_MODEL;
 }
 
 /**
@@ -373,7 +385,7 @@ function speakGeminiLiveTts(
   text,
   lang,
   activeConfig,
-  { onStart, onEnd, onError, rate, voiceName, disableFallback = false } = {},
+  { onStart, onEnd, onError, rate, voiceName, disableFallback = false, keyPool: explicitPool = null } = {},
   sessionId
 ) {
   const WebSocketImpl = getWebSocketImpl();
@@ -388,7 +400,28 @@ function speakGeminiLiveTts(
     return speakFallback(text, lang, { onStart, onEnd, onError, rate }, sessionId);
   }
 
-  const apiKey = (activeConfig.api_key || activeConfig.apiKey || activeConfig.live_api_key || "").trim();
+  const fallbackKey = (
+    activeConfig?.api_key ||
+    activeConfig?.apiKey ||
+    activeConfig?.live_api_key ||
+    ""
+  ).trim();
+  const keyPool = normalizeGeminiLiveKeys(
+    explicitPool ?? activeConfig?.api_keys ?? activeConfig?.custom_api_keys,
+    fallbackKey
+  );
+  const selection = selectGeminiLiveKey(keyPool);
+  if (selection.exhausted) {
+    const quotaErr = new Error(formatGeminiLiveQuotaWaitMessage(selection.waitMs));
+    quotaErr.code = "TPM_LIMIT_REACHED";
+    if (sessionId === undefined || sessionId === activeSessionId) {
+      onError?.(quotaErr);
+      onEnd?.();
+    }
+    return false;
+  }
+
+  const apiKey = selection.key || fallbackKey;
   const baseUrl = (activeConfig.base_url || activeConfig.baseUrl || activeConfig.live_base_url || "").trim();
   const wsUrl = buildGeminiLiveWsUrl(baseUrl, apiKey);
   const targetLangTag = getSpeechLang(lang);
@@ -573,8 +606,48 @@ function speakGeminiLiveTts(
     if (sessionId !== activeSessionId) return;
     if (!msg) return;
 
+    if (msg.usageMetadata) {
+      recordGeminiLiveUsage(apiKey, msg);
+    }
+
     if (msg.error) {
-      handlePreStartError(new Error(msg.error.message || "Gemini Live error"));
+      const errMsg = msg.error.message || "Gemini Live error";
+      if (isGeminiLiveRateLimitError(errMsg)) {
+        markGeminiLiveKeyRateLimited(apiKey);
+        if (!hasStartedPlayback) {
+          const nextSel = selectGeminiLiveKey(keyPool, { excludeKey: apiKey });
+          if (nextSel.key && nextSel.key !== apiKey) {
+            try {
+              ws.onopen = null;
+              ws.onmessage = null;
+              ws.onerror = null;
+              ws.onclose = null;
+              ws.close();
+            } catch (e) {}
+            if (activeWs === ws) activeWs = null;
+            if (firstChunkTimer) {
+              clearTimeout(firstChunkTimer);
+              firstChunkTimer = null;
+            }
+            speakGeminiLiveTts(
+              text,
+              lang,
+              activeConfig,
+              { onStart, onEnd, onError, rate, voiceName, disableFallback, keyPool },
+              sessionId
+            );
+            return;
+          }
+          const quotaErr = new Error(formatGeminiLiveQuotaWaitMessage(nextSel.waitMs));
+          quotaErr.code = "TPM_LIMIT_REACHED";
+          if (sessionId === activeSessionId) {
+            onError?.(quotaErr);
+            finishSession();
+          }
+          return;
+        }
+      }
+      handlePreStartError(new Error(errMsg));
       return;
     }
 
@@ -754,7 +827,14 @@ export function previewGeminiLiveVoice({
   }
 
   const active = getActiveMultimodalConfig(config) || config || {};
-  const apiKey = (active.api_key || active.apiKey || active.live_api_key || "").trim();
+  const pool = resolveGeminiLiveKeyPool(config);
+  const apiKey = (
+    pool[0]?.api_key ||
+    active.api_key ||
+    active.apiKey ||
+    active.live_api_key ||
+    ""
+  ).trim();
   const baseUrl = (active.base_url || active.baseUrl || active.live_base_url || "").trim();
 
   if (
@@ -786,6 +866,7 @@ export function previewGeminiLiveVoice({
       onError,
       voiceName: resolvedVoice,
       disableFallback: true,
+      keyPool: pool,
     },
     sessionId
   );
@@ -810,8 +891,14 @@ export function speakText(text, lang, { onStart, onEnd, onError, rate } = {}) {
   // If cached config is known to be Gemini 3.8 Live:
   if (isGemini38LiveConfigured(cachedConfig)) {
     const active = getActiveMultimodalConfig(cachedConfig);
-    speakGeminiLiveTts(text, lang, active, { onStart, onEnd, onError, rate }, sessionId);
-    return true;
+    const keyPool = resolveGeminiLiveKeyPool(cachedConfig);
+    return speakGeminiLiveTts(
+      text,
+      lang,
+      active,
+      { onStart, onEnd, onError, rate, keyPool },
+      sessionId
+    );
   }
 
   // If cached config is known and NOT Gemini Live:
@@ -825,7 +912,14 @@ export function speakText(text, lang, { onStart, onEnd, onError, rate } = {}) {
       if (sessionId !== activeSessionId) return;
       if (isGemini38LiveConfigured(cfg)) {
         const active = getActiveMultimodalConfig(cfg);
-        speakGeminiLiveTts(text, lang, active, { onStart, onEnd, onError, rate }, sessionId);
+        const keyPool = resolveGeminiLiveKeyPool(cfg);
+        speakGeminiLiveTts(
+          text,
+          lang,
+          active,
+          { onStart, onEnd, onError, rate, keyPool },
+          sessionId
+        );
       } else {
         speakFallback(text, lang, { onStart, onEnd, onError, rate }, sessionId);
       }

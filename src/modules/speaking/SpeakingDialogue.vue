@@ -308,7 +308,10 @@ const allGoalsDone = computed(() => {
 
 const isApiKeyMissingOrInvalid = computed(() => {
   if (live.errorCode?.value === "API_KEY_MISSING") return true;
-  const key = sessionData.value?.live_api_key || "";
+  const key =
+    sessionData.value?.live_api_key ||
+    sessionData.value?.live_api_keys?.[0]?.api_key ||
+    "";
   const base = sessionData.value?.live_base_url || "";
   if (!key) return true;
   if (key.startsWith("nvapi-") && (!base || base.includes("generativelanguage.googleapis.com"))) {
@@ -467,6 +470,7 @@ async function boot() {
 
     live.connect({
       apiKey: session.live_api_key,
+      apiKeys: session.live_api_keys,
       baseUrl: session.live_base_url,
       model: session.live_model || "gemini-3.8-live",
       voiceName: voiceName.value,
@@ -594,12 +598,14 @@ function retryConnection() {
 
     live.connect({
       apiKey: sessionData.value.live_api_key,
+      apiKeys: sessionData.value.live_api_keys,
       baseUrl: sessionData.value.live_base_url,
       model: sessionData.value.live_model || "gemini-3.8-live",
       voiceName: voiceName.value,
       systemInstruction: fullSystemInstruction,
       openingLine: initialOpeningLine.value,
       silenceDurationMs: 2000,
+      historyMessages: live.messages.value.length > 0 ? live.messages.value : undefined,
       onTurnRecorded: handleTurnRecorded,
     });
   } else {

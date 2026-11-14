@@ -50,23 +50,86 @@
       <template v-else>
         <div class="settings-card custom-fields-card">
           <div class="field-group">
-            <label class="field-label">{{ t('llm.apiKey') }}</label>
-            <div class="api-key-wrapper">
-              <input
-                :type="showKey ? 'text' : 'password'"
-                v-model="apiKey"
-                @change="onApiParamsChange"
-                class="field-input"
-                placeholder="sk-..."
-              />
-              <button class="toggle-key-btn" @click="showKey = !showKey" type="button">
-                <svg v-if="!showKey" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                  <path d="M12 6.5c2.76 0 5 2.24 5 5 0 .51-.1 1-.24 1.46l3.06 3.06c1.39-1.23 2.49-2.77 3.18-4.53C21.27 7.11 17 4 12 4c-1.27 0-2.49.2-3.64.57l2.17 2.17c.47-.14.96-.24 1.47-.24zM2.71 3.16a.996.996 0 000 1.41l1.97 1.97A11.892 11.892 0 001 11.5C2.73 15.89 7 19 12 19c1.52 0 2.97-.3 4.31-.82l2.72 2.72a.996.996 0 101.41-1.41L4.13 3.16c-.39-.39-1.03-.39-1.42 0zM12 16.5c-2.76 0-5-2.24-5-5 0-.77.18-1.5.49-2.15l1.67 1.67C9 11.33 9 11.66 9 12c0 1.66 1.34 3 3 3 .34 0 .67 0 .98-.15l1.67 1.67c-.65.31-1.38.48-2.15.48z"/>
-                </svg>
-                <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                  <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                </svg>
+            <div class="key-pool-header">
+              <label class="field-label key-pool-title">{{ t('llm.keyPoolLabel') }}</label>
+              <button type="button" class="btn-add-key" @click="addKeyEntry">
+                + {{ t('llm.addKey') }}
               </button>
+            </div>
+            <p class="key-pool-hint">{{ t('llm.keyPoolHint') }}</p>
+
+            <div class="key-pool-list">
+              <div
+                v-for="(entry, idx) in keyEntries"
+                :key="entry.id"
+                class="key-entry-card"
+              >
+                <div class="key-entry-top">
+                  <input
+                    v-model="entry.label"
+                    @change="saveConfig"
+                    type="text"
+                    class="field-input key-label-input"
+                    :placeholder="t('llm.projectLabelPlaceholder')"
+                  />
+                  <label class="tpm-limit-box">
+                    <span class="tpm-limit-label">{{ t('llm.tpmLimitLabel') }}</span>
+                    <input
+                      v-model.number="entry.tpm_limit"
+                      @change="onTpmLimitChange(entry)"
+                      type="number"
+                      min="1000"
+                      step="1000"
+                      class="field-input tpm-limit-input"
+                    />
+                  </label>
+                  <button
+                    v-if="keyEntries.length > 1"
+                    type="button"
+                    class="btn-remove-key"
+                    @click="removeKeyEntry(idx)"
+                  >
+                    {{ t('llm.removeKey') }}
+                  </button>
+                </div>
+
+                <div class="api-key-wrapper">
+                  <input
+                    :type="entry.showKey ? 'text' : 'password'"
+                    v-model="entry.api_key"
+                    @change="onApiParamsChange"
+                    class="field-input"
+                    placeholder="AIza..."
+                  />
+                  <button class="toggle-key-btn" @click="entry.showKey = !entry.showKey" type="button">
+                    <svg v-if="!entry.showKey" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                      <path d="M12 6.5c2.76 0 5 2.24 5 5 0 .51-.1 1-.24 1.46l3.06 3.06c1.39-1.23 2.49-2.77 3.18-4.53C21.27 7.11 17 4 12 4c-1.27 0-2.49.2-3.64.57l2.17 2.17c.47-.14.96-.24 1.47-.24zM2.71 3.16a.996.996 0 000 1.41l1.97 1.97A11.892 11.892 0 001 11.5C2.73 15.89 7 19 12 19c1.52 0 2.97-.3 4.31-.82l2.72 2.72a.996.996 0 101.41-1.41L4.13 3.16c-.39-.39-1.03-.39-1.42 0zM12 16.5c-2.76 0-5-2.24-5-5 0-.77.18-1.5.49-2.15l1.67 1.67C9 11.33 9 11.66 9 12c0 1.66 1.34 3 3 3 .34 0 .67 0 .98-.15l1.67 1.67c-.65.31-1.38.48-2.15.48z"/>
+                    </svg>
+                    <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                      <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <div v-if="entry.api_key.trim()" class="key-tpm-meter">
+                  <div class="key-tpm-meta">
+                    <span>{{ formatTpmLabel(entry) }}</span>
+                    <span v-if="keyStatus(entry).coolingDown" class="tpm-badge warn">
+                      {{ t('llm.tpmCooldownBadge', { seconds: Math.max(1, Math.ceil(keyStatus(entry).cooldownRemainingMs / 1000)) }) }}
+                    </span>
+                    <span v-else-if="keyStatus(entry).overThreshold" class="tpm-badge warn">
+                      {{ t('llm.tpmThresholdWarn') }}
+                    </span>
+                  </div>
+                  <div class="key-tpm-bar-track">
+                    <div
+                      class="key-tpm-bar-fill"
+                      :class="{ warn: keyStatus(entry).overThreshold || keyStatus(entry).coolingDown }"
+                      :style="{ width: Math.min(100, Math.round(keyStatus(entry).ratio * 100)) + '%' }"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <div class="field-group">
@@ -173,12 +236,20 @@ import ConfirmDialog from "@/shared/components/ConfirmDialog.vue";
 import {
   getCurrentUser,
   getMultimodalConfig,
+  getSetting,
   saveMultimodalConfig,
   testMultimodalConnection,
   saveSetting,
   fetchModels,
 } from "@/shared/api.js";
 import { testGeminiLiveConnection } from "@/modules/speaking/useGeminiLiveSession.js";
+import {
+  DEFAULT_GEMINI_LIVE_TPM_LIMIT,
+  GEMINI_LIVE_API_KEYS_SETTING,
+  getGeminiLiveKeyStatus,
+  normalizeGeminiLiveKeys,
+  subscribeGeminiLiveTpm,
+} from "@/shared/geminiLiveKeyPool.js";
 import {
   GEMINI_LIVE_TTS_VOICE,
   GEMINI_LIVE_VOICE_OPTIONS,
@@ -192,12 +263,69 @@ import { isTvLayoutMode } from "@/shared/appMode.js";
 
 const { t } = useI18n();
 const mode = ref("builtin");
-const apiKey = ref("");
 const baseUrl = ref("https://generativelanguage.googleapis.com");
 const modelName = ref("gemini-3.8-live");
 const builtin = ref({ baseUrl: "", apiKey: "", model: "" });
-const showKey = ref(false);
+const keyEntries = ref([createBlankKeyEntry(1)]);
+const tpmTick = ref(Date.now());
+let unsubscribeTpm = null;
+let tpmTimer = null;
 const testing = ref(false);
+
+function createBlankKeyEntry(index = 1) {
+  return {
+    id: `key-${Date.now()}-${index}`,
+    label: "",
+    api_key: "",
+    tpm_limit: DEFAULT_GEMINI_LIVE_TPM_LIMIT,
+    showKey: false,
+  };
+}
+
+function validKeyPoolEntries() {
+  return normalizeGeminiLiveKeys(
+    keyEntries.value.map((item) => ({
+      id: item.id,
+      label: item.label,
+      api_key: item.api_key,
+      tpm_limit: item.tpm_limit,
+    }))
+  );
+}
+
+function primaryApiKey() {
+  return validKeyPoolEntries()[0]?.api_key || "";
+}
+
+function addKeyEntry() {
+  keyEntries.value.push(createBlankKeyEntry(keyEntries.value.length + 1));
+}
+
+async function removeKeyEntry(idx) {
+  if (keyEntries.value.length <= 1) return;
+  keyEntries.value.splice(idx, 1);
+  await saveConfig();
+}
+
+async function onTpmLimitChange(entry) {
+  const num = Number(entry.tpm_limit);
+  if (!Number.isFinite(num) || num < 1000) {
+    entry.tpm_limit = DEFAULT_GEMINI_LIVE_TPM_LIMIT;
+  } else {
+    entry.tpm_limit = Math.round(num);
+  }
+  await saveConfig();
+}
+
+function keyStatus(entry) {
+  return getGeminiLiveKeyStatus(entry, tpmTick.value);
+}
+
+function formatTpmLabel(entry) {
+  const st = keyStatus(entry);
+  const percent = Math.round(st.ratio * 100);
+  return t("llm.tpmUsageBadge", { tpm: st.tpm, limit: st.limit, percent });
+}
 const testResult = ref(null);
 const saved = ref(false);
 const savedMessage = ref("");
@@ -221,7 +349,7 @@ const fetchingModels = ref(false);
 
 async function loadModels() {
   const trimmedUrl = (baseUrl.value || "").trim();
-  const trimmedKey = (apiKey.value || "").trim();
+  const trimmedKey = primaryApiKey();
 
   if (!trimmedUrl || !trimmedKey) {
     error.value = t("llm.fetchModelsEmpty");
@@ -254,11 +382,18 @@ async function onApiParamsChange() {
 }
 
 onMounted(async () => {
+  unsubscribeTpm = subscribeGeminiLiveTpm(() => {
+    tpmTick.value = Date.now();
+  });
+  tpmTimer = setInterval(() => {
+    tpmTick.value = Date.now();
+  }, 2000);
   try {
-    const [config, savedVoice, user] = await Promise.all([
+    const [config, savedVoice, user, savedPoolRaw] = await Promise.all([
       getMultimodalConfig(),
       loadGeminiLiveVoiceSetting(),
       getCurrentUser().catch(() => null),
+      getSetting(GEMINI_LIVE_API_KEYS_SETTING).catch(() => null),
     ]);
     selectedVoice.value = savedVoice || GEMINI_LIVE_TTS_VOICE;
     if (user && user.target_language) {
@@ -273,11 +408,20 @@ onMounted(async () => {
       };
     }
     if (config.custom) {
-      apiKey.value = config.custom.api_key || "";
       baseUrl.value = config.custom.base_url || "https://generativelanguage.googleapis.com";
       modelName.value = config.custom.model || "gemini-3.8-live";
     }
-    if (apiKey.value && baseUrl.value) {
+    const hydratedPool = normalizeGeminiLiveKeys(
+      config.custom_api_keys?.length ? config.custom_api_keys : savedPoolRaw,
+      config.custom?.api_key || ""
+    );
+    if (hydratedPool.length > 0) {
+      keyEntries.value = hydratedPool.map((item) => ({
+        ...item,
+        showKey: false,
+      }));
+    }
+    if (primaryApiKey() && baseUrl.value) {
       loadModels();
     }
     
@@ -290,13 +434,29 @@ onMounted(async () => {
           mode.value = "custom";
         } else if (testStep === "complete") {
           mode.value = "custom";
-          apiKey.value = "sk-mock-key-123456";
+          keyEntries.value = [
+            {
+              id: "test-1",
+              label: "Project A",
+              api_key: "sk-mock-key-123456",
+              tpm_limit: DEFAULT_GEMINI_LIVE_TPM_LIMIT,
+              showKey: false,
+            },
+          ];
           baseUrl.value = "https://generativelanguage.googleapis.com";
           await loadModels();
           modelName.value = "gemini-3.8-live";
         } else if (testStep === "test_metrics") {
           mode.value = "custom";
-          apiKey.value = "sk-mock-key-123456";
+          keyEntries.value = [
+            {
+              id: "test-1",
+              label: "Project A",
+              api_key: "sk-mock-key-123456",
+              tpm_limit: DEFAULT_GEMINI_LIVE_TPM_LIMIT,
+              showKey: false,
+            },
+          ];
           baseUrl.value = "https://generativelanguage.googleapis.com";
           modelName.value = "gemini-3.8-live";
           testConnection();
@@ -309,6 +469,12 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  unsubscribeTpm?.();
+  unsubscribeTpm = null;
+  if (tpmTimer) {
+    clearInterval(tpmTimer);
+    tpmTimer = null;
+  }
   if (voiceTesting.value || voicePlaying.value) {
     stopSpeech();
   }
@@ -377,8 +543,10 @@ function currentConfig() {
       model: (builtin.value.model || "").trim(),
     };
   }
+  const pool = validKeyPoolEntries();
   return {
-    api_key: (apiKey.value || "").trim(),
+    api_key: pool[0]?.api_key || "",
+    api_keys: pool,
     base_url: (baseUrl.value || "").trim(),
     model: (modelName.value || "").trim(),
   };
@@ -390,7 +558,13 @@ async function saveConfig() {
   try {
     await saveSetting("multimodal_mode", mode.value);
     if (mode.value === "custom") {
-      const cfg = currentConfig();
+      const pool = validKeyPoolEntries();
+      await saveSetting(GEMINI_LIVE_API_KEYS_SETTING, JSON.stringify(pool));
+      const cfg = {
+        api_key: pool[0]?.api_key || "",
+        base_url: (baseUrl.value || "").trim(),
+        model: (modelName.value || "").trim(),
+      };
       await saveMultimodalConfig(cfg);
       if (!cfg.api_key || !cfg.base_url || !cfg.model) {
         error.value = t("llm.configEmpty");
@@ -412,7 +586,7 @@ async function saveConfig() {
 }
 
 async function testConnection() {
-  if (mode.value === "custom" && (!apiKey.value || !baseUrl.value || !modelName.value)) {
+  if (mode.value === "custom" && (!primaryApiKey() || !baseUrl.value || !modelName.value)) {
     testResult.value = "fail";
     return;
   }
@@ -552,6 +726,8 @@ async function testConnection() {
 .btn-test:focus-visible,
 .btn-save:focus-visible,
 .btn-voice-test:focus-visible,
+.btn-add-key:focus-visible,
+.btn-remove-key:focus-visible,
 .voice-chip:focus-visible,
 .field-input:focus-visible {
   z-index: 2;
@@ -676,6 +852,117 @@ async function testConnection() {
 .toggle-key-btn:hover {
   background: var(--surface-variant);
   color: var(--text);
+}
+
+/* Multi-key pool */
+.key-pool-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.key-pool-title {
+  margin-bottom: 0;
+}
+.key-pool-hint {
+  margin: 0 0 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-light);
+}
+.btn-add-key {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--blue);
+  background: var(--surface);
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.btn-add-key:hover {
+  background: #e8f0fe;
+}
+.key-pool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.key-entry-card {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-variant, var(--bg));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.key-entry-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.key-label-input {
+  flex: 1;
+  min-width: 110px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.tpm-limit-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-light);
+}
+.tpm-limit-input {
+  width: 82px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.btn-remove-key {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--red, #d73a49);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.key-tpm-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.key-tpm-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-light);
+}
+.tpm-badge.warn {
+  color: #ad6800;
+  font-weight: 600;
+}
+.key-tpm-bar-track {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.key-tpm-bar-fill {
+  height: 100%;
+  background: var(--blue);
+  transition: width 0.25s ease;
+}
+.key-tpm-bar-fill.warn {
+  background: #fa8c16;
 }
 
 /* Voice selector card */

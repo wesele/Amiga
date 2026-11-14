@@ -853,6 +853,16 @@ export default {
     testingVoice: "正在合成…",
     voiceSaved: "默认朗读音色已切换为 {voice}",
     voiceTestFail: "音色试听失败，请检查 Gemini API Key 与网络连接",
+    keyPoolLabel: "API Key 池（按 60 秒 TPM 自动切换）",
+    keyPoolHint: "支持添加多个不同 Google Project 的 Key。新建会话时自动选择当前 TPM 最低的 Key；单个 Key 达到上限 80% 时，将在本句说完后自动切换到下一个 Key。",
+    addKey: "添加 Key",
+    removeKey: "移除",
+    projectLabelPlaceholder: "项目备注（如 Project A）",
+    tpmLimitLabel: "TPM 上限",
+    tpmUsageBadge: "{tpm} / {limit} TPM ({percent}%)",
+    tpmThresholdWarn: "已达 80% 切换阈值",
+    tpmCooldownBadge: "限流冷却中 ({seconds}s)",
+    geminiLiveQuotaWait: "所有 Gemini Live Key 的 TPM 已接近上限（>= 80%），请等待 {seconds} 秒后再继续",
   },
 
   prompts: {

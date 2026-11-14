@@ -28,6 +28,12 @@ const SENSITIVE_SETTING_KEYS: &[&str] = &[
     "llm_mode",
     // Saved custom LLM presets carry API keys per Base URL.
     "llm_presets",
+    // Multimodal / Gemini Live credentials stay device-local.
+    "multimodal_mode",
+    "multimodal_base_url",
+    "multimodal_api_key",
+    "multimodal_api_keys",
+    "multimodal_model",
 ];
 
 const LOCAL_ONLY_SETTING_KEYS: &[&str] = &[

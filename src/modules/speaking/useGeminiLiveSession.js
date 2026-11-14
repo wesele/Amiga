@@ -1,4 +1,31 @@
 import { ref, getCurrentInstance, onUnmounted } from "vue";
+import {
+  extractGeminiLiveUsageTokens,
+  formatGeminiLiveQuotaWaitMessage,
+  isGeminiLiveRateLimitError,
+  markGeminiLiveKeyRateLimited,
+  normalizeGeminiLiveKeys,
+  recordGeminiLiveUsage,
+  selectGeminiLiveKey,
+} from "@/shared/geminiLiveKeyPool.js";
+
+/**
+ * Builds a continuation systemInstruction containing prior conversation transcript
+ * so switching to another project's API key resumes seamlessly without re-greeting.
+ */
+export function buildGeminiLiveContinuationInstruction(baseInstruction = "", messageList = []) {
+  const recent = (Array.isArray(messageList) ? messageList : [])
+    .filter((m) => m && (m.role === "user" || m.role === "ai") && String(m.text || "").trim())
+    .slice(-16)
+    .map((m) => `${m.role === "ai" ? "Tutor" : "Learner"}: ${String(m.text).trim()}`);
+  if (recent.length === 0) return baseInstruction || "";
+  const prefix = baseInstruction ? `${baseInstruction}\n\n` : "";
+  return (
+    `${prefix}[Session continuation context — this conversation is already in progress. ` +
+    `Do NOT repeat your opening greeting or restart the roleplay; continue naturally from the transcript below when the learner speaks next.]\n` +
+    recent.join("\n")
+  );
+}
 
 /**
  * Normalizes baseUrl and builds the Gemini 3.8 Live WebSocket URL.
@@ -293,10 +320,11 @@ export function testGeminiLiveConnection(
       });
     }, timeoutMs);
 
+    const testApiKey = String(config.api_key || config.apiKey || "").trim();
     try {
       const url = buildGeminiLiveWsUrl(
         config.base_url || config.baseUrl,
-        config.api_key || config.apiKey
+        testApiKey
       );
       ws = new WebSocketImpl(url);
     } catch (err) {
@@ -357,6 +385,9 @@ export function testGeminiLiveConnection(
           });
           return;
         }
+        if (data.usageMetadata) {
+          recordGeminiLiveUsage(testApiKey, data);
+        }
         if (data.setupComplete) {
           handshakeMs = Math.max(1, Date.now() - startTime);
           promptSentTime = Date.now();
@@ -374,6 +405,16 @@ export function testGeminiLiveConnection(
           const hasModelTurn = Boolean(data.serverContent.modelTurn);
           if (hasAudio || hasTranscription || hasModelTurn) {
             const ttftMs = promptSentTime > 0 ? Math.max(1, Date.now() - promptSentTime) : 0;
+            const totalTokens = extractGeminiLiveUsageTokens(data);
+            const usage = data.usageMetadata || {};
+            const thinkTokens = Number(usage.thoughtsTokenCount ?? usage.thoughts_token_count) || 0;
+            const respTokens =
+              Number(
+                usage.responseTokenCount ??
+                  usage.response_token_count ??
+                  usage.candidatesTokenCount ??
+                  usage.candidates_token_count
+              ) || 0;
             finish({
               success: true,
               message: "Gemini Live 连接成功",
@@ -381,8 +422,8 @@ export function testGeminiLiveConnection(
               handshake_ms: handshakeMs,
               thinking_speed: 0,
               decode_speed: 0,
-              thinking_tokens: 0,
-              completion_tokens: 1,
+              thinking_tokens: thinkTokens,
+              completion_tokens: respTokens > 0 ? respTokens : totalTokens > 0 ? totalTokens : 1,
             });
           }
         }
@@ -465,8 +506,15 @@ export function useGeminiLiveSession(options = {}) {
   // Non-reactive internal audio & network state
   let ws = null;
   let inputAudioCtx = null;
-  let micStream = null;
+  let activeKeyPool = [];
+  let currentApiKey = "";
+  let pendingKeySwitch = false;
+  let aiTurnInProgress = false;
+  let switchingKey = false;
+  let sessionParams = null;
+  let pendingSwitchCheck = () => {};
   let micSource = null;
+  let micStream = null;
   let micProcessor = null;
   let outputAudioCtx = null;
   let activeAudioSources = [];
@@ -544,6 +592,7 @@ export function useGeminiLiveSession(options = {}) {
         isAiSpeaking.value = false;
         aiAudioLevel.value = 0;
         aiSpeechCooldownUntil = Date.now() + 350;
+        pendingSwitchCheck();
       }
     };
 
@@ -606,7 +655,7 @@ export function useGeminiLiveSession(options = {}) {
       if (!micProcessor) return;
 
       micProcessor.onaudioprocess = (e) => {
-        if (status.value !== "connected") return;
+        if (status.value !== "connected" || switchingKey) return;
         const inputBuffer = e.inputBuffer.getChannelData(0);
 
         let sum = 0;
@@ -672,14 +721,57 @@ export function useGeminiLiveSession(options = {}) {
     }
   }
 
+  async function stopMicResources() {
+    if (micStream) {
+      try {
+        micStream.getTracks().forEach((t) => t.stop());
+      } catch (e) {}
+      micStream = null;
+    }
+    if (micProcessor) {
+      try {
+        micProcessor.disconnect();
+      } catch (e) {}
+      micProcessor = null;
+    }
+    if (micSource) {
+      try {
+        micSource.disconnect();
+      } catch (e) {}
+      micSource = null;
+    }
+    if (inputAudioCtx && inputAudioCtx.state !== "closed") {
+      try {
+        await inputAudioCtx.close();
+      } catch (e) {}
+      inputAudioCtx = null;
+    }
+    userAudioLevel.value = 0;
+  }
+
+  function closeWsQuietly() {
+    if (ws) {
+      try {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        ws.close();
+      } catch (e) {}
+      ws = null;
+    }
+  }
+
   async function connect({
     apiKey,
+    apiKeys,
     baseUrl,
     model = "gemini-3.8-live",
     voiceName = "Aoede",
     systemInstruction = "",
     openingLine = "",
     silenceDurationMs = 2000,
+    historyMessages = null,
     onTurnRecorded,
   } = {}) {
     if (!WebSocketImpl) {
@@ -689,14 +781,37 @@ export function useGeminiLiveSession(options = {}) {
       return;
     }
 
-    if (!apiKey) {
+    const keyPool = normalizeGeminiLiveKeys(apiKeys, apiKey);
+    if (keyPool.length === 0) {
       status.value = "error";
       errorCode.value = "API_KEY_MISSING";
       error.value = "Gemini API Key not configured";
       return;
     }
 
+    const initialSelection = selectGeminiLiveKey(keyPool);
+    if (initialSelection.exhausted || !initialSelection.key) {
+      await stopMicResources();
+      closeWsQuietly();
+      stopAiPlayback();
+      status.value = "error";
+      errorCode.value = "TPM_LIMIT_REACHED";
+      error.value = formatGeminiLiveQuotaWaitMessage(initialSelection.waitMs);
+      return;
+    }
+
     await disconnect();
+
+    activeKeyPool = keyPool;
+    sessionParams = {
+      baseUrl,
+      model,
+      voiceName,
+      systemInstruction,
+      openingLine,
+      silenceDurationMs,
+      onTurnRecorded,
+    };
 
     status.value = "connecting";
     error.value = "";
@@ -706,51 +821,143 @@ export function useGeminiLiveSession(options = {}) {
     isMicMuted.value = false;
     userAudioLevel.value = 0;
     aiAudioLevel.value = 0;
-    messages.value = [];
-    completedGoalIndices.value = [];
-    turnCount.value = 0;
-    averageScore.value = 0;
+    const restoredHistory = Array.isArray(historyMessages) && historyMessages.length > 0;
+    messages.value = restoredHistory ? [...historyMessages] : [];
+    if (!restoredHistory) {
+      completedGoalIndices.value = [];
+      turnCount.value = 0;
+      averageScore.value = 0;
+    }
 
-    const wsUrl = buildGeminiLiveWsUrl(baseUrl, apiKey);
-    ws = new WebSocketImpl(wsUrl);
+    openSessionWebSocket({
+      selectedKey: initialSelection.key,
+      isContinuation: restoredHistory,
+    });
+  }
 
-    ws.onopen = () => {
+  function openSessionWebSocket({ selectedKey, isContinuation = false }) {
+    if (!sessionParams) return;
+    currentApiKey = selectedKey;
+    pendingKeySwitch = false;
+    aiTurnInProgress = false;
+
+    const {
+      baseUrl,
+      model,
+      voiceName,
+      systemInstruction,
+      openingLine,
+      silenceDurationMs,
+      onTurnRecorded,
+    } = sessionParams;
+
+    const effectiveInstruction = isContinuation
+      ? buildGeminiLiveContinuationInstruction(systemInstruction, messages.value)
+      : systemInstruction;
+
+    const wsUrl = buildGeminiLiveWsUrl(baseUrl, selectedKey);
+    const socket = new WebSocketImpl(wsUrl);
+    ws = socket;
+
+    const haltForQuota = async (waitMs) => {
+      pendingKeySwitch = false;
+      switchingKey = false;
+      aiTurnInProgress = false;
+      status.value = "error";
+      errorCode.value = "TPM_LIMIT_REACHED";
+      error.value = formatGeminiLiveQuotaWaitMessage(waitMs);
+      closeWsQuietly();
+      stopAiPlayback();
+      await stopMicResources();
+    };
+
+    const performKeySwitch = ({ immediate = false } = {}) => {
+      if (switchingKey) return;
+      pendingKeySwitch = false;
+      const nextSel = selectGeminiLiveKey(activeKeyPool, { excludeKey: currentApiKey });
+      if (nextSel.exhausted || !nextSel.key) {
+        void haltForQuota(nextSel.waitMs);
+        return;
+      }
+      switchingKey = true;
+      if (immediate) {
+        stopAiPlayback();
+      }
+      closeWsQuietly();
+      openSessionWebSocket({
+        selectedKey: nextSel.key,
+        isContinuation: true,
+      });
+    };
+
+    const maybePerformPendingKeySwitch = () => {
+      if (
+        !pendingKeySwitch ||
+        switchingKey ||
+        aiTurnInProgress ||
+        activeAudioSources.length > 0 ||
+        status.value !== "connected"
+      ) {
+        return;
+      }
+      performKeySwitch({ immediate: false });
+    };
+    pendingSwitchCheck = maybePerformPendingKeySwitch;
+
+    socket.onopen = () => {
+      if (ws !== socket) return;
       const setupPayload = buildGeminiLiveSetupPayload({
         model,
         voiceName,
-        systemInstruction,
+        systemInstruction: effectiveInstruction,
         silenceDurationMs,
       });
-      ws.send(JSON.stringify(setupPayload));
+      socket.send(JSON.stringify(setupPayload));
     };
 
     const handleServerMessage = (msg) => {
-      if (!msg) return;
+      if (!msg || ws !== socket) return;
+
+      if (msg.usageMetadata) {
+        const stat = recordGeminiLiveUsage(currentApiKey, msg);
+        if (stat.overThreshold) {
+          pendingKeySwitch = true;
+        }
+      }
 
       if (msg.error) {
+        const errMsg = msg.error.message || "Gemini Live 服务端错误";
+        if (activeKeyPool.length > 1 && isGeminiLiveRateLimitError(errMsg)) {
+          markGeminiLiveKeyRateLimited(currentApiKey);
+          performKeySwitch({ immediate: true });
+          return;
+        }
         status.value = "error";
         errorCode.value = "SERVER_ERROR";
-        error.value = msg.error.message || "Gemini Live 服务端错误";
+        error.value = errMsg;
         return;
       }
 
       // 1. Setup complete
       if (msg.setupComplete) {
         status.value = "connected";
-        if (autoStartMic) {
+        switchingKey = false;
+        if (autoStartMic && !micStream) {
           startMicCapture();
         }
-        const greetingPrompt = openingLine
-          ? `Please start the roleplay now by greeting the learner in character with this opening line: "${openingLine}"`
-          : "Please start the conversation now by greeting the learner in character.";
-        ws.send(
-          JSON.stringify({
-            clientContent: {
-              turns: [{ role: "user", parts: [{ text: greetingPrompt }] }],
-              turnComplete: true,
-            },
-          })
-        );
+        if (!isContinuation) {
+          const greetingPrompt = openingLine
+            ? `Please start the roleplay now by greeting the learner in character with this opening line: "${openingLine}"`
+            : "Please start the conversation now by greeting the learner in character.";
+          socket.send(
+            JSON.stringify({
+              clientContent: {
+                turns: [{ role: "user", parts: [{ text: greetingPrompt }] }],
+                turnComplete: true,
+              },
+            })
+          );
+        }
         return;
       }
 
@@ -759,6 +966,7 @@ export function useGeminiLiveSession(options = {}) {
         const sc = msg.serverContent;
 
         if (sc.interrupted) {
+          aiTurnInProgress = false;
           stopAiPlayback();
           for (const m of messages.value) {
             if (m.role === "ai" && m.streaming) {
@@ -788,6 +996,7 @@ export function useGeminiLiveSession(options = {}) {
         // AI speech transcription
         const outputTrans = sc.outputTranscription?.text;
         if (outputTrans) {
+          aiTurnInProgress = true;
           let lastMsg = messages.value[messages.value.length - 1];
           if (!lastMsg || lastMsg.role !== "ai" || !lastMsg.streaming) {
             lastMsg = {
@@ -806,6 +1015,9 @@ export function useGeminiLiveSession(options = {}) {
 
         // AI audio & parts
         if (Array.isArray(sc.modelTurn?.parts)) {
+          if (sc.modelTurn.parts.length > 0) {
+            aiTurnInProgress = true;
+          }
           for (const part of sc.modelTurn.parts) {
             if (
               part.inlineData?.data &&
@@ -848,6 +1060,7 @@ export function useGeminiLiveSession(options = {}) {
         }
 
         if (sc.turnComplete) {
+          aiTurnInProgress = false;
           for (const m of messages.value) {
             if (m.streaming) {
               m.streaming = false;
@@ -944,8 +1157,8 @@ export function useGeminiLiveSession(options = {}) {
           }
         }
 
-        if (functionResponses.length > 0 && ws && ws.readyState === 1 /* OPEN */) {
-          ws.send(
+        if (functionResponses.length > 0 && socket.readyState === 1 /* OPEN */) {
+          socket.send(
             JSON.stringify({
               toolResponse: {
                 functionResponses,
@@ -954,9 +1167,12 @@ export function useGeminiLiveSession(options = {}) {
           );
         }
       }
+
+      maybePerformPendingKeySwitch();
     };
 
-    ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (ws !== socket) return;
       try {
         const parsed = parseWsData(event.data);
         if (parsed && typeof parsed.then === "function") {
@@ -967,14 +1183,18 @@ export function useGeminiLiveSession(options = {}) {
       } catch (e) {}
     };
 
-    ws.onerror = (err) => {
+    socket.onerror = (err) => {
+      if (ws !== socket) return;
+      switchingKey = false;
       status.value = "error";
       errorCode.value = "WS_ERROR";
       error.value = err?.message || "WebSocket connection error";
     };
 
-    ws.onclose = () => {
-      if (status.value !== "closed") {
+    socket.onclose = () => {
+      if (ws !== socket) return;
+      switchingKey = false;
+      if (status.value !== "closed" && status.value !== "error") {
         status.value = "closed";
       }
     };
@@ -1073,6 +1293,7 @@ export function useGeminiLiveSession(options = {}) {
         isAiSpeaking.value = false;
         aiAudioLevel.value = 0;
         aiSpeechCooldownUntil = Date.now() + 350;
+        pendingSwitchCheck();
       }
     };
 
@@ -1088,30 +1309,12 @@ export function useGeminiLiveSession(options = {}) {
 
   async function disconnect() {
     status.value = "closed";
-    if (micStream) {
-      try {
-        micStream.getTracks().forEach((t) => t.stop());
-      } catch (e) {}
-      micStream = null;
-    }
-    if (micProcessor) {
-      try {
-        micProcessor.disconnect();
-      } catch (e) {}
-      micProcessor = null;
-    }
-    if (micSource) {
-      try {
-        micSource.disconnect();
-      } catch (e) {}
-      micSource = null;
-    }
-    if (inputAudioCtx && inputAudioCtx.state !== "closed") {
-      try {
-        await inputAudioCtx.close();
-      } catch (e) {}
-      inputAudioCtx = null;
-    }
+    pendingKeySwitch = false;
+    switchingKey = false;
+    aiTurnInProgress = false;
+    currentApiKey = "";
+    pendingSwitchCheck = () => {};
+    await stopMicResources();
     stopAiPlayback();
     if (outputAudioCtx && outputAudioCtx.state !== "closed") {
       try {
@@ -1119,17 +1322,7 @@ export function useGeminiLiveSession(options = {}) {
       } catch (e) {}
       outputAudioCtx = null;
     }
-    if (ws) {
-      try {
-        ws.onopen = null;
-        ws.onmessage = null;
-        ws.onerror = null;
-        ws.onclose = null;
-        ws.close();
-      } catch (e) {}
-      ws = null;
-    }
-    userAudioLevel.value = 0;
+    closeWsQuietly();
     aiAudioLevel.value = 0;
     isAiSpeaking.value = false;
     aiSpeechCooldownUntil = 0;

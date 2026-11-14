@@ -30,6 +30,11 @@ import {
 } from "@/shared/ttsBridge.js";
 import * as api from "@/shared/api.js";
 import { float32ToPcm16Base64 } from "@/modules/speaking/useGeminiLiveSession.js";
+import {
+  getGeminiLiveKeyStatus,
+  recordGeminiLiveUsage,
+  resetGeminiLiveTpmTracker,
+} from "@/shared/geminiLiveKeyPool.js";
 
 class MockWebSocket {
   static instances = [];
@@ -728,6 +733,73 @@ describe("speechTts", () => {
       expect(okMissing).toBe(false);
       expect(onErrMissing).toHaveBeenCalledTimes(1);
       expect(onEndMissing).toHaveBeenCalledTimes(1);
+    });
+
+    it("rotates TTS keys by lowest TPM, records usageMetadata, and blocks when all keys >= 80%", async () => {
+      resetGeminiLiveTpmTracker();
+      MockWebSocket.instances = [];
+      MockAudioContext.instances = [];
+      __setWebSocketForTests(MockWebSocket);
+      __setAudioContextForTests(MockAudioContext);
+
+      const now = Date.now();
+      recordGeminiLiveUsage("tts-key-1", 15000, now);
+      recordGeminiLiveUsage("tts-key-2", 2000, now);
+
+      const onError = vi.fn();
+      const onEnd = vi.fn();
+      const started = previewGeminiLiveVoice({
+        voiceName: "Fola",
+        lang: "es",
+        config: {
+          mode: "custom",
+          custom: {
+            base_url: "https://generativelanguage.googleapis.com",
+            api_key: "tts-key-1",
+            model: "gemini-3.8-live",
+          },
+          custom_api_keys: [
+            { id: "1", label: "P1", api_key: "tts-key-1", tpm_limit: 65000 },
+            { id: "2", label: "P2", api_key: "tts-key-2", tpm_limit: 65000 },
+          ],
+        },
+        onError,
+        onEnd,
+      });
+      expect(started).toBe(true);
+      await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(1));
+      const ws = MockWebSocket.instances[0];
+      expect(ws.url).toContain("key=tts-key-2");
+
+      ws.receive({ usageMetadata: { totalTokenCount: 51000 } }); // 2000 + 51000 = 53000 >= 80%
+      expect(getGeminiLiveKeyStatus("tts-key-2").overThreshold).toBe(true);
+
+      // Push tts-key-1 >= 80% too and verify next TTS call is blocked with quota error
+      recordGeminiLiveUsage("tts-key-1", 40000, now);
+      const quotaErr = vi.fn();
+      const quotaEnd = vi.fn();
+      const blocked = previewGeminiLiveVoice({
+        voiceName: "Fola",
+        lang: "es",
+        config: {
+          mode: "custom",
+          custom: {
+            base_url: "https://generativelanguage.googleapis.com",
+            api_key: "tts-key-1",
+            model: "gemini-3.8-live",
+          },
+          custom_api_keys: [
+            { id: "1", label: "P1", api_key: "tts-key-1", tpm_limit: 65000 },
+            { id: "2", label: "P2", api_key: "tts-key-2", tpm_limit: 65000 },
+          ],
+        },
+        onError: quotaErr,
+        onEnd: quotaEnd,
+      });
+      expect(blocked).toBe(false);
+      expect(quotaErr).toHaveBeenCalledTimes(1);
+      expect(quotaErr.mock.calls[0][0].code).toBe("TPM_LIMIT_REACHED");
+      resetGeminiLiveTpmTracker();
     });
   });
 });

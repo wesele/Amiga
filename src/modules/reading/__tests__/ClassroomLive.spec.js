@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useClassroomLive } from "../classroom/useClassroomLive.js";
+import {
+  recordGeminiLiveUsage,
+  resetGeminiLiveTpmTracker,
+} from "@/shared/geminiLiveKeyPool.js";
 
 class Socket {
   static instances = [];
@@ -387,5 +391,65 @@ describe("Classroom Live transport", () => {
     expect(Socket.instances.at(-1).url).toContain(
       "BidiGenerateContentConstrained?access_token=auth_tokens%2Ftemporary",
     );
+  });
+
+  it("rotates classroom keys after current turn finishes at 80% TPM, queues mid-handshake sends, and stops when all keys >= 80%", async () => {
+    resetGeminiLiveTpmTracker();
+    try {
+      const now = Date.now();
+      recordGeminiLiveUsage("cls-key-1", 25000, now);
+      recordGeminiLiveUsage("cls-key-2", 5000, now);
+
+      const events = [];
+      const s = useClassroomLive({
+        WebSocketImpl: Socket,
+        AudioContextImpl: Audio,
+        onEvent: (e) => events.push(e),
+      });
+      sessions.push(s);
+      const apiKeys = [
+        { id: "k1", label: "P1", api_key: "cls-key-1", tpm_limit: 65000 },
+        { id: "k2", label: "P2", api_key: "cls-key-2", tpm_limit: 65000 },
+      ];
+      await s.connect({ api_key: "cls-key-1", api_keys: apiKeys, model: "gemini-3.8-live" }, "Teacher");
+      const ws1 = Socket.instances.at(-1);
+      expect(ws1.url).toContain("key=cls-key-2");
+      ws1.onopen();
+      await ws1.receive({ setupComplete: {} });
+      expect(events.filter((e) => e.type === "ready")).toHaveLength(1);
+
+      s.send("Explain beat 1");
+      await ws1.receive({
+        serverContent: {
+          outputTranscription: { text: "Beat 1 explanation." },
+          turnComplete: true,
+        },
+        usageMetadata: { totalTokenCount: 47000 }, // 5000 + 47000 = 52000 (80% of 65k)
+      });
+
+      // Should have transparently rotated to cls-key-1 without emitting ready or connection_lost
+      expect(Socket.instances.length).toBeGreaterThanOrEqual(2);
+      const ws2 = Socket.instances.at(-1);
+      expect(ws2.url).toContain("key=cls-key-1");
+      ws2.onopen();
+      expect(events.filter((e) => e.type === "ready")).toHaveLength(1);
+      expect(events.some((e) => e.type === "connection_lost")).toBe(false);
+      expect(ws2.sent[0].setup.systemInstruction.parts[0].text).toContain("Beat 1 explanation.");
+
+      // Any send() during the ~200ms handshake is queued and flushed on setupComplete
+      expect(s.send("Explain beat 2")).toBe(true);
+      await ws2.receive({ setupComplete: {} });
+      expect(ws2.sent.at(-1).clientContent.turns[0].parts[0].text).toBe("Explain beat 2");
+
+      // Push cls-key-1 >= 80% as well -> all keys exhausted -> emits connection_lost and sets error
+      await ws2.receive({
+        serverContent: { outputTranscription: { text: "Beat 2 done." }, turnComplete: true },
+        usageMetadata: { totalTokenCount: 30000 }, // 25000 + 30000 = 55000
+      });
+      expect(events.some((e) => e.type === "connection_lost")).toBe(true);
+      expect(s.error.value).not.toBe("");
+    } finally {
+      resetGeminiLiveTpmTracker();
+    }
   });
 });

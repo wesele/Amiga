@@ -163,7 +163,9 @@ export function useReadAloud({ getText, getLang, getTargetLang, getSegments, t }
             reading.value = false;
             activeSentence.value = null;
             const msg = String(err?.message || err || "");
-            if (msg.includes("missing-language") || msg.includes("missing")) {
+            if (err?.code === "TPM_LIMIT_REACHED") {
+              showReadStatus(msg);
+            } else if (msg.includes("missing-language") || msg.includes("missing")) {
               showReadStatus(t ? t("news.readAloudMissingLanguage") : "Speech data missing");
             } else {
               showReadStatus(

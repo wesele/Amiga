@@ -76,7 +76,14 @@ pub async fn save_chapter_classroom_cmd(
 pub async fn get_classroom_live_config_cmd(db: State<'_, DatabasePool>) -> Result<Value, String> {
     let config = crate::modules::llm::get_multimodal_config(&db)?;
     let active = config.active().unwrap_or(&config.builtin);
-    Ok(
-        serde_json::json!({"api_key":active.api_key,"base_url":active.base_url,"model":active.model}),
-    )
+    let api_keys: &[crate::modules::llm::MultimodalApiKeyEntry] = match config.mode {
+        crate::modules::llm::LlmMode::Custom => &config.custom_api_keys,
+        crate::modules::llm::LlmMode::Builtin => &[],
+    };
+    Ok(serde_json::json!({
+        "api_key": active.api_key,
+        "api_keys": api_keys,
+        "base_url": active.base_url,
+        "model": active.model
+    }))
 }
