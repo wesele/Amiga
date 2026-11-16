@@ -17,12 +17,7 @@ import {
   mergeAndroidAppName,
   mergeGradleDebugSigning,
   mergeGradleJvm11,
-  mergeGradleKokoroDependency,
-  mergeGradleJitpack,
-  PATCH_KOKORO_BEGIN,
-  PATCH_KOKORO_END,
-  PATCH_JITPACK_BEGIN,
-  PATCH_JITPACK_END,
+  stripLegacyKokoroGradlePatches,
   ensureGradleKeystore,
   shouldCopyFile,
 } from "../android-patch.cjs";
@@ -658,42 +653,19 @@ describe("mergeGradleJvm11", () => {
   });
 });
 
-describe("mergeGradleKokoroDependency", () => {
-  it("injects the Kokoro AAR without packaging the ONNX model", () => {
-    const patched = mergeGradleKokoroDependency(GENERATED_GRADLE);
-    expect(patched).toContain(PATCH_KOKORO_BEGIN);
-    expect(patched).toContain(PATCH_KOKORO_END);
-    expect(patched).toContain(
-      'implementation("com.github.ffmpegkit-maintained:kokoro-android:593e2353954498b667e3bf3489a61723e6ba6b59")',
+describe("stripLegacyKokoroGradlePatches", () => {
+  it("strips legacy Kokoro dependency and JitPack blocks cleanly", () => {
+    const withKokoro = GENERATED_GRADLE.replace(
+      "dependencies {\n",
+      "dependencies {\n    // AMIGA-PATCH-BEGIN: kokoro-tts\n    implementation(\"com.github.ffmpegkit-maintained:kokoro-android:593e2353954498b667e3bf3489a61723e6ba6b59\")\n    // AMIGA-PATCH-END: kokoro-tts\n",
     );
-    expect(patched).not.toContain('dev.ffmpegkit-maintained:kokoro-android:0.1.0');
-    expect(patched).not.toContain("model.onnx");
-    expect(patched).not.toContain("assets");
-  });
+    expect(stripLegacyKokoroGradlePatches(withKokoro)).toBe(GENERATED_GRADLE);
 
-  it("is idempotent and keeps a single patch block", () => {
-    const once = mergeGradleKokoroDependency(GENERATED_GRADLE);
-    const twice = mergeGradleKokoroDependency(once);
-    expect(twice).toBe(once);
-    expect(twice.split(PATCH_KOKORO_BEGIN)).toHaveLength(2);
-  });
-});
-
-describe("mergeGradleJitpack", () => {
-  it("adds JitPack under allprojects repositories, not only buildscript", () => {
-    const patched = mergeGradleJitpack(GENERATED_ROOT_GRADLE);
-    expect(patched).toContain(PATCH_JITPACK_BEGIN);
-    expect(patched).toContain("https://jitpack.io");
-    const allIdx = patched.indexOf("allprojects");
-    const jitIdx = patched.indexOf("https://jitpack.io");
-    expect(allIdx).toBeGreaterThan(-1);
-    expect(jitIdx).toBeGreaterThan(allIdx);
-  });
-
-  it("is idempotent", () => {
-    const once = mergeGradleJitpack(GENERATED_ROOT_GRADLE);
-    expect(mergeGradleJitpack(once)).toBe(once);
-    expect(once.split(PATCH_JITPACK_BEGIN)).toHaveLength(2);
+    const withJitpack = GENERATED_ROOT_GRADLE.replace(
+      "allprojects {\n    repositories {\n        google()\n        mavenCentral()\n    }",
+      "allprojects {\n    repositories {\n        google()\n        mavenCentral()\n        // AMIGA-PATCH-BEGIN: jitpack\n        maven { url = uri(\"https://jitpack.io\") }\n        // AMIGA-PATCH-END: jitpack\n    }",
+    );
+    expect(stripLegacyKokoroGradlePatches(withJitpack)).toBe(GENERATED_ROOT_GRADLE);
   });
 });
 

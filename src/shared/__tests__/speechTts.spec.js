@@ -23,10 +23,6 @@ import {
 } from "@/shared/speechTts.js";
 import {
   __resetTtsBridgeForTests,
-  getNativeTtsStatus,
-  onNativeTtsProgress,
-  setNativeTtsEngine,
-  speakNativeTts,
 } from "@/shared/ttsBridge.js";
 import * as api from "@/shared/api.js";
 import { float32ToPcm16Base64 } from "@/modules/speaking/useGeminiLiveSession.js";
@@ -159,7 +155,6 @@ describe("speechTts", () => {
     delete window.__amigaTts;
     delete window.__amigaTtsDone;
     delete window.__amigaTtsError;
-    delete window.__amigaTtsProgress;
     __resetTtsBridgeForTests();
     __resetSpeechTtsForTests();
     vi.restoreAllMocks();
@@ -215,36 +210,6 @@ describe("speechTts", () => {
     window.__amigaTts = { stop: vi.fn() };
     stopSpeech();
     expect(window.__amigaTts.stop).toHaveBeenCalledTimes(1);
-  });
-
-  it("treats downloading as a successful native start", () => {
-    window.__amigaTts = { speak: vi.fn(() => "downloading") };
-    const result = speakNativeTts("Hola", "es-ES");
-    expect(result.started).toBe(true);
-    expect(result.result).toBe("downloading");
-  });
-
-  it("forwards native progress JSON to listeners", () => {
-    const listener = vi.fn();
-    window.__amigaTts = { speak: vi.fn(() => "ok") };
-    const off = onNativeTtsProgress(listener);
-    window.__amigaTtsProgress('{"state":"downloading","bytes":10,"totalBytes":100}');
-    expect(listener).toHaveBeenCalledWith({ state: "downloading", bytes: 10, totalBytes: 100 });
-    off();
-  });
-
-  it("parses setEngine / getStatus JSON from the native bridge", () => {
-    window.__amigaTts = {
-      speak: () => "ok",
-      setEngine: vi.fn(() => '{"engine":"kokoro","ready":false,"downloading":true,"supported":true}'),
-      getStatus: vi.fn(() => '{"engine":"kokoro","ready":true,"downloading":false,"supported":true}'),
-    };
-    expect(setNativeTtsEngine("kokoro")).toMatchObject({
-      engine: "kokoro",
-      downloading: true,
-      supported: true,
-    });
-    expect(getNativeTtsStatus()).toMatchObject({ engine: "kokoro", ready: true });
   });
 
   describe("Gemini 3.8 Live TTS integration", () => {

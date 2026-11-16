@@ -27,7 +27,6 @@ import { isTvLayoutMode, isTvMode, isWebMode } from "@/shared/appMode.js";
 import { shouldShowL1Nav } from "@/shared/tvPolicy.js";
 import InstallAppPrompt from "@/shared/components/InstallAppPrompt.vue";
 import { requestInstallAppPrompt } from "@/shared/installAppPrompt.js";
-import { syncNativeTtsEngineFromSettings } from "@/shared/ttsEngine.js";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -92,9 +91,6 @@ function switchTab(tab) {
 const showNav = computed(() => shouldShowL1Nav(route.name, isTvLayoutMode));
 
 onMounted(() => {
-  syncNativeTtsEngineFromSettings().catch((err) => {
-    console.warn("Failed to restore TTS engine:", err);
-  });
   if (isTvMode) return;
   totalUnread.value = getTotalUnreadCount();
   unsubscribeTotalUnread = eventBus.on(SOCIAL_TOTAL_UNREAD_CHANGED, (count) => {

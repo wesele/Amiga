@@ -72,7 +72,7 @@
 
 | 脚本 | 用途 | 什么时候用 | 备注 |
 | --- | --- | --- | --- |
-| `scripts/android-patch.cjs` | 把 `src-tauri/android/` 覆盖进 `gen/android/`，注入 manifest 片段、debug 签名、kokoro、jitpack | 改 Kotlin / `init` 之后 | **内部实现**，所有 Android 构建脚本都会调；`--force` 强制覆盖，`AMIGA_TV=1` 切 TV |
+| `scripts/android-patch.cjs` | 把 `src-tauri/android/` 覆盖进 `gen/android/`，注入 manifest 片段、debug 签名、JVM 11 | 改 Kotlin / `init` 之后 | **内部实现**，所有 Android 构建脚本都会调；`--force` 强制覆盖，`AMIGA_TV=1` 切 TV |
 | `scripts/__tests__/android-patch.spec.js` | 上面脚本的单测 | 改 patch 逻辑时 | 由 vitest 自动跑，不单独执行 |
 | `scripts/generate-cool-screenshots.js` | 用 Edge headless 把 `docs/images` 截图套成宣传图 | 更新宣传素材 | **一次性**；Edge 路径写死 x86 目录，会留 `scripts/temp_mockups/` |
 
